@@ -98,10 +98,12 @@ class AiRecorder {
       else if (!value.active && running) running.status = 'done';
       else return;
     } else if (value.type === 'question') {
-      reply.parts.push({ type: 'question', questionId: value.questionId, questions: value.questions, name: value.name, status: 'running' });
+      reply.parts.push({ type: 'question', questionId: value.questionId, questions: value.questions, name: value.name, message: value.message, status: 'running' });
     } else if (value.type === 'question-result') {
       const part = this.parts().find(p => p.type === 'question' && p.questionId === value.questionId);
-      if (part) Object.assign(part, { status: value.status, answers: value.answers });
+      if (part) Object.assign(part, { status: value.status, answers: value.answers, reason: value.reason });
+    } else if (value.type === 'provider-notice') {
+      reply.parts.push({ type: 'provider-notice', text: value.text, detail: value.detail, severity: value.severity, name: value.name });
     } else if (value.type === 'tool') {
       reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
     } else if (value.type === 'tool-result') {
@@ -151,8 +153,10 @@ class AiRecorder {
 // bird jobs left "running"/"working" become stopped, compaction is done.
 function settleParts(parts) {
   for (const part of parts)
-    if (part.status === 'running' || part.status === 'working')
+    if (part.status === 'running' || part.status === 'working') {
       part.status = part.type === 'compaction' ? 'done' : 'stopped';
+      if (part.type === 'question') part.reason ||= 'The app stopped before this question was answered. Reply in chat to continue.';
+    }
 }
 function settleConversation(conversation) {
   for (const entry of conversation.transcript || []) settleParts(entry.parts || []);

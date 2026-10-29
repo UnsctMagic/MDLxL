@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { spawnAgent, stopAgent, lines, providerEnvironment } = require('./ai-process.cjs');
 const { startMcpServer, callEditorTool } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
+const { mcpForm, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
 
 function endpoint(value) {
   const url = new URL(value);
@@ -475,6 +476,9 @@ class CodexProcess {
     this.settings = settings;
     this.askUser = askUser;
     this.questions = new AbortController();
+    this.interactions = new Map();
+    this.interactionWork = new Set();
+    this.rateLimits = new Map();
     this.directory = directory;
     this.web = web;
     this.event = event;
@@ -554,32 +558,39 @@ class CodexProcess {
     });
   }
   receive(message) {
-    if (message.id !== undefined && message.method === 'item/tool/requestUserInput' && this.askUser) {
-      const signal = this.signal ? AbortSignal.any([this.signal, this.questions.signal]) : this.questions.signal;
-      Promise.resolve().then(() => this.askUser(message.params, signal)).then(
-        result => { if (!signal.aborted) this.write({ id: message.id, result }); },
-        error => { if (!signal.aborted) this.write({ id: message.id, error: { code: -32602, message: error.message } }); },
-      );
-      return;
-    }
     if (message.id !== undefined && message.method) {
-      // The editor grants model tools, not terminal or arbitrary filesystem access.
-      const decision = message.method.includes('requestApproval') ? { decision: 'decline' } : null;
-      this.write(
-        decision
-          ? { id: message.id, result: decision }
-          : {
-              id: message.id,
-              error: {
-                code: -32601,
-                message: 'Ask the user in the conversation; this client supports MDLxL tools.',
-              },
-            },
-      );
-      this.event({
-        type: 'notice',
-        text: 'Codex requested an operation outside the editor tools: ' + message.method,
-      });
+      if (message.method === 'mcpServer/elicitation/request' && ['mcp_tool_call', 'tool_suggestion'].includes(message.params?._meta?.codex_approval_kind)) {
+        this.write({ id: message.id, result: { action: 'decline' } });
+        this.notice('Additional tool approval was declined. Only registered MDLxL editor tools are enabled.', '', 'warning');
+        return;
+      }
+      if (['item/tool/requestUserInput', 'mcpServer/elicitation/request'].includes(message.method)) {
+        this.interact(message);
+        return;
+      }
+      const method = message.method;
+      if (method === 'item/permissions/requestApproval') this.write({ id: message.id, result: { permissions: {}, scope: 'turn' } });
+      else if (['item/commandExecution/requestApproval', 'item/fileChange/requestApproval'].includes(method)) this.write({ id: message.id, result: { decision: 'decline' } });
+      else if (['applyPatchApproval', 'execCommandApproval'].includes(method)) this.write({ id: message.id, result: { decision: { denied: { rejection: 'Terminal and filesystem access are disabled in MDLxL.' } } } });
+      else if (method === 'item/tool/call') {
+        const p = message.params || {};
+        const tool = this.tools?.find(t => t.name === p.tool && (!p.namespace || p.namespace === 'mdlxl'));
+        if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, 'Terminal and filesystem access remain disabled.', 'warning');
+        const run = tool ? callEditorTool(this.tools, this.call, p.tool, p.arguments, this.signal) : Promise.resolve({ isError: true, content: [{ type: 'text', text: 'Only registered MDLxL editor tools are available. Terminal and filesystem access are disabled.' }] });
+        run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : { type: 'inputImage', imageUrl: 'data:' + c.mimeType + ';base64,' + c.data }) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
+        return;
+      } else {
+        const text = method === 'account/chatgptAuthTokens/refresh'
+          ? 'This connection uses Codex-managed sign-in. Sign in again in Connection settings; externally managed tokens are not configured.'
+          : method === 'attestation/generate'
+            ? 'The provider requested client attestation, which this MDLxL connection cannot generate. Reconnect with a provider that supports this connection.'
+            : 'Unsupported provider request: ' + method;
+        this.write({ id: message.id, error: { code: method === 'account/chatgptAuthTokens/refresh' ? -32001 : method === 'attestation/generate' ? -32002 : -32601, message: text } });
+        this.notice(text);
+        if (method === 'account/chatgptAuthTokens/refresh') this.event({ type: 'error', text, authRequired: true });
+        return;
+      }
+      this.notice('Terminal and filesystem access remain disabled. The provider request was declined.', method);
       return;
     }
     if (message.id !== undefined) {
@@ -591,6 +602,28 @@ class CodexProcess {
       return;
     }
     const p = message.params || {};
+    if (message.method === 'serverRequest/resolved')
+      this.interactions.get(p.requestId)?.controller.abort(questionCancelled('The provider cancelled or resolved this question. Reply in chat if you still need to clarify the request.'));
+    if (message.method === 'turn/completed') {
+      for (const pending of this.interactions.values())
+        if (!p.turn?.id || pending.turnId === p.turn.id)
+          pending.controller.abort(questionCancelled('The AI turn ended before this question was answered. Reply in chat to continue.'));
+    }
+    if (['warning', 'guardianWarning', 'configWarning', 'deprecationNotice', 'windows/worldWritableWarning'].includes(message.method))
+      this.notice(p.message || p.summary || 'Provider warning', p.details || '', 'warning');
+    if (message.method === 'mcpServer/startupStatus/updated' && (p.error || ['failed', 'cancelled'].includes(p.status)))
+      this.notice('Tool server ' + p.name + ': ' + p.status, p.error || p.failureReason || '', 'warning');
+    if (message.method === 'model/rerouted') this.notice('Provider switched from ' + p.fromModel + ' to ' + p.toModel + '.', p.reason || '');
+    if (message.method === 'account/rateLimits/updated') {
+      const update = p.rateLimits || {}, key = update.limitId || 'default';
+      const previous = this.rateLimits.get(key) || {};
+      const value = { ...previous, ...Object.fromEntries(Object.entries(update).filter(([, v]) => v != null)) };
+      const details = ['primary', 'secondary'].filter(k => value[k]?.usedPercent != null).map(k => k + ': ' + value[k].usedPercent + '% used' + (value[k].resetsAt ? ', resets ' + new Date(value[k].resetsAt * 1000).toISOString() : '')).join('; ');
+      if (JSON.stringify(value) !== JSON.stringify(previous)) this.notice('Provider usage limits' + (value.limitName ? ': ' + value.limitName : ''), details || 'Usage values are unavailable.', ['primary', 'secondary'].some(k => value[k]?.usedPercent >= 100) || value.spendControlReached ? 'warning' : 'info');
+      this.rateLimits.set(key, value);
+    }
+    if (message.method === 'turn/plan/updated') this.notice('AI plan updated', [p.explanation, ...(p.plan || []).map(step => step.status + ': ' + step.step)].filter(Boolean).join('\n'));
+    if (message.method === 'item/mcpToolCall/progress' && p.message) this.notice('Tool progress', p.message);
     if (message.method === 'item/agentMessage/delta') {
       if (p.itemId && this.messageId && p.itemId !== this.messageId)
         this.event({ type: 'text', text: '\n\n' });
@@ -632,7 +665,46 @@ class CodexProcess {
     if (message.method === 'account/login/completed') this.login?.(p);
     if (message.method === 'turn/completed') this.turn?.(p.turn);
     if (message.method === 'error')
-      this.event({ type: 'notice', text: p.error?.message || 'Codex reported an error.' });
+      this.notice(p.error?.message || 'Codex reported an error.', p.willRetry ? 'The provider will retry this request.' : '', 'warning');
+  }
+  notice(text, detail = '', severity = 'info') {
+    this.event({ type: 'provider-notice', text, detail: typeof detail === 'string' ? detail : JSON.stringify(detail), severity });
+  }
+  interact(message) {
+    if (this.interactions.has(message.id)) return;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([this.questions.signal, controller.signal, ...(this.signal ? [this.signal] : [])]);
+    const params = message.params || {};
+    const entry = { controller, turnId: params.turnId };
+    this.interactions.set(message.id, entry);
+    const run = (async () => {
+      try {
+        if (!this.askUser) throw Error('This provider operation has no question handler in the current job.');
+        let result;
+        if (message.method === 'mcpServer/elicitation/request') {
+          if (params.mode === 'url') {
+            const url = new URL(params.url);
+            if (url.protocol !== 'https:' || url.username || url.password) throw Error('The MCP input page must use HTTPS without embedded credentials.');
+            const input = await this.askUser({ questions: [{ id: 'confirm', question: params.message || 'Complete the requested input page', link: url.href, options: [{ label: 'Completed' }, { label: 'Decline' }], allowCustom: false }] }, signal);
+            result = { action: input.answers.confirm.answers[0] === 'Completed' ? 'accept' : 'decline' };
+          } else {
+            const form = mcpForm(params);
+            const input = await this.askUser({ ...form, message: params.message }, signal);
+            result = form.empty && input.answers.confirm.answers[0] === 'No' ? { action: 'decline' } : { action: 'accept', content: form.content(input.answers) };
+          }
+        } else result = await this.askUser(params, signal);
+        if (!signal.aborted) this.write({ id: message.id, result });
+      } catch (error) {
+        if (signal.aborted) return;
+        if (message.method === 'mcpServer/elicitation/request' && error.code === 'AI_QUESTION_CANCELLED') this.write({ id: message.id, result: { action: 'cancel' } });
+        else this.write({ id: message.id, error: { code: error.code === 'AI_QUESTION_CANCELLED' ? -32800 : -32602, message: error.message } });
+        if (error.code !== 'AI_QUESTION_CANCELLED') this.notice(error.message, message.method, 'warning');
+      } finally {
+        this.interactions.delete(message.id);
+      }
+    })();
+    this.interactionWork.add(run);
+    run.finally(() => this.interactionWork.delete(run));
   }
   fail(error) {
     this.questions.abort(error);
@@ -648,9 +720,10 @@ class CodexProcess {
     return this.request('account/read', { refreshToken: true });
   }
   async close() {
-    this.questions.abort(Error('AI question cancelled.'));
+    this.questions.abort(questionCancelled('The provider connection closed before this question was answered.'));
     this.signal?.removeEventListener('abort', this.abort);
     stopAgent(this.child);
+    await Promise.allSettled([...this.interactionWork]);
     if (this.exited)
       await Promise.race([this.exited, new Promise(resolve => setTimeout(resolve, 5000).unref())]);
   }
@@ -684,6 +757,8 @@ async function runCodex(options) {
     }
     event(value);
   }, mcp, signal, web, askUser: options.askUser });
+  client.tools = tools;
+  client.call = call;
   let unsubscribe,
     unsteer,
     turnId,
@@ -728,7 +803,7 @@ async function runCodex(options) {
           event({ type: 'awareness-delivered', version: latest.version });
         }
       })()
-        .catch(error => event({ type: 'notice', text: 'Live context delivery failed: ' + error.message }))
+        .catch(error => event({ type: 'provider-notice', text: 'Live context delivery failed: ' + error.message, severity: 'warning' }))
         .finally(() => {
           delivering = false;
         });
@@ -781,6 +856,7 @@ async function runCodex(options) {
   }
 }
 async function runClaude({
+  askUser,
   settings,
   directory,
   event,
@@ -814,7 +890,7 @@ async function runClaude({
       '--include-partial-messages',
       // Built-in tools stay off, except web search and page reading when the user allows them.
       '--tools',
-      web ? 'WebSearch,WebFetch' : '',
+      [askUser && 'AskUserQuestion', web && 'WebSearch', web && 'WebFetch'].filter(Boolean).join(','),
       '--allowedTools',
       web ? 'mcp__mdlxl__*,WebSearch,WebFetch' : 'mcp__mdlxl__*',
       '--strict-mcp-config',
@@ -825,6 +901,7 @@ async function runClaude({
       '--system-prompt-file',
       instructions,
     ];
+    if (askUser) args.push('--permission-prompt-tool', 'stdio');
     if (settings.model) args.push('--model', settings.model);
     if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
@@ -842,8 +919,10 @@ async function runClaude({
       written = 1,
       results = 0,
       idle,
+      initializeTimer,
       unsteer;
     const toolNames = new Map();
+    const controls = new Map(), controlWork = new Set();
     let used = 0;
     const abort = () => stopAgent(child);
     signal.addEventListener('abort', abort, { once: true });
@@ -852,11 +931,44 @@ async function runClaude({
     // Input stays open while the user may steer; it closes once every message
     // has a result, or after a quiet spell if Claude folded steering into a turn.
     const endInput = () => {
+      if (controls.size) return;
       clearTimeout(idle);
       if (!inputOpen) return;
       inputOpen = false;
       unsteer?.();
       child.stdin.end();
+    };
+    const control = data => {
+      const requestId = data.request_id, request = data.request || {};
+      if (controls.has(requestId)) return;
+      const controller = new AbortController(); controls.set(requestId, controller);
+      const questionSignal = AbortSignal.any([signal, controller.signal]);
+      const work = (async () => {
+        let response;
+        try {
+          if (request.subtype !== 'can_use_tool') throw Error('Unsupported Claude control request: ' + request.subtype);
+          if (request.tool_name === 'AskUserQuestion' && askUser) {
+            const questions = claudeQuestions(request.input);
+            const result = await askUser({ questions }, questionSignal);
+            const answers = Object.fromEntries(questions.map(q => [q.question, q.multiSelect ? result.answers[q.id].answers : result.answers[q.id].answers[0]]));
+            response = { subtype: 'success', request_id: requestId, response: { behavior: 'allow', updatedInput: { ...request.input, answers } } };
+          } else {
+            const own = tools.some(t => request.tool_name === 'mcp__mdlxl__' + t.name);
+            response = { subtype: 'success', request_id: requestId, response: own ? { behavior: 'allow', updatedInput: request.input } : { behavior: 'deny', message: 'Terminal and filesystem access are disabled. Use the registered MDLxL editor tools.' } };
+            if (!own) event({ type: 'provider-notice', text: 'Claude requested an unavailable tool: ' + request.tool_name, detail: 'Terminal and filesystem access remain disabled.', severity: 'warning' });
+          }
+        } catch (error) {
+          response = error.code === 'AI_QUESTION_CANCELLED'
+            ? { subtype: 'success', request_id: requestId, response: { behavior: 'deny', message: error.message } }
+            : { subtype: 'error', request_id: requestId, error: error.message };
+          if (!questionSignal.aborted && error.code !== 'AI_QUESTION_CANCELLED') event({ type: 'provider-notice', text: error.message, severity: 'warning' });
+        }
+        if (!questionSignal.aborted && inputOpen) child.stdin.write(JSON.stringify({ type: 'control_response', response }) + '\n');
+      })().finally(() => {
+        controls.delete(requestId); controlWork.delete(work);
+        if (results >= written) endInput();
+      });
+      controlWork.add(work);
     };
     const steer = () => {
       if (!inputOpen) return;
@@ -892,6 +1004,16 @@ async function runClaude({
             } catch {
               return;
             }
+            if (data.type === 'control_response' && data.response?.request_id === 'mdlxl-initialize') {
+              if (data.response.subtype === 'error') { reject(Error(data.response.error)); return; }
+              clearTimeout(initializeTimer);
+              writeUser([{ type: 'text', text: prompt }, ...imageParts(images, 'anthropic')]);
+              return;
+            }
+            if (data.type === 'control_request') { control(data); return; }
+            if (data.type === 'control_cancel_request') { controls.get(data.request_id)?.abort(questionCancelled('Claude cancelled this question.')); return; }
+            if (data.type === 'rate_limit_event') event({ type: 'provider-notice', text: 'Claude usage limits updated', detail: JSON.stringify(data.rate_limit_info || {}), severity: data.rate_limit_info?.status === 'rejected' ? 'warning' : 'info' });
+            if (data.type === 'system' && ['warning', 'api_retry', 'error'].includes(data.subtype)) event({ type: 'provider-notice', text: data.message || data.error || 'Claude ' + data.subtype, detail: data.error_code || '', severity: 'warning' });
             if (data.session_id) conversation.threadId = data.session_id;
             if (data.type !== 'result') clearTimeout(idle);
             const compacting = claudeCompaction(data);
@@ -940,6 +1062,7 @@ async function runClaude({
               if (used) event({ type: 'usage', used, window });
               if (!streamed && data.result) event({ type: 'text', text: data.result });
               results++;
+              for (const controller of controls.values()) controller.abort(questionCancelled('Claude ended its turn before this question was answered. Reply in chat to continue.'));
               clearTimeout(idle);
               if (results >= written) endInput();
               else idle = setTimeout(endInput, 8000);
@@ -952,12 +1075,18 @@ async function runClaude({
           abort();
           return;
         }
-        writeUser([{ type: 'text', text: prompt }, ...imageParts(images, 'anthropic')]);
+        if (askUser) {
+          initializeTimer = setTimeout(() => reject(Error('Claude initialization timed out.')), 60000);
+          child.stdin.write(JSON.stringify({ type: 'control_request', request_id: 'mdlxl-initialize', request: { subtype: 'initialize' } }) + '\n');
+        } else writeUser([{ type: 'text', text: prompt }, ...imageParts(images, 'anthropic')]);
         if (steering) unsteer = steering.subscribe(steer);
-        else endInput();
+        else if (!askUser) endInput();
       });
     } finally {
       clearTimeout(idle);
+      clearTimeout(initializeTimer);
+      for (const controller of controls.values()) controller.abort(questionCancelled('The Claude connection closed.'));
+      await Promise.allSettled([...controlWork]);
       unsteer?.();
       signal.removeEventListener('abort', abort);
     }

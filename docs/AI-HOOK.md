@@ -46,11 +46,28 @@ marked "Sent while the AI was working". The AI picks it up at its next step; if 
 had just finished, the message starts a follow-up turn on the same task. **Stop**
 (the square) cancels; applied edits stay in Undo.
 
-When Codex asks a clarification, the question and its choices appear directly in
-chat. Choose an option or type your own answer, then click **Send answer**. A bird's
-question also appears in its organiser chat, and the answer returns to that exact
-request. **Stop** cancels a waiting question. Answered and stopped questions stay
-readable when switching chats; questions left by an app restart are stopped.
+When Codex or Claude Code asks a clarification, the question and its choices
+appear directly in chat. Choose an option (or several when requested) or type
+an answer, then click **Send answer**. A bird's question also appears in its
+organiser chat. **Cancel question** cancels that request; **Stop** stops the job.
+Neither control submits an answer. Questions remain readable after answering,
+cancellation or restart. A live nonblocking question remains answerable while
+the AI continues inspecting. The provider's resolved-request notification removes
+its answer controls immediately. Codex invalidates pending requests when a turn
+ends; the stopped question explains that you can reply in chat to continue.
+
+MCP input forms use the same controls, preserving numbers, booleans, optional
+fields and multiple selections. Input-page links open only when you click them
+and only while their request remains live. Privileged additional-tool approvals
+are declined. Terminal and arbitrary filesystem access stay disabled for both
+native providers; model changes still use the registered MDLxL tools and Undo.
+
+Provider warnings/errors, connection failures, usage-limit updates, model
+switches and plans stay in chat after later activity. Click a notice to read its
+details or use its dismiss button. Bird notices also appear in the organiser.
+Codex-managed sign-in remains the account mechanism. A request for externally
+managed auth tokens or client attestation receives a visible connection error;
+MDLxL does not fabricate credentials or attestation tokens.
 
 ### Editing handbook
 

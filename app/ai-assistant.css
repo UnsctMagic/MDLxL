@@ -210,3 +210,11 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-question-option{display:flex;align-items:flex-start;gap:7px;margin:6px 0;cursor:pointer}
 .ai-question-option small{display:block;color:var(--ui-muted)}
 .ai-question input[type=text],.ai-question input[type=password]{width:100%;padding:5px 7px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field)}
+
+.ai-provider-notice{margin:8px 0;padding:5px 8px;border-left:2px solid var(--ai-accent);background:var(--ai-soft);font-size:11px}
+.ai-provider-warning{border-left-color:#bd7619}
+.ai-provider-notice summary{display:flex;align-items:center;gap:5px;cursor:pointer}
+.ai-provider-notice summary>span{flex:1}
+.ai-assistant .ai-provider-notice button{padding:0;min-height:20px;width:20px;border:0;background:transparent!important}
+.ai-provider-notice pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0;font:inherit}
+.ai-question input[type=number]{width:100%;padding:5px 7px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field)}
