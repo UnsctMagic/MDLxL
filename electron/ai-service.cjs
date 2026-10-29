@@ -156,14 +156,18 @@ class AiService {
       webResearch: config.webResearch === true,
     };
   }
-  async setAwareness(enabled) {
+  // An on/off setting: saved, applied by `after`, then announced to the console.
+  async setSwitch(key, eventType, enabled, after) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
     const config = await this.configuration();
-    config.awareness = enabled;
+    config[key] = enabled;
     await this.persist();
-    this.awareness.setEnabled(enabled);
-    this.emit({ type: 'awareness', enabled });
+    after?.();
+    this.emit({ type: eventType, enabled });
     return this.status();
+  }
+  setAwareness(enabled) {
+    return this.setSwitch('awareness', 'awareness', enabled, () => this.awareness.setEnabled(enabled));
   }
   // The model can change while the AI works: a running task keeps the settings it
   // started with, and the next message uses the new model.
@@ -1544,43 +1548,23 @@ class AiService {
   }
   async setSdBrain(enabled) {
     if (enabled && !(await this.sdBrainAvailable())) throw Error('SD Brain is not available in this version.');
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.sdBrain = enabled;
-    await this.persist();
-    this.emit({ type: 'sd-brain', enabled });
-    return this.status();
+    return this.setSwitch('sdBrain', 'sd-brain', enabled);
   }
   // The editing handbook is off until the user turns it on; it applies from the next task.
-  async setEditingHandbook(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.editingHandbook = enabled;
-    await this.persist();
-    this.emit({ type: 'editing-handbook', enabled });
-    return this.status();
+  setEditingHandbook(enabled) {
+    return this.setSwitch('editingHandbook', 'editing-handbook', enabled);
   }
   // Web research is off until the user turns it on; it applies from the next task.
-  async setWebResearch(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.webResearch = enabled;
-    await this.persist();
-    this.emit({ type: 'web-research', enabled });
-    return this.status();
+  setWebResearch(enabled) {
+    return this.setSwitch('webResearch', 'web-research', enabled);
   }
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
     return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
-  async setOffload(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.offload = enabled;
-    await this.persist();
-    this.emit({ type: 'offload', enabled });
-    return this.status();
+  setOffload(enabled) {
+    return this.setSwitch('offload', 'offload', enabled);
   }
   async setRememberedCleanup({ modelKey, remember }) {
     if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
