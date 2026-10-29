@@ -104,14 +104,26 @@ into compacting.
   Opening a bird chat or addressing its name bypasses routing. The first Manual job starts a bird without a routing call. Automatic can split a new request using a compact structure summary.
 - The existing reply cost line shows calls and tokens by role. Codex reports provider
   turns; unavailable usage is labelled instead of estimated as zero.
-- A bird whose memory is half full writes a handover note and retires; a new bird
-  takes over from the note.
+- Complex jobs declare concrete completion checks before editing. An organiser can
+  assign one read-only reference/measurement helper while the editor inspects the
+  target. Manual and explicitly addressed editor birds can request the same help
+  through their plan. Helpers have separate chats, cannot edit/save/operate UI,
+  and pass a compact evidence report back; the editor must incorporate it before
+  committing. Simple jobs keep the direct path without extra helper calls.
+- Birds record a candidate/verification phase checkpoint. When context is half
+  full, the next such checkpoint hands remaining work to a fresh bird, preserving
+  the original baseline, applied steps, plan, helper findings and saved routines.
+  It does not interrupt a pending tool operation or replay an edit. Between jobs,
+  the existing half-context handover still applies. Cumulative token spend is not
+  the context-fullness measure.
 - Automatic routing can split a multi-part job into declared regions. Independent
   birds work at once; overlapping dependencies and structural edits wait. Each
   actual commit stays inside its region and adds a separate bird-labelled Undo
   step. Normal Undo reverses those steps in order. The final combined check covers
   shared seams in bind/posed frames and MDX/MDL save/reopen. There is no bird cap.
-  If a structural change renumbers parts, remaining assignments need a fresh job.
+  Explicit prerequisites run first and their compact reports go only to dependent
+  jobs. Coupled edits stay with one editor. If a structural change renumbers
+  parts, remaining assignments need a fresh job.
 - **Allow lighter models for simple jobs** is off by default. Load models in
   Connection settings to see the lighter choices supported by that connection.
   Select the lighter model there. Clear exact-value edits and factual reports use
@@ -295,12 +307,26 @@ a plan (the **Planning the change** step; click it to read the plan):
 - what is actually wrong, as it measured it;
 - how far that cause reaches, which can be more or less than the area you marked;
 - what must stay the same;
-- at least two different fixes, what each costs, and which one it chose and why.
+- at least two different fixes, what each costs, and which one it chose and why;
+- concrete completion checks for the requested result and protected data.
 
 MDLxL refuses the AI's edits until the plan exists. Exact value edits, such as
 "set the alpha to 0.5" or a rename, need no plan. The review then reminds the AI
 to confirm every item it promised to keep. If a result shows the plan was wrong,
-the AI records a new plan before editing again instead of patching on top.
+the AI records a new plan before editing again instead of patching on top. Two
+failures of the same named measured check across different revisions require a
+changed plan before another edit; rereading the same revision does not count as
+another failure.
+
+Birds inspect representative candidates before expensive exhaustive checks,
+recheck affected parts after corrections, then perform the full final review.
+For repeated calculations, embedded script/review calls can store a named
+routine once and reuse it with parameters. Routine bodies are job-local and
+survive checkpoint handovers; compact measurements replace repeated code and
+large arrays in the conversation. External MCP calls keep their stateless API.
+These instructions do not waive final visual, preservation or save/reopen checks.
+Actual artistic quality and elapsed-time/token savings still require real-job
+comparison; a local-provider test proves orchestration, not model judgement.
 
 **Versions side by side.** While it works, the AI can keep versions of the model
 next to each other (the **Comparing versions** step). MDLxL keeps two kinds
@@ -335,7 +361,7 @@ Provider default, Medium, High (the default) or Extra high. It sets how hard the
 AI thinks before each step: Codex's reasoning effort, Claude Code's effort, or the
 Claude API's effort (Claude 4.6 stops at High; older Claude models keep their own
 setting). Higher is slower and uses more of your plan or credits. Job routing
-always uses the provider default, since it only picks a bird. Other AI / local
+uses the chosen model and thinking setting to judge the work and its dependencies. Other AI / local
 model connections do not offer it.
 
 **Guides and patterns.** With the Editing handbook on, each job also carries the

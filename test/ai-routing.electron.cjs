@@ -4,10 +4,14 @@ const fs = require('node:fs'), path = require('node:path'), http = require('node
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'D:/Claude/tools/node_modules/playwright-core');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-routing');
 const checks = [], requests = [], errors = [];
-let app, server, birdName, answered = 0, corrections = 0;
+let app, server, profile, birdName, answered = 0, corrections = 0;
+let cooperativeMain = 0, cooperativeHelper = 0, cooperativeResume = 0, mainRead;
+const inspected = new Promise(resolve => { mainRead = resolve; });
+const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: 'call-' + Math.random(), function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
 const check = (name, value) => { checks.push({ name, passed: !!value }); assert.ok(value, name); };
 (async () => {
   fs.mkdirSync(path.join(out, 'temp'), { recursive: true });
+  profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const { createStarterDocument } = await import('../src/starter-model.js');
   const doc = createStarterDocument();
   doc.apply('Separate fixture parts', ['Geosets'], model => {
@@ -28,7 +32,9 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
     if (system.startsWith('Route one message')) {
       const raw = data.messages.at(-1).content;
       const input = JSON.parse(typeof raw === 'string' ? raw : raw[0].text);
-      if (input.text.includes('Which bones')) {
+      if (input.text.includes('cooperative')) {
+        response = { worker: '', job: 'Cooperative measurement', helper: { job: 'Reference measurement', instructions: 'Read the model name and report it; make no changes.' }, checks: ['Model name stays unchanged', 'Report geoset count'] };
+      } else if (input.text.includes('Which bones')) {
         birdName = input.nextBird;
         response = { worker: birdName, job: 'Read bone names', tiny: true };
       } else if (input.text.includes('Check those bones')) {
@@ -38,14 +44,51 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
         else { corrections++; response = { worker: input.current.id, job: 'Cloth animation', tiny: false }; }
       } else response = { worker: '', job: 'Separate job', tiny: false };
       response = JSON.stringify(response);
+    } else if (system.startsWith('You are a read-only')) {
+      cooperativeHelper++;
+      if (cooperativeHelper === 1) {
+        await inspected;
+        const input = data.messages.find(m => m.role === 'user').content[0].text;
+        const target = JSON.parse(input.split('MDLxL context captured when this prompt was sent:\n').at(-1)).target;
+        response = tool('mdlxl_script', { target, edit: true, label: 'Refused helper edit', scope: ['/Info'], code: 'model.Info.Name = "Wrong helper write"; return {};' });
+      } else {
+        check('helper writes are refused by the real service', /read-only/.test(data.messages.at(-1).content));
+        response = 'Reference measurement completed; preserve the existing model name.';
+      }
+    } else if (JSON.stringify(data.messages).includes('Cooperative measurement')) {
+      const input = data.messages.filter(m => m.role === 'user')[0].content[0].text;
+      const rawContext = input.split('MDLxL context captured when this prompt was sent:\n').at(-1).split('\n\nOrganiser completion criteria:')[0];
+      const target = JSON.parse(rawContext).target;
+      if (input.includes('Resume the interrupted task')) {
+        cooperativeResume++;
+        if (cooperativeResume === 1) response = tool('mdlxl_script', { target, routine: 'counts', parameters: { extra: 2 } });
+        else {
+          check('saved routine executes after the phase handover', /"count":7/.test(data.messages.at(-1).content));
+          response = 'Worker fixture finished ' + (++answered) + '.';
+        }
+      } else {
+        cooperativeMain++;
+        const plan = { cause: 'Need reference and target measurements.', reach: 'Read-only model inspection.', keep: ['model name and geometry'], options: [{ fix: 'Measure the model', cost: 'No edits' }, { fix: 'Guess', cost: 'Unreliable' }], choice: 0, why: 'Use measured data.', checks: ['Model name stays unchanged', 'Report geoset count'] };
+        if (cooperativeMain === 1) response = tool('mdlxl_context', { target });
+        else if (cooperativeMain === 2) { mainRead(); response = tool('mdlxl_plan', plan); }
+        else if (cooperativeMain === 3) {
+          check('editor receives the helper findings before proceeding', /Reference measurement completed/.test(data.messages.at(-1).content));
+          response = tool('mdlxl_plan', plan);
+        } else if (cooperativeMain === 4) response = tool('mdlxl_script', { target, routine: 'counts', code: 'return { count: model.Geosets.length + parameters.extra };', parameters: { extra: 0 } });
+        else if (cooperativeMain === 5) response = tool('mdlxl_script', { target, routine: 'counts', parameters: { extra: 1 } });
+        else {
+          check('routine parameters change its computed result', /"count":6/.test(data.messages.at(-1).content));
+          response = tool('mdlxl_job_checkpoint', { phase: 'verify', evidence: 'Read model and helper report; no model changes.', remaining: ['Verify saved routine after handover'] });
+        }
+      }
     } else {
       response = 'Worker fixture finished ' + (++answered) + '.';
     }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: response }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 20 } }) + '\n\n');
+    res.end('data: ' + JSON.stringify({ choices: [typeof response === 'string' ? { delta: { content: response }, finish_reason: 'stop' } : response], usage: { prompt_tokens: cooperativeMain >= 5 && !cooperativeResume && !system.startsWith('You are a read-only') ? 80000 : 100, completion_tokens: 20 } }) + '\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  app = await _electron.launch({ executablePath: process.env.MDLXL_AI_TEST_EXE, args: [fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') }, timeout: 60000 });
+  app = await _electron.launch({ executablePath: process.env.MDLXL_AI_TEST_EXE, args: [fixture], env: { ...process.env, MDLXL_PROFILE: profile, MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') }, timeout: 60000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.unmaximize(); w.setContentSize(1440, 900); });
@@ -80,6 +123,13 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
   check('router receives context without model images or editing tools', routeCalls().every(r => !r.tools && !JSON.stringify(r).includes('image_url')));
   await send('Different independent job: inspect the model proportions');
   check('unrelated job starts a fresh bird', answered === 4 && birdCalls()[3].model === 'fixture-model');
+  await send('Run a cooperative reference and target inspection without changing the model');
+  check('helper and editor ran concurrently without an extra owner message', cooperativeHelper === 2 && cooperativeMain === 6);
+  check('full-context bird hands over inside the same job', cooperativeResume === 2);
+  const chats = fs.readdirSync(path.join(profile, 'ai')).filter(n => /^chat-.*\.json$/.test(n)).map(n => JSON.parse(fs.readFileSync(path.join(profile, 'ai', n), 'utf8')));
+  const helper = chats.find(c => c.helperOnly), resumed = chats.find(c => c.task?.workCheckpoint);
+  check('helper has a distinct read-only conversation', !!helper && helper.task.status === 'complete');
+  check('phase checkpoint and routine are persisted', !!resumed?.task.routines?.counts);
   // Normal mouse input on the hidden desktop: compare the actual rendered view.
   const canvas = page.locator('.classic-view canvas').first(), box = await canvas.boundingBox();
   const before = await canvas.screenshot();
@@ -92,5 +142,6 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
 })().catch(error => { checks.push({ name: 'exception', passed: false, error: error.stack }); process.exitCode = 1; }).finally(async () => {
   if (app) { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); await app.close().catch(() => {}); }
   if (server) await new Promise(resolve => { server.closeAllConnections(); server.close(resolve); });
+  if (profile) fs.rmSync(profile, { recursive: true, force: true });
   fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(checks, null, 2)); console.log(JSON.stringify(checks, null, 2));
 });
