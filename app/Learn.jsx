@@ -38,10 +38,10 @@ const GAP = 8, EDGE = 6;
  * the popup dismisses only this reminder. Rules live in src/learn-keycaps.js.
  */
 export default function Learn({ settings }) {
-  const { shortcuts } = useHotkeys();
+  const { catalog, shortcuts } = useHotkeys();
   const [popup, setPopup] = useState(null);
   const notebook = useRef(null), latest = useRef({}), box = useRef(null);
-  latest.current = { settings, shortcuts, popup };
+  latest.current = { settings, catalog, shortcuts, popup };
   const enabled = !!settings?.enabled;
 
   useEffect(() => {
@@ -56,10 +56,14 @@ export default function Learn({ settings }) {
     const show = (id, element) => {
       // A window's extra Close / Cancel / Done buttons close it like its own close button: with Esc,
       // when Esc closes that window (in Forge it clears the selection).
-      const label = element?.getAttribute('aria-label') || element?.textContent || '', keys = keysOf(id);
-      const closer = !keys?.length && isCloseControl(id, label) && [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts="Escape"]') || [])]
+      // Only hand-picked command keys are taught: a window's own buttons get keys from their names
+      // (Settings' file icons), which are for working that window, not for learning.
+      const command = id.startsWith(PAINT_KEY_PREFIX) || latest.current.catalog.some(action => action.id === id && !action.contextual);
+      const label = element?.getAttribute('aria-label') || element?.textContent || '';
+      const closer = !command && isCloseControl(id, label) && [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts="Escape"]') || [])]
         .some(other => isCloseControl(controlActionId(other), other.getAttribute('aria-label') || other.textContent || ''));
-      const key = reminderFor(notebook.current, id, closer ? ['Escape'] : keys, Date.now());
+      if (!command && !closer) return;
+      const key = reminderFor(notebook.current, id, closer ? ['Escape'] : keysOf(id), Date.now());
       if (!key) return;
       const rect = element?.getBoundingClientRect?.();
       const next = { id, chord: id.startsWith(PAINT_KEY_PREFIX) ? key : formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial };

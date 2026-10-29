@@ -1,8 +1,14 @@
 # Learn: shortcut reminders
 
 Learn is a mode that teaches keyboard shortcuts. When you click a button (or
-a menu entry) that has a key, a small popup shows that key, in the look of the
+a menu entry) for a command with a key, a small popup shows that key, in the look of the
 K.E.Y. (Show pressed keys) overlay. The popup contains only the keycaps.
+
+Only commands are taught: the hand-picked keys of menus, the toolbar, modes and
+tools ([src/commands.js](../src/commands.js)), and Citadel Paint's own keys. A
+window's own buttons (Settings pages, file-icon choices, Material Manager's New)
+have keys from their names so the window can be worked from the keyboard; clicking
+them shows no popup.
 
 Click **LER** (the Ancient of Lore icon beside **KEY**) for three choices:
 **Learn mode** switches reminders, **Show hotkeys** keeps the existing green
@@ -105,7 +111,7 @@ to `true` only for a hand-test build.
   text fields do not count, temporary dismissal, repeated-click timing, renewed
   quiet time, live learned counts, storage read/write failures, right-click
   mute/restore, crowded-sidebar anchoring, mouse camera
-  rotation, settings, Fit's Home key, the Material Manager's own keys and its footer Close (Esc), Citadel Paint's own keys and
+  rotation, settings (its own page tabs show no popup), Fit's Home key, the Material Manager's own keys and its footer Close (Esc), Citadel Paint's own keys and
   slider, and turning it off.
 
 ## History
