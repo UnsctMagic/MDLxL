@@ -1,10 +1,10 @@
 // UV Wrapper keeps its texture warning steady while a material change re-renders
 // the texture map: the warning never blinks out and the workspace never jumps.
-// Usage: node test/uv-preview-steady.electron.cjs <MDLxL.exe>
+// Usage: MDLXL_TEST_EXE=<MDLxL.exe> node test/uv-preview-steady.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'out', 'uv-preview-steady-' + Date.now());
 
@@ -25,17 +25,9 @@ async function fixture() {
 
 (async () => {
   const input = await fixture();
-  const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE);
-  const app = await _electron.launch({
-    executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000,
-  });
+  const { app, page: launchedPage } = await launchApp({ fixture: input, out, bounds: { x: -3000, y: 0, width: 1600, height: 1000 } });
   try {
-    const main = await app.firstWindow(); main.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false);
-      w.setBounds({ x: -3000, y: 0, width: 1600, height: 1000 }); w.showInactive();
-    });
+    const main = launchedPage;
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 0', { exact: true }).check();
@@ -58,7 +50,7 @@ async function fixture() {
     });
     for (const preset of ['Add', 'Modulate', 'Alpha', 'Team Color', 'Transparent']) {
       await dropdown.selectOption(preset);
-      await main.waitForTimeout(500);
+      await settle(main, 500);
     }
     const result = await main.evaluate(() => ({ removed: window.uvSteady.removed, tops: [...window.uvSteady.tops] }));
     assert.equal(result.removed, 0, 'the warning blinked out while the texture map re-rendered');
@@ -66,6 +58,6 @@ async function fixture() {
     assert.match(await warning.textContent(), /MDLxLMissingProbe\.blp is not loaded/);
     console.log(`PASS UV texture warning stays put across 5 material changes; workspace top fixed at ${result.tops[0]}px`);
   } finally {
-    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exit(1); });

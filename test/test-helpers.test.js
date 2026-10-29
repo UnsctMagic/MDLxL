@@ -120,3 +120,19 @@ test('page probes distinguish sibling previews and find Citadel props and ref st
   assert.equal(page.window.mdlxlProbe(other.element).runtime, other.runtime);
   assert.equal(page.window.mdlxlProbe(other.element).props, other.props);
 });
+
+test('owner props probe reads the committed host rather than its stale DOM fiber', () => {
+  const element = {}, staleProps = { value: 'old' }, currentProps = { value: 'current' };
+  const oldRoot = { return: null }, currentRoot = { return: null };
+  oldRoot.stateNode = { current: currentRoot };
+  const staleOwner = { memoizedProps: staleProps, return: oldRoot };
+  element.__reactFiber$props = { stateNode: element, return: staleOwner };
+  const currentOwner = { memoizedProps: currentProps, return: currentRoot };
+  const currentHost = { stateNode: element, return: currentOwner };
+  currentRoot.child = currentOwner; currentOwner.child = currentHost;
+  const window = {}, document = { querySelector: selector => selector === '.owner' ? element : null };
+  vm.runInNewContext(PROBE_SOURCE, { window, document });
+  assert.equal(window.findFiberProps('.owner', props => !!props.value), currentProps);
+  assert.equal(window.findFiberProps('.owner', props => !!props.missing), null);
+  assert.equal(window.findFiberProps('.missing', () => true), null);
+});

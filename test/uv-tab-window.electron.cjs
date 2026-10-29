@@ -1,35 +1,28 @@
-// Run after rebuilding dist. MDLXL_UI_EXECUTABLE optionally targets a portable package.
+// Run after rebuilding dist. MDLXL_TEST_EXE optionally targets a portable package.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/uv-tab-window');
   fs.mkdirSync(out, { recursive: true });
-  const profile = fs.mkdtempSync(path.join(out, 'profile-'));
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
   const first = path.join(root, 'fixtures/demo.mdx'), second = path.join(root, 'fixtures/demo.mdl');
   const originals = [first, second].map(file => fs.readFileSync(file));
-  const app = await _electron.launch({ executablePath: process.env.MDLXL_UI_EXECUTABLE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: [...(process.env.MDLXL_UI_EXECUTABLE ? [] : [root]), first, second], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const { app, page: launchedPage, errors } = await launchApp({ fixture: first, args: [second], out, pageTimeout: 15000, settings: { preferences: { graphics: { pauseWhenHidden: false } } }, bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
   let page;
-  const errors = [], checks = [];
+  const checks = [];
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.setBounds({ x: 20, y: 20, width: 1440, height: 1000 }); win.show(); });
+    page = launchedPage;
     await page.getByRole('tab', { name: 'demo.mdl', exact: true }).waitFor();
     await page.evaluate(() => {
       window.uvTestProps = selector => {
-        const host = document.querySelector(selector); let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets) return fiber.memoizedProps;
-        throw Error('Model props unavailable: ' + selector);
+        const props = findFiberProps(selector, props => props.model?.Geosets);
+        if (!props) throw Error('Model props unavailable: ' + selector);
+        return props;
       };
       window.uvTestModel = () => { const p = uvTestProps('.viewport'); return { vertices: p.model.Geosets.map(g => Array.from(g.Vertices)), uv: p.model.Geosets.map(g => g.TVertices.map(v => Array.from(v))) }; };
-      window.uvTestRuntime = () => {
-        const host = document.querySelector('.uv-preview-canvas .game-preview-root'); let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const state = hook.memoizedState?.current; if (state?.native && state?.controls) return state; }
-        return null;
-      };
+      window.uvTestRuntime = () => mdlxlProbe('.uv-tab-window .game-preview-root').runtime;
       window.uvTestCamera = () => JSON.parse(JSON.stringify(uvTestRuntime()?.cameraView(), (_key, value) => typeof value === 'number' ? Math.round(value * 1e6) / 1e6 : value));
       window.uvTestFraming = () => {
         const state = uvTestRuntime(); if (!state) return null;
@@ -80,10 +73,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push('UV model preview rotates with an actual mouse drag');
     const orbited = await page.evaluate(() => uvTestCamera());
     await page.locator('.uv-tab-window').getByLabel('Material Properties', { exact: true }).selectOption('Alpha');
-    await page.waitForTimeout(500);
+    await settle(page, 500);
     assert.deepEqual(await page.evaluate(() => uvTestCamera()), orbited, 'material rebuild preserves the user orbit and fitted zoom');
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(500);
+    await settle(page, 500);
     assert.deepEqual(await page.evaluate(() => uvTestCamera()), orbited);
     checks.push('material rebuilds preserve the chosen camera without replaying the initial front fit');
     await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').focus();
@@ -170,9 +163,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (page) await page.screenshot({ path: path.join(out, 'failure.png') }).catch(() => {});
     throw error;
   } finally {
-    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
-    await app.close().catch(() => {});
-    assert.equal(path.dirname(profile), out);
-    fs.rmSync(profile, { recursive: true, force: true });
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

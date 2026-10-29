@@ -1,7 +1,7 @@
 // Real packaged model, two simultaneously active birds, region checks and separate Undo.
 // Run with scripts/hidden-run.ps1; never on the user's desktop.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'D:/Claude/tools/node_modules/playwright-core');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const out=path.resolve(process.env.MDLXL_AI_TEST_OUT||'out/ai-parallel');
 const source=process.env.MDLXL_AI_CONSOLE_MODEL;
 const checks=[];let app,server;let offerLight=false;const workingModels=[];
@@ -41,10 +41,11 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   return answer({content:'Finished '+jobs[i].job});
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE,args:[work],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLXL_DISABLE_UPDATES:'1',TEMP:path.join(out,'temp'),TMP:path.join(out,'temp')},timeout:60000});
- const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.unmaximize();w.setContentSize(1440,900)});
- await page.waitForSelector('.classic-toolbar',{timeout:60000});await page.waitForTimeout(1000);
+ const launched = await launchApp({ pageTimeout: 30000, fixture: work, out, env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') } });
+ app = launched.app;
+ const { page, errors } = launched;
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.unmaximize();w.setContentSize(1440,900)});
+ await page.waitForSelector('.classic-toolbar',{timeout:60000});await settle(page, 1000);
  await page.getByRole('button',{name:'AI assistant',exact:true}).click();
  if(!await page.getByLabel('AI provider',{exact:true}).isVisible())await page.getByRole('button',{name:'Connection settings',exact:true}).click();
  await page.getByLabel('AI provider',{exact:true}).selectOption('compatible');
@@ -94,4 +95,4 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  await page.getByRole('button',{name:'Keep chosen model',exact:true}).click();
  await page.getByText('Chosen model received the complex job.',{exact:true}).waitFor();
  check('declining the lighter model uses the chosen one',workingModels.at(-1)==='fixture-model');
-})().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if(app){await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});
+})().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if (app) await closeApp(app);if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});
