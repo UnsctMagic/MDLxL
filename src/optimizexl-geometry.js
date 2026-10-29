@@ -24,11 +24,17 @@ export function compactVertices(g, representatives, faces) {
 }
 
 export function mergeDuplicateVertices(model, settings, onChange) {
-  let removed = 0, groups = 0;
+  let removed = 0, groups = 0, triangles = 0;
   const excluded = excludedGeosets(model, settings);
   for (const [index, g] of model.Geosets.entries()) {
     if (excluded.has(index)) continue;
     const count = g.Vertices.length / 3, map = [], kept = [], adjacent = Array.from({ length: count }, () => new Set());
+    // Corners identical in every attribute, whatever the merge tolerance.
+    const exact = new Map(), corner = Array.from({ length: count }, (_, i) => {
+      const key = JSON.stringify([point(g.Vertices, i, 3), point(g.Normals, i, 3), g.TVertices.map(uv => point(uv, i, 2)), binding(g, i)]);
+      if (!exact.has(key)) exact.set(key, exact.size);
+      return exact.get(key);
+    });
     for (let f = 0; f < g.Faces.length; f += 3) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) adjacent[g.Faces[f + i]].add(g.Faces[f + j]);
     const members = new Map();
     for (let i = 0; i < count; i++) {
@@ -43,15 +49,25 @@ export function mergeDuplicateVertices(model, settings, onChange) {
       members.get(target).push(i);
     }
     removed += count - kept.length;
-    compactVertices(g, kept, Array.from(g.Faces, i => map[i]));
+    // A triangle over identical corners with the same winding draws nothing
+    // new. Opposite winding is a separate two-sided face and stays. Faces that
+    // only coincide after a tolerance merge are left to that merge's review.
+    const faces = [], seen = new Set();
+    for (let f = 0; f < g.Faces.length; f += 3) {
+      const t = [g.Faces[f], g.Faces[f + 1], g.Faces[f + 2]].map(i => corner[i]), r = t.indexOf(Math.min(...t)), key = `${t[r]},${t[(r + 1) % 3]},${t[(r + 2) % 3]}`;
+      if (!seen.has(key)) { seen.add(key); faces.push(g.Faces[f], g.Faces[f + 1], g.Faces[f + 2]); }
+    }
+    const duplicateFaces = (g.Faces.length - faces.length) / 3;
+    triangles += duplicateFaces;
+    compactVertices(g, kept, faces.map(i => map[i]));
     const unique = [], groupMap = [];
     for (const group of g.Groups) { let i = unique.findIndex(other => same(group, other)); if (i < 0) { i = unique.length; unique.push(group); } groupMap.push(i); }
     groups += g.Groups.length - unique.length;
-    if(count!==kept.length||g.Groups.length!==unique.length)onChange?.({geoset:index,vertices:count-kept.length,groups:g.Groups.length-unique.length});
+    if(count!==kept.length||g.Groups.length!==unique.length||duplicateFaces)onChange?.({geoset:index,vertices:count-kept.length,groups:g.Groups.length-unique.length,triangles:duplicateFaces});
     g.VertexGroup = new g.VertexGroup.constructor(Array.from(g.VertexGroup, i => groupMap[i]));
     g.Groups = unique; g.TotalGroupsCount = unique.reduce((n, group) => n + group.length, 0);
   }
-  return { duplicateVertices: removed, duplicateGroups: groups };
+  return { duplicateVertices: removed, duplicateGroups: groups, duplicateTriangles: triangles };
 }
 
 export function removeUnusedVertices(model, settings = {}, onChange) {

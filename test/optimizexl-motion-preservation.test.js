@@ -66,3 +66,30 @@ test('smooth motion can reduce approximately without disabling strength controls
  const exact=structuredClone(t);reduce(exact,'Translation',0);assert.equal(exact.Keys.length,5);
  reduce(t,'Translation',1);assert.equal(t.Keys.length,2);
 });
+
+test('a long part turns no farther at its tip than the position tolerance allows',()=>{
+ // An eased 30 degree swing is about 1 degree off a straight turn: within
+ // its own 10% motion budget, but 1.7 units at the tip of a 100-unit part.
+ const swing=[0,6.5,14,22,30],frames=[0,250,500,750,1000];
+ const make=()=>({LineType:1,Keys:frames.map((f,i)=>key(f,q(swing[i])))});
+ const short=make();reduce(short,'Rotation',30);assert.deepEqual(short.Keys.map(k=>k.Frame),[0,1000]);
+ const long=make(),before=structuredClone(long);
+ reduceAnimationTrack(model,long,'Rotation',30,()=>{},{reach:100,position:.5});
+ assert.ok(long.Keys.length>2);
+ for(const k of long.Keys)assert.deepEqual(k,before.Keys.find(o=>o.Frame===k.Frame));
+ for(let f=0;f<=1000;f+=10){
+  const a=sampleTrack(long,f,{interval:[0,1000],fallback:[0,0,0,1],quaternion:true}),b=sampleTrack(before,f,{interval:[0,1000],fallback:[0,0,0,1],quaternion:true});
+  const degrees=2*Math.acos(Math.min(1,Math.abs(a.reduce((n,v,i)=>n+v*b[i],0))))*180/Math.PI;
+  assert.ok(degrees*Math.PI/180*100<=.5,`tip moves ${degrees} degrees at ${f}`);
+ }
+ const near=make();reduceAnimationTrack(model,near,'Rotation',30,()=>{},{reach:1,position:.5});
+ assert.deepEqual(near.Keys.map(k=>k.Frame),[0,1000]);
+});
+
+test('only the authored keys a budget needs come back, never a whole span',()=>{
+ // One sharp bump among smooth samples: returning the bump is enough.
+ const t=track([[0,0,0,0],[100,.1,0,0],[200,.2,0,0],[300,.3,0,0],[400,5,0,0],[500,.5,0,0],[600,.6,0,0],[700,.7,0,0],[1000,1,0,0]]);
+ reduce(t,'Translation',10);
+ assert.deepEqual(t.Keys.map(k=>k.Frame),[0,300,400,500,1000]);
+ for(const k of t.Keys)assert.equal(k.Vector[0],Math.fround([0,.1,.2,.3,5,.5,.6,.7,1][[0,100,200,300,400,500,600,700,1000].indexOf(k.Frame)]));
+});

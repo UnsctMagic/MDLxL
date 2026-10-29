@@ -56,10 +56,18 @@ test('each candidate starts from accepted bytes; approval, skipping and Back nev
  session.approve('spheres',settings);assert.equal(openDocument(session.accepted,'x.mdx').model.CollisionShapes.length,3);
  assert.equal(session.propose(result,0),false);session.skip('nuclear');session.back();session.back();assert.deepEqual(session.accepted,original);assert.deepEqual(source,original);
 });
-test('duplicate vertices preserve distinct UVs, normals, bindings and all faces',()=>{
- const doc=createStarterDocument();doc.apply('fixture',['Geosets'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,1,0,0,0,1,0,0,0,0,0,0,0]);g.Normals=new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1,0,0,1]);g.TVertices=[new Float32Array([0,0,1,0,0,1,0,0,.1,0])];g.VertexGroup=new Uint8Array(5);g.Faces=new Uint16Array([0,1,2,3,1,2,4,1,2]);});
+test('duplicate vertices preserve distinct UVs, normals, bindings and distinct faces',()=>{
+ const doc=createStarterDocument();doc.apply('fixture',['Geosets'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,1,0,0,0,1,0,0,0,0,0,0,0]);g.Normals=new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1,0,0,1]);g.TVertices=[new Float32Array([0,0,1,0,0,1,0,0,.1,0])];g.VertexGroup=new Uint8Array(5);g.Faces=new Uint16Array([0,1,2,3,1,2,4,1,2,2,1,0]);});
  const bytes=doc.serialize('mdx'),result=runOptimizeStage(bytes,'duplicates',{position:0,normal:0,uv:0,bones:false}),m=openDocument(result.bytes,'x.mdx').model;
- assert.equal(result.stats.duplicateVertices,1);assert.equal(m.Geosets[0].Faces.length,9);assert.equal(m.Geosets[0].Vertices.length/3,4);
+ // Face 3,1,2 is an exact copy of 0,1,2; the different-UV face and the
+ // opposite-winding (two-sided) face stay.
+ assert.equal(result.stats.duplicateVertices,1);assert.equal(result.stats.duplicateTriangles,1);
+ assert.deepEqual(Array.from(m.Geosets[0].Faces),[0,1,2,3,1,2,2,1,0]);assert.equal(m.Geosets[0].Vertices.length/3,4);
+});
+test('only exact duplicate triangles are removed, not faces a tolerance merge makes coincide',()=>{
+ const doc=createStarterDocument();doc.apply('fixture',['Geosets'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,1,0,0,0,1,0,.001,0,0]);g.Normals=new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1]);g.TVertices=[new Float32Array([0,0,1,0,0,1,0,0])];g.VertexGroup=new Uint8Array(4);g.Faces=new Uint16Array([0,1,2,3,1,2]);});
+ const result=runOptimizeStage(doc.serialize('mdx'),'duplicates',{position:.01,normal:0,uv:0,bones:false});
+ assert.equal(result.stats.duplicateVertices,1);assert.equal(result.stats.duplicateTriangles,0);assert.equal(openDocument(result.bytes,'x.mdx').model.Geosets[0].Faces.length,6);
 });
 test('animation strength removes linear keys but preserves boundaries and visibility events',()=>{
  const doc=createStarterDocument();doc.apply('keys',['Sequences','Bones','GeosetAnims'],m=>{m.Sequences=[sequence()];const [a,b]=m.Sequences[0].Interval;m.Bones[0].Translation={LineType:1,GlobalSeqId:null,Keys:[a,(a+b)/2,b].map((Frame,i)=>({Frame,Vector:new Float32Array([i,0,0])}))};m.GeosetAnims=[{GeosetId:0,Alpha:{LineType:0,GlobalSeqId:null,Keys:[{Frame:a,Vector:new Float32Array([1])},{Frame:(a+b)/2,Vector:new Float32Array([0])},{Frame:b,Vector:new Float32Array([1])}]},Flags:0,Color:new Float32Array([1,1,1])}];});
