@@ -9,6 +9,7 @@ import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-edit
 import { createNode } from '../src/editor-document.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { vertexBones } from '../src/part-bones.js';
+import { uniqueName } from '../src/node-hierarchy.js';
 import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
 import './resource-editors.css';
 import './anim-xl.css';
@@ -418,8 +419,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const commitAsNew = () => {
     if (!result?.tracks.length) return;
     const name = sequences[seq].Name || 'Animation', taken = new Set(sequences.map(s => s.Name));
-    let copyName = `${name} (AnimXL)`, n = 2;
-    while (taken.has(copyName)) copyName = `${name} (AnimXL ${n++})`;
+    const copyName = uniqueName(`${name} (AnimXL)`, taken, n => `${name} (AnimXL ${n})`);
     let created = -1;
     const sections = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras', ...(withSound ? ['EventObjects', 'PivotPoints', 'Info'] : [])];
     if (edit(`AnimXL: new animation from ${name}`, sections, m => {

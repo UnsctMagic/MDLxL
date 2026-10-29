@@ -3,7 +3,7 @@ import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
-import { nodeIndex } from './node-hierarchy.js';
+import { nodeIndex, uniqueName } from './node-hierarchy.js';
 import { vertexBones } from './part-bones.js';
 
 // Hero glow as Blizzard and Gluma build it (docs/GLOW_UP.md): team glow
@@ -175,15 +175,11 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   return { start: place(from), end: place(to), butt, tip: at(tipT), parentId, from: onAxis(from), to: onAxis(to), frame: { along, side, other, size } };
 }
 
-function uniqueName(model, base) {
-  const names = new Set(allNodes(model).map(n => n.Name));
-  let name = base, suffix = 2; while (names.has(name)) name = `${base} ${suffix++}`;
-  return name;
-}
+const freeNodeName = (model, base) => uniqueName(base, new Set(allNodes(model).map(n => n.Name)));
 
 function addBone(model, name, center, parentId, flags) {
   const bone = createRigNode(model, 'Bone');
-  bone.Name = uniqueName(model, name); bone.Parent = parentId; bone.Flags = 256 | flags;
+  bone.Name = freeNodeName(model, name); bone.Parent = parentId; bone.Flags = 256 | flags;
   bone.PivotPoint.set(center);
   return bone;
 }

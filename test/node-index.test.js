@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nodeIndex } from '../src/node-hierarchy.js';
+import { nodeIndex, uniqueName } from '../src/node-hierarchy.js';
 
 const node = (ObjectId, Parent, Name = `Node ${ObjectId}`) => ({ ObjectId, Parent, Name });
 
@@ -52,4 +52,13 @@ test('an unknown id has no ancestry, and a node list narrows the index', () => {
   const onlyHelpers = nodeIndex(null, helpers);
   assert.equal(onlyHelpers.parentOf(2), null);
   assert.equal(onlyHelpers.byId.has(0), false);
+});
+
+test("uniqueName keeps each caller's own naming scheme", () => {
+  const used = new Set(['Glow', 'Glow 2', 'Ref', 'Ref_copy', 'bone_new0']);
+  assert.equal(uniqueName('Fresh', used), 'Fresh');
+  assert.equal(uniqueName('Glow', used), 'Glow 3');
+  assert.equal(uniqueName('Ref_copy', used, n => `Ref_copy${n}`), 'Ref_copy2');
+  assert.equal(uniqueName('bone_new0', used, n => `bone_new${n}`, 1), 'bone_new1');
+  assert.equal(uniqueName('Hero', { has: name => name.toLowerCase() === 'hero' }), 'Hero 2');
 });

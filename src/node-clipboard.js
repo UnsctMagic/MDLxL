@@ -3,6 +3,7 @@ import { createNode, NODE_TYPES } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
 import { adaptPasteFormat } from './paste-format.js';
+import { uniqueName as freeName } from './node-hierarchy.js';
 
 const clone = value => structuredClone(value);
 const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined && key !== 'PivotPoint').map(key => [key, canonical(value[key])])) : value;
@@ -72,8 +73,7 @@ export function pasteNodesToDummy(target, clipboard) {
   const usedNames = new Set((target.Nodes || []).filter(Boolean).map(node => node.Name));
   const uniqueName = original => {
     if (original !== 'DummyBone' && !usedNames.has(original)) { usedNames.add(original); return original; }
-    const base = `${original || 'Node'}_copy`; let name = base, number = 2;
-    while (usedNames.has(name)) name = `${base}${number++}`;
+    const base = `${original || 'Node'}_copy`, name = freeName(base, usedNames, n => `${base}${n}`);
     usedNames.add(name); return name;
   };
   for (const old of ordered) {

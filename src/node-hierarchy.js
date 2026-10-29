@@ -33,6 +33,15 @@ export function nodeIndex(model, nodes = allNodes(model)) {
   };
 }
 
+/** `base` when free, else the first free `format(start)`, `format(start + 1)`...
+ * Callers own their naming scheme and what counts as taken (any `has`). */
+export function uniqueName(base, used, format = n => `${base} ${n}`, start = 2) {
+  if (!used.has(base)) return base;
+  let n = start, name;
+  while (used.has(name = format(n))) n++;
+  return name;
+}
+
 /** Stable rows include hidden descendants so collapse never changes selection. */
 export function nodeHierarchyRows(model, tree = true) {
   const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
