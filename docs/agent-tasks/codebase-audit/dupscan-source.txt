@@ -1,0 +1,49 @@
+files=499 window=8 duplicate blocks=19 duplicated normalized lines (sum over pairs)=239
+
+  24  app/PaintViewport.jsx:58-87  <->  app/Viewport.jsx:67-96
+      texture = new THREE.DataTexture(new Uint8Array(pixels.data), pixels.width, pixels.height, THREE.RGBAFormat); | texture.needsUpdate = true; | } else if (buffer &
+  20  app/PaintViewport.jsx:509-536  <->  app/Viewport.jsx:737-764
+      if (distance > 5) { if (marqueeContainsPoint([x, y], start, end, marqueeRadius)) found[geosetIndex].push(i); } | else { const d = Math.abs(x - end.x) + Math.abs
+  20  app/PaintViewport.jsx:691-716  <->  app/Viewport.jsx:930-955
+      material.blending = textured ? material.userData.layerBlending : THREE.NormalBlending; | material.alphaTest = textured && layer.FilterMode === 1 ? .75 : 0; | ma
+  18  app/PaintViewport.jsx:307-327  <->  app/Viewport.jsx:461-481
+      function screenPosition(value, rect) { const projected = value.clone().project(camera); return new THREE.Vector2((projected.x + 1) * rect.width / 2, (1 - projec
+  16  app/PaintViewport.jsx:842-857  <->  app/Viewport.jsx:1083-1098
+      state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true; | state.g
+  14  app/PaintViewport.jsx:106-122  <->  app/Viewport.jsx:123-139
+      material.side = shading & 16 ? THREE.DoubleSide : THREE.FrontSide; | material.depthTest = !(shading & 64); | material.depthWrite = !(shading & 128) && filter < 
+  13  electron/ai-providers.cjs:733-745  <->  electron/ai-providers.cjs:860-872
+      settings, | directory, | event,
+  12  app/App.jsx:1803-1814  <->  app/AppDialogs.jsx:24-35
+      Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets, | clearGameData, clearRecent, completePortraitSetup, context, 
+  11  app/PaintViewport.jsx:246-256  <->  app/Viewport.jsx:322-332
+      state.resize = resize; | const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(host.current); resize(); | state.fit = (selectionOnly = false
+  11  app/PaintViewport.jsx:811-824  <->  app/Viewport.jsx:1043-1056
+      } else if (anchorCanvas) { anchorCanvas.remove(); anchorCanvas = null; } | catch (cause) { setError(`Preview error: ${cause.message}`); return false; } | state.
+  11  app/PaintViewport.jsx:863-873  <->  app/Viewport.jsx:1108-1118
+      const wire = new LineSegments2(wireGeometry, new LineMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: 1, depthTest: true, depthWrite: false
+  10  app/PaintViewport.jsx:619-628  <->  app/Viewport.jsx:424-433
+      for (const entry of state.entries) { | if (!entry) continue; | const positions = entry.geometry.attributes.position;
+   9  app/PaintViewport.jsx:203-212  <->  app/Viewport.jsx:246-255
+      if (background.data !== config.imageData) { | background.data = config.imageData; background.image = null; background.drawKey = ''; setBackgroundMessage(''); | 
+   9  app/PaintViewport.jsx:599-608  <->  app/Viewport.jsx:835-844
+      syncViewportBackground(appearance); | ambient.visible = key.visible = renderGraphics.lighting; | if (p.sequenceIndex !== state.sequenceIndex || !p.playing || !s
+   9  src/anim-xl.js:617-625  <->  src/animation.js:84-92
+      if (node.Parent != null && byId.has(node.Parent)) { | let parent = resolve(node.Parent); | if (node.Flags & 7) {
+   8  app/PaintViewport.jsx:48-56  <->  app/Viewport.jsx:57-65
+      const decodedRasterCache = new WeakMap(), decodedImageCache = new WeakMap(); | export async function textureFromAsset(asset, textureInfo = {}) { | const buffer 
+   8  app/PaintViewport.jsx:214-222  <->  app/Viewport.jsx:257-265
+      const key = `${width}|${height}|${config.color}|${config.display}|${config.opacity}`; | if (background.drawKey !== key) { | background.canvas.width = width; bac
+   8  app/PaintViewport.jsx:635-642  <->  app/Viewport.jsx:858-865
+      const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []); | for (let index = 0; index < state.entries.length; index++) {
+   8  app/PaintViewport.jsx:790-798  <->  app/Viewport.jsx:1021-1029
+      } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; } | const overlayPoint = value => { | const entry = value && state.entries[value.geosetIn
+
+Most-involved files:
+  205  app/PaintViewport.jsx
+  205  app/Viewport.jsx
+   26  electron/ai-providers.cjs
+   12  app/App.jsx
+   12  app/AppDialogs.jsx
+    9  src/anim-xl.js
+    9  src/animation.js
