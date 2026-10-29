@@ -10,9 +10,7 @@ const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
-  runApi,
-  runCodex,
-  runClaude,
+  runProvider,
   providerModels,
   CodexProcess,
   endpoint,
@@ -619,10 +617,40 @@ class AiService {
       active.parallel = false;
     }
   }
+  // One tool-free turn in a throwaway chat; returns the reply text. Usage goes to
+  // `meter`, `label` is the error for a tool call, and `stepLimit` caps the rounds.
+  // The AI never watches the editor (providers skip awareness when it is null) and is never steered.
+  async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
+    let reply = '';
+    const steering = new AiSteering(() => {});
+    try {
+      await runProvider({
+        settings: stepLimit ? { ...settings, stepLimit } : settings,
+        key: this.decrypt(settings.key),
+        directory: this.directory,
+        event: value => {
+          if (value.type === 'text') reply += value.text;
+          else meter(value);
+        },
+        tools: [],
+        call: async () => {
+          throw Error(label);
+        },
+        system,
+        prompt,
+        images,
+        conversation,
+        signal,
+        awareness: null,
+        steering,
+      });
+    } finally {
+      steering.close();
+    }
+    return reply;
+  }
   async routeJob({ conversation, recorder, text, workers, settings, signal, structure }) {
     const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
-    let reply = '';
-    let meter;
     const current = workers.find(w => w.id === conversation.currentWorker);
     const next = this.pendingBird(conversation);
     const input = {
@@ -636,12 +664,10 @@ class AiService {
       ...(structure ? { structure } : {}),
     };
     const options = {
-      settings: { ...settings, model: settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
-      event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
-      tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
+      settings, stepLimit: 1, label: 'Routing has no editor tools.',
       system: 'Route one message. In bird mode, act as the organiser. Judge the complexity and needs of the task, then delegate it. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. The worker must be an existing bird name or id from birds, or an empty string for a new bird; nextBird names that new bird. Use current and recent to identify follow-ups and continue the relevant bird. New unrelated jobs have an empty worker. Set tiny:true only for simple factual or exact one-step jobs; these may use lighterModel only when it is supplied. Shape, motion, binding, creative decisions and uncertain or dependent work use tiny:false and the chosen model. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"worker":"","job":"short part-specific task","tiny":false,"scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Judge complexity for each part. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird. Prefer one editor for coupled changes and at most one read-only helper for independent reference analysis or measurements. For a single job you may add helper:{"job":"short title","instructions":"specific read-only investigation"}; omit it for simple jobs or when there is no useful independent work. Include checks:["concrete completion criteria"] for complex work. Region jobs may include instructions and dependsOn:[earlier zero-based job indices]; their reports are passed only to dependent jobs. Do not parallelize coupled writes or duplicate the full investigation.',
       prompt: JSON.stringify(input),
-      images: [], conversation: routing, signal, awareness: null, steering: new AiSteering(() => {}),
+      conversation: routing, signal,
     };
     const jobOf = args => {
       if (!args || typeof args !== 'object' || typeof args.job !== 'string' || !args.job.trim()) throw Error('Each job needs a short title.');
@@ -652,35 +678,29 @@ class AiService {
       if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
       return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks) } : {}) };
     };
-    try {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        reply = '';
-        meter = this.measureUsage(routing, recorder, 'router');
-        if (settings.provider === 'codex') await runCodex(options);
-        else if (settings.provider === 'claude') await runClaude(options);
-        else await runApi(options);
-        try {
-          const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
-          if (Array.isArray(args?.jobs) && args.jobs.length) {
-            const jobs = args.jobs.map(jobOf);
-            const assigned = jobs.filter(j => j.worker).map(j => j.worker);
-            if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
-            jobs.forEach((j, i) => {
-              if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
-              if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
-              if (j.instructions !== undefined && (typeof j.instructions !== 'string' || j.instructions.length > 2000)) throw Error('Keep part instructions under 2000 characters.');
-            });
-            if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
-            return { jobs };
-          }
-          const { job, worker, tiny, helper, checks } = jobOf(args);
-          return { job, worker, tiny, helper, checks };
-        } catch (error) {
-          if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
-          options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const reply = await this.askOnce({ ...options, meter: this.measureUsage(routing, recorder, 'router') });
+      try {
+        const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
+        if (Array.isArray(args?.jobs) && args.jobs.length) {
+          const jobs = args.jobs.map(jobOf);
+          const assigned = jobs.filter(j => j.worker).map(j => j.worker);
+          if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
+          jobs.forEach((j, i) => {
+            if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
+            if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
+            if (j.instructions !== undefined && (typeof j.instructions !== 'string' || j.instructions.length > 2000)) throw Error('Keep part instructions under 2000 characters.');
+          });
+          if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
+          return { jobs };
         }
+        const { job, worker, tiny, helper, checks } = jobOf(args);
+        return { job, worker, tiny, helper, checks };
+      } catch (error) {
+        if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
+        options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
       }
-    } finally { options.steering.close(); }
+    }
   }
   measureUsage(conversation, recorder, role) {
     let lastTokens = 0, lastUsd = 0;
@@ -1093,9 +1113,7 @@ class AiService {
           steering,
           web,
         };
-        if (settings.provider === 'codex') await runCodex(options);
-        else if (settings.provider === 'claude') await runClaude(options);
-        else await runApi(options);
+        await runProvider(options);
         if (workerYield) throw workerYield;
         if (lightFailure) throw lightFailure;
         const findings = await helperFindings();
@@ -1380,28 +1398,16 @@ class AiService {
       model = counts.geosets
         ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
         : `The open model ${context.name} is empty, so this creates something new.`;
-    let reply = '';
-    const options = {
+    const reply = await this.askOnce({
       settings,
-      key: this.decrypt(settings.key),
-      directory: this.directory,
-      event: (() => { const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'); return value => { if (value.type === 'text') reply += value.text; else meter(value); }; })(),
-      tools: [],
-      call: async () => {
-        throw Error('The art director has no tools.');
-      },
+      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'),
+      label: 'The art director has no tools.',
       system: contract.AI_SD_ART_DIRECTOR,
       prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
       images,
       conversation: art,
       signal,
-      // The art director never watches the editor (providers skip awareness when it is null).
-      awareness: null,
-      steering: new AiSteering(() => {}),
-    };
-    if (settings.provider === 'codex') await runCodex(options);
-    else if (settings.provider === 'claude') await runClaude(options);
-    else await runApi(options);
+    });
     return reply.trim().slice(0, 4000);
   }
   // One tool-free call to a fresh AI with no part of the worker's conversation.
@@ -1409,20 +1415,10 @@ class AiService {
   async outsideCheck({ request, plan, inspect, settings, contract, signal, conversation, recorder }) {
     const judge = { id: `${conversation.id}-check`, provider: settings.provider, transcript: [], messages: [], kind: 'check' };
     const { pictures, left } = choosePictures(inspect.images);
-    let reply = '';
-    const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check');
-    const options = {
+    const question = {
       settings,
-      key: this.decrypt(settings.key),
-      directory: this.directory,
-      event: value => {
-        if (value.type === 'text') reply += value.text;
-        else meter(value);
-      },
-      tools: [],
-      call: async () => {
-        throw Error('The outside check has no tools.');
-      },
+      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check'),
+      label: 'The outside check has no tools.',
       system: contract.AI_OUTSIDE_CHECK,
       prompt: [
         `The owner's request, exactly as written:\n${request}`,
@@ -1437,18 +1433,13 @@ class AiService {
       images: pictures.map(p => p.image),
       conversation: judge,
       signal,
-      // The judge never watches the editor and is never steered.
-      awareness: null,
-      steering: new AiSteering(() => {}),
     };
     // The check is a step in the chat like any tool: a tick when good, a cross otherwise;
     // clicking it shows the verdict.
     const callId = `${judge.id}-${Date.now()}`;
     recorder.event({ type: 'tool', name: 'outside_check', callId, detail: 'Judging the request, the keep list and the pictures.' });
     try {
-      if (settings.provider === 'codex') await runCodex(options);
-      else if (settings.provider === 'claude') await runClaude(options);
-      else await runApi(options);
+      const reply = await this.askOnce(question);
       const found = JSON.parse(reply.slice(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
       if (!['good', 'doubtful', 'wrong'].includes(found.verdict)) throw Error('no verdict');
       const verdict = {

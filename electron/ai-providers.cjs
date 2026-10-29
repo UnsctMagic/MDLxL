@@ -1096,6 +1096,11 @@ async function runClaude({
     await fs.rm(runDirectory, { recursive: true, force: true });
   }
 }
+// One provider turn through the connection's own route: Codex, Claude Code or an API.
+function runProvider(options) {
+  const provider = options.settings.provider;
+  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
+}
 async function providerModels(settings, key, signal) {
   // Claude Code takes these aliases for the newest model of each kind.
   if (settings.provider === 'claude')
@@ -1132,6 +1137,7 @@ module.exports = {
   runApi,
   runCodex,
   runClaude,
+  runProvider,
   providerModels,
   CodexProcess,
   effortFor,
