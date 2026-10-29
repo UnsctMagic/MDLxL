@@ -18,6 +18,13 @@ function providerEnvironment(directory, provider) {
   env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'] = path.join(directory, provider);
   return env;
 }
+// The provider environment, with its temporary folder and provider home created.
+async function prepareEnvironment(directory, provider) {
+  const env = providerEnvironment(directory, provider);
+  await fs.promises.mkdir(env.TEMP, { recursive: true });
+  await fs.promises.mkdir(env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'], { recursive: true });
+  return env;
+}
 // PATH can omit a CLI, for example one installed after Windows sign-in or one
 // that came with a desktop app. These are the places the official installers
 // use on Windows; the CLI is looked up there again at every launch.
@@ -204,5 +211,6 @@ module.exports = {
   lines,
   resolveExecutable,
   providerEnvironment,
+  prepareEnvironment,
   checkAgentExecutable,
 };

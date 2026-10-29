@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { spawnAgent, stopAgent, lines, providerEnvironment } = require('./ai-process.cjs');
+const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-process.cjs');
 const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
@@ -493,9 +493,7 @@ class CodexProcess {
     await fs.mkdir(this.directory, { recursive: true });
     const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
     if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
-    const env = providerEnvironment(this.directory, 'codex');
-    await fs.mkdir(env.TEMP, { recursive: true });
-    await fs.mkdir(env.CODEX_HOME, { recursive: true });
+    const env = await prepareEnvironment(this.directory, 'codex');
     if (this.mcp) {
       env.MDLXL_AI_TOKEN = this.mcp.token;
       args.push(
@@ -908,11 +906,9 @@ async function runClaude({
     if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
-    const env = providerEnvironment(directory, 'claude');
+    const env = await prepareEnvironment(directory, 'claude');
     // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
     env.MCP_TOOL_TIMEOUT = '3600000';
-    await fs.mkdir(env.TEMP, { recursive: true });
-    await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
     child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
     let finalResult = null,
       streamed = false,

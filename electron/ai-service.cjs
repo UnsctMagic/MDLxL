@@ -20,7 +20,7 @@ const {
   spawnAgent,
   stopAgent,
   lines,
-  providerEnvironment,
+  prepareEnvironment,
   checkAgentExecutable,
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
@@ -1938,9 +1938,7 @@ class AiService {
           await client.close();
         }
       }
-      const env = providerEnvironment(this.directory, 'claude');
-      await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
-      await fs.mkdir(env.TEMP, { recursive: true });
+      const env = await prepareEnvironment(this.directory, 'claude');
       if (controller.signal.aborted) throw Error('Sign-in cancelled.');
       const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
         cwd: this.directory,
