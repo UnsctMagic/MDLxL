@@ -171,3 +171,8 @@ test('Death blood: splats and a spray are keyed in Death, other animations keep 
   assert.ok(m.EventObjects.some(e=>/^SPN.HBF0$/.test(e.Name)&&e.EventTrack[0]===start+100));
   assert.throws(()=>fixture().apply('Bad',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,{blood:[{type:'SPL',id:'SND0',time:0,position:[0,0,0]}]}),{rethrow:true}),/not a blood event/);
 });
+test('blood kinds: splat codes carry their race, sprays their first letter (night elf sprays use N)',async()=>{
+  const {splatCode,parseSplat,sprayKind}=await import('../src/corpse-blood.js');
+  assert.equal(splatCode('U','L',2),'UBL2');assert.equal(parseSplat('DBS1').race,'D');
+  assert.deepEqual(['HBF0','OBG0','UBGH','NBAR','DBPT','CBAL'].map(sprayKind),['H','O','U','E','D','X']);
+});

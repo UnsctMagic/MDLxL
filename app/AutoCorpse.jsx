@@ -4,14 +4,12 @@ import CorpseStageTools, { pieceMarks } from './CorpseStageTools.jsx';
 import { autoCorpse } from '../src/auto-corpse.js';
 import { createVisibilityGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { updateBounds } from '../src/mesh-tools.js';
-import { BLOOD_RACES, deathBlood, isBloodSpray, parseSplat, splatCode } from '../src/corpse-blood.js';
+import { BLOOD_KINDS, BLOOD_RACES, deathBlood, isBloodSpray, parseSplat, splatCode, sprayKind } from '../src/corpse-blood.js';
 import { loadEventCatalog } from './node-event-data.js';
 import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
 
-// Blood spray prefixes in SpawnData per blood kind (night elf sprays use N).
-const SPRAY_PREFIX = { H: 'HB', O: 'OB', U: 'UB', E: 'NB', D: 'DB' };
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
 // Blood: splats and sprays play, without extra node markers.
@@ -130,14 +128,24 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
     if (!corpse) return;
     remember();
     const [cx, cy] = corpse.sizeCenter, list = rows, spread = corpse.span * .15, angle = list.length * 2.4;
-    const id = type === 'SPL' ? splatCode(race, 'S', list.filter(row => row.type === 'SPL').length % 4) : sprays.find(row => row.id.startsWith(SPRAY_PREFIX[race]))?.id || 'HBS0';
+    const id = type === 'SPL' ? splatCode(BLOOD_RACES[race] ? race : 'H', 'S', list.filter(row => row.type === 'SPL').length % 4) : firstSpray(race)?.id || sprays[0]?.id || 'HBS0';
     setBlood([...list, { type, id, time: bloodTime, position: [cx + Math.cos(angle) * spread * (type === 'SPL' ? 1 : 0), cy + Math.sin(angle) * spread * (type === 'SPL' ? 1 : 0), 0], parent: null }]);
     setBloodSelected(list.length);
   };
-  const changeRace = value => { remember(); setRace(value); setBlood(list => (list || ownBlood).map(row => row.type === 'SPL' && parseSplat(row.id) ? { ...row, id: value + row.id.slice(1) } : row)); };
+  // Each splat and spray has its own kind (human red, undead, demon green...).
+  // A spray's kind narrows its list to that kind's sprays.
+  // Start a kind with its plain small spray (HumanBloodSmall0) rather than a unit's own.
+  const firstSpray = kind => { const list = sprays.filter(item => sprayKind(item.id) === kind); return list.find(item => /small/i.test(sprayLabel(item.id))) || list[0]; };
+  const kindOf = row => row.type === 'SPL' ? parseSplat(row.id)?.race : sprayKind(row.id);
+  const changeKind = (index, kind) => {
+    const row = rows[index]; setRace(kind);
+    if (row.type === 'SPL') { const p = parseSplat(row.id); editBlood(index, { id: splatCode(kind, p.size, p.variant) }); }
+    else { const first = firstSpray(kind); if (first) editBlood(index, { id: first.id }); }
+  };
   // Catalog labels are model paths: show the model's own name.
   const sprayLabel = id => { const row = sprays.find(item => item.id === id), name = row?.definition?.resourcePath || row?.label?.replace(/ · [A-Z0-9]{4}$/, '') || id; return name.split(/[\\/]/).pop().replace(/\.md[lx]$/i, '') || id; };
-  const bloodLabel = row => row.type === 'SPL' ? `Splat · ${parseSplat(row.id)?.size === 'L' ? 'Large' : 'Small'} ${(parseSplat(row.id)?.variant ?? 0) + 1} · ${seconds(row.time)}` : `Spray · ${sprayLabel(row.id)} · ${seconds(row.time)}`;
+  const kindName = row => (BLOOD_KINDS[kindOf(row)] || '').replace(/ \(.*\)$/, '');
+  const bloodLabel = row => row.type === 'SPL' ? `Splat · ${kindName(row)} · ${parseSplat(row.id)?.size === 'L' ? 'Large' : 'Small'} ${(parseSplat(row.id)?.variant ?? 0) + 1} · ${seconds(row.time)}` : `Spray · ${kindName(row)} · ${sprayLabel(row.id)} · ${seconds(row.time)}`;
   const reset = () => { remember(); setSize(100); setHeight(100); setRgb([255, 255, 255]); setPieces(null); setSelected(null); setBlood(null); setBloodSelected(null); };
   const commit = () => {
     setError('');
@@ -170,9 +178,6 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
         </div><span className="atm-spacer"/><button aria-label="Close Auto Corpse" onClick={onClose}>×</button></header>
       <div className="atm-body acp-body">
         {bloodTab ? <div className="acp-controls" role="tabpanel" aria-label="Blood Editor">
-          <label className="acp-field" title="The colour of the splats. Changing it recolours every splat; sprays have their own colour.">Blood
-            <select aria-label="Blood kind" value={race} onChange={event => changeRace(event.target.value)}>{Object.entries(BLOOD_RACES).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select>
-          </label>
           <div className="atm-list acp-pieces" role="listbox" aria-label="Death blood">
             {rows.map((row, index) => <div key={index} role="option" aria-selected={bloodSelected === index} className={`atm-row acp-piece${bloodSelected === index ? ' is-selected' : ''}`} onClick={() => { setBloodSelected(index); setPlaying(false); setBloodTime(row.time); }}>
               <span translate="no">{bloodLabel(row)}</span>
@@ -181,10 +186,13 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
             {!rows.length && <p className="atm-muted atm-empty">No blood yet. Add a splat or a spray.</p>}
           </div>
           {rows[bloodSelected] && <div className="acp-blood-row">
+            <label className="acp-field" title="Whose blood: the colour of a splat, the game's sprays made for that kind of unit">Kind<select aria-label="Blood kind" value={kindOf(rows[bloodSelected]) || 'H'} onChange={event => changeKind(bloodSelected, event.target.value)}>
+              {Object.entries(rows[bloodSelected].type === 'SPL' ? BLOOD_RACES : BLOOD_KINDS).filter(([key]) => rows[bloodSelected].type === 'SPL' || sprays.some(item => sprayKind(item.id) === key)).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+            </select></label>
             {rows[bloodSelected].type === 'SPL' ? <>
               <label className="acp-field" title="Small or large blood stain on the ground">Size<select aria-label="Splat size" value={parseSplat(rows[bloodSelected].id)?.size} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, event.target.value, p.variant) }); }}><option value="S">Small</option><option value="L">Large</option></select></label>
               <label className="acp-field" title="One of the game's four stain shapes">Shape<select aria-label="Splat shape" value={parseSplat(rows[bloodSelected].id)?.variant} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, p.size, Number(event.target.value)) }); }}>{[0, 1, 2, 3].map(v => <option key={v} value={v}>{v + 1}</option>)}</select></label>
-            </> : <label className="acp-field" title="The game's blood spray made for this unit type">Spray<select aria-label="Blood spray" value={rows[bloodSelected].id} onChange={event => editBlood(bloodSelected, { id: event.target.value })}>{(sprays.some(row => row.id === rows[bloodSelected].id) ? sprays : [{ id: rows[bloodSelected].id, label: rows[bloodSelected].id }, ...sprays]).map(row => <option key={row.id} value={row.id} translate="no">{sprayLabel(row.id)}</option>)}</select></label>}
+            </> : <label className="acp-field" title="The game's blood spray made for this unit type">Spray<select aria-label="Blood spray" value={rows[bloodSelected].id} onChange={event => editBlood(bloodSelected, { id: event.target.value })}>{(sprays.some(row => row.id === rows[bloodSelected].id) ? sprays : [{ id: rows[bloodSelected].id, label: rows[bloodSelected].id }, ...sprays]).filter(row => row.id === rows[bloodSelected].id || sprayKind(row.id) === kindOf(rows[bloodSelected])).map(row => <option key={row.id} value={row.id} translate="no">{sprayLabel(row.id)}</option>)}</select></label>}
             <label className="acp-field" title="When in the Death animation it appears">Time<input aria-label="Blood time in seconds" type="number" min="0" max={deathLength / 1000} step="0.05" value={(rows[bloodSelected].time / 1000).toFixed(2)} onChange={event => editBlood(bloodSelected, { time: Math.max(0, Math.min(deathLength, Math.round(Number(event.target.value) * 1000) || 0)) })}/>
               <button className="atm-small" title="Use the time shown in the preview" onClick={() => editBlood(bloodSelected, { time: Math.round(bloodTime) })}>Now</button></label>
           </div>}
