@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { useDraftNumber } from './Fields.jsx';
 import ModernIcon, { hasModernIcon } from './ModernIcon.jsx';
 import LookIcon, { hasLookIcon } from './LookIcon.jsx';
 
@@ -8,11 +9,12 @@ export function Tool({ icon, title, description, onClick, active, disabled, chil
   return <button data-hotkey={action} type="button" className={`classic-tool${active ? ' active' : ''}${lookIcon ? ' has-look-icon' : ''}${className ? ' ' + className : ''}`} title={description || title} aria-label={title} aria-pressed={active === undefined ? undefined : !!active} disabled={disabled} onClick={onClick}>{lookIcon && <LookIcon name={action}/>}{icon ? hasModernIcon(icon) ? <ModernIcon name={icon} flip={flip}/> : <img src={`./classic/${icon}${/\.(png|gif|svg)$/.test(icon)?'':'.png'}`} alt="" draggable={false} style={flip ? { transform: 'scaleX(-1)' } : undefined}/> : children}{badge && <span className="module-icon-badge" aria-hidden="true">{badge}</span>}</button>;
 }
 
-export function Coordinate({ axis, displayAxis=axis, value, disabled, onCommit }) {
-  const [text, setText] = useState('0'), cancel = useRef(false);
-  useEffect(() => setText(Number.isFinite(value) ? String(Number(value.toFixed(4))) : '0'), [value]);
-  const commit = () => { if (cancel.current) { cancel.current = false; return; } const number = Number(text); if (Number.isFinite(number) && number !== Number(value.toFixed(4))) onCommit(number); else setText(String(Number(value.toFixed(4)))); };
-  return <label className="field"><span>{displayAxis}</span><input data-hotkey={`coordinate:${axis}`} aria-label={`${axis} coordinate`} type="number" step="any" disabled={disabled} value={text} onChange={event => setText(event.target.value)} onBlur={commit} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { cancel.current = true; setText(String(Number(value.toFixed(4)))); event.currentTarget.blur(); } }}/></label>;
+const coordinateText = value => Number.isFinite(value) ? String(Number(value.toFixed(4))) : '0';
+
+/** One axis box (X, Y or Z). `format` is the text shown for a value; `className` the label's class. */
+export function Coordinate({ axis, displayAxis=axis, value, disabled, onCommit, format = coordinateText, className = 'field' }) {
+  const field = useDraftNumber({ value, format, onCommit, disabled });
+  return <label className={className || undefined}><span>{displayAxis}</span><input data-hotkey={`coordinate:${axis}`} aria-label={`${axis} coordinate`} type="number" step="any" disabled={disabled} {...field}/></label>;
 }
 
 export function CameraTools({ value, onChange, look }) {

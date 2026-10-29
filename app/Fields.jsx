@@ -2,10 +2,60 @@ import React,{useState,useEffect,useRef} from 'react';
 import {Plus,Trash2,Diamond,ChevronDown} from 'lucide-react';
 import {setKey} from '../src/editor-commands.js';
 import {displayNumber} from '../src/display-number.js';
+const draftText=value=>value??'';
+/** A finite number from the typed text; an empty box or other text is rejected. */
+export function parseDraftNumber(text){const trimmed=String(text??'').trim();if(!trimmed)return undefined;const number=Number(trimmed);return Number.isFinite(number)?number:undefined;}
+/**
+ * The one way a typed field commits: the box keeps its own text while typing and commits
+ * once, on Enter or on leaving the box; Escape puts the current value back.
+ * format(value) is the text shown. parse(text, final) returns the value to commit, or
+ * undefined to reject the text (the box then shows the value again). live also commits
+ * each valid keystroke (final is false then) and keeps the typed text while focused.
+ * onCommit may return false, or a promise of false, to refuse the value.
+ * Returns the props for the <input>.
+ */
+export function useDraftNumber({value,format=draftText,parse=parseDraftNumber,onCommit,live=false,disabled=false}){
+  const [draft,setDraft]=useState(()=>format(value));
+  const latest=useRef(null),skipBlur=useRef(false),focused=useRef(false),emitted=useRef(value);
+  latest.current={value,format,parse,onCommit,disabled};
+  // A live box keeps "4" while "48" is typed: its own change does not rewrite the text.
+  useEffect(()=>{if(!(live&&focused.current&&Object.is(value,emitted.current)))setDraft(format(value));emitted.current=value;},[value]);
+  const shown=()=>latest.current.format(latest.current.value);
+  const commit=text=>{
+    const {parse,onCommit,disabled,format}=latest.current;
+    if(disabled){setDraft(shown());return;}
+    const next=parse(text,true);
+    if(next===undefined){setDraft(shown());return;}
+    if(Object.is(next,parse(shown(),true))){setDraft(format(next));return;}
+    emitted.current=next;
+    const settle=accepted=>setDraft(accepted===false?shown():format(next));
+    const result=onCommit(next);
+    if(typeof result?.then==='function')result.then(settle,()=>setDraft(shown()));else settle(result);
+  };
+  return {
+    value:draft,
+    onFocus:()=>{focused.current=true;},
+    onChange:event=>{
+      const text=event.target.value;setDraft(text);
+      if(!live||latest.current.disabled)return;
+      const next=latest.current.parse(text,false);
+      if(next!==undefined&&!Object.is(next,emitted.current)){emitted.current=next;latest.current.onCommit(next);}
+    },
+    onBlur:event=>{focused.current=false;if(skipBlur.current){skipBlur.current=false;return;}commit(event.currentTarget.value);},
+    onKeyDown:event=>{
+      if(event.key==='Enter'){commit(event.currentTarget.value);skipBlur.current=true;event.currentTarget.blur();}
+      else if(event.key==='Escape'){skipBlur.current=true;setDraft(shown());event.currentTarget.blur();}
+    },
+  };
+}
 export function TextField({label,value,onChange,type='text',min,max,step='any',disabled=false}){
-  const [draft,setDraft]=useState(value??'');const cancel=useRef(false);useEffect(()=>setDraft(value??''),[value]);
-  const commit=()=>{if(cancel.current){cancel.current=false;return;}if(disabled)return;const next=type==='number'?Number(draft):draft;if(type==='number'&&(!Number.isFinite(next)||(Number(step)===1&&!Number.isInteger(next))||(min!==undefined&&next<min)||(max!==undefined&&next>max))){setDraft(value??'');return;}if(next!==(value??''))onChange(next);};
-  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} value={draft} min={min} max={max} step={step} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){cancel.current=true;setDraft(value??'');e.currentTarget.blur();}}}/></label>;
+  const number=type==='number';
+  const field=useDraftNumber({value,disabled,onCommit:onChange,parse:(text,final)=>{
+    if(!number)return text;
+    const next=parseDraftNumber(text);
+    return next===undefined||(Number(step)===1&&!Number.isInteger(next))||(min!==undefined&&next<min)||(max!==undefined&&next>max)?undefined:next;
+  }});
+  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} {...field}/></label>;
 }
 export function NumberField(props){return <TextField type="number" {...props}/>;}
 export function SelectField({label,value,onChange,options,disabled=false}){return <label className="field"><span>{label}</span><select data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} value={value??''} onChange={e=>onChange(e.target.value)}>{options.map(o=>typeof o==='string'?<option key={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}

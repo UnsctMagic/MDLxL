@@ -3,6 +3,7 @@ import AnimationPreviewTools from './AnimationPreviewTools.jsx';
 import { cropBetween, cropPresetRect, SHOWCASE_CROP_PRESETS } from './showcase-crop.js';
 import { createShowcaseDirector, overflowEntries, SHOWCASE_QUALITY } from './showcase-director.js';
 import ShowcaseLayerTools from './ShowcaseLayerTools.jsx';
+import { useDraftNumber } from './Fields.jsx';
 import './showcase.css';
 import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
@@ -35,8 +36,10 @@ function readSavedColors() {
 }
 const isPortrait = sequence => /portrait/i.test(String(sequence?.Name || ''));
 const CLEAN = Object.fromEntries(['bones','nodes','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
+// Commits on Enter or on leaving the box, like every other number field.
 function NumberField({ label, value, onChange, min, max, step = 1, ...rest }) {
-  return <label>{label}<input aria-label={label} type="number" value={value} min={min} max={max} step={step} onChange={event => onChange(event.target.value === '' ? '' : Number(event.target.value))} {...rest}/></label>;
+  const field = useDraftNumber({ value, onCommit: onChange });
+  return <label>{label}<input aria-label={label} type="number" min={min} max={max} step={step} {...field} {...rest}/></label>;
 }
 // Negative extra time cuts the end off; the total never drops below one frame.
 function ExtraTimeField({value,onChange,base,label='Extra Time'}) {

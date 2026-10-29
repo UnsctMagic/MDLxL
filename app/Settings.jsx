@@ -6,6 +6,7 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
+import { useDraftNumber } from './Fields.jsx';
 import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
 import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
@@ -74,8 +75,10 @@ function AppearanceColors({ colors, value, prefix, onChange }) {
 function Toggle({ id, label, checked, onChange, description }) {
   return <label className="settings-toggle"><input data-hotkey={id} data-hotkey-label={label} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)}/><span>{label}{description && <small>{description}</small>}</span></label>;
 }
+// Commits on Enter or on leaving the box, like every other number field.
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
-  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
+  const field = useDraftNumber({ value, onCommit: onChange });
+  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} {...field}/>{unit}</span></label>;
 }
 const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
 let lastMousePage = 'Camera';

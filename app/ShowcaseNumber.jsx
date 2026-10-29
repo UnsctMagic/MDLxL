@@ -1,15 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { parseDraftNumber, useDraftNumber } from './Fields.jsx';
 
-// Keep an editable string while focused: clearing "48" must not insert "6".
+// Live while the typed number is in range; leaving the box clamps it. Keys stay in the box.
 export default function ShowcaseNumber({value,onChange,min,max,...props}) {
-  const [draft,setDraft]=useState(String(value)),focused=useRef(false),cancelled=useRef(false),emitted=useRef(value);
-  useEffect(()=>{if(!focused.current||value!==emitted.current)setDraft(String(value));emitted.current=value;},[value]);
-  function commit(){
-    const parsed=draft.trim()===''?Number(value):Number(draft);
-    const next=Math.max(min,Math.min(max,Number.isFinite(parsed)?parsed:Number(value)));
-    setDraft(String(next));emitted.current=next;onChange(next);
-  }
-  return <input {...props} type="number" min={min} max={max} value={draft}
-    onFocus={()=>{focused.current=true;}} onChange={event=>{const text=event.target.value;setDraft(text);const number=Number(text);if(text.trim()!==''&&Number.isFinite(number)&&number>=min&&number<=max){emitted.current=number;onChange(number);}}}
-    onBlur={()=>{focused.current=false;if(cancelled.current){cancelled.current=false;setDraft(String(value));}else commit();}} onKeyDown={event=>{event.stopPropagation();if(event.key==='Enter')event.currentTarget.blur();if(event.key==='Escape'){cancelled.current=true;event.currentTarget.blur();}}}/>;
+  const field=useDraftNumber({value,live:true,onCommit:onChange,format:String,parse:(text,final)=>{
+    const number=parseDraftNumber(text);
+    if(number===undefined)return undefined;
+    return final?Math.max(min,Math.min(max,number)):number>=min&&number<=max?number:undefined;
+  }});
+  return <input {...props} type="number" min={min} max={max} {...field} onKeyDown={event=>{event.stopPropagation();field.onKeyDown(event);}}/>;
 }
