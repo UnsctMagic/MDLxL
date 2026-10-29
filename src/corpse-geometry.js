@@ -3,11 +3,11 @@ import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { updateBounds } from './mesh-tools.js';
 import { booleanContours, polygonGroups, signedArea } from './forge-geometry.js';
+import { lerp as mix } from './vec.js';
+import { quantile } from './math.js';
 
 const mean = points => points.length ? points.reduce((sum,p) => sum.map((v,i) => v+p[i]/points.length), [0,0,0]) : null;
 const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
-const mix = (a,b,t) => a.map((v,i) => v+(b[i]-v)*t);
-const quantile = (values,t) => values.toSorted((a,b)=>a-b)[Math.floor((values.length-1)*t)];
 const accessory = /weapon|sword|axe|shield|bow|staff|spear|hammer|gun|rifle|cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
 const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 // Native gutz proportions, measured on the 58 study models with a native

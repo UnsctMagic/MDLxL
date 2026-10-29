@@ -1,3 +1,4 @@
+import { crc32 } from './crc32.js';
 const assetKey=name=>String(name||'').replaceAll('/','\\').toLowerCase();
 export const isForgeAssetPath=name=>/^MDLxL_(?:Forge|Parts|Citadel)\/[a-z0-9][a-z0-9_.-]{0,200}\.(blp|dds|tga)$/i.test(String(name||'').replaceAll('\\','/'));
 export function forgeTexturePaths(model){return [...new Map((model.Textures||[]).filter(t=>isForgeAssetPath(t.Image)).map(t=>[assetKey(t.Image),t.Image])).values()];}
@@ -13,8 +14,6 @@ export function retainedForgeAssets(assets,model=null){
  return [...result.values()];
 }
 export function missingForgeAssetPaths(assets,model){const available=new Set(retainedForgeAssets(assets,model).map(a=>assetKey(a.name)));return forgeTexturePaths(model).filter(name=>!available.has(assetKey(name)));}
-const crcTable=Uint32Array.from({length:256},(_,n)=>{for(let i=0;i<8;i++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
-function crc32(bytes){let n=0xffffffff;for(const value of bytes)n=crcTable[(n^value)&255]^(n>>>8);return (n^0xffffffff)>>>0;}
 /** A deterministic stored ZIP keeps portable editor artifacts byte-exact. */
 export function storedZipArchive(files){
  const parts=[],central=[];let offset=0;

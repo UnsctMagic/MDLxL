@@ -1,9 +1,9 @@
+import { clamp } from '../src/math.js';
 // Warcraft table fields and name conventions are documented by the upstream viewer:
 // https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/viewer/handlers/mdx/handler.ts
 // https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/viewer/handlers/mdx/eventobjectemitterobject.ts
 // This module only evaluates authored events; it does not substitute placeholder effects.
 export const EVENT_TABLE_PATHS = Object.freeze({ SPN: 'Splats\\SpawnData.slk', SPL: 'Splats\\SplatData.slk', UBR: 'Splats\\UberSplatData.slk' });
-const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 const norm = value => String(value || '').replace(/\//g, '\\').toLowerCase();
 
 export function parseEventName(name) {

@@ -1,4 +1,4 @@
-const clampByte = value => Math.max(0, Math.min(255, Math.round(value)));
+import { clampByte } from './math.js';
 
 /** DOM-free reference compositor for Warcraft III material filter modes. */
 export function compositeMaterialPixels(layers, width, height) {

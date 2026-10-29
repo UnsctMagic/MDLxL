@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Euler, Quaternion, Vector3 } from 'three';
+import { Vector3 } from 'three';
+import { degreesToQuaternion } from '../src/rotation-math.js';
 import { CopyPlus } from 'lucide-react';
 import Viewport from './Viewport.jsx';
 import { CameraTools, Coordinate, Tool, TransformTools, WorkplaneControls } from './EditorControls.jsx';
@@ -45,7 +46,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
   };
   const receiveAngles = value => {
     setAngles(previous => ['x','y','z'].every(a=>Math.abs(previous[a]-value[a])<1e-8)?previous:value);
-    const q = new Quaternion().setFromEuler(new Euler(...['x', 'y', 'z'].map(a => value[a] * Math.PI / 180), 'XYZ'));
+    const q = degreesToQuaternion(['x', 'y', 'z'].map(a => value[a]));
     onView?.(new Vector3(0, 1, 0).applyQuaternion(q).toArray(), new Vector3(0, 0, 1).applyQuaternion(q).toArray());
   };
   const frameRequest = useMemo(() => ({ ...localFrame, frame }), [localFrame, frame]);

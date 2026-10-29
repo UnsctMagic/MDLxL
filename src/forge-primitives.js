@@ -1,4 +1,5 @@
-import { BoxGeometry, PlaneGeometry, CircleGeometry, SphereGeometry, IcosahedronGeometry, CylinderGeometry, TorusGeometry, BufferGeometry, Float32BufferAttribute, Euler, Quaternion } from 'three';
+import { BoxGeometry, PlaneGeometry, CircleGeometry, SphereGeometry, IcosahedronGeometry, CylinderGeometry, TorusGeometry, BufferGeometry, Float32BufferAttribute } from 'three';
+import { degreesToQuaternion } from './rotation-math.js';
 import { thumperGeometry } from './forge-thumper.js';
 
 export const FORGE_SHAPES = ['Plane', 'Cube', 'Circle', 'UV Sphere', 'Icosphere', 'Cylinder', 'Cone', 'Torus', 'Grid', 'ThumperXL', 'Quad Sphere'];
@@ -65,7 +66,7 @@ export function buildForgePrimitive(options = {}) {
   if (shape !== 'ThumperXL') geometry = fullIconPerTriangle(geometry);
   geometry.scale(width, height, flat ? thickness || 1 : depth);
   if (zUp && !flat && shape !== 'Torus') geometry.rotateX(Math.PI / 2);
-  geometry.applyQuaternion(new Quaternion().setFromEuler(new Euler(...rotation.map(n => n * Math.PI / 180), 'XYZ')));
+  geometry.applyQuaternion(degreesToQuaternion(rotation));
   geometry.translate(...position);
   const g = { Vertices: geometry.attributes.position.array.slice(), Normals: geometry.attributes.normal.array.slice(), TVertices: [geometry.attributes.uv.array.slice()], Faces: geometry.index ? new Uint16Array(geometry.index.array) : Uint16Array.from({ length: geometry.attributes.position.count }, (_, i) => i) };
   geometry.dispose();

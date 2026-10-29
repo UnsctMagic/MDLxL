@@ -1,13 +1,11 @@
 import { Quaternion } from 'three';
 import { allNodes, sampleTrack, sampleGeosetAnimation } from './animation.js';
 import { scanIrregularMotion, applyMotionCorrection } from './optimizexl-motion.js';
+import { length, sub as subtract, dot } from './vec.js';
+import { quantile } from './math.js';
 import { scanSuspiciousSnaps } from './optimizexl-snaps.js';
 
 const properties = ['Translation', 'Rotation', 'Scaling'];
-const quantile = (values, q) => values.length ? [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) * q)] : 0;
-const length = a => Math.hypot(...a);
-const subtract = (a, b) => a.map((v, i) => v - b[i]);
-const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
 const keyValue = k => Array.from(k.Vector);
 const distance = (a, b, property) => property === 'Rotation'
   ? new Quaternion().fromArray(a).normalize().angleTo(new Quaternion().fromArray(b).normalize()) * 180 / Math.PI

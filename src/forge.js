@@ -4,7 +4,7 @@ export { forgeTangents } from './geoset-tangents.js';
  * commitForge belongs inside EditorDocument.apply so one Forge is one undo step.
  * UVs always address the complete original image, including after crop/cleanup.
  */
-import { booleanContours, exteriorFrame, triangulateContours } from './forge-geometry.js';
+import { booleanContours, exteriorFrame, triangulateContours, signedArea as area, pointInside as pointIn, cross, segmentDistance } from './forge-geometry.js';
 import { createNode, recalculateNormals, recalculateExtents } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 export { ensureDummyBone } from './dummy-bone.js';
@@ -78,9 +78,6 @@ export function combineMask(current, selected, operation, original = null) {
   if (operation === 'add' && original) definition = { type: 'boolean', operation: 'keep', a: definition, b: shape(original), width, height };
   return attachShape(result, definition);
 }
-const area = loop => loop.reduce((sum, p, i) => { const q = loop[(i + 1) % loop.length]; return sum + p[0] * q[1] - p[1] * q[0]; }, 0) / 2;
-const pointIn = (p, loop) => { let inside = false; for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) { const a = loop[i], b = loop[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside; } return inside; };
-function segmentDistance(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); }
 function simplifyOpen(points, tolerance) {
   const keep = new Set([0, points.length - 1]), stack = [[0, points.length - 1]];
   while (stack.length) { const [a, b] = stack.pop(); let far = tolerance, index = -1; for (let i = a + 1; i < b; i++) { const d = segmentDistance(points[i], points[a], points[b]); if (d > far) { far = d; index = i; } } if (index >= 0) { keep.add(index); stack.push([a, index], [index, b]); } }
@@ -93,7 +90,6 @@ function simplifyLoop(loop, tolerance) {
   const simple = [...simplifyOpen(straight.slice(0, far + 1), tolerance).slice(0, -1), ...simplifyOpen([...straight.slice(far), straight[0]], tolerance).slice(0, -1)];
   if (simple.length < 3 || Math.sign(area(simple)) !== Math.sign(area(straight))) return tolerance > 1e-6 ? simplifyLoop(straight, tolerance / 2) : straight;
   if (simple.length > 1500) return straight;
-  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
   for (let i = 0; i < simple.length; i++) for (let j = i + 2; j < simple.length; j++) {
     if (i === 0 && j === simple.length - 1) continue;
     const a = simple[i], b = simple[(i + 1) % simple.length], c = simple[j], d = simple[(j + 1) % simple.length];
@@ -105,7 +101,6 @@ function simplifyLoop(loop, tolerance) {
 
 function simplifyTopology(loops, tolerance) {
   const result = loops.map(loop => simplifyLoop(loop, tolerance));
-  const cross = (a,b,c) => (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
   const intersects = (a,b) => a.some((p,i) => b.some((r,j) => { const q=a[(i+1)%a.length],s=b[(j+1)%b.length]; return cross(p,q,r)*cross(p,q,s)<-1e-10 && cross(r,s,p)*cross(r,s,q)<-1e-10; }));
   for (let iteration=0;iteration<8;iteration++) {
     const bad=new Set();
