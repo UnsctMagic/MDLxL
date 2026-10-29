@@ -17,7 +17,7 @@ test('versioned contracts include projects, targets, coats, strokes, presets, ma
 
 test('Citadel Paint adds only its artifacts to the Movement host desktop boundary',async()=>{
   const [main,preload,packager,viewport,index]=await Promise.all(['electron/main.cjs','electron/preload.cjs','scripts/package.mjs','app/PaintViewport.jsx','index.html'].map(file=>fs.readFile(file,'utf8')));
-  assert.match(main,/app\.setName\('MDLxL'\)/);assert.doesNotMatch(main,/Citadel Paint Preview/);assert.match(main,/new Set\(\['\.mdlxlpaint','\.zip'\]\)/);assert.match(main,/\.tmp/);assert.match(main,/fs\.rename\(temporary,destination\)/);
+  assert.match(main,/app\.setName\('MDLxL'\)/);assert.doesNotMatch(main,/Citadel Paint Preview/);assert.match(main,/new Set\(\['\.mdlxlpaint','\.zip'\]\)/);assert.match(main,/\.tmp/);assert.match(main,/writeFileAtomic\(destination,bytes,\{verify:true\}\)/);assert.match(await fs.readFile('electron/atomic-file.cjs','utf8'),/fs\.rename\(from, to\)/);
   assert.match(preload,/saveArtifact/);assert.match(packager,/electron\/paint-textures\.cjs/);assert.match(packager,/dist\/paint-assets\/manifest\.json/);
   assert.match(index,/script-src 'self' 'wasm-unsafe-eval'/);
   for(const field of ['geosetIndex','materialId','layerIndex','triangle','barycentric','uv','worldPosition','normal','depth','textureId','textureTarget'])assert.match(viewport,new RegExp(`${field}:`),field);

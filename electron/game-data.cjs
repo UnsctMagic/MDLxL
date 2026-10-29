@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 const run = promisify(execFile);
 const ARCHIVE_ORDER = ['war3patch.mpq', 'war3x.mpq', 'war3xlocal.mpq', 'war3.mpq'];
 const CONTAINERS = ['Games', 'Warcraft III', 'Warcraft 3', 'WarcraftIII', 'War3', 'WC3', 'Blizzard', 'Blizzard Entertainment', 'Battle.net', 'Program Files', 'Program Files (x86)'];
@@ -160,7 +161,7 @@ class GameDataDiscovery {
         const files = [...result.archives, ...result.cascFolders.map(folder => path.join(folder,'.build.info'))];
         const stamps = await Promise.all(files.map(async file => { const info = await fs.stat(file); return { file, size: info.size, mtimeMs: info.mtimeMs }; }));
         await fs.mkdir(path.dirname(this.cacheFile), { recursive: true });
-        await fs.writeFile(this.cacheFile, JSON.stringify({ version: 2, selectedKey, folders: result.folders, stamps, result }));
+        await writeFileAtomic(this.cacheFile, JSON.stringify({ version: 2, selectedKey, folders: result.folders, stamps, result }));
       } catch {}
     }
     return result;

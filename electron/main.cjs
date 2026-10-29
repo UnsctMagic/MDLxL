@@ -40,6 +40,7 @@ const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
+const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
 let updater, startupUpdateChecked=false;
 let bitsAndPartsLibrary;
 function getBitsAndPartsLibrary() { return bitsAndPartsLibrary ||= new BitsAndPartsLibrary(path.join(appFolder, 'BitsAndParts')); }
@@ -131,12 +132,12 @@ const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
 const filters=[{name:'Models and Paint Projects',extensions:MODEL_EXTENSIONS},{name:'Warcraft III models',extensions:WARCRAFT_MODEL_EXTENSIONS},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
-let recentQueue = Promise.resolve();
+const recentQueue=serialQueue();
 async function persistRecents(file){
   if(file)recents=[file,...recents.filter(p=>p.toLowerCase()!==file.toLowerCase())].slice(0,12);
   const encoded=JSON.stringify(recents);
-  const operation=recentQueue.catch(()=>{}).then(async()=>{await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'recent.json'),encoded);});
-  recentQueue=operation; await operation; if(commandCatalog)refreshMenu();
+  await recentQueue(async()=>{await fs.mkdir(profile,{recursive:true});await writeFileAtomic(path.join(profile,'recent.json'),encoded);});
+  if(commandCatalog)refreshMenu();
 }
 async function readModel(file,remember=true){
   const extension=path.extname(file).toLowerCase();if(!MODEL_EXTENSIONS.includes(extension.slice(1)))throw new Error('Choose an MDL, MDX, or MDLxL Paint Project.');
@@ -255,14 +256,14 @@ async function saveModel(payload){
 // destination is refused before any texture or temporary file is written.
 async function writeModelFile(destination,bytes,forgeAssets=[],{overwrite=true}={}){
   if(!overwrite&&await fs.access(destination).then(()=>true,()=>false))throw new Error('A file already exists at '+destination+'.');
+  await saveForgeAssets(destination,forgeAssets);
+  if(overwrite)return writeFileAtomic(destination,bytes,{verify:true});
   const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
-    await saveForgeAssets(destination,forgeAssets);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
     // copyFile with COPYFILE_EXCL also works on FAT/exFAT drives, unlike hard links.
-    if(overwrite)await fs.rename(temporary,destination);
-    else{await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);}
+    await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
 // AI exports go to the path the AI names, without a save dialog, but replacing
@@ -298,9 +299,8 @@ async function saveArtifact(payload){
   const result=await dialog.showSaveDialog(win,{title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,filters:[{name:extension==='.zip'?'ZIP package':'MDLxL Paint Project',extensions:[extension.slice(1)]}]});
   if(result.canceled)return null;let destination=result.filePath;if(path.extname(destination).toLowerCase()!==extension)destination+=extension;
   if(!allowed.has(path.extname(destination).toLowerCase()))throw Error('The selected painter artifact extension is not allowed.');
-  const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
-  try{await fs.writeFile(temporary,bytes,{flag:'wx'});const check=await fs.readFile(temporary);if(!check.equals(bytes))throw Error('Artifact write verification failed.');await fs.rename(temporary,destination);return {name:path.basename(destination),path:destination,bytes:bytes.length};}
-  catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
+  await writeFileAtomic(destination,bytes,{verify:true});
+  return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }
 ipcMain.handle('artifact:save',(_,payload)=>{const operation=artifactSaveQueue.catch(()=>{}).then(()=>saveArtifact(payload));artifactSaveQueue=operation;return operation;});
 async function resolveTextures(payload, extensions){

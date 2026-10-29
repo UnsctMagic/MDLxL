@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const crypto = require('node:crypto');
+const { writeFileAtomic, serialQueue } = require('./atomic-file.cjs');
 
 const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -74,7 +74,7 @@ class SettingsStore {
     this.file = file;
     this.normalizePreferences = normalizePreferences;
     this.settings = { preferences: normalizePreferences() };
-    this.queue = Promise.resolve();
+    this.enqueue = serialQueue();
   }
   async load(fallbackFile) {
     let value;
@@ -92,25 +92,16 @@ class SettingsStore {
     // Validate before enqueuing and snapshot IPC input so later callers cannot alter it.
     applySettingsPatch(this.settings, patch, this.normalizePreferences);
     const input = structuredClone(patch);
-    const operation = this.queue.catch(() => {}).then(async () => {
+    return this.enqueue(async () => {
       const next = applySettingsPatch(this.settings, input, this.normalizePreferences);
       if (JSON.stringify(next) === JSON.stringify(this.settings)) return this.settings;
       await fs.mkdir(path.dirname(this.file), { recursive: true });
-      const temporary = this.file + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
-      try {
-        await fs.writeFile(temporary, JSON.stringify(next), { flag: 'wx' });
-        await fs.rename(temporary, this.file);
-      } catch (error) {
-        await fs.unlink(temporary).catch(() => {});
-        throw error;
-      }
+      await writeFileAtomic(this.file, JSON.stringify(next));
       this.settings = next;
       return next;
     });
-    this.queue = operation;
-    return operation;
   }
-  async flush() { await this.queue.catch(() => {}); }
+  async flush() { await this.enqueue.idle(); }
 }
 
 module.exports = { SettingsStore, applySettingsPatch, validatePreferences };

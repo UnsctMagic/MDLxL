@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { gamePathKey } = require('./game-path.cjs');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 const { spawn } = require('node:child_process');
 const { createInterface } = require('node:readline');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -87,7 +88,7 @@ class CascTextures {
             if (this.directory) await fs.mkdir(this.directory, {recursive:true});
             const reader = this.openReader(folder, this.directory || __dirname);
             try { index = {version:1, ...await reader.list('sounds')}; } finally { reader.close(); }
-            if (file) { await fs.writeFile(file + '.tmp', JSON.stringify(index)); await fs.rename(file + '.tmp', file); }
+            if (file) await writeFileAtomic(file, JSON.stringify(index));
           }
           this.soundIndexes.set(install, index);
         }
@@ -139,7 +140,7 @@ class CascTextures {
             const reader = this.openReader(folder,this.directory || __dirname);
             try { listing = {version:1,...await reader.list('files')}; } finally { reader.close(); }
             if (file) {
-              await fs.writeFile(file + '.tmp',JSON.stringify(listing)); await fs.rename(file + '.tmp',file);
+              await writeFileAtomic(file,JSON.stringify(listing));
               const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => /^[a-f0-9]{64}\.files\.json$/.test(name)).map(async name => ({file:path.join(this.directory,name),info:await fs.stat(path.join(this.directory,name))})));
               for (const old of indexes.sort((a,b)=>b.info.mtimeMs-a.info.mtimeMs).slice(4)) await fs.unlink(old.file);
             }
@@ -177,7 +178,7 @@ class CascTextures {
           const reader = this.openReader(folder,this.directory || __dirname);
           try { const listed=await reader.list();names=Array.isArray(listed)?listed:listed.names;keys=listed.keys||{}; } finally { reader.close(); }
           if (file) {
-            const temporary = file + '.tmp'; await fs.writeFile(temporary,JSON.stringify({version:4,names,keys})); await fs.rename(temporary,file);
+            await writeFileAtomic(file,JSON.stringify({version:4,names,keys}));
             const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => /^[a-f0-9]{64}\.textures\.json$/.test(name)).map(async name => ({file:path.join(this.directory,name),info:await fs.stat(path.join(this.directory,name))})));
             for (const old of indexes.sort((a,b)=>b.info.mtimeMs-a.info.mtimeMs).slice(8)) await fs.unlink(old.file);
           }
@@ -209,8 +210,7 @@ class CascTextures {
       catch (error) { entry.reader.close(); this.readers.delete(install); throw error; }
       finally { if (this.readers.has(install)) entry.timer = setTimeout(() => { entry.reader.close(); this.readers.delete(install); },15000).unref(); }
       if (file) {
-        const temporary = file + '.tmp';
-        await fs.writeFile(temporary,bytes || Buffer.alloc(0)); await fs.rename(temporary,file);
+        await writeFileAtomic(file,bytes || Buffer.alloc(0));
         await this.trim(file,bytes?.length||0);
       }
       if (bytes?.length) return bytes;
