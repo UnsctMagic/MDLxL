@@ -1,4 +1,5 @@
-import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { createResourceImporter } from './model-import.js';
+import { stableKey } from './value-key.js';
 import { isGlobalTrack } from './animation.js';
 import { createNode, NODE_TYPES } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
@@ -7,8 +8,7 @@ import { adaptPasteFormat } from './paste-format.js';
 import { uniqueName as freeName } from './node-hierarchy.js';
 
 const clone = value => structuredClone(value);
-const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined && key !== 'PivotPoint').map(key => [key, canonical(value[key])])) : value;
-const fingerprint = value => JSON.stringify(canonical(value));
+const fingerprint = value => stableKey(value, { omit: ['PivotPoint'] });
 const nodeType = (model, id) => Object.keys(NODE_TYPES).find(type => model[NODE_TYPES[type][0]]?.some(node => node?.ObjectId === id));
 
 export function captureNodeSelection(model, selectedNodeIds = []) {
@@ -24,53 +24,23 @@ export function pasteNodesToDummy(target, clipboard) {
   for (const id of selected) if (!source.Nodes?.[id] || !nodeType(source, id)) throw Error(`Copied node ${id} no longer exists.`);
   const dummy = ensureDummyBone(target);
   target.Textures ||= []; target.Materials ||= []; target.TextureAnims ||= []; target.GlobalSequences ||= [];
-  const maps = { nodes: new Map(), textures: new Map(), materials: new Map(), textureAnims: new Map(), globals: new Map() }, createdNodes = new Map();
-  const reuse = (collection, value) => { const key = fingerprint(value), index = collection.findIndex(item => fingerprint(item) === key); return index < 0 ? collection.push(value) - 1 : index; };
-  const remapGlobals = value => {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (isGlobalTrack(value)) {
-      const old = value.GlobalSeqId, duration = source.GlobalSequences?.[old];
-      if (!Number.isInteger(duration) || duration <= 0) throw Error(`Copied node references missing global sequence ${old}.`);
-      if (!maps.globals.has(old)) maps.globals.set(old, reuse(target.GlobalSequences, duration));
-      value.GlobalSeqId = maps.globals.get(old);
-    }
-    for (const child of Object.values(value)) remapGlobals(child);
-  };
-  const textureRef = old => {
-    if (old == null || old === -1) return old;
-    if (!source.Textures?.[old]) throw Error(`Copied node references missing texture ${old}.`);
-    if (!maps.textures.has(old)) maps.textures.set(old, reuse(target.Textures, clone(source.Textures[old])));
-    return maps.textures.get(old);
-  };
-  const materialRef = old => {
-    if (old == null || old === -1) return old;
-    if (!source.Materials?.[old]) throw Error(`Copied node references missing material ${old}.`);
-    if (maps.materials.has(old)) return maps.materials.get(old);
-    const material = clone(source.Materials[old]);
-    for (const layer of material.Layers || []) {
-      for (const slot of TEXTURE_SLOTS) {
-        if (typeof layer[slot] === 'number') layer[slot] = textureRef(layer[slot]);
-        else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) key[field] = new Int32Array(Array.from(key[field], textureRef));
-        if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = textureRef(layer._MdxDefaults[slot]);
-      }
-      if (Number.isInteger(layer.TVertexAnimId) && layer.TVertexAnimId >= 0) {
-        const oldAnimation = layer.TVertexAnimId;
-        if (!source.TextureAnims?.[oldAnimation]) throw Error(`Copied node material references missing texture animation ${oldAnimation}.`);
-        if (!maps.textureAnims.has(oldAnimation)) { const animation = clone(source.TextureAnims[oldAnimation]); remapGlobals(animation); maps.textureAnims.set(oldAnimation, reuse(target.TextureAnims, animation)); }
-        layer.TVertexAnimId = maps.textureAnims.get(oldAnimation);
-      }
-    }
-    remapGlobals(material); maps.materials.set(old, reuse(target.Materials, material)); return maps.materials.get(old);
-  };
-  const ordered = [], visiting = new Set(), visited = new Set();
-  const visit = id => {
-    if (visited.has(id)) return;
-    if (visiting.has(id)) throw Error('Copied node hierarchy contains a cycle.');
-    visiting.add(id); const parent = source.Nodes[id].Parent;
-    if (selected.has(parent)) visit(parent);
-    visiting.delete(id); visited.add(id); ordered.push(id);
-  };
-  for (const id of selected) visit(id);
+  const { requireNode, requiredNodes: ordered, globalRef: remapGlobals, textureRef, materialRef, maps } = createResourceImporter(source, target, {
+    reuseTextures: 'fingerprint', reuseGlobals: true,
+    validGlobalId: (id, model) => Number.isInteger(model.GlobalSequences?.[id]) && model.GlobalSequences[id] > 0,
+    keyArrayType: 'int32', fingerprint, reuseMaterials: true, reuseTextureAnims: true,
+    isGlobalRef: isGlobalTrack, validateMappedGlobals: true, materialSentinels: true,
+    isTextureAnimRef: id => Number.isInteger(id) && id >= 0,
+    parentForNode: node => selected.has(node.Parent) ? node.Parent : null,
+    error: (kind, id) => ({
+      cycle: 'Copied node hierarchy contains a cycle.',
+      global: `Copied node references missing global sequence ${id}.`,
+      texture: `Copied node references missing texture ${id}.`,
+      material: `Copied node references missing material ${id}.`,
+      textureAnim: `Copied node material references missing texture animation ${id}.`,
+    })[kind],
+  });
+  const createdNodes = new Map();
+  for (const id of selected) requireNode(id);
   const usedNames = new Set((target.Nodes || []).filter(Boolean).map(node => node.Name));
   const uniqueName = original => {
     if (original !== 'DummyBone' && !usedNames.has(original)) { usedNames.add(original); return original; }
@@ -91,5 +61,5 @@ export function pasteNodesToDummy(target, clipboard) {
   }
   canonicalizeSerializedNodeOrder(target);
   for (const [old, node] of createdNodes) maps.nodes.set(old, node.ObjectId);
-  return { nodeIds: ordered.map(id => maps.nodes.get(id)), nodeMap: Object.fromEntries(maps.nodes), dummyId: dummy.ObjectId };
+  return { nodeIds: [...ordered].map(id => maps.nodes.get(id)), nodeMap: Object.fromEntries(maps.nodes), dummyId: dummy.ObjectId };
 }

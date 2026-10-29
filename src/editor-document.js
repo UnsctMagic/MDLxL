@@ -1,3 +1,4 @@
+import { createResourceImporter } from './model-import.js';
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { MODEL_COMMENTS_KEY, readModelComments, writeModelComments } from './model-comments.js';
 import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdContentKind, clearHDMaterialSettings, HD_VIEW_ONLY_MESSAGE } from './model-version.js';
@@ -1077,15 +1078,17 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   const indices = [...new Set(selectedIndices)];
   if (!indices.length) return { geosetIndices: [], selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
   for (const index of indices) if (!source.Geosets?.[index]) throw new Error(`Source geoset ${index} does not exist.`);
-  const neededNodes = new Set(); const visiting = new Set();
-  function requireNode(id) {
-    if (neededNodes.has(id)) return;
-    if (visiting.has(id)) throw new Error('Source hierarchy contains a cycle.');
-    const node = source.Nodes?.[id]; if (!node) throw new Error(`Source rig references missing node ${id}.`);
-    visiting.add(id);
-    if (node.Parent != null && node.Parent !== -1) requireNode(node.Parent);
-    visiting.delete(id); neededNodes.add(id);
-  }
+  const { requireNode, requiredNodes: neededNodes, globalRef, textureRef, materialRef, maps } = createResourceImporter(source, target, {
+    reuseTextures: 'fingerprint', reuseGlobals: false,
+    validGlobalId: (id, model) => model.GlobalSequences[id] !== undefined,
+    keyArrayType: 'int32', fingerprint, requireLayers: true, defaultsAfterSlots: true,
+    reuseMaterials: rigid,
+    existingMaterial: old => {
+      if (!reuseExisting) return -1;
+      const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;
+      return original >= 0 ? original : target.Materials.findIndex(material => fingerprint(material) === fingerprint(source.Materials[old]));
+    },
+  });
   for (const index of indices) {
     const g = source.Geosets[index];
     if (!rigid) {
@@ -1093,54 +1096,8 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
       for (let i = 0; i < (g.SkinWeights?.length || 0); i += 8) for (let k = 0; k < 4; k++) if (g.SkinWeights[i + 4 + k]) requireNode(g.SkinWeights[i + k]);
     }
   }
-  const maps = { textures: new Map(), materials: new Map(), textureAnims: new Map(), globals: new Map(), nodes: new Map(), geosets: new Map(), geosetAnims: new Map() };
+  maps.geosets = new Map(); maps.geosetAnims = new Map();
   const createdNodes = new Set(), createdGeosets = new Set(), selections = new Map();
-  const globalRef = (value) => {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (value.GlobalSeqId != null && value.GlobalSeqId !== -1) {
-      const old = value.GlobalSeqId;
-      if (!maps.globals.has(old)) { if (source.GlobalSequences[old] === undefined) throw new Error('Source track references a missing global sequence.'); maps.globals.set(old, target.GlobalSequences.push(source.GlobalSequences[old]) - 1); }
-      value.GlobalSeqId = maps.globals.get(old);
-    }
-    for (const child of Object.values(value)) globalRef(child);
-  };
-  const textureRef = (old) => {
-    if (old == null || old === -1) return old;
-    if (!source.Textures[old]) throw new Error(`Source material references missing texture ${old}.`);
-    if (!maps.textures.has(old)) {
-      const sourceTexture = source.Textures[old]; const existing = target.Textures.findIndex((t) => fingerprint(t) === fingerprint(sourceTexture));
-      maps.textures.set(old, existing >= 0 ? existing : target.Textures.push(clone(sourceTexture)) - 1);
-    }
-    return maps.textures.get(old);
-  };
-  const materialRef = (old) => {
-    if (!source.Materials[old]) throw new Error(`Source geoset references missing material ${old}.`);
-    if (!maps.materials.has(old)) {
-      if (reuseExisting) {
-        const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;
-        const existing = original >= 0 ? original : target.Materials.findIndex((material) => fingerprint(material) === fingerprint(source.Materials[old]));
-        if (existing >= 0) { maps.materials.set(old, existing); return existing; }
-      }
-      const material = clone(source.Materials[old]);
-      for (const layer of material.Layers) {
-        for (const slot of TEXTURE_SLOTS) if (typeof layer[slot] === 'number') layer[slot] = textureRef(layer[slot]);
-        else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) { key.Vector = new Int32Array([...key.Vector].map(textureRef)); if (key.InTan) key.InTan = new Int32Array([...key.InTan].map(textureRef)); if (key.OutTan) key.OutTan = new Int32Array([...key.OutTan].map(textureRef)); }
-        for (const slot of TEXTURE_SLOTS) if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = textureRef(layer._MdxDefaults[slot]);
-        const texAnim = layer.TVertexAnimId;
-        if (texAnim != null && texAnim !== -1) {
-          if (!source.TextureAnims[texAnim]) throw new Error('Source material references a missing texture animation.');
-          if (!maps.textureAnims.has(texAnim)) { const animation = clone(source.TextureAnims[texAnim]); globalRef(animation); maps.textureAnims.set(texAnim, target.TextureAnims.push(animation) - 1); }
-          layer.TVertexAnimId = maps.textureAnims.get(texAnim);
-        }
-      }
-      globalRef(material);
-      // A rigid import has a separate dependency table. Compare only after
-      // texture, texture-animation and global-sequence IDs are remapped.
-      const existing = rigid ? target.Materials.findIndex(candidate => fingerprint(candidate) === fingerprint(material)) : -1;
-      maps.materials.set(old, existing >= 0 ? existing : target.Materials.push(material) - 1);
-    }
-    return maps.materials.get(old);
-  };
   for (const id of neededNodes) {
     if (reuseExisting) {
       const destinationId = existingNodeMap?.get(id) ?? id;
