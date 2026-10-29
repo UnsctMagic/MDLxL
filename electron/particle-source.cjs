@@ -1,10 +1,11 @@
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
+const {installKey}=require('./casc.cjs');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 /** Only the configured installation is read; recipe metadata cannot select arbitrary local paths. */
 async function particleSourceState(discover,expected){
  const found=await discover(),folder=found.cascFolders?.[0];if(!folder)return {state:'missing',message:'Connect your Warcraft III installation in Settings.'};
  let build;try{build=await fs.readFile(path.join(folder,'.build.info'));}catch(error){return {state:'missing',message:'The indexed Warcraft installation is unavailable. Reconnect it in Settings.'};}
- const sourceKey=hash(path.resolve(folder).toLowerCase()+'|'+hash(build));
+ const sourceKey=installKey(folder,build);
  return sourceKey===expected?{state:'ready',sourceKey,folder}:{state:'changed',sourceKey,folder,message:'The Warcraft source or build changed. Index Warcraft assets again before opening its effects.'};
 }
 async function resolveParticleSourceAssets(payload,{discover,casc}){
