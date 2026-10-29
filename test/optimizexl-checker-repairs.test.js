@@ -2,6 +2,7 @@
 // "Fix everything" must clear the finding without adding errors or severe ones.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { generateMDX } from 'war3-model';
 import { sanityTest } from './helpers/hive.mjs';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
@@ -36,7 +37,8 @@ const CASES = [
   ['keys out of order', /lower than the track before it/, m => { bone(m).Translation = track([key(0, [0, 0, 0]), key(500, [0, 0, 9]), key(200, [0, 0, 3]), key(1000, [0, 0, 0])]); }],
   ['two keys on one frame', /has the same frame/, m => { bone(m).Translation = track([key(0, [0, 0, 0]), key(500, [0, 0, 9]), key(500, [0, 0, 5]), key(1000, [0, 0, 0])]); }],
   ['a key before frame 0', /negative frame/, m => { bone(m).Translation = track([key(-50, [0, 0, 1]), key(0, [0, 0, 0]), key(1000, [0, 0, 5])]); }],
-  ['an empty track', /Zero tracks/, m => { bone(m).Translation = track([]); }],
+  // The fixed exporter omits this header; use the dependency to retain a legacy broken input.
+  ['an empty track', /Zero tracks/, m => { bone(m).Translation = track([]); }, m => new Uint8Array(generateMDX({ ...m, BindPoses: undefined }))],
   ['an event that never fires', /Zero tracks/, m => { createNode(m, 'EventObject').EventTrack = new Uint32Array([]); }],
   ['a missing global sequence', /Invalid global sequence/, m => { m.GeosetAnims.push({ GeosetId: 0, Flags: 0, Color: new Float32Array([1, 1, 1]), Alpha: track([key(0, [1]), key(50, [1])], 0, 4) }); }],
   ['texture path with team colour', /used together/, m => { m.Textures[0].ReplaceableId = 1; }],
@@ -72,9 +74,9 @@ const CASES = [
   ['fading particle visibility', /Interpolation type not set to None/, m => { createNode(m, 'ParticleEmitter2').Visibility = track([key(0, [1]), key(1000, [0])]); }],
 ];
 
-for (const [name, finding, breakModel] of CASES) test(`Fix everything repairs ${name}`, () => {
+for (const [name, finding, breakModel, legacyBytes] of CASES) test(`Fix everything repairs ${name}`, () => {
   const m = cleanModel(); breakModel(m);
-  const broken = bytesOf(m), before = hive(broken);
+  const broken = legacyBytes ? legacyBytes(m) : bytesOf(m), before = hive(broken);
   assert.ok(before.findings.some(f => finding.test(f.message)), `the fixture must show the finding (${before.findings.map(f => f.message).join(' | ')})`);
   const result = runOptimizeStage(broken, 'sanity', {}, { kind: 'fixAll', stage: 'sanity' }), after = hive(result.bytes);
   assert.deepEqual(after.findings.filter(f => finding.test(f.message)).map(f => f.message), []);
