@@ -29,9 +29,7 @@ const {
   RETIRE_AT,
   nextBird,
   contextUse,
-  removeFiles,
   writeJsonAtomic,
-  deleteProviderSessions,
   settleConversation,
 } = require('./ai-offload.cjs');
 
@@ -40,15 +38,8 @@ const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it emp
 function limitOf(config, name) {
   return typeof config[name] === 'number' ? config[name] : 0;
 }
-// Chats of models not used for this many days are cleaned up; 0 = never.
-const DAY = 24 * 60 * 60 * 1000;
-function cleanupDaysOf(config) {
-  return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
-}
-// Chat ids, and chat files (with their temporary copies) in the AI folder.
-const CHAT_ID_PATTERN = '[a-zA-Z0-9_-]{1,80}';
-const CHAT_ID = new RegExp('^' + CHAT_ID_PATTERN + '$');
-const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$');
+const chats = require('./ai-chats.cjs');
+const { cleanupDaysOf, CHAT_ID } = chats;
 // Model lists are kept per provider and server.
 function catalogKey(settings) {
   return settings.provider + ':' + (settings.baseUrl || '');
@@ -1591,132 +1582,27 @@ class AiService {
   setOffload(enabled) {
     return this.setSwitch('offload', 'offload', enabled);
   }
-  async setRememberedCleanup({ modelKey, remember }) {
-    if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
-    const entry = await this.registry.model(modelKey);
-    entry.remember = remember;
-    await this.registry.save();
-    return { remember };
+  setRememberedCleanup(input) {
+    return chats.setRememberedCleanup(this, input);
   }
   // After a save: keep everything, keep a memory note, or delete every chat for this model.
-  async cleanup({ modelKey, mode, remember = false }) {
-    if (!['keep', 'summary', 'wipe'].includes(mode)) throw Error('Unknown cleanup choice.');
-    if (this.active || this.modelBusy(modelKey)) throw Error('Wait until the AI finishes before cleaning up its chats.');
-    const entry = await this.registry.model(modelKey);
-    if (remember) entry.remember = mode;
-    entry.activity = false;
-    if (mode === 'keep') {
-      await this.registry.save();
-      return { mode };
-    }
-    const settings = await this.settings();
-    let note = null;
-    if (mode === 'summary' && entry.organiser) {
-      const organiser = await this.conversation(entry.organiser, settings.provider).catch(() => null);
-      if (organiser?.transcript.length) note = await this.memoryNote(organiser, settings, entry.note);
-    }
-    const { ids, providerFiles } = await this.removeChats(entry);
-    entry.note = mode === 'summary' ? note || entry.note : null;
-    // A summary keeps the decision diary; wiping removes it with the chats.
-    if (mode === 'wipe') delete entry.diary;
-    entry.organiser = null;
-    entry.earlier = [];
-    await this.registry.save();
-    this.emit({ type: 'organiser-reset', modelKey });
-    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+  cleanup(input) {
+    return chats.cleanup(this, input);
   }
-  // A model's chat files: its organisers, their birds, and the provider thread ids.
-  async chatsOf(entry) {
-    const ids = [],
-      threads = [];
-    for (const organiserId of [entry.organiser, ...(entry.earlier || [])].filter(Boolean)) {
-      const organiser = await this.readConversation(organiserId);
-      ids.push(organiserId);
-      if (organiser?.threadId) threads.push(organiser.threadId);
-      for (const worker of organiser?.workers || []) {
-        const conversation = await this.readConversation(worker.id);
-        ids.push(worker.id);
-        if (conversation?.threadId) threads.push(conversation.threadId);
-      }
-    }
-    return { ids, threads };
+  chatsOf(entry) {
+    return chats.chatsOf(this, entry);
   }
-  async removeChats(entry) {
-    const { ids, threads } = await this.chatsOf(entry);
-    for (const id of ids) {
-      this.conversations.delete(id);
-      await this.writes.get(id)?.catch(() => {});
-      await fs.rm(this.chatFile(id), { force: true });
-    }
-    return { ids, providerFiles: await deleteProviderSessions(this.directory, threads) };
+  removeChats(entry) {
+    return chats.removeChats(this, entry);
   }
-  // Important models keep their chats; automatic cleanup never removes them.
-  async setImportant({ modelKey, important }) {
-    if (typeof important !== 'boolean') throw Error('Choose on or off.');
-    const entry = await this.registry.model(modelKey);
-    entry.important = important;
-    await this.registry.save();
-    return { important };
+  setImportant(input) {
+    return chats.setImportant(this, input);
   }
-  // Models get moved, renamed or edited in other programs, so their chats can be
-  // left behind. Every chat, note, diary, provider copy and temporary file of a
-  // model not used for `cleanupDays` days is deleted, unless the model is important.
-  async cleanupUnused(now = Date.now()) {
-    const days = cleanupDaysOf(await this.configuration());
-    if (!days || this.active || this.tasks.size || this.closing) return { models: 0, files: 0 };
-    const cutoff = now - days * DAY,
-      data = await this.registry.load(),
-      kept = new Set(),
-      keptThreads = new Set();
-    let models = 0,
-      files = 0;
-    const newest = async ids => {
-      let time = 0;
-      for (const id of ids) {
-        const stat = await fs.stat(this.chatFile(id)).catch(() => null);
-        if (stat) time = Math.max(time, stat.mtimeMs);
-      }
-      return time;
-    };
-    for (const [key, entry] of Object.entries(data.models)) {
-      const chats = await this.chatsOf(entry);
-      const used = Math.max(entry.used || 0, await newest(chats.ids));
-      // An entry with no date yet starts its timer now.
-      if (!used) entry.used = now;
-      if (entry.important || this.modelBusy(key) || !used || used > cutoff) {
-        for (const id of chats.ids) kept.add(id);
-        for (const thread of chats.threads) keptThreads.add(thread);
-        continue;
-      }
-      const removed = await this.removeChats(entry);
-      files += removed.ids.length + removed.providerFiles;
-      delete data.models[key];
-      models++;
-      this.emit({ type: 'organiser-reset', modelKey: key });
-    }
-    await this.registry.save();
-    // Chats no model points to any more, and provider copies and run folders left by them.
-    const old = async full => ((await fs.stat(full).catch(() => null))?.mtimeMs ?? now) <= cutoff;
-    for (const name of await fs.readdir(this.directory).catch(() => [])) {
-      const full = path.join(this.directory, name),
-        chat = CHAT_FILE.exec(name);
-      if (chat ? kept.has(chat[1]) || this.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
-      if (!(await old(full))) continue;
-      await fs.rm(full, { recursive: true, force: true });
-      files++;
-    }
-    // Only session logs and temporary files: sign-in and provider settings stay.
-    const sweep = (folder, unwanted) => removeFiles(path.join(this.directory, folder), async (name, full) => unwanted(name) && (await old(full)));
-    const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
-    files += await sweep('temp', () => true);
-    for (const folder of PROVIDERS.flatMap(p => p.logFolders)) files += await sweep(folder, orphanLog);
-    return { models, files };
+  cleanupUnused(now) {
+    return chats.cleanupUnused(this, now);
   }
-  // Checks a minute after start and then every few hours while MDLxL is open.
   startCleanup() {
-    const run = () => this.cleanupUnused().catch(error => console.error('AI cleanup: ' + error.message));
-    this.cleanupTimers = [setTimeout(run, 60000), setInterval(run, 6 * 60 * 60 * 1000)];
-    for (const timer of this.cleanupTimers) timer.unref?.();
+    chats.startCleanup(this);
   }
   async memoryNote(organiser, settings, previousNote) {
     const contract = await this.init(),
