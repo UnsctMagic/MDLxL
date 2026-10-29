@@ -1,8 +1,8 @@
 # AI hook learning facts (why an outside agent fixed in one go what the hook could not)
 
-Status: study done; hook improvements not started
+Status: case 1 done and acted on in 0.34.0 ([harness](ai-hook-harness.md)); case 2 (facts 11–16) done, not acted on
 Owner / consolidator: Claude Code (side session of the AI hook work)
-Updated: 2026-10-27
+Updated: 2026-10-29
 
 ## Goal and completion criteria
 
@@ -301,7 +301,154 @@ graded by the same AI that made the change.
 - Owner verdict counts come from reading each next owner message. "Partly
   accepted" is a judgement call (for example "almost there, still a LUMP").
 
+## Case 2 (2026-10-29): adding an animated part across every animation
+
+Studied by Claude Code on branch `claude/ai-flail-gaps` (from `origin/main`
+`d5acb46f`), after the harness fixes of 0.34.0 and the matching review pictures
+work. The model is only the evidence; every fact below is about the hook.
+
+### The evidence
+
+- **The outside run.** The owner's zip `WarriorNurgle_Flail_All_Available_Files.zip`
+  (revised Flail04, Flail05–08, four preview GIFs) and its rebuilt 24-page report
+  `WarriorNurgle_Flail_Full_Report.pdf`, both in the owner's Downloads. A ChatGPT
+  chat agent was asked to make every animation hold a newly added weapon where the
+  owner had placed it in Stand, animate its chain and head, keep the body untouched,
+  and later to keep one handle bone that moves the whole weapon and to shrink the
+  file from about 850 KB to about 100 KB. Five deliveries in about two hours.
+- **The MDLxL follow-up.** The owner then edited Flail08 further with MDLxL's own
+  AI and found it "very back and forth". The owner declined access to the AI chat
+  files for this study, so that side is known only from the owner's words and from
+  [Matching review pictures](ai-review-matching-pictures.md), which came from the
+  same follow-up (its review compared the wrong animation and passed a blocked check).
+- **A correction to "one prompt".** The outside run was not right first time. The
+  owner rejected Flail05 ("you repositioned it") and Flail06 ("I cannot move the
+  flail because of you") before Flail07 and Flail08 were accepted. What felt like
+  one prompt was this: every round returned a complete, whole-model result that the
+  owner could judge at once, and each rejection made the next round better, never
+  worse. The facts below explain why that happens outside and not in the hook.
+- **The outside agent overclaimed too.** It reported 4,665 and then 142,022 sampled
+  poses as passed for the two versions the owner rejected, and its final file
+  changed the geometry section (GEOS 71,923 → 58,339 bytes) in a weapon-only job
+  without saying why. Big sample counts did not make its checks right.
+
+### 11. The hook cannot tell the owner's own edits from AI edits, so it cannot protect them.
+
+The outside report's first conclusion is "a reference pose is a contract": the
+owner had placed the part by hand, and both rejected rounds moved it. When the
+owner re-placed the part mid-task, that new placement became the authority and
+the agent carried its chain motion onto it.
+
+In the hook, the plan's keep list is written by the AI from the request text. The
+decision diary records AI jobs and tells the next AI that their edits were choices
+it may undo (fact 8). Nothing records what the owner changed by hand between jobs,
+so hand-placed data looks exactly like any other data, or worse, like a leftover of
+an earlier AI job. When the owner edits during a job, the hook stops the job as
+stale instead of taking the edit as the new reference. No code in `ai-service.cjs`,
+`ai-awareness.cjs`, `ai-diary.cjs` or `ai-editor.js` tracks who made an edit.
+
+General truth: the owner's hand edits are the strongest statement of what they
+want. The hook should know which data the owner set by hand since the last job and
+treat it as kept unless the owner says otherwise.
+
+### 12. Requirements that must hold in every animation are not checked in every animation.
+
+"The part stays in the same spot in both hands in all animations" is a
+relationship that must hold at every moment of every clip. The hook's tools are
+built around "unchanged compared with before": the keep list, `protectedPaths`,
+and the review's original/edited picture pairs. A relationship that must stay
+true everywhere is a different kind of check. `mdlxl_sample` takes up to 32
+frames per call and `mdlxl_capture` up to 12 pictures, which invites spot checks
+of a few poses. Scripts can sample more, but there is no ready routine and the
+prompt does not ask for one.
+
+The outside agent's first failure shows the same trap: it proved the part followed
+one hand, not both. Its later rounds measured the two contact points in the part's
+own space over the whole timeline.
+
+General truth: for "keep X attached to / clear of / level with Y everywhere",
+the check has to sweep every clip and report the worst moment and where it is,
+rather than compare a few chosen frames.
+
+### 13. Nothing reviews the model as a thing the owner works with: its rig and its size.
+
+The second rejection was not about looks. The weapon looked right, but extra grip
+bones meant the owner could no longer move it with one bone. Pictures cannot show
+that, so the hook's outside check (fact 4 fix) would have passed it: it judges only
+"what the owner will see", and the owner also edits, moves and ships the model.
+
+The same blind spot covers size. The outside rounds grew the bone section from
+56 KB to 787 KB with sampled keys before a size limit forced a simpler motion. The
+hook's prompt says "Prefer sparse keys to baked tracks", and `mdlxl_document`
+validate already returns the saved byte size, but nothing compares structure or
+size with the original or shows the growth to anyone.
+
+General truth: the review should state what the edit did to the model's structure
+and cost, compared with the original: nodes added, re-parented or inserted between
+existing bones, keys added, bytes before and after. An unrequested change to which
+bone moves what should be named plainly and asked about, and an editor drag
+(`mdlxl_ui`) can prove the main control still moves the whole part.
+
+### 14. Corrections do not become standing requirements.
+
+The outside report ends with "acceptance is cumulative": each rejection added one
+explicit requirement (both hands; one handle bone; the new placement; the size
+limit) and every later round was judged against all of them.
+
+In the hook, each job writes a fresh plan with its own keep list and checks. The
+diary keeps the owner's next message as a 300-character note on the last job, and
+shows only the last 8 jobs (`SHOWN = 8`). Nothing turns "I cannot move it because of
+you" into a requirement that later jobs must check, so a later job can quietly undo
+what an earlier correction established, and the owner has to say it again.
+
+General truth: a model needs one short list of the owner's standing requirements,
+in their words, that every plan starts from and every review checks, and that only
+the owner can remove.
+
+### 15. The final word is one word, so a result can pass while one requirement fails.
+
+The report's key lesson is that grip, editability, clearance, looks and size are
+separate tests and none stands in for another. In the hook a job finishes with one
+outcome (`passed`, `needs-correction` or `blocked`) and the outside check returns
+one verdict (`good`, `doubtful`, `wrong`). Per-criterion results exist in
+`mdlxl_review`, but only with SD Brain on and only for SD art criteria; the plan's
+own completion checks get no individual verdict at the end.
+
+General truth: the finish should give each plan check and each standing
+requirement its own result (met, failed, or could not be shown), so "passed" can
+never cover a requirement that was not tested.
+
+### 16. When a fit is hard, the AI adds machinery instead of keeping the shape of the answer simple.
+
+This repeats fact 2 in a new form. In the Demonette the hook added bones to vertex
+blends; here the outside agent's rejected round added grip bones and about 40,000
+sampled keys to make a numeric fit pass, and the accepted result had one control
+and 382 weapon keys. Both cases had the same shape: the fix the owner accepted was
+the simpler structure that met the requirements, not the most exact fit.
+
+General truth: when options in the plan meet the checks equally, prefer the one
+that adds the fewest bones, keys and controls, and record the growth as a cost of
+each option (fact 13 supplies the numbers).
+
+### Old facts seen again
+
+- Fact 4 (self-graded checks): seen in the outside agent itself, twice.
+- Fact 9 (permission read as a redesign): the rejected round invented a new rig to
+  satisfy a fit nobody asked to be solved that way.
+- Facts 5 and 8 (building on the last result, lost reasons): the outside run kept
+  every round as a named file and rebuilt from the owner's newest reference. The
+  hook now has versions and the diary; whether the owner can see and pick them in
+  practice was not checked here.
+
+### Not checked
+
+- The MDLxL follow-up chats were not read (owner's choice), so facts 11–16 are
+  shown in the hook's code and instructions, not observed in that conversation.
+- The outside report is a rebuilt edition; its earlier checks are its own claims.
+- Nothing was run in the app or in Warcraft III; no code was changed.
+
 ## Next action
 
-- Use these facts when designing hook improvements in a separate task. Nothing
-  here has been implemented.
+- Facts 1–10 were acted on in 0.34.0 (see [AI hook harness](ai-hook-harness.md)).
+- Facts 11–16 are not implemented. Use them when designing the next hook
+  improvements in a separate task, owner-approved one step at a time.
