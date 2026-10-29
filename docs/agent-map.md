@@ -14,6 +14,11 @@ the current branch before using them. Historical evidence is not a fresh test re
 [AppToolbar.jsx](../app/AppToolbar.jsx), [AppSidebar.jsx](../app/AppSidebar.jsx),
 [AppPanels.jsx](../app/AppPanels.jsx) and [AppDialogs.jsx](../app/AppDialogs.jsx).
 Search the relevant component or dialog type before reading all of App.
+Shared shell pieces: the classic window and `LoadingWindow` in
+[Dialog.jsx](../app/Dialog.jsx), Tab trapping in [focus-trap.js](../app/focus-trap.js),
+popover outside-click/Escape in [useDismiss.js](../app/useDismiss.js), and small
+remembered choices in [local-store.js](../src/local-store.js) /
+[useStoredState.js](../app/useStoredState.js) (never rename a stored key).
 
 ## Feature owners
 

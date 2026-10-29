@@ -3,9 +3,10 @@ import { SelectField } from './Fields.jsx';
 import { EVENT_TYPES, SOUND_EXPANSIONS, assignEventData, setEventFrame, resolveEventSound } from './node-event-data.js';
 import EventSoundTree from './EventSoundTree.jsx';
 import EventDecalPreview from './EventDecalPreview.jsx';
+import { readStored, writeStored } from '../src/local-store.js';
 
 const EXPANSIONS_KEY = 'mdlxl-sound-expansions';
-const readExpansions = () => { try { const saved = JSON.parse(localStorage.getItem(EXPANSIONS_KEY)); if (Array.isArray(saved) && saved.length) return new Set(saved.filter(key => SOUND_EXPANSIONS[key])); } catch { /* storage is optional */ } return new Set(Object.keys(SOUND_EXPANSIONS)); };
+const readExpansions = () => readStored(EXPANSIONS_KEY, null, saved => Array.isArray(saved) && saved.length ? new Set(saved.filter(key => SOUND_EXPANSIONS[key])) : null) || new Set(Object.keys(SOUND_EXPANSIONS));
 const EXPANSION_TIPS = {
   ROC: 'Reign of Chaos sounds. Click to show or hide them.', TFT: 'The Frozen Throne sounds. Click to show or hide them.',
   RE: 'Sounds added in Reforged. Click to show or hide them.', FK: 'Forsaken Kingdom sounds. Click to show or hide them.',
@@ -24,7 +25,7 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
   const toggleExpansion = key => setExpansions(previous => {
     const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key);
     if (!next.size) for (const value of Object.keys(SOUND_EXPANSIONS)) next.add(value);
-    try { localStorage.setItem(EXPANSIONS_KEY, JSON.stringify([...next])); } catch { /* storage is optional */ }
+    writeStored(EXPANSIONS_KEY, [...next]);
     return next;
   });
   const file = selected?.files?.[fileIndex] || selected?.files?.[0];

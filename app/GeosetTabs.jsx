@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import GeosetListBox from './GeosetListBox.jsx';
+import Dialog from './Dialog.jsx';
 import { GEOSET_TABS_KEY, createGeosetTab, assignGeosetTab, deleteGeosetTab } from '../src/geoset-tabs.js';
 import './geoset-tabs.css';
 
-export default function GeosetTabs({ model, active, onActive, selected, edit, disabled, Dialog, children }) {
+export default function GeosetTabs({ model, active, onActive, selected, edit, disabled, children }) {
   const tabs = model[GEOSET_TABS_KEY] || [];
   const [action, setAction] = useState(null), [name, setName] = useState(''), [target, setTarget] = useState('');
   const targetId = tabs.some(tab => tab.id === target) ? target : '';

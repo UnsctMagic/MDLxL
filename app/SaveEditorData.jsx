@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import Dialog from './Dialog.jsx';
 
-export default function SaveEditorData({ Dialog, name, bytes, onChoose }) {
+export default function SaveEditorData({ name, bytes, onChoose }) {
   const [remove, setRemove] = useState(false);
   return <Dialog title="Save model" onClose={() => onChoose(null)} onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') onChoose(null); }} footer={<><button onClick={() => onChoose(remove)}>Save</button><button onClick={() => onChoose(null)}>Cancel</button></>}>
     <p translate="no">{name}</p>

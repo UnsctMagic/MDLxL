@@ -6,6 +6,8 @@ import {cachedThumbnail,saveThumbnail,peekThumbnail} from '../src/texture-librar
 import {getUVPreviewSelection,existingTextureIndex,materialsUsingTexture} from '../src/uv-preview.js';
 import './texture-library.css';
 import { translate } from '../src/localization.js';
+import { readStoredText, writeStoredText } from '../src/local-store.js';
+import { trapTab } from './focus-trap.js';
 import { gamePathKey } from '../src/game-path.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
@@ -18,9 +20,9 @@ const thumbnailJobs=new Map();
 let sharedWorker=null,searchSerial=0,libraryConsumers=0;
 const warmJobs=new Map();
 const textureVersionLabel={classic:'CLASSIC',reforged:'REFORGED','forsaken-kingdom':'FORSAKEN KINGDOM',custom:'MODEL FOLDER',unknown:'UNCLASSIFIED NATIVE SOURCE'};
-function preferredTab(){try{const value=localStorage.getItem('mdlvis.library.tab');return LIBRARY_TABS.some(([tab])=>tab===value)?value:'textures';}catch{return'textures';}}
-function preferredVibe(){try{return localStorage.getItem('mdlvis.texture-library.vibe')!=='false';}catch{return true;}}
-function preferredFormat(){try{return localStorage.getItem('mdlvis.texture-library.blp-only')==='true'?'blp':'all';}catch{return'all';}}
+function preferredTab(){return readStoredText('mdlvis.library.tab','textures',value=>LIBRARY_TABS.some(([tab])=>tab===value)?value:'textures');}
+function preferredVibe(){return readStoredText('mdlvis.texture-library.vibe',true,value=>value!=='false');}
+function preferredFormat(){return readStoredText('mdlvis.texture-library.blp-only','all',value=>value==='true'?'blp':'all');}
 function libraryWorker(){
   if(!sharedWorker){const created=new Worker(new URL('../src/texture-library-worker.js',import.meta.url),{type:'module'});created.addEventListener('message',({data})=>{if(data.type==='ready')created.warmSignature=data.signature;});created.addEventListener('error',()=>{if(sharedWorker===created){created.terminate();sharedWorker=null;}});sharedWorker=created;}
   return sharedWorker;
@@ -80,7 +82,7 @@ function FolderBranch({node,selected,onSelect,depth=0}){
 }
 export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onPreviewTexture,previewEnabled=false,previewReason='',selectedGeosets,onOpenMaterials,onSelectTexture,selectLabel='Use in Forge',fullLibrary=false,onOpenGameModel,onImportGameGeosets,importTargetName,preferences}){
   // Only the Library button opens every game file; texture pickers stay texture-only.
-  const [tab,setTab]=useState(()=>fullLibrary?preferredTab():'textures'),chooseTab=value=>{setTab(value);try{localStorage.setItem('mdlvis.library.tab',value);}catch{}};
+  const [tab,setTab]=useState(()=>fullLibrary?preferredTab():'textures'),chooseTab=value=>{setTab(value);writeStoredText('mdlvis.library.tab',value);};
   const initialCatalog=librarySessions.peek(modelPath);
   const [catalog,setCatalog]=useState(initialCatalog),[loading,setLoading]=useState(!initialCatalog),[error,setError]=useState(''),[query,setQuery]=useState(''),[vibe,setVibe]=useState(preferredVibe),[format,setFormat]=useState(preferredFormat),[folder,setFolder]=useState(''),[variant,setVariant]=useState('classic'),[kind,setKind]=useState('all'),[limit,setLimit]=useState(120),[result,setResult]=useState(()=>librarySessions.result(modelPath,initialCatalog?.signature,{query:'',vibe:preferredVibe(),folder:'',variant:'classic',kind:'all',format:preferredFormat(),limit:120})||{items:[],total:0}),[ready,setReady]=useState(false),[searching,setSearching]=useState(false),[selected,setSelected]=useState(null),[selectedAsset,setSelectedAsset]=useState(null),[selectedImage,setSelectedImage]=useState(null),[selectionError,setSelectionError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[cacheEpoch,setCacheEpoch]=useState(0),[choice,setChoice]=useState(null);
   const worker=useRef(),requestId=useRef(0),requestOptions=useRef(null),expectedCatalog=useRef(null),previewFilters=useRef(null),dialog=useRef(),input=useRef();
@@ -144,15 +146,15 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const keys=event=>{
     event.stopPropagation();
     if(event.key==='Escape'){event.preventDefault();if(!busy)choice?setChoice(null):onClose();}
-    if(event.key==='Tab'){const elements=[...(choicePopup.current||dialog.current).querySelectorAll('button:not(:disabled),input,select,[tabindex="0"]')].filter(el=>el.getClientRects().length);const first=elements[0],last=elements.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    trapTab(event,choicePopup.current||dialog.current);
   };
   return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
     <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>Material &amp; Texture Library</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
     {fullLibrary&&<div className="tl-tabs" role="tablist" aria-label="Library sections">{LIBRARY_TABS.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>chooseTab(value)}>{label}</button>)}</div>}
     {tab!=='textures'?<Suspense fallback={<p className="tl-empty">Loading game files…</p>}><GameFileBrowser key={tab} preset={tab} preferences={preferences} onOpenGameModel={onOpenGameModel} onImportGameGeosets={onImportGameGeosets} importTargetName={importTargetName} onClose={onClose}/></Suspense>:<>
     <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={vibe?'Try rusty chain mail, painting, high resolution, or 512':'Search names, paths, high resolution, or 256'} onChange={event=>setQuery(event.target.value)} aria-label="Search textures"/>
-      <label title="Search surfaces, colours and kitbash associations"><input type="checkbox" checked={vibe} onChange={event=>{setVibe(event.target.checked);try{localStorage.setItem('mdlvis.texture-library.vibe',String(event.target.checked));}catch{}}}/>Vibe search</label>
-      <label title="Hide DDS and other texture formats"><input aria-label="BLP textures only" type="checkbox" checked={format==='blp'} onChange={event=>{const next=event.target.checked?'blp':'all';setFormat(next);if(next==='blp')setSelected(previous=>textureFormatMatches(previous,next)?previous:null);try{localStorage.setItem('mdlvis.texture-library.blp-only',String(event.target.checked));}catch{}}}/>BLP only</label>
+      <label title="Search surfaces, colours and kitbash associations"><input type="checkbox" checked={vibe} onChange={event=>{setVibe(event.target.checked);writeStoredText('mdlvis.texture-library.vibe',event.target.checked);}}/>Vibe search</label>
+      <label title="Hide DDS and other texture formats"><input aria-label="BLP textures only" type="checkbox" checked={format==='blp'} onChange={event=>{const next=event.target.checked?'blp':'all';setFormat(next);if(next==='blp')setSelected(previous=>textureFormatMatches(previous,next)?previous:null);writeStoredText('mdlvis.texture-library.blp-only',event.target.checked);}}/>BLP only</label>
       <select aria-label="Texture source" value={variant} onChange={event=>changeVariant(event.target.value)}><option value="classic">Classic</option><option value="reforged">Reforged</option><option value="forsaken-kingdom">Forsaken Kingdom</option><option value="custom">Model folder</option><option value="all">All installed</option></select>
       <select aria-label="Texture kind" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All textures</option><option value="units">Units &amp; characters</option><option value="buildings">Buildings</option><option value="doodads">Doodads</option><option value="terrain">Terrain</option><option value="effects">Effects</option><option value="icons">Icons</option><option value="art">Paintings &amp; art</option></select>
     </div>

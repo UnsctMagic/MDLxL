@@ -1,5 +1,6 @@
 import React, { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Tool } from './EditorControls.jsx';
+import useDismiss from './useDismiss.js';
 import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { COMMANDS } from '../src/commands.js';
@@ -44,18 +45,8 @@ export default function AppToolbar({
     window.addEventListener('resize', position);
     return () => window.removeEventListener('resize', position);
   }, [learnOpen, visUI]);
-  useEffect(() => {
-    if (!learnOpen) return;
-    const doc = dock.current.ownerDocument;
-    dock.current.querySelector('.learn-menu')?.focus({ preventScroll: true });
-    const outside = event => {
-      if (!dock.current.querySelector('.learner-tool')?.contains(event.target) && !dock.current.querySelector('.learn-menu')?.contains(event.target)) setLearnOpen(false);
-    };
-    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); setLearnOpen(false); } };
-    doc.addEventListener('pointerdown', outside, true);
-    doc.addEventListener('keydown', escape, true);
-    return () => { doc.removeEventListener('pointerdown', outside, true); doc.removeEventListener('keydown', escape, true); };
-  }, [learnOpen]);
+  useEffect(() => { if (learnOpen) dock.current.querySelector('.learn-menu')?.focus({ preventScroll: true }); }, [learnOpen]);
+  useDismiss(learnOpen, [() => dock.current?.querySelector('.learner-tool'), () => dock.current?.querySelector('.learn-menu')], () => setLearnOpen(false));
   useLayoutEffect(() => {
     const row = editorRow.current;
     row.removeAttribute('data-short-editors');

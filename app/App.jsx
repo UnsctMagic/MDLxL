@@ -32,7 +32,7 @@ import { Coordinate } from './EditorControls.jsx';
 import { setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
-import useMovableWindow from './useMovableWindow.js';
+import Dialog from './Dialog.jsx';
 import { TriangleAlert } from 'lucide-react';
 import SidebarSection from './SidebarSection.jsx';
 import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
@@ -58,6 +58,7 @@ import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
 import { APPLICATION_THEMES, normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
@@ -129,10 +130,6 @@ function browserRecovery(operation, value) {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result, tx = db.transaction('drafts', operation === 'put' ? 'readwrite' : 'readonly'), store = tx.objectStore('drafts'); const action = operation === 'put' ? store.put(value) : operation === 'get' ? store.get(value) : store.getAll(); let result; action.onsuccess = () => { result = action.result; }; tx.oncomplete = () => { db.close(); resolve(result); }; tx.onerror = () => { db.close(); reject(tx.error); }; };
   });
-}
-function Dialog({ title, children, footer, onClose, onHotkeys, overlayClass = '', onKeyDown }) {
-  const windowRef = useRef(null), movable = useMovableWindow(windowRef);
-  return <div className={`classic-modal ${overlayClass}`} onKeyDown={onKeyDown}><section data-hotkey-scope="dialog" data-hotkey-prefix={title} ref={windowRef} style={movable.style} className="classic-modal-window" role="dialog" aria-modal="true" aria-label={title}><header {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" aria-label="Hotkeys for this dialog" onClick={onHotkeys}>Keys</button>}<button data-hotkey="close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header><div className="classic-modal-body">{children}</div><footer>{footer || <button data-hotkey="app:action:1" onClick={onClose}>Close</button>}</footer></section></div>;
 }
 
 export default function App() {
@@ -267,7 +264,7 @@ export default function App() {
   };
   const closeUVWindow = () => { document.activeElement?.blur?.(); setUVWindow(null); setUVFocused(false); setLiveUV(null); if (dialog?.host === 'uv') setDialog(null); };
   const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
-  const [background, setBackground] = useState(() => localStorage.getItem('mdlvis-preview-background') || '');
+  const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
   const [xlCleanViews, setXLCleanViews] = useState({}), [visCleanViews, setVISCleanViews] = useState({});
   const [xlOverlayModes, setXLOverlayModes] = useState(()=>storedEditorDisplay()), [visOverlayModes, setVISOverlayModes] = useState(()=>storedEditorDisplay(true));
   useEffect(() => saveEditorDisplay(xlOverlayModes, visOverlayModes), [xlOverlayModes, visOverlayModes]);
@@ -392,7 +389,7 @@ export default function App() {
   const refresh = () => setTick(value => value + 1);
   // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
   const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
-  const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
+  const selectBackground = value => { setBackground(value); writeStoredText('mdlvis-preview-background', value); };
   // Backgrounds belong to Showcase only; the editors always show the plain view.
   const backgroundLibrary = usePreviewBackgrounds(mode === 'showcase', background, selectBackground, say);
   const {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces} = useMemo(() => {
@@ -1571,7 +1568,7 @@ export default function App() {
   const hiddenGeosets = new Set([...allGeosets(model.Geosets.length)].filter(index => !tabVisibleGeosets.has(index) || !showAllGeosets && !displayedGeosets.has(index)));
   const leaveVisibleAvailable = mode === 'vertices' || mode === 'bones' || mode === 'animation' && animationPanel === 'movement';
   const geosetPicker = <GeosetPicker {...{
-    activeGeoset, changePreferences, chooseSet, chooseSets, cleanView, Dialog, doc, edit, geosetTab,
+    activeGeoset, changePreferences, chooseSet, chooseSets, cleanView, doc, edit, geosetTab,
     highlightAppearance, model, preferences, saving, selectable, selectGeosetTab, session, setContext,
     setSelectionHoveredGeoset, setShowAllGeosets, showAllGeosets, tabGeosets, tabVisibleGeosets, viewHoveredGeoset,
     visibleOnly, hideExtras, setHideExtras, visUI, floatAt: geosetsFloat, onFloat: setGeosetsFloat
@@ -1790,7 +1787,7 @@ export default function App() {
       }}/>}
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
-        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog, openAttachemator,
+        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
@@ -1804,7 +1801,7 @@ export default function App() {
     {mode==='animation' && timeline}
     <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span>{duplicateAnimations.length > 0 && <button key={session.id} className="status-warning" data-alert="" title="Some geosets have more than one animation record. The model works; click to choose which record to keep." onClick={() => setDialog({ type: 'geosetRepair' })}><TriangleAlert size={13} aria-hidden="true"/>Duplicate geoset animations</button>}<span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'paint' ? paintMessage('paint.hint') : visUI ? mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations' : ''}</span>{!visUI && <div className="status-model-actions"><button data-hotkey="convertVersion" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly||saving} onClick={()=>commands.current.convertVersion()}>MDX{model.Version} ⇄</button><Addons onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/></div>}{!visUI && inputStrength}</div>
     <AppDialogs {...{
-      Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
+      activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
       forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
       importPart, latest, leaveGeosetVisible, leaveVisibleAvailable, meshAction, mode, model, normalAngle, notice,

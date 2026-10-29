@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { alphaMask, buildForgeMesh, combineMask, cropContour, cropMask, encodeForgeTga, magicWand, polygonMask } from '../src/forge.js';
 import { textureFromAsset } from './Viewport.jsx';
+import { trapTab } from './focus-trap.js';
 import TextureLibrary from './TextureLibrary.jsx';
 import ForgePreview from './ForgePreview.jsx';
 import ForgeShapes from './ForgeShapes.jsx';
@@ -125,7 +126,7 @@ export default function Forge({ model, modelPath, preferences, editorState, onCl
   const keys = e => {
     e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); if (sourceMode === 'image' && (points.length || selected)) clearSelection(); else if (!busy) onClose(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) { e.preventDefault(); undo(); }
-    if (e.key === 'Tab') { const elements = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')].filter(el => el.getClientRects().length), first = elements[0], last = elements.at(-1); if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); } }
+    trapTab(e, dialog.current);
   };
   return <div className="forge-overlay" onKeyDown={keys}><section ref={dialog} className="forge-dialog" data-hotkey-scope="dialog" role="dialog" aria-modal="true" aria-label="Forge"><header><img src="./classic/wc3-forge.gif" alt=""/><div><h2>MDLxL FORGE</h2></div><button onClick={onClose} disabled={busy} aria-label="Close Forge">✕</button></header>
     <div className="forge-source"><div className="forge-modes" role="tablist" aria-label="Forge mode"><button autoFocus role="tab" aria-selected={sourceMode === 'image'} className={sourceMode === 'image' ? 'active' : ''} disabled={busy} onClick={() => { setSourceMode('image'); setError(''); }}>Projector</button><button role="tab" aria-selected={sourceMode === 'shapes'} className={sourceMode === 'shapes' ? 'active' : ''} disabled={busy} onClick={() => { setSourceMode('shapes'); setShapesOpened(true); setError(''); }}>Shape</button></div>{sourceMode === 'image' && <><button hidden={!image} disabled={busy} onClick={() => input.current.click()}>Load from PC</button><input ref={input} type="file" accept="image/*,.blp,.tga,.dds" hidden onChange={async e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) await load({ name: file.name, bytes: await file.arrayBuffer(), source: 'custom' }); }}/><button hidden={!image} disabled={busy} onClick={() => setLibrary(true)}>Texture library</button>{image && <span title={asset?.name}>{asset?.name?.split(/[\\/]/).at(-1)}</span>}{image && <small>{image.width} × {image.height}</small>}</>}</div>

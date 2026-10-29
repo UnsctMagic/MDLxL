@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Dialog from './Dialog.jsx';
 import {
   animationTargets, createGeosetAnimations, sampleAnimationProperty,
   readAnimationTrack, setAnimationInlineValues, setAnimationKey, bakeGeosetAnimationSettings,
@@ -72,7 +73,7 @@ function SpeedControl({ label, value, disabled, onCommit }) {
 export default function AnimationController({
   model, revision = 0, sequenceIndex = -1, globalSeqId = null, time = 0,
   selectedGeosets = [], selectedNodeIds = [], materialVisibility = null, onEdit, onSeek, onTimelineChange,
-  disabled = false, Dialog,
+  disabled = false,
 }) {
   const [speedMenu, setSpeedMenu] = useState(false);
   const [reorder, setReorder] = useState(null);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import useDismiss from './useDismiss.js';
 import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
 import { timelineTracks, timelineKeys, timelineSections, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys } from '../src/keyframe-timeline.js';
 import { animationMarkerTimes } from '../src/animation-markers.js';
@@ -86,14 +87,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   useEffect(() => { setRange(null); setKeySelection(null); setContext(null); editingTime.current = false; setDraftTime(String(frame)); }, [domainStamp]);
   useEffect(() => { if (keySelection && !selectedKeysById) setKeySelection(null); }, [selectionStamp, activeController]);
   useEffect(() => () => cleanup.current?.(), []);
-  useEffect(() => {
-    if (!context) return;
-    const ownerWindow = panel.current?.ownerDocument?.defaultView || window;
-    const dismiss = event => { if (!menu.current?.contains(event.target)) setContext(null); };
-    const escape = event => { if (event.key === 'Escape') { setContext(null); panel.current?.focus(); } };
-    ownerWindow.addEventListener('pointerdown', dismiss); ownerWindow.addEventListener('keydown', escape);
-    return () => { ownerWindow.removeEventListener('pointerdown', dismiss); ownerWindow.removeEventListener('keydown', escape); };
-  }, [context]);
+  useDismiss(context, [menu], event => { setContext(null); if (event.type === 'keydown') panel.current?.focus(); }, { capture: false, stopEscape: false });
 
   function report(operation) {
     try { return operation(); }
