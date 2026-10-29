@@ -1,6 +1,6 @@
 # Fixes from the review of Codex's 0.35.0 → 0.36 changes
 
-Status: completed; ready for review; awaiting merge approval
+Status: follow-up fixes added; ready for review; awaiting merge approval
 Owner / consolidator: Codex (fixes); review done by Claude Code
 Updated: 2026-10-29
 
@@ -242,3 +242,35 @@ code and may be removed.
 - Disposable builds, profiles and extracted runtimes removed after verification;
   unused task processes checked. Only the Git history and small result report
   remain on D:.
+
+## Follow-up review (Claude Code, 2026-10-29)
+
+Reviewed Codex's fixes above plus the Codex PRs not in the first review:
+#375 (AI questions), #377 (particle travel) and #378 (CORP opens Decay Bone).
+#378 is sound as is. Fixed on this branch (`1e04c50f`, `4c6f8fb0`, after
+merging main at `d5acb46f`):
+
+- Item 14 regression: `send()` wrote the cleared prompt and the model-choice
+  question under the bird's id while the box reads the organiser's draft, so
+  sending from a bird's chat left the text in the box and hid "Keep chosen /
+  Use lighter". It now writes to the draft the box shows (`draftOwner`).
+- Item 12 side effect: pasting a picture while the AI works was silently
+  dropped; attaching is allowed again while busy (not in earlier chats).
+- Item 10: Resume no longer restarts a helper whose report was delivered.
+- #375: provider questions are whitelisted in `electron/ai-user-input.cjs`
+  (`codexQuestions`, `claudeQuestions`); links, input types and validators come
+  only from MDLxL's MCP adapters. Codex `isOther:false` hides free text. The
+  input-page link shows its site; optional single choices can be cleared.
+  Repeated provider notices update one row (UI and recorder). Question/notice
+  controls and app-written reasons are in ru/es/zh and the current-source
+  fixture.
+- #377: synced OptimizeXL / Sort My Mess previews trail particles while
+  playing; Showcase particles use the row speed (0 on a held pose) like the
+  footprints; the All-timeline sequence lookup runs once per frame; both new
+  Electron tests are registered in `scripts/run-packaged-tests.mjs`
+  (footprint-travel needs `MDLXL_SUITE_HOOFPRINT`); map updated.
+
+Not changed: Claude multi-select answers are sent as an array; the real CLI's
+expected shape was not checked against a live turn. Sixteen older Electron
+tests default to a Codex runtime Playwright path; the packaged runner overrides
+it, so it was left alone.
