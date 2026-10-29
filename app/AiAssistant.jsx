@@ -1076,7 +1076,7 @@ function AiAssistant({ bridge, visUI }) {
                   className="ai-icon-button ai-offload-switch"
                   aria-label="SD Brain" data-hotkey="sd-brain"
                   aria-checked={!!settings.sdBrain}
-                  title={translate(SD_BRAIN_TIP)}
+                  title={SD_BRAIN_TIP}
                   onClick={() => action(async () => setSettings(await window.desktop.aiSdBrain(!settings.sdBrain)))}
                 >
                   <Brain size={15} aria-hidden="true" />
@@ -1088,7 +1088,7 @@ function AiAssistant({ bridge, visUI }) {
                 className="ai-icon-button ai-offload-switch"
                 aria-label="Editing handbook" data-hotkey="handbook" data-hotkey-label="WC3 editing handbook"
                 aria-checked={!!settings.editingHandbook}
-                title={translate(HANDBOOK_TIP)}
+                title={HANDBOOK_TIP}
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
               >
                 <BookOpen size={15} aria-hidden="true" />
@@ -1099,7 +1099,7 @@ function AiAssistant({ bridge, visUI }) {
                 className="ai-icon-button ai-offload-switch"
                 aria-label="Web research" data-hotkey="web-research"
                 aria-checked={!!settings.webResearch}
-                title={translate(WEB_TIP)}
+                title={WEB_TIP}
                 onClick={() => action(async () => setSettings(await window.desktop.aiWebResearch(!settings.webResearch)))}
               >
                 <Globe size={15} aria-hidden="true" />
@@ -1176,7 +1176,7 @@ function AiAssistant({ bridge, visUI }) {
                         value={readOnly ? view : ''}
                         onChange={event => event.target.value && setView(event.target.value)}
                       >
-                        <option value="">{translate(`Retired (${retiredWorkers.length + org.earlier.length})`)}</option>
+                        <option value="">{`Retired (${retiredWorkers.length + org.earlier.length})`}</option>
                         {retiredWorkers.map(worker => (
                           <option key={worker.id} value={worker.id} translate="no">
                             {worker.name} · {worker.job}
@@ -1184,7 +1184,7 @@ function AiAssistant({ bridge, visUI }) {
                         ))}
                         {org.earlier.map((earlier, index) => (
                           <option key={earlier} value={earlier}>
-                            {translate(`Earlier chat ${index + 1}`)}
+                            {`Earlier chat ${index + 1}`}
                           </option>
                         ))}
                       </select>
@@ -1315,13 +1315,13 @@ function AiAssistant({ bridge, visUI }) {
                       </label>}
                     </>)}
                     {settings.provider !== 'compatible' && (
-                      <label title={translate(EFFORT_TIP)}>
+                      <label title={EFFORT_TIP}>
                         Thinking effort
                         <select aria-label="Thinking effort" data-hotkey="thinking-effort" value={settings.effort || 'high'} onChange={event => setSettings(previous => ({ ...previous, effort: event.target.value }))}>
-                          <option value="default">{translate('Provider default')}</option>
-                          <option value="medium">{translate('Medium')}</option>
-                          <option value="high">{translate('High')}</option>
-                          <option value="xhigh">{translate('Extra high')}</option>
+                          <option value="default">{'Provider default'}</option>
+                          <option value="medium">{'Medium'}</option>
+                          <option value="high">{'High'}</option>
+                          <option value="xhigh">{'Extra high'}</option>
                         </select>
                       </label>
                     )}
@@ -1333,7 +1333,7 @@ function AiAssistant({ bridge, visUI }) {
                         <option value="both">Both</option>
                       </select>
                     </label>
-                    <label title={translate(OUTSIDE_CHECK_TIP)}>
+                    <label title={OUTSIDE_CHECK_TIP}>
                       <input data-hotkey="outside-check" data-hotkey-label="Outside check" type="checkbox" checked={settings.outsideCheck !== false} onChange={event => setSettings(previous => ({ ...previous, outsideCheck: event.target.checked }))} />
                       Outside check
                     </label>
@@ -1489,7 +1489,7 @@ function AiAssistant({ bridge, visUI }) {
                                 <span className="ai-message-note">
                                   {message.steer
                                     ? 'Sent while the AI was working'
-                                    : translate(`${message.drawings} drawing${message.drawings === 1 ? '' : 's'} attached`)}
+                                    : `${message.drawings} drawing${message.drawings === 1 ? '' : 's'} attached`}
                                 </span>
                               )}
                             </>
@@ -1576,7 +1576,7 @@ function AiAssistant({ bridge, visUI }) {
                           {selected > 0 && (
                             <span className="ai-chip-muted">
                               {' · '}
-                              {translate(`${summary.vertices} vertices · ${summary.nodes} nodes`)}
+                              {`${summary.vertices} vertices · ${summary.nodes} nodes`}
                             </span>
                           )}
                           {summary.sequenceName != null && (
@@ -1612,7 +1612,7 @@ function AiAssistant({ bridge, visUI }) {
                       ))}
                       {strokes.length > 0 && (
                         <span className="ai-chip" title="Your notes on the model.">
-                          {translate(`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`)}
+                          {`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`}
                           <button
                             type="button"
                             aria-label="Undo last drawing" data-hotkey="undo-drawing"
@@ -1830,7 +1830,7 @@ function AiAssistant({ bridge, visUI }) {
           <div ref={cleanupRoot} className="ai-cleanup-shade">
             <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats" data-hotkey-prefix="ai-cleanup" data-hotkey-scope="ai-cleanup" data-hotkey-badges="false">
               <header>
-                <strong>{translate(`Tidy up the AI chats for ${cleanup.name}?`)}</strong>
+                <strong>{`Tidy up the AI chats for ${cleanup.name}?`}</strong>
                 <button type="button" aria-label="Decide later" data-hotkey="close" title="Decide later." onClick={() => setCleanup(null)}>
                   <X size={14} aria-hidden="true" />
                 </button>
