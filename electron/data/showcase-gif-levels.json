@@ -1,0 +1,6 @@
+{
+  "low": { "label": "Low", "longEdge": 480, "fps": 15, "colors": 128, "dither": false, "render": "low", "maxBytes": 2000000 },
+  "medium": { "label": "Medium", "longEdge": 640, "fps": 20, "colors": 256, "dither": true, "render": "medium", "maxBytes": 5000000 },
+  "high": { "label": "High", "longEdge": 864, "fps": 30, "colors": 256, "dither": true, "render": "high", "maxBytes": 20000000 },
+  "best": { "label": "Best", "longEdge": 1280, "fps": 30, "colors": 256, "dither": true, "render": "high", "maxBytes": 50000000 }
+}

@@ -179,7 +179,7 @@ button.showcase-wide { margin-top:4px; }
 :root #root .classic-app .showcase-sidebar button.showcase-section-toggle:hover { background:transparent; text-decoration:underline; }
 .showcase-presets { align-items:center; }
 .showcase-presets > span { flex:none; margin-right:3px; font-weight:bold; }
-.showcase-format { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; margin:3px 0; }
+.showcase-format { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; margin:3px 0; }
 .showcase-format button { min-width:0; padding:2px 1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .showcase-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .showcase-pair select { min-width:0; }

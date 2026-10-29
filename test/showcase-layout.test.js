@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {containRect,recordingDimensions,cropPresetRect,SHOWCASE_CROP_PRESETS} from '../app/showcase-crop.js';
 import {remapShowcasePlaylist,remapShowcaseTake} from '../app/showcase-model.js';
-import {showcaseExportPreferences} from '../app/showcase-export.js';
 test('all showcase ratios use a uniform scale across viewport and output sizes',()=>{
  for(const [w,h] of [[1670,902],[834,612],[300,900]])for(const [preset,aspect] of Object.entries(SHOWCASE_CROP_PRESETS)){
   const crop=cropPresetRect(w,h,aspect),output=recordingDimensions(w*2,h*2,crop,preset==='lowSizeMain'?612:1920,aspect);
@@ -12,10 +11,6 @@ test('all showcase ratios use a uniform scale across viewport and output sizes',
   assert.ok(fit.width<=output.width+1e-8&&fit.height<=output.height+1e-8);
  }
  assert.deepEqual(recordingDimensions(1670,902,cropPresetRect(1670,902,612/490),612,612/490),{width:612,height:490});
-});
-test('unselected profiles retain original quality, FPS and duration',()=>{
- const preferences={capture:{fps:50,recordingQuality:'high'}};
- assert.deepEqual(showcaseExportPreferences(preferences,null),preferences);
 });
 test('model replacement remaps by name, removes missing entries and retains every other setting',()=>{
  const a={Sequences:[{Name:'Stand'},{Name:'Walk'},{Name:'Portrait Talk'}]},b={Sequences:[{Name:'Portrait Talk'},{Name:'Stand'}]};

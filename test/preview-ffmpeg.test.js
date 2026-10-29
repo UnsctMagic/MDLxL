@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { PreviewRecordingStore, timeline, bitmap, gifSizeLimit } = require('../electron/preview-ffmpeg.cjs');
+const { PreviewRecordingStore, timeline, bitmap, gifSizeLimit, GIF_LEVELS } = require('../electron/preview-ffmpeg.cjs');
 const { validateGIFFile, MAX_CAPTURE_BYTES } = require('../electron/preview-capture.cjs');
 
 function inspectGIF(bytes) {
@@ -52,7 +52,7 @@ test('recording uses the destination drive even when the system temporary drive 
     diskChecks.push(directory);
     return { bavail: directory.startsWith(destination + path.sep) ? 32 * 1024 ** 3 : 0, bsize: 1 };
   });
-  const { jobId, storageBudget } = await store.begin(1, { width: 16, height: 8, quality: 'high', loop: true });
+  const { jobId, storageBudget } = await store.begin(1, { width: 16, height: 8, level:'high', loop: true });
   const job = store.get(1, jobId), directory = job.directory;
   assert.equal(storageBudget, store.maxTempBytes);
   assert.ok(directory.startsWith(destination + path.sep));
@@ -87,8 +87,8 @@ test('lossless BMP writes correct red/blue order and top-down dimensions', () =>
 });
 test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops, save/retry', { skip: process.platform !== 'win32' }, async t => {
   const store=await fixture(t);
-  for (const [fps,loop,quality] of [[24,true,'medium'],[30,false,'high'],[1,false,'low']]) {
-    const {jobId}=await store.begin(1,{width:16,height:8,quality,loop});
+  for (const [fps,loop,level] of [[24,true,'medium'],[30,false,'high'],[1,false,'low']]) {
+    const {jobId}=await store.begin(1,{width:16,height:8,level,loop});
     const count=fps===1?1:fps;
     for(let i=0;i<count;i++)await store.frame(1,{jobId,width:16,height:8,time:i*1000/fps,buffer:frame(i)});
     const output=await store.finish(1,{jobId,time:fps===1?1234:1000});
@@ -105,7 +105,7 @@ test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops
     const saved=await store.save(1,jobId); await validateGIFFile(saved.path);
     assert.equal(store.jobs.size,0); await assert.rejects(fs.access(job.directory));
   }
-  const {jobId}=await store.begin(1,{width:16,height:8,quality:'medium',loop:true});
+  const {jobId}=await store.begin(1,{width:16,height:8,level:'medium',loop:true});
   for(const [i,time] of [0,93,417].entries())await store.frame(1,{jobId,width:16,height:8,time,buffer:frame(i)});
   await store.finish(1,{jobId,time:1234});
   assert.equal(inspectGIF(await fs.readFile(store.get(1,jobId).output)).delay,1230);
@@ -113,7 +113,7 @@ test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops
 });
 test('native boundary rejects malformed/stale/foreign frames, handles storage budget and missing binary', async t => {
   const store=await fixture(t,{maxTempBytes:16*8*4+54+512});
-  const {jobId}=await store.begin(1,{width:16,height:8,quality:'low',loop:false});
+  const {jobId}=await store.begin(1,{width:16,height:8,level:'low',loop:false});
   assert.throws(()=>store.frame(2,{jobId}));
   assert.throws(()=>store.frame(1,{jobId,width:16,height:8,time:0,buffer:new Uint8Array(1)}));
   await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
@@ -122,7 +122,7 @@ test('native boundary rejects malformed/stale/foreign frames, handles storage bu
   await store.finish(1,{jobId,time:100}); await store.save(1,jobId);
   assert.throws(()=>store.get(1,jobId));
   const missing=await fixture(t,{executable:path.join(os.tmpdir(),'no-such-ffmpeg-mdlxl.exe')});
-  await assert.rejects(missing.begin(1,{width:16,height:8,quality:'medium',loop:false}),/missing/);
+  await assert.rejects(missing.begin(1,{width:16,height:8,level:'medium',loop:false}),/missing/);
 });
 test('large invalid GIF is rejected by its contents without a renderer buffer', async t => {
   const store=await fixture(t); await fs.mkdir(store.temporaryRoot,{recursive:true});
@@ -131,34 +131,31 @@ test('large invalid GIF is rejected by its contents without a renderer buffer', 
   await assert.rejects(validateGIFFile(file),/complete GIF/);
 });
 
-test('local GIFs use the former fixed 20 MiB budget at every quality and duration without changing Low Size', () => {
-  for(const target of [undefined,null])for(const quality of ['low','medium','high'])for(const duration of [100,5000,10000,20000,60000]){
-    assert.equal(gifSizeLimit(target,quality,duration),20*1024*1024);
-  }
-  assert.equal(gifSizeLimit('low-size','high',5000),22_500_000);
-  assert.equal(gifSizeLimit('low-size-main','high',5000),Infinity);
+test('each quality level has one file-size budget; the fixed main picture has none', () => {
+  assert.deepEqual(Object.keys(GIF_LEVELS),['low','medium','high','best']);
+  assert.deepEqual(Object.keys(GIF_LEVELS).map(level=>gifSizeLimit(level,false)),[2_000_000,5_000_000,20_000_000,50_000_000]);
+  for(const level of Object.keys(GIF_LEVELS))assert.equal(gifSizeLimit(level,true),Infinity);
+  const levels=Object.values(GIF_LEVELS);
+  for(let i=1;i<levels.length;i++)assert.ok(levels[i].longEdge>levels[i-1].longEdge&&levels[i].maxBytes>levels[i-1].maxBytes,'levels rise in size and budget');
 });
 
 
 test('export profiles cap dimensions and preserve frame timing beyond five seconds', { skip: process.platform !== 'win32' }, async t => {
   const store=await fixture(t);
-  for(const [exportTarget,width,height,quality] of [['low-size',800,800,'high'],[undefined,1000,500,'high'],[undefined,500,1000,'medium'],[undefined,720,360,'low']]){
-    const {jobId}=await store.begin(1,{width,height,quality,loop:true,exportTarget});
+  for(const [level,width,height] of [['medium',800,800],['high',1000,500],['low',500,1000],['best',1600,900],['low',300,200]]){
+    const {jobId}=await store.begin(1,{width,height,level,loop:true});
     for(let i=0;i<3;i++)await store.frame(1,{jobId,width,height,time:i*1000/30,buffer:frame(i,width,height)});
     await store.finish(1,{jobId,time:100});
     const bytes=await fs.readFile(store.get(1,jobId).output);
     const w=bytes.readUInt16LE(6),h=bytes.readUInt16LE(8),decoded=inspectGIF(bytes);
-    if(exportTarget==='low-size')assert.ok(w*h<=300000);
-    else{
-      assert.equal(Math.max(w,h),Math.min(864,Math.max(width,height)));
-      assert.ok(Math.abs(w/h-width/height)<.005);
-      assert.ok(bytes.length<=20*1024*1024);
-    }
+    assert.equal(Math.max(w,h),Math.min(GIF_LEVELS[level].longEdge,Math.max(width,height)));
+    assert.ok(Math.abs(w/h-width/height)<.005);
+    assert.ok(bytes.length<=GIF_LEVELS[level].maxBytes);
     assert.equal(decoded.frames,3);assert.equal(decoded.delay,100);
     await store.save(1,jobId);
   }
-  for(const exportTarget of ['low-size','low-size-main']){
-    const {jobId}=await store.begin(1,{width:16,height:8,quality:'low',loop:true,exportTarget});
+  for(const mainPicture of [false,true]){
+    const {jobId}=await store.begin(1,{width:16,height:8,level:'low',loop:true,mainPicture});
     await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
     await store.frame(1,{jobId,width:16,height:8,time:6000,buffer:frame(1)});
     await store.finish(1,{jobId,time:7010});
@@ -170,7 +167,7 @@ test('export profiles cap dimensions and preserve frame timing beyond five secon
 
 test('complex local GIF fits 20 MiB while keeping every frame, duration and loop', { skip: process.platform !== 'win32' }, async t => {
   const store=await fixture(t),width=864,height=864,count=40;
-  const {jobId}=await store.begin(1,{width,height,quality:'high',loop:true});
+  const {jobId}=await store.begin(1,{width,height,level:'high',loop:true});
   for(let index=0;index<count;index++){
     const pixels=new Uint8Array(width*height*4);let seed=index+1;
     for(let p=0;p<pixels.length;p+=4){

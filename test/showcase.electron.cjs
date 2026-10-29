@@ -28,10 +28,11 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     assert.equal(await page.locator('.showcase-preview [data-geometry-overlay],.showcase-preview [data-node-overlay]').count(),0);
     const canvas=page.locator('.showcase-preview [data-clean-model-canvas]');
     const sampling=()=>canvas.evaluate(c=>({aa:c.getContext('webgl2').getContextAttributes().antialias,ratio:c.width/c.clientWidth}));
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'High',exact:true}).click();await page.waitForTimeout(700);
     let high=await sampling();assert.equal(high.aa,true);assert.ok(high.ratio>1.95);
-    await page.getByLabel('Graphics quality').selectOption('low');await page.waitForTimeout(700);
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await page.waitForTimeout(700);
     const low=await sampling();assert.equal(low.aa,false);assert.ok(low.ratio<1.05);
-    await page.getByLabel('Graphics quality').selectOption('medium');await page.waitForTimeout(700);
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Medium',exact:true}).click();await page.waitForTimeout(700);
     const medium=await sampling();assert.equal(medium.aa,true);assert.ok(medium.ratio>1.45&&medium.ratio<1.55);
     await page.screenshot({path:path.join(out,'compact-menu.png')});
     assert.equal(await record.evaluate(b=>getComputedStyle(b).backgroundColor),'rgb(186, 32, 40)');console.log('LAYOUT AND PRESET SAMPLING',JSON.stringify({controls,preview,low,medium,high}));
@@ -63,7 +64,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     // immediately after GamePreview binds its scheduler so UI automation retains
     // the native compositor API.
     await page.evaluate(()=>{window.savedRAF=window.requestAnimationFrame;window.savedCancelRAF=window.cancelAnimationFrame;window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=clearTimeout;});
-    await page.getByLabel('Graphics quality').selectOption('low');await page.getByLabel('Recording FPS').selectOption('10');await page.waitForTimeout(500);
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await page.getByLabel('Recording FPS').selectOption('10');await page.waitForTimeout(500);
     await page.evaluate(()=>{window.requestAnimationFrame=window.savedRAF;window.cancelAnimationFrame=window.savedCancelRAF;});
     await page.locator('.game-preview-root').evaluate(el=>{
       let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))];while(f&&!f.memoizedProps?.showcase)f=f.return;

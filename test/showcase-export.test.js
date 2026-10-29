@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {showcaseExportPreferences} from '../app/showcase-export.js';
+import {SHOWCASE_GIF_LEVELS,gifCaptureSize,gifLevel,legacyGifLevel} from '../app/showcase-export.js';
 import {flushRecordingQueue,queueRecording,recordingQueueSnapshot,retryRecordingSaves} from '../app/preview-recording-queue.js';
 
-test('Low Size retains its FPS and quality settings',()=>{
-  assert.deepEqual(showcaseExportPreferences({capture:{fps:10,recordingQuality:'low'}},'low-size').capture,{fps:30,recordingQuality:'low'});
+test('quality levels capture above their GIF size and older setups keep their look',()=>{
+  for(const id of Object.keys(SHOWCASE_GIF_LEVELS))assert.ok(gifCaptureSize(id)>=SHOWCASE_GIF_LEVELS[id].longEdge&&gifCaptureSize(id)<=1920);
+  assert.equal(gifLevel('nonsense'),'medium');
+  assert.equal(legacyGifLevel({gifLevel:'best'},'low-size'),'best');
+  assert.equal(legacyGifLevel({quality:'high'},'low-size'),'medium','old Low Size sets become Medium');
+  assert.equal(legacyGifLevel({quality:'low'}),'high','old local 864 px GIFs become High');
 });
 
 test('background export queue retains failed saves for retry',async()=>{
