@@ -8,7 +8,7 @@ import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, se
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
 import { projectPreviewGeosets, pickPreviewGeoset, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
-import { cameraLeftLight, improveNativeTexture, captureDimensions, nativeTeamColor, viewportPixelRatio } from './viewport-quality.js';
+import { cameraLeftLight, improveNativeTexture, captureDimensions, nativeTeamColor, DEFAULT_TEAM_COLOR, viewportPixelRatio } from './viewport-quality.js';
 import { boneHighlightColors, createRigMarkersGL } from './rig-markers-gl.js';
 import { boneInfluenceMap, boneVertexHighlights } from '../src/bone-tools.js';
 import { billboardCameraCorrection } from './preview-pose.js';
@@ -1354,7 +1354,7 @@ export default function GamePreview(inputProps) {
         }
         cameraQuaternion.copy(displayCamera.quaternion).multiply(billboardCameraCorrection);
         native.setCamera(displayCamera.position.toArray(), cameraQuaternion.toArray());
-        native.setTeamColor(nativeTeamColor(p.teamColor || '#ed3333'));
+        native.setTeamColor(nativeTeamColor(p.teamColor || DEFAULT_TEAM_COLOR));
         native.setLightPosition(p.showcase ? displayLight().normalize().multiplyScalar(radius*10).add(center).toArray() : cameraLeftLight(camera, controls.target, radius).position.toArray());
         const background = new THREE.Color(p.portraitMode ? '#000000' : visualOptions(p.preferences).background).convertLinearToSRGB();
         const backdrop = !p.portraitMode || p.showcase, clear = backdrop && solidBackground || [background.r, background.g, background.b];

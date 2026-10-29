@@ -1,10 +1,11 @@
-import { Matrix4, Vector3, Quaternion, Color } from 'three';
+import { Matrix4, Vector3, Quaternion } from 'three';
 import { ModelRenderer } from 'war3-model';
 import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { EVENT_TABLE_PATHS, parseEventName, parseSlk, resolveEventDefinition, activeEventInstances, sampleEventDecal } from './event-preview-data.js';
 import { parseEventRenderModel } from './event-render-model.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 import { billboardCameraCorrection } from './preview-pose.js';
+import { DEFAULT_TEAM_COLOR, nativeTeamColor } from './viewport-quality.js';
 import { particleTravelDistance } from './particle-preview-adapter.js';
 
 const pathKey = path => String(path || '').replaceAll('/', '\\').toLowerCase();
@@ -228,7 +229,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
         const inverse = state.world.clone().invert(), position = camera.position.clone().applyMatrix4(inverse);
         const rotation = new Quaternion().setFromRotationMatrix(inverse).multiply(camera.quaternion).multiply(billboardCameraCorrection);
         native.setCamera(position.toArray(),rotation.toArray());
-        const color = new Color(teamColor || '#ff0000'); native.setTeamColor([color.r,color.g,color.b]);
+        native.setTeamColor(nativeTeamColor(teamColor || DEFAULT_TEAM_COLOR));
         const matrix = new Matrix4().multiplyMatrices(camera.matrixWorldInverse,state.world);
         gl.bindVertexArray(state.vao); gl.depthFunc(gl.LEQUAL); native.render(matrix.elements,camera.projectionMatrix.elements,{wireframe:false,useEnvironmentMap:false});
       }

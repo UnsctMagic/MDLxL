@@ -3,6 +3,7 @@ import { uvMaterialLayers } from '../src/uv-tools.js';
 import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
 import { clampByte } from '../src/math.js';
 import { textureFromAsset } from './Viewport.jsx';
+import { teamGlowFactor } from './viewport-quality.js';
 
 const normalPath = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const decodedAssets = new WeakMap();
@@ -42,8 +43,7 @@ function replaceablePixels(id, color, width, height) {
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const offset = (y * width + x) * 4;
     if (id === 2) {
-      const distance = Math.hypot((x + .5) / width - .5, (y + .5) / height - .5) * 2;
-      const alpha = clampByte(Math.sin(Math.max(0, Math.min(1, 1 - distance * 1.4))) * 255);
+      const alpha = clampByte(teamGlowFactor(x, y, width, height) * 255);
       data.set([r, g, b, alpha], offset);
     } else data.set([r, g, b, 255], offset);
   }
