@@ -1,5 +1,13 @@
 {
   "current": [
+    "Along the ring",
+    "Straight drag",
+    "Circle the pivot",
+    "Pull along the axis ring; every axis turns at the same speed.",
+    "Drag right or up to turn steadily (MdlVis).",
+    "Circle around the selection's center.",
+    "Along the ring: pull along the axis ring; every axis turns at the same speed. Straight drag: drag right or up to turn steadily (MdlVis). Circle the pivot: circle around the selection's center.",
+    "Along the ring turns one degree per pixel pulled along the axis ring, the same on every axis. Straight drag turns by drag distance; right or up is positive. Circle the pivot follows a circular drag. Editor overrides keep their own choices when the default changes.",
     "Updates",
     "Auto update",
     "Search for updates",

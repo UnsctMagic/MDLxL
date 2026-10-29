@@ -49,7 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(const width of [1100,1920]){
       await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,800),width);
       await page.waitForTimeout(200);await verify('editor '+width);
-      for(const [id,text] of [['learn','Ctrl+J'],['pressedKeys','Shift+K'],['camera:work','Shift+Q'],['fitSelection','Shift+Home'],['convertVersion','Ctrl+F12']]){
+      for(const [id,text] of [['learn','Ctrl+J'],['pressedKeys','Shift+K'],['fitSelection','Shift+Home'],['convertVersion','Ctrl+F12']]){
         const badge=page.locator(`button[data-hotkey="${id}"]:visible`).first().locator('[data-hotkey-badge]');
         assert.equal(await badge.textContent(),text);assert.equal(await badge.evaluate(e=>e.matches(':popover-open')),true,id);
       }
@@ -71,7 +71,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('.classic-view canvas').first().waitFor();
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1100,800));await page.waitForTimeout(150);
     assert.deepEqual(await dock.boundingBox(),before,'badges do not change dock geometry');
-    const narrow=await page.locator('button[data-hotkey="camera:work"]').locator('[data-hotkey-badge]').boundingBox();
+    const narrow=await page.locator('button[data-hotkey="pressedKeys"]:visible').first().locator('[data-hotkey-badge]').boundingBox();
     assert.ok(narrow.height>=25,'narrow icon wraps the complete modifier and key');
     console.log('✓ Full modifier chords, no white boxes, complete text on icons/status/view/sidebar, 1600/1100/1920 control top-right anchoring and unchanged dock geometry');
 

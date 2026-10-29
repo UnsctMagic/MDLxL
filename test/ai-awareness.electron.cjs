@@ -5,15 +5,11 @@ const fs = require('node:fs'),
   http = require('node:http'),
   assert = require('node:assert/strict'),
   crypto = require('node:crypto');
-const { _electron } = require(
-  process.env.MDLXL_PLAYWRIGHT_MODULE ||
-    'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright',
-);
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-awareness'),
   profile = path.join(out, 'profile');
-const checks = [],
-  calls = [],
-  errors = [];
+const checks = [], calls = [];
+let errors = [];
 let app,
   page,
   server,
@@ -55,23 +51,14 @@ async function waitFor(check, timeout = 10000) {
   }
   throw Error('Timed out waiting for editor state.');
 }
+// Keep this disposable profile across real restarts; final cleanup removes it.
 async function launch(fixture) {
-  app = await _electron.launch({
-    executablePath: process.env.MDLXL_TEST_EXE,
-    args: [fixture],
-    env: {
-      ...process.env,
-      MDLXL_PROFILE: profile,
-      MDLXL_DISABLE_UPDATES: '1',
-      TEMP: path.join(out, 'temp'),
-      TMP: path.join(out, 'temp'),
-    },
-    timeout: 60000,
-  });
-  page = await app.firstWindow();
-  page.on('pageerror', error => errors.push(error.message));
+  const launched = await launchApp({ pageTimeout: 30000, fixture, out, env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp'), MDLXL_PROFILE: profile } });
+  ({ app, page } = launched);
+  launched.errors.unshift(...errors); errors = launched.errors;
+
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(350);
+  await settle(page, 350);
   const config = await page.evaluate(async () => {
     await window.desktop.aiEnable(true);
     return window.desktop.aiConfig();
@@ -80,12 +67,7 @@ async function launch(fixture) {
 }
 async function close() {
   if (app) {
-    // Exit through Electron so its renderer/utility children release the profile.
-    // Schedule after this evaluation reply, then wait before reopening the fixture.
-    const closing = app;
-    const exited = closing.waitForEvent('close');
-    await closing.evaluate(({ app }) => { setTimeout(() => app.exit(0), 100); });
-    await exited;
+    await closeApp(app);
     app = null;
   }
 }
@@ -219,7 +201,7 @@ async function close() {
   );
   await page.reload();
   await page.waitForSelector('.classic-toolbar');
-  await page.waitForTimeout(350);
+  await settle(page, 350);
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   const toggle = page.getByRole('switch', { name: 'Continuous awareness', exact: true });
   check('continuous awareness is off by default', !(await toggle.isChecked()) && !(await resource()).enabled);

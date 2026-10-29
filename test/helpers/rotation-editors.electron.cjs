@@ -1,5 +1,7 @@
 const fs = require('node:fs'), path = require('node:path');
 module.exports = async function rotationEditors({ app, page, check, out }) {
+  const { ObjectLoader, Vector3 } = await import('three');
+  const { rotationRingTangent } = await import('../../src/rotation-drag.js');
   const idle = () => page.waitForTimeout(180);
   const menu = id => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), id);
   const settings = async () => { await menu('settings'); const d=page.getByRole('dialog',{name:'Settings',exact:true}); await d.getByRole('tab',{name:'Mouse',exact:true}).click(); return d; };
@@ -16,7 +18,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name,exact:true}).click();check('Mouse subsection '+name,await d.getByLabel(label,{exact:true}).isVisible());
   }
   await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();
-  check('global UI defaults to Pivot-based',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='pivot');
+  check('global UI defaults to Along the ring',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='ring');
   check('global rotation speed defaults to 1x',await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await idle(); fs.writeFileSync(path.join(out,'mouse-settings.png'),Buffer.from(await app.evaluate(async ({BrowserWindow})=>{const contents=BrowserWindow.getAllWindows()[0].webContents;contents.invalidate();await contents.capturePage(undefined,{stayHidden:true,stayAwake:true});await new Promise(resolve=>setTimeout(resolve,150));return (await contents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64');}),'base64'));await closeSettings();
   await configure('all','pivot',2);await configure('uv','linear',.5);
@@ -27,7 +29,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await d.getByRole('button',{name:'Restore mouse defaults',exact:true}).click();
   check('Restore mouse defaults clears editor overrides',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()===''&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await closeSettings();
-  // Pivot-based is the default; the straight-drag checks below measure Linear.
+  // Along the ring is the default; the straight-drag checks below measure Straight drag (linear).
   await configure('all','linear');
   await menu('vertices');await page.getByLabel('3D model viewport',{exact:true}).waitFor();
   await page.locator('[data-hotkey="geosetsClear"]').click();await page.getByLabel('Select geoset 0',{exact:true}).check();await page.getByLabel('3D model viewport',{exact:true}).focus();await menu('selectAll');
@@ -66,6 +68,17 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await page.keyboard.press('Control+z');await idle();await configure('vertices','pivot',1);
   before=await page.evaluate(scope => rotationMeshSnap(scope),'');start={x:before.pivot.x+80,y:before.pivot.y};await dragMouse(start,30,0);after=await page.evaluate(scope => rotationMeshSnap(scope),'');
   check('Vertices Pivot-based radial drag has no turn',after.vertices.every((v,i)=>Math.abs(v-before.vertices[i])<.001));
+  await configure('vertices','ring',1);
+  {
+    // Along the ring: a 30 pixel pull along the Z ring turns the XY selection 30 degrees.
+    const camera=new ObjectLoader().parse(await page.evaluate(()=>rotationView('').runtime.controls.object.toJSON()));camera.updateMatrixWorld(true);
+    before=await page.evaluate(scope => rotationMeshSnap(scope),'');start={x:Math.round(before.pivot.x+70),y:Math.round(before.pivot.y+40)};
+    const ring=rotationRingTangent({x:start.x-before.pivot.x,y:start.y-before.pivot.y},new Vector3(0,0,1).transformDirection(camera.matrixWorldInverse).toArray());
+    await dragMouse(start,ring.x*30,ring.y*30);after=await page.evaluate(scope => rotationMeshSnap(scope),'');
+    const turns=[];for(let j=0;j<before.vertices.length;j+=3){const bx=before.vertices[j]-before.center[0],by=before.vertices[j+1]-before.center[1],ax=after.vertices[j]-before.center[0],ay=after.vertices[j+1]-before.center[1];if(Math.hypot(bx,by)>1)turns.push(Math.atan2(bx*ay-by*ax,bx*ax+by*ay));}
+    check('Vertices Along the ring pull turns 30 degrees around grid Z',turns.length>0&&turns.every(turn=>Math.abs(turn-Math.PI/6)<.03)&&after.vertices.every((v,i)=>i%3!==2||Math.abs(v-before.vertices[i])<.001),{ring,turns:turns.slice(0,4)});
+    await page.keyboard.press('Control+z');await idle();
+  }
   await configure('vertices','',1);
   // UV uses its own editor preference and keeps the existing 2D pivot.
   await menu('uv');const uv=page.locator('.uv-tab-window');await uv.waitFor();
@@ -90,6 +103,16 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await page.mouse.up();await idle();const uvPivotAfter=await uvSnap();
   check('UV Pivot-based choice follows a quarter-circle',ids.every(i=>Math.abs(uvPivotAfter.uv[i*2]-(center[0]-(uvBefore.uv[i*2+1]-center[1])))<.01&&Math.abs(uvPivotAfter.uv[i*2+1]-(center[1]+uvBefore.uv[i*2]-center[0]))<.01));
   await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
+  await configure('uv','ring',1);
+  {
+    // Along the ring: a 30 pixel pull along the circle through the grab turns 30 degrees.
+    await page.mouse.move(uvStart.x,uvStart.y);await page.mouse.down();
+    const pivot=await page.evaluate(()=>rotationUV().state.drag.pivotScreen),ring=rotationRingTangent({x:uvStart.x-uvBox.x-pivot[0],y:uvStart.y-uvBox.y-pivot[1]},[0,0,-1]);
+    for(let i=1;i<=6;i++)await page.mouse.move(uvStart.x+ring.x*5*i,uvStart.y+ring.y*5*i);
+    await page.mouse.up();await idle();const uvRing=await uvSnap();
+    check('UV Along the ring pull turns 30 degrees',ids.every(i=>{const x=uvBefore.uv[i*2]-center[0],y=uvBefore.uv[i*2+1]-center[1];return Math.abs(uvRing.uv[i*2]-(center[0]+x*c-y*s))<.01&&Math.abs(uvRing.uv[i*2+1]-(center[1]+x*s+y*c))<.01;}),{ring,before:uvBefore.uv.slice(0,6),after:uvRing.uv.slice(0,6)});
+    await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
+  }
   const previewCamera=()=>page.evaluate(()=>{const el=document.querySelector('.uv-tab-window .game-preview-root');for(let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls)return v.controls.object.quaternion.toArray();}throw Error('UV camera missing');});
   const cameraBefore=await previewCamera(),previewBox=await uv.locator('[data-clean-model-canvas]').boundingBox();
   await dragMouse({x:previewBox.x+previewBox.width*.4,y:previewBox.y+previewBox.height*.5},40,20);
