@@ -129,6 +129,17 @@ test('Size and Height scale the fitted corpse, and 100% keeps it unchanged',()=>
   // A taller corpse is still buried completely before Decay Bone hides it.
   const bs=tall.m.Sequences[tall.r.bone];assert.ok(Math.max(...Array.from(posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[1]-1)).filter((_,i)=>i%3===2))<0);
 });
+test('edited, added and removed pieces and the corpse tint reach the made corpse',()=>{
+  const make=options=>{const d=fixture();const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,options)).corpses[0];return {r,m:d.model,g:d.model.Geosets[r.corpseGeoset]};};
+  const plain=make({}),pieces=plain.r.pieces,[cx,cy]=plain.r.sizeCenter,far=plain.r.span*2;
+  assert.ok(pieces.length>0&&pieces.every(p=>p.start&&p.end&&p.half>0));
+  // A piece placed outside the body outline is kept exactly where it was put.
+  const added=make({pieces:[...pieces,{kind:'branch',start:[cx+far,cy,0],end:[cx+far+20,cy,0],half:4,rect:[.006,.005,.31,.495],ids:[],free:true}]});
+  assert.ok(added.g.Vertices.filter((_,i)=>i%3===0).some(x=>x>cx+far),'An added piece outside the body is not trimmed away');
+  const removed=make({pieces:added.r.pieces.slice(1)});assert.equal(removed.r.pieces.length,pieces.length);
+  const red=make({color:[1,.3,.3]}),anim=red.m.GeosetAnims.find(a=>a.GeosetId===red.r.corpseGeoset);
+  assert.deepEqual(Array.from(anim.Color).map(v=>+v.toFixed(2)),[1,.3,.3]);assert.equal(anim.Flags&2,2);
+});
 test('native body geometry, skin weights, Death keys and non-decay alpha curves are preserved',()=>{
   const d=fixture();d.apply('Cubic',[],m=>{m.GeosetAnims[0].Alpha=track([[0,[.3]],[500,[.8]],[900,[.5]],[1000,[1]],[1900,[1]]],3);for(const k of m.GeosetAnims[0].Alpha.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}});
   const before=structuredClone(d.model);apply(d);for(const field of ['Vertices','Normals','TVertices','Faces','Groups','VertexGroup'])assert.deepEqual(d.model.Geosets[0][field],before.Geosets[0][field]);
