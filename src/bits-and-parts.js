@@ -1,3 +1,5 @@
+import { createResourceImporter, partTextureKey } from './model-import.js';
+export { partTextureKey } from './model-import.js';
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
 import { ensureDummyBone } from './dummy-bone.js';
@@ -14,7 +16,6 @@ import { gamePathKey } from './game-path.js';
 export const partPathKey = gamePathKey;
 const canonical = canonicalValue;
 const fingerprint = stableKey;
-export const partTextureKey = texture => fingerprint({ ...texture, Image: gamePathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
 export function partMaterialKey(model, source) {
   const material = structuredClone(source);
@@ -142,49 +143,20 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
   const replacedMaterials = new Set(donors?.map(vertex => vertex.materialId));
   if (replacement) removePartSelection(next, replacement);
   for (const key of ['Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'Geosets', 'GeosetAnims']) next[key] ||= [];
-  const maps = { textures: new Map(), materials: new Map(), textureAnims: new Map(), globals: new Map() };
-  const reuse = (collection, item) => { const key = fingerprint(item), index = collection.findIndex(existing => fingerprint(existing) === key); return index < 0 ? collection.push(item) - 1 : index; };
-  const remapGlobals = value => {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (isGlobalTrack(value)) {
-      const id = value.GlobalSeqId, duration = staged.GlobalSequences?.[id];
-      if (!Number.isFinite(duration) || duration <= 0) throw Error('The part references a missing global sequence.');
-      if (!maps.globals.has(id)) maps.globals.set(id, reuse(next.GlobalSequences, duration));
-      value.GlobalSeqId = maps.globals.get(id);
-    }
-    for (const child of Object.values(value)) remapGlobals(child);
-  };
-  const textureRef = id => {
-    if (id == null || id === -1) return id;
-    if (!staged.Textures?.[id]) throw Error(`The part references missing texture ${id}.`);
-    if (!maps.textures.has(id)) {
-      const texture = { ...staged.Textures[id] };
-      const index = next.Textures.findIndex(existing => partTextureKey(existing) === partTextureKey(texture));
-      maps.textures.set(id, index < 0 ? next.Textures.push(texture) - 1 : index);
-    }
-    return maps.textures.get(id);
-  };
-  const materialRef = id => {
-    if (!staged.Materials?.[id]) throw Error(`The part references missing material ${id}.`);
-    if (maps.materials.has(id)) return maps.materials.get(id);
-    const material = structuredClone(staged.Materials[id]);
-    for (const layer of material.Layers || []) {
-      for (const slot of TEXTURE_SLOTS) {
-        if (typeof layer[slot] === 'number') layer[slot] = textureRef(layer[slot]);
-        else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) key[field] = new Int32Array(Array.from(key[field], textureRef));
-        if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = textureRef(layer._MdxDefaults[slot]);
-      }
-      const animationId = layer.TVertexAnimId;
-      if (animationId != null && animationId !== -1) {
-        if (!staged.TextureAnims?.[animationId]) throw Error('The part references a missing texture animation.');
-        if (!maps.textureAnims.has(animationId)) { const animation = structuredClone(staged.TextureAnims[animationId]); remapGlobals(animation); maps.textureAnims.set(animationId, reuse(next.TextureAnims, animation)); }
-        layer.TVertexAnimId = maps.textureAnims.get(animationId);
-      }
-    }
-    remapGlobals(material);
-    const key = partMaterialKey(next, material), index = next.Materials.findIndex(existing => partMaterialKey(next, existing) === key);
-    maps.materials.set(id, index < 0 ? next.Materials.push(material) - 1 : index); return maps.materials.get(id);
-  };
+  const { globalRef: remapGlobals, materialRef, maps } = createResourceImporter(staged, next, {
+    reuseTextures: 'partKey', reuseGlobals: true,
+    validGlobalId: (id, model) => Number.isFinite(model.GlobalSequences?.[id]) && model.GlobalSequences[id] > 0,
+    keyArrayType: 'int32', fingerprint, reuseMaterials: true, reuseTextureAnims: true,
+    materialKey: material => partMaterialKey(next, material),
+    isGlobalRef: isGlobalTrack, validateMappedGlobals: true,
+    cloneTexture: texture => ({ ...texture }),
+    error: (kind, id) => ({
+      global: 'The part references a missing global sequence.',
+      texture: `The part references missing texture ${id}.`,
+      material: `The part references missing material ${id}.`,
+      textureAnim: 'The part references a missing texture animation.',
+    })[kind],
+  });
   // Keep relative source timing, including keys outside sequence intervals.
   // Allocate through the sequence editor and shift only local appearance keys.
   const sequenceIndices = [];

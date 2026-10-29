@@ -1,5 +1,6 @@
+import { createResourceImporter } from './model-import.js';
 import {validateParticleAssets} from './particle-assets.js';
-import {generateCompatibleMdx, TEXTURE_SLOTS} from './mdx-compatibility.js';
+import {generateCompatibleMdx} from './mdx-compatibility.js';
 import { createNode, NODE_TYPES, validateModel, openDocument } from './editor-document.js';
 import { stringifyParticleData, safeParticlePath } from './particle-data.js';
 import { hdContentIssues } from './model-version.js';
@@ -8,7 +9,6 @@ import { convertHDToSD } from './paste-format.js';
 
 export const EFFECT_FAMILIES = ['ParticleEmitters2', 'RibbonEmitters', 'ParticleEmitters', 'ParticleEmitterPopcorns'];
 const clone = value => structuredClone(value);
-const textureSlots = TEXTURE_SLOTS;
 export function emptyParticleModel(version = 800) {
   const model = { Version: version, Info: { Name: 'Particle Lab', MinimumExtent: new Float32Array([-64,-64,-16]), MaximumExtent: new Float32Array([64,64,128]), BoundsRadius: 120, BlendTime: 150 }, Nodes: [] };
   for (const key of ['Sequences','GlobalSequences','Textures','Materials','TextureAnims','Geosets','GeosetAnims','PivotPoints','Cameras','FaceFX','BindPoses','Gliders', ...Object.values(NODE_TYPES).map(v => v[0])]) model[key] = [];
@@ -21,29 +21,15 @@ export function copyEffectGraph(target, source, ids, { parent = null, sourceInte
   if (target.Version !== source.Version) throw Error('Effect placement requires matching native model versions.');
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Effect placement with bind-pose matrices is not yet supported.');
   if (parent != null && !target.Nodes?.[parent]) throw Error('The attachment node no longer exists.');
-  const selected = new Set(ids), visiting = new Set(), needed = new Set();
+  const selected = new Set(ids);
   const byId = new Map(Object.values(NODE_TYPES).flatMap(([key]) => source[key] || []).map(node => [node.ObjectId, node]));
   for (const id of selected) if (!effectNodes(source).some(item => item.node.ObjectId === id)) throw Error('Selected effect no longer exists.');
-  function requireNode(id) {
-    if (needed.has(id)) return;
-    if (visiting.has(id)) throw Error('Effect hierarchy contains a cycle.');
-    const node = byId.get(id); if (!node) throw Error('Missing effect parent ' + id);
-    visiting.add(id);
-    if (node.Parent != null && node.Parent !== -1) requireNode(node.Parent);
-    visiting.delete(id); needed.add(id);
-  }
-  ids.forEach(requireNode);
-  const maps = { nodes: new Map(), textures: new Map(), materials: new Map(), textureAnims: new Map(), globals: new Map() };
-  function tracks(value) {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (value.GlobalSeqId != null && value.GlobalSeqId !== -1) {
-      const id = value.GlobalSeqId;
-      if (!maps.globals.has(id)) {
-        if (!Number.isFinite(source.GlobalSequences[id]) || source.GlobalSequences[id] < 0) throw Error('Missing global sequence.');
-        maps.globals.set(id, target.GlobalSequences.push(source.GlobalSequences[id]) - 1);
-      }
-      value.GlobalSeqId = maps.globals.get(id);
-    } else if (value.Keys && sourceInterval && targetInterval) {
+  const { requireNode, requiredNodes: needed, globalRef: tracks, textureRef: texture, materialRef: material, maps } = createResourceImporter(source, target, {
+    reuseTextures: 'never', reuseGlobals: false,
+    validGlobalId: (id, model) => Number.isFinite(model.GlobalSequences[id]) && model.GlobalSequences[id] >= 0,
+    keyArrayType: 'int32', nodeForId: id => byId.get(id),
+    localTrack: value => {
+      if (!value.Keys || !sourceInterval || !targetInterval) return;
       const [a,b] = sourceInterval, [c,d] = targetInterval;
       if (!(b > a && d > c)) throw Error('Choose valid source and target intervals.');
       const keys = keysInInterval(value, [a, b]);
@@ -53,39 +39,14 @@ export function copyEffectGraph(target, source, ids, { parent = null, sourceInte
       const ratio = fit ? (d-c)/(b-a) : 1;
       value.Keys = keys.sort((x,y) => x.Frame-y.Frame).map(key => ({ ...key, Frame: Math.round(c + (key.Frame-a)*ratio) }));
       if (value.Keys.some((key,i) => key.Frame > d || i && key.Frame <= value.Keys[i-1].Frame)) throw Error('The target interval cannot contain these source keys; choose Fit timing or a longer interval.');
-    }
-    for (const child of Object.values(value)) tracks(child);
-  }
-  function texture(id) {
-    if (id == null || id === -1) return id;
-    if (!source.Textures[id]) throw Error('Missing effect texture ' + id);
-    if (!maps.textures.has(id)) {
-      // Filename equality is not evidence of content equality. Preserve distinct resources.
-      maps.textures.set(id, target.Textures.push(clone(source.Textures[id])) - 1);
-    }
-    return maps.textures.get(id);
-  }
-  function material(id) {
-    if (!source.Materials[id]) throw Error('Missing ribbon material.');
-    if (!maps.materials.has(id)) {
-      const next = clone(source.Materials[id]);
-      for (const layer of next.Layers || []) {
-        for (const slot of textureSlots) {
-          if (typeof layer[slot] === 'number') layer[slot] = texture(layer[slot]);
-          else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) for (const part of ['Vector','InTan','OutTan']) if (key[part]) key[part] = new Int32Array(Array.from(key[part], texture));
-          if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = texture(layer._MdxDefaults[slot]);
-        }
-        const aid = layer.TVertexAnimId;
-        if (aid != null && aid !== -1) {
-          if (!source.TextureAnims[aid]) throw Error('Missing texture animation.');
-          if (!maps.textureAnims.has(aid)) { const anim = clone(source.TextureAnims[aid]); tracks(anim); maps.textureAnims.set(aid, target.TextureAnims.push(anim)-1); }
-          layer.TVertexAnimId = maps.textureAnims.get(aid);
-        }
-      }
-      tracks(next); maps.materials.set(id, target.Materials.push(next)-1);
-    }
-    return maps.materials.get(id);
-  }
+    },
+    error: (kind, id) => ({
+      cycle: 'Effect hierarchy contains a cycle.', node: 'Missing effect parent ' + id,
+      global: 'Missing global sequence.', texture: 'Missing effect texture ' + id,
+      material: 'Missing ribbon material.', textureAnim: 'Missing texture animation.',
+    })[kind],
+  });
+  ids.forEach(requireNode);
   for (const id of needed) {
     const original = byId.get(id);
     const type = selected.has(id) ? Object.keys(NODE_TYPES).find(key => source[NODE_TYPES[key][0]]?.some(node => node.ObjectId === id)) : 'Helper';
