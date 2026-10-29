@@ -1,0 +1,58 @@
+{
+  "description": "Owner-approved replacements (2026-10-29) for accepted outputs changed by the same-point welding rule: Duplicate data merges near matches only when the gap is under 2% of the surrounding edges, so helmet breathing holes and visor slits stay open. The original hashes stay in optimizexl-flail-baseline.json. The regression requires these exact outputs and checks every corner against the source rule.",
+  "approved": "2026-10-29 by the owner in PR #383 (UnsctMagic/MDLxL)",
+  "models": [
+    {
+      "model": "WH_WOC_KnightKhorneFlail03.mdx",
+      "source": "3708486667b8a6e3e2f96346ba549773d9cfa861a7618a24e3dad72cff2177d8",
+      "cases": {
+        "duplicates:40": {
+          "bytes": 234023,
+          "sha256": "6b775e0458d1ca1c7656dbe2133fa2b3df3693b8bef5ac0defe74d732859d248"
+        },
+        "pipeline:40": {
+          "bytes": 233207,
+          "sha256": "4de5d1b91ae1c74bb3f7bd560e4b673b61cfc76c76cbd0a6a7fd1860df46e96f"
+        },
+        "duplicates:100": {
+          "bytes": 233198,
+          "sha256": "e07ec627caf97d89947f95272be1c7903744a461d5632ddc9cc9fb936a5c4ded"
+        },
+        "duplicates:excluded": {
+          "bytes": 233198,
+          "sha256": "e07ec627caf97d89947f95272be1c7903744a461d5632ddc9cc9fb936a5c4ded"
+        },
+        "pipeline:100": {
+          "bytes": 232382,
+          "sha256": "673fa0e0571916dd674b44070ba0ca9929033828236dc06bc0b875556fdbec88"
+        }
+      }
+    },
+    {
+      "model": "WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx",
+      "source": "e4df8df23090128798a45927381fa8bc7ad5fbf0d73f6d25125dc1eb49879a45",
+      "cases": {
+        "duplicates:40": {
+          "bytes": 239770,
+          "sha256": "358266df0a0df36c13ad600982baa571bc1622556dbae4541e595d1c91a4da0c"
+        },
+        "pipeline:40": {
+          "bytes": 238702,
+          "sha256": "e4f74204dfa82fce9611888c3a7927dd09cdc51491fc8209edfa5de3d44f0153"
+        },
+        "duplicates:100": {
+          "bytes": 238912,
+          "sha256": "1d933af04b3cc98fa6acb3fcba9f9e11ad769b8bd9da1a0d580b1b1bbbb01b5e"
+        },
+        "duplicates:excluded": {
+          "bytes": 238912,
+          "sha256": "1d933af04b3cc98fa6acb3fcba9f9e11ad769b8bd9da1a0d580b1b1bbbb01b5e"
+        },
+        "pipeline:100": {
+          "bytes": 237828,
+          "sha256": "160a49a4a696006cb54c4a57d80e138ae7774ed1a43506ac3c4882042eef9a08"
+        }
+      }
+    }
+  ]
+}

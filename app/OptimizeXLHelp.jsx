@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const explanations={
- 'Position tolerance':'How close two vertices may be before they can merge, in model units. Higher values can change the shape. Zero requires identical positions.',
+ 'Position tolerance':'The farthest apart two vertices may be and still merge, in model units. A near match merges only when its gap is under 2% of the edges around it, so small holes, slits and stacked layers stay. Zero requires identical positions.',
  'UV tolerance':'How close texture coordinates may be before vertices can merge. Higher values can shift texture details. Zero preserves exact texture coordinates.',
  'Normal angle (degrees)':'The largest difference between surface directions that may merge. Higher angles can soften sharp edges. Zero requires identical normals.',
  'Merge equivalent leaf bones':'Merge bones with identical transforms, pivots and parents when they have no children. Vertices keep the same movement.',
  'Translation tolerance':'Maximum sampled movement difference, in model units. Small motions and turning poses also have a 10% relative limit; keys are kept when reduction would exceed it. Zero removes only proven redundant keys.',
- 'Rotation tolerance (degrees)':'Maximum sampled rotation difference, in degrees. Curved tracks are supported. Small rotations and turning poses also have a 10% relative limit, preserving motion even at high settings.',
+ 'Rotation tolerance (degrees)':'Maximum sampled rotation difference, in degrees. Curved tracks are supported. A turn on a long part is also limited so its far end moves no more than the Translation tolerance. Small rotations and turning poses also have a 10% relative limit, preserving motion even at high settings.',
  'Scale tolerance':'Maximum sampled scale difference. A value of 0.01 is about one percent on one axis. Each axis and turning pose also has a 10% relative motion limit, so small scale cycles stay animated.',
  'Unreferenced vertices':'Delete vertices that no triangle uses, along with bone groups that no remaining vertex uses. Excluded geosets are preserved.',
  'Unused materials, textures and globals':'Remove resources that no retained model data uses, and merge identical texture records. Referenced animation and effect resources remain.',

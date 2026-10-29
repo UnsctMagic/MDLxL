@@ -103,3 +103,24 @@ test('a backup that does not match the original is removed and reported',async()
   await assert.rejects(backupModelFile(original,io),/verification failed/);assert.deepEqual(await fs.readdir(dir),['source.mdl']);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
+test('near matches merge only when they are the same point saved twice, not a hole or stacked layer',()=>{
+ // Two identical triangles stacked `offset` apart in one geoset, like a slit
+ // rim or a layered shell. Edges are 2 units long.
+ const stacked=offset=>{const doc=createStarterDocument();doc.apply('fixture',['Geosets'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,2,0,0,0,2,0,0,0,offset,2,0,offset,0,2,offset]);g.Normals=new Float32Array(Array(6).fill([0,0,1]).flat());g.TVertices=[new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1])];g.VertexGroup=new Uint8Array(6);g.Faces=new Uint16Array([0,1,2,3,4,5]);});return doc.serialize('mdx');};
+ const settings={position:1,normal:10,uv:.01,bones:false};
+ const open=runOptimizeStage(stacked(.5),'duplicates',settings);
+ assert.equal(open.stats.duplicateVertices,0);assert.equal(open.changed,false);
+ const noise=runOptimizeStage(stacked(.01),'duplicates',settings);
+ assert.equal(noise.stats.duplicateVertices,3);
+});
+test('repeated triangles stay on blended, additive and fading surfaces',()=>{
+ const doubled=edit=>{const doc=createStarterDocument();doc.apply('fixture',['Geosets','Materials','GeosetAnims'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,1,0,0,0,1,0]);g.Normals=new Float32Array([0,0,1,0,0,1,0,0,1]);g.TVertices=[new Float32Array([0,0,1,0,0,1])];g.VertexGroup=new Uint8Array(3);g.Faces=new Uint16Array([0,1,2,0,1,2]);edit(m);});return doc.serialize('mdx');};
+ const triangles=bytes=>runOptimizeStage(bytes,'duplicates',{position:0,normal:0,uv:0,bones:false}).stats.duplicateTriangles;
+ assert.equal(triangles(doubled(()=>{})),1);
+ for(const mode of [2,3,4,5,6])assert.equal(triangles(doubled(m=>{m.Materials[0].Layers[0].FilterMode=mode;})),0,`filter mode ${mode}`);
+ assert.equal(triangles(doubled(m=>{m.Materials[0].Layers[0].Alpha=.5;})),0,'faded layer');
+ assert.equal(triangles(doubled(m=>{m.GeosetAnims=[{GeosetId:0,Flags:0,Color:new Float32Array([1,1,1]),Alpha:.5}];})),0,'faded geoset');
+ const visibility=LineType=>m=>{m.GeosetAnims=[{GeosetId:0,Flags:0,Color:new Float32Array([1,1,1]),Alpha:{LineType,GlobalSeqId:null,Keys:[0,500].map((Frame,i)=>({Frame,Vector:new Float32Array([1-i])}))}}];};
+ assert.equal(triangles(doubled(visibility(0))),1,'stepped on/off visibility never blends');
+ assert.equal(triangles(doubled(visibility(1))),0,'linear visibility fades between keys');
+});
