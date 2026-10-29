@@ -193,3 +193,6 @@ code and may be removed.
   collision-stage drawing. Existing cylinder/plane data and deletion remain
   available without incorrect box edits. Packaged UI regression pending with
   final manager interaction checks. Existing native collision tests passed.
+- [x] Item 7: Resume takes the existing roster job title, rather than plan
+  reach. The bird conversation does not own the title; its roster entry does.
+  Stop/Resume service regression passed with a deliberately different reach.

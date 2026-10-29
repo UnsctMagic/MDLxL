@@ -509,7 +509,7 @@ class AiService {
       const bird = await this.conversation(prior.workerId, settings.provider);
       recorder.start({ role: 'user', text: 'Resume task' });
       active.cost = {};
-      const result = await this.runWorker({ organiser: conversation, active, args: { worker: bird.name, job: bird.task?.plan?.reach || 'Resume task', resumeTask: structuredClone(bird.task) }, userText: prior.prompt, images: [], context, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
+      const result = await this.runWorker({ organiser: conversation, active, args: { worker: bird.name, job: conversation.workers?.find(w => w.id === bird.id)?.job || 'Resume task', resumeTask: structuredClone(bird.task) }, userText: prior.prompt, images: [], context, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
       prior.workerId = active.lastWorker || conversation.currentWorker;
       if (result.status !== 'done') { prior.status = 'incomplete'; throw Error(result.error || result.report); }
       conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });

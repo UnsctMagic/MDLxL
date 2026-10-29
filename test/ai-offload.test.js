@@ -821,3 +821,22 @@ test('direct messages to an editor bird retain organiser lifecycle and destinati
   assert.equal(result.ok,true,JSON.stringify(result));assert.equal(org.workers.length,1);assert.equal(org.currentWorker,bird.id);
   assert.equal(org.transcript.filter(m=>m.role==='user').length,2);assert.equal(f.requests.length,2);
 });
+
+
+test('resuming an interrupted bird preserves its job title rather than its plan reach', async t=>{
+ let ready,release,turn=0;
+ const started=new Promise(r=>ready=r), hold=new Promise(r=>release=r);
+ const f=await setup(t,{organiser:()=>assert.fail('No organiser'),worker:async data=>{
+   if(userText(data).includes('Resume the interrupted task')) return say('Inspection complete.');
+   if(++turn===1) return jobTool('mdlxl_plan',jobPlan({reach:'Only the left shoulder vertices.'}));
+   ready(); await hold; return say('Stopped inspection.');
+ }});
+ const {id}=await f.service.organiser({modelKey});
+ const pending=f.service.send({id,text:'Inspect the shoulder',job:'Shoulder inspection',context,route:'new'});
+ await started; f.service.cancel(id); release();
+ assert.equal((await pending).cancelled,true);
+ assert.equal((await f.service.send({id,context,resume:true})).ok,true);
+ const org=await f.service.readConversation(id);
+ assert.equal(org.workers[0].job,'Shoulder inspection');
+ assert.equal(org.workers.length,1);
+});
