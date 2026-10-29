@@ -843,7 +843,7 @@ class AiService {
     };
     if (!conversation.toolsOff && !conversation.helperOnly && helper && !resume) startHelper(helper);
     // A crashed helper only did reads; restart its bounded investigation, never an edit.
-    if (resume && task.helper?.status === 'working') { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
+    if (resume && ['working', 'failed', 'cancelled'].includes(task.helper?.status)) { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
     if (checks?.length) prompt += '\n\nOrganiser completion criteria: ' + JSON.stringify(checks);
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {

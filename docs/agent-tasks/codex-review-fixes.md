@@ -199,3 +199,6 @@ code and may be removed.
 - [x] Items 8–9: checkpoints include every applied step plus the recent tail;
   passing checks delete the same truncated key used to record failures.
   New regressions cover 32 steps and a 400-character check name; both passed.
+- [x] Item 10: Resume restarts working, failed or cancelled read-only helpers;
+  completed reports remain reusable. Extended Stop/Resume regression proves
+  a second investigation runs, delivers its report, and closes both targets.

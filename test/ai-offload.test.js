@@ -790,17 +790,24 @@ test('dependent jobs receive only completed prerequisite reports',async t=>{
 
 
 
-test('stopping a job also stops its helper and closes the helper target',async t=>{
-  let ready, release;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
+test('stopping a job stops its helper and Resume restarts the read-only investigation',async t=>{
+  let ready, release, helperTurns=0;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
   const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:async data=>{
     if(data.messages[0].content.startsWith('Route one message'))return say(JSON.stringify({job:'Inspect',helper:{job:'Measure reference',instructions:'Read the reference.'}}));
-    if(data.messages[0].content.startsWith('You are a read-only')){ready();await hold;return say('Read only.');}
+    if(data.messages[0].content.startsWith('You are a read-only')){helperTurns++;ready();await hold;return say('Read only.');}
     await hold;return say('Read only.');
   }});
   const regions=helperRegions(f);const {id}=await f.service.organiser({modelKey});
   const pending=f.service.send({id,text:'Inspect the reference and target together',route:'auto',context});
   await started; f.service.cancel(id);release();const result=await pending;
   assert.equal(result.cancelled,true,JSON.stringify(result));assert.equal(regions.closed(),1);assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
+  const org=await f.service.readConversation(id), bird=await f.service.readConversation(org.task.workerId);
+  assert.equal(bird.task.helper.status,'failed');
+  const resumed=await f.service.send({id,context,resume:true});
+  assert.equal(resumed.ok,true,JSON.stringify(resumed)); assert.equal(helperTurns,2);
+  const after=await f.service.readConversation(org.task.workerId);
+  assert.equal(after.task.helper.status,'done');assert.equal(after.task.helper.delivered,true);
+  assert.equal(regions.closed(),2);assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
 });
 
 test('an exact value edit uses the existing direct bird path without a plan or helper',async t=>{
