@@ -186,3 +186,6 @@ code and may be removed.
 - [x] Item 4: restored Hive Workshop and XGM in the research prompt. Checked
   all added lines in 7797f977 for repeated "X and X" names: this was the only
   match. Focused prompt regression passed.
+- [x] Item 5: escape reserved MDLXL_ user comment lines and escape prefixes,
+  then unescape on read; native editor metadata remains separate. Repeated
+  save/reopen, metadata coexistence, removal and existing manager tests passed.
