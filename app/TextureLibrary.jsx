@@ -6,6 +6,7 @@ import {cachedThumbnail,saveThumbnail,peekThumbnail} from '../src/texture-librar
 import {getUVPreviewSelection,existingTextureIndex,materialsUsingTexture} from '../src/uv-preview.js';
 import './texture-library.css';
 import { translate } from '../src/localization.js';
+import { gamePathKey } from '../src/game-path.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
 const LIBRARY_TABS=[['textures','Textures','Warcraft III textures and textures beside your model'],['models','Models','Every Warcraft III model; double-click one to open it in the editor'],['sounds','Sounds','Every Warcraft III sound, voice and music file'],['all','All files','Every Warcraft III game file, organised like the game folders']];

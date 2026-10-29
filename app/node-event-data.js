@@ -1,4 +1,5 @@
 import { parseSlk, EVENT_TABLE_PATHS, resolveEventDefinition } from './event-preview-data.js';
+import { gamePathKey } from '../src/game-path.js';
 
 export const EVENT_TYPES = { SND: 'Sound', SPL: 'Blood Splat', FPT: 'Footprint', UBR: 'Uber Splat', SPN: 'Spawn Object' };
 export const NODE_EVENT_TABLES = ['UI\\SoundInfo\\AnimLookups.slk', 'UI\\SoundInfo\\AnimSounds.slk', ...Object.values(EVENT_TABLE_PATHS)];

@@ -1,4 +1,5 @@
 import { forgeTangents } from './geoset-tangents.js';
+import { gamePathKey } from './game-path.js';
 export { forgeTangents } from './geoset-tangents.js';
 /** Local image cutouts and WC3 geometry. Draft operations never mutate the model;
  * commitForge belongs inside EditorDocument.apply so one Forge is one undo step.
@@ -215,12 +216,11 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
   const hd = (model.Geosets || []).some(g => g.SkinWeights?.length), extraAssets = [];
   if (hd && model.Version < 900) throw Error('Weighted Forge geometry requires model format 900 or newer.');
   const bone = ensureDummyBone(model, { weighted: hd });
-  const pathKey = p => String(p).replaceAll('/', '\\').toLowerCase();
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
-  let textureId = model.Textures.findIndex(t => pathKey(t.Image) === pathKey(texturePath));
+  let textureId = model.Textures.findIndex(t => gamePathKey(t.Image) === gamePathKey(texturePath));
   if (textureId < 0) { textureId = model.Textures.length; model.Textures.push({ Image: texturePath, ReplaceableId: 0, Flags: 0 }); }
   const auxiliary = image => {
-    let id = model.Textures.findIndex(t => pathKey(t.Image) === pathKey(image));
+    let id = model.Textures.findIndex(t => gamePathKey(t.Image) === gamePathKey(image));
     if (id < 0) { id = model.Textures.length; model.Textures.push({ Image: image, ReplaceableId: 0, Flags: 0 }); }
     return id;
   };
@@ -239,7 +239,7 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
   // White.blp is a stock Warcraft texture, so colored trim has no external asset dependency.
   let trimMaterialId = materialId;
   if (mesh.geosets.length > 1) {
-    let white = model.Textures.findIndex(t => pathKey(t.Image) === 'textures\\white.blp');
+    let white = model.Textures.findIndex(t => gamePathKey(t.Image) === 'textures\\white.blp');
     if (white < 0) { white = model.Textures.length; model.Textures.push({ Image: 'Textures\\white.blp', ReplaceableId: 0, Flags: 0 }); }
     trimMaterialId = model.Materials.length; model.Materials.push(material(white, 0));
   }

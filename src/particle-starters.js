@@ -1,5 +1,6 @@
 import { createNode } from './editor-document.js';
 import { emptyParticleModel, extractParticleRecipe } from './particle-recipes.js';
+import { gamePathKey } from './game-path.js';
 // Stock Warcraft III pictures, read from the player's own game data like every other
 // native texture. MDLxL never generates or bundles effect pictures.
 export const STARTER_TEXTURE = 'Textures\\GenericGlow64.blp';

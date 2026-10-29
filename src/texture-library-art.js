@@ -3,6 +3,7 @@
 // Skins, terrain, icons, UI frames and the rendered profile portraits
 // (webui\portraits, 3D renders rather than paintings) are not included.
 // Paths were checked against the installed 3.0.1 game files (classic and Reforged).
+import { gamePathKey } from './game-path.js';
 const ART_PATHS = [
   /^ui\\glues\\loading\\backgrounds\\(?!.*(?:locationicons|symbol))/,      // classic loading screens and campaign maps, not their map icons
   /^webui\\loadingscreen\\(?!.*(?:frame|piece|fill|lineart|crest|bar))/,   // Reforged loading screens, not their frames

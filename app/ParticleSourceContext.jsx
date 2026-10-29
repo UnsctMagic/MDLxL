@@ -1,6 +1,7 @@
 import React,{Suspense,lazy,useCallback,useEffect,useRef,useState} from 'react';
 import {openDocument} from '../src/editor-document.js';
 import {activeParticleSample} from '../src/particle-sampling.js';
+import { gamePathKey } from '../src/game-path.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 /** Explicit context inspection never installs the source into the Lab or model session. */
 export default function ParticleSourceContext({item,preferences,onClose}){

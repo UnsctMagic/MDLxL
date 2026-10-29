@@ -8,6 +8,7 @@ import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import {createThumbnailQueue} from '../src/texture-library-session.js';
 import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
+import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TYPE_ICON={models:Box,textures:Image,sounds:Music,text:FileText,maps:MapIcon,video:Film,fonts:Type,other:File};
@@ -19,7 +20,6 @@ const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
 // Folder icons for the World Editor view's top level, taken from the game's own buttons.
 const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
 const ROW=24;
-const normalize=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
 function remembered(key,fallback,allowed){try{const value=localStorage.getItem(key);return allowed.includes(value)?value:fallback;}catch{return fallback;}}
 function remember(key,value){try{localStorage.setItem(key,value);}catch{}}
@@ -38,7 +38,7 @@ function previewAssets(textures){
   for(const record of textures){
     const asset={name:record.name,bytes:record.bytes,source:'gameFile'},mime=IMAGE[record.name.split('.').at(-1).toLowerCase()];
     if(mime){asset.url=URL.createObjectURL(new Blob([record.bytes],{type:mime}));urls.push(asset.url);}
-    assets.set(normalize(record.name),asset);assets.set(normalize(record.name.split(/[\\/]/).at(-1)),asset);
+    assets.set(gamePathKey(record.name),asset);assets.set(gamePathKey(record.name.split(/[\\/]/).at(-1)),asset);
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
 }
@@ -143,7 +143,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
 
   const readPath=path=>()=>window.desktop.gameFilesReadPath({path,variant});
   const readFile=file=>()=>window.desktop.gameFilesRead({id:file.id,signature});
-  const modelIcon=file=>we?.modelIcons?.[normalize(file.path)];
+  const modelIcon=file=>we?.modelIcons?.[gamePathKey(file.path)];
   const fileRow=(file,depth)=>({key:'f'+file.id,depth,name:file.name,file,detail:file.module});
   // Visible rows: open folders only, so clicking a folder never moves anything else.
   const rows=useMemo(()=>{

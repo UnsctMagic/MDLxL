@@ -1,3 +1,4 @@
+import { gamePathKey } from './game-path.js';
 import catalog from './sprite-sheet-frames.json' with {type:'json'};
 /**
  * Sprite sheets: one picture holding several frames in a grid. Frames are only offered when the
@@ -65,13 +66,12 @@ export function spriteGridValues(emitter,rows,columns){
  return {Rows:rows,Columns:columns,...framesAcrossLife(emitter,0,rows*columns-1,1)};
 }
 
-const shortName=name=>String(name||'').replaceAll('/','\\').toLowerCase();
-const fileName=name=>shortName(name).split('\\').pop();
+const fileName=name=>gamePathKey(name).split('\\').pop();
 const byFile=new Map(Object.entries(catalog.sheets).map(([path,entry])=>[fileName(path),entry]));
 
 /** How the game's own effects use this sprite sheet, most common first (empty for other pictures). */
 export function suggestedSetups(picture){
- const entry=catalog.sheets[shortName(picture)]||byFile.get(fileName(picture));
+ const entry=catalog.sheets[gamePathKey(picture)]||byFile.get(fileName(picture));
  if(!entry)return [];
  // Setups that only differ in streak frames look the same here; keep the most used one of each.
  const seen=new Map();

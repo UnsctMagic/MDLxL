@@ -1,6 +1,7 @@
 import { directlyBoundBoneIds } from './binding-inspection.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { recalculateExtents } from './editor-document.js';
+import { gamePathKey } from './game-path.js';
 
 const track = value => value && Array.isArray(value.Keys);
 const signature = value => JSON.stringify(value, (_, item) => ArrayBuffer.isView(item) ? Array.from(item) : item);

@@ -9,10 +9,11 @@ import { createSequence, setSequenceName } from './sequence-editor.js';
 import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 
 const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
-export const partPathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey } from './game-path.js';
+export const partPathKey = gamePathKey;
 const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => [key, canonical(value[key])])) : value;
 const fingerprint = value => JSON.stringify(canonical(value));
-export const partTextureKey = texture => fingerprint({ ...texture, Image: partPathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
+export const partTextureKey = texture => fingerprint({ ...texture, Image: gamePathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
 export function partMaterialKey(model, source) {
   const material = structuredClone(source);
