@@ -129,7 +129,7 @@ async function close() {
           m.content[0]?.text?.includes('MDLxL context captured'),
       );
     const context = JSON.parse(
-      user.content[0].text.split('MDLxL context captured when this prompt was sent:\n')[1],
+      user.content[0].text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1],
     );
     const messages = data.messages.slice(data.messages.lastIndexOf(user) + 1),
       previous = messages

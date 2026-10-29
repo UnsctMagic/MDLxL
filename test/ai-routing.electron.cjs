@@ -49,7 +49,7 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
       if (cooperativeHelper === 1) {
         await inspected;
         const input = data.messages.find(m => m.role === 'user').content[0].text;
-        const target = JSON.parse(input.split('MDLxL context captured when this prompt was sent:\n').at(-1)).target;
+        const target = JSON.parse(input.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/).at(-1)).target;
         response = tool('mdlxl_script', { target, edit: true, label: 'Refused helper edit', scope: ['/Info'], code: 'model.Info.Name = "Wrong helper write"; return {};' });
       } else {
         check('helper writes are refused by the real service', /read-only/.test(data.messages.at(-1).content));
@@ -57,7 +57,7 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
       }
     } else if (JSON.stringify(data.messages).includes('Cooperative measurement')) {
       const input = data.messages.filter(m => m.role === 'user')[0].content[0].text;
-      const rawContext = input.split('MDLxL context captured when this prompt was sent:\n').at(-1).split('\n\nOrganiser completion criteria:')[0];
+      const rawContext = input.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/).at(-1).split('\n\nOrganiser completion criteria:')[0];
       const target = JSON.parse(rawContext).target;
       if (input.includes('Resume the interrupted task')) {
         cooperativeResume++;

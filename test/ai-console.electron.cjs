@@ -351,7 +351,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const context = JSON.parse(
     workerRequests[0].messages
       .find(m => m.role === 'user')
-      .content[0].text.split('MDLxL context captured when this prompt was sent:\n')[1],
+      .content[0].text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1],
   );
   const annotations = context.annotations;
   check('the AI receives both drawings', annotations?.strokes.length === 2, annotations && annotations.strokes.map(s => s.tool));

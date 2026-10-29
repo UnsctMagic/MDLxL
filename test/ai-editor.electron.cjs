@@ -73,7 +73,7 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
           m.content[0]?.text?.includes('MDLxL context captured'),
       );
     const text = user.content[0].text,
-      context = JSON.parse(text.split('MDLxL context captured when this prompt was sent:\n')[1]);
+      context = JSON.parse(text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1]);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const turnMessages = data.messages.slice(data.messages.lastIndexOf(user) + 1);
     const previousCall = turnMessages
