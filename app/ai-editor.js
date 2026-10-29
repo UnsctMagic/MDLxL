@@ -270,7 +270,7 @@ export class AiEditorBridge {
   }
   documents(target) {
     const s = this.state(), { documentId } = this.referenceScope(target), references = new Set(this.referenceSessions(target));
-    return s.sessions.filter(x => x.id === documentId || references.has(x)).map(x => ({
+    return this.host().sessions().filter(x => x.id === documentId || references.has(x)).map(x => ({
       id: x.id,
       name: x.doc.name,
       path: x.path,
@@ -865,14 +865,14 @@ export class AiEditorBridge {
   // A picture of the task's model from its own view, drawn off-screen. A sample
   // chooses another view, animation or frame for this picture only. source.model
   // draws another state of the task's model (the original kept for review),
-  // source.documentId another open model (a donor), and source.focus frames
+  // source.documentId an attached reference model (a donor), and source.focus frames
   // these model-space points so pictures meant to be compared match.
   async picture(id, sample = {}, source = {}) {
     const target = this.targets.get(id),
       env = this.env(target),
       s = env.state;
     if (source.documentId) {
-      const donor = this.state().sessions.find(x => x.id === source.documentId);
+      const donor = this.referenceSessions(target).find(x => x.id === source.documentId);
       if (!donor) throw Error('Reference model is no longer open.');
       const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1);
       const image = await this.host().render({

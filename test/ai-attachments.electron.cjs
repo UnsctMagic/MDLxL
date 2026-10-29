@@ -55,6 +55,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   await attach('Donor A.mdx', 'Image A.png');
   await page.getByRole('button', { name: 'Remove reference Donor A.mdx', exact: true }).waitFor();
   await page.locator('.ai-image-chip img[alt="Image A.png"]').waitFor();
+  check('attaching a model creates no editor tab', await page.getByRole('tab', { name: 'Donor A.mdx', exact: true }).count() === 0);
   await page.getByLabel('AI prompt', { exact: true }).fill('Count model A vertices');
   const contextA = await tool('mdlxl_context');
   check('A context contains only A and its donor', contextA.documents.map(d => d.name).join('|') === 'Model A.mdx|Donor A.mdx');
@@ -69,6 +70,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   const readA = await tool('mdlxl_script', { target: contextA.target, code: 'return Object.values(references).map(r=>r.name);' });
   check('background A scripts receive only A donor', readA.value.join('|') === 'Donor A.mdx');
   await tool('mdlxl_document', { target: contextA.target, action: 'open', path: path.join(out, 'Background donor.mdx') });
+  check('AI document open creates no editor tab', await page.getByRole('tab', { name: 'Background donor.mdx', exact: true }).count() === 0);
   check('background donor does not appear in B', (await donors()).join('|') === 'Donor B.mdx');
   await page.screenshot({ path: path.join(out, 'model-b.png') });
   await show('Model A.mdx');
@@ -125,7 +127,19 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   check('starting a new A chat preserves B donor', (await donors()).join('|') === 'Donor B.mdx');
   await page.getByRole('button', { name: 'Remove reference Donor B.mdx', exact: true }).click();
   await page.getByRole('tab', { name: 'Donor B.mdx', exact: true }).waitFor({ state: 'detached' });
-  check('removing B donor leaves A donor tabs intact', await page.getByRole('tab', { name: 'Donor A.mdx', exact: true }).count() === 1);
+  check('removing B donor removes it from AI context', (await tool('mdlxl_context')).documents.map(d => d.name).join('|') === 'Model B.mdx');
+  await show('Model A.mdx');
+  await page.getByLabel('Retired chats', { exact: true }).selectOption({ label });
+  check('removing B donor leaves A references intact without tabs', (await donors()).includes('Donor A.mdx') && await page.getByRole('tab', { name: 'Donor A.mdx', exact: true }).count() === 0);
+  const reviewContext = await tool('mdlxl_context');
+  const donor = reviewContext.documents.find(d => d.name === 'Donor A.mdx');
+  const read = await tool('mdlxl_read', { target: reviewContext.target, documentId: donor.id, path: '/Geosets/0/Vertices' });
+  check('hidden donor remains directly readable', JSON.stringify(read).includes('-32'));
+  await tool('mdlxl_script', { target: reviewContext.target, edit: true, label: 'Fixture donor review', scope: ['/Geosets/0/Vertices'], code: 'model.Geosets[0].Vertices[0] += 1;' });
+  const reviewed = await tool('mdlxl_review', { target: reviewContext.target, action: 'inspect', checksCode: 'return [{name:"fixture change",passed:model.Geosets[0].Vertices[0]===before.Geosets[0].Vertices[0]+1}]', donor: { documentId: donor.id, sequence: -1 } });
+  check('hidden donor renders in the actual review', reviewed.review.compared.donor.includes('Donor A.mdx'));
+  check('all references stayed out of the editor tab strip', await page.locator('.model-tabs [role=tab]').count() === 2);
+  await tool('mdlxl_command', { target: reviewContext.target, id: 'undo' });
   check('no renderer errors', errors.length === 0);
 })().catch(async e => { if(page) { await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{}); fs.writeFileSync(path.join(out,'failure-state.json'),JSON.stringify({body:await page.locator('.ai-assistant').innerText(),requests,status:await page.evaluate(()=>window.desktop.aiStatus())},null,2)); } checks.push({ name: 'exception', passed: false, error: e.stack }); process.exitCode = 1; }).finally(async () => {
   for (const finish of pending.splice(0)) finish();
