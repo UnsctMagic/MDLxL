@@ -6,10 +6,11 @@ const {particleSourceState}=require('./particle-source.cjs');
 const {reviewFor:sourceReview}=require('./particle-review.cjs');
 const reviewFor = item => sourceReview(item)||{};
 const ID = /^(?:wc3-[a-f0-9]{24}|my-[a-f0-9-]{36}|work-[a-f0-9]{64})$/;
+const {writeFileAtomic}=require('./atomic-file.cjs');
+// Personal presets keep the replaced copy as .previous.
 const atomic = async(file,data) => {
   await fs.mkdir(path.dirname(file),{recursive:true});
-  try { await fs.copyFile(file,file+'.previous'); } catch(error) { if(error.code!=='ENOENT')throw error; }
-  await fs.writeFile(file+'.tmp',data); await fs.rename(file+'.tmp',file);
+  await writeFileAtomic(file,data,{backup:true});
 };
 class ParticleLibrary {
   constructor({directory,discover,onProgress=()=>{},createWorker}) { Object.assign(this,{directory,discover,onProgress,createWorker});this.worker=null;this.status={running:false};this.queue=Promise.resolve(); }

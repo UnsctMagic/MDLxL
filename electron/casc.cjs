@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { gamePathKey } = require('./game-path.cjs');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 const { spawn } = require('node:child_process');
 const { createInterface } = require('node:readline');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -61,6 +62,17 @@ class CascReader {
   close() { this.process.stdin.end(); this.process.kill(); }
 }
 
+const LOCALES = /\b([a-z]{2}[A-Z]{2})\s+(?:speech|text)\?/g;
+/** Locales an installation has speech or text for, from its .build.info. */
+const buildLocales = build => [...new Set([...build.toString().matchAll(LOCALES)].map(match => match[1].toLowerCase()))];
+const nameList = limit => cached => Array.isArray(cached.names) && cached.names.length <= limit && cached.names.every(name => typeof name === 'string' && name.length <= 260);
+// Disk cache rules per listing kind. Raising a version rebuilds that cache once.
+const LISTINGS = {
+  sounds: { version: 1, maxBytes: 64 * 1024 * 1024, keep: 4, valid: nameList(300000) },
+  files: { version: 1, maxBytes: 96 * 1024 * 1024, keep: 4, valid: cached => Array.isArray(cached.names) && Array.isArray(cached.sizes) && cached.names.length === cached.sizes.length && cached.names.length <= 1000000 },
+  textures: { version: 4, maxBytes: 64 * 1024 * 1024, keep: 8, valid: nameList(300000) },
+};
+
 /** Cache native bytes by installation + build metadata + logical texture path. */
 class CascTextures {
   constructor({ cacheDirectory, openReader = (folder,cwd) => new CascReader(folder,cwd), maxBytes = 256 * 1024 * 1024 } = {}) {
@@ -75,23 +87,8 @@ class CascTextures {
         let build; try { build = await fs.readFile(path.join(folder, '.build.info')); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
         const install = installKey(folder, build);
         let index = this.soundIndexes.get(install);
-        if (!index) {
-          const file = this.directory && path.join(this.directory, install + '.sounds.json');
-          if (file) try {
-            if ((await fs.stat(file)).size <= 64 * 1024 * 1024) {
-              const cached = JSON.parse(await fs.readFile(file, 'utf8'));
-              if (cached.version === 1 && Array.isArray(cached.names) && cached.names.length <= 300000 && cached.names.every(n => typeof n === 'string' && n.length <= 260)) index = cached;
-            }
-          } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
-          if (!index) {
-            if (this.directory) await fs.mkdir(this.directory, {recursive:true});
-            const reader = this.openReader(folder, this.directory || __dirname);
-            try { index = {version:1, ...await reader.list('sounds')}; } finally { reader.close(); }
-            if (file) { await fs.writeFile(file + '.tmp', JSON.stringify(index)); await fs.rename(file + '.tmp', file); }
-          }
-          this.soundIndexes.set(install, index);
-        }
-        const locales = [...build.toString().matchAll(/\b([a-z]{2}[A-Z]{2})\s+(?:speech|text)\?/g)].map(match => match[1].toLowerCase());
+        if (!index) { index = (await this.cachedListing(folder, 'sounds', LISTINGS.sounds, install)).listing; this.soundIndexes.set(install, index); }
+        const locales = buildLocales(build);
         for (const candidate of soundCandidates(name, index.names, locales)) {
           const key = index.keys?.[candidate.toLowerCase()];
           if (!/^[a-f0-9]{32}$/i.test(key || '')) continue;
@@ -126,26 +123,9 @@ class CascTextures {
         try {
           const build = await fs.readFile(path.join(folder,'.build.info'));
           const install = installKey(folder, build);
-          const file = this.directory && path.join(this.directory,install + '.files.json');
-          let listing = null, fromCache = false;
-          if (file) try {
-            if ((await fs.stat(file)).size <= 96 * 1024 * 1024) {
-              const cached = JSON.parse(await fs.readFile(file,'utf8'));
-              if (cached.version === 1 && Array.isArray(cached.names) && Array.isArray(cached.sizes) && cached.names.length === cached.sizes.length && cached.names.length <= 1000000) { listing = cached; fromCache = true; }
-            }
-          } catch {}
-          if (!listing) {
-            if (this.directory) await fs.mkdir(this.directory,{recursive:true});
-            const reader = this.openReader(folder,this.directory || __dirname);
-            try { listing = {version:1,...await reader.list('files')}; } finally { reader.close(); }
-            if (file) {
-              await fs.writeFile(file + '.tmp',JSON.stringify(listing)); await fs.rename(file + '.tmp',file);
-              const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => /^[a-f0-9]{64}\.files\.json$/.test(name)).map(async name => ({file:path.join(this.directory,name),info:await fs.stat(path.join(this.directory,name))})));
-              for (const old of indexes.sort((a,b)=>b.info.mtimeMs-a.info.mtimeMs).slice(4)) await fs.unlink(old.file);
-            }
-          }
-          const locales = [...build.toString().matchAll(/\b([a-z]{2}[A-Z]{2})\s+(?:speech|text)\?/g)].map(match => match[1].toLowerCase());
-          sources.push({folder,key:install,names:listing.names,keys:listing.keys||{},sizes:listing.sizes,locales:[...new Set(locales)],fromCache});
+          const {listing, fromCache} = await this.cachedListing(folder, 'files', LISTINGS.files, install);
+          const locales = buildLocales(build);
+          sources.push({folder,key:install,names:listing.names,keys:listing.keys||{},sizes:listing.sizes,locales,fromCache});
         } catch (error) { errors.push({folder,message:error.message}); }
       }
       return {sources,errors};
@@ -163,30 +143,36 @@ class CascTextures {
       try {
         const build = await fs.readFile(path.join(folder,'.build.info'));
         const install = installKey(folder, build);
-        const file = this.directory && path.join(this.directory,install + '.textures.json');
-        let names = null, keys = {}, fromCache = false;
-        if (file) try {
-          const info = await fs.stat(file);
-          if (info.size <= 64 * 1024 * 1024) {
-            const cached = JSON.parse(await fs.readFile(file,'utf8'));
-            if (cached.version === 4 && Array.isArray(cached.names) && cached.names.length <= 300000 && cached.names.every(name => typeof name === 'string' && name.length <= 260)) { names = cached.names; keys=cached.keys||{}; fromCache = true; }
-          }
-        } catch {}
-        if (!names) {
-          if (this.directory) await fs.mkdir(this.directory,{recursive:true});
-          const reader = this.openReader(folder,this.directory || __dirname);
-          try { const listed=await reader.list();names=Array.isArray(listed)?listed:listed.names;keys=listed.keys||{}; } finally { reader.close(); }
-          if (file) {
-            const temporary = file + '.tmp'; await fs.writeFile(temporary,JSON.stringify({version:4,names,keys})); await fs.rename(temporary,file);
-            const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => /^[a-f0-9]{64}\.textures\.json$/.test(name)).map(async name => ({file:path.join(this.directory,name),info:await fs.stat(path.join(this.directory,name))})));
-            for (const old of indexes.sort((a,b)=>b.info.mtimeMs-a.info.mtimeMs).slice(8)) await fs.unlink(old.file);
-          }
-        }
+        const {listing, fromCache} = await this.cachedListing(folder, 'textures', LISTINGS.textures, install);
+        const names = listing.names, keys = listing.keys || {};
         this.indexKeys.set(install,keys);
         sources.push({folder,key:install,names,fromCache});
       } catch (error) { errors.push({folder,message:error.message}); }
     }
     return {sources,errors};
+  }
+  // One listing of an installation, cached on disk per build. A cache that is
+  // too large, from another version or malformed is rebuilt from the game.
+  // Only the newest `keep` listings of each kind stay on disk.
+  async cachedListing(folder, kind, { version, maxBytes, keep, valid }, install) {
+    const file = this.directory && path.join(this.directory, install + '.' + kind + '.json');
+    if (file) try {
+      if ((await fs.stat(file)).size <= maxBytes) {
+        const cached = JSON.parse(await fs.readFile(file, 'utf8'));
+        if (cached.version === version && valid(cached)) return { listing: cached, fromCache: true };
+      }
+    } catch {}
+    if (this.directory) await fs.mkdir(this.directory, { recursive: true });
+    const reader = this.openReader(folder, this.directory || __dirname);
+    let listed; try { listed = await reader.list(kind); } finally { reader.close(); }
+    const listing = { version, ...(Array.isArray(listed) ? { names: listed } : listed) };
+    if (file) {
+      await writeFileAtomic(file, JSON.stringify(listing));
+      const suffix = '.' + kind + '.json';
+      const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => name.endsWith(suffix) && /^[a-f0-9]{64}$/.test(name.slice(0, -suffix.length))).map(async name => ({ file: path.join(this.directory, name), info: await fs.stat(path.join(this.directory, name)) })));
+      for (const old of indexes.sort((a, b) => b.info.mtimeMs - a.info.mtimeMs).slice(keep)) await fs.unlink(old.file);
+    }
+    return { listing, fromCache: false };
   }
   async lookup(name, folders, snapshots) {
     for (const folder of folders || []) {
@@ -202,15 +188,14 @@ class CascTextures {
       clearTimeout(entry.timer);
       let bytes;
       try {
-        if(namedModule&&!this.indexKeys.has(install)&&this.directory)try{const cached=JSON.parse(await fs.readFile(path.join(this.directory,install+'.textures.json'),'utf8'));this.indexKeys.set(install,cached.version===4?cached.keys||{}:{});}catch{this.indexKeys.set(install,{});}
+        if(namedModule&&!this.indexKeys.has(install)&&this.directory)try{const cached=JSON.parse(await fs.readFile(path.join(this.directory,install+'.textures.json'),'utf8'));this.indexKeys.set(install,cached.version===LISTINGS.textures.version?cached.keys||{}:{});}catch{this.indexKeys.set(install,{});}
         const contentKey=this.indexKeys.get(install)?.[name.toLowerCase()];
         bytes = /^[a-f0-9]{32}$/i.test(contentKey||'')&&entry.reader.readKey ? await entry.reader.readKey(contentKey) : await entry.reader.read(name);
       }
       catch (error) { entry.reader.close(); this.readers.delete(install); throw error; }
       finally { if (this.readers.has(install)) entry.timer = setTimeout(() => { entry.reader.close(); this.readers.delete(install); },15000).unref(); }
       if (file) {
-        const temporary = file + '.tmp';
-        await fs.writeFile(temporary,bytes || Buffer.alloc(0)); await fs.rename(temporary,file);
+        await writeFileAtomic(file,bytes || Buffer.alloc(0));
         await this.trim(file,bytes?.length||0);
       }
       if (bytes?.length) return bytes;

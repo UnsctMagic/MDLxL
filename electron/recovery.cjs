@@ -1,4 +1,5 @@
 const fs=require('node:fs/promises'),path=require('node:path'),v8=require('node:v8'),zlib=require('node:zlib'),util=require('node:util');
+const {writeFileAtomic}=require('./atomic-file.cjs');
 const gzip=util.promisify(zlib.gzip),gunzip=util.promisify(zlib.gunzip),LIMIT=768*1024*1024;
 // Only the newest drafts are kept, one per model file, replaced as it is edited.
 const KEEP=15;
@@ -52,12 +53,15 @@ class RecoveryStore{
       const metadata={id:payload.id,version:payload.version,name:payload.state.name||path.basename(payload.path||'Untitled'),date,bytes:packed.length,dirty:payload.dirty!==false,path:payload.path};
       const json=Buffer.from(JSON.stringify(metadata));if(json.length>1024*1024)throw Error('Recovery metadata is too large.');
       const header=Buffer.alloc(8);header.write('MDLR');header.writeUInt32LE(json.length,4);
-      await fs.mkdir(this.root,{recursive:true});const temp=file+'.tmp';
-      await fs.writeFile(temp,Buffer.concat([header,json,packed]));await fs.rename(temp,file);this.versions.set(payload.id,payload.version);
+      await fs.mkdir(this.root,{recursive:true});
+      await writeFileAtomic(file,Buffer.concat([header,json,packed]));this.versions.set(payload.id,payload.version);
+      await this.removeTemporary(payload.id).catch(error=>console.warn('Recovery cleanup: '+error.message));
       await this.prune(payload.id,payload.path).catch(error=>console.warn('Recovery cleanup: '+error.message));
     });
     this.queues.set(payload.id,op);try{await op;}finally{if(this.queues.get(payload.id)===op)this.queues.delete(payload.id);}
   }
+  // Temporary files of an interrupted write of this draft (queued per id, so none is in use).
+  async removeTemporary(id){const prefix=path.basename(this.file(id))+'.';for(const name of await fs.readdir(this.root))if(name.startsWith(prefix)&&name.endsWith('.tmp'))await fs.rm(path.join(this.root,name),{force:true});}
   async metadata(id){const fd=await fs.open(this.file(id),'r');try{const head=Buffer.alloc(8);const read=await fd.read(head,0,8,0);if(read.bytesRead!==8||head.toString('ascii',0,4)!=='MDLR')throw Error('Invalid recovery header.');const n=head.readUInt32LE(4);if(n>1024*1024)throw Error('Invalid recovery metadata length.');const json=Buffer.alloc(n),r=await fd.read(json,0,n,8);if(r.bytesRead!==n)throw Error('Truncated recovery metadata.');const info=JSON.parse(json.toString('utf8'));if(info.id!==id)throw Error('Recovery identifier mismatch.');return info;}finally{await fd.close();}}
   async list(){await fs.mkdir(this.root,{recursive:true});const results=[];for(const file of await fs.readdir(this.root)){if(!file.endsWith('.recovery'))continue;const id=file.slice(0,-9);try{results.push(await this.metadata(id));}catch{try{const envelope=await this.read(id);results.push({id,version:envelope.version,name:envelope.state?.name||'Recovered model',date:envelope.date||'',dirty:envelope.dirty!==false,path:envelope.path});}catch{}}}return results.sort((a,b)=>b.date.localeCompare(a.date));}
   async read(id){const data=await fs.readFile(this.file(id));if(data.length>LIMIT)throw Error('Recovery file is too large.');let offset=0;if(data.toString('ascii',0,4)==='MDLR'){if(data.length<8)throw Error('Truncated recovery header.');offset=8+data.readUInt32LE(4);if(offset>1024*1024+8||offset>=data.length)throw Error('Invalid recovery metadata length.');}const payload=v8.deserialize(await gunzip(data.subarray(offset),{maxOutputLength:LIMIT}));if(payload.id!==id)throw Error('Recovery identifier mismatch.');return compactRecoveryBuffers(payload);}
@@ -77,7 +81,7 @@ class RecoveryStore{
     try{await fs.access(marker);return false;}catch{}
     if(crashPending)return false;
     await fs.mkdir(this.root,{recursive:true});
-    for(const file of await fs.readdir(this.root))if(/\.recovery(\.tmp)?$|^\.reset-/.test(file))await fs.rm(path.join(this.root,file),{force:true});
+    for(const file of await fs.readdir(this.root))if(/\.recovery(?:\.(?:[a-f0-9]+\.)?tmp)?$|^\.reset-/.test(file))await fs.rm(path.join(this.root,file),{force:true});
     await fs.writeFile(marker,'');return true;
   }
   async flush(){await Promise.allSettled([...this.queues.values()]);}

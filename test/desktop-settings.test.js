@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { DEFAULT_PREFERENCES, normalizePreferences, effectiveBindings } from '../src/preferences.js';
+import { DEFAULT_PREFERENCES, PREFERENCE_LIMITS, normalizePreferences, effectiveBindings } from '../src/preferences.js';
 import { COMMANDS } from '../src/commands.js';
 
 const require = createRequire(import.meta.url);
@@ -30,28 +30,28 @@ async function scratch(t) {
 }
 
 test('custom archive choices persist, deduplicate and remove without changing the saved installation', async t => {
-  const file = await scratch(t), folder = path.dirname(file), store = new SettingsStore(file, normalizePreferences);
+  const file = await scratch(t), folder = path.dirname(file), store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   const mpq = { kind: 'mpq', path: path.join(folder, 'custom.mpq') }, casc = { kind: 'casc', path: path.join(folder, 'assets') };
   await store.configure({ gameData: folder, gameDataSources: [mpq, casc, mpq] });
-  const restarted = new SettingsStore(file, normalizePreferences);
+  const restarted = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   assert.deepEqual((await restarted.load()).gameDataSources, [mpq, casc]);
   await restarted.configure({ gameDataSources: [casc] });
   assert.equal(restarted.settings.gameData, folder);
   assert.deepEqual(restarted.settings.gameDataSources, [casc]);
   assert.throws(() => restarted.configure({ gameDataSources: [{ kind: 'casc', path: 'relative' }] }), /Invalid custom game archive/);
   await restarted.configure({ gameDataSources: [] });
-  assert.deepEqual((await new SettingsStore(file, normalizePreferences).load()).gameDataSources, []);
+  assert.deepEqual((await new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS).load()).gameDataSources, []);
 });
 
 test('desktop settings persist mouse, graphics and cleared Hotkeys across restart without losing legacy history', async t => {
   const file = await scratch(t);
   await fs.writeFile(file, JSON.stringify({ gameData: 'C:\\Warcraft', historyBudgetBytes: 512 * 1048576, historyMaxSteps: 12000 }));
-  const store = new SettingsStore(file, normalizePreferences);
+  const store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   assert.equal(store.settings.preferences.scrollSensitivity, 2.5);
   await store.configure({ preferences: { scrollSensitivity: 3.2, graphics: { maxFps: 30 }, hotkeys: { open: ['Alt+O'], save: [] } } });
-  const reopened = new SettingsStore(file, normalizePreferences);
+  const reopened = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await reopened.load();
   assert.equal(reopened.settings.gameData, 'C:\\Warcraft');
   assert.equal(reopened.settings.historyMaxSteps, 12000);
@@ -66,7 +66,7 @@ test('desktop settings persist mouse, graphics and cleared Hotkeys across restar
 });
 
 test('concurrent preference and legacy writes preserve each other and failed updates leave the file intact', async t => {
-  const file = await scratch(t), store = new SettingsStore(file, normalizePreferences);
+  const file = await scratch(t), store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   await Promise.all([
     store.configure({ preferences: { scrollSensitivity: 4.5 } }),
@@ -88,7 +88,7 @@ test('concurrent preference and legacy writes preserve each other and failed upd
 test('damaged stored fields restore safe defaults while retaining other valid settings', async t => {
   const file = await scratch(t);
   await fs.writeFile(file, JSON.stringify({ gameData: 'C:\\Assets', historyMaxSteps: -10, preferences: { scrollSensitivity: 999, graphics: { maxFps: -5 } } }));
-  const store = new SettingsStore(file, normalizePreferences);
+  const store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   assert.equal(store.settings.preferences.scrollSensitivity, 10);
   assert.equal(store.settings.preferences.graphics.maxFps, DEFAULT_PREFERENCES.graphics.maxFps);
@@ -99,18 +99,18 @@ test('damaged stored fields restore safe defaults while retaining other valid se
 
 test('a chosen Warcraft III folder persists across restart and can be cleared without retaining its path', async t => {
   const file = await scratch(t), install = path.join(path.dirname(file), 'Warcraft III');
-  const store = new SettingsStore(file, normalizePreferences);
+  const store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   await store.configure({ gameData: install });
-  const reopened = new SettingsStore(file, normalizePreferences);
+  const reopened = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await reopened.load();
   assert.equal(reopened.settings.gameData, install);
   await reopened.configure({ gameData: null });
-  const cleared = new SettingsStore(file, normalizePreferences);
+  const cleared = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await cleared.load();
   assert.equal(cleared.settings.gameData, undefined);
   await fs.writeFile(file, JSON.stringify({ gameData: null }));
-  const legacyNull = new SettingsStore(file, normalizePreferences);
+  const legacyNull = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await legacyNull.load();
   assert.equal(legacyNull.settings.gameData, undefined);
   assert.throws(() => cleared.configure({ gameData: '   ' }));
@@ -140,12 +140,12 @@ test('native menus reflect remapped and cleared shortcuts and leave execution to
 });
 
 test('middle button and DPI preferences persist with desktop validation and long resource Hotkeys identities', async t => {
-  const file = await scratch(t), store = new SettingsStore(file, normalizePreferences);
+  const file = await scratch(t), store = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS);
   await store.load();
   assert.equal(store.settings.preferences.wheelMode, 'rotate'); assert.equal(store.settings.preferences.pointerSensitivity, 1);
   const resource = 'resource:' + 'x'.repeat(500);
   await store.configure({ preferences: { wheelMode: 'pointer', pointerSensitivity: 2.25, hotkeys: { [resource]: ['Ctrl+Alt+P'] } } });
-  const reopened = new SettingsStore(file, normalizePreferences); await reopened.load();
+  const reopened = new SettingsStore(file, normalizePreferences, PREFERENCE_LIMITS); await reopened.load();
   assert.equal(reopened.settings.preferences.wheelMode, 'pointer'); assert.equal(reopened.settings.preferences.pointerSensitivity, 2.25);
   assert.deepEqual(reopened.settings.preferences.hotkeys[resource], ['Ctrl+Alt+P']);
   await reopened.configure({ preferences: { pointerSensitivity: .01 } }); assert.equal(reopened.settings.preferences.pointerSensitivity, .01);
@@ -167,4 +167,47 @@ test('independent particle Lab is available for read-only models while model res
   const entries = select(buildMenuTemplate({}, id => actions.push(id), 'win32', [], value => value, { readOnly: false, saving: false }));
   for (const entry of entries) { assert.equal(entry.enabled, true); entry.click(); }
   assert.deepEqual(actions, ['particles', 'GeosetAnims']);
+});
+
+test('the settings store and the editor share one preference rule', async t => {
+  const store = new SettingsStore(await scratch(t), normalizePreferences, PREFERENCE_LIMITS);
+  await store.load();
+  for (const key of ['scrollSensitivity', 'pointerSensitivity']) {
+    const { min, max } = PREFERENCE_LIMITS[key];
+    for (const value of [min, max]) {
+      assert.equal(normalizePreferences({ [key]: value })[key], value, `the editor keeps ${key} ${value}`);
+      await store.configure({ preferences: { [key]: value } });
+      assert.equal(store.settings.preferences[key], value);
+    }
+    for (const value of [min / 2, max * 2]) {
+      assert.notEqual(normalizePreferences({ [key]: value })[key], value, `the editor clamps ${key} ${value}`);
+      assert.throws(() => store.configure({ preferences: { [key]: value } }), /between/);
+    }
+  }
+  for (const pixelRatio of PREFERENCE_LIMITS.pixelRatios) await store.configure({ preferences: { graphics: { pixelRatio } } });
+  for (const maxFps of PREFERENCE_LIMITS.maxFps) await store.configure({ preferences: { graphics: { maxFps } } });
+  for (const wheelMode of PREFERENCE_LIMITS.wheelModes) await store.configure({ preferences: { wheelMode } });
+  const id = 'x'.repeat(PREFERENCE_LIMITS.hotkeyIdLength);
+  await store.configure({ preferences: { hotkeys: { [id]: ['Ctrl+1'] } } });
+  assert.deepEqual(store.settings.preferences.hotkeys[id], ['Ctrl+1']);
+  assert.throws(() => store.configure({ preferences: { hotkeys: { [id + 'x']: ['Ctrl+1'] } } }), /Hotkeys/);
+  assert.throws(() => store.configure({ preferences: 'scroll' }), /Invalid preferences/);
+});
+
+test('desktop keeps preferences in settings.json with localStorage only as a first-paint cache', async () => {
+  const app = await fs.readFile(new URL('../app/App.jsx', import.meta.url), 'utf8');
+  const writes = app.match(/localStorage\.setItem\('mdlvis-preferences'/g) || [], reads = app.match(/localStorage\.getItem\('mdlvis-preferences'\)/g) || [];
+  // One browser store write, one paint-cache writer, one read for the first render.
+  assert.equal(writes.length, 2); assert.equal(reads.length, 1);
+  assert.match(app, /if\(!window\.desktop\)\{ try \{ localStorage\.setItem\('mdlvis-preferences'/);
+  assert.match(app, /first-paint cache there, not a store/);
+  assert.match(app, /function writePaintCache\(encoded\) \{ try \{ localStorage\.setItem\('mdlvis-preferences', encoded\); \} catch \{\} \}/);
+  assert.match(app, /useState\(\(\) => \{ try \{ return normalizePreferences\(JSON\.parse\(localStorage\.getItem\('mdlvis-preferences'\)/);
+  // initial() replaces the cache from settings.json.
+  assert.match(app, /savedPreferences\.current=JSON\.stringify\(persisted\); writePaintCache\(savedPreferences\.current\);/);
+  // The cache follows only a configure() that resolved, so a failed disk write never updates it.
+  const calls = app.match(/writePaintCache\(/g) || [];
+  assert.equal(calls.length, 4);
+  assert.match(app, /window\.desktop\.configure\(\{preferences\}\)\.then\(result => \{settings\.current=result; savedPreferences\.current=encoded; writePaintCache\(encoded\);\}\)\.catch\(error=>say\('Settings could not be saved: '/);
+  assert.match(app, /\{await window\.desktop\.configure\(\{preferences:current\}\);savedPreferences\.current=encoded;writePaintCache\(encoded\);\}/);
 });

@@ -9,11 +9,12 @@ import { translate } from '../src/localization.js';
 import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { trapTab } from './focus-trap.js';
 import { gamePathKey } from '../src/game-path.js';
+import { resolveGameFiles } from './desktop.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
 const LIBRARY_TABS=[['textures','Textures','Warcraft III textures and textures beside your model'],['models','Models','Every Warcraft III model; double-click one to open it in the editor'],['sounds','Sounds','Every Warcraft III sound, voice and music file'],['all','All files','Every Warcraft III game file, organised like the game folders']];
 const librarySessions=createTextureLibrarySessions();
-const loadAsset=createTextureAssetCache({resolve:options=>window.desktop?.resolveTextures(options)});
+const loadAsset=createTextureAssetCache({resolve:({names,path})=>resolveGameFiles(names,path)});
 const readNativeThumbnail=createThumbnailLookup(options=>window.desktop?.textureLibraryThumbnails?.(options)||[]);
 const thumbnailQueue=createThumbnailQueue({concurrency:4});
 const thumbnailJobs=new Map();
