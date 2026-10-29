@@ -32,7 +32,7 @@ export function soundFolders(row) {
 }
 const NATIVE_SOUND_TABLES = ['AnimSounds', ...['Human','Orc','Undead','NightElf','Naga','Demon','Creeps'].map(race => `Dialogue${race}Base`)].map(name => `war3.w3mod:UI\\SoundInfo\\${name}.slk`);
 export function eventCatalog(records) {
-  const tables = new Map(records.map(record => [record.name.replaceAll('/', '\\').toLowerCase(), parseSlk(new TextDecoder().decode(record.bytes))]));
+  const tables = new Map(records.map(record => [gamePathKey(record.name), parseSlk(new TextDecoder().decode(record.bytes))]));
   const table = name => tables.get(name.toLowerCase()) || new Map();
   const sounds = table(NODE_EVENT_TABLES[1]);
   const catalog = { SND: [], SPL: [], FPT: [], UBR: [], SPN: [] };

@@ -10,7 +10,7 @@ export const STARTER_TEXTURES = [STARTER_TEXTURE, RIBBON_TEXTURE];
 // (including Forge's HD helper maps, now forge.js HD_NEUTRAL_MAPS).
 const LEGACY_STARTER_TEXTURES = {'mdlxl_forge\\particle_softdisc_v1':STARTER_TEXTURE,'mdlxl_forge\\ribbon_softtrail_v1':RIBBON_TEXTURE,
   'mdlxl_forge\\mdlxl-flat-normal-v1':'Textures\\normal.dds','mdlxl_forge\\mdlxl-neutral-orm-v1':'Textures\\orm.dds','mdlxl_forge\\mdlxl-black-emissive-v1':'Textures\\black32.dds'};
-export const nativeStarterTexture=image=>LEGACY_STARTER_TEXTURES[String(image||'').replaceAll('/','\\').toLowerCase().replace(/\.(tga|blp|dds)$/,'')];
+export const nativeStarterTexture=image=>LEGACY_STARTER_TEXTURES[gamePathKey(image).replace(/\.(tga|blp|dds)$/,'')];
 /** Points textures still using an old generated starter picture at the stock one. Returns whether anything changed. */
 export function repointStarterTextures(model){
   let changed=false;
