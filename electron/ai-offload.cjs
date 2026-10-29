@@ -70,11 +70,13 @@ class AiSteering {
 }
 
 // Records what the AI says, thinks and does into a conversation's transcript as
-// it streams, and forwards every event to the console.
+// it streams, and forwards every event to the console. `recordAiEvent` comes
+// from src/ai-transcript.js, which the console uses for the same events.
 class AiRecorder {
-  constructor(conversation, emit) {
+  constructor(conversation, emit, recordAiEvent) {
     this.conversation = conversation;
     this.emit = emit;
+    this.record = recordAiEvent;
     this.reply = { role: 'assistant', text: '', parts: [] };
   }
   start(entry) {
@@ -82,60 +84,23 @@ class AiRecorder {
   }
   // A steering message splits the reply where it was sent, as it appears in the chat.
   split(text) {
-    this.reply = { role: 'assistant', text: '', parts: [] };
-    this.conversation.transcript.push({ role: 'user', text, steer: true }, this.reply);
+    this.record(this.conversation.transcript, { type: 'steer', text });
+    this.reply = this.conversation.transcript.at(-1);
   }
   parts() {
     return this.conversation.transcript.flatMap(entry => entry.parts || []);
   }
   event(value) {
-    const reply = this.reply;
     if (value.type === 'request') return;
-    if (value.type === 'text' || value.type === 'thinking') {
-      if (!value.text) return;
-      if (value.type === 'text') reply.text += value.text;
-      const last = reply.parts.at(-1);
-      if (last?.type === value.type) last.text += value.text;
-      else reply.parts.push({ type: value.type, text: value.text });
-    } else if (value.type === 'compaction') {
-      const running = this.parts().findLast(p => p.type === 'compaction' && p.status === 'running');
-      if (value.active && !running) reply.parts.push({ type: 'compaction', status: 'running' });
-      else if (!value.active && running) running.status = 'done';
-      else return;
-    } else if (value.type === 'question') {
-      reply.parts.push({ type: 'question', questionId: value.questionId, questions: value.questions, name: value.name, message: value.message, status: 'running' });
-    } else if (value.type === 'question-result') {
-      const part = this.parts().find(p => p.type === 'question' && p.questionId === value.questionId);
-      if (part) Object.assign(part, { status: value.status, answers: value.answers, reason: value.reason });
-    } else if (value.type === 'provider-notice') {
-      const part = { type: 'provider-notice', text: value.text, detail: value.detail, severity: value.severity, name: value.name };
-      const same = reply.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
-      if (same < 0) reply.parts.push(part); else reply.parts[same] = part;
-    } else if (value.type === 'tool') {
-      reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
-    } else if (value.type === 'tool-result') {
-      // A steering message may have split the reply since the tool started.
-      const parts = this.parts();
-      const part =
-        parts.findLast(p => p.type === 'tool' && value.callId && p.id === value.callId) ||
-        parts.findLast(p => p.type === 'tool' && p.status === 'running' && p.name === value.name);
-      if (part) Object.assign(part, { status: value.error ? 'error' : 'done', summary: value.summary });
-    } else if (value.type === 'worker') {
-      const part = this.parts().findLast(p => p.type === 'worker' && p.workerId === value.workerId && p.status === 'working');
-      if (part && value.status !== 'working') Object.assign(part, { status: value.status, report: value.report, cost: value.cost, model: value.model, light: value.light });
-      else if (!part) reply.parts.push({ type: 'worker', workerId: value.workerId, name: value.name, job: value.job, status: value.status, region: value.region, model: value.model, light: value.light });
-    } else if (value.type === 'art') {
-      // SD Brain's art brief: a row that fills in once the brief is written.
-      const part = reply.parts.findLast(p => p.type === 'art' && p.status === 'running');
-      if (part) Object.assign(part, { status: value.status, text: value.text || '' });
-      else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
-    } else if (value.type === 'cost') {
-      // What the prompt has spent so far, kept with the reply it belongs to.
-      reply.cost = { usd: value.usd, tokens: value.tokens, model: value.model, light: value.light, ...(value.roles ? { roles: value.roles } : {}) };
-    } else if (value.type === 'usage') {
+    if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;
     }
+    // A reply not started yet (a one-off call metered on this chat) stays out of the saved chat.
+    const transcript = this.conversation.transcript,
+      changed = this.record(transcript.at(-1) === this.reply ? transcript : [...transcript, this.reply], value);
+    // Empty text and a compaction state that did not change are not news.
+    if (!changed && ['text', 'thinking', 'compaction'].includes(value.type)) return;
     this.emit(value);
   }
   separate() {

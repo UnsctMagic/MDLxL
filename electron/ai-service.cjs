@@ -108,9 +108,20 @@ class AiService {
     this.workerLocks = new Map();
     this.random = Math.random;
   }
+  // The tool contract and prompts, and the transcript rules the console shares.
   async init() {
-    if (!this.contract) this.contract = import(pathToFileURL(path.join(this.root, 'src/ai-tools.js')).href);
+    if (!this.contract) {
+      const load = file => import(pathToFileURL(path.join(this.root, file)).href);
+      this.contract = Promise.all([load('src/ai-tools.js'), load('src/ai-transcript.js')]).then(([contract, transcript]) => {
+        this.recordAiEvent = transcript.recordAiEvent;
+        return contract;
+      });
+    }
     return this.contract;
+  }
+  // A recorder for a chat; init() has loaded the transcript rules by then.
+  recorder(conversation, emit) {
+    return new AiRecorder(conversation, emit, this.recordAiEvent);
   }
   async configuration() {
     if (this.config) return this.config;
@@ -486,7 +497,7 @@ class AiService {
     if (conversation.retired)
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
-    const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
+    const recorder = this.recorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
     const active = { id, controller, steering, recorder, worker: null, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
     this.tasks.set(id, active);
@@ -526,7 +537,6 @@ class AiService {
         return { ok: false, cancelled: true };
       }
       const authRequired = error.code === 'AI_AUTH_REQUIRED';
-      recorder.reply.error = error.message;
       recorder.event({ type: 'error', text: error.message, authRequired });
       return { ok: false, error: error.message, authRequired };
     } finally {
@@ -1309,7 +1319,7 @@ class AiService {
       parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, model: worker.model, light: worker.light, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
       const conversation = await this.conversation(worker.id, settings.provider);
       if (args.resumeTask) conversation.task = args.resumeTask;
-      const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+      const recorder = this.recorder(conversation, value => this.emit({ id: worker.id, ...value }));
       const steering = new AiSteering(text => recorder.split(text));
       if (!active.parallel && !args.helperOnly) parentSteering.forward = steering;
       const controller = new AbortController();
@@ -1338,7 +1348,6 @@ class AiService {
         status = reason.code === 'AI_WORKER_HANDOVER' ? 'handover' : 'failed';
         error = runningWorker.escalation ? 'The user steered this job into work for the chosen model.' : reason.message;
         if (status !== 'handover') {
-          recorder.reply.error = reason.message;
           recorder.event({ type: 'error', text: reason.message, worker: true });
         }
       } finally {
@@ -1414,7 +1423,7 @@ class AiService {
         : `The open model ${context.name} is empty, so this creates something new.`;
     const reply = await this.askOnce({
       settings,
-      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'),
+      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'bird'),
       label: 'The art director has no tools.',
       system: contract.AI_SD_ART_DIRECTOR,
       prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
@@ -1431,7 +1440,7 @@ class AiService {
     const { pictures, left } = choosePictures(inspect.images);
     const question = {
       settings,
-      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check'),
+      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'outside check'),
       label: 'The outside check has no tools.',
       system: contract.AI_OUTSIDE_CHECK,
       prompt: [
@@ -1719,7 +1728,7 @@ class AiService {
       controller = new AbortController();
     const active = { id: organiser.id, controller, steering: null, worker: null };
     this.active = active;
-    const recorder = new AiRecorder(organiser, value => this.emit({ id: organiser.id, ...value }));
+    const recorder = this.recorder(organiser, value => this.emit({ id: organiser.id, ...value }));
     const steering = new AiSteering(() => {});
     // An Offload organiser is a local ledger: Codex and Claude Code have no thread
     // holding the birds' reports, so they travel in the prompt (API routes send the

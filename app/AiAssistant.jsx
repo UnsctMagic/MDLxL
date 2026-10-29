@@ -32,6 +32,7 @@ import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import BIRDS from '../src/ai-birds.json';
 import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
+import { applyAiEvent } from '../src/ai-transcript.js';
 
 // What a connection supports decides which settings rows it shows.
 const providerInfo = id => PROVIDERS.find(p => p.id === id) || {};
@@ -455,18 +456,6 @@ function AiAssistant({ bridge, visUI }) {
         setConnected(true);
       })
       .catch(reason => setError(reason.message));
-    // The reply streams into the newest assistant message as parts: what the AI
-    // says, thinks and does, in the order it happens.
-    const update = change =>
-      setMessages(previous => {
-        const list = [...previous];
-        let last = list.at(-1);
-        if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-        const next = { ...last, parts: [...(last.parts || [])] };
-        change(next);
-        list[list.length - 1] = next;
-        return list;
-      });
     return window.desktop.onAiEvent(event => {
       // Roster and setting changes matter whichever chat is showing.
       if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
@@ -477,102 +466,13 @@ function AiAssistant({ bridge, visUI }) {
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
       if (event.id && event.id !== activeId.current) return;
-      if (event.type === 'worker')
-        setMessages(previous => {
-          const at = previous.findLastIndex(m => m.parts?.some(p => p.type === 'worker' && p.workerId === event.workerId && p.status === 'working'));
-          if (at >= 0 && event.status !== 'working') {
-            const list = [...previous];
-            list[at] = {
-              ...list[at],
-              parts: list[at].parts.map(p =>
-                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light } : p,
-              ),
-            };
-            return list;
-          }
-          if (at >= 0) return previous;
-          const list = [...previous];
-          let last = list.at(-1);
-          if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-          list[list.length - 1] = {
-            ...last,
-            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light }],
-          };
-          return list;
-        });
+      // A chat's events stream into its thread by the same rules main saves them
+      // with: what the AI says, thinks and does, in the order it happens.
+      if (event.id) setMessages(previous => applyAiEvent(previous, event));
       if (event.type === 'worker') setStatus(event.status === 'working' ? `The ${event.name} is working on: ${event.job}` : 'Organising');
-      if (event.type === 'text' || event.type === 'thinking')
-        update(message => {
-          if (event.type === 'text') message.text += event.text;
-          const last = message.parts.at(-1);
-          if (last?.type === event.type) message.parts[message.parts.length - 1] = { ...last, text: last.text + event.text };
-          else message.parts.push({ type: event.type, text: event.text });
-        });
-      if (event.type === 'question')
-        update(message => message.parts.push({ type: 'question', questionId: event.questionId, questions: event.questions, name: event.name, message: event.message, status: 'running' }));
-      // A repeated notice (usage, plan, tool progress) updates its row instead of adding one.
-      if (event.type === 'provider-notice') update(message => {
-        const part = { ...event, type: 'provider-notice' }, same = message.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
-        if (same < 0) message.parts.push(part); else message.parts[same] = part;
-      });
-      if (event.type === 'question-result')
-        setMessages(previous => previous.map(message => ({ ...message, parts: message.parts?.map(part =>
-          part.type === 'question' && part.questionId === event.questionId ? { ...part, status: event.status, answers: event.answers, reason: event.reason } : part) })));
-      if (event.type === 'tool')
-        update(message =>
-          message.parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, status: 'running' }),
-        );
-      if (event.type === 'art')
-        update(message => {
-          const at = message.parts.findLastIndex(p => p.type === 'art' && p.status === 'running');
-          const part = { type: 'art', status: event.status, text: event.text || '' };
-          if (at >= 0) message.parts[at] = part;
-          else message.parts.push(part);
-        });
-      if (event.type === 'cost')
-        update(message => {
-          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles, model: event.model, light: event.light };
-        });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
-      // A steering message may have split the reply since the tool started.
-      if (event.type === 'tool-result')
-        setMessages(previous => {
-          const matches = p =>
-            p.type === 'tool' &&
-            ((event.callId && p.id === event.callId) || (p.status === 'running' && p.name === event.name));
-          const at = previous.findLastIndex(m => m.parts?.some(matches));
-          if (at < 0) return previous;
-          const list = [...previous],
-            parts = [...list[at].parts],
-            index = parts.findLastIndex(matches);
-          parts[index] = { ...parts[index], status: event.error ? 'error' : 'done', summary: event.summary };
-          list[at] = { ...list[at], parts };
-          return list;
-        });
-      if (event.type === 'compaction')
-        setMessages(previous => {
-          const list = [...previous],
-            at = list.findLastIndex(m => m.parts?.some(p => p.type === 'compaction' && p.status === 'running'));
-          if (event.active && at < 0) {
-            let last = list.at(-1);
-            if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-            list[list.length - 1] = { ...last, parts: [...(last.parts || []), { type: 'compaction', status: 'running' }] };
-          } else if (!event.active && at >= 0)
-            list[at] = {
-              ...list[at],
-              parts: list[at].parts.map(p => (p.type === 'compaction' && p.status === 'running' ? { ...p, status: 'done' } : p)),
-            };
-          else return previous;
-          return list;
-        });
       if (event.type === 'compaction')
         setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
-      if (event.type === 'steer')
-        setMessages(previous => [
-          ...previous,
-          { role: 'user', text: event.text, steer: true },
-          { role: 'assistant', text: '', parts: [] },
-        ]);
       if (event.type === 'tool' || event.type === 'external')
         setStatus(activity[toolName(event.name)] || 'Using the editor');
       if (event.type === 'external-done' && !event.busy) setStatus('');

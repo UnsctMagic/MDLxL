@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { applyAiEvent, recordAiEvent } from '../src/ai-transcript.js';
 const require = createRequire(import.meta.url);
 const { AiRecorder } = require('../electron/ai-offload.cjs');
 
@@ -9,7 +10,7 @@ const { AiRecorder } = require('../electron/ai-offload.cjs');
 function record(events, { start = true } = {}) {
   const conversation = { transcript: [] },
     emitted = [];
-  const recorder = new AiRecorder(conversation, value => emitted.push(value));
+  const recorder = new AiRecorder(conversation, value => emitted.push(value), recordAiEvent);
   if (start) recorder.start({ role: 'user', text: 'Make it red' });
   for (const event of events) event.type === 'split' ? recorder.split(event.text) : recorder.event(event);
   return { conversation, emitted, recorder };
@@ -147,4 +148,78 @@ test('a recorder that was never started keeps its reply out of the saved chat', 
   assert.deepEqual(conversation.transcript, []);
   assert.equal(recorder.reply.text, 'Art direction call');
   assert.deepEqual(conversation.usage, { used: 5, window: 10 });
+});
+
+test('an error shows inline on the reply that failed, live and after reopening (D13)', () => {
+  const { conversation, emitted } = record([
+    { type: 'text', text: 'Working' },
+    { type: 'error', text: 'Provider failed', authRequired: false },
+  ]);
+  assert.equal(conversation.transcript[1].error, 'Provider failed');
+  assert.deepEqual(emitted.at(-1), { type: 'error', text: 'Provider failed', authRequired: false });
+  // The console's copy of the same chat shows it on the same reply.
+  const shown = applyAiEvent([{ role: 'user', text: 'Make it red' }], { type: 'error', text: 'Provider failed' });
+  assert.deepEqual(shown, [{ role: 'user', text: 'Make it red' }, { role: 'assistant', text: '', parts: [], error: 'Provider failed' }]);
+});
+
+// Every event kind, in an order that crosses steering splits.
+const questions = [{ id: 'colour', question: 'Which red?' }];
+const STREAM = [
+  { type: 'thinking', text: 'Look ' },
+  { type: 'thinking', text: 'first.' },
+  { type: 'text', text: 'Hello' },
+  { type: 'text', text: '' },
+  { type: 'art', status: 'running' },
+  { type: 'tool', callId: 'c1', name: 'mdlxl_read', detail: '{"path":"/Info"}' },
+  { type: 'tool', name: 'mdlxl_capture', detail: '' },
+  { type: 'compaction', active: true },
+  { type: 'compaction', active: true },
+  { type: 'question', questionId: 'q1', questions, name: 'Crow', message: 'One thing' },
+  { type: 'provider-notice', id: 'chat', text: 'Usage', detail: '10%', severity: 'info', name: '' },
+  { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working', region: 'cape' },
+  { type: 'steer', text: 'Also the cape' },
+  { type: 'art', status: 'done', text: 'Brief' },
+  { type: 'tool-result', callId: 'c1', name: 'mdlxl_read', summary: 'Footman' },
+  { type: 'tool-result', name: 'mdlxl_capture', error: true, summary: 'No view' },
+  { type: 'tool-result', callId: 'missing', name: 'mdlxl_patch' },
+  { type: 'compaction', active: false },
+  { type: 'question-result', questionId: 'q1', status: 'done', answers: { colour: { answers: ['Dark'] } } },
+  { type: 'provider-notice', id: 'chat', text: 'Usage', detail: '20%', severity: 'info', name: '' },
+  { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working' },
+  { type: 'worker', workerId: 'w1', name: 'Crow', status: 'done', report: 'Done.', cost: { usd: 1 } },
+  { type: 'cost', usd: 0.5, tokens: 10, model: 'm', roles: { bird: { calls: 1 } } },
+  { type: 'text', text: 'Finished.' },
+  { type: 'error', text: 'Stopped late' },
+  { type: 'done' },
+  { type: 'notice', text: 'Status only' },
+];
+
+test('the console reducer builds the same chat as the saved transcript', () => {
+  const saved = record(STREAM.map(e => (e.type === 'steer' ? { type: 'split', text: e.text } : e))).conversation.transcript;
+  const shown = STREAM.reduce(applyAiEvent, [{ role: 'user', text: 'Make it red' }, { role: 'assistant', text: '', parts: [] }]);
+  assert.deepEqual(shown, saved);
+});
+
+test('the console reducer never changes what it is given and copies only what changes', () => {
+  const freeze = value => {
+    if (value && typeof value === 'object') {
+      Object.freeze(value);
+      for (const child of Object.values(value)) freeze(child);
+    }
+    return value;
+  };
+  let messages = freeze([{ role: 'user', text: 'Make it red' }, { role: 'assistant', text: '', parts: [] }]);
+  for (const event of STREAM) {
+    const before = messages,
+      after = applyAiEvent(before, freeze(structuredClone(event)));
+    // Events that change nothing keep the same list, so React skips a render.
+    if (['done', 'notice'].includes(event.type) || (event.type === 'text' && !event.text)) assert.equal(after, before);
+    // Streaming text copies only the reply it adds to.
+    if (event.type === 'text' && event.text) for (let i = 0; i < after.length - 1; i++) assert.equal(after[i], before[i]);
+    messages = freeze(after);
+  }
+  // Unmatched results and repeated states change nothing.
+  assert.equal(applyAiEvent(messages, { type: 'tool-result', callId: 'none', name: 'none' }), messages);
+  assert.equal(applyAiEvent(messages, { type: 'compaction', active: false }), messages);
+  assert.equal(recordAiEvent(structuredClone(messages), { type: 'compaction', active: false }), false);
 });
