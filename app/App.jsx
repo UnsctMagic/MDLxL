@@ -30,6 +30,7 @@ import Learn from './Learn.jsx';
 import AppDialogs, { ResourceManagerView } from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
 import usePreferences from './usePreferences.js';
+import useEditorDisplay from '../src/useEditorDisplay.js';
 import { PreferencesContext } from './PreferencesContext.jsx';
 import { Coordinate } from './EditorControls.jsx';
 import { setLanguage, translate } from '../src/localization.js';
@@ -92,7 +93,7 @@ import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '
 import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } from '../src/paint-targets.js';
 import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
-import { clearQuickDisplay, defaultPoseDisplay, saveEditorDisplay, setEditorDisplay, storedEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
+import { clearQuickDisplay, setEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
 import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot, changedPortraitFields } from './portrait-camera-edit.js';
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
 import { currentBackdropLook, findPortraitBackground, normalizeBackdropLook, refreshPortraitBackground } from './portrait-background.js';
@@ -261,27 +262,14 @@ export default function App() {
   const closeUVWindow = () => { document.activeElement?.blur?.(); setUVWindow(null); setUVFocused(false); setLiveUV(null); if (dialog?.host === 'uv') setDialog(null); };
   const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
   const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
-  const [xlCleanViews, setXLCleanViews] = useState({}), [visCleanViews, setVISCleanViews] = useState({});
-  const [xlOverlayModes, setXLOverlayModes] = useState(()=>storedEditorDisplay()), [visOverlayModes, setVISOverlayModes] = useState(()=>storedEditorDisplay(true));
-  useEffect(() => saveEditorDisplay(xlOverlayModes, visOverlayModes), [xlOverlayModes, visOverlayModes]);
-  const normalCleanViews = visUI ? visCleanViews : xlCleanViews, setNormalCleanViews = visUI ? setVISCleanViews : setXLCleanViews;
-  const normalOverlayModes = visUI ? visOverlayModes : xlOverlayModes, setNormalOverlayModes = visUI ? setVISOverlayModes : setXLOverlayModes;
   const displayMode = mode === 'animation' ? animationPanel : mode;
   const poseViewActive = mode === 'animation' && animationPanel === 'movement' && poseConfig.enabled;
-  const poseView = session.poseView || { overlays: defaultPoseDisplay(normalOverlayModes.movement), cleanView: false, workplaneEnabled: false, workplane: storedWorkplane };
   const changePoseView = patch => { session.poseView = { ...(session.poseView || poseView), ...patch }; setTick(tick => tick + 1); };
-  const cleanViews = poseViewActive ? { ...normalCleanViews, [mode]: poseView.cleanView } : normalCleanViews;
-  const overlayModes = poseViewActive ? { ...normalOverlayModes, [displayMode]: poseView.overlays } : normalOverlayModes;
-  const setCleanViews = next => poseViewActive ? changePoseView({ cleanView: (typeof next === 'function' ? next(cleanViews) : next)[mode] }) : setNormalCleanViews(next);
-  const setOverlayModes = next => poseViewActive ? changePoseView({ overlays: (typeof next === 'function' ? next(overlayModes) : next)[displayMode] }) : setNormalOverlayModes(next);
+  const { poseView, cleanViews, overlayModes, setCleanViews, setOverlayModes, cleanView, overlays, panelOverlays } = useEditorDisplay(visUI, { mode, displayMode, poseViewActive, poseView: session.poseView, changePoseView, storedWorkplane });
   const workplaneEnabled = poseViewActive ? poseView.workplaneEnabled : storedWorkplaneEnabled;
   const workplane = poseViewActive ? poseView.workplane : storedWorkplane;
   const setWorkplaneEnabled = next => poseViewActive ? changePoseView({ workplaneEnabled: typeof next === 'function' ? next(workplaneEnabled) : next }) : setStoredWorkplaneEnabled(next);
   const setWorkplane = next => poseViewActive ? changePoseView({ workplane: typeof next === 'function' ? next(workplane) : next }) : setStoredWorkplane(next);
-  const cleanView = !!cleanViews[mode], storedOverlays = mode === 'showcase' || mode === 'manager' ? {} : cleanView ? Object.fromEntries(Object.keys(overlayModes[displayMode]).map(key => [key, false])) : overlayModes[displayMode];
-  const visibleOverlays = visUI ? { ...storedOverlays, bones: true, helpers: true, attachments: true } : storedOverlays;
-  const overlays = visibleOverlays.cameras ? { ...visibleOverlays, cameras: false } : visibleOverlays;
-  const panelOverlays = overlays;
   // Double-click in the preview: select the bones a part hangs on and show them as Focused Skeleton.
   const selectPartBones = target => {
     const ids = target.nodeId != null ? [target.nodeId] : partBones(model, target.geosetIndex, target.vertexIndex);
