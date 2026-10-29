@@ -85,6 +85,7 @@ export class AiEditorBridge {
   constructor(host) {
     this.host = host;
     this.targets = new Map();
+    this.chats = new Map();
     this.controls = new Map();
     // Steps run in order per model tab; tasks on different models do not wait on each other.
     this.queues = new Map();
@@ -103,6 +104,23 @@ export class AiEditorBridge {
   }
   summary() {
     return this.host().summary();
+  }
+  setChat(documentId, chatId) {
+    this.chats.set(documentId, chatId);
+    this.editorChanged();
+  }
+  referenceScope(target) {
+    const documentId = target?.documentId || this.state().session.id;
+    return { documentId, chatId: target ? target.chatId : this.chats.get(documentId) || null };
+  }
+  referenceSessions(target) {
+    const { documentId, chatId } = this.referenceScope(target);
+    return this.host().sessions().filter(s => s.reference && s.referenceOwnerId === documentId && s.referenceChatId === chatId);
+  }
+  references() {
+    // Header updates must not build state(), which scans selected timeline keys.
+    const { documentId } = this.summary();
+    return this.referenceSessions({ documentId, chatId: this.chats.get(documentId) || null }).map(s => ({ id: s.id, name: s.doc.name }));
   }
   /** The console drawings of the active model, as the AI reads them. */
   annotations() {
@@ -150,13 +168,13 @@ export class AiEditorBridge {
       },
     };
   }
-  context(existing) {
+  context(existing, chatId) {
     if (existing) this.requireTarget(existing);
     const id = existing || crypto.randomUUID();
     if (!existing) {
       const state = this.state();
       this.targets.set(id, {
-        documentId: state.session.id,
+        ...this.referenceScope(),
         revision: state.doc.revision,
         selectionSignature: aiSelectionSignature(state),
         selection: structuredClone(state.selection || {}),
@@ -180,6 +198,7 @@ export class AiEditorBridge {
       const unused = [...this.targets].find(([, t]) => !t.region && !t.review);
       if (unused && unused[0] !== id) this.targets.delete(unused[0]);
     }
+    if (chatId !== undefined) this.targets.get(id).chatId = chatId;
     const captured = this.targets.get(id),
       env = this.env(captured),
       { state, doc, session, model } = env,
@@ -243,15 +262,15 @@ export class AiEditorBridge {
       diagnostics: doc.diagnostics,
       annotations: captured.annotations,
       ...(captured.region ? { region: { scope: captured.region.scope, readOnly: captured.region.readOnly, structural: captured.region.structural, animationRanges: captured.region.animationRanges, globalSequence: captured.region.globalSequence } } : {}),
-      documents: this.documents(),
+      documents: this.documents(captured),
       commands: this.host()
         .commands()
         .map(c => ({ id: c.id, label: c.label, enabled: c.enabled })),
     };
   }
-  documents() {
-    const s = this.state();
-    return s.sessions.map(x => ({
+  documents(target) {
+    const s = this.state(), { documentId } = this.referenceScope(target), references = new Set(this.referenceSessions(target));
+    return s.sessions.filter(x => x.id === documentId || references.has(x)).map(x => ({
       id: x.id,
       name: x.doc.name,
       path: x.path,
@@ -456,12 +475,13 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_read') {
       const s = this.state(),
-        own = args.target ? this.env(this.requireTarget(args.target)).session : s.session,
-        document = args.documentId ? s.sessions.find(x => x.id === args.documentId) : own;
+        target = args.target ? this.requireTarget(args.target) : undefined,
+        own = target ? this.env(target).session : s.session,
+        document = args.documentId && args.documentId !== own.id ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
       if (!document) throw Error('Reference model is no longer open.');
       return readAiModel(document.doc.model, args);
     }
-    if (name === 'mdlxl_document' && args.action === 'list') return this.documents();
+    if (name === 'mdlxl_document' && args.action === 'list') return this.documents(args.target ? this.requireTarget(args.target) : undefined);
     if (name === 'mdlxl_ui' && args.action === 'inspect') return this.inspectUi();
     const target = this.requireTarget(args.target),
       host = this.host(),
@@ -489,7 +509,7 @@ export class AiEditorBridge {
       throw Error('Choose list, save, compare or use.');
     }
     if (name === 'mdlxl_assets') {
-      const result = await aiAssets(args, { ...host, state: () => env.state }, () => {
+      const result = await aiAssets(args, { ...host, state: () => env.state, addReference: record => host.addReference(record, this.referenceScope(target)) }, () => {
         active();
         this.requireTarget(args.target);
       });
@@ -514,8 +534,7 @@ export class AiEditorBridge {
           selection: structuredClone(target.selection),
           context: this.contextFor(args.target),
           references: Object.fromEntries([
-            ...state.sessions
-              .filter(s => s !== env.session)
+            ...this.referenceSessions(target)
               .map(s => [s.id, { name: s.doc.name, model: structuredClone(s.doc.model) }]),
             // Saved versions of this model, for measuring candidates side by side.
             ...this.versionStore
@@ -730,7 +749,7 @@ export class AiEditorBridge {
         const record = await window.desktop.aiReadModel({ path: args.path });
         active();
         this.requireTarget(args.target);
-        const reference = await host.addReference(record);
+        const reference = await host.addReference(record, this.referenceScope(target));
         await settle();
         return { reference, context: this.contextFor(args.target) };
       }

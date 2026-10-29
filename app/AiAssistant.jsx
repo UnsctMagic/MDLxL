@@ -328,7 +328,7 @@ function AssistantMessage({ message, live, onOpenWorker }) {
 // changes on every playback tick; FrameLabel follows that on its own.
 function headerKey(bridge) {
   const { time, ...summary } = bridge.summary();
-  return JSON.stringify([summary, bridge.host().references?.() || [], getLanguage()]);
+  return JSON.stringify([summary, bridge.references(), getLanguage()]);
 }
 function FrameLabel({ bridge }) {
   return useSyncExternalStore(bridge.subscribe, () => Math.round(bridge.summary().time));
@@ -348,11 +348,8 @@ function AiAssistant({ bridge, visUI }) {
   const [signedIn, setSignedIn] = useState(null);
   const [task, setTask] = useState(null),
     [awarenessBusy, setAwarenessBusy] = useState(false);
-  const [jobRoute, setJobRoute] = useState('');
-  const [modelQuestion, setModelQuestion] = useState(null);
-  const [prompt, setPrompt] = useState(''),
-    [images, setImages] = useState([]),
-    [messages, setMessages] = useState([]),
+  const [drafts, setDrafts] = useState({});
+  const [messages, setMessages] = useState([]),
     [external, setExternal] = useState(false);
   const [org, setOrg] = useState(null),
     [view, setView] = useState(null),
@@ -536,6 +533,24 @@ function AiAssistant({ bridge, visUI }) {
   // Right after a tab switch the console still holds the previous model's chat until
   // this model's chat loads; a prompt then must not reach the other model's job.
   const switching = !!org && org.modelKey !== modelKey;
+  const attachmentChatId = org?.earlier.includes(view) ? view : org?.id;
+  const draftKey = !switching ? attachmentChatId : null;
+  const { prompt = '', images = [], jobRoute = '', modelQuestion = null } = drafts[draftKey] || {};
+  // Async file reads and send replies keep the chat they started in, even after a tab switch.
+  function setDraft(field, value) {
+    if (!draftKey) return;
+    setDrafts(previous => {
+      const draft = previous[draftKey] || {};
+      return { ...previous, [draftKey]: { ...draft, [field]: typeof value === 'function' ? value(draft[field] || []) : value } };
+    });
+  }
+  const setPrompt = value => setDraft('prompt', value),
+    setImages = value => setDraft('images', value),
+    setJobRoute = value => setDraft('jobRoute', value),
+    setModelQuestion = value => setDraft('modelQuestion', value);
+  useLayoutEffect(() => {
+    if (open && attachmentChatId && !switching) bridge.setChat(summaryNow.documentId, attachmentChatId);
+  }, [bridge, open, attachmentChatId, switching, summaryNow?.documentId]);
   useEffect(() => {
     if (!open || !modelKey || !window.desktop?.aiOrganiser) return;
     let live = true;
@@ -635,7 +650,7 @@ function AiAssistant({ bridge, visUI }) {
     };
   }, []);
   const summary = summaryNow;
-  const references = open ? bridge.host().references?.() || [] : [];
+  const references = open && !switching ? bridge.references() : [];
   const viewWorker = org?.workers.find(worker => worker.id === view) || null;
   const earlierView = !!org?.earlier.includes(view);
   const readOnly = viewWorker?.status === 'retired' || earlierView;
@@ -680,6 +695,8 @@ function AiAssistant({ bridge, visUI }) {
     if (busy || !org) return;
     try {
       const value = await window.desktop.aiNewOrganiser({ modelKey: org.modelKey, name: summary?.name });
+      bridge.setChat(summary.documentId, value.id);
+      if (activeId.current !== id) return;
       setOrg({ ...value, modelKey: org.modelKey });
       setView(value.id);
       setMessages([]);
@@ -723,7 +740,8 @@ function AiAssistant({ bridge, visUI }) {
       return;
     }
     const text = prompt,
-      attached = images;
+      attached = images,
+      context = bridge.context();
     let sending = id;
     setSendingId(sending);
     setError('');
@@ -743,17 +761,20 @@ function AiAssistant({ bridge, visUI }) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
           sending = fresh.id;
-          activeId.current = sending;
-          setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+          bridge.setChat(context.documentId, fresh.id);
+          Object.assign(context, bridge.context(context.target, fresh.id));
+          if (activeId.current === id) {
+            activeId.current = sending;
+            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+          }
         }
       }
-      const context = bridge.context();
       if (!resume) {
         setPrompt('');
         setImages([]);
         setJobRoute('');
       }
-      setMessages(previous => [
+      if (activeId.current === sending) setMessages(previous => [
         ...previous,
         {
           role: 'user',
@@ -775,7 +796,8 @@ function AiAssistant({ bridge, visUI }) {
       });
       if (result.modelChoiceRequired) {
         setModelQuestion(result.message); setPrompt(text); setImages(attached); setJobRoute(jobRoute);
-        setMessages(await window.desktop.aiTranscript(sending));
+        const transcript = await window.desktop.aiTranscript(sending);
+        if (activeId.current === sending) setMessages(transcript);
       }
       if (result.authRequired) {
         setSignedIn(false);
@@ -784,13 +806,14 @@ function AiAssistant({ bridge, visUI }) {
           setPrompt(text);
           setImages(attached);
         }
-        setMessages(await window.desktop.aiTranscript(id));
+        const transcript = await window.desktop.aiTranscript(sending);
+        if (activeId.current === sending) setMessages(transcript);
       }
     } catch (reason) {
-      setError(reason.message);
+      if (activeId.current === sending) setError(reason.message);
     } finally {
       setSendingId(current => (current === sending ? null : current));
-      setStatus('');
+      if (activeId.current === sending) setStatus('');
     }
   }
   async function authenticate(authAction) {
@@ -830,13 +853,15 @@ function AiAssistant({ bridge, visUI }) {
     }
   }
   async function attach(list) {
+    if (switching || !org) return;
+    const scope = bridge.referenceScope();
     for (const file of list) {
       if (/\.(mdl|mdx)$/i.test(file.name)) {
         await bridge.host().addReference({
           name: file.name,
           path: window.desktop?.droppedPath(file) || null,
           bytes: new Uint8Array(await file.arrayBuffer()),
-        });
+        }, scope);
         setStatus('Reference model added.');
       } else if (['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
         if (file.size > 9 * 1024 * 1024) throw Error('Each image must be under 9 MB.');

@@ -84,7 +84,8 @@ function editor() {
         uvEditing: false,
       };
     },
-    summary: () => ({}),
+    sessions: () => app.sessions,
+    summary: () => ({ documentId: app.active.id }),
     commands: () => [
       { id: 'undo', label: 'Undo', enabled: true },
       { id: 'save', label: 'Save', enabled: true },
@@ -331,4 +332,60 @@ test('combined review rejects a gap against an unassigned neighbour', async () =
   const bridge={requireTarget:()=>({}),env:()=>({model:after}),dispatch:async()=>{validated=true;return {results:[{}]};}};
   const result=await reviewRegionBatch(bridge,'test',before,[{scope:['/Geosets/0'],dependencies:[],readOnly:false,structural:false}],{});
   assert.equal(result.passed,false);assert.ok(result.seams>0);assert.ok(result.posedSeamChecks>0);assert.ok(result.failures.length);assert.ok(validated);
+});
+
+test('model chats expose only their own attached donors, including scripts and reads in the background', async () => {
+  const { a, b, app, bridge, show } = editor();
+  const donorA = tab('Donor A.mdx'), donorB = tab('Donor B.mdx');
+  Object.assign(donorA, { reference: true, referenceOwnerId: a.id, referenceChatId: 'chat-a' });
+  Object.assign(donorB, { reference: true, referenceOwnerId: b.id, referenceChatId: 'chat-b' });
+  app.sessions.push(donorA, donorB);
+  bridge.setChat(a.id, 'chat-a');
+  const contextA = bridge.context();
+  assert.deepEqual(contextA.documents.map(d => d.id), [a.id, donorA.id]);
+  assert.deepEqual(bridge.references().map(d => d.id), [donorA.id]);
+  show(b);
+  bridge.setChat(b.id, 'chat-b');
+  const contextB = bridge.context();
+  assert.deepEqual(contextB.documents.map(d => d.id), [b.id, donorB.id]);
+  assert.deepEqual(bridge.references().map(d => d.id), [donorB.id]);
+  assert.deepEqual(bridge.context(contextA.target).documents.map(d => d.id), [a.id, donorA.id]);
+  assert.deepEqual((await bridge.dispatch('mdlxl_document', { action: 'list', target: contextA.target })).map(d => d.id), [a.id, donorA.id]);
+  await assert.rejects(() => bridge.dispatch('mdlxl_read', { target: contextA.target, documentId: donorB.id }), /Reference model is no longer open/);
+  await assert.rejects(() => bridge.dispatch('mdlxl_read', { target: contextA.target, documentId: b.id }), /Reference model is no longer open/);
+  window.desktop.aiScript = async args => {
+    assert.deepEqual(Object.keys(args.references), [donorA.id]);
+    return { value: Object.keys(args.references) };
+  };
+  const read = await bridge.dispatch('mdlxl_script', { target: contextA.target, code: 'return Object.keys(references);' });
+  assert.deepEqual(read.value, [donorA.id]);
+  // A new organiser for the same model starts without the previous chat's donors.
+  show(a);
+  bridge.setChat(a.id, 'new-chat-a');
+  assert.deepEqual(bridge.references(), []);
+  assert.deepEqual(bridge.context().documents.map(d => d.id), [a.id]);
+  assert.deepEqual(bridge.context(contextA.target).documents.map(d => d.id), [a.id, donorA.id]);
+});
+
+test('references opened by a background job retain its original model and chat', async () => {
+  const { a, b, app, bridge, show } = editor();
+  bridge.setChat(a.id, 'chat-a');
+  const { target } = bridge.context();
+  show(b);
+  bridge.setChat(b.id, 'chat-b');
+  window.desktop.aiReadModel = async () => ({ name: 'Background donor.mdx', bytes: new Uint8Array([1]) });
+  bridge.host().addReference = async (record, scope) => {
+    assert.deepEqual(scope, { documentId: a.id, chatId: 'chat-a' });
+    const donor = tab(record.name);
+    Object.assign(donor, { reference: true, referenceOwnerId: scope.documentId, referenceChatId: scope.chatId });
+    app.sessions.push(donor);
+    return { id: donor.id, name: donor.doc.name };
+  };
+  await bridge.dispatch('mdlxl_document', { action: 'open', target, path: 'Donor.mdx' });
+  assert.deepEqual(bridge.references(), []);
+  assert.deepEqual(bridge.context(target).documents.map(d => d.id), [a.id, 'Background donor.mdx']);
+  window.desktop.readPart = async () => ({ name: 'Part donor.mdx', bytes: new Uint8Array([1]) });
+  await bridge.dispatch('mdlxl_assets', { source: 'parts', action: 'reference', target, id: 'Part donor.mdx' });
+  assert.deepEqual(bridge.references(), []);
+  assert.deepEqual(bridge.context(target).documents.map(d => d.id), [a.id, 'Background donor.mdx', 'Part donor.mdx']);
 });
