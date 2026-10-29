@@ -51,6 +51,10 @@ export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected
     for(const k of new Set([...Object.keys(a),...Object.keys(b)])) {
       if(k==='Color' && /^GeosetAnims\[\d+\]$/.test(path) && equivalentGeosetColorDefaults(a,b))continue;
       if(k==='BoundsRadius' && 'Shape'in a && a.Shape<2)continue;
+      // Empty node transforms have no samples; MDX export omits their headers.
+      // Only absence is equivalent: losing a real key or changing one still fails.
+      if(format==='mdx' && 'ObjectId'in a && ['Translation','Rotation','Scaling'].includes(k)
+        && (a[k]==null || b[k]==null) && Array.isArray((a[k]??b[k])?.Keys) && (a[k]??b[k]).Keys.length===0)continue;
       // Raw flags mirror these public boolean fields; compare unknown bits too.
       if(k==='Flags'&&'NonLooping'in a){walk((a.Flags||0)&~1,(b.Flags||0)&~1,path+'.Flags',k);continue;}
       if(k==='Flags'&&nodeTypeFromSection&&'ObjectId'in a){walk((a.Flags||0)&~NODE_TYPE_BITS,(b.Flags||0)&~NODE_TYPE_BITS,path+'.Flags',k);continue;}
