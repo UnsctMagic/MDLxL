@@ -1,4 +1,5 @@
 import PoseControls from './PoseControls.jsx';
+import { Coordinate } from './EditorControls.jsx';
 import useDismiss from './useDismiss.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { allNodes, sampleNodeMatrices } from '../src/animation.js';
@@ -41,17 +42,6 @@ function curvePath({ tension, continuity, bias }) {
   }).join(' ');
 }
 
-function PositionField({ axis, value, disabled, onCommit }) {
-  const [text, setText] = useState(formatted(value)), cancel = useRef(false);
-  useEffect(() => setText(formatted(value)), [value]);
-  const commit = () => {
-    if (cancel.current) { cancel.current = false; return; }
-    const next = Number(text);
-    if (text.trim() && Number.isFinite(next) && next !== Number(formatted(value)) && !disabled) onCommit(next);
-    else setText(formatted(value));
-  };
-  return <label><span>{axis}</span><input aria-label={`${axis} coordinate`} data-hotkey={`coordinate:${axis}`} type="number" step="any" disabled={disabled} value={text} onChange={event => setText(event.target.value)} onBlur={commit} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { cancel.current = true; setText(formatted(value)); event.currentTarget.blur(); } }}/></label>;
-}
 
 
 export default function MovementController({ vanilla = false, objectDisplay, onObjectDisplay, poseConfig, onPoseChange, onPoseSelect, model, revision = 0, sequenceIndex = -1, time = 0, selectedNodeIds = [], selectionByGeoset = {}, onSelectNodes, onEdit, onVertexTransform, onPlayingChange, transformMode = 'move', onTransformMode, transformSpace = 'world', onTransformSpace, onOpenNodeManager, onOpenEmitter, globalSeqId = null, onTimelineChange, onSeek, highlightKeyframes = false, onHighlightKeyframes, highlightChain = false, onHighlightChain, preferences, disabled = false, restPose = false, workplaneEnabled = false, onWorkplaneEnabled, workplane = 'xy', onWorkplane, restrictions = {}, onRestrictions, portraitMode = false, controlModel = false, portraitCameraIndex = 0, onPortraitCameraIndex, onPortraitNew, onPortraitUpdate, onDeleteNode, onRenameNode, onBillboarded, onCreateRigNode, onAttach, onDetach, onSoftBind, onHardBind, onDetachVertices, onAttachemator, attachActive = false, createOpen = false, onCreateOpen, canDeleteNode = false, canAttach = false, canDetach = false, canBind = false }) {
@@ -181,7 +171,7 @@ export default function MovementController({ vanilla = false, objectDisplay, onO
       {restPose ? <div className="movement-object-combo"><input aria-label="Selected object name" style={listColor ? { color: readableTextColor(listColor) } : undefined} value={nameText} disabled={disabled || selected.length !== 1} onChange={event => setNameText(event.target.value)} onBlur={commitName} onKeyDown={event => { if (event.key === 'Enter') { event.stopPropagation(); event.currentTarget.blur(); } else if (event.key === 'Escape') { event.stopPropagation(); cancelName.current = true; setNameText(selected[0]?.Name || ''); event.currentTarget.blur(); } }}/>{nodePicker}</div> : nodePicker}
       {restPose && !vanilla && <div className="movement-object-filters" role="group" aria-label="Visible object types">{[['bones', 'Bones', 'bone'], ['helpers', 'Helpers', 'helper'], ['attachments', 'Refs', 'ref']].map(([key, label, color]) => <label key={key} title={key === 'attachments' ? 'Show reference attachment points so you can select and move them' : 'Show ' + label.toLowerCase() + ' so you can select and move them'} style={{ color: readableTextColor(rigColors[color]) }}><input type="checkbox" checked={!!objectDisplay?.[key]} onChange={event => onObjectDisplay?.(key, event.target.checked)}/>{label}</label>)}</div>}
       {restPose ? objectStats : <details className="movement-object-details"><summary>Details</summary>{objectStats}</details>}
-      {(restPose || !poseConfig?.enabled || selected.length > 0) && <><div className="movement-section-label">Coordinates:</div><div className="movement-vector" title={transformMode === 'rotate' ? 'Rotation delta in degrees' : transformMode === 'scale' ? 'Resize factor' : summary.source === 'vertices' ? 'Center of the selected vertices' : 'Model-space center of the selected node pivots'}>{['X', 'Y', 'Z'].map((axis, index) => <PositionField key={axis} axis={axis} value={coordinateValues?.[index]} disabled={coordinateDisabled(index)} onCommit={value => commitCoordinate(index, value)}/>)}</div></>}
+      {(restPose || !poseConfig?.enabled || selected.length > 0) && <><div className="movement-section-label">Coordinates:</div><div className="movement-vector" title={transformMode === 'rotate' ? 'Rotation delta in degrees' : transformMode === 'scale' ? 'Resize factor' : summary.source === 'vertices' ? 'Center of the selected vertices' : 'Model-space center of the selected node pivots'}>{['X', 'Y', 'Z'].map((axis, index) => <Coordinate key={axis} className={null} format={formatted} axis={axis} value={coordinateValues?.[index]} disabled={coordinateDisabled(index)} onCommit={value => commitCoordinate(index, value)}/>)}</div></>}
       {restPose && <label className="movement-check movement-billboard" title="Toggle to turn on billboarded, the selected bone, and the model parts attached to it, turn toward the viewer as the camera moves."><input aria-label="Billboarded" type="checkbox" checked={!!(selectedBone?.Flags & 8)} disabled={disabled || !selectedBone} onChange={event => onBillboarded?.(selectedBone.ObjectId, event.target.checked)}/>Billboarded</label>}
     </div></SidebarSection>
     <EmitterVisibility model={model} selectedNodeIds={selectedNodeIds} frame={frame} sequenceIndex={editSequenceIndex} globalSeqId={globalSeqId} restPose={restPose} disabled={disabled} onEdit={onEdit} onOpen={onOpenEmitter} onPause={onPlayingChange}/>

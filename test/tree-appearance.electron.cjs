@@ -59,7 +59,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Tree List text', { exact: true }).fill('#f0e0d0');
     await page.getByLabel('Node Bones', { exact: true }).fill('#ffaa22');
     await page.getByLabel('Folder Human', { exact: true }).fill('#bbddff');
-    await page.getByLabel('List font size', { exact: true }).fill('17');
+    await page.getByLabel('List font size', { exact: true }).fill('17'); await page.getByLabel('List font size', { exact: true }).press('Enter');
     await openPage('Presets');
     await page.getByLabel('Custom viewport preset name').fill('My folders');
     await page.getByRole('button', { name: 'Save as custom preset', exact: true }).click();

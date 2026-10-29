@@ -4,7 +4,7 @@ import { createRigNode } from '../src/bone-tools.js';
 import { recalculateExtents } from '../src/editor-document.js';
 import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
-import { fillSequenceExtents } from '../src/sequence-editor.js';
+import { fillSequenceExtents, isPortraitSequence } from '../src/sequence-editor.js';
 import { uniqueName } from '../src/node-hierarchy.js';
 import { evaluateModelCamera, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from './portrait-view.js';
 
@@ -31,7 +31,6 @@ export function normalizeBackdropLook(look) {
   return { size: Number.isFinite(size) ? clamp(size, BACKDROP_SIZE_RANGE) : BACKDROP_LOOK.size, height: Number.isFinite(height) ? clamp(height, BACKDROP_HEIGHT_RANGE) : BACKDROP_LOOK.height };
 }
 const BACKDROP_NAME = /backdrop|background|portrait.?glow|portrait.?plane/i;
-const portraitName = name => /portrait/i.test(String(name || ''));
 
 function cameraBasis(view) {
   const position = new Vector3(...view.position), forward = new Vector3(...view.target).sub(position).normalize();
@@ -74,7 +73,7 @@ function cardShape(geoset) {
  * sequences, or is team glow in a portrait-only model. Hero team-glow planes
  * visible in Stand/Walk are never chosen. Ties go to the largest one. */
 export function findPortraitBackground(model) {
-  const sequences = model.Sequences || [], everyday = sequences.filter(sequence => !portraitName(sequence.Name)), portraits = sequences.filter(sequence => portraitName(sequence.Name));
+  const sequences = model.Sequences || [], everyday = sequences.filter(sequence => !isPortraitSequence(sequence)), portraits = sequences.filter(sequence => isPortraitSequence(sequence));
   const nodes = new Map(allNodes(model).map(node => [node.ObjectId, node]));
   let best = -1, bestScore = 0, bestSize = 0;
   (model.Geosets || []).forEach((geoset, index) => {
@@ -94,8 +93,8 @@ export function findPortraitBackground(model) {
  * animation time, else the first Portrait sequence, else Stand. */
 export function portraitBackgroundPose(model, frame = 0, sequenceIndex = -1) {
   const sequences = model.Sequences || [];
-  if (portraitName(sequences[sequenceIndex]?.Name)) return { frame, sequenceIndex };
-  const index = sequences.findIndex(sequence => portraitName(sequence.Name));
+  if (isPortraitSequence(sequences[sequenceIndex])) return { frame, sequenceIndex };
+  const index = sequences.findIndex(sequence => isPortraitSequence(sequence));
   if (index >= 0) return { frame: sequences[index].Interval[0], sequenceIndex: index };
   return sequences[sequenceIndex] ? { frame, sequenceIndex } : { frame: sequences[0]?.Interval?.[0] ?? 0, sequenceIndex: sequences.length ? 0 : -1 };
 }
@@ -160,13 +159,13 @@ export function currentBackdropLook(model, cameraIndex, frame = 0, sequenceIndex
  * the rest (the SD unit-model pattern). A portrait-only file shows it always. */
 function backdropVisibility(model, portraitFile) {
   const sequences = model.Sequences || [];
-  if (!sequences.some(sequence => portraitName(sequence.Name)) && !portraitFile) throw Error('This model has no Portrait animation. Use “No Portrait animation · Create” first, so the background shows only in the portrait.');
-  if (portraitFile || sequences.every(sequence => portraitName(sequence.Name))) return 1;
+  if (!sequences.some(sequence => isPortraitSequence(sequence)) && !portraitFile) throw Error('This model has no Portrait animation. Use “No Portrait animation · Create” first, so the background shows only in the portrait.');
+  if (portraitFile || sequences.every(sequence => isPortraitSequence(sequence))) return 1;
   const frames = new Map();
   for (const sequence of sequences) {
     const start = Number(sequence.Interval?.[0]);
     if (!Number.isFinite(start)) continue;
-    const value = portraitName(sequence.Name) ? 1 : 0;
+    const value = isPortraitSequence(sequence) ? 1 : 0;
     frames.set(start, frames.has(start) ? Math.min(frames.get(start), value) : value);
   }
   return { LineType: 0, GlobalSeqId: null, Keys: [...frames].sort(([a], [b]) => a - b).map(([Frame, value]) => ({ Frame, Vector: new Float32Array([value]) })) };

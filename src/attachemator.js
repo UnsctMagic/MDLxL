@@ -1,3 +1,4 @@
+import { standSequenceIndex as attachematorStandSequence } from './sequence-editor.js';
 import { isWeaponName, nameSide } from './rig-names.js';
 export { nameSide } from './rig-names.js';
 import { Matrix4, Vector3 } from 'three';
@@ -41,17 +42,7 @@ const STANDARD = new Map(ATTACHMENT_POINTS.map(point => [point.key, point]));
 export const attachmentKey = name => String(name || '').toLowerCase().replace(/\bref\b/g, ' ').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 const NOT_A_WEAPON = /shield|hand|arm|finger|thumb|wrist|elbow|axel|axle|backpack/i;
 
-/** The animation Attachemator measures: the plainest Stand, else the first one. */
-export function attachematorStandSequence(model) {
-  const sequences = model.Sequences || [];
-  // "Stand" first, then "Stand - 1", "Stand -2" and so on.
-  const plain = sequences.map((sequence, index) => ({ index, match: String(sequence.Name || '').match(/^\s*stand\s*(?:-?\s*(\d+))?\s*$/i) })).filter(item => item.match)
-    .sort((a, b) => Number(a.match[1] ?? -1) - Number(b.match[1] ?? -1))[0];
-  if (plain) return plain.index;
-  const stand = sequences.findIndex(sequence => /^\s*stand/i.test(sequence.Name || '') && !/portrait|alternate|channel|work|lumber|gold|victory|hit|swim|defend|morph/i.test(sequence.Name || ''));
-  if (stand >= 0) return stand;
-  return sequences.findIndex(sequence => !/portrait|death|decay|dissipate/i.test(sequence.Name || ''));
-}
+export { standSequenceIndex as attachematorStandSequence } from './sequence-editor.js';
 
 function pivotOf(model, node) { return new Vector3().fromArray(nodePivot(model, node)); }
 

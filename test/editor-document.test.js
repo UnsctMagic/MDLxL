@@ -125,17 +125,18 @@ test('undo/redo retain typed arrays, shared node aliases, zero-frame keys and ex
   assert.equal(doc.canRedo, false);
 });
 
-test('zero-keyframe tracks survive unrelated edits and touched-node regeneration', () => {
+test('MDX omits zero-key node tracks through unrelated edits and touched-node regeneration', () => {
   const doc = createDemoDocument();
   doc.apply('Add empty scaling track', ['Nodes'], (m) => { m.Bones[0].Scaling = { LineType: 1, GlobalSeqId: null, Keys: [] }; });
   const bytes = doc.serialize('mdx'); const loaded = openDocument(bytes);
-  assert.equal(loaded.model.Bones[0].Scaling.Keys.length, 0);
+  assert.equal(loaded.model.Bones[0].Scaling, undefined);
+  assert.deepEqual(doc.model.Bones[0].Scaling.Keys, [], 'export keeps the live empty track');
   const boneChunk = chunks(bytes).find((c) => c.tag === 'BONE').bytes;
   loaded.apply('Texture wrap', ['Textures'], (m) => { m.Textures[0].Flags = 1; });
   assert.deepEqual(chunks(loaded.serialize()).find((c) => c.tag === 'BONE').bytes, boneChunk);
   loaded.apply('Rename node', ['Nodes'], (m) => { m.Bones[0].Name = 'Renamed'; });
   const reopened = openDocument(loaded.serialize());
-  assert.equal(reopened.model.Bones[0].Scaling.Keys.length, 0);
+  assert.equal(reopened.model.Bones[0].Scaling, undefined);
   assert.equal(reopened.model.Bones[0].Translation.Keys[0].Frame, 0);
 });
 

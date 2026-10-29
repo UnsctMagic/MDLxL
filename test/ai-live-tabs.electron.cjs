@@ -2,15 +2,14 @@
 // birds editing in the background while other tabs are showing. Run on the hidden
 // desktop. Uses only generated models and a disposable profile:
 //   MDLXL_AI_LIVE_PROFILE  a copy of a signed-in MDLxL profile (it is used as is)
-//   MDLXL_AI_TEST_EXE      the packaged app
+//   MDLXL_TEST_EXE         the packaged app
 //   MDLXL_AI_LIVE_MODEL    optional chat model (default: the profile's choice)
 const fs = require('node:fs'),
   path = require('node:path'),
   crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'D:/Claude/tools/node_modules/playwright-core');
-const profile = process.env.MDLXL_AI_LIVE_PROFILE,
-  executablePath = process.env.MDLXL_AI_TEST_EXE;
-if (!profile || !executablePath) throw Error('Set MDLXL_AI_LIVE_PROFILE and MDLXL_AI_TEST_EXE.');
+const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpers/app.cjs');
+const profile = process.env.MDLXL_AI_LIVE_PROFILE;
+if (!profile) throw Error('Set MDLXL_AI_LIVE_PROFILE to a disposable signed-in profile.');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-live-tabs'),
   checks = [],
   prompts = [];
@@ -57,29 +56,24 @@ let app, page;
   };
   const models = { A: fixture('Alpha.mdx', 0), B: fixture('Bravo.mdx', 0), C: fixture('Charlie.mdx', 0) };
   const originalBytes = Object.fromEntries(Object.entries(models).map(([k, m]) => [k, fs.readFileSync(m.file)]));
-  app = await _electron.launch({
-    executablePath,
-    args: [models.A.file, '--disable-gpu-vsync', '--disable-frame-rate-limit'],
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') },
-    timeout: 60000,
-  });
-  page = await app.firstWindow();
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  const launched = await launchApp({ pageTimeout: 30000, fixture: models.A.file, out, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp'), MDLXL_PROFILE: profile } });
+  ({ app, page } = launched);
+
+  const { errors } = launched;
+
   await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
-    win.webContents.setBackgroundThrottling(false);
     win.unmaximize();
     win.setContentSize(1440, 900);
   });
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
   // An earlier interrupted run leaves recovery copies; this run starts from its own files.
-  await page.waitForTimeout(1500);
+  await settle(page, 1500);
   if (await page.locator('.classic-modal', { hasText: 'Recovery' }).count())
     await page.locator('.classic-modal').getByRole('button', { name: 'Close', exact: true }).click();
   for (const key of ['B', 'C']) {
-    await app.evaluate(({ dialog }, file) => (dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] })), models[key].file);
-    await app.evaluate(({Menu})=>{const all=m=>m.items.flatMap(i=>[i,...(i.submenu?all(i.submenu):[])]);all(Menu.getApplicationMenu()).find(i=>i.label.replace('&','')==='Open…').click();});
+    await stubDialogs(app, { open: models[key].file });
+    await clickMenu(app, 'Open…');
     await page.waitForFunction(name => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes(name), models[key].name, { timeout: 20000 });
   }
   if (process.env.MDLXL_AI_LIVE_MODEL) await page.evaluate(model => window.desktop.aiModel(model), process.env.MDLXL_AI_LIVE_MODEL);
@@ -108,12 +102,12 @@ let app, page;
     }
     await page.locator('.model-tab [role="tab"]', { hasText: models[key].name }).click();
     await page.waitForFunction(name => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes(name), models[key].name);
-    await page.waitForTimeout(700);
+    await settle(page, 700);
   };
   const select = async vertices => {
     const context = await tool('mdlxl_context');
     await tool('mdlxl_select', { target: context.target, geosetIds: Object.keys(vertices).map(Number), vertices });
-    await page.waitForTimeout(200);
+    await settle(page, 200);
   };
   const running = () => page.evaluate(async () => (await window.desktop.aiStatus()).running || []);
   const reply = () => page.evaluate(() => document.querySelector('.ai-messages')?.innerText || '');
@@ -131,11 +125,11 @@ let app, page;
     check(`${models[key].name}: its chat is ready to send "${text.slice(0, 40)}"`, ready);
     await page.getByLabel('AI prompt').press('Enter');
     prompts.push({ model: models[key].name, text, sent: new Date().toISOString() });
-    await page.waitForTimeout(3000);
+    await settle(page, 3000);
     const problem = (await page.locator('.ai-error').count()) ? await page.locator('.ai-error').first().innerText() : '';
     check(`${models[key].name}: the prompt started without an error`, !problem, problem);
   }
-  async function settle(label, minutes = 8) {
+  async function settleJobs(label, minutes = 8) {
     const until = Date.now() + minutes * 60000;
     let peak = 0;
     while (Date.now() < until) {
@@ -150,7 +144,7 @@ let app, page;
   }
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   await page.waitForSelector('.ai-assistant');
-  await page.waitForTimeout(1500);
+  await settle(page, 1500);
 
   // MDLXL_AI_LIVE_FROM=5 runs only the last batch (it does not depend on earlier ones).
   const from = Number(process.env.MDLXL_AI_LIVE_FROM || 1),
@@ -160,7 +154,7 @@ let app, page;
   await send('A', 'Move the marked vertices up by 10 on the Z axis. Nothing else.', { vertices: { 0: [0, 1] } });
   await send('B', 'Rename bone 0 to Root.');
   await send('C', 'Rename the animation "Attack" to "Slam".');
-  const peak1 = await settle('batch 1');
+  const peak1 = await settleJobs('batch 1');
   check('three jobs on three models ran at the same time', peak1 >= 2, peak1);
   const aVerts = floats(await read('A', '/Geosets/0/Vertices'));
   check('1 Alpha: marked vertices raised 10 on Z, the rest unchanged', aVerts[2] === aOrig[2] + 10 && aVerts[5] === aOrig[5] + 10 && aVerts.every((v, i) => [2, 5].includes(i) || v === aOrig[i]), aVerts);
@@ -173,20 +167,20 @@ let app, page;
   let undone = false;
   for (let i = 0; i < 4 && !undone; i++) {
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
+    await settle(page, 300);
     undone = floats(await read('A', '/Geosets/0/Vertices'))[2] === aOrig[2];
   }
   check('Ctrl+Z on Alpha undoes its AI edit; Bravo keeps its rename', undone && (await read('B', '/Bones/0/Name')) === 'Root');
   for (let i = 0; i < 4 && floats(await read('A', '/Geosets/0/Vertices'))[2] !== aOrig[2] + 10; i++) {
     await page.keyboard.press('Control+y');
-    await page.waitForTimeout(300);
+    await settle(page, 300);
   }
 
   // Batch 2: geometry, animation and normals, again side by side.
   await send('A', 'Delete geoset 1 completely. Keep geoset 0 as it is.');
   await send('B', 'Add a new animation named "Walk" from frame 4000 to 5000.');
   await send('C', 'Reverse the normals of geoset 0 (flip them to point the other way). Do not move any vertex.');
-  await settle('batch 2');
+  await settleJobs('batch 2');
   check('4 Alpha: geoset 1 deleted, geoset 0 kept', (await read('A', '/Geosets')).length === 1 && floats(await read('A', '/Geosets/0/Vertices'))[2] === aOrig[2] + 10);
   const walk = (await read('B', '/Sequences')).find(s => s.Name === 'Walk');
   check('5 Bravo: Walk animation 4000-5000 added', walk && floats(walk.Interval).join() === '4000,5000', walk);
@@ -198,7 +192,7 @@ let app, page;
   await send('C', 'In the Stand animation, add a translation key at frame 500 on bone 0 that moves it up 20 on Z. Leave the other keys as they are.');
   await send('A', 'How many vertices and triangles does this model have now? Just answer, do not edit.');
   await show('A');
-  await settle('batch 3');
+  await settleJobs('batch 3');
   check('7 Bravo: pivot moved to 0,0,50', floats(await read('B', '/PivotPoints/0')).join() === '0,0,50', await read('B', '/PivotPoints/0'));
   const keys = (await read('C', '/Bones/0/Translation')).Keys;
   const key500 = keys.find(k => k.Frame === 500);
@@ -221,7 +215,7 @@ let app, page;
   await send('B', 'Take a picture of the model from the front and from the left and describe the shape in one sentence. Do not edit.');
   await show('A'); // both work while Alpha is showing
   const viewBefore = await page.locator('.classic-view canvas').first().screenshot();
-  await settle('batch 4');
+  await settleJobs('batch 4');
   check("10/11 the birds' pictures never moved the view on screen", viewBefore.equals(await page.locator('.classic-view canvas').first().screenshot()));
   await show('C');
   const colour = await reply();
@@ -242,14 +236,14 @@ let app, page;
   const beforeScale = floats(await read('A', '/Geosets/0/Vertices'));
   await send('A', 'Scale geoset 0 to twice its size around the origin.');
   await show('B');
-  await settle('batch 5a');
+  await settleJobs('batch 5a');
   check('12 Bravo: saved after returning to its tab', !fs.readFileSync(models.B.file).equals(originalBytes.B));
   const aScaled = floats(await read('A', '/Geosets/0/Vertices'));
   check('13 Alpha: geoset 0 scaled 2x', aScaled.every((v, i) => Math.abs(v - beforeScale[i] * 2) < 1e-3), aScaled);
   await send('C', 'Set the "Stand" animation to be non-looping.');
   await send('A', 'Undo your last edit.');
   await show('B');
-  await settle('batch 5b');
+  await settleJobs('batch 5b');
   check('14 Charlie: Stand is non-looping', !!(await read('C', '/Sequences/0')).NonLooping, await read('C', '/Sequences/0'));
   check('15 Alpha: the AI undid the scale on its own model', floats(await read('A', '/Geosets/0/Vertices')).join() === beforeScale.join());
   check('no page errors', errors.length === 0, errors);
@@ -265,6 +259,6 @@ let app, page;
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ checks, prompts }, null, 2));
     console.log(JSON.stringify({ passed: checks.filter(c => c.passed).length, failed: checks.filter(c => !c.passed).length }));
     if (checks.some(c => !c.passed)) process.exitCode = 1;
-    await Promise.race([app?.close(), wait(8000)]).catch(() => {});
+    if (app) await closeApp(app);
     setTimeout(() => process.exit(), 500);
   });

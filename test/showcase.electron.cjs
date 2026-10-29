@@ -53,7 +53,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     console.log('STEP video');await page.getByLabel('Background source').selectOption('media');
     await page.evaluate(()=>{const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.testVideo=this;return play.apply(this,arguments);};});
     await page.getByRole('region',{name:'Background',exact:true}).locator('input[type=file]').setInputFiles(videoFile);
-    await page.getByLabel('To (s)').waitFor();await page.getByLabel('From (s)').fill('1');await page.getByLabel('To (s)').fill('2.5');
+    await page.getByLabel('To (s)').waitFor();await page.getByLabel('From (s)').fill('1');await page.getByLabel('To (s)').fill('2.5');await page.getByLabel('To (s)').press('Enter');
     await page.waitForTimeout(400);
     const video=await page.evaluate(()=>({muted:window.testVideo.muted,volume:window.testVideo.volume,time:window.testVideo.currentTime}));
     assert.equal(video.muted,true);assert.equal(video.volume,0);assert.ok(video.time>=1&&video.time<2.6);

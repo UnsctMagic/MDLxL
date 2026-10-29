@@ -307,6 +307,45 @@ export function parseCompatibleMdx(input) {
   return model;
 }
 
+// Strip only zero-key node transforms. Keep every nonempty track and the rest
+// of each record byte-for-byte, including bone IDs and event/collision tails.
+// This also handles untouched records restored by the save preservation layer.
+export function omitEmptyMdxNodeTracks(input) {
+  const bytes = Buffer.from(input), container = parseMdx(bytes);
+  if (container.hasErrors) throw new Error('Invalid MDX structure.');
+  const offsets = { BONE: 0, HELP: 0, EVTS: 0, CLID: 0, ATCH: 4, LITE: 4, PREM: 4, PRE2: 4, CORN: 4, RIBB: 4 };
+  const widths = { KGTR: 3, KGRT: 4, KGSC: 3 };
+  let changed = false;
+  const chunks = container.chunks.map(c => {
+    const at = offsets[c.tag];
+    if (at === undefined) return bytes.subarray(c.offset, c.payloadOffset + c.declaredSize);
+    let chunkChanged = false;
+    const records = mdxRecords(bytes.subarray(c.payloadOffset, c.payloadOffset + c.declaredSize), c.tag).map(b => {
+      const end = at + b.readUInt32LE(at), parts = [b.subarray(0, at + 96)];
+      let removed = 0;
+      for (let p = at + 96; p < end;) {
+        const tag = b.toString('ascii', p, p + 4), width = widths[tag];
+        if (!width) throw new Error('Unsupported node animation ' + tag + '.');
+        const { track, size } = readTrack(b.subarray(0, end), p, width);
+        if (track.Keys.length) parts.push(b.subarray(p, p + size));
+        else removed += size;
+        p += size;
+      }
+      if (!removed) return b;
+      parts.push(b.subarray(end));
+      const out = Buffer.concat(parts);
+      out.writeUInt32LE(end - at - removed, at);
+      if (at) out.writeUInt32LE(out.length, 0);
+      chunkChanged = true;
+      return out;
+    });
+    if (!chunkChanged) return bytes.subarray(c.offset, c.payloadOffset + c.declaredSize);
+    changed = true;
+    return mdxChunk(c.tag, Buffer.concat(records));
+  });
+  return changed ? Buffer.concat([bytes.subarray(0, 4), ...chunks]) : bytes;
+}
+
 export function generateCompatibleMdx(inputModel) {
   const model={...inputModel};
   // MDL permits static visibility; MDX has only a visibility track. Materialize
@@ -364,5 +403,5 @@ export function generateCompatibleMdx(inputModel) {
   if (model.Materials.length) parts.push(mdxChunk('MTLS',writeMaterials(model.Materials,model.Version)));
   if (!emitted.has('CAMS') && model.Cameras.length) parts.push(mdxChunk('CAMS',Buffer.concat(model.Cameras.map(writeCamera))));
   if(model.Gliders?.length)parts.push(mdxChunk('DILG',Buffer.concat(model.Gliders.map(g=>u32(g.GeosetId)))));
-  return Buffer.concat(parts);
+  return omitEmptyMdxNodeTracks(Buffer.concat(parts));
 }

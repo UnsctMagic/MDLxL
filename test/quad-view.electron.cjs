@@ -287,7 +287,7 @@ function sameOrientation(actual, expected, message) {
     }
     await page.getByLabel('Quadview background color',{exact:true}).fill('#203040');
     await page.getByLabel('Quadview minor grid color',{exact:true}).fill('#6789ab');
-    await page.getByLabel('Quadview minimum cell size',{exact:true}).fill('36');await idle();
+    await page.getByLabel('Quadview minimum cell size',{exact:true}).fill('36');await page.getByLabel('Quadview minimum cell size',{exact:true}).press('Enter');await idle();
     assert.equal(await page.evaluate(()=>viewportState().scene.background.getHexString()),'203040');
     assert.ok(await page.evaluate(()=>viewportState().grid.children.some(item=>item.material.color.getHexString()==='6789ab')));
     await openPage('Presets');await page.getByLabel('Custom viewport preset name',{exact:true}).fill('Quad test appearance');await page.getByRole('button',{name:'Save as custom preset',exact:true}).click();

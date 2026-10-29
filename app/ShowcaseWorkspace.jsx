@@ -1,8 +1,11 @@
+import { isPortraitSequence } from '../src/sequence-editor.js';
 import React, { lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
 import AnimationPreviewTools from './AnimationPreviewTools.jsx';
 import { cropBetween, cropPresetRect, SHOWCASE_CROP_PRESETS } from './showcase-crop.js';
 import { createShowcaseDirector, overflowEntries, SHOWCASE_QUALITY } from './showcase-director.js';
 import ShowcaseLayerTools from './ShowcaseLayerTools.jsx';
+import { RangeField, useDraftNumber } from './Fields.jsx';
+import SharedDialog from './Dialog.jsx';
 import './showcase.css';
 import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
@@ -33,10 +36,11 @@ const SAVED_COLORS_KEY = 'mdlxl-showcase-saved-colors-v1';
 function readSavedColors() {
   return readStored(SAVED_COLORS_KEY, [], values => Array.isArray(values) ? values.slice(0, 3).map(value => /^#[0-9a-f]{6}$/i.test(value) ? value : null) : []);
 }
-const isPortrait = sequence => /portrait/i.test(String(sequence?.Name || ''));
 const CLEAN = Object.fromEntries(['bones','nodes','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
+// Commits on Enter or on leaving the box, like every other number field.
 function NumberField({ label, value, onChange, min, max, step = 1, ...rest }) {
-  return <label>{label}<input aria-label={label} type="number" value={value} min={min} max={max} step={step} onChange={event => onChange(event.target.value === '' ? '' : Number(event.target.value))} {...rest}/></label>;
+  const field = useDraftNumber({ value, onCommit: onChange });
+  return <label>{label}<input aria-label={label} type="number" min={min} max={max} step={step} {...field} {...rest}/></label>;
 }
 // Negative extra time cuts the end off; the total never drops below one frame.
 function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
@@ -44,18 +48,12 @@ function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
   return <label className="showcase-extra-time" title="Seconds added at the end. A negative number cuts the end off.">Extra Time<input aria-label={label} type="number" step={.01} value={value} onChange={event=>onChange(event.target.value===''?'':Number(event.target.value)||0)}/><output title={`Sequence: ${base}s, including effects. Total: ${total}s.`}>{total}s</output></label>;
 }
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
-  return <label className="showcase-slider">{label}<input aria-label={label} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))}/><output>{value}%</output></label>;
+  return <RangeField className="showcase-slider" label={label} min={min} max={max} value={value} output={`${value}%`} onChange={onChange}/>;
 }
-function Dialog({ title, children, onClose, onSubmit, footer, onPointerDown, onPointerUp }) {
-  const element = useRef(null);
-  useEffect(() => { element.current.showModal(); }, []);
-  return <dialog className="classic-modal-window showcase-dialog" ref={element} aria-label={title} onPointerDownCapture={onPointerDown} onPointerUpCapture={onPointerUp} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <header>{title}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
-    <form onSubmit={event => { event.preventDefault(); onSubmit?.(); }}>
-      <div className="classic-modal-body">{children}</div>
-      <footer>{footer}<button type="button" onClick={onClose}>Cancel</button><button type="submit">OK</button></footer>
-    </form>
-  </dialog>;
+// The shared Dialog with an OK/Cancel form. Escape in a field cancels too, as the old native dialog did;
+// elsewhere the window's close button takes Escape.
+function Dialog(props) {
+  return <SharedDialog {...props} className="showcase-dialog" onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}/>;
 }
 function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemove, onClose }) {
   const duration=(row,loops=row.durationLoops??1)=>loopEffectTiming(model,row.sequence,loops,row.speed>0?row.speed:1,0,definitions,row.disabledEmitters).seconds;
@@ -77,7 +75,7 @@ function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemo
     const extraTime=Number(draft.extraTime)||0,seconds=Math.max(.02,Math.round((base+extraTime)*100)/100);
     onSave({sequence:draft.sequence,seconds,speed:draft.speed,loop:true,useDuration:true,durationLoops,extraTime,disabledEmitters:[...disabled]});
   }} footer={initial.editing && <button type="button" onClick={onRemove}>Remove</button>}>
-    <label>Animation<select aria-label="Animation" value={draft.sequence} onChange={event => change({sequence:Number(event.target.value)})}>{model.Sequences.map((row,index)=>isPortrait(row)===portrait?<option translate="no" key={index} value={index}>{row.Name}</option>:null)}</select></label>
+    <label>Animation<select aria-label="Animation" value={draft.sequence} onChange={event => change({sequence:Number(event.target.value)})}>{model.Sequences.map((row,index)=>isPortraitSequence(row)===portrait?<option translate="no" key={index} value={index}>{row.Name}</option>:null)}</select></label>
     <ExtraTimeField label="Animation Extra Time" value={draft.extraTime} base={base} onChange={extraTime=>change({extraTime})}/><label className="showcase-extra-time">Loops<input aria-label="Loops" type="number" min="1" step="1" disabled={draft.speed<=0||naturalSeconds<=0} value={draft.durationLoops} onChange={event=>change({durationLoops:event.target.value===''?'':Number(event.target.value)})}/><output>{base}s</output></label>{!portrait&&<Slider label="Speed" value={Math.round(draft.speed*100)} onChange={value=>change({speed:value/100})}/>}
     {emitters.length > 0 && <details className="showcase-emitters"><summary>Emitters{disabled.size ? ` · ${disabled.size} off` : ''}</summary><div>{emitters.map(emitter => <label key={emitter.id} translate="no" title={emitter.name}><input type="checkbox" translate="no" aria-label={emitter.name} checked={!disabled.has(emitter.id)} onChange={event => change({disabledEmitters: event.target.checked ? [...disabled].filter(id => id !== emitter.id) : [...disabled, emitter.id]})}/><span translate="no">{emitter.name}</span></label>)}</div></details>}
     {error&&<div className="showcase-error" role="alert">{error}</div>}
@@ -105,12 +103,12 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     observer.observe(node); return () => observer.disconnect();
   }, []);
   const [mode,setMode] = useState('sequences'), [sequenceExtraTime,setSequenceExtraTime] = useState(0), [portraitExtraTime,setPortraitExtraTime] = useState(0), [orbitSpeed,setOrbitSpeed] = useState(150), [orbitDirection,setOrbitDirection] = useState(1), [orbitTiming,setOrbitTiming] = useState('speed'), [orbitRadius,setOrbitRadius] = useState(0), [orbitAngle,setOrbitAngle] = useState(0), [light,setLight] = useState('ingame');
-  const [sequencePlaylist,setSequencePlaylist] = useState(() => { const index=model.Sequences?.findIndex(row=>!isPortrait(row)) ?? -1; return index<0?[]:timeShowcasePlaylist(model,[{sequence:index,speed:1,loop:true,useDuration:true,durationLoops:1,extraTime:0}]); });
-  const [portraitPlaylist,setPortraitPlaylist] = useState(() => { const index=model.Sequences?.findIndex(isPortrait) ?? -1; return index<0?[]:timeShowcasePlaylist(model,[{sequence:index,speed:1,loop:true,useDuration:true,durationLoops:1,extraTime:0}]); });
+  const [sequencePlaylist,setSequencePlaylist] = useState(() => { const index=model.Sequences?.findIndex(row=>!isPortraitSequence(row)) ?? -1; return index<0?[]:timeShowcasePlaylist(model,[{sequence:index,speed:1,loop:true,useDuration:true,durationLoops:1,extraTime:0}]); });
+  const [portraitPlaylist,setPortraitPlaylist] = useState(() => { const index=model.Sequences?.findIndex(isPortraitSequence) ?? -1; return index<0?[]:timeShowcasePlaylist(model,[{sequence:index,speed:1,loop:true,useDuration:true,durationLoops:1,extraTime:0}]); });
   const sequenceBase=sequencePlaylist.reduce((sum,row)=>sum+Number(row.seconds),0),portraitBase=portraitPlaylist.reduce((sum,row)=>sum+Number(row.seconds),0);
   const sequenceLength=Math.max(.02,Math.round((sequenceBase+(Number(sequenceExtraTime)||0))*100)/100),portraitLength=Math.max(.02,Math.round((portraitBase+(Number(portraitExtraTime)||0))*100)/100);
   const portrait = mode === 'portrait', playlist = portrait ? portraitPlaylist : sequencePlaylist, length = portrait ? portraitLength : sequenceLength;
-  const available = model.Sequences?.map((row,index)=>isPortrait(row)===portrait?index:-1).filter(index=>index>=0) || [];
+  const available = model.Sequences?.map((row,index)=>isPortraitSequence(row)===portrait?index:-1).filter(index=>index>=0) || [];
   const portraitCameraIndex = model.Cameras?.findIndex(camera=>/portrait/i.test(String(camera.Name||''))) ?? -1;
   const cameraIndex = portraitCameraIndex >= 0 ? portraitCameraIndex : model.Cameras?.length ? 0 : -1;
   const [selected,setSelected] = useState(0), [animationDialog,setAnimationDialog] = useState(null);

@@ -1,10 +1,6 @@
 .acp-window{width:min(960px,calc(100vw - 24px));height:min(680px,calc(100vh - 24px))}
 .atm-body.acp-body{grid-template-columns:minmax(190px,230px) minmax(320px,1fr)}
 .acp-controls{display:flex;flex-direction:column;gap:10px;font-size:12px;min-height:0}
-.acp-controls .ax-slider{display:flex;flex-direction:column}
-.acp-controls .ax-slider-row,.acp-controls .ax-ends{display:flex;justify-content:space-between}
-.acp-controls .ax-ends{color:var(--ui-muted,#555);font-size:10px}
-.acp-controls .ax-slider input{width:100%;margin:1px 0}
 .acp-controls>button{align-self:flex-start}
 .acp-color{display:flex;align-items:center;gap:6px}.acp-rgb{display:flex;gap:4px}
 .acp-rgb label{display:flex;align-items:center;gap:2px;font-weight:700}.acp-rgb input{width:50px;text-align:center;font-weight:400}

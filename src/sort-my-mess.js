@@ -1,3 +1,4 @@
+import { isPortraitSequence } from './sequence-editor.js';
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
 import { isGlobalTrack, keysInInterval, sampleTrack } from './animation.js';
@@ -326,7 +327,7 @@ export function sortMyMessInventory(model) {
   groups.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.geosets[0] - b.geosets[0]);
   return {
     groups, counts: { geosets: model.Geosets?.length || 0, materials: model.Materials?.length || 0, textures: model.Textures?.length || 0 },
-    sequences: (model.Sequences || []).map((sequence, index) => ({ index, name: sequence.Name || `Animation ${index + 1}`, portrait: /portrait/i.test(sequence.Name || '') })),
+    sequences: (model.Sequences || []).map((sequence, index) => ({ index, name: sequence.Name || `Animation ${index + 1}`, portrait: isPortraitSequence(sequence) })),
   };
 }
 

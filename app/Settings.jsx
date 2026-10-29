@@ -6,6 +6,7 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
+import { Check, useDraftNumber } from './Fields.jsx';
 import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
 import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
@@ -71,17 +72,21 @@ function AppearanceColors({ colors, value, prefix, onChange }) {
   return <div className="settings-color-grid">{colors.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={`${prefix} ${label}`} value={value[key]} onChange={event => onChange({ [key]: event.target.value })}/><code>{value[key]}</code></label>)}</div>;
 }
 
-function Toggle({ id, label, checked, onChange, description }) {
-  return <label className="settings-toggle"><input data-hotkey={id} data-hotkey-label={label} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)}/><span>{label}{description && <small>{description}</small>}</span></label>;
+// The shared checkbox in the Settings look; a toggle without an id has no key.
+function Toggle({ id = null, checked, ...props }) {
+  return <Check className="settings-toggle" id={id} value={checked} {...props}/>;
 }
+// Commits on Enter or on leaving the box, like every other number field.
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
-  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
+  const field = useDraftNumber({ value, onCommit: onChange });
+  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} {...field}/>{unit}</span></label>;
 }
 const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
 let lastMousePage = 'Camera';
 function RotationSettings({ value, onChange }) {
   const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
-  const names = { linear: 'Linear', pivot: 'Pivot-based' };
+  const names = { ring: 'Along the ring', linear: 'Straight drag', pivot: 'Circle the pivot' };
+  const tips = { ring: 'Pull along the axis ring; every axis turns at the same speed.', linear: 'Drag right or up to turn steadily (MdlVis).', pivot: "Circle around the selection's center." };
   const change = patch => {
     if (global) { onChange({ ...value, ...patch }); return; }
     const entry = { ...override, ...patch };
@@ -93,11 +98,11 @@ function RotationSettings({ value, onChange }) {
   const inheritSpeed = !global && override.sensitivity === undefined;
   return <section className="settings-appearance-section"><h4>Rotational Behavior</h4><div className="settings-appearance-content">
     <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-    <label className="settings-select" title="Linear: drag right or up to turn steadily. Pivot-based: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <label className="settings-select" title="Along the ring: pull along the axis ring; every axis turns at the same speed. Straight drag: drag right or up to turn steadily (MdlVis). Circle the pivot: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id} title={tips[id]}>{label}</option>)}</select></label>
     <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly."><label className="settings-number"><span>Rotation sensitivity</span><span><input aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" type="number" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) change({ sensitivity: event.target.valueAsNumber }); }}/>×</span></label>
       {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
     </div>
-    <p className="settings-hint">Linear turns by drag distance; right or up is positive. Pivot-based follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
+    <p className="settings-hint">Along the ring turns one degree per pixel pulled along the axis ring, the same on every axis. Straight drag turns by drag distance; right or up is positive. Circle the pivot follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
   </div></section>;
 }
 const LEARN_CHOICES = [
@@ -324,7 +329,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   };
-  return <div className="classic-modal settings-overlay" data-hotkey-scope="settings"><section ref={panel} className="classic-modal-window settings-window" role="dialog" aria-modal="true" aria-label="Settings" data-hotkey-scope="settings" data-hotkey-prefix="settings" data-hotkey-category="Settings" onKeyDown={trapFocus}>
+  return <div className="classic-modal mdlxl-overlay settings-overlay" data-hotkey-scope="settings"><section ref={panel} className="classic-modal-window mdlxl-window settings-window" role="dialog" aria-modal="true" aria-label="Settings" data-hotkey-scope="settings" data-hotkey-prefix="settings" data-hotkey-category="Settings" onKeyDown={trapFocus}>
     <header><span>Settings</span><button data-hotkey="close" aria-label="Close Settings" onClick={onClose}>×</button></header>
     <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['hotkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-hotkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>

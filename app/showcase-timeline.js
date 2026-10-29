@@ -1,3 +1,4 @@
+import { isPortraitSequence } from '../src/sequence-editor.js';
 import { lerp as mix } from '../src/math.js';
 const positive = (value, fallback) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback;
 const easing = (t, curve) => curve === 'smooth' ? t * t * (3 - 2 * t) : curve === 'ease-in' ? t * t : curve === 'ease-out' ? 1 - (1 - t) ** 2 : t;
@@ -34,7 +35,7 @@ export function showcaseAnimation(model, playlist, seconds, repeat = true) {
         finishEffects: row.finishEffects, emissionEnds: row.useDuration ? row.emissionEnds : undefined,
         disabledEmitters: row.disabledEmitters,
         globalTime: time * 1000, active: (pose.looping || pose.frame < sequence.Interval[1]) && (repeat || time < total),
-        segment: cycles * rows.length + index, portrait: /portrait/i.test(sequence.Name || '')};
+        segment: cycles * rows.length + index, portrait: isPortraitSequence(sequence)};
     }
     remaining -= span;
   }

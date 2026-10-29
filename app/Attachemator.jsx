@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
+import ToolWindow from './ToolWindow.jsx';
 import { planAttachments, applyAttachmentPlan, attachematorStandSequence } from '../src/attachemator.js';
 import { sampleGeosetAnimation } from '../src/animation.js';
 import { applyMovementTransform } from '../src/movement.js';
@@ -71,9 +72,8 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
     if (event.key === 'Escape' && !picking) { event.preventDefault(); onClose(); }
   };
 
-  return <div className="atm-overlay" onKeyDown={keys}>
-    <section className="atm-window" role="dialog" aria-modal="true" aria-label="Attachemator" data-hotkey-scope="attachemator" tabIndex={-1} ref={root}>
-      <header><strong title="Places the standard attachment points where Blizzard's own units have them, on the right bones.">Attachemator</strong><span className="atm-spacer"/><button aria-label="Close Attachemator" onClick={onClose}>×</button></header>
+  return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" ownEscape windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
+    caption={<><strong title="Places the standard attachment points where Blizzard's own units have them, on the right bones.">Attachemator</strong><span className="atm-spacer"/></>}>
       <div className="atm-body">
         <div className="atm-list" role="table" aria-label="Attachment points">
           {plan.rows.map(row => {
@@ -106,6 +106,5 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
         <button className={`atm-commit${toChange.length ? ' active' : ''}`} disabled={!toChange.length || !!draft.error || doc.readOnly} title="Apply the ticked points as one undoable edit" onClick={commit}>Commit</button>
         <button onClick={onClose}>Close</button>
       </footer>
-    </section>
-  </div>;
+  </ToolWindow>;
 }

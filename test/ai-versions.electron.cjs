@@ -5,10 +5,10 @@ const fs = require('node:fs'),
   path = require('node:path'),
   assert = require('node:assert/strict'),
   crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'D:/Claude/tools/node_modules/playwright-core');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-versions');
-const checks = [],
-  errors = [];
+const checks = [];
+let errors = [];
 let app, page, link;
 const check = (name, value, detail) => {
   checks.push({ name, passed: !!value, ...(value ? {} : { detail }) });
@@ -54,16 +54,11 @@ async function raise(by, label) {
     model.Geosets.push(copy);
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
-  app = await _electron.launch({
-    executablePath: process.env.MDLXL_TEST_EXE,
-    args: [fixture],
-    env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') },
-    timeout: 60000,
-  });
-  page = await app.firstWindow();
-  page.on('pageerror', error => errors.push(error.message));
+  const launched = await launchApp({ pageTimeout: 30000, fixture, out, env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') } });
+  ({ app, page, errors } = launched);
+
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(350);
+  await settle(page, 350);
   link = (await page.evaluate(async () => {
     await window.desktop.aiEnable(true);
     return window.desktop.aiConfig();
@@ -109,9 +104,5 @@ async function raise(by, label) {
     process.exitCode = 1;
   })
   .finally(async () => {
-    // The edited model is unsaved: close the windows directly so no save question waits.
-    if (app) {
-      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(win => win.destroy())).catch(() => {});
-      await app.close().catch(() => {});
-    }
+    if (app) await closeApp(app);
   });

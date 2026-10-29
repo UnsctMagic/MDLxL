@@ -1,5 +1,7 @@
 /* Shared document theme. Canvas backgrounds stay under visual preferences. */
 :root{--ui-panel:#f0f0f0;--ui-surface:#f0f0f0;--ui-field:#fff;--ui-trim:#000080;--ui-text:#16191e;--ui-muted:#555;--ui-border:#8b8b87;--ui-selected:#c5d6ec;--ui-selected-text:#101820;--ui-link:#174aa1;--ui-hover:#e7e3db}
+/* Window layers: classic dialogs and resource editors, XL tool windows, dialogs over a full workspace such as Paint. */
+:root{--z-modal:100;--z-tool-window:2100;--z-workspace-modal:16000}
 :root[data-theme=dark]{color-scheme:dark;--ui-panel:#2c3037;--ui-surface:#353b45;--ui-field:#242a32;--ui-trim:#183654;--ui-text:#e4e9f0;--ui-muted:#adb8c8;--ui-border:#41536c;--ui-selected:#274d70;--ui-selected-text:#fff;--ui-link:#8ac6ff;--ui-hover:#3b4657}
 :root[data-theme=dark] body,:root[data-theme=dark] .classic-app{background:var(--ui-panel);color:var(--ui-text)}
 :root[data-theme=dark] :is(button,input,select,textarea){color:var(--ui-text);border-color:var(--ui-border);text-shadow:none}
@@ -11,10 +13,10 @@
 :root[data-theme=dark] :is(input:disabled,select:disabled,.resource-editor input:disabled,.resource-editor select:disabled){background:var(--ui-panel);color:#91a0b4}
 :root[data-theme=dark] :is(input[type=checkbox],input[type=radio],input[type=range]){accent-color:#71b5f3}
 :root[data-theme=dark] :is(button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible){outline:2px solid #82bdff;outline-offset:1px}
-:root[data-theme=dark] :is(.classic-sidebar,.classic-menu [role=menu],.classic-context,.classic-modal-window,.classic-dialog,.resource-editor .re-window,.settings-tabs,.classic-mouse-bar,.classic-modules,.classic-animation-bar,.overlay-toolbar,.animation-preview-tools,.uv-workspace,.uv-toolbar,.uv-status,.uv-actions,.uv-preview-title,.movement-controller,.resource-editor .inspector-section>summary,.resource-editor .track-badge){background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme=dark] :is(.classic-sidebar,.classic-menu [role=menu],.classic-context,.classic-modal-window,.classic-dialog,.resource-editor .mdlxl-window,.settings-tabs,.classic-mouse-bar,.classic-modules,.classic-animation-bar,.overlay-toolbar,.animation-preview-tools,.uv-workspace,.uv-toolbar,.uv-status,.uv-actions,.uv-preview-title,.movement-controller,.resource-editor .inspector-section>summary,.resource-editor .track-badge){background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
 :root[data-theme=dark] :is(.classic-toolbar,.classic-status,.classic-toolbar-group,.classic-menu,.classic-mouse-bar,.classic-modules,.overlay-toolbar,.animation-preview-tools,.uv-module-tools,.uv-texture-path,.uv-preview-title){border-color:var(--ui-border)}
 :root[data-theme=dark] :is(.classic-modal-window>header,.classic-dialog>header,.resource-editor .re-caption,.tl-header,.tl-footer){background:var(--ui-trim);color:#f1f5ff;border-color:var(--ui-border)}
-:root[data-theme=dark] :is(.classic-modal-window,.classic-dialog,.resource-editor .re-window,.classic-context){border:2px solid var(--ui-trim);box-shadow:0 5px 24px #10192488}
+:root[data-theme=dark] :is(.classic-modal-window,.classic-dialog,.resource-editor .mdlxl-window,.classic-context){border:2px solid var(--ui-trim);box-shadow:0 5px 24px #10192488}
 :root[data-theme=dark] :is(.classic-menu details[open]>summary,.classic-menu [role=menu] button:hover,.classic-context button:hover,.geoset-row.selected,.resource-editor .re-list button.re-selected,.resource-editor .re-list button.re-selected:hover,.movement-node-list label:has(input:checked)){background:var(--ui-selected);color:var(--ui-selected-text)}
 :root[data-theme=dark] :is(.classic-geosets [role=listbox],.resource-editor .re-list,.resource-editor .re-list button,.resource-editor .key-list,.module-controller .node-picks,.movement-node-list,.hotkeys-table-wrap,.hotkeys-capture){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
 :root[data-theme=dark] :is(.settings-tabs button[aria-selected=true],.mouse-mode-control.selected,.hotkeys-recorder,.hotkeys-chip,.hotkeys-table th,.game-data-path){background:var(--ui-surface);color:var(--ui-text);border-color:var(--ui-border);box-shadow:none}
@@ -62,6 +64,8 @@
 
 :root[data-theme=dark][data-palette=warm]{--ui-panel:#302e2b;--ui-surface:#3b3834;--ui-field:#262421;--ui-trim:#49413a;--ui-text:#eee8df;--ui-muted:#bcb2a5;--ui-border:#655d52;--ui-hover:#494239}
 :root[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range]){accent-color:var(--ui-accent)}
+/* The shared slider look (styles.css .range-field) takes the theme's accent and muted text. */
+:root[data-theme] input[type=range].range-input{accent-color:var(--ui-accent)}:root[data-theme] .range-field-ends{color:var(--ui-muted)}
 :root[data-theme] :is(button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible){outline-color:var(--ui-accent)}
 :root[data-theme] :is(button.active,button[aria-pressed=true],.settings-tabs button[aria-selected=true],.re-list button.re-selected,.geoset-row.selected){border-color:var(--ui-accent);box-shadow:inset 3px 0 var(--ui-accent)}
 /* Every editor's right-hand panel shares one width; its left edge drags (SidebarResizer). */
@@ -100,7 +104,7 @@ html[lang=mordor] .language-switch,html[lang=mordor] .language-switch *{font-fam
 :root[data-palette] ::placeholder{color:var(--ui-muted);opacity:1}
 :root[data-palette] :is(.showcase-error,.showcase-sidebar .capture-error){color:var(--ui-danger)}
 
-:root[data-palette] :is(.resource-editor .re-window,.resource-editor .re-properties){background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-palette] :is(.resource-editor .mdlxl-window,.resource-editor .re-properties){background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
 :root[data-palette] :is(.resource-editor .re-empty-list,.resource-editor .re-empty-properties){color:var(--ui-muted)}
 :root[data-palette] :is(.resource-editor .re-list button.re-selected,.resource-editor .re-list button.re-selected:hover){background:var(--ui-selected);color:var(--ui-selected-text)}
 :root[data-palette] :is(.resource-editor .re-list button.re-selected small,.paint-start-options button[aria-pressed=true] span){color:var(--ui-selected-text)}

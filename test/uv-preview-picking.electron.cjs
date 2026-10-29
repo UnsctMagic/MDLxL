@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Camera quaternions are recomputed every frame; ignore floating-point noise far below any visible rotation.
 const assertSameCamera = (actual, expected, message) => assert.ok(actual.every((value, index) => Math.abs(value - expected[index]) < 1e-9), message + ': ' + JSON.stringify({ actual, expected }));
 
@@ -11,15 +11,10 @@ const assertSameCamera = (actual, expected, message) => assert.ok(actual.every((
   const fixture = path.resolve('test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
   const geosetIndex = 15;
   const original = fs.readFileSync(fixture);
-  const app = await _electron.launch({
-    executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, `profile-${Date.now()}`) }, timeout: 60000,
-  });
+  const { app, page: launchedPage } = await launchApp({ fixture, out: output, pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
   let uv;
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -3000, y: 0, width: 1440, height: 1000 }); /* UV now shares the main window (f7316110) */ window.showInactive(); });
+    const page = launchedPage;
     await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).waitFor({ timeout: 60000 });
     await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).check();
@@ -32,36 +27,20 @@ const assertSameCamera = (actual, expected, message) => assert.ok(actual.every((
     await uvw.locator('[data-clean-model-canvas]').waitFor({ timeout: 60000 });
     await uv.evaluate(() => {
       window.uvState = () => {
-        const root = document.querySelector('.uv-workspace');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.eligibleSelection) return fiber.memoizedProps;
-        throw Error('UV workspace props unavailable');
+        const props = findFiberProps('.uv-workspace', props => !!props.eligibleSelection);
+        if (!props) throw Error('UV workspace props unavailable');
+        return props;
       };
-      window.previewState = () => {
-        const root = document.querySelector('.uv-tab-window .game-preview-root');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState?.current;
-          if (state?.native && state?.controls) return state;
-        }
-        throw Error('Preview camera unavailable');
-      };
+      window.previewState = () => mdlxlProbe('.uv-tab-window .game-preview-root').runtime;
       window.uvMapSelection = () => {
-        const canvas = document.querySelector('.uv-map-pane canvas');
-        let fiber = canvas[Object.keys(canvas).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) {
-          if (fiber.memoizedProps?.geoset?.TVertices && fiber.memoizedProps?.selectedVertices) return fiber.memoizedProps.selectedVertices;
-        }
-        throw Error('UV map selection unavailable');
+        const props = findFiberProps('.uv-map-pane canvas', props => props.geoset?.TVertices && props.selectedVertices);
+        if (!props) throw Error('UV map selection unavailable');
+        return props.selectedVertices;
       };
       window.previewProps = () => {
-        const root = document.querySelector('.uv-tab-window .game-preview-root');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.previewSelectionMode) return current;
-        }
-        throw Error('Preview props unavailable');
+        const props = findFiberState('.uv-tab-window .game-preview-root', value => value.previewSelectionMode);
+        if (!props) throw Error('Preview props unavailable');
+        return props;
       };
       window.pickLocations = () => {
         const canvas = document.querySelector('.uv-tab-window [data-clean-model-canvas]'), rect = canvas.getBoundingClientRect();
@@ -201,5 +180,5 @@ const assertSameCamera = (actual, expected, message) => assert.ok(actual.every((
     assert.equal(await uv.evaluate(() => JSON.stringify(uvState().model)), before);
     assert.ok(fs.readFileSync(fixture).equals(original));
     console.log('PASS Electron UV: A switches the texture map to Select and selects only in Live View when the pointer is there; camera controls, vertex markers, shared highlight, and model data remain intact');
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

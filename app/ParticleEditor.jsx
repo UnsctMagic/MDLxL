@@ -1,5 +1,6 @@
+import { standSequenceIndex } from '../src/sequence-editor.js';
 import ParticleIngredients from './ParticleIngredients.jsx';
-import { trapTab } from './focus-trap.js';
+import ToolWindow from './ToolWindow.jsx';
 import ParticleTestView from './ParticleTestView.jsx';
 import ParticleExampleComparison from './ParticleExampleComparison.jsx';
 import {activeParticleSample} from '../src/particle-sampling.js';
@@ -12,7 +13,6 @@ import {particleRecipeDocument,extractParticleRecipe,placeParticleRecipe,effectN
 import {createStarterRecipe,nativeStarterTexture,STARTER_TEXTURES,RIBBON_TEXTURE,PARTICLE_STARTERS} from '../src/particle-starters.js';
 import {parseParticleData,stringifyParticleData} from '../src/particle-data.js';
 import {createParticleGesture} from '../src/particle-bindings.js';
-import useMovableWindow from './useMovableWindow.js';
 import {isTypingTarget} from '../src/preferences.js';
 import ParticleCluelessControls from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
@@ -225,7 +225,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     cancel();if(!doc||doc.readOnly)return;
     if(glow){setGlow(null);return;}
     try{
-      const best=weaponChoices(doc.model,selectedGeometry)[0],clips=doc.model.Sequences,stand=clips.findIndex(s=>/^stand$/i.test((s.Name||'').trim())),clip=stand>=0?stand:Math.max(0,clips.findIndex(s=>/stand/i.test(s.Name||'')));
+      const best=weaponChoices(doc.model,selectedGeometry)[0],clips=doc.model.Sequences,clip=standSequenceIndex(doc.model);
       if(context!=='On model'){setContext('On model');setEmitterId(effectNodes(doc.model)[0]?.node.ObjectId??null);setStructure(v=>v+1);}
       setSequence(clip);setTime(clips[clip]?.Interval[0]??0);setPlaying(true);
       // Weapon glow starts on only for a clear weapon: marked polygons or a weapon-named bone.
@@ -308,16 +308,12 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const placementResources=preparedPlacement?.original===placementRecipe&&preparedPlacement?.incoming===incomingPlacementAssets&&preparedPlacement?.target===textureAssets?preparedPlacement:null;
   const placementAssets=useMemo(()=>new Map([...textureAssets,...(placementResources?.assets||[])]),[textureAssets,placementResources]);
   const asset=assets.get(gamePathKey(working.Textures[emitter?.TextureID]?.Image));
-  const movable = useMovableWindow(dialog);
-  return <div className="resource-editor particle-editor" onKeyDown={event=>{
+  return <ToolWindow title="Particle Editor" caption={<span>Particle Editor <small>· {context}</small></span>} overlayClass="resource-editor particle-editor" className="re-window pe-window" headerClass="re-caption" closeClass="re-caption-close" ownEscape windowRef={dialog} onClose={close} after={pictureLibrary&&<Suspense fallback={<span>Loading texture library…</span>}><TextureLibrary model={model} modelPath={context==='On model'?modelPath:undefined} onClose={()=>setPictureLibrary(false)} onSelectTexture={async asset=>{await usePicture(asset);setPictureLibrary(false);}} selectLabel="Use picture"/></Suspense>} sectionProps={{'data-hotkey-scope':'dialog','data-hotkey-prefix':'particles'}} onKeyDown={event=>{
     event.stopPropagation();
     if(event.key==='Escape'){event.preventDefault();if(sizeKey){setSizeKey(null);sync();}else if(gesture.current)cancel();else if(placement)setPlacement(null);else if(glow)setGlow(null);else if(ingredients)setIngredients(null);else if(library)setLibrary(false);else close();}
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();undo(event.shiftKey);}
     if(event.key===' '&&!isTypingTarget(event.target)){event.preventDefault();setPlaying(v=>!v);}
-    trapTab(event,dialog.current);
   }}>
-    <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window pe-window" role="dialog" aria-modal="true" aria-label="Particle Editor" data-hotkey-scope="dialog" data-hotkey-prefix="particles">
-      <header className="re-caption" {...movable.handleProps}><span>Particle Editor <small>· {context}</small></span><button className="re-caption-close" aria-label="Close Particle Editor" onClick={close}>×</button></header>
       <div className="pe-toolbar"><button aria-pressed={library} onClick={toggleLibrary}>Library</button><button disabled={activeDoc.readOnly} onClick={add}>New</button>{markedPolygons>0&&<button disabled={doc.readOnly} onClick={beginRibbon}>Add ribbon</button>}{doc&&<button disabled={doc.readOnly} aria-pressed={!!glow} title="Add hero glow like Warcraft III heroes: a pulsing team-coloured glow at the feet and along the weapon." onClick={beginGlow}>Glow Up</button>}<select aria-label="Particle context" value={context} onChange={e=>chooseContext(e.target.value)}><option>Lab</option><option disabled={!doc}>On model</option></select><span className="pe-spacer"/><button onClick={()=>undo(false)} disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients||!activeDoc.canUndo}>Undo</button><button onClick={()=>undo(true)} disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients||!activeDoc.canRedo}>Redo</button><button disabled={!effectNodes(model).length} onClick={()=>{setName(context==='Lab'?lab.recipe.name:'My effect');setSaveOpen(v=>!v);}}>Save preset</button>{context==='Lab'&&<button disabled={!doc||doc.readOnly||!effectNodes(model).length} onClick={beginPlacement}>Add to model</button>}</div>
       {newOpen&&<div className="pe-action-strip"><span>Start with</span>{PARTICLE_STARTERS.map(([id,label])=><button key={id} disabled={!recoveryReady} onClick={async()=>{setNewOpen(false);if(await chooseRecipe({...createStarterRecipe(id),id:'lab-'+crypto.randomUUID()}))setDemo(id==='ribbon');}}>{label}</button>)}<button onClick={()=>{setExamples(true);setNewOpen(false);}}>Compare examples</button><button onClick={()=>setNewOpen(false)}>Cancel</button></div>}
       {family==='RibbonEmitters'&&context==='Lab'&&!library&&!placement&&<div className="pe-action-strip"><button aria-pressed={demo} onClick={()=>setDemo(value=>!value)}>Preview swing</button><small>For a weapon: mark its back polygons in Vertices, then open EMTR.</small></div>}
@@ -343,7 +339,5 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
         </fieldset>
       </div>
       <footer className="re-footer"><span className="re-status" role="status" data-alert={previewStatus.error ? '' : undefined}>{previewStatus.error||(previewStatus.busy?'Updating effect…':message||(demo&&context==='Lab'?'Demonstration sweep · preview only':activeDoc.readOnly?'Read-only model.':''))}</span><button onClick={close}>Close</button></footer>
-    </section>
-    {pictureLibrary&&<Suspense fallback={<span>Loading texture library…</span>}><TextureLibrary model={model} modelPath={context==='On model'?modelPath:undefined} onClose={()=>setPictureLibrary(false)} onSelectTexture={async asset=>{await usePicture(asset);setPictureLibrary(false);}} selectLabel="Use picture"/></Suspense>}
-  </div>;
+  </ToolWindow>;
 }

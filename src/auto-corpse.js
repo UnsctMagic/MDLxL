@@ -1,3 +1,4 @@
+import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence } from './sequence-editor.js';
 import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset, skinGeosetNormals } from './animation.js';
 import { createRigNode } from './bone-tools.js';
 import { deleteGeoset } from './editor-document.js';
@@ -15,8 +16,6 @@ const track=(pairs,line=0)=>({LineType:line,GlobalSeqId:null,Keys:[...new Map(pa
 const global=property=>property?.Keys&&isGlobalTrack(property);
 const generated=n=>n?.Name?.startsWith(PREFIX)||n?.Name?.startsWith(FLESH);
 const suffix=name=>name.trim().toLowerCase().split(/\s+/).filter(t=>!['death','decay','flesh','bone','bones'].includes(t)).join(' ');
-const deathSequence=s=>/(?:^|\s)death(?:\s|$)/i.test(s.Name);
-const decaySequence=s=>/(?:^|\s)decay(?:\s|$)/i.test(s.Name);
 const sample=(model,value,frame,index,fallback)=>sampleTrack(value,frame,{interval:model.Sequences[index].Interval,globalSequences:model.GlobalSequences,globalTime:frame,fallback});
 const textureNames=(model,g)=>model.Materials[g.MaterialID]?.Layers.flatMap(l=>{
   const ids=typeof l.TextureID==='number'?[l.TextureID]:l.TextureID?.Keys?.map(k=>k.Vector[0])||[];
@@ -48,12 +47,12 @@ function material(model,value) {
   model.Materials.push(value);return model.Materials.length-1;
 }
 function ensureSequence(model,name,death,kind) {
-  const found=model.Sequences.findIndex(s=>decaySequence(s)&&suffix(s.Name)===suffix(death.Name)&&(kind==='flesh'?/\bflesh\b/i:/\bbones?\b/i).test(s.Name));
+  const found=model.Sequences.findIndex(s=>isDecaySequence(s)&&suffix(s.Name)===suffix(death.Name)&&(kind==='flesh'?/\bflesh\b/i:/\bbones?\b/i).test(s.Name));
   if(found>=0){model.Sequences[found].NonLooping=true;return found;}
   // Native critters often use just "Decay". Reuse its interval as the flesh
   // clip instead of leaving an empty third decay animation behind.
   if(kind==='flesh') {
-    const generic=model.Sequences.findIndex(s=>decaySequence(s)&&suffix(s.Name)===suffix(death.Name)&&! /\b(?:flesh|bones?)\b/i.test(s.Name));
+    const generic=model.Sequences.findIndex(s=>isDecaySequence(s)&&suffix(s.Name)===suffix(death.Name)&&! /\b(?:flesh|bones?)\b/i.test(s.Name));
     if(generic>=0){model.Sequences[generic].Name=name;model.Sequences[generic].NonLooping=true;return generic;}
   }
   const start=Math.max(0,...model.Sequences.map(s=>s.Interval[1]))+1000,end=start+60000;
@@ -98,16 +97,16 @@ function decayExtents(model,pair,ids) {
  * pieces (the first Death's edited piece list); blood replaces the first
  * Death's blood splats and spray (see corpse-blood.js). */
 export function autoCorpse(model, options={}) {
-  const deaths=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>deathSequence(s));
+  const deaths=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>isDeathSequence(s));
   if(!deaths.length)throw Error('Auto Corpse needs a Death animation.');
   const originals=allNodes(model).filter(n=>!generated(n)),generatedIds=new Set(allNodes(model).filter(generated).map(n=>n.ObjectId));
   for(let i=model.Geosets.length-1;i>=0;i--)if(model.Geosets[i].Groups?.length&&model.Geosets[i].Groups.every(g=>g.length&&g.every(id=>generatedIds.has(id))))deleteGeoset(model,i);
   const originalGeosetCount=model.Geosets.length;
   const oldCorpses=new Set(model.Geosets.map((g,i)=>corpseTexture(model,g)?i:-1).filter(i=>i>=0));
-  const nonDecay=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>!decaySequence(s)&&!deathSequence(s)&&!/dissipate/i.test(s.Name));
+  const nonDecay=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>!isDecaySequence(s)&&!isDeathSequence(s)&&!isDissipateSequence(s));
   // Custom corpse textures are recognized by their actual visibility, not a
   // fuzzy texture-name match that would mistake living skeletons for corpses.
-  for(let i=0;i<model.Geosets.length;i++)if(!glow(model,model.Geosets[i])&&nonDecay.length&&nonDecay.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[0],si).alpha<.01)&&deaths.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[1],si).alpha<.01)&&model.Sequences.some((s,si)=>/\bdecay\s+bones?\b/i.test(s.Name)&&sampleGeosetAnimation(model,i,s.Interval[0],si).alpha>.5))oldCorpses.add(i);
+  for(let i=0;i<model.Geosets.length;i++)if(!glow(model,model.Geosets[i])&&nonDecay.length&&nonDecay.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[0],si).alpha<.01)&&deaths.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[1],si).alpha<.01)&&model.Sequences.some((s,si)=>isDecaySequence(s)&&/^bones?$/.test(sequenceWords(s.Name)[1])&&sampleGeosetAnimation(model,i,s.Interval[0],si).alpha>.5))oldCorpses.add(i);
   // Plan all terminal poses before masking the source visibility.
   const plans=deaths.map(({s,i},n)=>{
     const frame=s.Interval[1],eligible=model.Geosets.map((g,id)=>({g,id})).filter(({g,id})=>!oldCorpses.has(id)&&!glow(model,g)&&g.Faces?.length);

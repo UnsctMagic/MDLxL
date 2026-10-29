@@ -1,12 +1,10 @@
 
-.atm-window{display:flex;flex-direction:column;width:min(1080px,calc(100vw - 24px));height:min(700px,calc(100vh - 24px));background:var(--ui-panel);border:1px solid var(--ui-border);border-radius:7px;box-shadow:0 12px 40px #0005;overflow:hidden}
+.atm-window{width:min(1080px,calc(100vw - 24px));height:min(700px,calc(100vh - 24px))}
 
-.atm-window>header{border-bottom:1px solid var(--ui-border)}.atm-spacer{flex:1}
-.atm-window>footer{border-top:1px solid var(--ui-border)}.atm-window>footer>span{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.atm-window button{font:inherit;border:1px solid var(--ui-border);border-radius:3px;color:var(--ui-text);background:var(--ui-surface);padding:3px 8px;cursor:pointer}
+.atm-spacer{flex:1}
 
 .atm-window .atm-commit.active{background:var(--ui-selected);color:var(--ui-selected-text)}
-.atm-window :is(button,input,[tabindex]):focus-visible{outline:2px solid var(--ui-link);outline-offset:1px}
+
 .atm-muted{color:var(--ui-muted)}.atm-error{color:var(--ui-danger,#d33)}
 .atm-body{display:grid;grid-template-columns:minmax(300px,400px) minmax(320px,1fr);gap:10px;padding:8px 12px;flex:1;min-height:0}
 .atm-list{flex:1;min-height:0;overflow:auto;border:1px solid var(--ui-border);border-radius:3px;font-size:12px;background:var(--ui-field)}

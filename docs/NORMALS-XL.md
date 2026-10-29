@@ -10,6 +10,8 @@ In Vertices, click **NormalsXL** (below **Merge Geosets**). A small panel opens 
 
 NormalsXL never adds, removes, merges or moves vertices. Faces, UVs and skinning stay as they are, so an MDX keeps its exact byte size.
 
+The Inspector and resource manager **Recalculate normals** button uses NormalsXL defaults (90° smoothing) on the selected geoset, as one undo step.
+
 ## How it works (`src/normals-rebuild.js`)
 
 The method is Retera's Model Studio "Recalculate normals" (`GeosetVertex.createNormalFromFaces`), the usual Hive Workshop tool:

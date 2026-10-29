@@ -3,6 +3,28 @@ import { globalSequenceId, isGlobalTrack, keysInInterval, sampleTrack, visitTrac
 import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
+/** Sequence class words precede the optional " - " variation label. */
+export function sequenceWords(name) {
+  return String(name || '').toLowerCase().split(' - ')[0].match(/[a-z]+/g) || [];
+}
+
+export const isDeathSequence = sequence => sequenceWords(sequence?.Name)[0] === 'death';
+export const isDecaySequence = sequence => sequenceWords(sequence?.Name)[0] === 'decay';
+export const isDissipateSequence = sequence => sequenceWords(sequence?.Name)[0] === 'dissipate';
+export const isPortraitSequence = sequence => /portrait/i.test(sequence?.Name || '');
+
+/** The shared standing pose: the plainest Stand, else the first one. */
+export function standSequenceIndex(model) {
+  const sequences = model.Sequences || [];
+  // "Stand" first, then "Stand - 1", "Stand -2" and so on.
+  const plain = sequences.map((sequence, index) => ({ index, match: String(sequence.Name || '').match(/^\s*stand\s*(?:-?\s*(\d+))?\s*$/i) })).filter(item => item.match)
+    .sort((a, b) => Number(a.match[1] ?? -1) - Number(b.match[1] ?? -1))[0];
+  if (plain) return plain.index;
+  const stand = sequences.findIndex(sequence => /^\s*stand/i.test(sequence.Name || '') && !/portrait|alternate|channel|work|lumber|gold|victory|hit|swim|defend|morph/i.test(sequence.Name || ''));
+  if (stand >= 0) return stand;
+  return sequences.findIndex(sequence => !/portrait|death|decay|dissipate/i.test(sequence.Name || ''));
+}
+
 const MAX_FRAME = 0x7fffffff;
 
 function wholeFrame(value, label) {
@@ -156,7 +178,7 @@ export function createGlobalSequence(model, duration = 1000) {
 }
 
 export function portraitSequenceIndices(model) {
-  return (model.Sequences || []).flatMap((sequence, index) => /portrait/i.test(sequence.Name || '') ? [index] : []);
+  return (model.Sequences || []).flatMap((sequence, index) => isPortraitSequence(sequence) ? [index] : []);
 }
 
 /** Portrait is an ordinary Movement sequence. Copy only appearance channels;

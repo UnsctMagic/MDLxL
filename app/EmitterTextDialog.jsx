@@ -1,6 +1,7 @@
 import React,{useMemo,useRef,useState} from 'react';
 import {emitterMdlText,parseEmitterMdlText,applyEmitterNode} from '../src/emitter-text.js';
 import {mdlHoverPieces} from '../src/mdl-glossary.js';
+import Dialog from './Dialog.jsx';
 
 const TAB=4;
 /** Each explained piece as line and column ranges, with tabs expanded the way the editor shows them. */
@@ -34,9 +35,9 @@ export default function EmitterTextDialog({doc,id,onEdit,onClose}){
   const found=index[line]?.find(piece=>column>=piece.from&&column<piece.to),box=area.parentElement.getBoundingClientRect();
   setTip(found?{text:found.tip,x:Math.min(event.clientX-box.left+14,box.width-330),y:event.clientY-box.top+18}:null);
  };
- return <div className="classic-modal" onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}>
-  <section className="classic-modal-window emitter-text-dialog" role="dialog" aria-label="Adjust emitter manually">
-   <div className="emitter-text-heading"><b>Adjust Manually</b><span>Exact MDL text of this emitter</span><button aria-label="Close manual emitter text" onClick={onClose}>×</button></div>
+ return <Dialog title="Adjust emitter manually" className="emitter-text-dialog" onClose={onClose} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}
+  footer={<div className="emitter-text-actions"><button onClick={apply} disabled={!original}>Apply</button><button onClick={()=>{setText(original?.block||'');setError('');}}>Reset</button><button onClick={onClose}>Cancel</button></div>}>
+   <div className="emitter-text-heading"><span>Exact MDL text of this emitter</span></div>
    <p className="emitter-text-help">Hover over a highlighted word to see what it does. Keyframes are <code>frame: value,</code> lines. Apply checks the text like opening an SD model; Ctrl+Z undoes it.</p>
    <div className="emitter-text-editor">
     <pre ref={mirror} className="emitter-text-mirror" aria-hidden="true">{pieces.map((piece,i)=>piece.tip?<span key={i}>{piece.text}</span>:piece.text)}{'\n'}</pre>
@@ -46,7 +47,5 @@ export default function EmitterTextDialog({doc,id,onEdit,onClose}){
     {tip&&<div className="emitter-text-tip" role="tooltip" style={{left:Math.max(4,tip.x),top:tip.y}}>{tip.text}</div>}
    </div>
    {error&&<p className="emitter-text-error" role="alert">{error}</p>}
-   <div className="emitter-text-actions"><button onClick={apply} disabled={!original}>Apply</button><button onClick={()=>{setText(original?.block||'');setError('');}}>Reset</button><button onClick={onClose}>Cancel</button></div>
-  </section>
- </div>;
+ </Dialog>;
 }

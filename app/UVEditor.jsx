@@ -154,7 +154,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      if (type === 'rotate') s.drag.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, 'uv'), x, y, pivot: { x: s.drag.pivotScreen[0], y: s.drag.pivotScreen[1] } });
+      // A positive UV angle turns clockwise on screen: the axis points away from the viewer.
+      if (type === 'rotate') s.drag.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, 'uv'), x, y, pivot: { x: s.drag.pivotScreen[0], y: s.drag.pivotScreen[1] }, axis: [0, 0, -1] });
       draw();
     }
     function pointerMove(event) {

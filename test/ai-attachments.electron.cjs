@@ -1,9 +1,10 @@
 // Attachment isolation in the packaged app. Run on scripts/hidden-run.ps1.
 // Generated models and a local fixture provider; never uses a real profile or AI account.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'D:/Claude/tools/node_modules/playwright-core');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-attachments');
-const checks = [], errors = [], requests = [], pending = [];
+const checks = [], requests = [], pending = [];
+let errors = [];
 let app, page, server, link;
 const check = (name, value) => { checks.push({ name, passed: !!value }); assert.ok(value, name); };
 async function tool(name, args = {}) {
@@ -16,7 +17,7 @@ async function tool(name, args = {}) {
 async function show(name) {
   await page.getByRole('tab', { name, exact: true }).click();
   await page.waitForFunction(name => document.querySelector('.ai-composer .ai-chip')?.textContent.includes(name), name);
-  await page.waitForTimeout(150);
+  await settle(page, 150);
 }
 async function attach(...names) { await page.locator('.ai-assistant input[type=file]').setInputFiles(names.map(name => path.join(out, name))); }
 async function donors() { return page.locator('.ai-composer button[aria-label^="Remove reference "]').evaluateAll(buttons => buttons.map(b => b.getAttribute('aria-label').replace('Remove reference ', ''))); }
@@ -37,10 +38,10 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
     pending.push(() => res.end('data: '+JSON.stringify({ choices: [{ delta: { content: 'Chat complete.' }, finish_reason: 'stop' }] })+'\n\n'));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  app = await _electron.launch({ executablePath: process.env.MDLXL_TEST_EXE, args: [path.join(out, 'Model A.mdx'), path.join(out, 'Model B.mdx')], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') }, timeout: 60000 });
-  page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', e => errors.push(e.message));
+  const launched = await launchApp({ args: ['Model A.mdx', 'Model B.mdx'].map(name => path.join(out, name)), out, env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') } });
+  ({ app, page, errors } = launched);
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.unmaximize(); w.setContentSize(1440, 900); });
+  await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.unmaximize(); w.setContentSize(1440, 900); });
   link = (await page.evaluate(async () => {
     await window.desktop.aiOffload(false); await window.desktop.aiEnable(true); return window.desktop.aiConfig();
   })).mcpServers.mdlxl;
@@ -99,7 +100,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   });
   await attach('Delayed donor.mdx', 'Delayed image.png');
   await show('Model B.mdx');
-  await page.waitForTimeout(2800);
+  await settle(page, 2800);
   check('delayed A file reads do not add attachments to B', (await donors()).join('|') === 'Donor B.mdx' && (await images()).join('|') === 'Image B.png');
   // Hold the send's settings round-trip while the user changes model tabs.
   await app.evaluate(({ ipcMain }) => {
@@ -125,7 +126,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   for (const finish of pending.splice(0)) finish();
   await page.waitForFunction(async () => (await window.desktop.aiStatus()).running.length === 0);
   const canvas = page.locator('.classic-view canvas').first(), box = await canvas.boundingBox(), before = await canvas.screenshot();
-  await page.keyboard.down('Alt'); await page.mouse.move(box.x+box.width/2, box.y+box.height/2); await page.mouse.down(); await page.mouse.move(box.x+box.width/2+90, box.y+box.height/2+25, { steps: 12 }); await page.mouse.up(); await page.keyboard.up('Alt'); await page.waitForTimeout(250);
+  await page.keyboard.down('Alt'); await page.mouse.move(box.x+box.width/2, box.y+box.height/2); await page.mouse.down(); await page.mouse.move(box.x+box.width/2+90, box.y+box.height/2+25, { steps: 12 }); await page.mouse.up(); await page.keyboard.up('Alt'); await settle(page, 250);
   check('normal mouse drag still rotates model view', !before.equals(await canvas.screenshot()));
   await page.screenshot({ path: path.join(out, 'model-a.png') });
   await page.getByRole('button', { name: 'New chat', exact: true }).click();
@@ -164,7 +165,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   check('no renderer errors', errors.length === 0);
 })().catch(async e => { if(page) { await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{}); fs.writeFileSync(path.join(out,'failure-state.json'),JSON.stringify({body:await page.locator('.ai-assistant').innerText(),requests,status:await page.evaluate(()=>window.desktop.aiStatus())},null,2)); } checks.push({ name: 'exception', passed: false, error: e.stack }); process.exitCode = 1; }).finally(async () => {
   for (const finish of pending.splice(0)) finish();
-  if (app) { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); await app.close().catch(() => {}); }
+  if (app) await closeApp(app);
   if (server) await new Promise(resolve => { server.closeAllConnections(); server.close(resolve); });
   fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ checks, errors }, null, 2));
   console.log(JSON.stringify({ checks, errors }, null, 2));

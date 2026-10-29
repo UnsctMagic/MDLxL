@@ -27,7 +27,7 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationFacing, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationNormal, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
@@ -437,9 +437,9 @@ export default function GamePreview(inputProps) {
     const beginRotationDrag = (gesture, rotation) => {
       if (gesture.mode !== 'rotate') return;
       const p = latest.current, rect = canvas.getBoundingClientRect(), pivot = gesture.origin.clone().project(camera);
-      const facing = movementRotationFacing(gesture, rotation, camera.getWorldDirection(new THREE.Vector3()));
+      const axis = movementRotationNormal(gesture, rotation, camera.getWorldDirection(new THREE.Vector3())).transformDirection(camera.matrixWorldInverse);
       gesture.rotationDrag = movementRotationGesture({ ...rotationOptions(p.preferences, p.rotationEditor || (p.showcase ? 'showcase' : 'movement')), x: gesture.x, y: gesture.y,
-        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing > 0 ? -1 : 1, facing });
+        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, axis: axis.toArray() });
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
