@@ -49,6 +49,7 @@ function mainBridge(files) {
     add(receives, channels(text, 'ipcMain\\s*\\.\\s*on'));
     // Includes WebContents.send, the textureDecoder WebContents alias and sendToEditor.
     add(pushes, channels(text, '\\.\\s*send|\\bsendToEditor'));
+    if (file === 'ai-editor-ipc.cjs') add(handles, channels(text, '\\bhandle'));
     if (file === 'ai-service.cjs') {
       // Current main wraps ipcMain.handle(name, ...) in handle(name, fn).
       assert.match(text, /const handle\s*=\s*\(name,\s*fn\)\s*=>\s*ipcMain\.handle\(name,/,
