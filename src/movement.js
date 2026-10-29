@@ -3,6 +3,7 @@ import { degreesToQuaternion } from './rotation-math.js';
 import { allNodes, inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleNodeProperty, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const movementProperties = { move: 'Translation', rotate: 'Rotation', scale: 'Scaling' };
 const axes = ['X', 'Y', 'Z'];
@@ -414,13 +415,7 @@ export function applyMovementTransform(model, ids, time, sequenceIndex, change =
   }).filter(Boolean);
   for (const { node, value, tangent } of changes) writeKey(model, node, property, time, sequenceIndex, value, tangent);
   if (ownAxisCenters.size) {
-    const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
-    const depth = node => {
-      let result = 0, parent = byId.get(node.Parent);
-      const seen = new Set([node.ObjectId]);
-      while (parent && !seen.has(parent.ObjectId)) { result++; seen.add(parent.ObjectId); parent = byId.get(parent.Parent); }
-      return result;
-    };
+    const tree = nodeIndex(model), depth = node => tree.depth(node.ObjectId);
     for (const node of [...nodes].sort((a, b) => depth(a) - depth(b))) {
       const before = ownAxisCenters.get(node.ObjectId);
       if (!before) continue;
