@@ -845,7 +845,7 @@ class AiService {
     };
     if (!conversation.toolsOff && !conversation.helperOnly && helper && !resume) startHelper(helper);
     // A crashed helper only did reads; restart its bounded investigation, never an edit.
-    if (resume && ['working', 'failed', 'cancelled'].includes(task.helper?.status)) { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
+    if (resume && ['working', 'failed', 'cancelled'].includes(task.helper?.status) && !task.helper.delivered) { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
     if (checks?.length) prompt += '\n\nOrganiser completion criteria: ' + JSON.stringify(checks);
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
@@ -1814,7 +1814,7 @@ class AiService {
         (q.allowCustom === false && values.some(v => !q.options?.some(o => o.label === v)));
     })) throw Error('Answer each required question before sending.');
     const result = Object.fromEntries(pending.questions.map(q => [q.id, { answers: [...answers[q.id].answers] }]));
-    pending.validate?.(result);
+    if (typeof pending.validate === 'function') pending.validate(result);
     this.questions.delete(questionId);
     pending.resolve(result);
     return { answered: true };
