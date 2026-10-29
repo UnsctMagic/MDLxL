@@ -4,6 +4,7 @@ import React,{Suspense,lazy,useEffect,useRef,useState} from 'react';
 import {parseParticleData} from '../src/particle-data.js';
 import {particleRecipeDocument} from '../src/particle-recipes.js';
 import {activeParticleSample} from '../src/particle-sampling.js';
+import { capturePreviewThumbnail } from './game-preview-capture.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const normalize=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 export default function ParticleThumbnailQueue({items,preferences,onThumbnail,onFailure}) {
@@ -29,8 +30,7 @@ export default function ParticleThumbnailQueue({items,preferences,onThumbnail,on
   async function ready(api){
     if(!api||capture.current||!current)return;capture.current=true;
     try{
-      await api.whenReady();api.fit();
-      const url=api.captureFrame({maxDimension:256}).toDataURL('image/png');
+      const url=await capturePreviewThumbnail(api,{maxDimension:256});
       await window.desktop.particleThumbnail({id:current.id,url,revision:current.revision});
       if(mounted.current)onThumbnail(current.id,url);
     }catch(error){if(mounted.current)onFailure?.(current.id,error.message);}
