@@ -6,9 +6,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'D:/Claude/tools/node_modules/playwright-core');
+const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpers/app.cjs');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-console');
-const model = process.env.MDLXL_AI_CONSOLE_MODEL || path.resolve('out/pose/Footman.mdx');
+const { fixturePath } = require('./helpers/fixtures.cjs');
+const model = process.env.MDLXL_AI_CONSOLE_MODEL || fixturePath('footman');
 const checks = [];
 let app, server;
 const check = (name, condition, detail) => {
@@ -147,31 +148,16 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     stop();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const executablePath =
-    process.env.MDLXL_TEST_EXE || path.resolve('out/pkg-ai/MDLxL-win32-x64/MDLxL.exe');
-  app = await _electron.launch({
-    executablePath,
-    args: [workModel, '--disable-gpu-vsync', '--disable-frame-rate-limit'],
-    env: {
-      ...process.env,
-      MDLXL_PROFILE: path.join(out, 'profile'),
-      MDLXL_DISABLE_UPDATES: '1',
-      TEMP: path.join(out, 'temp'),
-      TMP: path.join(out, 'temp'),
-    },
-    timeout: 60000,
-  });
-  const page = await app.firstWindow();
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  const launched = await launchApp({ pageTimeout: 30000, fixture: workModel, out, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') } });
+  app = launched.app;
+  const { page, errors } = launched;
   await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
-    win.webContents.setBackgroundThrottling(false);
     win.unmaximize();
     win.setContentSize(1440, 900);
   });
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(1500);
+  await settle(page, 1500);
   const canvas = page.locator('.classic-view canvas').first();
   const shot = name => page.screenshot({ path: path.join(out, name + '.png') });
   // Shredder's shortcut reminders float over the viewport for a few seconds; compare the view without them.
@@ -195,7 +181,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       );
     }
     await page.mouse.up({ button });
-    await page.waitForTimeout(120);
+    await settle(page, 120);
   };
   await shot('01-closed');
   check('AI console is closed by default', (await page.locator('.ai-assistant').count()) === 0);
@@ -203,7 +189,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   await page.waitForSelector('.ai-assistant');
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   const panel = await page.locator('.ai-assistant').boundingBox(),
     viewOpen = await canvas.boundingBox(),
     size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
@@ -238,7 +224,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const blank = await viewShot();
   await drag([cx - 60, cy - 20], [cx + 60, cy - 10], { curve: -40 });
   check('a pen drag adds one drawing', (await drawings()) === 1);
-  await page.waitForTimeout(600);
+  await settle(page, 600);
   await shot('03a-pen');
   check('the pen stroke is drawn in the viewport', !(await viewShot()).equals(blank));
   await tool('Marker').click();
@@ -252,7 +238,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.down('Alt');
   await drag([cx - 120, cy + 80], [cx + 40, cy + 70], { steps: 12 });
   await page.keyboard.up('Alt');
-  await page.waitForTimeout(150);
+  await settle(page, 150);
   check('Alt+drag rotates the camera with Marker active and draws nothing', (await drawings()) === 2 && !(await viewShot()).equals(beforeRotate));
   const beforePan = await viewShot();
   await drag([cx + 100, cy + 100], [cx + 160, cy + 140], { steps: 8, button: 'right' });
@@ -280,7 +266,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   // Escape leaves the tool first.
   await canvas.focus().catch(() => {});
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(100);
+  await settle(page, 100);
   check('Escape turns the drawing tool off', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
 
   // One tool owns the left mouse button, and the viewport says so.
@@ -304,7 +290,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: 'middle' });
   await page.mouse.up({ button: 'middle' });
-  await page.waitForTimeout(100);
+  await settle(page, 100);
   check(
     'a middle-click into camera rotation puts the drawing tool away',
     (await tool('Pen').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 &&
@@ -314,11 +300,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('picking a drawing tool returns the camera to Work mode', !(await page.locator('.camera-angle-panel').isVisible()));
   const penCursor = () => canvas.evaluate(element => element.style.cursor);
   await page.mouse.move(cx + 5, cy);
-  await page.waitForTimeout(100);
+  await settle(page, 100);
   const drawingCursor = await penCursor();
   await page.keyboard.down('Alt');
   await page.mouse.move(cx + 10, cy);
-  await page.waitForTimeout(100);
+  await settle(page, 100);
   const altCursor = await penCursor();
   await page.keyboard.up('Alt');
   check('holding Alt swaps the drawing cursor for the rotate cursor', drawingCursor !== altCursor, { drawingCursor: drawingCursor.slice(0, 60), altCursor: altCursor.slice(0, 60) });
@@ -334,13 +320,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await drag([cx - 40, cy + 60], [cx + 40, cy + 65], { curve: 8 });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+z');
-  await page.waitForTimeout(200);
+  await settle(page, 200);
   check('Ctrl+Z undoes the last drawing', (await drawings()) === drawn);
   await page.keyboard.press('Control+y');
-  await page.waitForTimeout(200);
+  await settle(page, 200);
   check('Ctrl+Y redoes it', (await drawings()) === drawn + 1);
   await page.keyboard.press('Control+z');
-  await page.waitForTimeout(200);
+  await settle(page, 200);
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
   // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
@@ -386,18 +372,16 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await shot('06-steered');
 
   // Background work: switch to another model tab and edit it while Crow keeps working on Footman.
-  await app.evaluate(({ dialog }, file) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
-  }, secondModel);
-  await app.evaluate(({Menu})=>{const all=m=>m.items.flatMap(i=>[i,...(i.submenu?all(i.submenu):[])]);all(Menu.getApplicationMenu()).find(i=>i.label.replace('&','')==='Open…').click();});
+  await stubDialogs(app, { open: secondModel });
+  await clickMenu(app, 'Open…');
   await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx'), null, { timeout: 20000 });
   const dirty = name => page.locator('.model-tab', { hasText: name }).locator('.model-tab-dirty').innerText();
-  await page.waitForTimeout(800);
+  await settle(page, 800);
   // The owner's own edit on Second: select every vertex and uncouple them.
   await canvas.click({ position: { x: 40, y: 300 } });
   await page.keyboard.press('Control+a');
   await page.keyboard.press('u');
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   check('the owner edits Second while Crow works', (await dirty('Second.mdx')) === '●' && (await page.locator('.ai-paused').count()) === 0);
   // A second AI job at the same time: Second's own chat is free while Crow works on Footman.
   check("Second's chat can send while Crow works on Footman", (await page.locator('.ai-send').getAttribute('aria-label')) === 'Send');
@@ -413,7 +397,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     });
   check("Second's bird finishes its job while Crow is still working on Footman", secondRequests.length >= 1 && workerRequests.length <= 4, { second: secondRequests.length, crow: workerRequests.length });
   await shot('06a-two-jobs');
-  await page.waitForTimeout(600);
+  await settle(page, 600);
   const ownerView = await viewShot();
   ownerEdited = true;
   // One more request than before the plan step: the bird records its plan first.
@@ -449,13 +433,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   let steps = 0;
   while (steps < 4 && (await dirty('Second.mdx')) === '●') {
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
+    await settle(page, 300);
     steps++;
   }
   const undone = (await dirty('Second.mdx')) === '' && (await dirty('Footman.mdx')) === '●';
   for (let i = 0; i < steps; i++) {
     await page.keyboard.press('Control+y');
-    await page.waitForTimeout(300);
+    await settle(page, 300);
   }
   check("Undo on Second undoes only the owner's edit; Footman keeps Crow's", undone && (await dirty('Second.mdx')) === '●');
   await page.locator('.model-tab [role="tab"]', { hasText: 'Footman.mdx' }).click();
@@ -509,18 +493,18 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   // Closing hides the drawings without losing them.
   const withDrawings = await viewShot();
   await page.getByRole('button', { name: 'Close AI assistant', exact: true }).click();
-  await page.waitForTimeout(400);
+  await settle(page, 400);
   const closedView = await canvas.boundingBox();
   check('closing gives the viewport its space back', Math.abs(closedView.width - viewBefore.width) <= 1, { closedView, viewBefore });
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
-  await page.waitForTimeout(400);
+  await settle(page, 400);
   check('drawings come back when the console reopens', (await drawings()) === 2);
   check('reopened view shows the drawings again', (await viewShot()).equals(withDrawings));
   await shot('08-reopened');
   // Both models save: Crow's background edit on Footman and the owner's edit on Second.
   check("saving Footman writes Crow's edit", !fs.readFileSync(workModel).equals(fs.readFileSync(model)));
   await page.locator('.model-tab [role="tab"]', { hasText: 'Second.mdx' }).click();
-  await page.waitForTimeout(500);
+  await settle(page, 500);
   await canvas.click({ position: { x: 40, y: 300 } });
   await page.keyboard.press('Control+s');
   await page.waitForFunction(() => !document.querySelector('.model-tab.active .model-tab-dirty')?.textContent, null, { timeout: 20000 });
@@ -555,7 +539,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     return selection.toString();
   });
   await page.keyboard.press('Control+c');
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
   check('Ctrl+C copies text selected in the chat', copied.trim() === chatText.trim(), { copied, chatText });
   await page.evaluate(() => getSelection().removeAllRanges());
@@ -571,7 +555,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     // A synthetic paste never inserts text itself; the console must leave the default alone.
     window.__pasteKeptDefault = !event.defaultPrevented;
   });
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   check('pasting text with a picture keeps the text and attaches no picture', (await page.evaluate(() => window.__pasteKeptDefault)) && (await page.locator('.ai-image-chip').count()) === 0);
   check('no page errors', errors.length === 0, errors);
 })()
@@ -582,7 +566,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   .finally(async () => {
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(checks, null, 2));
     for (const c of checks) console.log((c.passed ? 'PASS ' : 'FAIL ') + c.name + (c.passed ? '' : ' ' + JSON.stringify(c.detail || '')));
-    await Promise.race([app?.close(), wait(5000)]).catch(() => {});
+    if (app) await closeApp(app);
     server?.close();
     setTimeout(() => process.exit(), 500);
   });

@@ -1,26 +1,21 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 
 // Real packaged UI/input; provider calls are local fixtures, never an external AI.
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'ai-hotkeys');
   await fs.mkdir(out, { recursive: true });
-  const profile = await fs.mkdtemp(path.join(out, 'profile-'));
   // Learn mode ships off; this test checks its reminders, so it turns it on.
-  await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { learn: { enabled: true } } }));
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'shortcuts.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath, args: process.env.MDLXL_ELECTRON_PATH ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const rows = [], errors = [];
+  const { app, page, errors } = await launchApp({ fixture, out, env: { MDLVIS_HEADLESS: '' }, settings: { preferences: { learn: { enabled: true } } }, bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
+  const rows = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     await app.evaluate(({ BrowserWindow, ipcMain }) => {
-      const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setSize(1440, 1000);
+      const win = BrowserWindow.getAllWindows()[0]; win.setSize(1440, 1000);
       let settings = { provider: 'compatible', model: 'fixture', baseUrl: 'http://127.0.0.1', hasKey: true, enabled: false, running: [], sdBrainAvailable: true };
       global.__aiShortcutCalls = {};
       const handle = (channel, fn) => { ipcMain.removeHandler(channel); ipcMain.handle(channel, (_, value) => { global.__aiShortcutCalls[channel] = (global.__aiShortcutCalls[channel] || 0) + 1; return fn(value); }); };
@@ -34,7 +29,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       handle('ai:saveState', () => ({ activity: true, remember: 'ask' }));
     });
     await page.reload(); await page.locator('.classic-view canvas').first().waitFor();
-    page.on('pageerror', error => errors.push(error.message));
     await page.evaluate(() => {
       window.__used = [];
       window.addEventListener('mdlxl-hotkey-used', event => window.__used.push(event.detail.id));
@@ -45,7 +39,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const run = async locator => { const chord = await key(locator); await ai.focus(); await page.keyboard.press(chord); return chord; };
     const local = id => ai.locator(`[data-hotkey="${id}"]`);
     const audit = async place => {
-      await page.waitForTimeout(150);
+      await settle(page, 150);
       const found = await ai.locator('button, select, input:not([hidden]), textarea, summary').evaluateAll(elements => elements.filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map(e => ({
         id: e.dataset.hotkey || '', label: e.dataset.hotkeyLabel || e.getAttribute('aria-label') || e.textContent.trim(), keys: e.dataset.hotkeyShortcuts || '', tag: e.tagName,
       })));
@@ -123,10 +117,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     throw error;
   } finally {
     await fs.writeFile(path.join(out, 'inventory.json'), JSON.stringify(rows, null, 2));
-    const pid = app.process().pid;
-    await Promise.race([app.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 8000))]);
-    if (process.platform === 'win32') require('node:child_process').spawnSync('taskkill', ['/pid', String(pid), '/T', '/F']);
-    else app.process().kill();
-    await fs.rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await closeApp(app);
   }
 })().then(() => process.exit(0), error => { console.error(error); process.exit(1); });

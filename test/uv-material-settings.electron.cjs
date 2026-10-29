@@ -2,11 +2,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, appTarget, sha256File: hash } = require('./helpers/app.cjs');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'out', 'uv-material-settings-test-' + Date.now());
-const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
 async function fixture() {
   fs.mkdirSync(out, { recursive: true });
@@ -33,18 +31,11 @@ async function fixture() {
 
 (async () => {
   const input = await fixture(), before = hash(input);
-  const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE || path.join(root, 'out/uv-material-settings-package/MDLxL-win32-x64/MDLxL.exe'));
-  const app = await _electron.launch({
-    executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000,
-  });
+  const { executablePath: exe } = appTarget();
+  const { app, page: launchedPage } = await launchApp({ fixture: input, out, bounds: { x: -3000, y: 0, width: 1600, height: 1000 } });
   let main, uv;
   try {
-    main = await app.firstWindow(); main.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false);
-      w.setBounds({ x: -3000, y: 0, width: 1600, height: 1000 }); w.showInactive();
-    });
+    main = launchedPage;
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 0', { exact: true }).check();
@@ -54,34 +45,18 @@ async function fixture() {
     await main.locator('[data-hotkey="uv"]').click();
     await uvw.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
     await uv.evaluate(() => {
-      window.currentUVFiber = () => {
-        const element = document.querySelector('.uv-workspace');
-        let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-        while (fiber.return) fiber = fiber.return;
-        const find = node => {
-          if (node.memoizedProps?.materialModel && node.memoizedProps?.onMaterialPreset) return node;
-          for (let child = node.child; child; child = child.sibling) { const found = find(child); if (found) return found; }
-        };
-        return find(fiber.stateNode.current);
-      };
       window.uvProps = () => {
-        const fiber = currentUVFiber();
-        if (!fiber) throw Error('Missing UV props');
-        return fiber.memoizedProps;
+        const props = findFiberProps('.uv-workspace', props => props.materialModel && props.onMaterialPreset);
+        if (!props) throw Error('Missing UV props');
+        return props;
       };
       window.visibleMaterial = () => {
         const model = uvProps().materialModel, id = model.Geosets[0].MaterialID;
         return { id, layers: model.Materials[id].Layers, textures: model.Textures };
       };
       window.nativeMaterial = () => {
-        const find = node => {
-          for (let h = node.memoizedState; h; h = h.next) {
-            const native = h.memoizedState?.current?.native;
-            if (native?.model) return native.model.Materials[native.model.Geosets[0].MaterialID];
-          }
-          for (let child = node.child; child; child = child.sibling) { const found = find(child); if (found) return found; }
-        };
-        return find(currentUVFiber()) || null;
+        const native = mdlxlProbe('.uv-tab-window .game-preview-root').runtime?.native;
+        return native?.model ? native.model.Materials[native.model.Geosets[0].MaterialID] : null;
       };
     });
     const dropdown = uvw.getByLabel('Material Properties', { exact: true });
@@ -138,12 +113,8 @@ async function fixture() {
     assert.equal(finalLayout.width, layout.width);
     const { openDocument } = await import('../src/editor-document.js');
     const bytes = await main.evaluate(() => {
-      const element = document.querySelector('.classic-app');
-      let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let h = fiber.memoizedState; h; h = h.next) {
-        const doc = h.memoizedState?.doc;
-        if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx'));
-      }
+      const doc = mdlxlProbe().session?.doc;
+      if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx'));
       throw Error('Missing active document');
     });
     fs.writeFileSync(path.join(out, 'Checked.mdx'), Uint8Array.from(bytes));
@@ -156,5 +127,5 @@ async function fixture() {
     if (uv && !uv.isClosed()) { await uv.screenshot({ path: path.join(out, 'failure.png') }); console.error(await uv.locator('body').innerText()); }
     else if (main && !main.isClosed()) console.error(await main.locator('body').innerText());
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
