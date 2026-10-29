@@ -27,8 +27,6 @@
 
 /* Follow-up reference surfaces and compact rigging panel. Display scale is
    applied once by the existing panel zoom, independently of viewport pixels. */
-:root{--functional-axis-x:#ff0000;--functional-axis-y:#008000;--functional-axis-z:#0000ff}
-:root[data-theme=dark]{--functional-axis-y:#00ff00}
 :root[data-theme=light] :is(body,.classic-app,.classic-sidebar,.classic-menu,.classic-menu [role=menu],.classic-modules,.classic-modal-window,.classic-dialog,.classic-context,.overlay-toolbar,.uv-workspace,.uv-toolbar,.uv-actions,.uv-status,.classic-animation-bar){background:var(--ui-panel)}
 :root[data-theme=light] button:not(.active):not(.pressed):not([aria-pressed=true]):not(:active){background:var(--ui-panel);color:var(--ui-text)}
 :root[data-theme=light] button:disabled{color:#888}
