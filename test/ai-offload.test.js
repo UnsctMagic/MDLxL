@@ -933,3 +933,16 @@ test('Keep a summary gives Codex and Claude Code the stored bird reports and the
   // API routes already send the ledger as history; it is not repeated in the prompt.
   assert.ok(!prompts[2].includes('Crow report'));
 });
+
+test('an organiser task that is running stays running when the console asks about it', async t => {
+  const profile = tempDir('mdlxl-ai-taskinfo-');
+  t.after(() => fs.rm(profile, { recursive: true, force: true }));
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await fs.mkdir(service.directory, { recursive: true });
+  service.conversations.set('organiser', { id: 'organiser', provider: 'codex', kind: 'organiser', transcript: [], messages: [], task: { status: 'running', phase: 'editing', steps: [] } });
+  service.tasks.set('organiser', { id: 'organiser' });
+  assert.equal((await service.taskInfo('organiser')).status, 'running');
+  service.tasks.delete('organiser');
+  assert.equal((await service.taskInfo('organiser')).status, 'interrupted');
+});

@@ -441,7 +441,8 @@ class AiService {
       conversation = await this.conversation(id, settings.provider),
       task = conversation.task;
     if (!task) return null;
-    if (task.status === 'running' && !this.runningIds.has(id)) {
+    // An Offload organiser's own task runs in `tasks` without going through runTask.
+    if (task.status === 'running' && !this.runningIds.has(id) && !this.tasks.has(id)) {
       task.status = 'interrupted';
       await this.persistConversation(conversation);
     }
