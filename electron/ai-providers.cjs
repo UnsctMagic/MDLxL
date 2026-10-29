@@ -5,6 +5,11 @@ const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-proce
 const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
+// The connections in settings order, with what each one supports: native (a
+// signed-in CLI), apiKey, baseUrl (own server address), effort, spendLimit,
+// stepLimit, web (has its own web tools) and the logFolders cleanup sweeps.
+const PROVIDERS = require('../src/ai-providers.json');
+const providerInfo = id => PROVIDERS.find(p => p.id === id);
 
 function endpoint(value) {
   const url = new URL(value);
@@ -85,13 +90,29 @@ function imageParts(images = [], kind = 'openai') {
     return providerImage({ mimeType: match[1], data: match[2] }, kind);
   });
 }
-// Short, readable form of a tool call's input for the console's activity rows.
+// A tool call's input for the console's activity rows: `detail`, the input as
+// JSON up to 4000 characters, and `line`, the one name or label shown on the
+// row, taken from the whole input. Long strings are shortened first, so a long
+// plan or script still reads as JSON.
+const DETAIL_LIMIT = 4000;
 function toolDetail(input) {
   try {
-    const text = typeof input === 'string' ? input : JSON.stringify(input, null, 1);
-    return text.length > 4000 ? text.slice(0, 4000) + '…' : text;
+    let value = input;
+    if (typeof input === 'string')
+      try {
+        value = JSON.parse(input);
+      } catch {
+        value = null;
+      }
+    const named = value && typeof value === 'object' ? value.label || value.id || value.action || value.query || value.name : '',
+      line = typeof named === 'string' ? named.slice(0, 200) : '';
+    let text = typeof input === 'string' ? input : JSON.stringify(input, null, 1);
+    for (let cap = 1000; text.length > DETAIL_LIMIT && value && typeof value === 'object' && cap >= 60; cap = Math.floor(cap / 2))
+      text = JSON.stringify(value, (key, item) => (typeof item === 'string' && item.length > cap ? item.slice(0, cap) + '…' : item), 1);
+    if (text.length > DETAIL_LIMIT) text = text.slice(0, DETAIL_LIMIT) + '…';
+    return line ? { detail: text, line } : { detail: text };
   } catch {
-    return '';
+    return { detail: '' };
   }
 }
 // The start of a tool result's text for its activity row.
@@ -323,7 +344,7 @@ async function runApi({
         delete block._json;
         // Web searches and page reads ran at Anthropic; show them as steps.
         if (block.type === 'server_tool_use')
-          event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
+          event({ type: 'tool', name: block.name, callId: block.id, ...toolDetail(block.input) });
         if (/^web_(search|fetch)_tool_result$/.test(block.type))
           event({
             type: 'tool-result',
@@ -344,7 +365,7 @@ async function runApi({
       }
       const results = [];
       for (const block of calls) {
-        event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
+        event({ type: 'tool', name: block.name, callId: block.id, ...toolDetail(block.input) });
         let result;
         try {
           result = await callEditorTool(tools, call, block.name, block.input, signal, awareness);
@@ -439,7 +460,7 @@ async function runApi({
           type: 'tool',
           name: toolCall.function.name,
           callId: toolCall.id,
-          detail: toolDetail(toolCall.function.arguments),
+          ...toolDetail(toolCall.function.arguments),
         });
         let result;
         try {
@@ -658,7 +679,7 @@ class CodexProcess {
       this.event({ type: 'compaction', active: message.method === 'item/started' });
     if (message.method === 'thread/compacted') this.event({ type: 'compaction', active: false });
     if (message.method === 'item/started' && p.item?.type === 'mcpToolCall')
-      this.event({ type: 'tool', name: p.item.tool, callId: p.item.id, detail: toolDetail(p.item.arguments) });
+      this.event({ type: 'tool', name: p.item.tool, callId: p.item.id, ...toolDetail(p.item.arguments) });
     if (message.method === 'item/completed' && p.item?.type === 'mcpToolCall')
       this.event({
         type: 'tool-result',
@@ -669,7 +690,7 @@ class CodexProcess {
       });
     // Web research runs inside Codex; its searches show as steps.
     if (message.method === 'item/started' && p.item?.type === 'webSearch')
-      this.event({ type: 'tool', name: 'web_search', callId: p.item.id, detail: toolDetail(p.item.query || '') });
+      this.event({ type: 'tool', name: 'web_search', callId: p.item.id, ...toolDetail(p.item.query || '') });
     if (message.method === 'item/completed' && p.item?.type === 'webSearch')
       this.event({ type: 'tool-result', name: 'web_search', callId: p.item.id, error: false, summary: p.item.query || '' });
     if (message.method === 'account/login/completed') this.login?.(p);
@@ -1046,7 +1067,7 @@ async function runClaude({
               for (const block of data.message?.content || [])
                 if (block.type === 'tool_use') {
                   toolNames.set(block.id, block.name);
-                  event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
+                  event({ type: 'tool', name: block.name, callId: block.id, ...toolDetail(block.input) });
                 }
             if (data.type === 'user' && Array.isArray(data.message?.content))
               for (const block of data.message.content)
@@ -1108,7 +1129,9 @@ function runProvider(options) {
   const provider = options.settings.provider;
   return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
 }
-async function providerModels(settings, key, signal) {
+// The models a connection offers: Codex asks its app server, Claude Code takes
+// aliases, and APIs list their own.
+async function providerModels(settings, key, signal, { directory } = {}) {
   // Claude Code takes these aliases for the newest model of each kind.
   if (settings.provider === 'claude')
     return [
@@ -1117,7 +1140,19 @@ async function providerModels(settings, key, signal) {
       { id: 'haiku', name: 'Haiku (newest, cheapest)' },
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
-  if (settings.provider === 'codex') return [];
+  if (settings.provider === 'codex') {
+    const client = new CodexProcess(settings, { directory, signal });
+    try {
+      await client.start();
+      const result = await client.request('model/list');
+      return (result.data || []).map(m => ({
+        id: m.model || m.id,
+        name: m.displayName || m.model || m.id,
+      }));
+    } finally {
+      await client.close();
+    }
+  }
   const response = await requestJson(
     apiBase(settings) + '/models',
     null,
@@ -1131,7 +1166,80 @@ async function providerModels(settings, key, signal) {
     name: item.display_name || item.id || item.name,
   }));
 }
+// Sign in, sign out or check the account of a native CLI connection. Codex
+// signs in through its app server and the browser; Claude Code runs
+// `claude auth <action>`. `notify` shows progress in the console.
+async function providerAuth(settings, action, { directory, signal, openExternal, notify }) {
+  if (settings.provider === 'codex') {
+    const client = new CodexProcess(settings, { directory, signal });
+    try {
+      await client.start();
+      if (action === 'status') {
+        const result = await client.account();
+        return {
+          account: result.account,
+          loggedIn: !!result.account || result.requiresOpenaiAuth === false,
+        };
+      }
+      if (action === 'logout') {
+        await client.request('account/logout');
+        return { loggedIn: false };
+      }
+      const completed = new Promise((resolve, reject) => {
+        client.login = p => (p.success ? resolve() : reject(Error(p.error || 'Login failed.')));
+        client.loginError = reject;
+      });
+      completed.catch(() => {});
+      const login = await client.request('account/login/start', { type: 'chatgpt' });
+      const url = new URL(login.authUrl);
+      if (url.protocol !== 'https:') throw Error('Invalid sign-in URL.');
+      await openExternal(url.href);
+      notify('Complete sign-in in your browser.');
+      await completed;
+      const result = await client.account();
+      if (!result.account) throw authenticationRequired();
+      return { loggedIn: true, account: result.account };
+    } finally {
+      await client.close();
+    }
+  }
+  const env = await prepareEnvironment(directory, 'claude');
+  if (signal.aborted) throw Error('Sign-in cancelled.');
+  const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
+    cwd: directory,
+    env,
+  });
+  let output = '';
+  const abort = () => stopAgent(child);
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    await new Promise((resolve, reject) => {
+      child.on('error', reject);
+      child.once('close', code =>
+        code === 0 || (action === 'status' && code === 1)
+          ? resolve()
+          : reject(Error('Claude authentication did not complete.')),
+      );
+      lines(child.stdout, line => {
+        output += line + '\n';
+        if (action === 'login') notify(line.slice(0, 1500));
+      });
+      child.stderr.on('data', () => {});
+      child.stdin.end();
+    });
+    if (action === 'status') {
+      const status = JSON.parse(output);
+      return { loggedIn: !!status.loggedIn, authMethod: status.authMethod };
+    }
+    return { loggedIn: action === 'login' };
+  } finally {
+    signal.removeEventListener('abort', abort);
+    stopAgent(child);
+  }
+}
 module.exports = {
+  PROVIDERS,
+  providerInfo,
   anthropicCost,
   anthropicThinking,
   claudeCompaction,
@@ -1142,6 +1250,8 @@ module.exports = {
   runClaude,
   runProvider,
   providerModels,
+  providerAuth,
+  toolDetail,
   CodexProcess,
   effortFor,
   authenticationRequired,

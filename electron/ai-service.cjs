@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
-const { READ_TOOLS, helperSpec, helperCanCall, acceptanceChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { helperSpec, acceptanceChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
@@ -10,20 +10,16 @@ const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
+  PROVIDERS,
+  providerInfo,
   runProvider,
   providerModels,
-  CodexProcess,
+  providerAuth,
   endpoint,
   authenticationRequired,
   CANCELLED,
 } = require('./ai-providers.cjs');
-const {
-  spawnAgent,
-  stopAgent,
-  lines,
-  prepareEnvironment,
-  checkAgentExecutable,
-} = require('./ai-process.cjs');
+const { checkAgentExecutable } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
 const { questionCancelled } = require('./ai-user-input.cjs');
 const {
@@ -33,7 +29,7 @@ const {
   RETIRE_AT,
   nextBird,
   contextUse,
-  deleteProviderSessions,
+  writeJsonAtomic,
   settleConversation,
 } = require('./ai-offload.cjs');
 
@@ -42,18 +38,15 @@ const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it emp
 function limitOf(config, name) {
   return typeof config[name] === 'number' ? config[name] : 0;
 }
-// Chats of models not used for this many days are cleaned up; 0 = never.
-const DAY = 24 * 60 * 60 * 1000;
-function cleanupDaysOf(config) {
-  return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
-}
-// Chat ids, and chat files (with their temporary copies) in the AI folder.
-const CHAT_ID_PATTERN = '[a-zA-Z0-9_-]{1,80}';
-const CHAT_ID = new RegExp('^' + CHAT_ID_PATTERN + '$');
-const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$');
+const chats = require('./ai-chats.cjs');
+const { cleanupDaysOf, CHAT_ID } = chats;
 // Model lists are kept per provider and server.
 function catalogKey(settings) {
   return settings.provider + ':' + (settings.baseUrl || '');
+}
+// A native connection's account, per provider and CLI.
+function accountKey(settings) {
+  return settings.provider + ':' + (settings.executable || '');
 }
 // The editing instructions, with the handbook and web research when they are on.
 // A worker bird gets its own note in place of the opening line.
@@ -111,10 +104,23 @@ class AiService {
     this.registry = new OrganiserRegistry(this.directory);
     this.workerLocks = new Map();
     this.random = Math.random;
+    // Native accounts found signed in this session; sending checks only the others.
+    this.signedIn = new Set();
   }
+  // The tool contract and prompts, and the transcript rules the console shares.
   async init() {
-    if (!this.contract) this.contract = import(pathToFileURL(path.join(this.root, 'src/ai-tools.js')).href);
+    if (!this.contract) {
+      const load = file => import(pathToFileURL(path.join(this.root, file)).href);
+      this.contract = Promise.all([load('src/ai-tools.js'), load('src/ai-transcript.js')]).then(([contract, transcript]) => {
+        this.recordAiEvent = transcript.recordAiEvent;
+        return contract;
+      });
+    }
     return this.contract;
+  }
+  // A recorder for a chat; init() has loaded the transcript rules by then.
+  recorder(conversation, emit) {
+    return new AiRecorder(conversation, emit, this.recordAiEvent);
   }
   async configuration() {
     if (this.config) return this.config;
@@ -125,7 +131,7 @@ class AiService {
           this.config = JSON.parse(await fs.readFile(path.join(this.directory, 'connections.json'), 'utf8'));
         } catch (error) {
           if (error.code !== 'ENOENT') throw error;
-          this.config = { provider: 'codex', enabled: false, port: 0, providers: {} };
+          this.config = { provider: PROVIDERS[0].id, enabled: false, port: 0, providers: {} };
         }
         this.awareness.setEnabled(this.config.awareness === true);
         return this.config;
@@ -135,10 +141,8 @@ class AiService {
       });
     return this.loading;
   }
-  async persist() {
-    await fs.writeFile(path.join(this.directory, 'connections.json'), JSON.stringify(this.config, null, 2), {
-      mode: 0o600,
-    });
+  persist() {
+    return writeJsonAtomic(path.join(this.directory, 'connections.json'), this.config, 2);
   }
   encrypt(secret) {
     if (!this.electron.safeStorage.isEncryptionAvailable())
@@ -251,12 +255,11 @@ class AiService {
       if (unchanged) return this.status();
       throw Error('Stop the current AI request before changing providers.');
     }
-    if (!['codex', 'claude', 'openai', 'anthropic', 'compatible'].includes(input.provider))
-      throw Error('Unknown AI provider.');
+    if (!providerInfo(input.provider)) throw Error('Unknown AI provider.');
     if (input.routing !== undefined && !['manual', 'automatic', 'both'].includes(input.routing)) throw Error('Choose Manual, Automatic, or Both routing.');
     const previous = config.providers?.[input.provider] || {};
     if (input.baseUrl) endpoint(input.baseUrl);
-    const native = ['codex', 'claude'].includes(input.provider),
+    const native = providerInfo(input.provider).native,
       baseUrl = String(input.baseUrl || '').trim();
     // A new CLI path must name the provider's CLI; an unchanged saved path keeps working.
     const requested = String(input.executable || '').trim();
@@ -415,12 +418,7 @@ class AiService {
     return path.join(this.directory, 'chat-' + id + '.json');
   }
   persistConversation(conversation) {
-    const file = this.chatFile(conversation.id),
-      text = JSON.stringify(conversation);
-    const write = (this.writes.get(conversation.id) || Promise.resolve()).then(async () => {
-      await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
-      await fs.rename(file + '.tmp', file);
-    });
+    const write = writeJsonAtomic(this.chatFile(conversation.id), conversation);
     this.writes.set(conversation.id, write);
     return write;
   }
@@ -429,7 +427,8 @@ class AiService {
       conversation = await this.conversation(id, settings.provider),
       task = conversation.task;
     if (!task) return null;
-    if (task.status === 'running' && !this.runningIds.has(id)) {
+    // An Offload organiser's own task runs in `tasks` without going through runTask.
+    if (task.status === 'running' && !this.runningIds.has(id) && !this.tasks.has(id)) {
       task.status = 'interrupted';
       await this.persistConversation(conversation);
     }
@@ -459,8 +458,9 @@ class AiService {
       contract = await this.init(),
       controller = new AbortController();
     // Account discovery/model lists can work while signed out. Check the actual
-    // account before recording a turn or letting a provider make a model request.
-    if (['codex', 'claude'].includes(settings.provider)) {
+    // account before recording a turn or letting a provider make a model request,
+    // once per session: a signed-out turn or signing in or out checks again.
+    if (providerInfo(settings.provider)?.native && !this.signedIn.has(accountKey(settings))) {
       const auth = await this.auth('status');
       if (!auth.loggedIn) {
         const error = authenticationRequired();
@@ -491,7 +491,7 @@ class AiService {
     if (conversation.retired)
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
-    const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
+    const recorder = this.recorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
     const active = { id, controller, steering, recorder, worker: null, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
     this.tasks.set(id, active);
@@ -531,7 +531,7 @@ class AiService {
         return { ok: false, cancelled: true };
       }
       const authRequired = error.code === 'AI_AUTH_REQUIRED';
-      recorder.reply.error = error.message;
+      if (authRequired) this.signedIn.delete(accountKey(settings));
       recorder.event({ type: 'error', text: error.message, authRequired });
       return { ok: false, error: error.message, authRequired };
     } finally {
@@ -776,6 +776,8 @@ class AiService {
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
       aiToolEditsModel,
+      AI_HELPER_TOOLS,
+      aiHelperCanCall,
       sdBrainInstructions,
       sdReviewProblem,
     } = contract;
@@ -929,7 +931,7 @@ class AiService {
         workerImages = [];
         return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
       }
-      if ((conversation.helperOnly || context.region?.readOnly) && !helperCanCall(name, args)) throw Error('This helper is read-only; the editor bird owns changes, saves and UI actions.');
+      if ((conversation.helperOnly || context.region?.readOnly) && !aiHelperCanCall(name, args)) throw Error('This helper is read-only; the editor bird owns changes, saves and UI actions.');
       if (name === 'mdlxl_job_checkpoint') {
         if (!['candidate', 'verify'].includes(args.phase) || typeof args.evidence !== 'string' || !args.evidence.trim() || args.evidence.length > 4000 || !Array.isArray(args.remaining) || args.remaining.length > 20 || args.remaining.some(v => typeof v !== 'string' || v.length > 500)) throw Error('A checkpoint needs a phase, concise evidence and specific remaining work.');
         if (callsInFlight !== 1) throw Error('Wait for the other tool operations before recording a phase checkpoint.');
@@ -1099,7 +1101,7 @@ class AiService {
         ]
       : conversation.toolsOff
         ? []
-        : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => READ_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
+        : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => AI_HELPER_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
     // The organiser only routes, so web research goes to the AI that does the work.
     const web = sd.web === true && !organiser;
     const system =
@@ -1314,7 +1316,7 @@ class AiService {
       parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, model: worker.model, light: worker.light, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
       const conversation = await this.conversation(worker.id, settings.provider);
       if (args.resumeTask) conversation.task = args.resumeTask;
-      const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+      const recorder = this.recorder(conversation, value => this.emit({ id: worker.id, ...value }));
       const steering = new AiSteering(text => recorder.split(text));
       if (!active.parallel && !args.helperOnly) parentSteering.forward = steering;
       const controller = new AbortController();
@@ -1343,7 +1345,6 @@ class AiService {
         status = reason.code === 'AI_WORKER_HANDOVER' ? 'handover' : 'failed';
         error = runningWorker.escalation ? 'The user steered this job into work for the chosen model.' : reason.message;
         if (status !== 'handover') {
-          recorder.reply.error = reason.message;
           recorder.event({ type: 'error', text: reason.message, worker: true });
         }
       } finally {
@@ -1419,7 +1420,7 @@ class AiService {
         : `The open model ${context.name} is empty, so this creates something new.`;
     const reply = await this.askOnce({
       settings,
-      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'),
+      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'bird'),
       label: 'The art director has no tools.',
       system: contract.AI_SD_ART_DIRECTOR,
       prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
@@ -1436,7 +1437,7 @@ class AiService {
     const { pictures, left } = choosePictures(inspect.images);
     const question = {
       settings,
-      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check'),
+      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'outside check'),
       label: 'The outside check has no tools.',
       system: contract.AI_OUTSIDE_CHECK,
       prompt: [
@@ -1581,156 +1582,40 @@ class AiService {
   setOffload(enabled) {
     return this.setSwitch('offload', 'offload', enabled);
   }
-  async setRememberedCleanup({ modelKey, remember }) {
-    if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
-    const entry = await this.registry.model(modelKey);
-    entry.remember = remember;
-    await this.registry.save();
-    return { remember };
+  setRememberedCleanup(input) {
+    return chats.setRememberedCleanup(this, input);
   }
   // After a save: keep everything, keep a memory note, or delete every chat for this model.
-  async cleanup({ modelKey, mode, remember = false }) {
-    if (!['keep', 'summary', 'wipe'].includes(mode)) throw Error('Unknown cleanup choice.');
-    if (this.active || this.modelBusy(modelKey)) throw Error('Wait until the AI finishes before cleaning up its chats.');
-    const entry = await this.registry.model(modelKey);
-    if (remember) entry.remember = mode;
-    entry.activity = false;
-    if (mode === 'keep') {
-      await this.registry.save();
-      return { mode };
-    }
-    const settings = await this.settings();
-    let note = null;
-    if (mode === 'summary' && entry.organiser) {
-      const organiser = await this.conversation(entry.organiser, settings.provider).catch(() => null);
-      if (organiser?.transcript.length) note = await this.memoryNote(organiser, settings, entry.note);
-    }
-    const { ids, providerFiles } = await this.removeChats(entry);
-    entry.note = mode === 'summary' ? note || entry.note : null;
-    // A summary keeps the decision diary; wiping removes it with the chats.
-    if (mode === 'wipe') delete entry.diary;
-    entry.organiser = null;
-    entry.earlier = [];
-    await this.registry.save();
-    this.emit({ type: 'organiser-reset', modelKey });
-    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+  cleanup(input) {
+    return chats.cleanup(this, input);
   }
-  // A model's chat files: its organisers, their birds, and the provider thread ids.
-  async chatsOf(entry) {
-    const ids = [],
-      threads = [];
-    for (const organiserId of [entry.organiser, ...(entry.earlier || [])].filter(Boolean)) {
-      const organiser = await this.readConversation(organiserId);
-      ids.push(organiserId);
-      if (organiser?.threadId) threads.push(organiser.threadId);
-      for (const worker of organiser?.workers || []) {
-        const conversation = await this.readConversation(worker.id);
-        ids.push(worker.id);
-        if (conversation?.threadId) threads.push(conversation.threadId);
-      }
-    }
-    return { ids, threads };
+  chatsOf(entry) {
+    return chats.chatsOf(this, entry);
   }
-  async removeChats(entry) {
-    const { ids, threads } = await this.chatsOf(entry);
-    for (const id of ids) {
-      this.conversations.delete(id);
-      await this.writes.get(id)?.catch(() => {});
-      await fs.rm(this.chatFile(id), { force: true });
-    }
-    return { ids, providerFiles: await deleteProviderSessions(this.directory, threads) };
+  removeChats(entry) {
+    return chats.removeChats(this, entry);
   }
-  // Important models keep their chats; automatic cleanup never removes them.
-  async setImportant({ modelKey, important }) {
-    if (typeof important !== 'boolean') throw Error('Choose on or off.');
-    const entry = await this.registry.model(modelKey);
-    entry.important = important;
-    await this.registry.save();
-    return { important };
+  setImportant(input) {
+    return chats.setImportant(this, input);
   }
-  // Models get moved, renamed or edited in other programs, so their chats can be
-  // left behind. Every chat, note, diary, provider copy and temporary file of a
-  // model not used for `cleanupDays` days is deleted, unless the model is important.
-  async cleanupUnused(now = Date.now()) {
-    const days = cleanupDaysOf(await this.configuration());
-    if (!days || this.active || this.tasks.size || this.closing) return { models: 0, files: 0 };
-    const cutoff = now - days * DAY,
-      data = await this.registry.load(),
-      kept = new Set(),
-      keptThreads = new Set();
-    let models = 0,
-      files = 0;
-    const newest = async ids => {
-      let time = 0;
-      for (const id of ids) {
-        const stat = await fs.stat(this.chatFile(id)).catch(() => null);
-        if (stat) time = Math.max(time, stat.mtimeMs);
-      }
-      return time;
-    };
-    for (const [key, entry] of Object.entries(data.models)) {
-      const chats = await this.chatsOf(entry);
-      const used = Math.max(entry.used || 0, await newest(chats.ids));
-      // An entry with no date yet starts its timer now.
-      if (!used) entry.used = now;
-      if (entry.important || this.modelBusy(key) || !used || used > cutoff) {
-        for (const id of chats.ids) kept.add(id);
-        for (const thread of chats.threads) keptThreads.add(thread);
-        continue;
-      }
-      const removed = await this.removeChats(entry);
-      files += removed.ids.length + removed.providerFiles;
-      delete data.models[key];
-      models++;
-      this.emit({ type: 'organiser-reset', modelKey: key });
-    }
-    await this.registry.save();
-    // Chats no model points to any more, and provider copies and run folders left by them.
-    const old = async full => ((await fs.stat(full).catch(() => null))?.mtimeMs ?? now) <= cutoff;
-    for (const name of await fs.readdir(this.directory).catch(() => [])) {
-      const full = path.join(this.directory, name),
-        chat = CHAT_FILE.exec(name);
-      if (chat ? kept.has(chat[1]) || this.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
-      if (!(await old(full))) continue;
-      await fs.rm(full, { recursive: true, force: true });
-      files++;
-    }
-    // Only session logs and temporary files: sign-in and provider settings stay.
-    const sweep = async (folder, unwanted, depth = 0) => {
-      for (const item of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) {
-        const full = path.join(folder, item.name);
-        if (item.isDirectory()) {
-          if (depth < 6) await sweep(full, unwanted, depth + 1);
-        } else if (unwanted(item.name) && (await old(full))) {
-          await fs.rm(full, { force: true });
-          files++;
-        }
-      }
-    };
-    const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
-    await sweep(path.join(this.directory, 'temp'), () => true);
-    for (const folder of ['codex/sessions', 'codex/archived_sessions', 'claude/projects'])
-      await sweep(path.join(this.directory, folder), orphanLog);
-    return { models, files };
+  cleanupUnused(now) {
+    return chats.cleanupUnused(this, now);
   }
-  // Checks a minute after start and then every few hours while MDLxL is open.
   startCleanup() {
-    const run = () => this.cleanupUnused().catch(error => console.error('AI cleanup: ' + error.message));
-    this.cleanupTimers = [setTimeout(run, 60000), setInterval(run, 6 * 60 * 60 * 1000)];
-    for (const timer of this.cleanupTimers) timer.unref?.();
+    chats.startCleanup(this);
   }
   async memoryNote(organiser, settings, previousNote) {
     const contract = await this.init(),
       controller = new AbortController();
     const active = { id: organiser.id, controller, steering: null, worker: null };
     this.active = active;
-    const recorder = new AiRecorder(organiser, value => this.emit({ id: organiser.id, ...value }));
+    const recorder = this.recorder(organiser, value => this.emit({ id: organiser.id, ...value }));
     const steering = new AiSteering(() => {});
     // An Offload organiser is a local ledger: Codex and Claude Code have no thread
     // holding the birds' reports, so they travel in the prompt (API routes send the
     // ledger as history).
     const ledger =
-      ['codex', 'claude'].includes(settings.provider) && !organiser.threadId && organiser.messages?.length
+      providerInfo(settings.provider)?.native && !organiser.threadId && organiser.messages?.length
         ? '\n\nThe requests and bird reports from this conversation, oldest first:\n' +
           organiser.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
         : '';
@@ -1885,24 +1770,8 @@ class AiService {
     const active = { controller: new AbortController() };
     this.active = active;
     try {
-      const settings = await this.settings(),
-        signal = active.controller.signal;
-      if (settings.provider === 'codex') {
-        const client = new CodexProcess(settings, { directory: this.directory, signal });
-        try {
-          await client.start();
-          const result = await client.request('model/list');
-          const models = (result.data || []).map(m => ({
-            id: m.model || m.id,
-            name: m.displayName || m.model || m.id,
-          }));
-          (this.modelCatalog ||= {})[catalogKey(settings)] = models;
-          return models;
-        } finally {
-          await client.close();
-        }
-      }
-      const models = await providerModels(settings, this.decrypt(settings.key), signal);
+      const settings = await this.settings();
+      const models = await providerModels(settings, this.decrypt(settings.key), active.controller.signal, { directory: this.directory });
       (this.modelCatalog ||= {})[catalogKey(settings)] = models;
       return models;
     } finally {
@@ -1912,80 +1781,26 @@ class AiService {
   async auth(action) {
     if (!['login', 'logout', 'status'].includes(action)) throw Error('Unknown sign-in action.');
     // Checking the account only reads it, so it runs beside jobs on other models (the
-    // console checks before every send); signing in or out waits for every job.
+    // first send of a session checks it); signing in or out waits for every job.
     const exclusive = action !== 'status';
     if (exclusive && this.busy()) throw Error('Stop the current AI request before signing in or out.');
     const settings = await this.settings();
-    if (!['codex', 'claude'].includes(settings.provider)) throw Error('This provider uses an API key.');
-    const controller = new AbortController();
-    if (exclusive) this.active = { controller, auth: true };
+    if (!providerInfo(settings.provider)?.native) throw Error('This provider uses an API key.');
+    const controller = new AbortController(),
+      key = accountKey(settings);
+    if (exclusive) {
+      this.active = { controller, auth: true };
+      this.signedIn.clear();
+    }
     try {
-      if (settings.provider === 'codex') {
-        const client = new CodexProcess(settings, { directory: this.directory, signal: controller.signal });
-        try {
-          await client.start();
-          if (action === 'status') {
-            const result = await client.account();
-            return {
-              account: result.account,
-              loggedIn: !!result.account || result.requiresOpenaiAuth === false,
-            };
-          }
-          if (action === 'logout') {
-            await client.request('account/logout');
-            return { loggedIn: false };
-          }
-          const completed = new Promise((resolve, reject) => {
-            client.login = p => (p.success ? resolve() : reject(Error(p.error || 'Login failed.')));
-            client.loginError = reject;
-          });
-          completed.catch(() => {});
-          const login = await client.request('account/login/start', { type: 'chatgpt' });
-          const url = new URL(login.authUrl);
-          if (url.protocol !== 'https:') throw Error('Invalid sign-in URL.');
-          await this.electron.shell.openExternal(url.href);
-          this.emit({ type: 'auth', text: 'Complete sign-in in your browser.' });
-          await completed;
-          const result = await client.account();
-          if (!result.account) throw authenticationRequired();
-          return { loggedIn: true, account: result.account };
-        } finally {
-          await client.close();
-        }
-      }
-      const env = await prepareEnvironment(this.directory, 'claude');
-      if (controller.signal.aborted) throw Error('Sign-in cancelled.');
-      const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
-        cwd: this.directory,
-        env,
+      const result = await providerAuth(settings, action, {
+        directory: this.directory,
+        signal: controller.signal,
+        openExternal: url => this.electron.shell.openExternal(url),
+        notify: text => this.emit({ type: 'auth', text }),
       });
-      let output = '';
-      const abort = () => stopAgent(child);
-      controller.signal.addEventListener('abort', abort, { once: true });
-      try {
-        await new Promise((resolve, reject) => {
-          child.on('error', reject);
-          child.once('close', code =>
-            code === 0 || (action === 'status' && code === 1)
-              ? resolve()
-              : reject(Error('Claude authentication did not complete.')),
-          );
-          lines(child.stdout, line => {
-            output += line + '\n';
-            if (action === 'login') this.emit({ type: 'auth', text: line.slice(0, 1500) });
-          });
-          child.stderr.on('data', () => {});
-          child.stdin.end();
-        });
-        if (action === 'status') {
-          const status = JSON.parse(output);
-          return { loggedIn: !!status.loggedIn, authMethod: status.authMethod };
-        }
-        return { loggedIn: action === 'login' };
-      } finally {
-        controller.signal.removeEventListener('abort', abort);
-        stopAgent(child);
-      }
+      if (action === 'status') result.loggedIn ? this.signedIn.add(key) : this.signedIn.delete(key);
+      return result;
     } finally {
       if (exclusive) this.active = null;
     }

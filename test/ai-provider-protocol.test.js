@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
+import { recordAiEvent } from '../src/ai-transcript.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
@@ -17,7 +18,7 @@ async function setup(t) {
   await fs.mkdir(service.directory, { recursive: true });
   const events = [], sent = [], opened = [];
   const conversation = { id: 'bird', name: 'Raven', provider: 'codex', transcript: [], messages: [] };
-  const recorder = new AiRecorder(conversation, value => events.push(value)); recorder.start({ role: 'user', text: 'Test' });
+  const recorder = new AiRecorder(conversation, value => events.push(value), recordAiEvent); recorder.start({ role: 'user', text: 'Test' });
   const client = new CodexProcess({}, { event: value => recorder.event(value), askUser: (params, signal) => service.askUser(conversation, recorder, params, signal) });
   client.write = value => sent.push(value);
   t.after(async () => { await client.close(); await service.close(); await fs.rm(profile, { recursive: true, force: true }); });
@@ -168,7 +169,7 @@ test('editor shutdown rejects every pending question even outside a tracked prov
 test('bird provider notices are also recorded in the organiser without duplicating bird output', async t => {
   const f = await setup(t);
   const parent = { id: 'organiser', transcript: [], messages: [] }, events = [];
-  const recorder = new AiRecorder(parent, value => events.push(value)); recorder.start({ role: 'user', text: 'Test' });
+  const recorder = new AiRecorder(parent, value => events.push(value), recordAiEvent); recorder.start({ role: 'user', text: 'Test' });
   f.conversation.organiserId = parent.id;
   f.service.tasks.set(parent.id, { id: parent.id, recorder, controller: new AbortController() });
   f.service.measureUsage(f.conversation, f.recorder, 'bird')({ type: 'provider-notice', text: 'Important provider warning', severity: 'warning' });

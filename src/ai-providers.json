@@ -1,0 +1,64 @@
+[
+  {
+    "id": "codex",
+    "label": "Codex / ChatGPT",
+    "native": true,
+    "apiKey": false,
+    "baseUrl": false,
+    "effort": true,
+    "spendLimit": false,
+    "stepLimit": false,
+    "web": true,
+    "homeVariable": "CODEX_HOME",
+    "logFolders": ["codex/sessions", "codex/archived_sessions"]
+  },
+  {
+    "id": "claude",
+    "label": "Claude Code",
+    "native": true,
+    "apiKey": false,
+    "baseUrl": false,
+    "effort": true,
+    "spendLimit": false,
+    "stepLimit": true,
+    "web": true,
+    "homeVariable": "CLAUDE_CONFIG_DIR",
+    "logFolders": ["claude/projects"]
+  },
+  {
+    "id": "openai",
+    "label": "OpenAI API",
+    "native": false,
+    "apiKey": true,
+    "baseUrl": false,
+    "effort": true,
+    "spendLimit": true,
+    "stepLimit": true,
+    "web": false,
+    "logFolders": []
+  },
+  {
+    "id": "anthropic",
+    "label": "Claude API",
+    "native": false,
+    "apiKey": true,
+    "baseUrl": false,
+    "effort": true,
+    "spendLimit": true,
+    "stepLimit": true,
+    "web": true,
+    "logFolders": []
+  },
+  {
+    "id": "compatible",
+    "label": "Other AI / local model",
+    "native": false,
+    "apiKey": true,
+    "baseUrl": true,
+    "effort": false,
+    "spendLimit": true,
+    "stepLimit": true,
+    "web": false,
+    "logFolders": []
+  }
+]
