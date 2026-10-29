@@ -163,9 +163,15 @@ code and may be removed.
 
 ## Changes and verification
 
-- Changed: nothing yet (review only). Findings were traced in code by Claude
-  Code; none were reproduced in the packaged app.
-- Remaining: everything above.
+- Item 1 implemented: static helmet until effects are ready; failed WebGL,
+  renderer/texture setup or image decode releases partial state and keeps the
+  popup mounted. Welcome sizing runs independently of optional effects.
+- [x] Item 1 done. Five focused source tests, production build, pinned FFmpeg
+  verification and full package passed. Hidden no-gpu-warp checks passed:
+  update-popup-fallback (real packaged app; missing WebGL and failed bundle),
+  welcome-prompt (Yes/Escape/layout), update-popup-effects.browser (normal eye
+  timing, audio, remount/mute/reopen). Initial harness bootstrap/argument issues
+  were corrected; no product workaround was needed. Items 2–18 remain.
 
 ## Blockers and next action
 

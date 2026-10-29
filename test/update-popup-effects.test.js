@@ -78,3 +78,18 @@ test('closing before audio preparation completes cancels the pending fanfare', a
     assert.equal(effects.cancelWarmup, null); assert.equal(effects.active, false);
   } finally { effects.close(); env.restore(); }
 });
+
+
+test('missing WebGL leaves the static helmet usable without unmounting the app', async () => {
+  const env = environment(), effects = new UpdatePopupEffects();
+  const element = { dataset: {}, querySelector: () => ({ getContext: () => null }) };
+  try {
+    const detach = effects.attach(element);
+    await effects.ready;
+    assert.equal(effects.view, null);
+    assert.equal(element.dataset.effects, undefined);
+    effects.open({ muted: true });
+    assert.equal(effects.frame, 0, 'no particle frames run in fallback mode');
+    detach(); detach();
+  } finally { effects.close(); env.restore(); }
+});
