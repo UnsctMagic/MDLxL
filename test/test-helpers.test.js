@@ -12,7 +12,7 @@ import { comparePoses, maxNodeMatrixDifference } from './helpers/pose-compare.mj
 import { createDemoDocument } from '../src/editor-document.js';
 
 const require = createRequire(import.meta.url);
-const { root, appTarget, appDist, sha256File } = require('./helpers/app.cjs');
+const { root, appTarget, appDist, sha256File, launchApp, closeApp } = require('./helpers/app.cjs');
 const { fixturePath, tempDir } = require('./helpers/fixtures.cjs');
 const { PROBE_SOURCE } = require('./helpers/fiber-probe.cjs');
 
@@ -82,6 +82,56 @@ test('page probes find editor owners through the hook or, on older builds, throu
   const runtime = { native: {}, controls: {} }, props = { model: {} }, session = { doc: { model: {} } };
   const hooked = fakeFiberPage({ session: () => session, preview: () => ({ runtime, props }) }).window.mdlxlProbe();
   assert.equal(hooked.runtime, runtime); assert.equal(hooked.props, props); assert.equal(hooked.session, session);
+});
+
+test('Forge probes resolve current owner state and props when the DOM fiber is stale', () => {
+  const element = {}, state = { renderer: {}, entries: [] }, props = { model: 'current' };
+  const current = { stateNode: element, memoizedProps: props, memoizedState: { memoizedState: { current: state }, next: null }, return: null };
+  const top = { stateNode: { current }, return: null };
+  element.__reactFiber$test = { memoizedState: null, memoizedProps: { model: 'stale' }, return: top };
+  const window = {}, document = { querySelector: () => element };
+  vm.runInNewContext(PROBE_SOURCE, { window, document });
+  let ownerProps;
+  assert.equal(window.findFiberState(element, (value, p) => { if (value?.renderer) { ownerProps = p; return true; } return false; }, { current: true }), state);
+  assert.equal(ownerProps, props);
+  assert.equal(window.findFiberState(element, p => p?.model, { props: true, current: true }), props);
+});
+
+test('wrapper launches keep seeded profiles across restart and remove library junctions without touching their target', async t => {
+  const out = tempDir('launcher-test-'), profile = path.join(out, 'profile'), library = path.join(out, 'source-library');
+  t.after(() => fs.rmSync(out, { recursive: true, force: true }));
+  fs.mkdirSync(profile); fs.mkdirSync(library); fs.writeFileSync(path.join(library, 'source.json'), 'source');
+  fs.symlinkSync(library, path.join(profile, 'particles'), process.platform === 'win32' ? 'junction' : 'dir');
+  fs.writeFileSync(path.join(profile, 'draft.json'), 'draft');
+  const launches = [], errors = [], page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
+  const app = { async firstWindow() { return page; }, async evaluate() {} };
+  const playwright = { _electron: { async launch(options) { launches.push(options); return app; } } };
+  const saved = { exe: process.env.MDLXL_TEST_EXE, pkg: process.env.MDLXL_SUITE_PKG };
+  delete process.env.MDLXL_TEST_EXE; delete process.env.MDLXL_SUITE_PKG;
+  try {
+    const entry = path.join(out, 'main.cjs');
+    const launched = await launchApp({ out, profile, entry, fixture: 'fixture.mdx', errors, playwright });
+    assert.equal(launched.errors, errors); assert.equal(launches[0].args[0], entry);
+    assert.equal(launches[0].args[1], 'fixture.mdx'); assert.equal(launches[0].env.MDLXL_PROFILE, profile);
+    await closeApp(app, { keepProfile: true });
+    assert.equal(fs.readFileSync(path.join(profile, 'draft.json'), 'utf8'), 'draft');
+    await launchApp({ out, profile, entry, playwright }); await closeApp(app);
+    assert.equal(fs.existsSync(profile), false);
+    assert.equal(fs.readFileSync(path.join(library, 'source.json'), 'utf8'), 'source');
+  } finally {
+    for (const [key, value] of [['MDLXL_TEST_EXE', saved.exe], ['MDLXL_SUITE_PKG', saved.pkg]]) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test('Forge detail probes can retain the last matching preview after the canonical draft', () => {
+  const draft = { shapes: ['draft'], mode: 'Faces' }, preview = { shapes: ['extrusion preview'], mode: 'Faces' };
+  const element = { __reactFiber$test: { memoizedState: { memoizedState: draft, next: { memoizedState: preview, next: null } }, return: null } };
+  const window = {}, document = { querySelector: () => element };
+  vm.runInNewContext(PROBE_SOURCE, { window, document });
+  assert.equal(window.findFiberState(element, v => v?.shapes && v?.mode), draft);
+  assert.equal(window.findFiberState(element, v => v?.shapes && v?.mode, { last: true }), preview);
 });
 
 test('the app test hook appears only when the desktop bridge enables it, and is read-only', async () => {

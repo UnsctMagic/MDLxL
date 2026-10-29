@@ -1,3 +1,4 @@
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 // Acceptance proof: an empty file becomes a house through public UI input only.
 // Every change is made with the mouse and keyboard (Forge buttons, dimension and
 // coordinate fields, double-click, viewport drags, Save). React state is read only
@@ -7,11 +8,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+
 const root = path.resolve(__dirname, '..');
 const out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/forge-house-proof');
-const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/forge-house-final/MDLxL-win32-x64/MDLxL.exe');
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const faceEditing = fs.readFileSync(path.join(__dirname, 'forge-face-editing.electron.cjs'), 'utf8');
 let helper = faceEditing.slice(faceEditing.indexOf('function readView'), faceEditing.indexOf('(async()=>{'));
 const handleEnd = 'y:r.y+(1-v.y)*r.height/2};}),surfaceColors:'; assert.ok(helper.includes(handleEnd), 'readView reports shaping handles');
@@ -27,9 +26,9 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
   const modelPath = path.join(out, 'Forge House.mdl');
   fs.writeFileSync(modelPath, 'Version { FormatVersion 800, }\nModel "Forge House" { BlendTime 150, }\n');
   const emptyBytes = fs.readFileSync(modelPath);
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', modelPath], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, `profile-${Date.now()}`) }, timeout: 60000 });
+  const launched = await launchApp({ out, fixture: modelPath, timeout: 60000, bounds: { x: 0, y: 0, width: 1600, height: 1000 }, show: 'hide', pageTimeout: 12000 }); const app = launched.app; const executable = launched.target.executablePath;
   let page, step = 0;
-  const errors = [], steps = [];
+  const errors=launched.errors, steps = [];
   const capture = async label => {
     const file = path.join(out, 'steps', `${String(++step).padStart(3, '0')}-${label}.png`);
     const pixels = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage().then(image => image.toPNG().toString('base64')));
@@ -37,22 +36,22 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
     steps.push(label);
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(12000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: 0, y: 0, width: 1600, height: 1000 }); });
+    page=launched.page;
+
     await page.getByLabel('3D model viewport', { exact: true }).waitFor(); await capture('empty-model');
     await page.locator('[data-hotkey="forge"]').click();
     const d = page.getByRole('dialog', { name: 'Forge', exact: true });
     await d.getByRole('tab', { name: 'Shape', exact: true }).click();
     // Deliberately human-paced, including ordinary button clicks.
-    const click = async name => { await d.getByRole('button', { name, exact: true }).click(); await sleep(250); };
-    const type = async (label, value) => { const field = d.getByLabel(label, { exact: true }); await field.fill(String(value)); await field.press('Enter'); await sleep(200); };
-    const view = async () => { await sleep(150); return page.evaluate(readView); };
+    const click = async name => { await d.getByRole('button', { name, exact: true }).click(); await settle(page, 250); };
+    const type = async (label, value) => { const field = d.getByLabel(label, { exact: true }); await field.fill(String(value)); await field.press('Enter'); await settle(page, 200); };
+    const view = async () => { await settle(page, 150); return page.evaluate(readView); };
     const draft = () => page.evaluate(readDraft);
     const drag = async (from, dx, dy, modifiers = []) => {
       for (const key of modifiers) await page.keyboard.down(key);
       await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(from.x + dx, from.y + dy, { steps: 12 }); await page.mouse.up();
       for (const key of modifiers) await page.keyboard.up(key);
-      await sleep(250);
+      await settle(page, 250);
     };
     // Add one piece from the shape palette with typed dimensions, then place its center.
     const piece = async (label, shape, [width, height, depth], [x, y, z]) => {
@@ -90,7 +89,7 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
     const chimney = await piece('chimney', 'Cube', [28, 80, 28], [60, 25, 190]);
     v = await view(); let doc = await draft(), shape = doc.shapes.find(s => s.id === chimney.id);
     let top = shape.faces.find(f => forgeFaceNormal(shape, f)[2] > .999), point = facePoint(v, doc, shape, top);
-    await page.mouse.dblclick(point.x, point.y, { delay: 90 }); await sleep(250);
+    await page.mouse.dblclick(point.x, point.y, { delay: 90 }); await settle(page, 250);
     doc = await draft(); assert.equal(doc.mode, 'Faces'); assert.deepEqual(doc.selection[chimney.id], [top.id]);
     await click('Inset'); doc = await draft(); shape = doc.shapes.find(s => s.id === chimney.id);
     assert.equal(doc.selection[chimney.id].length, 1); assert.ok(shape.faces.length > chimney.faces.length, 'inset adds a border');
@@ -114,8 +113,8 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
 
     await click('Add to model'); await d.waitFor({ state: 'hidden' }); await capture('added-to-model');
     await page.keyboard.press('Control+s');
-    for (let tries = 0; tries < 200 && fs.readFileSync(modelPath).equals(emptyBytes); tries++) await sleep(50);
-    await sleep(500); await capture('saved');
+    for (let tries = 0; tries < 200 && fs.readFileSync(modelPath).equals(emptyBytes); tries++) await settle(page, 50);
+    await settle(page, 500); await capture('saved');
 
     const { openDocument } = await import('../src/editor-document.js');
     const document = openDocument(fs.readFileSync(modelPath), 'Forge House.mdl');
@@ -138,5 +137,5 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
     fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, modelPath, construction: 'Public mouse/keyboard controls only, from an empty model', steps, geosets: geosets.length, triangles, rendererErrors: errors }, null, 2));
     console.log(`PASS: mouse-built house (${geosets.length} geosets, ${triangles} triangles) saved to ${modelPath}`);
   } catch (error) { if (page) await capture('failure').catch(() => {}); throw error; }
-  finally { await app.evaluate(({ app }) => app.exit(0)); }
+  finally{if(app)await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

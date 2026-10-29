@@ -1,5 +1,6 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 (async()=>{
   const root=process.cwd(),out=path.join(root,'out/showcase-text');fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument}=await import('../src/editor-document.js'),demo=createDemoDocument();
@@ -7,11 +8,11 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   demo.model.Cameras=[{Name:'Portrait Camera',Position:new Float32Array([0,-350,120]),TargetPosition:new Float32Array([0,0,100]),FieldOfView:Math.PI/4,NearClip:1,FarClip:1000}];
   const fixture=path.join(out,'TextEffects.mdx');fs.writeFileSync(fixture,demo.serialize('mdx'));
   const entry=path.join(out,'main.cjs');
-  fs.writeFileSync(entry,'const {app}=require("electron");app.getAppPath=()=>'+JSON.stringify(root)+';app.on("browser-window-created",(_,w)=>{w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);});require('+JSON.stringify(path.join(root,'electron/main.cjs'))+');');
-  const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',entry,fixture],cwd:root,env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:30000});
-  const errors=[];
+  fs.writeFileSync(entry,'const {app}=require("electron");app.getAppPath=()=>'+JSON.stringify(root)+';require('+JSON.stringify(path.join(root,'electron/main.cjs'))+');');
+  const launched = await launchApp({ out, fixture, entry, timeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 15000 }); const app = launched.app;
+  const errors=launched.errors;
   try{
-    const page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
+    const page=launched.page;
     await page.getByRole('button',{name:'Showcase',exact:true}).click();
     const textSection=page.getByRole('region',{name:'Text',exact:true});
     await textSection.getByRole('button',{name:'Add',exact:true}).click();
@@ -84,8 +85,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     assert.equal(report.fadeTotals[0],0);assert.equal(report.fadeTotals[5],0);assert.ok(Math.abs(report.fadeTotals[2]/report.fadeTotals[3]-.5)<.035);
     // Exercise the real recording API with the UI-created layer, then a frameless portrait.
     const capture=await page.locator('.showcase-record').evaluate(async element=>{
-      let fiber=element[Object.keys(element).find(key=>key.startsWith('__reactFiber$'))];while(fiber&&!fiber.memoizedProps?.captureAPI)fiber=fiber.return;
-      const api=fiber.memoizedProps.captureAPI;window.textTestCapture=api;await api.prepareRecording();
+      const api=findFiberState(element,p=>p?.captureAPI,{props:true}).captureAPI;window.textTestCapture=api;await api.prepareRecording();
       const values=[];for(const time of [0,2000,3500,6500]){await api.seekRecordingFrame(time);const overlay=document.querySelector('.showcase-layer-stage canvas'),data=overlay.getContext('2d').getImageData(0,0,overlay.width,overlay.height).data;let total=0;for(let i=3;i<data.length;i+=4)total+=data[i];values.push(total);}
       await api.seekRecordingFrame(3500);const recorded=api.captureFrame({maxDimension:900}),png=recorded.toDataURL('image/png');api.endRecording();return {values,png};
     });
@@ -99,6 +99,6 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     await page.screenshot({path:path.join(out,'portrait-controls.png')});
     assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({layout,report,capture,errors},null,2));
     console.log(JSON.stringify({layout,effects:report.effects,fadeExact:report.fadeExact,frameMs:report.frameMs,capture,errors},null,2));
-  }catch(error){const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png'),timeout:4000}).catch(()=>{});throw error;}
-  finally{await app.evaluate(({app})=>app.exit(0));}
+  }catch(error){const page=launched.page;await page.screenshot({path:path.join(out,'failure.png'),timeout:4000}).catch(()=>{});throw error;}
+  finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

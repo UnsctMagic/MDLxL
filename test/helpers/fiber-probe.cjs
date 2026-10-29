@@ -11,21 +11,35 @@
 // findFiberState(selector, predicate) is the generic walk for everything the hook does not cover: it starts at
 // the element's fiber, goes up through its owners and returns the first hook state, or ref value, that
 // matches predicate. { tree: true } searches the current root; { props: true } matches owner props instead.
+// current resolves the live DOM owner before walking ancestors; last retains assigning walks, where Forge's
+// live extrusion preview follows its canonical draft. Predicates may also inspect the matched owner's props.
 function install() {
   const fiberOf = element => element && element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
   const elementOf = selector => typeof selector === 'string' ? document.querySelector(selector) : selector;
   // tree/props cover Citadel's workspace and preview owners, which are siblings rather than ancestors.
-  window.findFiberState = (selector, predicate, { tree = false, props = false } = {}) => {
+  window.findFiberState = (selector, predicate, { tree = false, props = false, current = false, last = false } = {}) => {
     const match = fiber => {
       if (props) return predicate(fiber.memoizedProps) ? fiber.memoizedProps : null;
+      let found = null;
       for (let hook = fiber.memoizedState; hook && typeof hook === 'object' && 'next' in hook; hook = hook.next) {
         const state = hook.memoizedState;
-        if (state != null && predicate(state)) return state;
-        if (state?.current != null && predicate(state.current)) return state.current;
+        if (state != null && predicate(state, fiber.memoizedProps)) { if (!last) return state; found = state; }
+        if (state?.current != null && predicate(state.current, fiber.memoizedProps)) { if (!last) return state.current; found = state.current; }
       }
-      return null;
+      return found;
     };
-    let fiber = fiberOf(elementOf(selector));
+    const element = elementOf(selector);
+    let fiber = fiberOf(element);
+    if (current && fiber) {
+      let top = fiber; while (top.return) top = top.return;
+      fiber = null;
+      const stack = [top.stateNode.current];
+      while (stack.length) {
+        const owner = stack.pop();
+        if (owner.stateNode === element) { fiber = owner; break; }
+        for (let child = owner.child; child; child = child.sibling) stack.push(child);
+      }
+    }
     if (tree) {
       if (!fiber) return null;
       while (fiber.return) fiber = fiber.return;
@@ -40,11 +54,12 @@ function install() {
       };
       return visit(fiber.stateNode?.current || fiber);
     }
+    let found = null;
     for (; fiber; fiber = fiber.return) {
-      const found = match(fiber);
-      if (found != null) return found;
+      const value = match(fiber);
+      if (value != null) { if (!last) return value; found = value; }
     }
-    return null;
+    return found;
   };
   window.mdlxlProbe = (selector = '.game-preview-root') => {
     const hook = window.__mdlxl;

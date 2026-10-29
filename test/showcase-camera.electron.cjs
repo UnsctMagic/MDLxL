@@ -1,7 +1,8 @@
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out/showcase-camera', String(Date.now()));
@@ -10,24 +11,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   const doc = createDemoDocument(), fixture = path.join(out, 'CameraTest.mdx');
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   const original = fs.readFileSync(fixture);
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({
-    executablePath: process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', ...(packaged ? [fixture] : [root, fixture])], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLVIS_HEADLESS: '1' }, timeout: 60000,
-  });
+    const launched = await launchApp({ out, fixture, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 20000 }); const app = launched.app;
   try {
-    const page = await app.firstWindow(), errors = [];
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
-    page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
+    const page=launched.page, errors=launched.errors;
+
+
     await page.getByRole('button', { name: 'Showcase', exact: true }).click();
     await page.waitForFunction(() => !document.querySelector('.showcase-record')?.disabled);
     await page.evaluate(() => {
       window.cameraRuntime = () => {
         const el = document.querySelector('.showcase-preview .game-preview-root');
-        let fiber = el[Object.keys(el).find(key => key.startsWith('__reactFiber$'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next)
-          if (hook.memoizedState?.current?.controls) return hook.memoizedState.current;
+
+        { const state = findFiberState(el, state => state?.controls); if (state) return state; }
         throw Error('Preview runtime missing');
       };
     });
@@ -75,14 +70,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     });
     await page.mouse.up({ button: 'right' }); await rotate('left drag after pointer cancellation');
     await page.getByLabel('Crop size', { exact: true }).selectOption('square');
-    await page.waitForTimeout(150);
+    await settle(page, 150);
     await rotate('left drag with square crop');
     await page.keyboard.down('Shift'); await rotate('Shift left drag'); await page.keyboard.up('Shift');
     const beforeCtrl = await view(); await page.keyboard.down('Control'); await drag(); await page.keyboard.up('Control');
     assert.ok(delta(beforeCtrl.target, (await view()).target) > 1, 'Ctrl left drag retains pan');
     await rotate('left drag after modifier release');
     const beforeZoom = await view(); await page.mouse.move(x, y); await page.mouse.wheel(0, -120);
-    await page.waitForTimeout(150);
+    await settle(page, 150);
     assert.notEqual((await view()).fieldOfView, beforeZoom.fieldOfView, 'wheel zoom retained');
     await page.getByRole('button', { name: 'Vertices', exact: true }).click();
     await page.getByRole('button', { name: 'Showcase', exact: true }).click();
@@ -91,5 +86,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     assert.deepEqual(errors, []);
     await page.screenshot({ path: path.join(out, 'rotation-restored.png') });
     console.log('PASS Showcase camera: ' + out);
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

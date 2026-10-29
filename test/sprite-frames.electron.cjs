@@ -1,22 +1,24 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { gameFolder } = require('./helpers/fixtures.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 // The game's own sprite sheets offer the game's frame setups; the grid and frames can be set by hand.
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out','sprite-frames','run-'+Date.now());await fs.mkdir(out,{recursive:true});
- const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader('D:/Warcraft III',root);let bytes;
+ const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader(await gameFolder(),root);let bytes;
  try{bytes=await reader.read('war3.w3mod:abilities\\spells\\human\\polymorph\\polymorphdoneground.mdx');}finally{reader.close();}
  const fixture=path.join(out,'PolymorphDoneGround.mdx');await fs.writeFile(fixture,bytes);
  let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setFocusable(false);w.setSkipTaskbar(true);w.setIgnoreMouseEvents(true);w.setOpacity(0);w.setSize(1400,920);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page;
+
   await page.getByText('Opened PolymorphDoneGround.mdx',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.waitFor();
   if(await editor.getByRole('button',{name:'Close Particle Library',exact:true}).count())await editor.getByRole('button',{name:'Close Particle Library',exact:true}).click();
   await editor.getByLabel('Particle context',{exact:true}).selectOption('On model');
-  const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return){const doc=f.memoizedProps?.doc;if(doc?.model)return {emitters:JSON.parse(JSON.stringify(doc.model.ParticleEmitters2.map(p=>({id:p.ObjectId,texture:doc.model.Textures[p.TextureID]?.Image,Rows:p.Rows,Columns:p.Columns,life:p.LifeSpanUVAnim,decay:p.DecayUVAnim})))),undo:doc.historyStats.undoSteps};}throw Error('Model missing');});
+  const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => { const doc = props?.doc; return doc?.model; }, { props: true }); if (props) { const doc = props?.doc; return {emitters:JSON.parse(JSON.stringify(doc.model.ParticleEmitters2.map(p=>({id:p.ObjectId,texture:doc.model.Textures[p.TextureID]?.Image,Rows:p.Rows,Columns:p.Columns,life:p.LifeSpanUVAnim,decay:p.DecayUVAnim})))),undo:doc.historyStats.undoSteps}; } }throw Error('Model missing');});
   const before=await read(),sheet=before.emitters.find(p=>/clouds8x8/i.test(p.texture||''));assert.ok(sheet,'The model uses a game cloud sheet');
   await editor.getByLabel('Effect ingredient',{exact:true}).selectOption(String(sheet.id));
   const frames=editor.getByLabel('Frames',{exact:true});await frames.waitFor();
@@ -35,5 +37,5 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   assert.equal(await editor.getByRole('button',{name:'Load own sprite sheet…',exact:true}).count(),0,'No second load button');
   await page.screenshot({path:path.join(out,'own-frames.png')});
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out,frameChoices:options.length}));
- }finally{const child=app?.process();await Promise.race([app?.close().catch(()=>{}),new Promise(done=>setTimeout(done,8000))]);if(child&&child.exitCode==null)child.kill();}
+ }finally{if(app)await closeApp(app);}
 })().then(()=>process.exit(0),error=>{console.error(error);process.exit(1);});

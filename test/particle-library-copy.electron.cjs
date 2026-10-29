@@ -1,4 +1,5 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 const {ParticleLibrary}=require('../electron/particle-library.cjs');
 (async()=>{
@@ -17,13 +18,13 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  const {createDemoDocument}=await import('../src/editor-document.js'),fixture=path.join(out,'target.mdx'),fixtureBytes=Buffer.from(createDemoDocument().serialize('mdx'));await fs.writeFile(fixture,fixtureBytes);
  let app;const errors=[];
  const launch=async()=>{
-  app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1400,920);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, fixture, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page;
+
   await page.getByText('Opened target.mdx',{exact:true}).waitFor();await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();
   await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();await page.waitForFunction(()=>document.querySelector('.pe-library')?.getAttribute('aria-busy')==='false');return page;
  };
- const lab=page=>page.evaluate(()=>{let f=document.querySelector('.pe-window');f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {key:v.key,undo:v.doc.historyStats.undoSteps,scaling:Array.from(v.doc.model.ParticleEmitters2[0].ParticleScaling)};}throw Error('Lab missing');});
+ const lab=page=>page.evaluate(()=>{let f=document.querySelector('.pe-window');{ const v = findFiberState(f, v => v?.doc?.model&&v?.recipe); if (v) return {key:v.key,undo:v.doc.historyStats.undoSteps,scaling:Array.from(v.doc.model.ParticleEmitters2[0].ParticleScaling)}; }throw Error('Lab missing');});
  try{
   const page=await launch(),dialog=page.getByRole('dialog',{name:'Particle Editor',exact:true}),size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});
   const openStock=async()=>{await page.getByRole('button',{name:'Warcraft',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'Stock sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});};
@@ -37,8 +38,8 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.equal(await fs.readFile(stockFile,'utf8'),stockData);assert.deepEqual(await fs.readFile(fixture),fixtureBytes);
   await page.screenshot({path:path.join(out,'library-copy.png')});
   await dialog.getByRole('button',{name:'Close Particle Editor',exact:true}).click();await dialog.waitFor({state:'hidden'});
-  await app.evaluate(({app})=>app.exit(0));app=null;
+  await closeApp(app, { keepProfile: true });app=null;
   const restarted=await launch();assert.deepEqual((await lab(restarted)).scaling,edited.scaling,'Current draft survives restart independently');
   assert.deepEqual(errors,[]);console.log('Default-linked legacy edits ignored; independent default copies, save preset, immutable saved presets, draft restart and unchanged model file passed.');
- }finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await store.close();}
+ }finally{if(app)await closeApp(app);await store.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

@@ -135,7 +135,8 @@ async function runSuite() {
       : !playwright ? { status: 'fail', reason: 'Playwright not found: set MDLXL_REAL_PLAYWRIGHT' } : null;
     if (notRun) { summary.results[name] = notRun; save(); console.log(`${name}: ${notRun.status} (${notRun.reason})`); continue; }
     const log = path.join(outDir, name + '.log');
-    const env = { ...process.env, TEMP: tmp, TMP: tmp, MDLXL_TEMP: tmp, MDLVIS_HEADLESS: '1', MDLXL_PLAYWRIGHT_MODULE: path.join(root, 'scripts/playwright-variant.cjs'), MDLXL_REAL_PLAYWRIGHT: playwright, MDLXL_VARIANT_ARGS: '', MDLXL_VARIANT_CPU: '', MDLXL_TEST_EXE: DEV_ONLY.includes(name) ? '' : exe, ...VARIANTS[variant], ...(special.env || {}) };
+    // DEV_ONLY wrappers must not inherit the release-package fallback now that they use appTarget().
+    const env = { ...process.env, TEMP: tmp, TMP: tmp, MDLXL_TEMP: tmp, MDLVIS_HEADLESS: '1', MDLXL_PLAYWRIGHT_MODULE: path.join(root, 'scripts/playwright-variant.cjs'), MDLXL_REAL_PLAYWRIGHT: playwright, MDLXL_VARIANT_ARGS: '', MDLXL_VARIANT_CPU: '', MDLXL_TEST_EXE: DEV_ONLY.includes(name) ? '' : exe, MDLXL_SUITE_PKG: DEV_ONLY.includes(name) ? '' : process.env.MDLXL_SUITE_PKG || '', ...VARIANTS[variant], ...(special.env || {}) };
     const timeout = special.timeout || TIMEOUT, started = Date.now(), stream = fs.openSync(log, 'w');
     let testPid = 0;
     const code = await new Promise(resolve => {

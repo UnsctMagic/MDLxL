@@ -1,5 +1,6 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out/showcase-review/ui-'+Date.now());fs.mkdirSync(out,{recursive:true});
  const {createDemoDocument}=await import('../src/editor-document.js');const demo=createDemoDocument();
@@ -14,10 +15,10 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
  const {GameDataDiscovery}=require(${JSON.stringify(path.join(root,'electron/game-data.cjs'))});GameDataDiscovery.prototype.discover=async()=>({folders:[],archives:[],cascFolders:[]});
  global.nextOpen=null;require('electron').dialog.showOpenDialog=async()=>{if(!global.nextOpen)throw Error('No test file selected');const file=global.nextOpen;global.nextOpen=null;return {canceled:false,filePaths:[file]};};
 
- app.on('browser-window-created',(_,w)=>w.webContents.setBackgroundThrottling(false));require(${JSON.stringify(path.join(root,'electron/main.cjs'))});`);
- const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',entry,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});let clipboard;
+ require(${JSON.stringify(path.join(root,'electron/main.cjs'))});`);
+ const launched = await launchApp({ out, fixture, entry, timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 20000 }); const app = launched.app;let clipboard;
  try{
-  clipboard=await app.evaluate(({clipboard})=>clipboard.readText());const page=await app.firstWindow();page.setDefaultTimeout(20000);
+  clipboard=await app.evaluate(({clipboard})=>clipboard.readText());const page=launched.page;
   await page.getByRole('button',{name:'Showcase',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.showcase-record')&&!document.querySelector('.showcase-record').disabled);
   const level=name=>page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:name,exact:true}),controls=page.getByRole('complementary',{name:'Showcase controls'});
   assert.equal(await level('Medium').getAttribute('aria-pressed'),'true');assert.deepEqual(await page.locator('.showcase-format button').allInnerTexts(),['Low','Medium','High','Best']);
@@ -39,5 +40,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   await page.getByRole('button',{name:'Vertices',exact:true}).click();await app.evaluate(({BrowserWindow},file)=>{global.nextOpen=file;BrowserWindow.getAllWindows()[0].webContents.send('menu','open');},third);await page.waitForFunction(()=>document.title.includes('LayoutC'));await page.getByRole('button',{name:'Showcase',exact:true}).click();await page.locator('.showcase-model-file small').filter({hasText:'LayoutC.mdx'}).waitFor();assert.equal(await page.getByRole('list',{name:'Animation sequence'}).locator('li').count(),0);assert.equal(await page.getByLabel('Text content').inputValue(),'MEGAZORD');assert.equal(await page.getByLabel('Crop size',{exact:true}).inputValue(),'classic');
   await page.getByRole('tab',{name:'Portrait',exact:true}).click();assert.match(await page.getByRole('list',{name:'Animation sequence'}).innerText(),/Portrait Talk/);
   fs.writeFileSync(path.join(out,'ratios.json'),JSON.stringify(records,null,2));await page.screenshot({path:path.join(out,'layout.png')});console.log('PASS ratios, quality levels, separate main picture, isolated loading and retained setup: '+out);
- }finally{if(clipboard!==undefined)await app.evaluate(({clipboard},text)=>clipboard.writeText(text),clipboard);await app.close();}
+ }finally{if(clipboard!==undefined)await app.evaluate(({clipboard},text)=>clipboard.writeText(text),clipboard);await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

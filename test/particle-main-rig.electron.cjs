@@ -1,15 +1,16 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','main-rig-'+Date.now());await fs.mkdir(out,{recursive:true});
  const {createDemoDocument}=await import('../src/editor-document.js'),doc=createDemoDocument();doc.model.Sequences=[];
  const fixture=path.join(out,'Static sword.mdx'),bytes=Buffer.from(doc.serialize('mdx'));await fs.writeFile(fixture,bytes);let app;
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
-  const page=await app.firstWindow(),errors=[];page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1400,920);w.setPosition(-3000,0);w.webContents.setBackgroundThrottling(false);w.showInactive();});
+  const launched = await launchApp({ out, fixture, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page,errors=launched.errors;
+
   await page.getByText('Opened Static sword.mdx',{exact:true}).waitFor();
-  const read=()=>page.evaluate(()=>{let el=document.querySelector('.classic-app'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v.assets)return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps};}throw Error('Document missing');});
+  const read=()=>page.evaluate(()=>{let el=document.querySelector('.classic-app');{ const v = findFiberState(el, v => v?.doc?.model&&v.assets); if (v) return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps}; }throw Error('Document missing');});
   const before=await read();assert.equal(before.model.Sequences.length,0);
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await page.getByLabel('Particle context',{exact:true}).waitFor();if(await page.getByRole('button',{name:'Close Particle Library',exact:true}).count())await page.getByRole('button',{name:'Close Particle Library',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.getByRole('button',{name:'Add to model',exact:true}).click();
@@ -19,7 +20,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByRole('checkbox',{name:'Bones',exact:true}).check();await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(id));
   await page.getByRole('button',{name:'Move',exact:true}).click();const x=page.getByLabel('X coordinate',{exact:true});await x.fill('80');await x.press('Enter');
   const moved=await read();assert.equal(moved.model.ParticleEmitters2[0].PivotPoint[0],80);assert.equal(moved.undo,placed.undo+1);assert.deepEqual(moved.model.Bones,placed.model.Bones);assert.deepEqual(moved.model.Geosets,placed.model.Geosets);
-  const project=async point=>page.evaluate(point=>{const el=document.querySelector('.game-preview-root');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const state=h.memoizedState?.current;if(state?.native&&state.controls){const p=state.controls.target.clone().set(...point).project(state.controls.object),r=el.querySelector('[data-clean-model-canvas]').getBoundingClientRect();return {x:r.x+(p.x+1)*r.width/2,y:r.y+(1-p.y)*r.height/2};}}throw Error('Camera missing');},point);
+  const project=async point=>page.evaluate(point=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el).runtime; if (state) {const p=state.controls.target.clone().set(...point).project(state.controls.object),r=el.querySelector('[data-clean-model-canvas]').getBoundingClientRect();return {x:r.x+(p.x+1)*r.width/2,y:r.y+(1-p.y)*r.height/2};} }throw Error('Camera missing');},point);
   const emitterPoint=await project(Object.values(moved.model.ParticleEmitters2[0].PivotPoint));await page.mouse.move(emitterPoint.x,emitterPoint.y);await page.mouse.down();await page.mouse.move(emitterPoint.x+35,emitterPoint.y-15,{steps:5});await page.mouse.up();
   const dragged=await read();assert.notDeepEqual(dragged.model.ParticleEmitters2[0].PivotPoint,moved.model.ParticleEmitters2[0].PivotPoint,'Dragging the selected emitter moves its pivot');assert.equal(dragged.undo,moved.undo+1);assert.deepEqual(dragged.model.Bones,moved.model.Bones);
   await page.getByRole('button',{name:'Attach',exact:true}).click();const rootPoint=await project(Object.values(before.model.Bones[0].PivotPoint));await page.mouse.click(rootPoint.x,rootPoint.y);
@@ -30,5 +31,5 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByRole('button',{name:'Edit effect',exact:true}).click();assert.equal(await page.getByLabel('Effect ingredient',{exact:true}).inputValue(),String(id));await editor.getByRole('button',{name:'Remove',exact:true}).click();assert.equal((await read()).model.ParticleEmitters2.length,0);await editor.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await read()).model.ParticleEmitters2,hidden.model.ParticleEmitters2);
   assert.deepEqual((await read()).model.Sequences,[]);assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);console.log('Static model insertion, coordinate and pointer move, Attach/Detach, visibility, removal and undo passed.');
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-2200));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
- finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exit(1);});

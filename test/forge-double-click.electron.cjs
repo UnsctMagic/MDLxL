@@ -1,9 +1,9 @@
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 // Packaged integration: all edits use mouse/keyboard; runtime reads only assert results.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+
 const root = path.resolve(__dirname, '..');
 const out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/forge-double-click');
-const executable = process.env.MDLXL_TEST_EXE;
 const existing = fs.readFileSync(path.join(root, 'test/forge-face-editing.electron.cjs'), 'utf8');
 eval(existing.slice(existing.indexOf('function readView'), existing.indexOf('(async()=>{')));
 function visibleFaces(state, index = 0) {
@@ -18,21 +18,21 @@ function visibleFaces(state, index = 0) {
 }
 (async () => {
   fs.mkdirSync(out, { recursive: true });
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '0', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000 });
-  let page; const checks = [], errors = [];
+  const launched = await launchApp({ out, env: { MDLVIS_HEADLESS: '0' }, timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive', pageTimeout: 15000 }); const app = launched.app; const executable = launched.target.executablePath;
+  let page; const checks = [], errors=launched.errors;
   const capture = async name => {
-    await page.waitForTimeout(500);
+    await settle(page, 500);
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage());
-    await page.waitForTimeout(150);
+    await settle(page, 150);
     const b64 = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage().then(i => i.toPNG().toString('base64')));
     fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(b64, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
+    page=launched.page;
     await page.getByRole('button', { name: 'Forge', exact: true }).click();
     const d = page.getByRole('dialog', { name: 'Forge', exact: true });
-    const click = async name => { await d.getByRole('button', { name, exact: true }).click(); await page.waitForTimeout(120); };
-    const read = async () => { await page.waitForTimeout(150); return page.evaluate(readView); };
+    const click = async name => { await d.getByRole('button', { name, exact: true }).click(); await settle(page, 120); };
+    const read = async () => { await settle(page, 150); return page.evaluate(readView); };
     const pick = async p => { await page.mouse.dblclick(p.x, p.y, { delay: 90 }); return read(); };
     const mode = state => state.modelingOverlay[0].mode;
     const face = state => { assert.equal(mode(state), 'Faces'); assert.equal(state.modelingOverlay[0].selectedFaceIndices.length, 6); assert.equal(state.editOverlays[0].faces, true); };
@@ -147,5 +147,5 @@ function visibleFaces(state, index = 0) {
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ pass: true, executable, checks, rendererErrors: errors }, null, 2));
     console.log(JSON.stringify({ pass: true, checks }, null, 2));
   } catch (error) { if (page) await capture('failure'); throw error; }
-  finally { await app.evaluate(({ app }) => app.exit(0)); }
+  finally{if(app)await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
