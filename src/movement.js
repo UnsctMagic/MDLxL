@@ -1,10 +1,9 @@
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { allNodes, inheritedParentMatrix, nodePivot, sampleNodeMatrices, sampleNodeProperty, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
 
 export const movementProperties = { move: 'Translation', rotate: 'Rotation', scale: 'Scaling' };
-const defaults = { Translation: [0, 0, 0], Rotation: [0, 0, 0, 1], Scaling: [1, 1, 1] };
 const axes = ['X', 'Y', 'Z'];
 const vector = values => new Vector3().fromArray(values);
 
@@ -43,7 +42,7 @@ export function applyRestPoseTransform(model, ids, change = {}) {
   if (input.length !== 3 || input.some(value => !Number.isFinite(value))) throw new Error('Enter finite X, Y, and Z values.');
   const offset = constrainMovementVector(input, change), nodes = selectedNodes(model, ids);
   const changes = nodes.map(node => {
-    const pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0];
+    const pivot = nodePivot(model, node);
     const values = Array.from(pivot, (value, i) => value + offset[i]);
     if (values.length !== 3 || values.some(value => !Number.isFinite(value) || Math.abs(value) > 3.4028234663852886e38)) throw new Error('The resulting pivot must contain finite model coordinates.');
     return { node, pivot: new Float32Array(values) };
@@ -66,10 +65,7 @@ export function movementFrame(model, node, property, time, sequenceIndex) {
 }
 
 export function sampleMovement(model, node, property, time, sequenceIndex) {
-  return Array.from(sampleTrack(node[property], time, {
-    interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences,
-    globalTime: time, fallback: defaults[property], quaternion: property === 'Rotation',
-  }));
+  return sampleNodeProperty(model, node, property, time, sequenceIndex);
 }
 
 function selectedNodes(model, ids) {
@@ -116,7 +112,7 @@ export function setMovementControllerType(model, ids, sequenceIndex, mode, lineT
     let track;
     if (source?.Keys) track = source;
     else {
-      const value = Array.from(source || defaults[property]);
+      const value = Array.from(source || TRANSFORM_DEFAULTS[property]);
       const frames = interval ? [...new Set(Array.from(interval))] : [0];
       track = { LineType: lineType, GlobalSeqId: null, Keys: frames.map(Frame => ({ Frame, Vector: new Float32Array(value) })) };
       node[property] = track;
@@ -220,14 +216,7 @@ export function deleteMovementControllers(model, ids, sequenceIndex = -1) {
 // deltas follow the current bone axes; world deltas are conjugated by the
 // effective parent rotation before being written into the WC3 local track.
 export function movementParentMatrix(node, matrices) {
-  const parent = matrices.get(node.Parent)?.clone() || new Matrix4();
-  if (!(node.Flags & 7)) return parent;
-  const position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
-  parent.decompose(position, rotation, scale);
-  if (node.Flags & 1) position.set(0, 0, 0);
-  if (node.Flags & 2) rotation.identity();
-  if (node.Flags & 4) scale.set(1, 1, 1);
-  return parent.compose(position, rotation, scale);
+  return inheritedParentMatrix(matrices.get(node.Parent)?.clone() || new Matrix4(), node.Flags);
 }
 
 function writeKey(model, node, property, time, sequenceIndex, values, transformTangent) {
@@ -291,7 +280,7 @@ export function prepareMovementPose(model, changes, time, sequenceIndex, restric
       if (q.dot(new Quaternion().fromArray(stored)) < 0) q.set(-q.x, -q.y, -q.z, -q.w);
       values = q.toArray();
     } else if (values.every((value, i) => Math.abs(value - sampled[i]) <= 1e-8)) continue;
-    if (prior && !prior.Keys && Array.from(prior).some((value, i) => value !== defaults[property][i])) throw new Error('A static transform cannot become a local POSE track without changing other animations.');
+    if (prior && !prior.Keys && Array.from(prior).some((value, i) => value !== TRANSFORM_DEFAULTS[property][i])) throw new Error('A static transform cannot become a local POSE track without changing other animations.');
     if (prior?.Keys && (![0, 1, 2, 3].includes(prior.LineType) || prior.Keys.some(key => !Number.isInteger(key.Frame) || key.Vector?.length !== values.length || !finitePoseVector(key.Vector) || prior.LineType >= 2 && ['InTan', 'OutTan'].some(tangent => key[tangent]?.length !== values.length || !finitePoseVector(key[tangent] || []))))) throw new Error('The existing transform controller is malformed.');
     const seeded = !prior?.Keys?.some(key => key.Frame >= interval[0] && key.Frame <= interval[1]);
     const timestamps = seeded ? [...new Set([time, ...interval])] : [time];

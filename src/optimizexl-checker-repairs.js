@@ -5,7 +5,7 @@
 // `exact` rules do not change how the model looks or plays in the game;
 // rules with `choices` need a decision and start on the listed default.
 import { createNode } from './editor-document.js';
-import { allNodes, sampleTrack } from './animation.js';
+import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { changeNodeType, remapNodes } from './optimizexl-nodes.js';
 
 const json = x => JSON.stringify(x, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
@@ -32,7 +32,7 @@ function trackEntries(m) {
   return out;
 }
 const keyValue = key => key.Vector.length === 1 ? key.Vector[0] : new Float32Array(key.Vector);
-const isIdentity = (prop, value) => json(value) === json(prop === 'Rotation' ? [0, 0, 0, 1] : prop === 'Scaling' ? [1, 1, 1] : prop === 'Translation' ? [0, 0, 0] : 1);
+const isIdentity = (prop, value) => json(value) === json(TRANSFORM_DEFAULTS[prop] ?? 1);
 /** Replace an animated property with a constant. False when MDX cannot store
  * that property as a constant other than its built-in default. */
 function makeStatic(m, path, value, dryRun = false) {
@@ -49,7 +49,7 @@ function makeStatic(m, path, value, dryRun = false) {
 function emptyValue(m, path) {
   const owner = resolve(m, path.slice(0, -1)), prop = path.at(-1);
   if (owner?._MdxDefaults && prop in owner._MdxDefaults) return owner._MdxDefaults[prop];
-  if (TRANSFORMS.has(prop)) return prop === 'Rotation' ? new Float32Array([0, 0, 0, 1]) : new Float32Array(prop === 'Scaling' ? [1, 1, 1] : [0, 0, 0]);
+  if (TRANSFORMS.has(prop)) return new Float32Array(TRANSFORM_DEFAULTS[prop]);
   if (prop === 'Visibility' || prop === 'Alpha') return 1;
   if (prop === 'Color' && path[0] === 'GeosetAnims') return new Float32Array([1, 1, 1]);
   return undefined;

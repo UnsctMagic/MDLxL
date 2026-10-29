@@ -2,7 +2,7 @@ import { MODEL_COMMENTS_KEY } from './model-comments.js';
 import { generateCompatibleMdx as generateMDX } from './mdx-compatibility.js';
 import { EditorDocument, openDocument, validateModel } from './editor-document.js';
 import { parseMdx } from './mdx-container.js';
-import { sampleTrack } from './animation.js';
+import { sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { writeMdxEventGlobalSequences } from './event-object-codec.js';
 import { convertMdxGeosetColorTracks } from './geoset-color-codec.js';
 import { Buffer } from 'buffer';
@@ -148,7 +148,7 @@ export function verifyTransformReduction(before, after, sequences) {
       const left = old.Keys[i - 1], right = old.Keys[i + 1];
       const interval = intervals.find(([start, end]) => left?.Frame >= start && right?.Frame <= end && key.Frame > start && key.Frame < end);
       if (!left || !right || !key.Frame || !interval || !equal(left.Vector, key.Vector) || !equal(right.Vector, key.Vector)) throw Error('A removed transform key is not independently proven redundant.');
-      const options = { interval, fallback: property === 'Rotation' ? [0, 0, 0, 1] : property === 'Scaling' ? [1, 1, 1] : [0, 0, 0], quaternion: property === 'Rotation' };
+      const options = { interval, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' };
       for (const frame of [left.Frame, (left.Frame + key.Frame) / 2, key.Frame, (key.Frame + right.Frame) / 2, right.Frame]) requireSame(sampleTrack(old, frame, options), sampleTrack(next, frame, options), 'Transform evaluation changed.');
     }
     if (cursor !== next.Keys.length) throw Error('Transform keys were added or reordered.');

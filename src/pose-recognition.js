@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import { nodePivot } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 
 // Recognition evidence is computed from the authored model, once per setup.
@@ -29,7 +30,7 @@ export function poseRecognitionEvidence(model) {
   const supported = node => !!profiles.get(node.ObjectId)?.skin || descendants(node.ObjectId).some(child => profiles.get(child.ObjectId)?.skin);
   const articulated = node => moving(node) || descendants(node.ObjectId).some(moving);
   const links = id => (children.get(id) || []).filter(articulated);
-  const pivot = node => new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]);
+  const pivot = node => new Vector3().fromArray(nodePivot(model, node));
   // Compare mirror geometry about the common branch point. Facing may be X or Y.
   const mirrorError = (a, b, origin, span) => Math.min(...[0, 1].map(axis => {
     const av = a.clone().sub(origin), bv = b.clone().sub(origin);

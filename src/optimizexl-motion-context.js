@@ -1,5 +1,6 @@
 import { Quaternion } from 'three';
-import { allNodes, sampleTrack, sampleGeosetAnimation } from './animation.js';
+import { allNodes, keysInInterval, sampleTrack, sampleGeosetAnimation } from './animation.js';
+import { rotationDistance } from './motion-inspector.js';
 import { scanIrregularMotion, applyMotionCorrection } from './optimizexl-motion.js';
 import { scanSuspiciousSnaps } from './optimizexl-snaps.js';
 
@@ -9,9 +10,7 @@ const length = a => Math.hypot(...a);
 const subtract = (a, b) => a.map((v, i) => v - b[i]);
 const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
 const keyValue = k => Array.from(k.Vector);
-const distance = (a, b, property) => property === 'Rotation'
-  ? new Quaternion().fromArray(a).normalize().angleTo(new Quaternion().fromArray(b).normalize()) * 180 / Math.PI
-  : length(subtract(a, b));
+const distance = (a, b, property) => property === 'Rotation' ? rotationDistance(a, b) : length(subtract(a, b));
 const blend = (a, b, t, property) => property === 'Rotation'
   ? new Quaternion().fromArray(a).normalize().slerp(new Quaternion().fromArray(b).normalize(), t).toArray()
   : a.map((v, i) => v + (b[i] - v) * t);
@@ -107,7 +106,7 @@ export function scanModelMotionContext(model, existing = []) {
     for (const node of nodes) for (const property of properties) {
       const source = node[property], weights = influence.get(`${node.ObjectId}:${property}`);
       if (!source?.Keys || source.LineType === 0 || Number.isInteger(source.GlobalSeqId) && source.GlobalSeqId >= 0 || !weights) continue;
-      const keys = source.Keys.filter(k => k.Frame >= interval[0] && k.Frame <= interval[1]); if (keys.length < 2) continue;
+      const keys = keysInInterval(source, interval); if (keys.length < 2) continue;
       const geosets = [...weights.keys()].filter(i => visible.has(i)), coverage = total ? geosets.reduce((n, i) => n + weights.get(i), 0) / total : 0;
       if (!coverage) continue;
       const r = { node, property, sequence, keys, track: { ...source, Keys: keys }, coverage, geosets, events: [], candidates: [], speeds: [] };

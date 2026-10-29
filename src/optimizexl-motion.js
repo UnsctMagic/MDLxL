@@ -1,20 +1,18 @@
 import { Quaternion } from 'three';
-import { allNodes } from './animation.js';
-import { scanCurveMotion } from './motion-inspector.js';
+import { allNodes, keysInInterval, nodePivot } from './animation.js';
+import { rotationDistance, scanCurveMotion } from './motion-inspector.js';
 
 const properties = ['Translation', 'Rotation', 'Scaling'];
 const local = track => track?.Keys?.length && track.LineType !== 0 && !(Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0);
 const quantile = (values, q) => values.length ? [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) * q)] : 0;
-const angle = (a, b) => new Quaternion().fromArray(a).normalize().angleTo(new Quaternion().fromArray(b).normalize()) * 180 / Math.PI;
 const value = (key, axis) => axis === null ? Array.from(key.Vector) : key.Vector[axis];
-const distance = (a, b, axis) => axis === null ? angle(a, b) : Math.abs(a - b);
+const distance = (a, b, axis) => axis === null ? rotationDistance(a, b) : Math.abs(a - b);
 const blend = (a, b, t, axis) => axis === null
   ? new Quaternion().fromArray(a).normalize().slerp(new Quaternion().fromArray(b).normalize(), t).toArray()
   : a + (b - a) * t;
 const speed = (a, b, axis) => a && b && a.Frame !== b.Frame ? distance(value(a, axis), value(b, axis), axis) * 1000 / Math.abs(a.Frame - b.Frame) : 0;
-const inInterval = (track, interval) => track.Keys.filter(k => k.Frame >= interval[0] && k.Frame <= interval[1]);
 const signature = (track, interval, p) => JSON.stringify({ line: track.LineType, global: track.GlobalSeqId ?? null,
-  keys: inInterval(track, interval).map(k => [k.Frame, ...['Vector', 'InTan', 'OutTan'].map(name => k[name] && Array.from(k[name], Math.fround))]),
+  keys: keysInInterval(track, interval).map(k => [k.Frame, ...['Vector', 'InTan', 'OutTan'].map(name => k[name] && Array.from(k[name], Math.fround))]),
   segments: p.segments, bridges: p.bridges });
 
 function mergeSpans(spans) {
@@ -35,7 +33,7 @@ function mergeSpans(spans) {
  */
 export function scanIrregularMotion(model) {
   const nodes = allNodes(model), sequences = model.Sequences || [];
-  const size = Math.max(1, model.Info?.BoundsRadius || 0, ...nodes.map(n => Math.hypot(...(n.PivotPoint || model.PivotPoints?.[n.ObjectId] || [0, 0, 0]))));
+  const size = Math.max(1, model.Info?.BoundsRadius || 0, ...nodes.map(n => Math.hypot(...nodePivot(model, n))));
   const minimum = { Translation: size * .003, Rotation: 3, Scaling: .04 };
   const records = [], curves = new Map();
   for (let sequence = 0; sequence < sequences.length; sequence++) {
@@ -45,7 +43,7 @@ export function scanIrregularMotion(model) {
     for (const node of nodes) for (const property of properties) {
       const track = node[property];
       if (!local(track)) continue;
-      const keys = inInterval(track, sequences[sequence].Interval);
+      const keys = keysInInterval(track, sequences[sequence].Interval);
       if (keys.length < 2) continue;
       for (const axis of property === 'Rotation' ? [null] : [0, 1, 2]) records.push({ sequence, node, property, axis, track, keys,
         speeds: keys.slice(1).map((k, i) => speed(keys[i], k, axis)) });
@@ -180,7 +178,7 @@ export function scanIrregularMotion(model) {
     p.bridges = (p.property === 'Rotation' ? [null] : [0, 1, 2]).flatMap(axis => mergeSpans(p.bridges.filter(b => b.axis === axis)).map(b => ({ ...b, axis })));
     const track = nodes.find(n => n.ObjectId === p.nodeId)[p.property], interval = sequences[p.sequence].Interval;
     const ranges = [...p.segments, ...p.bridges]; p.start = Math.min(...ranges.map(s => s.start)); p.end = Math.max(...ranges.map(s => s.end));
-    p.frame = p.start; p.keyTimes = inInterval(track, interval).filter(k => k.Frame >= p.start && k.Frame <= p.end).map(k => k.Frame);
+    p.frame = p.start; p.keyTimes = keysInInterval(track, interval).filter(k => k.Frame >= p.start && k.Frame <= p.end).map(k => k.Frame);
     p.signature = signature(track, interval, p);
     p.label = `${sequences[p.sequence].Name}: irregular movement (${p.nodeName})`;
     p.detail = `Remove ${p.reasons.join(' and ')} from ${sequences[p.sequence].Name}${p.wholeBody ? ' (whole body)' : ''}. Replace the affected ${p.property.toLowerCase()} only; keep surrounding poses and other motion. Approve or skip after previewing.`;
@@ -203,7 +201,7 @@ export function repairMotionIrregularity(model, fix, evidenceModel = model) {
 export function applyMotionCorrection(model, warning) {
   const fix = warning;
   const track = allNodes(model).find(n => n.ObjectId === fix.nodeId)[fix.property];
-  const keys = inInterval(track, model.Sequences[fix.sequence].Interval), rotation = fix.property === 'Rotation';
+  const keys = keysInInterval(track, model.Sequences[fix.sequence].Interval), rotation = fix.property === 'Rotation';
   for (const { start, end, axis } of warning.bridges) {
     const a = keys.find(k => k.Frame === start), b = keys.find(k => k.Frame === end), av = value(a, axis), bv = value(b, axis);
     for (const k of keys) if (k.Frame > start && k.Frame < end) {

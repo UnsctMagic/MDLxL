@@ -1,6 +1,6 @@
 import { evaluateModelCamera, updateModelCameraFromView, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from './portrait-view.js';
 import { Box3, Vector3 } from 'three';
-import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
+import { allNodes, nodePivot, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
 import { poseNodeRole } from '../src/pose-ik.js';
 
 // MDX stores camera names in 80 bytes (ASCII), including the terminating zero.
@@ -132,7 +132,7 @@ export function portraitHeadNode(model, matrices = sampleNodeMatrices(model, 0, 
 }
 
 function nodePoint(model, node, matrices) {
-  const point = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0,0,0]);
+  const point = new Vector3().fromArray(nodePivot(model, node));
   const matrix = matrices.get(node.ObjectId);
   return matrix ? point.applyMatrix4(matrix) : point;
 }
