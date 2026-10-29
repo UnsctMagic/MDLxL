@@ -538,3 +538,130 @@ test('complex steering hands a running lighter bird to the chosen model',async t
  assert.equal((await running).ok,true);
  assert.deepEqual(f.requests.map(r=>r.data.model),['test-mini','test']);
 });
+
+
+test('automatic organiser resolves bird ids and names and sees the current job context', async t => {
+  let destination = 'id';
+  const f = await setup(t, { organiser: () => assert.fail('No recap'), worker: data => {
+    if (!data.messages[0].content.startsWith('Route one message')) return say('Finished.');
+    const input = JSON.parse(userText(data));
+    assert.equal(input.current.name, 'Crow');
+    assert.equal(input.current.id, input.birds[0].id);
+    assert.ok(input.recent.some(m => m.content.includes('Adapt donor cloth motion')));
+    return say(JSON.stringify({ worker: destination === 'id' ? input.birds[0].id : '  cRoW  ', job: 'Refine donor cloth motion', tiny: false }));
+  }});
+  const { id } = await f.service.organiser({ modelKey });
+  assert.equal((await f.service.send({ id, text: 'Adapt donor cloth motion', route: 'new', context })).ok, true);
+  await f.service.configure({ ...await f.service.status(), routing: 'automatic' });
+  for (destination of ['id', 'name']) {
+    const result = await f.service.send({ id, text: 'Keep the cloth clear of the arm', context });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  }
+  const org = await f.service.readConversation(id);
+  assert.equal(org.workers.length, 1);
+  assert.equal(org.workers[0].name, 'Crow');
+  assert.equal(f.requests.length, 5);
+});
+
+test('automatic organiser corrects an invalid route before any bird runs', async t => {
+  let routes = 0, work = 0, tokens = 0;
+  const f = await setup(t, { organiser: () => assert.fail('No recap'), worker: data => {
+    if (!data.messages[0].content.startsWith('Route one message')) { work++; return say('Done.'); }
+    routes++;
+    if (routes > 1) assert.match(userText(data), /invalid|unknown/i);
+    const answer = say(routes === 1 ? JSON.stringify({ worker: 'Missing bird', job: 'Cloth', tiny: false }) : '```json\n' + JSON.stringify({ worker: '', job: 'Cloth', tiny: false }) + '\n```');
+    tokens += f.requests.at(-1).inputTokens + Math.ceil(JSON.stringify(answer.delta).length / 4);
+    return answer;
+  }});
+  const { id } = await f.service.organiser({ modelKey });
+  const result = await f.service.send({ id, text: 'Adapt donor cloth motion', route: 'auto', context });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(routes, 2);
+  assert.equal(work, 1);
+  const cost = (await f.service.readConversation(id)).transcript.at(-1).cost.roles.router;
+  assert.equal(cost.calls, 2);
+  assert.equal(cost.tokens, tokens, 'both routing turns contribute their full reported tokens');
+});
+
+test('automatic routing reports repeated invalid decisions without dispatching a bird', async t => {
+  let routes = 0;
+  const f = await setup(t, { organiser: () => assert.fail('No recap'), worker: data => {
+    assert.ok(data.messages[0].content.startsWith('Route one message'));
+    routes++;
+    return say(routes === 1 ? 'not JSON' : 'null');
+  }});
+  const { id } = await f.service.organiser({ modelKey });
+  const result = await f.service.send({ id, text: 'Adapt donor cloth motion', route: 'auto', context });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /routing decision/i);
+  assert.equal(routes, 2);
+  assert.equal((await f.service.readConversation(id)).workers.length, 0);
+});
+
+test('automatic organiser judges complexity and delegates without the manual model question', async t => {
+  let tiny = true;
+  const f = await setup(t, { models: ['test', 'test-mini'], organiser: () => assert.fail('No recap'), worker: data => {
+    if (!data.messages[0].content.startsWith('Route one message')) return say('Done.');
+    assert.equal(data.model, 'test', 'the chosen organiser judges the route');
+    assert.match(data.messages[0].content, /complexity/i);
+    const input = JSON.parse(userText(data));
+    assert.equal(input.lighterModel, 'test-mini');
+    return say(JSON.stringify({ worker: input.current?.id || '', job: tiny ? 'Read bone names' : 'Repair cloth motion', tiny }));
+  }});
+  await f.service.models();
+  await f.service.configure({ ...await f.service.status(), allowLighter: true, lightModel: 'test-mini', routing: 'automatic' });
+  const { id } = await f.service.organiser({ modelKey });
+  const result = await f.service.send({ id, text: 'Which bones belong to this garment?', context });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.modelChoiceRequired, undefined);
+  assert.equal(f.requests.at(-1).data.model, 'test-mini');
+  tiny = false;
+  assert.equal((await f.service.send({ id, text: 'Make its cloth respect the arm motion', context })).ok, true);
+  assert.equal(f.requests.at(-1).data.model, 'test');
+  const org = await f.service.readConversation(id);
+  assert.deepEqual(org.workers.map(w => [w.light, w.status]), [[true, 'retired'], [false, 'idle']]);
+  assert.match(userText(f.requests.at(-1).data), /Handover note/);
+});
+
+test('automatic tiny jobs respect disabled lighter models and explicit bird destinations', async t => {
+  const f = await setup(t, { models: ['test', 'test-mini'], organiser: () => assert.fail('No recap'), worker: data =>
+    say(data.messages[0].content.startsWith('Route one message') ? JSON.stringify({ worker: '', job: 'Bone names', tiny: true }) : 'Done.') });
+  await f.service.models();
+  const { id } = await f.service.organiser({ modelKey });
+  assert.equal((await f.service.send({ id, text: 'Which bones are these?', route: 'auto', context })).ok, true);
+  assert.ok(f.requests.every(r => r.data.model === 'test'));
+  const before = f.requests.length;
+  assert.equal((await f.service.send({ id, text: 'Crow: count the bones again', route: 'auto', context })).ok, true);
+  assert.equal(f.requests.length, before + 1);
+});
+
+
+test('automatic multipart routing assigns complexity per part and gives each region its own bird', async t => {
+  const f = await setup(t, { models: ['test', 'test-mini'], organiser: () => assert.fail('No recap'), worker: data =>
+    say(data.messages[0].content.startsWith('Route one message') ? JSON.stringify({ jobs: [
+      { job: 'Read first part', tiny: true, scope: ['/Geosets/0'] },
+      { job: 'Read second part', tiny: true, scope: ['/Geosets/1'] },
+      { job: 'Shape third part', tiny: false, scope: ['/Geosets/2'] },
+    ] }) : 'Done.') });
+  await f.service.models();
+  await f.service.configure({ ...await f.service.status(), allowLighter: true, lightModel: 'test-mini', routing: 'automatic' });
+  const base = f.service.call;
+  let jobs, finished = false;
+  f.service.call = async (name, args) => {
+    if (name !== 'mdlxl_regions' || ['summary', 'label'].includes(args.action)) return base(name, args);
+    if (args.action === 'declare') {
+      jobs = args.jobs.map(j => ({ ...j, region: { scope: j.scope, dependencies: [], structural: false, readOnly: false } }));
+      return { batch: 'mixed', jobs };
+    }
+    if (args.action === 'begin') return { ...context, target: 'part-' + args.index, region: jobs[args.index].region };
+    if (args.action === 'finish') { finished = true; return { passed: true }; }
+    if (args.action === 'close') return { closed: true };
+    assert.fail('Unexpected region action ' + args.action);
+  };
+  const { id } = await f.service.organiser({ modelKey });
+  assert.equal((await f.service.send({ id, text: 'Inspect two parts and shape the separate third part', context })).ok, true);
+  const org = await f.service.readConversation(id);
+  assert.equal(org.workers.length, 3);
+  assert.deepEqual(org.workers.map(w => w.model), ['test-mini', 'test-mini', 'test']);
+  assert.ok(finished);
+});

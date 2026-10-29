@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Automatic job routing in bird mode | Ready for review; awaiting merge approval | [Bird job routing](ai-bird-job-routing.md) / Codex |
 | AI chat attachment isolation | Ready for review; awaiting merge approval | [Attachment isolation](ai-chat-attachments.md) / Codex |
 | Bitz replacement size and position fitting | Ready for review; awaiting merge approval | [Replacement fitting](bitz-replacement-fit.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
