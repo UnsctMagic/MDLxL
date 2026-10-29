@@ -1,4 +1,5 @@
 import { allNodes } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 const dist = (a, b) => Math.hypot(...Array.from(a, (v, i) => v - b[i]));
 const lerp = (a, b, t) => Array.from(a, (v, i) => v + (b[i] - v) * t);
@@ -8,16 +9,13 @@ const fingerprint = (t, interval) => JSON.stringify({ type: t.LineType, global: 
 
 // Count skinned geometry ownership rather than unrelated particles/attachments.
 function bodyOwners(model, nodes) {
-  const byId = new Map(nodes.map(n => [n.ObjectId, n])), counts = new Map(); let total = 0;
+  const tree = nodeIndex(model, nodes), counts = new Map(); let total = 0;
   for (const g of model.Geosets) {
     const groups = new Map();
     for (const group of g.VertexGroup) groups.set(group, (groups.get(group) || 0) + 1);
     for (const [group, count] of groups) {
       const owners = new Set();
-      for (const id of g.Groups[group] || []) {
-        let n = byId.get(id); const visited = new Set();
-        while (n && !visited.has(n.ObjectId)) { visited.add(n.ObjectId); owners.add(n.ObjectId); n = byId.get(n.Parent); }
-      }
+      for (const id of g.Groups[group] || []) for (const at of tree.ancestors(id, true)) owners.add(at);
       if (owners.size) { total += count; for (const id of owners) counts.set(id, (counts.get(id) || 0) + count); }
     }
   }

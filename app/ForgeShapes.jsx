@@ -20,6 +20,7 @@ import { forgePartsFromVertices, forgeVertexSelection, pickForgeParts, pickForge
 import { createForgeShape, forgeShapeMesh, forgeSelectionVertices, forgeSelectionCenter, forgeSelectionNormal, extrudeForgeFaces, insetForgeFaces, forgeCutFrame, cutForgeShape } from '../src/forge-shape-editing.js';
 import { blendForgeFaces, forgeDetailFaces, forgeDetailPreview, forgeRepeatDefaults, repeatForgeDetail, snapForgeCut, snapForgeExtrusion } from '../src/forge-detail-editing.js';
 import {magnetizeForgeDetail,moveMagnetizedDetail,refitMagnetizedDetail,closeForgeDetail} from '../src/forge-detail-magnet.js';
+import { resolveGameFiles } from './desktop.js';
 
 // Small, static previews use the same geometry as the shape being added.
 function ShapeThumbnail({ shape }) {
@@ -102,7 +103,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   useEffect(() => {
     let active = true;
     (async () => {
-      const records = await window.desktop?.resolveTextures({ path: modelPath, names: [PRIMITIVE_TEXTURE] });
+      const records = await resolveGameFiles([PRIMITIVE_TEXTURE], modelPath);
       const asset = records?.find(record => record.bytes);
       if (asset && active) setStock(asset);
     })().catch(e => { if (active) setError(e.message); });

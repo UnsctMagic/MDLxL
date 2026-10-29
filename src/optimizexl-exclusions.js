@@ -1,4 +1,4 @@
-import { allNodes } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const GEOSET_REDUCTION_STAGES = new Set(['duplicates', 'animation', 'unused', 'nuclear']);
 
@@ -10,14 +10,11 @@ export function excludedGeosets(model, settings = {}) {
 // whole dependency when any excluded geoset uses it, including animated UVs.
 export function protectedGeosetData(model, settings = {}) {
   const geosets = excludedGeosets(model, settings), nodes = new Set(), materials = new Set(), textureAnims = new Set();
-  const byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
+  const tree = nodeIndex(model);
   for (const i of geosets) {
     const g = model.Geosets[i];
     materials.add(g.MaterialID);
-    for (const id of g.Groups.flat()) {
-      let n = byId.get(id);
-      while (n && !nodes.has(n.ObjectId)) { nodes.add(n.ObjectId); n = byId.get(n.Parent); }
-    }
+    for (const id of g.Groups.flat()) for (const at of tree.ancestors(id, true)) { if (nodes.has(at)) break; nodes.add(at); }
     for (const layer of model.Materials[g.MaterialID]?.Layers || []) if (Number.isInteger(layer.TVertexAnimId)) textureAnims.add(layer.TVertexAnimId);
   }
   return { geosets, nodes, materials, textureAnims };

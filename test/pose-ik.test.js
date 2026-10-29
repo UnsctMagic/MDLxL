@@ -7,6 +7,7 @@ import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
 import { poseDuplicatesBody, suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, swivelPoseLimb, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
+import { nodeIndex } from '../src/node-hierarchy.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
@@ -640,4 +641,12 @@ test('a Pelvis that only repeats Body is left out of POSE, except for Scale; a r
   assert.ok(ids('scale').includes(1), 'Scale acts on the pelvis bone itself, so its handle is there');
   // A pelvis that is already selected keeps its handle so the selection stays visible.
   assert.ok(projectPoseHandles(m, { ...config, target: { kind: 'node', id: 1 } }, 500, 0, camera, 600, 600, 500, undefined, undefined, 'move').some(h => h.id === 1));
+});
+
+test('POSE helpers given one shared node index answer as they do alone', () => {
+  const m = fixture(), index = nodeIndex(m), config = { chains: [chain, leg1, leg2], pins: ['a', 'l', 'r'] };
+  assert.deepEqual(validatePoseChain(m, chain, index), validatePoseChain(m, chain));
+  assert.equal(suggestPoseBody(m, [leg1, leg2], index), suggestPoseBody(m, [leg1, leg2]));
+  assert.deepEqual(poseAffectedPins(m, config, 1, index), poseAffectedPins(m, config, 1));
+  assert.deepEqual(poseNodeControl(m, config, { kind: 'node', id: 1 }, 'move', index), poseNodeControl(m, config, { kind: 'node', id: 1 }, 'move'));
 });

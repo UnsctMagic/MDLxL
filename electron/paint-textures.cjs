@@ -3,6 +3,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const legacyStock = require('./data/paint-legacy-stock.json');
 const { IMAGE_EXTENSIONS } = require('./texture-resolver.cjs');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 
 /** Editable texture folders, seeded once with the bundled default collection.
  * Reads/writes remain inside this root; imports copy bytes, never move sources.
@@ -44,7 +45,7 @@ class PaintTextureLibrary {
             }
             try{await fs.writeFile(path.join(folder,parts.at(-1)),bytes,{flag:'wx'});}catch(error){if(error.code!=='EEXIST')throw error;}
           }
-          await fs.writeFile(receipt,JSON.stringify({fingerprint})+'\n');
+          await writeFileAtomic(receipt,JSON.stringify({fingerprint})+'\n');
         }
       }
     })().catch(error=>{this.ready=null;throw error;});

@@ -4,6 +4,7 @@ import { createRigNode } from '../src/bone-tools.js';
 import { recalculateExtents } from '../src/editor-document.js';
 import { createVisibilityGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
+import { uniqueName } from '../src/node-hierarchy.js';
 import { evaluateModelCamera, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from './portrait-view.js';
 
 // Measured from 152 distinct SD portrait backdrops (units\*_portrait.mdx) and
@@ -183,8 +184,7 @@ function backdropMaterial(model) {
 function createBackdrop(model, center) {
   const bone = createRigNode(model, 'Bone');
   const names = new Set(allNodes(model).filter(node => node !== bone).map(node => node.Name));
-  let name = BACKDROP_BONE_NAME, suffix = 2; while (names.has(name)) name = `${BACKDROP_BONE_NAME}${suffix++}`;
-  bone.Name = name; bone.Parent = null; bone.Flags = 256;
+  bone.Name = uniqueName(BACKDROP_BONE_NAME, names, n => `${BACKDROP_BONE_NAME}${n}`); bone.Parent = null; bone.Flags = 256;
   bone.PivotPoint = new Float32Array(center.toArray()); model.PivotPoints[bone.ObjectId] = bone.PivotPoint;
   model.Geosets ||= []; model.GeosetAnims ||= [];
   // SD order: top-left, bottom-left, top-right, bottom-right; faces wind

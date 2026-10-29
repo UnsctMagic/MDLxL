@@ -16,7 +16,7 @@ const userRun=app.isPackaged&&!process.env.MDLXL_PROFILE&&!headless;
 const {RecoveryStore}=require('./recovery.cjs');
 const {SettingsStore}=require('./settings.cjs');
 const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
-const {GameDataDiscovery,selectedGameDataSources}=require('./game-data.cjs');
+const {GameDataDiscovery,selectedGameDataSources,orderedCascFolders}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
 const {CascTextures,CascReader}=require('./casc.cjs');
 const {Mpq}=require('./mpq.cjs');
@@ -40,6 +40,8 @@ const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
+const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
+const {safeWindowsName}=require('./windows-name.cjs');
 let updater, startupUpdateChecked=false;
 let bitsAndPartsLibrary;
 function getBitsAndPartsLibrary() { return bitsAndPartsLibrary ||= new BitsAndPartsLibrary(path.join(appFolder, 'BitsAndParts')); }
@@ -71,11 +73,14 @@ function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIco
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
-const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),createWorker:data=>{const child=utilityProcess.fork(path.join(__dirname,'particle-library-process.cjs'),[],{serviceName:'Warcraft asset indexing'});child.once('spawn',()=>child.postMessage(data));return child;},onProgress:status=>sendToEditor('particles:progress',status)});
+// Particles index and read one installation, the first CASC folder: the
+// Settings folder first, then added CASC sources, then other installations.
+async function discoverParticleSources(){const chosen=settings.gameData,discovered=await gameDataDiscovery.discover({explicitFolder:chosen});return {...discovered,cascFolders:orderedCascFolders(discovered,chosen,{customFirst:false})};}
+const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:discoverParticleSources,createWorker:data=>{const child=utilityProcess.fork(path.join(__dirname,'particle-library-process.cjs'),[],{serviceName:'Warcraft asset indexing'});child.once('spawn',()=>child.postMessage(data));return child;},onProgress:status=>sendToEditor('particles:progress',status)});
 ipcMain.handle('particles:workingCopy',(_,payload)=>particleLibrary.workingCopy(payload));
 
-ipcMain.handle('particles:assets',(_,payload)=>resolveParticleSourceAssets(payload,{discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),casc:textureResolver.casc}));
-ipcMain.handle('particles:sourceContext',async(_,payload)=>{if(!payload||!Number.isInteger(payload.sourceIndex)||payload.sourceIndex<0)throw Error('Choose an indexed source.');const {parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(await particleLibrary.read(payload.id));return resolveParticleSourceContext(recipe.sources[payload.sourceIndex],{discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),casc:textureResolver.casc});});
+ipcMain.handle('particles:assets',(_,payload)=>resolveParticleSourceAssets(payload,{discover:discoverParticleSources,casc:textureResolver.casc}));
+ipcMain.handle('particles:sourceContext',async(_,payload)=>{if(!payload||!Number.isInteger(payload.sourceIndex)||payload.sourceIndex<0)throw Error('Choose an indexed source.');const {parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(await particleLibrary.read(payload.id));return resolveParticleSourceContext(recipe.sources[payload.sourceIndex],{discover:discoverParticleSources,casc:textureResolver.casc});});
 ipcMain.handle('particles:thumbnails',(_,ids)=>particleLibrary.thumbnails(ids));
 ipcMain.handle('particles:duplicate',(_,id)=>particleLibrary.duplicate(id));
 ipcMain.handle('particles:import',async()=>{
@@ -85,8 +90,8 @@ ipcMain.handle('particles:import',async()=>{
 });
 ipcMain.handle('particles:export',async(_,id)=>{
  const data=await particleLibrary.exportData(id),{parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(data);
- const result=await dialog.showSaveDialog(win,{title:'Export particle preset',defaultPath:recipe.name.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.mdlxl-particle',filters:[{name:'MDLxL particle preset',extensions:['mdlxl-particle']}]});
- if(result.canceled)return null;await fs.writeFile(result.filePath,data,'utf8');return {path:result.filePath};
+ const destination=await chooseSavePath({title:'Export particle preset',defaultPath:safeWindowsName(recipe.name,{fallback:'Particle preset'})+'.mdlxl-particle',extension:'mdlxl-particle',filterName:'MDLxL particle preset'});
+ if(!destination)return null;await fs.writeFile(destination,data,'utf8');return {path:destination};
 });
 ipcMain.handle('particles:thumbnail',(_,data)=>particleLibrary.thumbnail(data));
 ipcMain.handle('particles:catalog',()=>particleLibrary.catalog());
@@ -105,6 +110,17 @@ const previewRecordings=new PreviewRecordingStore({destination:showcaseRecording
 function captureOperation(operation){captureOperations.add(operation);operation.finally(()=>captureOperations.delete(operation)).catch(()=>{});return operation;}
 // Requests from other windows are refused: with a message, an error; without one, false.
 function editorOnly(event,message){if(event.sender===win?.webContents)return true;if(message)throw Error(message);return false;}
+// Native save dialog. The chosen path always ends in `extension` (without the
+// dot) when one is given; null when the user cancels.
+async function chooseSavePath({title,defaultPath,extension,filterName,buttonLabel}){
+  const result=await dialog.showSaveDialog(win,{title,defaultPath,...(buttonLabel?{buttonLabel}:{}),...(extension?{filters:[{name:filterName||extension.toUpperCase(),extensions:[extension]}]}:{})});
+  if(result.canceled||!result.filePath)return null;
+  let destination=result.filePath;
+  if(extension&&path.extname(destination).toLowerCase()!=='.'+extension.toLowerCase())destination+='.'+extension;
+  return destination;
+}
+// Shows a library folder in Explorer.
+async function openFolder(directory){const error=await shell.openPath(directory);if(error)throw Error(error);return directory;}
 function captureOwner(event){editorOnly(event,'Preview capture is unavailable in this window.');return event.sender.id;}
 const recoveryStore=new RecoveryStore(path.join(profile,'recovery'));
 const sessionJournal=new SessionJournal(path.join(profile,'sessions'));
@@ -131,12 +147,12 @@ const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
 const filters=[{name:'Models and Paint Projects',extensions:MODEL_EXTENSIONS},{name:'Warcraft III models',extensions:WARCRAFT_MODEL_EXTENSIONS},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
-let recentQueue = Promise.resolve();
+const recentQueue=serialQueue();
 async function persistRecents(file){
   if(file)recents=[file,...recents.filter(p=>p.toLowerCase()!==file.toLowerCase())].slice(0,12);
   const encoded=JSON.stringify(recents);
-  const operation=recentQueue.catch(()=>{}).then(async()=>{await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'recent.json'),encoded);});
-  recentQueue=operation; await operation; if(commandCatalog)refreshMenu();
+  await recentQueue(async()=>{await fs.mkdir(profile,{recursive:true});await writeFileAtomic(path.join(profile,'recent.json'),encoded);});
+  if(commandCatalog)refreshMenu();
 }
 async function readModel(file,remember=true){
   const extension=path.extname(file).toLowerCase();if(!MODEL_EXTENSIONS.includes(extension.slice(1)))throw new Error('Choose an MDL, MDX, or MDLxL Paint Project.');
@@ -188,20 +204,20 @@ ipcMain.handle('preview:openModel',async event=>{
 ipcMain.handle('parts:list',()=>getBitsAndPartsLibrary().list());
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));
 ipcMain.handle('parts:save',(_,data)=>getBitsAndPartsLibrary().save(data));
-ipcMain.handle('parts:folder',async()=>{const {directory}=await getBitsAndPartsLibrary().list();const error=await shell.openPath(directory);if(error)throw Error(error);return directory;});
+ipcMain.handle('parts:folder',async()=>openFolder((await getBitsAndPartsLibrary().list()).directory));
 ipcMain.handle('preview:backgrounds',()=>getPreviewBackgroundLibrary().list());
 ipcMain.handle('preview:background',(_,id)=>getPreviewBackgroundLibrary().read(id));
-ipcMain.handle('preview:backgroundFolder',async()=>{const {directory}=await getPreviewBackgroundLibrary().list();const error=await shell.openPath(directory);if(error)throw Error(error);return directory;});
+ipcMain.handle('preview:backgroundFolder',async()=>openFolder((await getPreviewBackgroundLibrary().list()).directory));
 ipcMain.handle('paint:textures',()=>getPaintTextureLibrary().list());
 ipcMain.handle('paint:texture',(_,id)=>getPaintTextureLibrary().read(id));
 ipcMain.handle('paint:saveTexture',(_,payload)=>getPaintTextureLibrary().save(payload));
-ipcMain.handle('paint:textureFolder',async()=>{await getPaintTextureLibrary().ensure();const error=await shell.openPath(getPaintTextureLibrary().directory);if(error)throw Error(error);});
+ipcMain.handle('paint:textureFolder',async()=>{await getPaintTextureLibrary().ensure();return openFolder(getPaintTextureLibrary().directory);});
 ipcMain.handle('paint:exportTexture',async(_,payload)=>{
   const name=path.basename(String(payload?.name||'')),extension=path.extname(name).slice(1).toLowerCase();
   if(!['png','blp','dds'].includes(extension))throw Error('Save a PNG, BLP or DDS texture.');
   const bytes=Buffer.from(payload.bytes||[]);if(!bytes.length||bytes.length>64*1024*1024)throw Error('Choose a texture smaller than 64 MiB.');
-  const result=await dialog.showSaveDialog(win,{title:'Save texture copy',defaultPath:name,filters:[{name:extension.toUpperCase(),extensions:[extension]}]});
-  if(result.canceled)return null;let destination=result.filePath;if(!destination.toLowerCase().endsWith('.'+extension))destination+='.'+extension;
+  const destination=await chooseSavePath({title:'Save texture copy',defaultPath:name,extension,filterName:extension.toUpperCase()});
+  if(!destination)return null;
   await fs.writeFile(destination,bytes);return {name:path.basename(destination),path:destination};
 });
 ipcMain.on('preview:busy',(event,value)=>{if(editorOnly(event))captureBusy=!!value;});
@@ -236,7 +252,7 @@ async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  const choose=async title=>{const result=await dialog.showSaveDialog(win,{title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});return result.canceled?null:result.filePath;};
+  const choose=title=>chooseSavePath({title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,extension:payload.format,filterName:payload.format.toUpperCase()+' model'});
   let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
   if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
@@ -244,7 +260,6 @@ async function saveModel(payload){
     // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
     if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
     if(!(destination=await choose('This file is read-only. Save model as')))return null;
-    if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
     await writeModelFile(destination,bytes,payload.forgeAssets||[]);
   }
   openedPaths.add(path.resolve(destination));await persistRecents(destination);
@@ -255,14 +270,14 @@ async function saveModel(payload){
 // destination is refused before any texture or temporary file is written.
 async function writeModelFile(destination,bytes,forgeAssets=[],{overwrite=true}={}){
   if(!overwrite&&await fs.access(destination).then(()=>true,()=>false))throw new Error('A file already exists at '+destination+'.');
+  await saveForgeAssets(destination,forgeAssets);
+  if(overwrite)return writeFileAtomic(destination,bytes,{verify:true});
   const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
-    await saveForgeAssets(destination,forgeAssets);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
     // copyFile with COPYFILE_EXCL also works on FAT/exFAT drives, unlike hard links.
-    if(overwrite)await fs.rename(temporary,destination);
-    else{await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);}
+    await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
 // AI exports go to the path the AI names, without a save dialog, but replacing
@@ -295,12 +310,11 @@ async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
   if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
   const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The painter artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The painter artifact exceeds 512 MB.');
-  const result=await dialog.showSaveDialog(win,{title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,filters:[{name:extension==='.zip'?'ZIP package':'MDLxL Paint Project',extensions:[extension.slice(1)]}]});
-  if(result.canceled)return null;let destination=result.filePath;if(path.extname(destination).toLowerCase()!==extension)destination+=extension;
+  const destination=await chooseSavePath({title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
+  if(!destination)return null;
   if(!allowed.has(path.extname(destination).toLowerCase()))throw Error('The selected painter artifact extension is not allowed.');
-  const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
-  try{await fs.writeFile(temporary,bytes,{flag:'wx'});const check=await fs.readFile(temporary);if(!check.equals(bytes))throw Error('Artifact write verification failed.');await fs.rename(temporary,destination);return {name:path.basename(destination),path:destination,bytes:bytes.length};}
-  catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
+  await writeFileAtomic(destination,bytes,{verify:true});
+  return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }
 ipcMain.handle('artifact:save',(_,payload)=>{const operation=artifactSaveQueue.catch(()=>{}).then(()=>saveArtifact(payload));artifactSaveQueue=operation;return operation;});
 async function resolveTextures(payload, extensions){
@@ -313,6 +327,9 @@ async function resolveTextures(payload, extensions){
   const selectedFolder=settings.gameData;
   const discovered=await gameDataDiscovery.discover({explicitFolder:selectedFolder,modelFolders:[root,...[...openedPaths].map(file=>path.dirname(file))].filter(Boolean)});
   const selected=selectedGameDataSources(discovered,selectedFolder);
+  // Model textures are looked up per file: added archives and CASC sources
+  // first (Settings promises they override installed game data), then the
+  // Settings folder, then other installations.
   const custom=discovered.customSources||{archives:[],cascFolders:[]};
   return textureResolver.resolve(payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
 }
@@ -327,11 +344,9 @@ async function textureLibraryContext(payload){
     const modelPath=typeof payload?.modelPath==='string'&&openedPaths.has(path.resolve(payload.modelPath))?path.resolve(payload.modelPath):null;
     const chosen=settings.gameData;
     const discovered=await gameDataDiscovery.discover({explicitFolder:chosen,modelFolders:modelPath?[path.dirname(modelPath)]:[]});
-    const selected=selectedGameDataSources(discovered,chosen);
-    const folders=discovered.cascFolders||[];
-    const custom=discovered.customSources?.cascFolders||[];
     const resolver=textureResolver;
-    const catalog=await textureLibrary.catalog({modelPath,cascFolders:[...custom,...folders.filter(folder=>selected.folders.includes(folder)&&!custom.includes(folder)),...folders.filter(folder=>!selected.folders.includes(folder)&&!custom.includes(folder))]});
+    // Like the Library browser: the Settings folder first, then added CASC sources.
+    const catalog=await textureLibrary.catalog({modelPath,cascFolders:orderedCascFolders(discovered,chosen,{customFirst:false})});
     texturePreviews.register(catalog.items);
     return {catalog,readAsset:async item=>({name:item.lookupName,bytes:item.source==='native'?await resolver.casc.readSnapshot(item.lookupName,item.sourceFolder,item.sourceKey):await resolver.loose(item.lookupName,modelPath?[path.dirname(modelPath)]:[])}),decode:decodeThumbnail};
 }
@@ -342,8 +357,7 @@ ipcMain.handle('texture:libraryPreview',(_,payload)=>trackTextureOperation(textu
 async function gameFileIndex(){
   const chosen=settings.gameData,library=gameFiles;
   const discovered=await gameDataDiscovery.discover({explicitFolder:chosen});
-  const selected=selectedGameDataSources(discovered,chosen),folders=discovered.cascFolders||[],custom=discovered.customSources?.cascFolders||[];
-  const folder=[...folders.filter(item=>selected.folders.includes(item)),...custom,...folders][0];
+  const folder=orderedCascFolders(discovered,chosen,{customFirst:false})[0];
   const index=await library.load(folder?[folder]:[]);
   return {library,index,folder:folder||null};
 }
@@ -370,9 +384,10 @@ ipcMain.handle('gameFiles:findPath',(_,payload)=>trackTextureOperation(gameFileI
 })));
 ipcMain.handle('gameFiles:export',async(_,payload)=>{
   const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
-  const answer=await dialog.showSaveDialog(win,{title:'Save a copy of '+entry.name,defaultPath:entry.name,buttonLabel:'Save copy'});
-  if(answer.canceled||!answer.filePath)return null;
-  await fs.writeFile(answer.filePath,await library.read(index,entry));return answer.filePath;
+  const extension=path.extname(entry.name).slice(1).toLowerCase();
+  const destination=await chooseSavePath({title:'Save a copy of '+entry.name,defaultPath:entry.name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
+  if(!destination)return null;
+  await fs.writeFile(destination,await library.read(index,entry));return destination;
 });
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
@@ -597,7 +612,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
     }return original(...args);};
   }
   preferenceApi=preferences;commandCatalog=commands.COMMANDS;
-  settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences);
+  settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences,preferences.PREFERENCE_LIMITS);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status)});

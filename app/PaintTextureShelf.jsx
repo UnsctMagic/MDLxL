@@ -4,14 +4,15 @@ import {PAINT_ASSETS,cropNativePaintAsset} from '../src/paint-assets.js';
 import {decodePaintImage,paintRasterCanvas} from './paint-raster.js';
 import {resizePaintRaster} from '../src/paint-raster.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
+import {hasDesktop,resolveGameFiles} from './desktop.js';
 
 const demoIds=new Set(['wc3-chainmail','wc3-steel','wc3-riveted-plate','wc3-orc-skin','wc3-wood']);
 const demoAssets=PAINT_ASSETS.filter(a=>demoIds.has(a.id));
 const thumbnailCache=new Map(),nativeSources=new Map();let thumbnailQueue=Promise.resolve();
 async function readNativeSource(item){
-  if(!window.desktop?.resolveTextures)throw Error('Open the desktop editor and connect Warcraft III data to use native sources.');
+  if(!hasDesktop('resolveTextures'))throw Error('Open the desktop editor and connect Warcraft III data to use native sources.');
   let pending=nativeSources.get(item.sourcePath);
-  if(!pending){pending=(async()=>{const assets=await window.desktop.resolveTextures({names:[item.sourcePath]}),asset=assets.find(a=>a.bytes?.length);if(!asset)throw Error('This source is unavailable in your configured Warcraft III data.');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',asset.bytes)),v=>v.toString(16).padStart(2,'0')).join('');return {raster:await decodePaintImage(asset.bytes,asset.name),hash};})();nativeSources.set(item.sourcePath,pending);pending.catch(()=>nativeSources.delete(item.sourcePath));}
+  if(!pending){pending=(async()=>{const assets=await resolveGameFiles([item.sourcePath]),asset=assets.find(a=>a.bytes?.length);if(!asset)throw Error('This source is unavailable in your configured Warcraft III data.');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',asset.bytes)),v=>v.toString(16).padStart(2,'0')).join('');return {raster:await decodePaintImage(asset.bytes,asset.name),hash};})();nativeSources.set(item.sourcePath,pending);pending.catch(()=>nativeSources.delete(item.sourcePath));}
   return pending;
 }
 function Tile({item,onUse,selected}) {

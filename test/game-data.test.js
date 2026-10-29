@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { GameDataDiscovery, parseRegistryPaths, selectedGameDataSources } = require('../electron/game-data.cjs');
+const { GameDataDiscovery, parseRegistryPaths, selectedGameDataSources, orderedCascFolders } = require('../electron/game-data.cjs');
 const { TextureResolver } = require('../electron/texture-resolver.cjs');
 
 async function scratch(t) {
@@ -209,3 +209,13 @@ test('archive reader LRU closes unused handles without closing an archive during
  assert.deepEqual((await resolver.resolve(['ReplaceableTextures\\TeamColor\\TeamColor12.blp'],{...source,folders:['custom']}))[0].bytes,loose);
  await resolver.close();
  });
+
+test('Warcraft readers put the Settings installation first, then added CASC sources, then other installations', () => {
+  const root = path.resolve('/games'), chosen = path.join(root, 'Warcraft III'), retail = path.join(chosen, '_retail_'), custom = path.join(root, 'PTR'), other = path.join(root, 'Old Warcraft');
+  const result = { folders: [custom, other, chosen, retail], archives: [], cascFolders: [custom, other, retail], customSources: { archives: [], cascFolders: [custom] } };
+  assert.deepEqual(orderedCascFolders(result, chosen, { customFirst: false }), [retail, custom, other]);
+  assert.deepEqual(orderedCascFolders(result, chosen, { customFirst: true }), [custom, retail, other]);
+  assert.deepEqual(orderedCascFolders(result, null), [custom, other, retail], 'without a Settings folder added sources lead');
+  assert.deepEqual(orderedCascFolders({ cascFolders: [other] }, chosen), [other]);
+  assert.deepEqual(orderedCascFolders(null, chosen), []);
+});

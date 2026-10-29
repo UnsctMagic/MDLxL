@@ -4,11 +4,12 @@ import {STARTER_TEXTURES} from '../src/particle-starters.js';
 import {particleRecipeDocument} from '../src/particle-recipes.js';
 import {addParticleDemonstration} from '../src/particle-sweep.js';
 import { capturePreviewThumbnail } from './game-preview-capture.js';
+import { resolveGameFiles } from './desktop.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 function Pair({pairs,time,preferences,dark,onChoose}){
  const [index,setIndex]=useState(0),[images,setImages]=useState({}),[error,setError]=useState(''),busy=useRef(false),camera=useRef(null),[assets,setAssets]=useState(null);
  // Stock pictures from the game data; render only once they are read so captures show them.
- useEffect(()=>{let live=true;(window.desktop?.resolveTextures?window.desktop.resolveTextures({names:STARTER_TEXTURES}):Promise.resolve([])).then(records=>{if(live)setAssets(new Map((records||[]).filter(record=>record.bytes).map(record=>[record.name.toLowerCase(),record])));}).catch(()=>{if(live)setAssets(new Map());});return()=>{live=false;};},[]);
+ useEffect(()=>{let live=true;resolveGameFiles(STARTER_TEXTURES).then(records=>{if(live)setAssets(new Map((records||[]).filter(record=>record.bytes).map(record=>[record.name.toLowerCase(),record])));}).catch(()=>{if(live)setAssets(new Map());});return()=>{live=false;};},[]);
  const model=useMemo(()=>{if(index>=pairs.length)return null;const next=particleRecipeDocument(pairs[index].recipe).model;if(pairs[index].motion)addParticleDemonstration(next,[0,5000]);return next;},[pairs,index]);
  const prefs=useMemo(()=>({...preferences,graphics:{...preferences.graphics,pauseWhenHidden:false},viewportAppearance:{...preferences.viewportAppearance,background:{type:'color',color:dark?'#24282c':'#d0d0d0'}}}),[preferences,dark]);
  const ready=useCallback(async api=>{if(!api||busy.current||index>=pairs.length)return;busy.current=true;try{const image=await capturePreviewThumbnail(api,{maxDimension:400,camera});setImages(old=>({...old,[index]:image}));}catch(e){setError(e.message);}finally{busy.current=false;setIndex(n=>n+1);}},[index,pairs]);
