@@ -917,6 +917,7 @@ export function deleteGeoset(model, index) {
   updateCounts(model);
 }
 
+// Quick area-weighted normals for generated geometry (Forge, shaping); user-facing buttons use NormalsXL.
 export function recalculateNormals(geoset) {
   const vertices = geoset.Vertices, faces = geoset.Faces;
   const normals = new Float32Array(vertices.length);
