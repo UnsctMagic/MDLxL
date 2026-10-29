@@ -232,3 +232,7 @@ code and may be removed.
 - [x] Item 18: moved popup eye textures under Warcraft data and added the
   existing Blizzard rights/no-new-license wording. Paths and provenance retained;
   inspected the resulting Markdown section boundaries.
+- Final packaged regression for items 6/16 passed: sphere/box-only size controls,
+  preserved cylinder/plane deletion, live drag draft, cancellation when the
+  top-view projection removes its handle, no later stale commit, actual Alt+mouse
+  camera rotation, and no renderer errors.
