@@ -53,7 +53,7 @@ const tab = (name, path) => {
 function editor() {
   const a = tab('A.mdx', 'A.mdx'),
     b = tab('B.mdx', 'B.mdx');
-  const app = { sessions: [a, b], active: a, renders: [], liveCaptures: 0, liveViews: [], commands: [] };
+  const app = { sessions: [a, b], references: [], active: a, renders: [], liveCaptures: 0, liveViews: [], commands: [] };
   const host = {
     state: () => {
       const s = app.active, v = s.viewState;
@@ -84,7 +84,7 @@ function editor() {
         uvEditing: false,
       };
     },
-    sessions: () => app.sessions,
+    sessions: () => [...app.sessions, ...app.references],
     summary: () => ({ documentId: app.active.id }),
     commands: () => [
       { id: 'undo', label: 'Undo', enabled: true },
@@ -339,7 +339,8 @@ test('model chats expose only their own attached donors, including scripts and r
   const donorA = tab('Donor A.mdx'), donorB = tab('Donor B.mdx');
   Object.assign(donorA, { reference: true, referenceOwnerId: a.id, referenceChatId: 'chat-a' });
   Object.assign(donorB, { reference: true, referenceOwnerId: b.id, referenceChatId: 'chat-b' });
-  app.sessions.push(donorA, donorB);
+  app.references.push(donorA, donorB);
+  assert.equal(app.sessions.length, 2);
   bridge.setChat(a.id, 'chat-a');
   const contextA = bridge.context();
   assert.deepEqual(contextA.documents.map(d => d.id), [a.id, donorA.id]);
@@ -359,6 +360,10 @@ test('model chats expose only their own attached donors, including scripts and r
   };
   const read = await bridge.dispatch('mdlxl_script', { target: contextA.target, code: 'return Object.keys(references);' });
   assert.deepEqual(read.value, [donorA.id]);
+  const picture = await bridge.picture(contextA.target, {}, { documentId: donorA.id });
+  assert.equal(picture.label, donorA.doc.name);
+  assert.equal(app.renders.at(-1).documentId, donorA.id);
+  await assert.rejects(() => bridge.picture(contextA.target, {}, { documentId: donorB.id }), /Reference model is no longer open/);
   // A new organiser for the same model starts without the previous chat's donors.
   show(a);
   bridge.setChat(a.id, 'new-chat-a');
@@ -378,7 +383,7 @@ test('references opened by a background job retain its original model and chat',
     assert.deepEqual(scope, { documentId: a.id, chatId: 'chat-a' });
     const donor = tab(record.name);
     Object.assign(donor, { reference: true, referenceOwnerId: scope.documentId, referenceChatId: scope.chatId });
-    app.sessions.push(donor);
+    app.references.push(donor);
     return { id: donor.id, name: donor.doc.name };
   };
   await bridge.dispatch('mdlxl_document', { action: 'open', target, path: 'Donor.mdx' });

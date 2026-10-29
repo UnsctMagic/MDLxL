@@ -251,7 +251,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
     {
       target,
       source: { enum: ['model', 'textures', 'parts', 'game'] },
@@ -291,7 +291,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'document',
-    'List open models, open a local MDL/MDX reference in another tab, export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
+    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
     {
       target,
       action: { enum: ['list', 'open', 'export', 'validate'] },

@@ -219,8 +219,8 @@ async function comparisonPictures(bridge, id, review, before, args) {
     originalRange = original && animationRange(before, original);
   let donor = null;
   if (args.donor) {
-    const session = bridge.state().sessions.find(s => s.id === args.donor.documentId);
-    if (!session || session.id === target.documentId) throw Error('donor.documentId must be another open model (see references in the context).');
+    const session = bridge.referenceSessions(target).find(s => s.id === args.donor.documentId);
+    if (!session || session.id === target.documentId) throw Error('donor.documentId must be a reference attached to this chat (see references in the context).');
     const explicit = args.donor.globalSequence != null ? { globalSequence: args.donor.globalSequence } : args.donor.sequence !== undefined ? { sequence: args.donor.sequence } : null;
     if (explicit) checkAnimation(session.doc.model, explicit, 'Donor');
     const animation = explicit || sameAnimation(session.doc.model, model, shown);
