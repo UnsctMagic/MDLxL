@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
   fillSequenceExtents, setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
@@ -94,6 +95,17 @@ test('Create options: name, gap, template, non-looping and which geosets get ext
   assert.deepEqual(Array.from(bare.Sequences[0].Interval), [0, 10]);
   assert.equal(bare.Geosets[0].Anims, undefined);
   assert.throws(() => createSequence(bare, 10, { extents: 'never' }), /extent option/);
+});
+
+test('the Inspector and resource manager edit sequences through these functions (B12, B13)', () => {
+  const inspector = readFileSync(new URL('../app/Inspectors.jsx', import.meta.url), 'utf8');
+  const resources = readFileSync(new URL('../app/ResourceEditors.jsx', import.meta.url), 'utf8');
+  // Renames strip line breaks and keep the 79-byte limit; intervals stay whole, ordered frames.
+  assert.match(inspector, /mutate\('Rename sequence',\['Sequences'\],model=>setSequenceName\(model,index,v\)\)/);
+  assert.match(inspector, /mutate\('Set sequence start',\['Sequences'\],model=>setSequenceInterval\(model,index,v,/);
+  assert.match(inspector, /mutate\('Set sequence end',\['Sequences'\],model=>setSequenceInterval\(model,index,model\.Sequences\[index\]\.Interval\[0\],v\)\)/);
+  assert.doesNotMatch(inspector, /s\.Name=v|s\.Interval\[[01]\]=v/);
+  assert.match(resources, /if \(currentKind === 'Sequences'\) return createSequence\(m, 1000, \{ name: 'Stand', gap: 100 \}\);/);
 });
 
 test('Delete removes every local key and event inside the sequence, then realigns extents', () => {
