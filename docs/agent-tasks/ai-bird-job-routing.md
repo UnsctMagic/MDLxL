@@ -14,6 +14,8 @@ No release, installed-app/profile change, version bump or merge is authorized.
 ## Revision and owners
 
 - Branch: `codex/bird-auto-job-routing`, based on main `8a36f2a1`.
+- PR: https://github.com/UnsctMagic/MDLxL/pull/372; runtime commit `4ea20903`.
+- GitHub CI pending at handoff-note update; no merge authorized.
 - Runtime: `electron/ai-service.cjs` (`send`, `runOffload`, `routeJob`,
   `runRegionJobs`, `runWorker`); tooltip wording: `app/AiAssistant.jsx`.
 - Contract: [AI-HOOK](../AI-HOOK.md#offload-mode-an-organiser-per-model-and-its-birds).
@@ -62,6 +64,7 @@ No release, installed-app/profile change, version bump or merge is authorized.
 
 ## Next action
 
-Open and attach the PR, record its result, remove disposable builds/profiles and
-the pushed worktree, preserve logs/report and Git history on D:. Await explicit
-owner approval before merging or publishing.
+PR #372 is open and attached. Disposable builds/profiles have been removed.
+Remove the pushed worktree after saving the small report/capture on D:, verify
+CI, and await explicit owner approval before merging or publishing. Source and
+branch history remain in the original D: repository.
