@@ -196,3 +196,6 @@ code and may be removed.
 - [x] Item 7: Resume takes the existing roster job title, rather than plan
   reach. The bird conversation does not own the title; its roster entry does.
   Stop/Resume service regression passed with a deliberately different reach.
+- [x] Items 8–9: checkpoints include every applied step plus the recent tail;
+  passing checks delete the same truncated key used to record failures.
+  New regressions cover 32 steps and a 400-character check name; both passed.
