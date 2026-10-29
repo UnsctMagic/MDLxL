@@ -1,7 +1,9 @@
+import { cameraBindings } from '../src/preferences.js';
+import { pointerSensitivityValue } from './viewport-performance.js';
 import { MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Euler, MOUSE, Vector3 } from 'three';
+import { Euler, MOUSE, Vector3, PerspectiveCamera, OrthographicCamera } from 'three';
 import { degreesToQuaternion } from '../src/rotation-math.js';
 
 /** OrbitControls swaps pan and rotate when Shift is held. Preselect the
@@ -167,4 +169,30 @@ export class EditorCameraControls extends OrbitControls {
     const factor = this.object.isPerspectiveCamera ? this.object.zoom : 1;
     super._pan(x / factor, y / factor);
   }
+}
+
+/** Cameras and input defaults shared by editor previews; framing stays with each caller. */
+export function createEditorCameras(element, { target = [0, 0, 0], leftButton = null } = {}) {
+  const perspective = new PerspectiveCamera(42, 1, .2, 1000); perspective.up.set(0, 0, 1);
+  const ortho = new OrthographicCamera(-100, 100, 100, -100, .2, 1000); ortho.up.set(0, 0, 1);
+  const controls = new EditorCameraControls(perspective, element);
+  controls.enableDamping = false;
+  controls.mouseButtons = { LEFT: leftButton, MIDDLE: null, RIGHT: MOUSE.PAN };
+  if (target.isVector3) controls.target.copy(target); else controls.target.fromArray(target);
+  return { perspective, ortho, controls };
+}
+
+export const orbitMouseAction = value => value === 'pan' ? MOUSE.PAN : value === 'rotate' ? MOUSE.ROTATE : value === 'zoom' ? MOUSE.DOLLY : null;
+
+/** Callers retain their left-button/tool and Quad/Showcase decisions. Quad View
+ * keeps OrbitControls' Shift action swap; single views preserve the chosen action. */
+export function applyCameraButtons(controls, event, preferences, { left, rotateAsPan = false, fine = true, preserveShift = true } = {}) {
+  const binding = cameraBindings(preferences);
+  const action = value => {
+    const mouse = orbitMouseAction(rotateAsPan && value === 'rotate' ? 'pan' : value);
+    return preserveShift ? preserveShiftCameraAction(mouse, event) : mouse;
+  };
+  controls.mouseButtons.RIGHT = action(binding.right); controls.mouseButtons.MIDDLE = action(binding.middle);
+  controls.mouseButtons.LEFT = action(left);
+  controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(preferences?.pointerSensitivity) * (event.shiftKey && fine ? preferences?.fineSensitivity ?? .2 : 1);
 }

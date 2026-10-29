@@ -1,3 +1,5 @@
+import { HemisphereLight, DirectionalLight } from 'three';
+
 export { previewLighting } from '../src/preview-lighting.js';
 
 /** Values are linear intensity multipliers; saved textures remain sRGB. */
@@ -15,4 +17,12 @@ export function configurePreviewLights(ambient, key, config) {
 export function applyPreviewMaterialLighting(material, config) {
   if (!material.specular) return;
   material.specular.setRGB(...config.specular); material.shininess = config.power;
+}
+
+export function createEditorLights(scene) {
+  const ambient = new HemisphereLight(0xd4e7ff, 0x52514a, 2.2);
+  ambient.position.set(0, 0, 300); scene.add(ambient);
+  const key = new DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
+  scene.add(key.target);
+  return { ambient, key };
 }
