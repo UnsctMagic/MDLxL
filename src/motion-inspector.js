@@ -1,14 +1,14 @@
 import { Quaternion, Vector3 } from 'three';
 import { quaternionToDegrees, degreesToQuaternion } from './rotation-math.js';
-import { allNodes, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
+import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementProperties, sampleMovement } from './movement.js';
 import { animationTrackId } from './animation-tracks.js';
 import { timelineDomain, setTimelineKeys } from './keyframe-timeline.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const motionChannels = Object.values(movementProperties);
 const label = node => node.Name || `Node ${node.ObjectId}`;
 const round = value => Number(value.toFixed(2));
-const globalTrack = track => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0;
 // Angle in degrees between two quaternions, the three.js way: each is normalised
 // first, so a zero quaternion counts as identity. OptimizeXL's own measure,
 // trackValueError in optimizexl-animation.js, reads a zero quaternion as 180°.
@@ -16,9 +16,8 @@ export const rotationDistance = (a, b) => new Quaternion().fromArray(a).normaliz
 const distance = (a, b, property) => property === 'Rotation' ? rotationDistance(a, b) : Math.hypot(...a.map((v, i) => v - b[i]));
 
 export function motionParentChain(model, id) {
-  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), chain = [], seen = new Set();
-  while (byId.has(id) && !seen.has(id)) { seen.add(id); const node = byId.get(id); chain.push(node); id = node.Parent; }
-  return chain;
+  const { byId, ancestors } = nodeIndex(model);
+  return ancestors(id, true).map(at => byId.get(at));
 }
 
 /** Only animation inputs cross the worker boundary; never clone mesh/texture data. */
@@ -36,7 +35,7 @@ export function motionPose(model, id, property, time, sequenceIndex) {
   const node = allNodes(model).find(node => node.ObjectId === id), interval = model.Sequences?.[sequenceIndex]?.Interval;
   if (!node || !interval || !motionChannels.includes(property)) return null;
   const frame = Math.round(Math.max(interval[0], Math.min(interval[1], time))), track = node[property];
-  const shared = globalTrack(track), duration = shared ? model.GlobalSequences?.[track.GlobalSeqId] : null;
+  const shared = isGlobalTrack(track), duration = shared ? model.GlobalSequences?.[track.GlobalSeqId] : null;
   const keyTime = duration > 0 ? frame % duration : frame;
   const keys = (track?.Keys || []).filter(key => shared || key.Frame >= interval[0] && key.Frame <= interval[1]);
   const value = sampleMovement(model, node, property, frame, sequenceIndex);
@@ -58,7 +57,7 @@ export function setMotionPose(model, id, property, time, sequenceIndex, display)
 
 function support(track, interval, start, end, property, globals) {
   if (!track?.Keys) return track ?? TRANSFORM_DEFAULTS[property];
-  const shared = globalTrack(track);
+  const shared = isGlobalTrack(track);
   const keys = track.Keys.filter(key => shared || key.Frame >= interval[0] && key.Frame <= interval[1]);
   let first = keys.findIndex(key => key.Frame >= start), last = keys.findLastIndex(key => key.Frame <= end);
   if (first < 0) first = keys.length;
@@ -97,7 +96,7 @@ export function scanCurveMotion(model, { sequenceIndex = 0, nodeIds = null } = {
   const copied = (a, b) => vector(a) && vector(b) && a.every((v, i) => v === b[i]);
   for (const node of nodes) {
     const track = node.Translation;
-    if (scope && !scope.has(node.ObjectId) || track?.LineType !== 2 || !Array.isArray(track.Keys) || globalTrack(track)) continue;
+    if (scope && !scope.has(node.ObjectId) || track?.LineType !== 2 || !Array.isArray(track.Keys) || isGlobalTrack(track)) continue;
     const keys = keysInInterval(track, interval);
     let run = []; const runs = [];
     const finish = () => { if (run.length >= 3) runs.push(run); run = []; };
@@ -160,7 +159,7 @@ export function scanMotion(model, { sequenceIndex = 0, nodeIds = null, maxWorldS
   for (const node of selected) for (const property of ['Rotation', 'Translation']) {
     const track = node[property];
     if (!track?.Keys) continue;
-    if (globalTrack(track)) { notes.add('Shared global tracks contribute to model-space sampling; their local key patterns are not classified.'); continue; }
+    if (isGlobalTrack(track)) { notes.add('Shared global tracks contribute to model-space sampling; their local key patterns are not classified.'); continue; }
     const keys = keysInInterval(track, interval);
     const unit = property === 'Rotation' ? '°' : ' model units', min = minimum(property), tolerance = property === 'Rotation' ? .25 : Math.max(.0001, size * .001);
     const sample = time => Array.from(sampleTrack(track, time, { interval, quaternion: property === 'Rotation', fallback: TRANSFORM_DEFAULTS[property] }));
@@ -234,7 +233,7 @@ export function scanMotion(model, { sequenceIndex = 0, nodeIds = null, maxWorldS
     for (const ancestor of chain) for (const property of motionChannels) {
       const track = ancestor[property];
       for (const key of track?.Keys || []) {
-        if (!globalTrack(track)) {
+        if (!isGlobalTrack(track)) {
           if (key.Frame >= interval[0] && key.Frame <= interval[1]) {
             times.add(key.Frame);
             if (track.LineType === 0 && key.Frame > interval[0]) times.add(Math.max(interval[0], key.Frame - .01));

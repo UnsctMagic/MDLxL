@@ -1,6 +1,6 @@
 import {createNode} from './editor-document.js';
 import {Vector3} from 'three';
-import {allNodes} from './animation.js';
+import {allNodes,isGlobalTrack} from './animation.js';
 import {samplePreviewMatrices} from './preview-pose.js';
 const vector=value=>new Float32Array([value]);
 /** Inspection samples use the same project pose evaluator as movement handles. */
@@ -27,7 +27,7 @@ export function particleSweepTimes(points,x,y,current) {
   return result.slice(0,4);
 }
 export function setParticleEmissionWindow(node,interval,window) {
-  if(Number.isInteger(node.Visibility?.GlobalSeqId)&&node.Visibility.GlobalSeqId>=0)throw Error('Emitting uses a global loop. Edit that loop in Classic before choosing a local emission window.');
+  if(isGlobalTrack(node.Visibility))throw Error('Emitting uses a global loop. Edit that loop in Classic before choosing a local emission window.');
   const [start,end]=interval,[from,to]=window.map(Math.round);
   if(from<start||to>end||to<=from)throw Error('Choose an emission window inside this animation.');
   const prior=node.Visibility,keys=prior?.Keys||[];
@@ -40,7 +40,7 @@ export function particleBurstTrack(node,interval,impact,amount) {
   const [start,end]=interval;impact=Math.round(impact);amount=Math.round(amount);
   if(impact<start||impact>=end||!Number.isFinite(amount)||amount<0)throw Error('Choose an impact inside the animation and a non-negative burst amount.');
   const prior=node.EmissionRate;
-  if(Number.isInteger(prior?.GlobalSeqId)&&prior.GlobalSeqId>=0)throw Error('Amount uses a global loop. Edit that loop in Classic before creating a local burst.');
+  if(isGlobalTrack(prior))throw Error('Amount uses a global loop. Edit that loop in Classic before creating a local burst.');
   const keys=prior?.Keys||[];
   if(prior?.LineType>0&&keys.some(k=>k.Frame<start||k.Frame>end))throw Error('Other animations share interpolated amount. Keep that track and edit its keys in Classic.');
   const values=new Map([[start,0],[impact,amount],[impact+1,0],[end,0]]);

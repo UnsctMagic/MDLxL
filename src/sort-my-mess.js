@@ -1,6 +1,6 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
-import { keysInInterval, sampleTrack } from './animation.js';
+import { isGlobalTrack, keysInInterval, sampleTrack } from './animation.js';
 import { appendGeosetGeometry } from './editor-document.js';
 import { unionAnimatedExtents } from './geoset-operations.js';
 import { setAnimationSequences } from './animation-tracks.js';
@@ -26,7 +26,7 @@ const n = displayNumber;
 const canonical = canonicalValue;
 const keyOf = stableKey;
 const isTrack = value => Array.isArray(value?.Keys);
-const isGlobal = track => isTrack(track) && Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0;
+const isGlobal = track => isTrack(track) && isGlobalTrack(track);
 const animsFor = (model, id) => (model.GeosetAnims || []).filter(anim => anim.GeosetId === id);
 const rgb255 = color => Array.from(color || [1, 1, 1], value => Math.round(Math.max(0, Math.min(1, value)) * 255)).join(',');
 const round = value => Math.round(value * 1000) / 1000;

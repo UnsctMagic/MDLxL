@@ -3,6 +3,7 @@ import { degreesToQuaternion } from './rotation-math.js';
 import { allNodes, sampleNodeMatrices } from './animation.js';
 import { applyMovementTransform, movementRestricted, sampleMovement } from './movement.js';
 import { portraitSequenceIndices } from './sequence-editor.js';
+import { vertexBones } from './part-bones.js';
 
 const trackProperty = { move: 'Translation', rotate: 'Rotation' };
 
@@ -13,10 +14,7 @@ function controlBindings(model) {
     const connected = new Set();
     const count = (geoset.Vertices?.length || 0) / 3;
     for (let vertex = 0; vertex < count; vertex++) {
-      const skin = geoset.SkinWeights;
-      const ids = skin?.length === count * 8
-        ? [0, 1, 2, 3].filter(slot => skin[vertex * 8 + 4 + slot] > 0).map(slot => skin[vertex * 8 + slot])
-        : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
+      const ids = vertexBones(geoset, vertex);
       if (!ids.length) throw new Error('Control Model cannot move a geoset with unbound vertices.');
       for (const id of new Set(ids)) {
         let node = byId.get(id), seen = new Set();
