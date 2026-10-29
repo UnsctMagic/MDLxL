@@ -189,3 +189,7 @@ code and may be removed.
 - [x] Item 5: escape reserved MDLXL_ user comment lines and escape prefixes,
   then unescape on read; native editor metadata remains separate. Repeated
   save/reopen, metadata coexistence, removal and existing manager tests passed.
+- [x] Item 6: size sliders now appear only for sphere/box shapes, matching
+  collision-stage drawing. Existing cylinder/plane data and deletion remain
+  available without incorrect box edits. Packaged UI regression pending with
+  final manager interaction checks. Existing native collision tests passed.
