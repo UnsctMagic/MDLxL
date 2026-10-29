@@ -11,9 +11,26 @@
 // findFiberState(selector, predicate) is the generic walk for everything the hook does not cover: it starts at
 // the element's fiber, goes up through its owners and returns the first hook state, or ref value, that
 // matches predicate. { tree: true } searches the current root; { props: true } matches owner props instead.
+// findFiberProps(selector, predicate) returns matching owner props from React's committed tree.
 function install() {
   const fiberOf = element => element && element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
   const elementOf = selector => typeof selector === 'string' ? document.querySelector(selector) : selector;
+  // Resolve the host in React's committed tree; its DOM fiber may point at an older alternate.
+  window.findFiberProps = (selector, predicate) => {
+    const element = document.querySelector(selector);
+    let fiber = fiberOf(element);
+    if (!fiber) return null;
+    let top = fiber; while (top.return) top = top.return;
+    const pending = [top.stateNode.current];
+    while (pending.length) {
+      const node = pending.pop();
+      if (node.stateNode === element) { fiber = node; break; }
+      if (node.child) pending.push(node.child);
+      if (node.sibling) pending.push(node.sibling);
+    }
+    for (; fiber; fiber = fiber.return) if (fiber.memoizedProps && predicate(fiber.memoizedProps)) return fiber.memoizedProps;
+    return null;
+  };
   // tree/props cover Citadel's workspace and preview owners, which are siblings rather than ancestors.
   window.findFiberState = (selector, predicate, { tree = false, props = false } = {}) => {
     const match = fiber => {

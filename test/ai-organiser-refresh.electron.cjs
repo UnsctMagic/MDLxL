@@ -1,6 +1,6 @@
 // Delayed IPC fixture in the real package; no external AI account or model service.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const root=path.resolve(__dirname,'..');
 (async()=>{
  const output=path.join(root,'out/ai-organiser-refresh');fs.mkdirSync(output,{recursive:true});
@@ -10,10 +10,10 @@ const root=path.resolve(__dirname,'..');
   for(const name of ['A.mdx','B.mdx','Donor.mdx'])fs.writeFileSync(path.join(run,name),bytes);
   const image='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXZkAAAAASUVORK5CYII=';
   fs.writeFileSync(path.join(run,'Picture.png'),Buffer.from(image,'base64'));
-  const exe=path.join(process.env.MDLXL_SUITE_PKG||path.join(root,'out/pkg/MDLxL-win32-x64'),'MDLxL.exe');
-  app=await _electron.launch({executablePath:exe,args:['A.mdx','B.mdx'].map(n=>path.join(run,n)),env:{...process.env,MDLVIS_HEADLESS:'',MDLXL_PROFILE:path.join(run,'profile')},timeout:30000});
-  const page=await app.firstWindow(),errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.unmaximize();w.setContentSize(1440,900);});
+  const launched = await launchApp({ args: ['A.mdx', 'B.mdx'].map(n => path.join(run, n)), out: run, env: { MDLVIS_HEADLESS: '' }, timeout: 30000, pageTimeout: 15000 });
+  app = launched.app;
+  const { page, errors } = launched;
+  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.unmaximize();w.setContentSize(1440,900);});
   await page.getByRole('button',{name:'AI assistant',exact:true}).click();
   if(!await page.getByLabel('AI provider',{exact:true}).isVisible())await page.getByRole('button',{name:'Connection settings',exact:true}).click();
   await page.getByLabel('AI provider',{exact:true}).selectOption('compatible');
@@ -57,7 +57,7 @@ const root=path.resolve(__dirname,'..');
   assert.deepEqual(errors,[]);
   console.log('PASS packaged organiser replacement: tab switch clears busy state, B draft preserved, A prompt/image/model reference follow the fresh chat and model choice');
  }finally{
-  if(app){await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}
+  if (app) await closeApp(app);
   if(path.dirname(run)!==output)throw Error('Unexpected test directory');fs.rmSync(run,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -68,7 +68,7 @@ export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeI
     const box=root.current.getBoundingClientRect();latest.current.onSelect?.(layer.id);
     const centerX=box.left+(layer.rect.x+layer.rect.width/2)*box.width,centerY=box.top+(layer.rect.y+layer.rect.height/2)*box.height;
     const point={x:event.clientX,y:event.clientY};
-    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...rotationOptions(latest.current.preferences,'showcase'),x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY}})};
+    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...rotationOptions(latest.current.preferences,'showcase'),x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY},axis:[0,0,-1]})};
     event.currentTarget.setPointerCapture(event.pointerId);event.stopPropagation();event.preventDefault();
   }
   function move(event){

@@ -2,12 +2,10 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, appTarget, sha256File: hash } = require('./helpers/app.cjs');
 const root = path.resolve(__dirname, '..');
 const out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/uv-team-color-test');
-const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/uv-team-color-package/MDLxL-win32-x64/MDLxL.exe');
-const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const { executablePath: executable } = appTarget();
 
 async function fixture() {
   fs.mkdirSync(out, { recursive: true });
@@ -35,33 +33,19 @@ async function fixture() {
 }
 
 const runtime = () => {
-  const element = document.querySelector('.uv-tab-window .game-preview-root');
-  let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-  for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-    const state = hook.memoizedState?.current;
-    if (state?.native && state.controls) return {
-      camera: Array.from(state.controls.object.matrixWorld.elements),
-      team: Array.from(state.native.rendererData.teamColor),
-      model: JSON.parse(JSON.stringify(state.native.model)),
-    };
-  }
-  return null;
+  const state = mdlxlProbe('.uv-tab-window .game-preview-root').runtime;
+  return state ? {
+    camera: Array.from(state.controls.object.matrixWorld.elements),
+    team: Array.from(state.native.rendererData.teamColor),
+    model: JSON.parse(JSON.stringify(state.native.model)),
+  } : null;
 };
 
 async function backdrop(page) {
   return page.getByLabel('UV coordinate editor').evaluate(async element => {
-    let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-    let top = fiber; while (top.return) top = top.return;
-    const find = node => {
-      if (node.memoizedProps?.textureUrl) for (let hook = node.memoizedState; hook; hook = hook.next) {
-        if (hook.memoizedState?.current === element) return node;
-      }
-      for (let child = node.child; child; child = child.sibling) { const found = find(child); if (found) return found; }
-      return null;
-    };
-    fiber = find(top.stateNode.current);
-    if (!fiber) return null;
-    const image = new Image(); image.src = fiber.memoizedProps.textureUrl; await image.decode();
+    const props = findFiberProps('[aria-label="UV coordinate editor"]', props => !!props.textureUrl);
+    if (!props) return null;
+    const image = new Image(); image.src = props.textureUrl; await image.decode();
     const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
     const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
     const pixel = (u, v) => Array.from(context.getImageData(Math.floor(u * image.width), Math.floor(v * image.height), 1, 1).data);
@@ -88,15 +72,10 @@ async function visibleCanvas(page, team) {
 
 (async () => {
   const input = await fixture(), original = hash(input), skinHash = hash(path.join(out, 'Skin.tga'));
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', input],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
-  const errors = []; let uv;
+  const { app, page: launchedPage, errors } = await launchApp({ fixture: input, out, bounds: { x: -3000, y: 0, width: 1600, height: 950 } });
+  let uv;
   try {
-    const main = await app.firstWindow(); main.setDefaultTimeout(20000); main.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false);
-      window.setBounds({ x: 40, y: 40, width: 1600, height: 950 }); window.showInactive();
-    });
+    const main = launchedPage;
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('Team color', { exact: true }).selectOption('#ff0303');
     for (let i = 0; i < 5; i++) await main.getByLabel(`Select geoset ${i}`, { exact: true }).check();
@@ -143,5 +122,5 @@ async function visibleCanvas(page, team) {
       fs.writeFileSync(path.join(out, 'failure.json'), JSON.stringify({ backdrop: await backdrop(uv), runtime: await uv.evaluate(runtime) }, null, 2));
     }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -2,20 +2,15 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 
 (async () => {
   const output = path.resolve('out/uv-grabthrough'); fs.mkdirSync(output, { recursive: true });
   const fixture = path.resolve('test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
   const geosetIndex = 15;
-  const app = await _electron.launch({
-    executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, `profile-${Date.now()}`) }, timeout: 60000,
-  });
+  const { app, page: launchedPage } = await launchApp({ fixture, out: output, pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -3000, y: 0, width: 1440, height: 1000 }); window.showInactive(); });
+    const page = launchedPage;
     await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).waitFor({ timeout: 60000 });
     await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).check();
@@ -29,20 +24,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await canvas.waitFor({ timeout: 60000 });
     await page.evaluate(() => {
       window.uvState = () => {
-        const root = document.querySelector('.uv-workspace');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.eligibleSelection) return fiber.memoizedProps;
-        throw Error('UV workspace props unavailable');
+        const props = findFiberProps('.uv-workspace', props => !!props.eligibleSelection);
+        if (!props) throw Error('UV workspace props unavailable');
+        return props;
       };
-      window.previewState = () => {
-        const root = document.querySelector('.uv-tab-window .game-preview-root');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState?.current;
-          if (state?.native && state?.controls) return state;
-        }
-        throw Error('Preview camera unavailable');
-      };
+      window.previewState = () => mdlxlProbe('.uv-tab-window .game-preview-root').runtime;
       // Unselected Live Select markers are filled with this exact blue.
       window.markerPixels = () => {
         const overlay = document.querySelector('.uv-tab-window [data-geometry-overlay]');
@@ -100,7 +86,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4, { steps: 6 });
       await page.mouse.up();
       await page.keyboard.up('a');
-      await page.waitForTimeout(150);
+      await settle(page, 150);
       return page.evaluate(() => uvState().selectionByGeoset[15]?.length || 0);
     };
     const clearSelection = async () => {
@@ -148,7 +134,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const quickNormals = page.locator('.quick-display input[data-hotkey="normals"]');
     const mainNormals = () => quickNormals.isChecked();
     // Each press is checked on its own: two presses would cancel out and hide a toggle.
-    const pressN = async () => { await page.keyboard.press('n'); await page.waitForTimeout(400); return mainNormals(); };
+    const pressN = async () => { await page.keyboard.press('n'); await settle(page, 400); return mainNormals(); };
     const overUV = async () => { box = await canvas.boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); };
     assert.equal(await mainNormals(), false);
     await overUV();
@@ -168,5 +154,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await pressN(), false, 'but not back on');
     assert.equal(await page.evaluate(() => !!document.activeElement?.closest('.quick-display')), false, 'the N shortcut does not pull focus out of the UV mapper');
     console.log(`PASS Electron UV Grabthrough: defaults on, off hides back markers (${throughPixels} -> ${seenPixels} px) and skips hidden vertices (${throughCount} -> ${seenCount}), camera still rotates; N cannot turn normals on from the UV mapper but still works in the main view`);
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -26,9 +26,6 @@ const {launchApp,closeApp}=require('./helpers/app.cjs');
     await undo.click();await page.locator('.learn-keycap').waitFor();assert.match(await page.locator('.learn-keycap').textContent(),/Ctrl.*F9/);
     await page.keyboard.press('Escape');await anim.waitFor({state:'detached'});
     checks.push('AnimXL: rebound history/playback, button badges, Learn, Escape');
-    // Main c9f07094 calls an undefined isPortrait during Showcase initialization.
-    // Supply its existing sequence predicate only in this disposable test page so window keys can be exercised.
-    await page.evaluate(()=>{window.isPortrait=sequence=>/portrait/i.test(sequence?.Name||'');});
     await page.getByRole('button',{name:'Showcase',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.showcase-record')&&!document.querySelector('.showcase-record').disabled);
     const showcasePlay=page.locator('[data-hotkey="showcase:play"]');
@@ -72,6 +69,6 @@ const {launchApp,closeApp}=require('./helpers/app.cjs');
     assert.equal(await managerUndo.locator('[data-hotkey-badge]').textContent(),'Ctrl+F9');
     assert.equal(await manager.getAttribute('role'),'dialog');await managerRedo.focus();await page.keyboard.press('Escape');await manager.waitFor({state:'detached'});
     checks.push('Resource manager: rebound history, existing button badges and Escape');
-    assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks,baselineShim:'undefined isPortrait in main c9f07094'},null,2));console.log(checks.join('\n'));
+    assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks},null,2));console.log(checks.join('\n'));
   }catch(error){console.error({errors,uses:await page.evaluate(()=>window.windowKeyUses),history:await page.evaluate(()=>{const el=document.querySelector('.showcase-workspace');let fiber=el?.[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const h=hook.memoizedState?.current;if(h?.travel&&h.undo)return {undo:h.undo.length,redo:h.redo.length,light:h.present?.light};}return null;}),body:(await page.locator('body').innerText()).slice(-2500)});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

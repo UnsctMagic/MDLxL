@@ -1,47 +1,26 @@
-// Run after rebuilding dist; MDLXL_UI_EXECUTABLE optionally targets a portable package.
+// Run after rebuilding dist; MDLXL_TEST_EXE optionally targets a portable package.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
   const out = path.resolve(process.env.MDLXL_TEST_OUTPUT || path.join(root, 'out/uv-numpad'));
   fs.mkdirSync(out, { recursive: true });
-  const profile = fs.mkdtempSync(path.join(out, 'profile-'));
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
   const fixture = path.join(root, 'fixtures/demo.mdx'), original = fs.readFileSync(fixture);
-  const app = await _electron.launch({
-    executablePath: process.env.MDLXL_UI_EXECUTABLE || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: [...(process.env.MDLXL_UI_EXECUTABLE ? [] : [root]), fixture], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-  });
-  const errors = [], checks = [];
+  const { app, page: launchedPage, errors } = await launchApp({ fixture, out, pageTimeout: 15000, settings: { preferences: { graphics: { pauseWhenHidden: false } } }, show: 'hide', bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
+  const checks = [];
   let page;
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win.setContentSize(1440, 1000);
-      win.webContents.setBackgroundThrottling(false);
-      return { visible: win.isVisible(), focused: win.isFocused() };
-    }).then(state => assert.deepEqual(state, { visible: false, focused: false }));
+    page = launchedPage;
+    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.setContentSize(1440, 1000); return { visible: win.isVisible(), focused: win.isFocused() }; }).then(state => assert.deepEqual(state, { visible: false, focused: false }));
     await page.getByLabel('3D model viewport', { exact: true }).waitFor();
     await page.evaluate(() => {
       window.uvProps = (selector, key) => {
-        const element = document.querySelector(selector);
-        let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-        let top = fiber; while (top.return) top = top.return;
-        const pending = [top.stateNode.current];
-        while (pending.length) {
-          const node = pending.pop();
-          if (node.stateNode === element) { fiber = node; break; }
-          if (node.child) pending.push(node.child);
-          if (node.sibling) pending.push(node.sibling);
-        }
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.[key]) return fiber.memoizedProps;
-        throw Error('Props unavailable: ' + selector);
+        const props = findFiberProps(selector, props => !!props[key]);
+        if (!props) throw Error('Props unavailable: ' + selector);
+        return props;
       };
       window.uvValues = () => Array.from(uvProps('.uv-editor', 'geoset').geoset.TVertices[0]);
       window.modelSnapshot = () => JSON.stringify(uvProps('.classic-view > .viewport', 'model').model);
@@ -144,8 +123,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (page) await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true })).toPNG().toString('base64')).then(data => fs.writeFileSync(path.join(out, 'failure.png'), Buffer.from(data, 'base64'))).catch(() => {});
     throw error;
   } finally {
-    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
-    await app.close().catch(() => {});
-    assert.equal(path.dirname(profile), out); fs.rmSync(profile, { recursive: true, force: true });
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

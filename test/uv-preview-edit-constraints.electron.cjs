@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle, stubDialogs } = require('./helpers/app.cjs');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
@@ -11,31 +11,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
   const doc = createDemoDocument(), fixture = path.join(output, 'preview-edit.mdx');
   const original = Buffer.from(doc.serialize('mdx')); fs.writeFileSync(fixture, original);
-  const executable = process.argv[2] || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath: executable,
-    args: ['--disable-backgrounding-occluded-windows', ...(process.argv[2] ? [] : [root]), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, `profile-${Date.now()}`) }, timeout: 60000 });
+  const { app, page: launchedPage } = await launchApp({ fixture, out: output, pageTimeout: 15000 });
   let uv;
   try {
-    const main = await app.firstWindow(); main.setDefaultTimeout(15000); const uvw = main.locator('.uv-tab-window');
-    await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) { w.webContents.setBackgroundThrottling(false); w.setPosition(-3000, 0); w.showInactive(); } });
+    const main = launchedPage; const uvw = main.locator('.uv-tab-window');
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('3D model viewport', { exact: true }).waitFor({ timeout: 60000 });
     const installHelpers = page => page.evaluate(() => {
       window.ownerProps = (selector, key) => {
-        const element = document.querySelector(selector); if (!element) throw Error('Missing ' + selector);
-        let fiber = element[Object.keys(element).find(name => name.startsWith('__reactFiber'))];
-        let top = fiber; while (top.return) top = top.return;
-        const current = top.stateNode.current;
-        const pending = [current];
-        while (pending.length) {
-          const node = pending.pop();
-          if (node.stateNode === element) { fiber = node; break; }
-          if (node.child) pending.push(node.child);
-          if (node.sibling) pending.push(node.sibling);
-        }
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.[key]) return fiber.memoizedProps;
-        throw Error('Missing props ' + key);
+        const props = findFiberProps(selector, props => !!props[key]);
+        if (!props) throw Error('Missing props ' + selector);
+        return props;
       };
       window.modelState = () => ownerProps('[aria-label="3D model viewport"]', 'onSelectionChange').model;
       window.uvState = () => ownerProps('.uv-workspace', 'onUVChanges');
@@ -77,7 +63,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     await uv.evaluate(() => { const p = uvState(), values = p.model.Geosets[0].TVertices[0].slice(); values[0] += .2; p.onUVChanges([{ geosetIndex: 0, uvSet: 0, values }]); });
     await uv.waitForFunction(() => uvState().revision > window.previewRevisionBeforeUVEdit);
-    await uv.waitForTimeout(250);
+    await settle(uv, 250);
     assert.equal(await uv.evaluate(() => window.previewCanvasBeforeUVEdit === document.querySelector('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]')), true,
       'A UV edit with a temporary texture must keep the live preview canvas mounted');
     const previewCanvas = uvw.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
@@ -88,7 +74,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await uv.mouse.down();
     await uv.mouse.move(center.x + 65, center.y + 35, { steps: 8 });
     await uv.mouse.up();
-    await uv.waitForTimeout(150);
+    await settle(uv, 150);
     assert.notDeepEqual(await previewCanvas.screenshot(), beforeCameraDrag, 'The live preview must rotate through a normal mouse drag');
     await closeUV();
     const before = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
@@ -146,7 +132,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const committed = await main.evaluate(() => JSON.stringify(modelState()));
     assert.ok(JSON.parse(committed).Textures.some(texture => texture.Image === 'PreviewEdit.png'));
     const saved = path.join(output, 'saved.mdx');
-    await app.evaluate(({ dialog }, filename) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: filename }); }, saved);
+    await stubDialogs(app, { save: saved });
     await main.keyboard.press('F12');
     await main.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await main.waitForFunction(() => document.querySelector('.classic-status span').textContent.startsWith('Saved '));
@@ -162,7 +148,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.log('PASS packaged Electron: temporary texture UV edit keeps live preview canvas, mouse drag rotates preview, vertex edits and undo/redo preserve UV and geometry, Save texture and MDX reload, sidebar width and input file preserved');
   } catch (error) {
     console.error(error); if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(output, 'failure-uv.png') }).catch(() => {});
-    const main = await app.firstWindow(); console.error(await main.locator('.classic-status').innerText());
+    const main = launchedPage; console.error(await main.locator('.classic-status').innerText());
     await main.screenshot({ path: path.join(output, 'failure-main.png') }).catch(() => {}); throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

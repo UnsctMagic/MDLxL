@@ -1,31 +1,23 @@
 // Run against the rebuilt bundle with MDLXL_PLAYWRIGHT_MODULE pointing to Playwright.
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 const preferenceValue = selector => `(() => {
   const element = document.querySelector(${JSON.stringify(selector)});
   if (!element) throw Error('Missing ${selector}');
-  let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-  for (; fiber; fiber = fiber.return) {
-    const value = fiber.memoizedProps?.preferences?.scrollSensitivity;
-    if (Number.isFinite(value)) return value;
-  }
+  const props = findFiberProps(${JSON.stringify(selector)}, props => Number.isFinite(props.preferences?.scrollSensitivity));
+  if (props) return props.preferences.scrollSensitivity;
   throw Error('Scroll sensitivity preferences unavailable for ${selector}');
 })()`;
 
 (async () => {
   const root = path.resolve(__dirname, '..');
   const fixture = path.join(root, 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
-  const profile = path.join(root, 'out', `uv-scroll-sensitivity-${Date.now()}`);
-  const app = await _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', root, fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-  });
+  const out = path.join(root, 'out', 'uv-scroll-sensitivity');
+  const { app, page: launchedPage } = await launchApp({ fixture, out, pageTimeout: 15000 });
   try {
-    const main = await app.firstWindow(); main.setDefaultTimeout(15000);
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+    const main = launchedPage;
     await main.getByLabel('Select geoset 3', { exact: true }).waitFor({ timeout: 60000 });
     await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 3', { exact: true }).check();
@@ -61,6 +53,6 @@ const preferenceValue = selector => `(() => {
     assert.equal(await uv.evaluate(preferenceValue('.uv-tab-window .game-preview-root')), 1.3);
     console.log('PASS UV scroll sensitivity: starts at 1.3, stays UV-only, and resets after reopening');
   } finally {
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

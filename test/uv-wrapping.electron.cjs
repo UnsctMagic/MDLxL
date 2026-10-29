@@ -2,19 +2,17 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
 (async () => {
-  const input = path.resolve(process.argv[2]);
+  const input = path.resolve(process.argv[2] || fixturePath('footman'));
   const original = fs.readFileSync(input);
   const out = path.resolve('out/uv-wrapping'); fs.mkdirSync(out, {recursive:true});
-  const app = await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),
-    args:['--disable-backgrounding-occluded-windows', process.cwd(), input],
-    env:{...process.env, MDLVIS_HEADLESS:'1', MDLXL_PROFILE:path.join(out, 'profile-'+Date.now())}, timeout:60000});
+  const { app, page: launchedPage } = await launchApp({ fixture: input, out, pageTimeout: 15000 });
   let uv;
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await app.evaluate(({BrowserWindow}) => {const w=BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.setPosition(-3000,0); w.showInactive();});
+    const page = launchedPage;
     await page.getByLabel('Select geoset 0', {exact:true}).waitFor({timeout:60000});
     await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel('Select geoset 0', {exact:true}).check();
@@ -22,7 +20,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Control+a');
     uv = page; const uvw = page.locator('.uv-tab-window');
     await page.locator('[data-hotkey="uv"]').click();
-    await app.evaluate(({BrowserWindow}) => {for(const window of BrowserWindow.getAllWindows()){window.webContents.setBackgroundThrottling(false);window.setPosition(-3000,0);window.showInactive();}});
     await uvw.locator('.uv-grid-toolbar').waitFor();
     const viewLimit = uvw.getByLabel('UV map tile limit');
     assert.equal(await viewLimit.inputValue(), '7');
@@ -35,19 +32,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await uvw.getByRole('button', {name:'Enable Wrapping', exact:true}).waitFor();
     await uv.evaluate(() => {
       window.uvState = () => {
-        const root = document.querySelector('.uv-workspace');
-        let fiber = root[Object.keys(root).find(key=>key.startsWith('__reactFiber'))];
-        let top=fiber;while(top.return)top=top.return;if(top.stateNode.current!==top)fiber=fiber.alternate||fiber;
-        for (;fiber;fiber=fiber.return) if (fiber.memoizedProps?.onWrappingChange) return fiber.memoizedProps;
-        throw Error('UV workspace props not found');
+        const props = findFiberProps('.uv-workspace', props => !!props.onWrappingChange);
+        if (!props) throw Error('UV workspace props unavailable');
+        return props;
       };
-      window.nativeState = () => {
-        const root = document.querySelector('.uv-tab-window .game-preview-root');
-        if (!root) return null;
-        let fiber = root[Object.keys(root).find(key=>key.startsWith('__reactFiber'))];
-        for (;fiber;fiber=fiber.return) for(let h=fiber.memoizedState;h;h=h.next) if(h.memoizedState?.current?.native) return h.memoizedState.current.native;
-        return null;
-      };
+      window.nativeState = () => mdlxlProbe('.uv-tab-window .game-preview-root').runtime?.native;
       window.sampling = () => {
         const native = nativeState(); if (!native?.gl) return null;
         const info = native.model.Textures.find(t=>t.Image&&!t.ReplaceableId);
@@ -103,5 +92,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (uv) { console.error(error); await uv.screenshot({path:path.join(out,'failure.png')}).catch(e=>console.error('Failure screenshot unavailable:',e.message)); }
     else console.error(await (await app.firstWindow()).locator('body').innerText());
     throw error;
-  } finally { await app.evaluate(({app})=>app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error=>{console.error(error);process.exitCode=1;});
