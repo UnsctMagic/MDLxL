@@ -62,12 +62,6 @@ The owner's open manual test is the earlier PR build and stays untouched.
   `claude/update-usage-ping` at `fabf4f8d`; it was copied into this branch.
   The owner's source files and installed app/profile were not changed.
 - Implementation/test revision: `dfbfc4e9fb567ab2aca39b219b944db8d448bf60`.
-- PR: [#327](https://github.com/UnsctMagic/MDLxL/pull/327) into `main`, with the
-  `Session:` line. Open and unmerged. The owner now authorizes merge only if Claude
-  approves its review, using Opus 5.5 at medium effort. After handing it off,
-  Codex must go idle. Claude should return a concrete task to this Codex chat
-  if changes are needed (chat `01a17864-2f9a-77a1-aed8-4cdebfa613d8`).
-- Keep the Current tasks entry while owner testing and merge approval remain.
 
 ## Relevant owners
 
@@ -298,3 +292,11 @@ passes (98 passed, 7 skipped). One regression must be fixed first.
   center. GamePreview passes `movementRotationFacing`; Viewport now normalizes
   its facing. Face-on circles are unchanged.
 
+## History
+
+- PR: [#327](https://github.com/UnsctMagic/MDLxL/pull/327) into `main`, with the
+  `Session:` line. Open and unmerged. The owner now authorizes merge only if Claude
+  approves its review, using Opus 5.5 at medium effort. After handing it off,
+  Codex must go idle. Claude should return a concrete task to this Codex chat
+  if changes are needed (chat `01a17864-2f9a-77a1-aed8-4cdebfa613d8`).
+- Keep the Current tasks entry while owner testing and merge approval remain.

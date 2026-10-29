@@ -1,6 +1,6 @@
 # AI review: matching original, edited and donor pictures
 
-Status: ready for review
+Status: completed — merged in #364 (c55abf76)
 Owner / consolidator: Claude Code
 Updated: 2026-10-28
 

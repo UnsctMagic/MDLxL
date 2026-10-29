@@ -1,6 +1,6 @@
 # Bitz replacement fitting
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #360 (dc60ad3d)
 Owner: Codex
 Updated: 2026-10-28
 

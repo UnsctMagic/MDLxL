@@ -127,6 +127,8 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - Merge through the PR only after explicit user authorization. Until then, report
   `ready for review; awaiting merge approval`. After authorized merging, verify
   both the merged PR and its change on online `main` before reporting completion.
+  After merging, mark the task note completed with the merge revision and remove
+  its [README](docs/agent-tasks/README.md) row in the same or the next PR.
 - Do not bump versions for unshipped local edits. For a release, choose the next
   version from the latest released version and include all intended changes.
   Never reuse a version: patch for fixes/maintenance, minor for compatible

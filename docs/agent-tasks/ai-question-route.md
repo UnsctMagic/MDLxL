@@ -1,6 +1,6 @@
 # AI questions and provider protocol routes
 
-State: ready for review; awaiting merge approval. PR #375, codex/ai-question-route.
+Status: completed — merged in #375 (d770ef71)
 Original base: 188be9cb. Original question route: dbe1d07f.
 Refreshed with main 6d211c88; both organiser checkpoints and notice forwarding
 are preserved in the shared event handler.

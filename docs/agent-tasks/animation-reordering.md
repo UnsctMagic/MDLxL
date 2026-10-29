@@ -1,5 +1,7 @@
 # Animation reordering
 
+Status: completed — merged in #359 (58d50e6e)
+
 PR: https://github.com/UnsctMagic/MDLxL/pull/359
 Branch: codex/animation-reorder-20261028
 Session: codex PR 359 test build and compact buttons

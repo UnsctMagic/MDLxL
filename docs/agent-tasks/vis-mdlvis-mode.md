@@ -1,6 +1,6 @@
 # VIS stays MDLVis
 
-Status: Claude review blockers addressed; ready for independent review
+Status: completed — merged in #324 (1de79ac1)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -152,8 +152,9 @@ found two blockers. Both are addressed without changing model or provider behavi
 4. Click XL. Check that model tabs, editor buttons, icon/name chips, status
    controls and overflow initials return. Save and reopen if desired.
 
-## Next action
+## History
 
 Independent Claude review of the updated PR #324. The two findings on 5420b0d7 are addressed in 0b6dc090; current-main integration preserves both fixes. Merge only if acceptable and CI is green
 on the reviewed head. Otherwise send actionable findings to originating Codex
 chat `01a17855-e29f-7711-8a1b-83dca97442b1` for fixes. This editing chat has not merged it.
+

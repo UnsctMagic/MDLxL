@@ -1,5 +1,7 @@
 # Update and first-open popup helmet eyes
 
+Status: completed — merged in #367 (c6989fb6)
+
 Owner approved both test EXEs and authorized merging both effects on 2026-10-28.
 Session: codex codex://threads/01a182e1-70fc-7001-a424-e0f8d8c0800b
 

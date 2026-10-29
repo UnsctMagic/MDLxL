@@ -16,7 +16,6 @@ large Ogres. The approved prior lane's body/corpse alignment is the reference.
 ## Revision
 
 - Branch: `codex/auto-corpse-placer`, base `683037ee`.
-- Review: [PR #276](https://github.com/UnsctMagic/MDLxL/pull/276), unmerged.
 - Working checkout: `D:\Codex\mdlxl-auto-corpse-20261023\repo`.
 - Test build: sibling `outputs\MDLxL-win32-x64`; no installed app replaced.
 - Session: codex codex://threads/01a165fc-409d-7423-ad0f-6d448c018b84
@@ -58,3 +57,7 @@ Test `outputs/START AUTO CORPSE TEST.cmd`, then CORP in the VIS row. See the
 adjacent verification report and body-versus-corpse image. The test launcher
 uses its own D: profile; the installed app and personal data were not changed.
 Await explicit merge authorization. Do not merge or publish a release silently.
+
+## History
+
+- Review: [PR #276](https://github.com/UnsctMagic/MDLxL/pull/276), unmerged.

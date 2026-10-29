@@ -1,6 +1,6 @@
 # Fixes from the review of Codex's 0.35.0 → 0.36 changes
 
-Status: follow-up fixes added; ready for review; awaiting merge approval
+Status: completed — merged in #379 (84db41ec)
 Owner / consolidator: Codex (fixes); review done by Claude Code
 Updated: 2026-10-29
 
@@ -236,7 +236,6 @@ code and may be removed.
 
 ## Handoff
 
-- PR: https://github.com/UnsctMagic/MDLxL/pull/379 (open into main).
 - Session: codex codex-review-fixes.
 - Awaiting explicit merge approval. No merge/release/upgrade is authorized.
 - Disposable builds, profiles and extracted runtimes removed after verification;
@@ -274,3 +273,7 @@ Not changed: Claude multi-select answers are sent as an array; the real CLI's
 expected shape was not checked against a live turn. Sixteen older Electron
 tests default to a Codex runtime Playwright path; the packaged runner overrides
 it, so it was left alone.
+
+## History
+
+- PR: https://github.com/UnsctMagic/MDLxL/pull/379 (open into main).

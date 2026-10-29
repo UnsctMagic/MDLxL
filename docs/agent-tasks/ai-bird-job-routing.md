@@ -1,6 +1,6 @@
 # Automatic job routing in bird mode
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #372 (3500255b)
 Owner: Codex
 Updated: 2026-10-29
 
@@ -68,7 +68,10 @@ No release, installed-app/profile change, version bump or merge is authorized.
 
 ## Next action
 
-PR #372 is open and attached. Disposable builds/profiles have been removed.
 Remove the pushed worktree after saving the small report/capture on D:, verify
 CI, and await explicit owner approval before merging or publishing. Source and
 branch history remain in the original D: repository.
+
+## History
+
+PR #372 is open and attached. Disposable builds/profiles have been removed.

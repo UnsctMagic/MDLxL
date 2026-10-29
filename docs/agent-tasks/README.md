@@ -8,17 +8,8 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| AI credit fixes: snapshot once per bird, 200K handover, local handover note, summary sees reports | Ready for review; awaiting merge approval | [AI credit fixes](ai-credit-fixes.md) / Claude Code |
-| AI clarification questions and answers | Ready for review; awaiting merge approval | [Question route](ai-question-route.md) / Codex |
-| Automatic organiser checkpoints and helper birds | Ready for review; awaiting merge approval | [Organiser checkpoints](ai-organiser-checkpoints.md) / Codex |
-| Automatic job routing in bird mode | Ready for review; awaiting merge approval | [Bird job routing](ai-bird-job-routing.md) / Codex |
-| AI-only model references | Ready for review; awaiting merge approval | [AI-only references](ai-private-references.md) / Codex |
-| Bitz replacement size and position fitting | Ready for review; awaiting merge approval | [Replacement fitting](bitz-replacement-fit.md) / Codex |
-| Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
-| New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
-| WC3 editing knowledge for the AI (general rules, reuse existing research) | Core and seven guides ready for owner review; #317 overlap documented | [WC3 editing agent](wc3-editing-agent.md) / Codex |
-| AI review pictures: matching original/edited/donor poses, outside-check limits | Ready for review; awaiting merge approval | [Matching review pictures](ai-review-matching-pictures.md) / Claude Code |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
+| Codebase audit: seven area reports and 24-package repair plan; plan final, wave 0 running | Plan final; wave 0 running | [Codebase audit](codebase-audit.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

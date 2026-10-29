@@ -1,6 +1,6 @@
 # Forward-travel particle previews
 
-Status: implementation complete; owner authorized merge of [PR #377](https://github.com/UnsctMagic/MDLxL/pull/377)
+Status: completed — merged in #377 (d5acb46f)
 Owner: Codex
 Updated: 2026-10-29
 

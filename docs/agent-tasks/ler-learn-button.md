@@ -1,7 +1,6 @@
 # LER button: Learn menu
 
-Status: Claude re-review of `d0131db2` (2026-10-26): playback fix accepted, one label-placement finding after a window resize; back to Codex, not merged. See "Claude re-review" at the end.
-Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
+Status: completed — merged in #325 (c814b867)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -575,3 +574,7 @@ both variants. Raw samples and complete logs are retained for the final review.
   PR unmerged. No version bump, tag or release was made.
 
 Session: codex MDLxL PR 325 main sync
+
+## History
+
+Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
