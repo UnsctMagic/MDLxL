@@ -16,7 +16,7 @@ import { effectVisibilityProposals } from './optimizexl-effect-visibility.js';
 import { skinCollapseProposals } from './optimizexl-skin-collapse.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
-import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
+import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair, optimizexlLocalTrack } from './optimizexl-format.js';
 import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
 import { nodeIndex } from './node-hierarchy.js';
@@ -40,7 +40,7 @@ const collections = Object.values(NODE_TYPES).map(([key])=>key);
 const sections = ['Info','Sequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences','PivotPoints',...collections];
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
 const same=(a,b)=>json(a)===json(b);
-const local=t=>t?.Keys && (t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff);
+const local=t=>t?.Keys && optimizexlLocalTrack(t);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number(v)||0));
 export const triangleCount=m=>m.Geosets.reduce((n,g)=>n+g.Faces.length/3,0);
 export function dimensions(m){const points=m.Geosets.flatMap(g=>Array.from(g.Vertices));const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];points.forEach((v,i)=>{lo[i%3]=Math.min(lo[i%3],v);hi[i%3]=Math.max(hi[i%3],v);});return Math.max(1,...hi.map((v,i)=>v-lo[i]).filter(Number.isFinite));}
