@@ -1,4 +1,5 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 const {ParticleLibrary}=require('../electron/particle-library.cjs');
 (async()=>{
@@ -14,9 +15,9 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  }
  await store.close();let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1400,920);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, fixture, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 15000 }); app = launched.app;
+  const page=launched.page;
+
   const shortcut=page.getByRole('button',{name:'Emitter Editor',exact:true});await shortcut.waitFor();
   await page.getByText('Opened placement-target.mdx',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Movement',exact:true}).click();await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');
@@ -38,7 +39,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   await page.screenshot({path:path.join(out,'favorites.png')});
   await last.locator('.pe-effect-card').dblclick();await page.locator('.pe-library').waitFor({state:'hidden'});
   const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+25));await size.press('Enter');const edited=await size.inputValue();
-  const readLab=()=>page.evaluate(()=>{let f=document.querySelector('.pe-window');f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {key:v.key,undo:v.doc.historyStats.undoSteps,scaling:Array.from(v.doc.model.ParticleEmitters2[0].ParticleScaling)};}throw Error('Lab missing');});
+  const readLab=()=>page.evaluate(()=>{let f=document.querySelector('.pe-window');{ const v = findFiberState(f, v => v?.doc?.model&&v?.recipe); if (v) return {key:v.key,undo:v.doc.historyStats.undoSteps,scaling:Array.from(v.doc.model.ParticleEmitters2[0].ParticleScaling)}; }throw Error('Lab missing');});
   const first=await readLab();assert.ok(first.undo>0);
   await dialog.getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'My presets',exact:true}).click();
   const next=page.locator('.pe-effect-card').filter({hasNotText:cardName}).first();await next.click();await page.locator('.pe-library').waitFor({state:'hidden'});
@@ -53,7 +54,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.equal(await size.inputValue(),edited);
   await dialog.getByRole('button',{name:'Undo',exact:true}).click();assert.notEqual(await size.inputValue(),edited);
   await dialog.getByRole('button',{name:'New',exact:true}).click();await page.getByRole('button',{name:'Soft smoke',exact:true}).click();
-  await page.waitForFunction(()=>{let el=document.querySelector('.pe-window'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.recipe?.name==='MDLxL starter · Soft smoke')return true;return false;});
+  await page.waitForFunction(()=>{let el=document.querySelector('.pe-window');{ const state = findFiberState(el, state => state?.recipe?.name==='MDLxL starter · Soft smoke'); if (state) return true; }return false;});
   await size.fill(String(Number(await size.inputValue())+25));await size.press('Enter');const newWork=await readLab();
   await dialog.getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'My work',exact:true}).click();
   await page.locator('.pe-effect-card').filter({hasText:'MDLxL starter · Soft smoke'}).locator('img').waitFor();
@@ -65,7 +66,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).count(),0);await dialog.getByRole('button',{name:'Undo',exact:true}).click();await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).waitFor();
   await page.getByRole('button',{name:'Pause',exact:true}).click();
   const move=page.getByRole('slider',{name:'Move emitter',exact:true});await move.waitFor();const moveBox=await move.locator('circle').boundingBox();
-  const readPosition=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {translation:JSON.parse(JSON.stringify(v.doc.model.ParticleEmitters2[0].Translation||null)),undo:v.doc.historyStats.undoSteps,count:v.doc.model.ParticleEmitters2.length};}throw Error('Lab missing');});
+  const readPosition=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const v = findFiberState(el, v => v?.doc?.model&&v?.recipe); if (v) return {translation:JSON.parse(JSON.stringify(v.doc.model.ParticleEmitters2[0].Translation||null)),undo:v.doc.historyStats.undoSteps,count:v.doc.model.ParticleEmitters2.length}; }throw Error('Lab missing');});
   const beforeMove=await readPosition();await page.mouse.move(moveBox.x+7,moveBox.y+7);await page.mouse.down();await page.mouse.move(moveBox.x+42,moveBox.y-18,{steps:5});await page.mouse.up();
   const afterMove=await readPosition();assert.ok(afterMove.translation.Keys.length);assert.equal(afterMove.undo,beforeMove.undo+1);
   await dialog.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual(await readPosition(),beforeMove);
@@ -75,7 +76,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   await dialog.getByRole('button',{name:'Undo',exact:true}).click();assert.equal((await readPosition()).count,2);
   await dialog.getByRole('button',{name:'Undo',exact:true}).click();assert.equal((await readPosition()).count,1);
   await page.screenshot({path:path.join(out,'direct-edit.png')});
-  const readModel=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window')||document.querySelector('.movement-controller');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return){const model=f.memoizedProps?.doc?.model||f.memoizedProps?.model;if(model?.Nodes)return JSON.parse(JSON.stringify(model));}throw Error('Model missing');});
+  const readModel=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window')||document.querySelector('.movement-controller');{ const props = findFiberState(el, props => { const model = props?.doc?.model||props?.model; return model?.Nodes; }, { props: true }); if (props) { const model = props?.doc?.model||props?.model; return JSON.parse(JSON.stringify(model)); } }throw Error('Model missing');});
   const beforeModel=await readModel();
   await dialog.getByRole('button',{name:'Add to model',exact:true}).click();assert.equal(await page.getByLabel('Effect start',{exact:true}).inputValue(),'350');
   assert.equal(await page.getByLabel('Attach effect to',{exact:true}).inputValue(),'0');
@@ -98,5 +99,5 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   await page.screenshot({path:path.join(out,'on-model.png')});
   assert.deepEqual(await fs.readFile(fixture),fixtureBytes);assert.deepEqual(errors,[]);console.log('EMTR, favorites, direct editing and recovery, chosen Movement interval, ghost transport, main visibility and unchanged source passed.');
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-1600));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
- finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exit(1);});

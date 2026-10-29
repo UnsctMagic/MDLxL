@@ -1,29 +1,30 @@
+const { launchApp, closeApp, sha256File } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out/showcase-review/queue-inspection-'+Date.now());fs.mkdirSync(out,{recursive:true});
- const model=process.env.MDLXL_QUEUE_MODEL_A||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneFlail04.mdx',hash=()=>require('node:crypto').createHash('sha256').update(fs.readFileSync(model)).digest('hex'),beforeHash=hash();
- const other=process.env.MDLXL_QUEUE_MODEL_B||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneAxe01.mdx'; const otherHash=require('node:crypto').createHash('sha256').update(fs.readFileSync(other)).digest('hex');
+ const model=process.env.MDLXL_QUEUE_MODEL_A||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneFlail04.mdx',hash=()=>sha256File(model),beforeHash=hash();
+ const other=process.env.MDLXL_QUEUE_MODEL_B||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneAxe01.mdx'; const otherHash=sha256File(other);
  const cache=JSON.parse(fs.readFileSync(path.join(root,'profile/game-data-discovery.json'),'utf8')).result;
- const entry=path.join(out,'main.cjs');fs.writeFileSync(entry,`const {app}=require('electron');app.getAppPath=()=>${JSON.stringify(out)};global.queueBegins=[];const {ipcMain}=require('electron'),handle=ipcMain.handle.bind(ipcMain);ipcMain.handle=(name,fn)=>handle(name,async(...args)=>{if(name==='preview:recordBegin')queueBegins.push({...args[1],light:await args[0].sender.executeJavaScript(\"document.querySelector('select[aria-label=\\\"Light\\\"]')?.value\")});return fn(...args);});app.on('browser-window-created',(_,w)=>w.webContents.setBackgroundThrottling(false));const {GameDataDiscovery}=require(${JSON.stringify(path.join(root,'electron/game-data.cjs'))});GameDataDiscovery.prototype.discover=async()=>(${JSON.stringify(cache)});require(${JSON.stringify(path.join(root,'electron/main.cjs'))});`);
+ const entry=path.join(out,'main.cjs');fs.writeFileSync(entry,`const {app}=require('electron');app.getAppPath=()=>${JSON.stringify(out)};global.queueBegins=[];const {ipcMain}=require('electron'),handle=ipcMain.handle.bind(ipcMain);ipcMain.handle=(name,fn)=>handle(name,async(...args)=>{if(name==='preview:recordBegin')queueBegins.push({...args[1],light:await args[0].sender.executeJavaScript(\"document.querySelector('select[aria-label=\\\"Light\\\"]')?.value\")});return fn(...args);});const {GameDataDiscovery}=require(${JSON.stringify(path.join(root,'electron/game-data.cjs'))});GameDataDiscovery.prototype.discover=async()=>(${JSON.stringify(cache)});require(${JSON.stringify(path.join(root,'electron/main.cjs'))});`);
  fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile/recent.json'),JSON.stringify([model,other]));
- const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',entry,model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
+ const launched = await launchApp({ out, profile: path.join(out,'profile'), fixture: model, entry, timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 30000 }); const app = launched.app;
  try{
-  const page=await app.firstWindow();page.setDefaultTimeout(30000);page.on('pageerror',e=>console.log('PAGE ERROR',e.message));
+  const page=launched.page;
   await page.addInitScript(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=id=>clearTimeout(id);});
   await page.reload();
   await page.getByRole('button',{name:'Showcase',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.showcase-model-file')?.textContent.includes('Flail04'));
-  await page.waitForFunction(()=>{const el=document.querySelector('.showcase-workspace');if(!el)return false;let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))];while(f){for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.current?.playbackState&&h.memoizedState.current.isReady){window.inspectShowcaseAPI=h.memoizedState.current;return true;}f=f.return;}return false;});
+  await page.waitForFunction(()=>{const api=findFiberState('.showcase-workspace',v=>v?.playbackState&&v.isReady);if(api){window.inspectShowcaseAPI=api;return true;}return false;});
   await page.evaluate(()=>window.inspectShowcaseAPI.whenReady());
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'));window.inspectShowcaseAPI.invalidate();});
   await page.evaluate(()=>{
-   window.queueFiber=()=>{const el=document.querySelector('.showcase-workspace');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))];while(f.return)f=f.return;const stack=[f.stateNode.current];while(stack.length){f=stack.pop();if(!f)continue;if(f.memoizedProps?.onLoadModel&&typeof f.type==='function')return f;stack.push(f.sibling,f.child);}throw Error('No Showcase workspace');};
-   window.captureProps=()=>{let f=window.queueFiber().child;const stack=[f];while(stack.length){f=stack.pop();if(!f)continue;if(f.memoizedProps?.prepareTake)return f.memoizedProps;stack.push(f.sibling,f.child);}throw Error('No capture controls');};
+   window.queueProps=()=>{const p=findFiberState('.showcase-workspace',p=>p?.onLoadModel,{props:true,current:true});if(p)return p;throw Error('No Showcase workspace');};
+   window.captureProps=()=>{const p=findFiberState('.showcase-capture',p=>p?.prepareTake,{props:true,current:true});if(p)return p;throw Error('No capture controls');};
    window.queueSummary=()=>window.captureProps().recordingList.map(t=>({id:t.id,name:t.name,model:t.setup.modelSource?.modelName,path:t.setup.modelSource?.modelPath,light:t.setup.light,view:t.setup.view,rows:t.setup.sequencePlaylist,layers:t.setup.layers,crop:t.setup.cropPreset}));
   });
-  const ready=async()=>{await page.waitForFunction(()=>!document.querySelector('.showcase-fields')?.disabled);await page.waitForFunction(()=>{for(let h=window.queueFiber().memoizedState;h;h=h.next)if(h.memoizedState?.current?.playbackState&&h.memoizedState.current.isReady){window.inspectShowcaseAPI=h.memoizedState.current;return true;}return false;});};
-  const load=async file=>{await page.evaluate(async file=>window.queueFiber().memoizedProps.onLoadModel(await window.desktop.openRecent(file,true)),file);await page.waitForFunction(name=>document.querySelector('.showcase-model-file')?.textContent.includes(name),path.basename(file));await ready();};
+  const ready=async()=>{await page.waitForFunction(()=>!document.querySelector('.showcase-fields')?.disabled);await page.waitForFunction(()=>{const api=findFiberState('.showcase-workspace',v=>v?.playbackState&&v.isReady,{current:true});if(api){window.inspectShowcaseAPI=api;return true;}return false;});};
+  const load=async file=>{await page.evaluate(async file=>window.queueProps().onLoadModel(await window.desktop.openRecent(file,true)),file);await page.waitForFunction(name=>document.querySelector('.showcase-model-file')?.textContent.includes(name),path.basename(file));await ready();};
   const changeAnimation=async()=>{await page.getByRole('list',{name:'Animation sequence'}).locator('li').first().click();const dialog=page.getByRole('dialog',{name:'Edit animation',exact:true});await dialog.getByLabel('Animation',{exact:true}).selectOption({label:'Attack - 1'});await dialog.getByLabel('Loops',{exact:true}).fill('1');await dialog.getByLabel('Speed',{exact:true}).fill('200');await dialog.getByRole('button',{name:'OK',exact:true}).click();};
   const add=async()=>{const count=await page.locator('.showcase-recording-list li').count();await page.getByRole('button',{name:/^Add to recording list/}).click();await page.waitForFunction(count=>document.querySelectorAll('.showcase-recording-list li').length===count+1,count);await ready();};
   const edit=async n=>{await page.getByRole('button',{name:'Edit recording '+n,exact:true}).click();await ready();};
@@ -52,7 +53,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   await edit(1);assert.equal(await page.getByRole('combobox',{name:'Light',exact:true}).inputValue(),'portrait');await finish('Cancel');
   console.log('PASS click restores model; save persists edits; cancel restores model and draft without changing queued entry');
   await page.getByRole('button',{name:'Vertices',exact:true}).click();
-  const editorModel=await page.evaluate(()=>{let f=document.querySelector('.classic-app');f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber$'))];while(f){for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.current?.session?.doc?.name)return h.memoizedState.current.session.doc.name;f=f.return;}return null;});assert.equal(editorModel,path.basename(model));
+  const editorModel=await page.evaluate(()=>{return findFiberState('.classic-app',v=>v?.session?.doc?.name)?.session.doc.name||null;});assert.equal(editorModel,path.basename(model));
   await page.getByRole('button',{name:'Showcase',exact:true}).click();await ready();assert.equal(await shown(),path.basename(other));
   console.log('PASS primary editor model remains untouched');
   await page.screenshot({path:path.join(out,'six-model-takes.png')});
@@ -64,7 +65,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   await page.waitForFunction(()=>![...document.querySelectorAll('.showcase-capture-status')].some(e=>e.textContent.includes('Making GIFs')),null,{timeout:120000});
   const errors=await page.locator('.capture-error').allTextContents();assert.deepEqual(errors,[]);
   console.log('PASS six real captures complete in model order and return to original model; GIF encoding completed',JSON.stringify(begins));
-  assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync(other)).digest('hex'),otherHash);
+  assert.equal(sha256File(other),otherHash);
   assert.equal(beforeHash,hash());console.log('Artifacts',out,'modelUnchanged',true);
- }finally{await app.close();}
+ }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

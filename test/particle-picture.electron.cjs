@@ -1,18 +1,19 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','picture-'+Date.now()),profile=path.join(out,'profile');await fs.mkdir(profile,{recursive:true});
  let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_ELECTRON_PATH?[]:[root])],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1100,760);w.setFocusable(false);w.setSkipTaskbar(true);w.setIgnoreMouseEvents(true);w.setOpacity(0);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1100, height: 760 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page;
+
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).waitFor();
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});
   await editor.getByRole('button',{name:'New',exact:true}).click();await page.getByRole('button',{name:'Soft sparks',exact:true}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
   await editor.getByRole('button',{name:'Look',exact:true}).click();await page.getByRole('button',{name:'Pause',exact:true}).click();
-  const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps};}throw Error('Lab missing');});
-  const runtime=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls){const p=v.native.particlesController.emitters[0];return {texture:p.props.TextureID,replaceable:p.props.ReplaceableId,images:v.native.model.Textures.map(t=>t.Image),count:p.particles.length,camera:v.controls.object.position.toArray()};}}return null;});
+  const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');{ const v = findFiberState(el, v => v?.doc?.model&&v?.recipe); if (v) return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps}; }throw Error('Lab missing');});
+  const runtime=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');{ const v = mdlxlProbe(el).runtime; if (v) {const p=v.native.particlesController.emitters[0];return {texture:p.props.TextureID,replaceable:p.props.ReplaceableId,images:v.native.model.Textures.map(t=>t.Image),count:p.particles.length,camera:v.controls.object.position.toArray()};} }return null;});
   const original=await read();
   const cameraBefore=(await runtime()).camera,canvas=page.locator('.pe-preview .game-preview-root canvas').first(),box=await canvas.boundingBox();
   await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+70,box.y+box.height/2+35,{steps:8});await page.mouse.up();
@@ -44,7 +45,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const names=await fs.readdir(path.join(profile,'particles','mine'));const saved=JSON.parse(await fs.readFile(path.join(profile,'particles','mine',names.find(n=>n.endsWith('.json'))),'utf8'));assert.equal(saved.native.Textures[0].Image,nativePath);assert.equal(saved.embeddedAssets.length,0);
   await editor.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await read()).model,original.model,'One undo removes the library picture and reference together');
   const customName='OriginalSpark.tga',customFile=path.join(out,customName),{starterTextureAsset}=await import('./starter-picture.js');await fs.writeFile(customFile,starterTextureAsset().bytes);
-  await app.evaluate(({dialog},file)=>{global.__originalOpen=dialog.showOpenDialog;dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},customFile);
+  await app.evaluate(({dialog})=>{global.__originalOpen=dialog.showOpenDialog;});await stubDialogs(app, { open: customFile });
   await page.getByRole('button',{name:'Load picture…',exact:true}).click();await app.evaluate(({dialog})=>{dialog.showOpenDialog=global.__originalOpen;delete global.__originalOpen;});
   assert.equal((await read()).model.Textures.at(-1).Image,customName);
   await editor.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByLabel('Preset name',{exact:true}).fill('Original picture proof');await page.getByRole('button',{name:'Save to My presets',exact:true}).click();await page.getByText('Saved Original picture proof',{exact:true}).waitFor();
@@ -52,5 +53,5 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const custom=personal.find(item=>item.name==='Original picture proof');assert.equal(custom.native.Textures[0].Image,customName);assert.equal(custom.embeddedAssets[0].path,customName);
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out,checks:'Native and custom picture paths, preset storage, preview rotation by mouse drag, team color/glow removal, and undo'}));
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-1800));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
- finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exit(1);});

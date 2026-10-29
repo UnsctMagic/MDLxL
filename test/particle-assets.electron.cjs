@@ -1,4 +1,5 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 const {ParticleLibrary}=require('../electron/particle-library.cjs');
 (async()=>{
@@ -16,18 +17,18 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  await store.thumbnail({id:saved.id,revision,url:'data:image/png;base64,'+(await fs.readFile('public/classic/btn-mana-flare.png')).toString('base64')});await store.close();
  let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1400,920);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, fixture, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page;
+
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Particle Editor',exact:true});
   await page.getByRole('button',{name:'My presets',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'Collision sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
-  const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)if(f.memoizedProps?.doc?.model){const {doc,textureAssets}=f.memoizedProps;return {model:JSON.parse(JSON.stringify(doc.model)),assets:[...textureAssets].map(([key,a])=>({key,name:a.name,bytes:Array.from(a.bytes||[])}))};}throw Error('Model missing');});
+  const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => props?.doc?.model, { props: true }); if (props) {const {doc,textureAssets}=props;return {model:JSON.parse(JSON.stringify(doc.model)),assets:[...textureAssets].map(([key,a])=>({key,name:a.name,bytes:Array.from(a.bytes||[])}))};} }throw Error('Model missing');});
   const before=await read();assert.deepEqual(before.assets.find(a=>a.key===STARTER_TEXTURE.toLowerCase()).bytes,Array.from(existing.bytes));
   const add=async()=>{
    await dialog.getByRole('button',{name:'Add to model',exact:true}).click();
    await page.getByLabel('Effect start',{exact:true}).fill('100');await page.getByLabel('Effect end',{exact:true}).fill('900');
    await page.getByRole('button',{name:'Pause ghost',exact:true}).click();
-   const ghost=await page.locator('.pe-preview .game-preview-root').evaluate(el=>{let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return){const m=f.memoizedProps?.model;if(m?.ParticleEmitters2?.length)return m.Textures[m.ParticleEmitters2.at(-1).TextureID].Image;}throw Error('Ghost missing');});
+   const ghost=await page.locator('.pe-preview .game-preview-root').evaluate(el=>{{ const props = findFiberState(el, props => { const m = props?.model; return m?.ParticleEmitters2?.length; }, { props: true }); if (props) { const m = props?.model; return m.Textures[m.ParticleEmitters2.at(-1).TextureID].Image; } }throw Error('Ghost missing');});
    assert.equal(ghost,STARTER_TEXTURE);
    await page.getByRole('button',{name:'Confirm placement',exact:true}).click();await page.getByText('Effect added. Undo restores the model.',{exact:true}).waitFor();return ghost;
   };
@@ -44,5 +45,5 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.deepEqual(new Uint8Array(await fs.readFile(originalPicture)),existing.bytes);
   assert.deepEqual(errors,[]);console.log(JSON.stringify({out,name,emitters:2,ghost:true,picturesPreserved:true,undoRedo:true,savedAndReopened:true}));
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-1600));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
- finally{if(app)await app.close().catch(()=>{});}
+ finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exit(1);});

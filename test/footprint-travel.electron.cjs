@@ -1,14 +1,15 @@
+const { fixturePath, gameFolder } = require('./helpers/fixtures.cjs');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const{_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel');
 (async()=>{
-  const file=process.env.MDLXL_TEST_MODEL;if(!file)throw Error('MDLXL_TEST_MODEL must name a real model with hoofprint events.');
-  fs.mkdirSync(path.join(out,'profile'),{recursive:true});
-  fs.writeFileSync(path.join(out,'profile/settings.json'),JSON.stringify({preferences:{theme:'dark',graphics:{pauseWhenHidden:false}}}));
-  const app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(process.env.MDLXL_TEST_EXE?[]:[root]),file],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
+  const file=process.env.MDLXL_TEST_MODEL||fixturePath('hoofprint');if(!file)throw Error('MDLXL_TEST_MODEL must name a real model with hoofprint events.');
+
+  const launched = await launchApp({ out, settings: { preferences: { theme: 'dark', graphics: { pauseWhenHidden: false } } }, fixture: file, env: { MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||await gameFolder() }, timeout: 60000, bounds: { x: -3000, y: 0, width: 1360, height: 900 }, show: 'hide', pageTimeout: 30000 }); const app = launched.app;
   try{
-    const page=await app.firstWindow(),errors=[];page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1360,900);w.webContents.setBackgroundThrottling(false);});
+    const page=launched.page,errors=launched.errors;
+
     const capture=async()=>{const data=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'chaos-knight.png'),Buffer.from(data,'base64'));};
     await page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
     await page.locator('[data-hotkey="animations"]').first().dispatchEvent('click');
@@ -16,7 +17,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     for(const[name,on]of[['Bones',false],['Emitters',true],['Events',true]]){const c=page.getByRole('checkbox',{name,exact:true});if(await c.isChecked()!==on)await c.evaluate(e=>e.click());}
     const stop=page.getByRole('button',{name:'Stop',exact:true});if(await stop.count())await stop.dispatchEvent('click');
-    await page.evaluate(()=>{window.footprintRuntime=()=>{const host=document.querySelector('.game-preview-root');for(let f=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const r=h.memoizedState?.current;if(r?.native&&r?.controls)return r;}throw Error('Preview unavailable');};});
+    await page.evaluate(()=>{window.footprintRuntime=()=>{const host=document.querySelector('.game-preview-root');const r=mdlxlProbe(host).runtime;if(r)return r;throw Error('Preview unavailable');};});
     await page.waitForFunction(()=>footprintRuntime().eventPreview.isReady);
     const result=await page.evaluate(()=>{
       const r=footprintRuntime(),model=r.native.model,before=JSON.stringify(model),camera=r.controls.object,gl=r.native.gl;
@@ -52,13 +53,13 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
     await page.getByRole('button',{name:'Play',exact:true}).dispatchEvent('click');
     // Follow a real printed hoof through more than twelve Walk loops and its
     // entire seven-second Warcraft lifetime, including a pause/resume mid-trail.
-    for(let i=0;i<18;i++){await page.waitForTimeout(100);await capture();}
+    for(let i=0;i<18;i++){await settle(page, 100);await capture();}
     await page.getByRole('button',{name:'Stop',exact:true}).dispatchEvent('click');await capture();
     const pauseTime=await page.evaluate(()=>footprintFrames.at(-1).time);
-    for(let i=0;i<3;i++){await page.waitForTimeout(100);await capture();}
+    for(let i=0;i<3;i++){await settle(page, 100);await capture();}
     assert.equal(await page.evaluate(()=>footprintFrames.at(-1).time),pauseTime,'pause preserves the unwrapped footprint clock');
     await page.getByRole('button',{name:'Play',exact:true}).dispatchEvent('click');
-    for(let i=0;i<120;i++){await page.waitForTimeout(100);await capture();if(await page.evaluate(()=>footprintFrames.at(-1).time>8500))break;}
+    for(let i=0;i<120;i++){await settle(page, 100);await capture();if(await page.evaluate(()=>footprintFrames.at(-1).time>8500))break;}
     const lifetime=await page.evaluate(()=>{
       const frames=footprintFrames.filter(f=>Number.isFinite(f.time)),first=frames.find(f=>f.draws.length),model=footprintRuntime().native.model,sequence=model.Sequences.find(s=>s.Name==='Walk'),speed=sequence.MoveSpeed;
       const birth=Math.min(...model.EventObjects.filter(e=>/^FPT/i.test(e.Name)).flatMap(e=>Array.from(e.EventTrack).filter(t=>t>=sequence.Interval[0]&&t<=sequence.Interval[1])))-sequence.Interval[0];
@@ -73,5 +74,5 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
     assert(alive.some((f,i)=>i>0&&f.frame<alive[i-1].frame),'test actually crossed loop boundaries');
     assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({...result,lifetime,errors,mouseRotation:true},null,2));console.log('PASS real Chaos Knight hoofprint transforms, multiple loop boundaries, full seven-second fade/expiration, pause/resume, model preservation and mouse rotation.');
     if(process.env.MDLXL_KEEP_TEST_OPEN==='1'){await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setTitle('MDLxL — Chaos Knight particle and hoofprint test');w.show();});console.log('Test window open for user review.');await new Promise(resolve=>app.on('close',resolve));}
-  }finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}
+  }finally{if(app)await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

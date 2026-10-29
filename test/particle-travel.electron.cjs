@@ -1,19 +1,19 @@
+const { gameFolder } = require('./helpers/fixtures.cjs');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 // Existing Warcraft asset, production bundle, isolated hidden profile.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TRAVEL_OUT||path.join(root,'out/particle-travel');
 (async()=>{
-fs.mkdirSync(path.join(out,'profile'),{recursive:true});
-fs.writeFileSync(path.join(out,'profile/settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},theme:'dark'}}));
-const exe=process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe');
-const app=await _electron.launch({executablePath:exe,args:[...(process.env.MDLXL_TEST_EXE?[]:[root]),'--disable-renderer-backgrounding','--disable-background-timer-throttling'],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
+
+const launched = await launchApp({ out, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||await gameFolder() }, settings: { preferences: { graphics: { pauseWhenHidden: false }, theme: 'dark' } }, timeout: 60000, bounds: { x: -3000, y: 0, width: 1360, height: 900 }, show: 'hide', pageTimeout: 25000 }); const app = launched.app;
 const checks=[];
 try{
-const page=await app.firstWindow();page.setDefaultTimeout(25000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1360,900);w.webContents.setBackgroundThrottling(false);});
+const page=launched.page;const errors=launched.errors;
+
 const capture=async(name)=>{const r=await app.evaluate(async({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];return {visible:w.isVisible(),data:(await w.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64')};});assert.equal(r.visible,false);if(name)fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));};
-const pump=async(count=8)=>{for(let i=0;i<count;i++){await page.waitForTimeout(100);await capture();}};
-await page.evaluate(()=>{window.getTravelRuntime=()=>{const host=[...document.querySelectorAll('.game-preview-root')].find(e=>e.getBoundingClientRect().width>0);for(let f=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const r=h.memoizedState?.current;if(r?.native&&r?.controls)return r;}throw Error('Preview not ready');};});
+const pump=async(count=8)=>{for(let i=0;i<count;i++){await settle(page, 100);await capture();}};
+await page.evaluate(()=>{window.getTravelRuntime=()=>{const host=[...document.querySelectorAll('.game-preview-root')].find(e=>e.getBoundingClientRect().width>0);const r=mdlxlProbe(host).runtime;if(r)return r;throw Error('Preview not ready');};});
 const observe=async()=>{await capture();await page.evaluate(()=>{const n=getTravelRuntime().native,c=n.particlesController;window.travelSamples=[];if(c.travelProbe)return;c.travelProbe=true;const update=c.updateParticle;c.updateParticle=function(p,dt){const x=p.pos[0],vx=p.speed[0],speed=Number(n.model.Sequences[n.getSequence()]?.MoveSpeed)||0;const result=update.call(this,p,dt);if(dt>0&&p.lifeSpan>0&&!(p.emitter.props.Flags&524288)&&travelSamples.length<20000)travelSamples.push({actual:p.pos[0]-x-vx*dt/1000,expected:-speed*dt/1000,speed,dt});return result;};});};
 const checkTrail=async(label,moving)=>{await observe();await pump();const samples=await page.evaluate(()=>travelSamples);assert(samples.length>10,label+': live particles');if(moving)assert(samples.some(s=>s.speed>0),label+': authored MoveSpeed');else assert(samples.every(s=>s.speed===0),label+': stationary sequence');assert(samples.every(s=>Math.abs(s.actual-s.expected)<.004),label+': particle travel matches MoveSpeed');checks.push(label);console.log('PASS',label,samples.length);};
 const play=async()=>{const b=page.getByRole('button',{name:'Play',exact:true});if(await b.count())await b.dispatchEvent('click');};
@@ -31,14 +31,14 @@ for(const [name,tab,select]of [['Movement','animation','Movement current sequenc
  if(name==='Movement')await page.getByLabel('Movement bone or node').selectOption('');
  const emitters=page.getByRole('checkbox',{name:'Emitters',exact:true});if(!await emitters.isChecked())await emitters.evaluate(e=>e.click());
  await play();await checkTrail(name+' Walk',true);
- if(!documentBefore)documentBefore=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');for(let f=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.doc?.model&&h.memoizedState.assets)return JSON.stringify(h.memoizedState.doc.model);throw Error('Editing document missing');});
+ if(!documentBefore)documentBefore=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');{ const state = findFiberState(host, state => state?.doc?.model&&state.assets); if (state) return JSON.stringify(state.doc.model); }throw Error('Editing document missing');});
  await page.getByRole('button',{name:'Stop',exact:true}).dispatchEvent('click');await capture();await page.evaluate(()=>travelSamples=[]);await pump(3);assert.equal((await page.evaluate(()=>travelSamples)).length,0,name+' pause does not drift');
  // Movement's Work mode owns unmodified drags; Alt is its existing camera gesture.
  const before=await page.evaluate(()=>getTravelRuntime().controls.object.position.toArray()),box=await page.locator('[data-clean-model-canvas]').boundingBox();await page.keyboard.down('Alt');await page.mouse.move(box.x+40,box.y+70);await page.mouse.down();await page.mouse.move(box.x+115,box.y+85,{steps:10});await page.mouse.up();await page.keyboard.up('Alt');await capture();assert.notDeepEqual(await page.evaluate(()=>getTravelRuntime().controls.object.position.toArray()),before,name+' mouse rotation');
  await page.getByLabel(select,{exact:true}).selectOption({label:'Stand'});await play();await checkTrail(name+' Stand',false);
 }
-const after=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');for(let f=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.doc?.model&&h.memoizedState.assets)return JSON.stringify(h.memoizedState.doc.model);});assert.equal(after,documentBefore);
+const after=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');{ const state = findFiberState(host, state => state?.doc?.model&&state.assets); if (state) return JSON.stringify(state.doc.model); }});assert.equal(after,documentBefore);
 assert(!/treadmill/i.test(await page.locator('body').innerText()));assert.deepEqual(errors,[]);
 await capture('animations-particles');fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({checks,paused:true,mouseRotation:true,documentUnchanged:true,noTreadmill:true,hidden:true,errors},null,2));
-}finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}
+}finally{if(app)await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

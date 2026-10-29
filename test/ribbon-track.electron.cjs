@@ -1,25 +1,27 @@
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { gameFolder } = require('./helpers/fixtures.cjs');
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
+
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','ribbon-track-'+Date.now());await fs.mkdir(out,{recursive:true});
- const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader('D:/Warcraft III',root);let bytes;
+ const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader(await gameFolder(),root);let bytes;
  try{bytes=await reader.read('war3.w3mod:units\\orc\\heroblademaster\\heroblademaster.mdx');}finally{reader.close();}
  const fixture=path.join(out,'Blademaster.mdx');await fs.writeFile(fixture,bytes);
  const {openDocument}=await import('../src/editor-document.js'),{fitRibbonToPolygons}=await import('../src/particle-ribbon-fit.js'),{Vector3,Matrix4}=await import('three');
  const original=openDocument(bytes,fixture).model,selection={3:[11,12,9,13,14]},expected=fitRibbonToPolygons(original,selection);assert.equal(expected.polygons,3);assert.equal(expected.parent,7);
  let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
-  const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1400,920);w.setFocusable(false);w.setSkipTaskbar(true);w.setIgnoreMouseEvents(true);w.setOpacity(0);w.setPosition(-3000,0);w.showInactive();});
+  const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
+  const page=launched.page;
+
   await page.getByText('Opened Blademaster.mdx',{exact:true}).waitFor();
   await page.locator('.classic-geosets').getByRole('button',{name:'Clear',exact:true}).click();
   await page.getByLabel('Select geoset 3',{exact:true}).check();await page.getByLabel('Show all geosets',{exact:true}).uncheck();
   await page.getByLabel('View direction',{exact:true}).selectOption('top');
   await page.locator('.viewport').click({position:{x:30,y:120}});await page.keyboard.press('Control+A');await page.getByRole('button',{name:'Fit selection',exact:true}).click();
   // Use the native camera only to locate triangle centers; real Shift-clicks own selection.
-  await page.waitForTimeout(150);
-  const centers=await page.evaluate(points=>{let el=document.querySelector('.viewport'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const state=h.memoizedState?.current;if(state?.renderer&&state?.camera){const rect=state.renderer.domElement.getBoundingClientRect();return points.map(point=>{const v=state.camera.position.clone().set(...point).project(state.camera);return {x:rect.x+(v.x+1)*rect.width/2,y:rect.y+(1-v.y)*rect.height/2};});}}throw Error('Camera missing');},[8,9,10].map(face=>{const g=original.Geosets[3],ids=Array.from(g.Faces.slice(face*3,face*3+3));return [0,1,2].map(axis=>ids.reduce((sum,id)=>sum+g.Vertices[id*3+axis],0)/3);}));
+  await settle(page, 150);
+  const centers=await page.evaluate(points=>{let el=document.querySelector('.viewport');{ const state = findFiberState(el, state => state?.renderer&&state?.camera); if (state) {const rect=state.renderer.domElement.getBoundingClientRect();return points.map(point=>{const v=state.camera.position.clone().set(...point).project(state.camera);return {x:rect.x+(v.x+1)*rect.width/2,y:rect.y+(1-v.y)*rect.height/2};});} }throw Error('Camera missing');},[8,9,10].map(face=>{const g=original.Geosets[3],ids=Array.from(g.Faces.slice(face*3,face*3+3));return [0,1,2].map(axis=>ids.reduce((sum,id)=>sum+g.Vertices[id*3+axis],0)/3);}));
   for(let i=0;i<centers.length;i++){if(i)await page.keyboard.down('Shift');await page.mouse.click(centers[i].x,centers[i].y);if(i)await page.keyboard.up('Shift');}
   await page.screenshot({path:path.join(out,'marked-polygons.png')});
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});
@@ -33,7 +35,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await choices.nth(3).check();await choices.nth(2).check();
   const seek=async(label,time)=>{await page.getByLabel(label,{exact:true}).evaluate((el,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,String(value));el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));},time);};
   await page.getByLabel('Fitted weapon edge',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'choose-animations.png')});
-  const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return){const doc=f.memoizedProps?.doc;if(doc?.model)return {model:JSON.parse(JSON.stringify(doc.model)),undo:doc.historyStats.undoSteps};}throw Error('Model missing');});
+  const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => { const doc = props?.doc; return doc?.model; }, { props: true }); if (props) { const doc = props?.doc; return {model:JSON.parse(JSON.stringify(doc.model)),undo:doc.historyStats.undoSteps}; } }throw Error('Model missing');});
   const before=await read();await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.deepEqual(await read(),before);
   await page.getByRole('button',{name:'Add ribbon',exact:true}).click();for(let i=0;i<original.Sequences.length;i++)await choices.nth(i).uncheck();await choices.nth(3).check();await choices.nth(2).check();
   await page.getByRole('button',{name:'Create',exact:true}).click();await page.getByText('Ribbon added. Drag its two ends to adjust the edge.',{exact:true}).waitFor();
@@ -98,5 +100,5 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await editor.getByLabel('Ribbon lasts',{exact:true}).focus();await page.keyboard.press('ArrowLeft');await editor.getByRole('button',{name:'Play',exact:true}).waitFor();
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out}));
  }catch(error){if(app){const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});}throw error;}
- finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{if(app)await closeApp(app);}
 })().then(()=>process.exit(0),error=>{console.error(error);process.exit(1);});

@@ -31,20 +31,23 @@ const loadPlaywright = () => require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'pla
 // Starts the app with a throwaway profile under out/, hidden off-screen, unthrottled, collecting page errors.
 // show: 'inactive' shows the window without focus (default), 'hide' keeps it hidden.
 // settings: optional settings.json written into the new profile before start.
-async function launchApp({ fixture, out, args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
+// entry: a DEV_ONLY wrapper; profile/errors: retain a harness's seeded fixture profile and error collection.
+async function launchApp({ fixture, out, entry, profile: seededProfile, errors = [], args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
   if (!out) throw Error('launchApp needs an out folder for its profile');
   const target = appTarget(), { _electron } = playwright || loadPlaywright();
-  const profile = path.join(path.resolve(out), `profile-${Date.now()}-${process.pid}`);
+  if (entry && target.packaged) throw Error('A wrapper entry needs a DEV_ONLY harness');
+  const profile = seededProfile ? path.resolve(seededProfile) : path.join(path.resolve(out), `profile-${Date.now()}-${process.pid}`);
+  if (!profile.startsWith(path.resolve(out) + path.sep)) throw Error('Test profiles must be inside out');
   fs.mkdirSync(profile, { recursive: true });
   if (settings) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
   const app = await _electron.launch({
     executablePath: target.executablePath,
-    args: [...target.args, ...(fixture ? [fixture] : []), '--disable-backgrounding-occluded-windows', ...args],
+    args: [...(entry ? [entry] : target.args), ...(fixture ? [fixture] : []), '--disable-backgrounding-occluded-windows', ...args],
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile, ...env },
     timeout,
   });
   profiles.set(app, profile);
-  const errors = [], page = await app.firstWindow();
+  const page = await app.firstWindow();
   await prepareWindow(app, page, { bounds, show, pageTimeout, errors });
   return { app, page, errors, profile, target };
 }
@@ -85,11 +88,23 @@ async function clickMenu(app, id) {
 const settle = (page, ms = 150) => page.waitForTimeout(ms);
 
 // Quits the app and removes the throwaway profile launchApp created.
-async function closeApp(app) {
+// keepProfile is only for a test that immediately restarts with the same disposable draft/library.
+async function closeApp(app, { keepProfile = false } = {}) {
   const profile = profiles.get(app), child = app.process?.();
   try { await app.evaluate(({ app }) => app.exit(0)); } catch { /* the connection closes as the app exits */ }
   if (child && child.exitCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 10000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
-  if (profile) fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  if (profile && !keepProfile) {
+    // Particle fixtures can contain junctions to read-only source libraries. Remove links before the tree.
+    const unlink = directory => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const file = path.join(directory, entry.name);
+        if (entry.isSymbolicLink()) { if (fs.statSync(file).isDirectory()) fs.rmdirSync(file); else fs.unlinkSync(file); }
+        else if (entry.isDirectory()) unlink(file);
+      }
+    };
+    if (fs.existsSync(profile)) unlink(profile);
+    fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
   profiles.delete(app);
 }
 
