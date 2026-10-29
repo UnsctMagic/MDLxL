@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import useMovableWindow from './useMovableWindow.js';
+import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import { isTypingTarget } from '../src/preferences.js';
 import { readStored, writeStored } from '../src/local-store.js';
@@ -158,7 +158,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const sectionDone = Array.isArray(settings.range) && !sectionOn;
   const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
-  const dialog = useRef(null), movable = useMovableWindow(dialog), touched = useRef(new Set()), drag = useRef(null);
+  const dialog = useRef(null), touched = useRef(new Set()), drag = useRef(null);
   const history = useRef({ undo: [], redo: [], at: 0 });
   const boneOptions = useMemo(() => new Map(animXLNodes(model).map(node => [node.ObjectId, node.Name || `Bone ${node.ObjectId}`])), [model, doc.revision]);
   // Apply to: Auto (AnimXL picks the weapon, cloth and so on) or Selected (bones and POSE
@@ -511,14 +511,12 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const selectedEffect = EFFECTS.find(e => e.id === selected);
   const status = outcome.error ? outcome.error : sectionDone ? 'Section committed. Drag over the next part of the timeline to shape it.' : target === 'selected' && !selection.length ? 'Click bones or POSE handles in the preview to choose what to shape.' : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Switch an effect on to shape the animation.';
 
-  return <div className="resource-editor anim-xl" onKeyDown={event => {
+  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" ownEscape windowRef={dialog} onClose={onClose} onKeyDown={event => {
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (picking) setPicking(null); else onClose(); }
     if (event.key === ' ' && !isTypingTarget(event.target)) { event.preventDefault(); setPlaying(v => !v); }
     if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) { event.preventDefault(); undoSettings(event.key.toLowerCase() === 'y' || event.shiftKey); }
   }}>
-    <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window ax-window" role="dialog" aria-modal="true" aria-label="AnimXL">
-      <header className="re-caption" {...movable.handleProps}><span>AnimXL</span><button className="re-caption-close" aria-label="Close AnimXL" title="Close without changing the animation" onClick={onClose}>×</button></header>
       <div className="ax-toolbar">
         <label title="The animation to shape">Animation <select aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
         <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
@@ -665,6 +663,5 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{sectionOn ? 'Commit section' : also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
         <button onClick={onClose} title="Close without changing the animation. Your slider settings are remembered for this animation.">Cancel</button>
       </footer>
-    </section>
-  </div>;
+  </ToolWindow>;
 }

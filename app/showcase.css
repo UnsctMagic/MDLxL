@@ -47,8 +47,6 @@ button.showcase-wide { margin-top:4px; }
 .showcase-sidebar .capture-error,.showcase-error { color:#b4151b; margin:3px 0; }
 .showcase-capture-status { margin:4px 0; line-height:1.4; }
 .showcase-dialog { color:#111; padding:0; width:310px; }
-.showcase-dialog:not([open]) { display:none; }
-.showcase-dialog::backdrop { background:#0003; }
 .showcase-dialog form > footer { padding:6px; display:flex; justify-content:flex-end; gap:5px; }
 .showcase-dialog input[type=number] { width:80px; }
 .showcase-dialog select { max-width:195px; }

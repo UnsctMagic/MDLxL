@@ -10,6 +10,7 @@ import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
 import { RangeField } from './Fields.jsx';
+import ToolWindow from './ToolWindow.jsx';
 
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
@@ -166,13 +167,12 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
   };
   const changed = size !== 100 || height !== 100 || rgb.join() !== '255,255,255' || pieces || blood;
 
-  return <div className="atm-overlay" onKeyDown={keys}>
-    <section className="atm-window acp-window" role="dialog" aria-modal="true" aria-label="Auto Corpse" data-hotkey-scope="autoCorpse" tabIndex={-1} ref={root}>
-      <header><strong title="Fits a corpse under the last Death frame, then adds Decay Flesh and Decay Bone.">Auto Corpse</strong>
+  return <ToolWindow title="Auto Corpse" overlayClass="atm-overlay" className="atm-window acp-window" windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'autoCorpse' }}
+    caption={<><strong title="Fits a corpse under the last Death frame, then adds Decay Flesh and Decay Bone.">Auto Corpse</strong>
         <div className="acp-tabs" role="tablist" aria-label="Auto Corpse editors">
           <button role="tab" aria-selected={!bloodTab} title="Fit the corpse that lies under the body" onClick={() => { setTab('corpse'); setPlaying(false); }}>Corpse Editor</button>
           <button role="tab" aria-selected={bloodTab} title="Blood splats on the ground and a blood spray during the Death animation" onClick={() => setTab('blood')}>Blood Editor</button>
-        </div><span className="atm-spacer"/><button aria-label="Close Auto Corpse" onClick={onClose}>×</button></header>
+        </div><span className="atm-spacer"/></>}>
       <div className="atm-body acp-body">
         {bloodTab ? <div className="acp-controls" role="tabpanel" aria-label="Blood Editor">
           <div className="atm-list acp-pieces" role="listbox" aria-label="Death blood">
@@ -232,6 +232,5 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
         <button className="atm-commit active" disabled={!!draft.error || doc.readOnly} title="Make this corpse and its decay animations as one undoable edit" onClick={commit}>Create</button>
         <button onClick={onClose}>Close</button>
       </footer>
-    </section>
-  </div>;
+  </ToolWindow>;
 }

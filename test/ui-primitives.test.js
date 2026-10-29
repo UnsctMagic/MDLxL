@@ -184,3 +184,43 @@ test('Section takes a note and a starting state; Check takes a description and i
   assert.doesNotMatch(animxl, /function Section\(/);
   assert.match(animxl, /<Section className="ax-section" defaultOpen=\{false\}/);
 });
+test('tool windows share one shell: backdrop, movable window, close key and Tab trap', async () => {
+  const ToolWindow = load(await bundle('ToolWindow.jsx')).default;
+  const html = renderToStaticMarkup(React.createElement(ToolWindow, { title: 'Sort My Mess', overlayClass: 'smm-overlay', className: 'smm-window', sectionProps: { 'data-hotkey-scope': 'sort-my-mess' }, after: React.createElement('aside', null, 'over') }, 'body'));
+  assert.match(html, /^<div class="mdlxl-overlay smm-overlay"><section tabindex="-1" class="mdlxl-window smm-window" role="dialog" aria-modal="true" aria-label="Sort My Mess" data-hotkey-scope="sort-my-mess">/);
+  assert.match(html, /<header style="cursor:move[^"]*"><span>Sort My Mess<\/span><button data-hotkey="close" aria-label="Close Sort My Mess">×<\/button><\/header>body<\/section><aside>over<\/aside><\/div>$/);
+  const embedded = renderToStaticMarkup(React.createElement(ToolWindow, { title: 'Materials', embedded: true, overlayClass: 'resource-editor re-workspace', className: 're-window' }, 'list'));
+  assert.equal(embedded, '<div class="resource-editor re-workspace"><section tabindex="-1" class="mdlxl-window re-window" role="region" aria-label="Materials">list</section></div>');
+  const source = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
+  for (const [file, feature] of [['ResourceEditors.jsx', 're-window'], ['AnimXL.jsx', 're-window ax-window'], ['ParticleEditor.jsx', 're-window pe-window'], ['SortMyMess.jsx', 'smm-window'], ['Attachemator.jsx', 'atm-window'], ['AutoCorpse.jsx', 'atm-window acp-window']]) {
+    assert.match(source(file), new RegExp(`<ToolWindow [^\\n]*className=\\{?[\`"]${feature}`), file + ' renders through ToolWindow and keeps its class');
+    assert.doesNotMatch(source(file), /useMovableWindow|trapTab/, file + ' leaves moving and Tab to ToolWindow');
+  }
+});
+
+test('Dialog takes a window class and an OK/Cancel form; the hand-made dialogs use it', async () => {
+  const Dialog = load(await bundle('Dialog.jsx')).default;
+  const html = renderToStaticMarkup(React.createElement(Dialog, { title: 'Add animation', className: 'showcase-dialog', onSubmit() {}, onClose() {} }, 'fields'));
+  assert.match(html, /^<div class="classic-modal mdlxl-overlay"><section data-hotkey-scope="dialog" data-hotkey-prefix="Add animation" class="classic-modal-window mdlxl-window showcase-dialog" role="dialog" aria-modal="true" aria-label="Add animation">/);
+  assert.match(html, /<form><div class="classic-modal-body">fields<\/div><footer><button type="button">Cancel<\/button><button type="submit">OK<\/button><\/footer><\/form><\/section><\/div>$/);
+  assert.match(renderToStaticMarkup(React.createElement(Dialog, { title: 'Info', onClose() {} }, 'x')), /<footer><button data-hotkey="app:action:1">Close<\/button><\/footer>/);
+  const source = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
+  assert.match(source('EmitterTextDialog.jsx'), /<Dialog title="Adjust emitter manually" className="emitter-text-dialog"/);
+  assert.match(source('PortraitSetup.jsx'), /<Dialog title="Set up Portrait Frame View"/);
+  assert.doesNotMatch(source('ShowcaseWorkspace.jsx'), /<dialog|showModal/);
+  assert.doesNotMatch(source('showcase.css'), /::backdrop|:not\(\[open\]\)/);
+});
+
+test('window styles name the shared classes once and the layers come from three tokens', () => {
+  const css = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
+  const look = css('new-look.css');
+  assert.doesNotMatch(look, /\.(smm|atm|ax|pe|re)-window|\.classic-modal-window|\.showcase-dialog|\.emitter-text-dialog|\.geoset-merge-dialog|\.geoset-repair-window|\.classic-dialog/, 'new-look.css styles windows through .mdlxl-window');
+  assert.match(look, /:is\(\.mdlxl-window,\.uv-tab-window,\.movement-curve-dialog,\.paint-save-dialog,\.forge-shape-dialog,\.paint-start-card\)\{border:1px solid var\(--m-line\)/);
+  assert.match(css('styles.css'), /\.mdlxl-overlay\{position:fixed;inset:0;display:flex;align-items:center;justify-content:center\}/);
+  assert.match(css('theme.css'), /:root\{--z-modal:100;--z-tool-window:2100;--z-workspace-modal:16000\}/);
+  assert.match(css('styles.css'), /\.classic-modal,\.modal-backdrop\{[^}]*z-index:var\(--z-modal,100\)/);
+  assert.match(css('styles.css'), /\.smm-overlay,\.atm-overlay\{z-index:var\(--z-tool-window,2100\)/);
+  assert.match(css('resource-editors.css'), /\.resource-editor\{z-index:var\(--z-modal,100\)/);
+  assert.match(css('paint-workspace.css'), /\.paint-modal-shade\{[^}]*z-index:var\(--z-workspace-modal,16000\)/);
+  assert.doesNotMatch(css('sort-my-mess.css') + css('attachemator.css'), /border-radius:7px;box-shadow/, 'the Sort My Mess and Attachemator windows share one rule');
+});
