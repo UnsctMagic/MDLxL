@@ -105,3 +105,6 @@
 [data-alert]{color:var(--ui-danger,#a31515)}:is([role=alert],[data-alert]):not(:empty){animation:alert-flash 1.2s step-end}:is([role=alert],[data-alert]):not(:empty)::before{content:"";display:inline-block;flex:0 0 8px;width:8px;height:8px;margin-right:5px;border-radius:50%;background:#e02020;vertical-align:-1px;animation:alert-ping 1s ease-out 3}
 @keyframes alert-flash{0%{background-color:#e02020;color:#fff}}@keyframes alert-ping{0%{box-shadow:0 0 0 0 #e02020cc}100%{box-shadow:0 0 0 7px #e0202000}}
 .classic-modal-window>header>div{display:flex;align-items:center;gap:8px;white-space:nowrap}
+/* Shared utilities: visually hidden text, and absolute fill for a preview host. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+.preview-fill,.mm-stage>.game-preview-root,.pe-preview>.game-preview-root,.pe-source-stage>.game-preview-root,.pe-test-stage>.game-preview-root,.gf-stage-layer>.game-preview-root{position:absolute;inset:0;width:100%;height:100%}

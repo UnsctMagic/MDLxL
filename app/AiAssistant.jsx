@@ -1796,7 +1796,7 @@ function AiAssistant({ bridge, visUI }) {
                       {busy && (
                         <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop" onClick={() => window.desktop.aiCancel(id)}>
                           <Square size={11} aria-hidden="true" />
-                          <span className="ai-hidden-label">Stop</span>
+                          <span className="sr-only">Stop</span>
                         </button>
                       )}
                       <button
