@@ -24,6 +24,16 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveO
   // A just-added piece has no projected marks until the preview draws again.
   const marks=Object.fromEntries(Object.entries(raw).filter(([,p])=>p&&Number.isFinite(p[0])&&Number.isFinite(p[1])));
   const ends=k=>marks[k+'s']&&marks[k+'e'];
+  // A small or distant piece (a skull far away) squeezes its handles onto
+  // one spot. Draw each at least 34 px from the middle so every one can be
+  // grabbed; the drag still moves the real end, width or piece.
+  const apart=(point,other)=>{
+    const m=marks.mid;if(!point||!m)return point;
+    let dx=point[0]-m[0],dy=point[1]-m[1],d=Math.hypot(dx,dy);
+    if(d>=34)return point;
+    if(d<1e-3){if(other){dx=m[0]-other[0];dy=m[1]-other[1];}else{const s=marks[selected+'s'],e=marks[selected+'e'];dx=-(e?.[1]-s?.[1])||0;dy=(e?.[0]-s?.[0])||1;}d=Math.hypot(dx,dy)||1;}
+    return [m[0]+dx/d*34,m[1]+dy/d*34,...point.slice(2)];
+  };
   const piece=ends(selected)&&marks.corner0&&marks.corner1&&marks.corner2&&marks.corner3&&marks.mid?pieces[selected]:null;
   // Screen movement for one model unit along X and Y on the ground, latched
   // when the drag starts; the drag inverts it into a ground-plane move.
@@ -57,9 +67,9 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveO
     {piece&&!moveOnly&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>
       <line x1={marks[selected+'s'][0]} y1={marks[selected+'s'][1]} x2={marks[selected+'e'][0]} y2={marks[selected+'e'][1]}/>
-      {handle(marks[selected+'s'],'start','Stretch from this end')}
-      {handle(marks[selected+'e'],'end','Stretch from this end')}
-      {handle(marks.side,'width','Widen or narrow this piece')}
+      {handle(apart(marks[selected+'s'],marks[selected+'e']),'start','Stretch from this end')}
+      {handle(apart(marks[selected+'e'],marks[selected+'s']),'end','Stretch from this end')}
+      {handle(apart(marks.side,null),'width','Widen or narrow this piece')}
       {handle(marks.mid,'move','Move this piece','pe-move-emitter')}
     </>}
   </svg>;

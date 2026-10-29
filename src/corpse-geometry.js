@@ -10,6 +10,13 @@ const mix = (a,b,t) => a.map((v,i) => v+(b[i]-v)*t);
 const quantile = (values,t) => values.toSorted((a,b)=>a-b)[Math.floor((values.length-1)*t)];
 const accessory = /weapon|sword|axe|shield|bow|staff|spear|hammer|gun|rifle|cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
 const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
+// Native gutz proportions, measured on the 58 study models with a native
+// corpse (docs/AUTO-CORPSE.md). Sizes are in the unit's typical limb bone
+// (joint to joint), the steadiest predictor of native piece sizes: ribs 2.57
+// and skull 1.18 limb bones long, a hand 1.62 of its own forearm; each long
+// bone reaches 1.6x its own joints. Widths are native width/length. Heights are shares of the dead
+// body's height: bones lowest, then hands and ribs, the skull's crown at 43%.
+const NATIVE = { bone: .47, boneReach: 1.6, hand: .62, handLimb: 1.62, ribs: .57, ribLimb: 2.57, skull: 1.18, skullHalf: .42, base: .12, step: .04, crown: .43 };
 
 /** Top surface of the actual terminal pose, rather than its bounding rectangle.
  * A uniform XY grid keeps footprint/height fitting linear in mesh size. */
@@ -67,7 +74,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // Some flying/effect deaths shrink to 0.001, not exactly zero. That is a
   // disappearance frame, not a body-sized pose from which to make a corpse.
   if(!(span>1e-5)||Math.hypot(...hi.map((v,i)=>v-lo[i]))<Math.hypot(...restHi.map((v,i)=>v-restLo[i]))*.005) throw Error('The last Death frame collapses the body to a point. A corpse needs a visible final pose.');
-  const ground=span*.012, top=surface(meshes,span);
+  const ground=span*.012, top=surface(meshes,span), bodyHeight=Math.min(Math.max(hi[2],span*.15),span*.6);
   const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),clouds=new Map();
   for(const {g,vertices} of meshes) for(let i=0;i<g.Vertices.length/3;i++) for(const id of influences(g,i)) {
     const cloud=clouds.get(id)||[];cloud.push(Array.from(vertices.slice(i*3,i*3+3)));clouds.set(id,cloud);
@@ -138,27 +145,42 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     faces.push(corners[0],corners[1],corners[2],corners[1],corners[3],corners[2]);
     parts.push({kind:label,start:a,end:b,length:len,ids,piece:index,free,vertices:corners,faces:[first,faces.length]});
   }
-  // Native gutz atlas: upper/lower long bones at left; palm/forearm in the
-  // middle; ribs/pelvis at bottom right. Match every actual chain link.
-  for(const chain of chains) {
-    const ids=poseChainIds(chain);
-    for(let i=1;i<ids.length;i++) {
-      const key=[ids[i-1],ids[i]].sort().join(':');if(used.has(key))continue;used.add(key);
-      const a=at(ids[i-1]),b=ids[i]===chain.end&&chain.grip?new Vector3().fromArray(chain.grip).applyMatrix4(matrices.get(chain.end)).toArray():at(ids[i]);
-      const region=chain.kind==='arm'&&i===ids.length-1?[.315,1,.625,.75]:i%2?[.006,.005,.31,.495]:[.006,.505,.31,.995];
-      strip(chain.kind,a,b,halfWidth(a,b,[ids[i-1],ids[i]]),region,[ids[i-1],ids[i]]);
-    }
-    const end=at(chain.end),skin=cloud(chain.end);
-    // Hands and feet continue past the last joint to their skin's tip. Feet
-    // keep the long-bone region; stretched palm texture looks wrong there.
-    const arm=chain.kind==='arm';
-    if((arm||chain.kind==='leg')&&skin.length) {
-      const center=mean(skin),len=distance(end,center),dir=len>span*.002?[(center[0]-end[0])/len,(center[1]-end[1])/len]:null;
-      if(dir) {
-        const ordered=skin.toSorted((a,b)=>(b[0]-end[0])*dir[0]+(b[1]-end[1])*dir[1]-((a[0]-end[0])*dir[0]+(a[1]-end[1])*dir[1]));
-        const tip=mean(ordered.slice(0,Math.max(1,Math.ceil(ordered.length*.1))));
-        if(distance(end,tip)<span*.3)strip(arm?'hand':'foot',end,tip,halfWidth(end,tip,[chain.end]),arm?[.315,.75,.625,.5]:[.006,.505,.31,.995],[chain.end]);
-      }
+  // Native gutz corpses lay one long-bone rectangle for each upper and lower
+  // limb and one palm rectangle for each hand; feet get no piece. A longer
+  // joint chain (helpers, extra links) is split once, at the joint nearest
+  // half its length. Each rectangle keeps the native width/length, so the
+  // bone picture is never squashed across a short, wide piece.
+  // Native bone rectangles reach past both joints, overlapping at the elbow.
+  // Their native width/length is the minimum; a broad body's skin widens them
+  // up to 80% of their length, never further (that squashes the picture).
+  const fit=(a,b,aspect,ids)=>{const len=distance(a,b);return Math.min(Math.max(len*aspect/2,ids.length?halfWidth(a,b,ids)*.7:0),len*.4);};
+  const reach=(a,b,factor)=>{const c=mix(a,b,.5);return [mix(c,a,factor),mix(c,b,factor)];};
+  // A limb starts where it leaves the trunk: walk up from the recognized
+  // chain through single joints (a thigh above a three-joint leg) until a
+  // joint that branches or belongs to the trunk.
+  const trunkRole=id=>['Body','Pelvis','Chest','Spine','Neck','Head'].includes(role(id));
+  const branches=id=>nodes.filter(n=>n.Parent===id&&hasSkin(n.ObjectId)&&nodes.some(c=>c.Parent===n.ObjectId)).length>1;
+  const limbs=chains.map(chain=>{
+    const ids=poseChainIds(chain).slice();
+    for(let up=byId.get(byId.get(ids[0])?.Parent);up&&!trunkRole(up.ObjectId)&&!branches(up.ObjectId)&&!held(up.ObjectId)&&!ids.includes(up.ObjectId);up=byId.get(up.Parent))ids.unshift(up.ObjectId);
+    for(let i=1;i<ids.length;i++)used.add([ids[i-1],ids[i]].sort().join(':'));
+    const joints=ids.map(id=>id===chain.end&&chain.grip?new Vector3().fromArray(chain.grip).applyMatrix4(matrices.get(chain.end)).toArray():at(id));
+    const lengths=joints.slice(1).map((p,i)=>distance(joints[i],p)),total=lengths.reduce((a,b)=>a+b,0);
+    let walked=0,split=1,best=Infinity;
+    for(let i=1;i<joints.length-1;i++){walked+=lengths[i-1];const off=Math.abs(walked-total/2);if(off<best){best=off;split=i;}}
+    return {chain,ids,joints,total,segments:joints.length>2?[[0,split],[split,joints.length-1]]:[[0,1]]};
+  }).filter(limb=>limb.total>=span*.001);
+  const limbJoints=new Set(limbs.flatMap(limb=>limb.ids));
+  // The unit's typical limb bone sets the size of every native piece.
+  const segmentLengths=limbs.flatMap(({joints,segments})=>segments.map(([from,to])=>distance(joints[from],joints[to]))).filter(v=>v>span*.01);
+  let unit=segmentLengths.length?quantile(segmentLengths,.5):0;
+  for(const {chain,ids,joints,segments} of limbs) {
+    segments.forEach(([from,to],k)=>{const [a,b]=reach(joints[from],joints[to],NATIVE.boneReach),bones=ids.slice(from,to+1);strip(chain.kind,a,b,fit(a,b,NATIVE.bone,bones),k?[.006,.505,.31,.995]:[.006,.005,.31,.495],bones);});
+    if(chain.kind==='arm') {
+      const elbow=joints[segments.at(-1)[0]],wrist=joints.at(-1),forearm=distance(elbow,wrist);
+      // Like the native hands, centred over the end of the forearm: a third
+      // of the palm overlaps the forearm, the rest reaches past the wrist.
+      if(forearm>span*.001){const length=forearm*NATIVE.handLimb,d=[(wrist[0]-elbow[0])/forearm,(wrist[1]-elbow[1])/forearm],at=t=>[wrist[0]+d[0]*length*t,wrist[1]+d[1]*length*t,ground];strip('hand',at(-.3),at(.7),length*NATIVE.hand/2,[.315,1,.625,.5],[chain.end]);}
     }
   }
   const torsos=new Map();
@@ -173,7 +195,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     const projected=skin.map(p=>(p[0]-neck[0])*axis[0]+(p[1]-neck[1])*axis[1]);
     const near=skin.length?Math.min(0,quantile(projected,.02)):0,far=skin.length?Math.max(d,quantile(projected,.98)):d*1.8,length=far-near;
     const width=skin.length?Math.max(span*.012,quantile(skin.map(p=>Math.abs((p[0]-center[0])*side[0]+(p[1]-center[1])*side[1])),.95)):length*.45;
-    pieces.push({kind:'skull',start:[neck[0]+axis[0]*near,neck[1]+axis[1]*near,ground],end:[neck[0]+axis[0]*far,neck[1]+axis[1]*far,ground],half:width,ids:[id]});
+    const skull={kind:'skull',start:[neck[0],neck[1],ground],end:[neck[0]+axis[0]*far,neck[1]+axis[1]*far,ground],half:width,ids:[id]};pieces.push(skull);
     // Choose the closest shared body ancestor, separating rider and mount.
     const headAncestors=ancestors(id);
     let hips=chains.filter(c=>c.kind==='leg').map(c=>c.root);
@@ -185,29 +207,46 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
       pelvis=body!=null?at(body):mean(points);
     }
     const key=pelvis.slice(0,2).map(v=>Math.round(v/Math.max(span*.01,1e-4))).join(':');
-    const torso=torsos.get(key)||{necks:[],pelvis,ids:new Set()};torso.necks.push(neck);
+    const torso=torsos.get(key)||{necks:[],skulls:[],pelvis,ids:new Set()};torso.necks.push(neck);torso.skulls.push({skull,axis});
     for(const i of [...headAncestors.slice(1),...hips.flatMap(ancestors)])if(!accessory.test(byId.get(i)?.Name||'')&&!held(i))torso.ids.add(i);
     torsos.set(key,torso);
   }
-  for(const {necks,pelvis,ids} of torsos.values()){const neck=mean(necks),trunkIds=[...ids];strip('torso',neck,pelvis,halfWidth(neck,pelvis,trunkIds),[.634,.505,.999,.995],trunkIds);}
+  // Without limbs, the neck-to-pelvis distance stands in for the limb bone.
+  if(!unit){const first=[...torsos.values()][0];unit=first?distance(mean(first.necks),first.pelvis)*.56:span*.13;}
+  // The rib cage lies along the neck-to-pelvis line, sized like the native
+  // one from the limb bone; the skull too, not from the helmet's parts.
+  function ribs(a,b,ids) {
+    const len=distance(a,b);if(len<span*.0001)return 0;
+    const c=mix(a,b,.5),reach=unit*NATIVE.ribLimb/2,d=[(b[0]-a[0])/len,(b[1]-a[1])/len];
+    const from=[c[0]-d[0]*reach,c[1]-d[1]*reach,ground],to=[c[0]+d[0]*reach,c[1]+d[1]*reach,ground];
+    strip('torso',from,to,fit(from,to,NATIVE.ribs,ids),[.634,.505,.999,.995],ids);
+    return reach*2;
+  }
+  for(const {necks,skulls,pelvis,ids} of torsos.values()) {
+    const ribLength=ribs(mean(necks),pelvis,[...ids]);
+    if(ribLength)for(const {skull,axis} of skulls){const length=unit*NATIVE.skull;skull.end=[skull.start[0]+axis[0]*length,skull.start[1]+axis[1]*length,ground];skull.half=length*NATIVE.skullHalf;}
+  }
   // A body whose head is not recognized still has a trunk: the skin of the
-  // joints its limbs hang from, along that skin's own long axis.
-  const limbIds=new Set(chains.flatMap(poseChainIds)),actors=new Map(),headed=new Set(heads.map(h=>ancestors(h.ObjectId).at(-1)));
+  // joints its limbs hang from, along that skin's own long axis. One rib cage
+  // per unit: a separate leg rig (a death rig, say) gets none of its own.
+  const limbIds=limbJoints,actors=new Map(),headed=new Set(heads.map(h=>ancestors(h.ObjectId).at(-1)));
   for(const chain of chains){const owner=ancestors(chain.root).at(-1),list=actors.get(owner)||[];list.push(chain);actors.set(owner,list);}
   for(const [owner,limbs] of actors) {
-    if(headed.has(owner))continue;
+    if(headed.has(owner)||pieces.some(p=>p.kind==='torso'))continue;
     const trunkIds=[...new Set(limbs.flatMap(c=>ancestors(byId.get(c.root)?.Parent)))].filter(id=>!limbIds.has(id)&&!held(id)&&!accessory.test(byId.get(id)?.Name||''));
     let skin=trunkIds.flatMap(cloud);if(skin.length<3)skin=limbs.map(c=>at(c.root));
     if(skin.length<2)continue;
-    const [a,b]=axisEnds(skin);if(distance(a,b)>span*.05)strip('torso',a,b,halfWidth(a,b,trunkIds),[.634,.505,.999,.995],trunkIds);
+    const [a,b]=axisEnds(skin);if(distance(a,b)>span*.05)ribs(a,b,trunkIds);
   }
   // Tails, wings and anonymous rigs retain their real articulated branches.
   // Geometry evidence excludes weapon/cloth branches; no humanoid-only template.
-  const inferredAnatomy=pieces.length>0;
+  const inferredAnatomy=pieces.length>0,trunkJoints=new Set([...torsos.values()].flatMap(t=>[...t.ids]));
   for(const node of nodes) {
     const parent=byId.get(node.Parent);if(!parent||accessory.test(node.Name)||accessory.test(parent.Name)||held(node.ObjectId))continue;
     if(inferredAnatomy&&(node.GeosetId!==undefined||['Chest','Pelvis','Body','Spine'].includes(role(node.ObjectId))||chains.some(c=>c.root===node.ObjectId)&&!/leg|tail|wing/i.test(parent.Name)))continue;
     const key=[parent.ObjectId,node.ObjectId].sort().join(':');if(used.has(key))continue;
+    // The rib cage covers the trunk and neck; limbs have their own pieces.
+    if(limbJoints.has(node.ObjectId)||trunkJoints.has(node.ObjectId)&&trunkJoints.has(parent.ObjectId)||trunkRole(node.ObjectId))continue;
     const anatomical=/leg|shin|calf|arm|tail|wing|spine|neck|chest|pelvis|head|body|back|front|toe/i.test(node.Name);
     if(!hasSkin(node.ObjectId)||(!anatomical&&inferredAnatomy)||['Head','Hand','Foot','Hoof'].includes(role(node.ObjectId)))continue;
     const a=at(parent.ObjectId),b=at(node.ObjectId);
@@ -215,8 +254,8 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     // lies along the link; spokes to scattered pieces cross empty ground. A
     // single continuing link (a tail or wing tip) may thin out past the skin.
     const fan=nodes.filter(n=>n.Parent===parent.ObjectId&&hasSkin(n.ObjectId)&&nodes.some(c=>c.Parent===n.ObjectId)).length>1;
-    if(distance(a,b)>span*.6||fan&&Array.from({length:9},(_,k)=>mix(a,b,k/8)).filter(p=>Number.isFinite(top(p[0],p[1]))).length<6)continue;
-    strip('branch',a,b,halfWidth(a,b,[node.ObjectId,parent.ObjectId]),[.006,.005,.31,.495],[parent.ObjectId,node.ObjectId]);used.add(key);
+    if(distance(a,b)>span*.6||distance(a,b)<unit*.5||fan&&Array.from({length:9},(_,k)=>mix(a,b,k/8)).filter(p=>Number.isFinite(top(p[0],p[1]))).length<6)continue;
+    const [from,to]=reach(a,b,NATIVE.boneReach);strip('branch',from,to,distance(from,to)*NATIVE.bone/2,[.006,.005,.31,.495],[parent.ObjectId,node.ObjectId]);used.add(key);
   }
   if(!pieces.length) {
     // A single rigid object has no joints. Its own surface's principal axis
@@ -229,23 +268,33 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   function emitSkull({start,end,half:width,ids=[],free=false},index) {
     const length=distance(start,end)||span*.01,axis=[(end[0]-start[0])/length,(end[1]-start[1])/length],side=[axis[1],-axis[0]];
     const shape=[[.489,.014,1,.808594,.21582],[0,.079,.223,.816406,.451172],[.234,.730,0,.910156,.369141],[.787,.737,.15,.917969,.124512],[1,-.091,.427,.789063,.012939],[.915,-.841,.201,.699219,.07373],[.489,-1,.36,.6875,.236328],[.234,-.755,.053,.695313,.376953],[.489,1,.29,.941406,.233398]];
-    const skullIds=shape.map(([along,across,z,u,v])=>vertex([start[0]+axis[0]*length*along+side[0]*width*across,start[1]+axis[1]*length*along+side[1]*width*across,z*Math.min(width,length*.45)],[u,v]));
+    const skullIds=shape.map(([along,across,z,u,v])=>vertex([start[0]+axis[0]*length*along+side[0]*width*across,start[1]+axis[1]*length*along+side[1]*width*across,z],[u,v]));
     const first=faces.length;for(const k of [0,1,2,3,4,0,5,6,0,7,1,0,2,8,0,0,8,3,0,4,5,0,6,7])faces.push(skullIds[k]);
     parts.push({kind:'skull',ids,start,end,piece:index,free,vertices:skullIds,faces:[first,faces.length]});
   }
   const plan=edited?structuredClone(edited):pieces;
   plan.forEach((piece,index)=>piece.kind==='skull'?emitSkull(piece,index):emitStrip(piece,index));
   if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');
-  // Native corpses keep overlapping pieces apart on a few fixed levels about
-  // 3 units apart: legs and arms lowest, the rib cage above them and the
-  // skull on top. Pieces at one height would z-fight and shimmer.
+  // Native corpses give each kind of piece its own level: legs lowest, then
+  // arms, hands, the rib cage and the skull on top. Overlapping pieces of one
+  // kind (crossed arms) are lifted a quarter level apart, so nothing shares a
+  // height and shimmers.
   const shapes=parts.map(part=>{const tris=[];for(let f=part.faces[0];f<part.faces[1];f+=3)tris.push([0,1,2].map(k=>[vertices[faces[f+k]*3],vertices[faces[f+k]*3+1]]));return tris;});
   const boxes=shapes.map(tris=>{const ps=tris.flat();return [0,1].flatMap(a=>[Math.min(...ps.map(p=>p[a])),Math.max(...ps.map(p=>p[a]))]);});
   const touches=(i,j)=>boxes[i][0]<boxes[j][1]&&boxes[j][0]<boxes[i][1]&&boxes[i][2]<boxes[j][3]&&boxes[j][2]<boxes[i][3]&&shapes[i].some(a=>shapes[j].some(b=>trianglesOverlap(a,b,span*1e-4)));
-  const rank={leg:0,foot:0,arm:1,hand:1,branch:1,torso:2,'rigid remnant':2,skull:3},order=parts.map((_,i)=>i).sort((i,j)=>(rank[parts[i].kind]??1)-(rank[parts[j].kind]??1)||i-j);
-  for(const [n,i] of order.entries()){const taken=new Set(order.slice(0,n).filter(j=>touches(i,j)).map(j=>parts[j].level));let level=0;while(taken.has(level))level++;parts[i].level=level;}
-  const base=Math.max(2,span*.025),step=Math.max(2.5,span*.025);
-  for(const part of parts){for(const id of part.vertices)vertices[id*3+2]+=base+part.level*step;delete part.faces;}
+  const rank={leg:0,arm:1,branch:1,hand:1.5,torso:2,'rigid remnant':2,skull:3},kindOf=part=>rank[part.kind]??1;
+  for(const [i,part] of parts.entries()){const taken=new Set(parts.slice(0,i).filter((other,j)=>kindOf(other)===kindOf(part)&&touches(i,j)).map(other=>other.lift));let lift=0;while(taken.has(lift))lift++;part.lift=lift;part.level=kindOf(part)+lift*.25;}
+  // Many overlapping pieces of one kind can climb to the next kind's level:
+  // keep every overlapping pair, of any kind, at least a fifth of a level apart.
+  const settled=[];
+  for(const i of parts.map((_,k)=>k).sort((a,b)=>parts[a].level-parts[b].level||a-b)){while(settled.some(j=>touches(i,j)&&Math.abs(parts[j].level-parts[i].level)<.2))parts[i].level+=.25;settled.push(i);}
+  const base=Math.max(1.5,bodyHeight*NATIVE.base),step=Math.max(1.5,bodyHeight*NATIVE.step);
+  for(const part of parts) {
+    const z=base+part.level*step,rise=Math.max(step,bodyHeight*NATIVE.crown-z);
+    // The skull's crown reaches the native 43% of the body's height.
+    for(const id of part.vertices)vertices[id*3+2]=part.kind==='skull'?z+vertices[id*3+2]*rise:z;
+    delete part.faces;
+  }
   // The footprint gives the window's chalk outline of the dead body: the
   // body only, without what it holds or wears as equipment.
   const equipment=id=>held(id)||ancestors(id).some(a=>accessory.test(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''));

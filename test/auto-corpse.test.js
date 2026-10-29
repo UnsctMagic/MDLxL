@@ -72,8 +72,8 @@ test('corpse torso uses skin on mesh children and grows with body girth while jo
     const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[width,1,.3][i%3]);g.Groups=[[torso.ObjectId]];
     const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*.3+(i%3===1?45:0));h.Groups=[[skull.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(1));
   });return buildCorpseGeometry(d.model,[0,1],1);}
-  const narrow=body(1),wide=body(2),extent=(r,part)=>{const xs=part.vertices.map(i=>r.geoset.Vertices[i*3]);return Math.max(...xs)-Math.min(...xs);};
-  const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.7,'Broad bodies need broad ribs, not a fixed narrow strip');
+  const narrow=body(.3),wide=body(1),extent=(r,part)=>{const xs=part.vertices.map(i=>r.geoset.Vertices[i*3]);return Math.max(...xs)-Math.min(...xs);};
+  const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.15,'Broad bodies get broader ribs, within the native rib shape');
   assert.ok(narrow.parts.find(p=>p.kind==='skull').vertices.length>=9);
 });
 test('corpse ribs are one flat native rectangle on a level above the ground, and whatever hangs from a hand is no anatomy',()=>{

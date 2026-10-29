@@ -50,14 +50,25 @@ could not be confirmed, and the game's own blood ships with every copy.
   Forearms continue into the atlas's hand region; legs continue to the foot's
   skin tip in the native long-bone regions, never stretched hand texture.
   The pieces follow the native gutz standard measured on the 58 study
-  models that have one: every limb bone, hand, foot and rib cage is one flat
-  rectangle showing its whole atlas region at one height; only the skull has
-  shape. Overlapping pieces sit on fixed levels about 3 units apart (2.5% of
-  the body, at least 2.5): legs lowest, arms next, the rib cage above them
-  and the skull on top. Native corpses use the same few levels instead of
-  bumps; pieces are not cut to the body outline. Measured on the same
-  models, typical corpse height is 16% of the body for native corpses and
-  17% for fitted ones, and the highest point 39% and 44%.
+  models that have one (`NATIVE` in `corpse-geometry.js`). Every limb gets
+  one long-bone rectangle for its upper and one for its lower half (a longer
+  joint chain is split once near half its length; a limb starts where it
+  leaves the trunk, so a thigh above a three-joint leg belongs to the leg);
+  each arm gets one palm rectangle; feet, neck and short trunk links get
+  none. Rectangles keep the native width/length (bones 0.47, hands 0.62, ribs
+  0.57; a broad body widens them up to 0.8, never further, since a wider
+  rectangle squashes the bone picture into strings). Sizes come from the
+  unit's typical limb bone (joint to joint), which predicted the native sizes
+  most steadily: ribs 2.57 and skull 1.18 limb bones long, a hand 1.62 of its
+  forearm, and each bone reaching 1.6x its own joints. Heights are shares of
+  the dead body's height: legs, arms, hands and ribs on fixed levels from
+  12% up in 4% steps, the skull's crown at 43%; overlapping pieces of one
+  kind are lifted a quarter level apart and no overlapping pair shares a
+  height. Measured against the native corpses on the same models, piece
+  lengths, widths and heights match within about 10% (medians), and ours
+  covers a median 78% of the native corpse's ground area. Pieces are not cut
+  to the body outline. One rib cage per unit: a separate leg-only rig gets
+  none of its own.
   Whatever hangs below a hand is held equipment (a weapon, its head or
   chain, a carried object) and never becomes a skull, limb or branch,
   whatever its bones are called.
