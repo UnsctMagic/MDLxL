@@ -1,8 +1,8 @@
 /* AI console: a docked, quiet chat on the left of the viewport, styled from the theme. */
 .ai-assistant{
   --ai-accent:var(--ui-accent,#71b5f3);
-  --ai-line:color-mix(in srgb,var(--ui-border,#8b8b87) 38%,transparent);
-  --ai-soft:color-mix(in srgb,var(--ui-text,#202020) 5%,var(--ui-panel,#f0f0f0));
+  --ai-line:var(--m-line,color-mix(in srgb,var(--ui-border,#8b8b87) 38%,transparent));
+  --ai-soft:var(--m-soft,color-mix(in srgb,var(--ui-text,#202020) 5%,var(--ui-panel,#f0f0f0)));
   position:relative;order:-1;flex:0 0 var(--ai-width,400px);width:var(--ai-width,400px);min-width:300px;max-width:60vw;
   display:flex;flex-direction:column;min-height:0;overflow:hidden;box-sizing:border-box;z-index:30;
   background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border-right:1px solid var(--ai-line);
