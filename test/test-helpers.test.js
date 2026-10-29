@@ -115,7 +115,12 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
     assert.equal(launches[0].args[1], 'fixture.mdx'); assert.equal(launches[0].env.MDLXL_PROFILE, profile);
     await closeApp(app, { keepProfile: true });
     assert.equal(fs.readFileSync(path.join(profile, 'draft.json'), 'utf8'), 'draft');
-    await launchApp({ out, profile, entry, playwright }); await closeApp(app);
+    const target = { executablePath: path.join(out, 'installed', 'MDLxL.exe'), args: [], packaged: true };
+    await launchApp({ out, profile, target, cwd: out, playwright });
+    assert.equal(launches[1].executablePath, target.executablePath);
+    assert.equal(launches[1].cwd, out);
+    assert.equal(launches[1].args[0], '--disable-backgrounding-occluded-windows');
+    await closeApp(app);
     assert.equal(fs.existsSync(profile), false);
     assert.equal(fs.readFileSync(path.join(library, 'source.json'), 'utf8'), 'source');
   } finally {
@@ -183,6 +188,7 @@ test('owner props probe reads the committed host rather than its stale DOM fiber
   const window = {}, document = { querySelector: selector => selector === '.owner' ? element : null };
   vm.runInNewContext(PROBE_SOURCE, { window, document });
   assert.equal(window.findFiberProps('.owner', props => !!props.value), currentProps);
+  assert.equal(window.findFiberProps(element, props => !!props.value), currentProps);
   assert.equal(window.findFiberProps('.owner', props => !!props.missing), null);
   assert.equal(window.findFiberProps('.missing', () => true), null);
 });

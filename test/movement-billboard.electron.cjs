@@ -1,7 +1,8 @@
+const { sha256File } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron regression; optional MDLXL_BILLBOARD_MODEL is read-only input.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const hash = sha256File;
 const near = (actual, expected, label, tolerance = .003) => actual.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < tolerance, `${label}: ${actual} != ${expected}`));
 (async () => {
   const { ObjectLoader, Vector3 } = await import('three');
@@ -21,10 +22,9 @@ const near = (actual, expected, label, tolerance = .003) => actual.forEach((valu
     fixture=path.join(out,'movement-billboard.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   }
   const originalHash=hash(fixture), errors=[],checks=[],measurements=[];
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: {x:-3000,y:0,width:1280,height:900}, show: 'inactive' });
   try {
-    const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-    await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.webContents.setBackgroundThrottling(false);win.setBounds({x:-3000,y:0,width:1280,height:900});win.showInactive();});
+
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({timeout:60000});
     const vertexSample=()=>page.evaluate(()=>{const root=document.querySelector('[aria-label="3D model viewport"]');{ const runtime = findFiberState(root, runtime => runtime?.renderer&&runtime?.entries); if (runtime?.renderer&&runtime?.entries) {const rect=runtime.renderer.domElement.getBoundingClientRect();return{vertices:runtime.entries.map(entry=>Array.from(entry.geometry.attributes.position.array)),camera:runtime.controls.object.toJSON(),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};} }
 throw Error('Vertex runtime not ready');});

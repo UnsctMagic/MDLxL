@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -37,13 +38,13 @@ const { createHash } = require('node:crypto');
   await write('Splats\\SplatData.slk',slk(blood));await write('Splats\\UberSplatData.slk',slk({...blood,BirthTime:.2,PauseTime:.2,Decay:.4}));
   const blp=Buffer.alloc(148+16*16*4);blp.write('BLP2');blp.writeUInt32LE(1,4);blp[8]=3;blp[9]=8;blp.writeUInt32LE(16,12);blp.writeUInt32LE(16,16);blp.writeUInt32LE(148,20);blp.writeUInt32LE(1024,84);for(let i=148;i<blp.length;i+=4){blp[i]=blp[i+1]=blp[i+2]=255;blp[i+3]=200;}await write('ReplaceableTextures\\Splats\\NodePreviewTest.blp',blp);
   await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false,maxFps:30,pauseWhenHidden:false},emitterMarker:'pentagram'}}));
-  const executablePath=process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=(await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-background-timer-throttling','--mute-audio',...(packaged?[fixture]:[root,fixture])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
-  let page;const errors=[];
+  const executablePath=appTarget().executablePath,packaged=appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--mute-audio'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
+
   const grab=clip=>app.evaluate(async({BrowserWindow},clip)=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(clip||undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'),clip);
   const screenshot=async name=>fs.writeFile(path.join(out,name),Buffer.from(await grab(),'base64'));
   try{
-    page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+
     await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];if(win.isVisible())throw Error('Test window must remain hidden');win.setSize(1700,1050);win.webContents.setBackgroundThrottling(false);});
     await page.addInitScript(()=>{window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=clearTimeout;});await page.reload();
     await page.getByText('Opened node-controls.mdx',{exact:true}).waitFor();
@@ -51,7 +52,7 @@ const { createHash } = require('node:crypto');
     const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
     const read=()=>page.evaluate(()=>{
       const el=document.querySelector('.game-preview-root');
-      { const state = mdlxlProbe(el).runtime; if (state?.native&&state.controls) {window.testRuntime=state;return{frame:state.native.getFrame(),ready:state.captureApi?.isReady,particles:state.native.particlesController.emitters.map(e=>e.particles.length),ribbons:state.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:el.querySelectorAll('[data-node-overlay]').length,pulse:state.nodeEffects?.active,decal:state.eventPreview?.active,camera:state.controls.object.position.toArray(),decals:state.testDecalDraws||0,audio:window.testAudio.map(r=>({decoded:r.decoded,ended:r.ended,paused:r.audio.paused,src:r.audio.getAttribute('src')}))};} }
+      { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native&&state.controls) {window.testRuntime=state;return{frame:state.native.getFrame(),ready:state.captureApi?.isReady,particles:state.native.particlesController.emitters.map(e=>e.particles.length),ribbons:state.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:el.querySelectorAll('[data-node-overlay]').length,pulse:state.nodeEffects?.active,decal:state.eventPreview?.active,camera:state.controls.object.position.toArray(),decals:state.testDecalDraws||0,audio:window.testAudio.map(r=>({decoded:r.decoded,ended:r.ended,paused:r.audio.paused,src:r.audio.getAttribute('src')}))};} }
 return null;
     });
     const wait=async(predicate,label)=>{const end=Date.now()+20000;while(Date.now()<end){const state=await read();if(state&&predicate(state))return state;await settlePage(page, 30);}throw Error(label+': '+JSON.stringify(await read()));};

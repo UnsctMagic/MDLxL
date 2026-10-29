@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Perspective wheel zoom in the real app: node test/perspective-zoom.electron.cjs
 // (MDLXL_TEST_EXE runs a packaged MDLxL.exe; otherwise the built dist/ under Electron.)
@@ -11,16 +12,15 @@ const assert = require('node:assert/strict');
   const out = path.resolve('out/perspective-zoom'); fs.mkdirSync(out, { recursive: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
   const fixture = path.join(out, 'perspective-zoom.mdx'); fs.writeFileSync(fixture, Buffer.from(createStarterDocument().serialize('mdx')));
-  const packaged = process.env.MDLXL_TEST_EXE, errors = [];
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [process.cwd()]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const packaged = appTarget().packaged, errors = [];
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1400, height: 900 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -3000, y: 0, width: 1400, height: 900 }); window.showInactive(); });
+
     const viewport = page.getByLabel('3D model viewport', { exact: true }); await viewport.waitFor({ timeout: 60000 });
     await page.evaluate(() => {
       window.viewportState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
 
         throw Error('Viewport runtime not found');
@@ -59,6 +59,6 @@ const assert = require('node:assert/strict');
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ fitted: fitted.distance, zoomedOut: zoomedOut.distance, turned, zoomedIn: zoomedIn.zoom }));
   } finally {
-    await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 8000))]);
+    await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 8000))]);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

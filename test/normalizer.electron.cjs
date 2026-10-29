@@ -1,25 +1,13 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against an isolated packaged build via MDLXL_TEST_EXE and MDLXL_TEST_OUT.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const root = path.resolve(__dirname, '..'), out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/normalizer');
-const executable = process.env.MDLXL_TEST_EXE;
+const executable = appTarget().executablePath;
 if (!executable) throw Error('Set MDLXL_TEST_EXE to the isolated packaged MDLxL.exe.');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-function readView() {
-  const el = document.querySelector('.classic-view [aria-label="3D model viewport"]');
-  let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))], top = fiber;
-  while (top?.return) top = top.return;
-  const stack = [top.stateNode.current]; let owner;
-  while (stack.length) { const n = stack.pop(); if (n.stateNode === el) { owner=n; break; } for (let c=n.child;c;c=c.sibling) stack.push(c); }
-  for (fiber=owner;fiber;fiber=fiber.return) for (let hook=fiber.memoizedState;hook;hook=hook.next) {
-    const s=hook.memoizedState?.current;
-    if (!s?.renderer || !s?.entries) continue;
-    const p=fiber.memoizedProps, r=s.renderer.domElement.getBoundingClientRect(), camera=s.camera;
-    return {renderFrame:s.renderer.info.render.frame,normalizer:!!p.normalizer,model:structuredClone(p.model),revision:p.revision,selection:structuredClone(p.selectionByGeoset),
-      camera:camera.quaternion.toArray(),normals:s.entries.map(e=>Array.from(e.geometry.attributes.normal.array)),rect:{x:r.x,y:r.y,width:r.width,height:r.height}};
-  }
-  throw Error('Viewport runtime unavailable');
-}
+function readView(){const el=document.querySelector('.classic-view [aria-label="3D model viewport"]');let p;const s=findFiberState(el,(s,props)=>{if(!s?.renderer||!s?.entries)return false;p=props;return true;},{current:true});if(!s)throw Error('Viewport runtime unavailable');const r=s.renderer.domElement.getBoundingClientRect(),camera=s.camera;return {renderFrame:s.renderer.info.render.frame,normalizer:!!p.normalizer,model:structuredClone(p.model),revision:p.revision,selection:structuredClone(p.selectionByGeoset),camera:camera.quaternion.toArray(),normals:s.entries.map(e=>Array.from(e.geometry.attributes.normal.array)),rect:{x:r.x,y:r.y,width:r.width,height:r.height}};}
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
@@ -29,11 +17,10 @@ function readView() {
   const originalBytes=fs.readFileSync(fixture), profile=path.join(out,'profile');
   fs.mkdirSync(profile,{recursive:true});
   fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false}}}));
-  const app=(await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows',fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
-  const checks=[], errors=[]; let page;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000, bounds: {x:-3000,y:0,width:1280,height:900}, show: 'inactive' });
+  const checks=[];
   try {
-    page=await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3000,y:0,width:1280,height:900});w.showInactive();});
+
     await page.getByLabel('3D model viewport',{exact:true}).waitFor();
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     const original=await page.evaluate(readView), sidebar=await page.locator('.classic-sidebar').boundingBox();
@@ -78,7 +65,7 @@ function readView() {
     checks.push('Apply is one edit; one Undo and Redo are exact');
     for(const format of ['MDX','MDL']){
       const saved=path.join(out,'saved.'+format.toLowerCase());
-      await app.evaluate(({dialog},saved)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:saved});},saved);
+      await stubDialogs(app, { save: (saved) });
       fs.rmSync(saved,{force:true});const saveButton=page.getByRole('button',{name:'Save '+format+'…',exact:true});
       await page.keyboard.press('F12');await saveButton.click();
       // The Save as dialog closes only after the save finishes; the next Save As must not start before that.

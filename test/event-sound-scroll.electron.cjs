@@ -1,18 +1,12 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
   const root = process.cwd(), file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(root, 'out/menu-scroll-test/profile-' + Date.now()), args: ([root, file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' } })).app;
+  const { app, page } = await launchApp({ out: root, profile: path.join(root, 'out/menu-scroll-test/profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, fixture: file , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow();
-    page.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.setSize(1600, 1000); window.setPosition(-3000, 0);
-      window.webContents.setBackgroundThrottling(false); window.showInactive();
-    });
+
     await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Nodes'));
     await page.getByLabel('Search nodes').fill('SND');

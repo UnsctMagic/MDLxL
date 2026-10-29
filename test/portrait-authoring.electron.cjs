@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -9,28 +11,28 @@ const path = require('node:path');
   assert.ok(!doc.model.Sequences.some(item=>/portrait/i.test(item.Name)));
   const fixture=path.join(out,'stand-only.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
   const original=openDocument(fs.readFileSync(fixture),fixture).model;
-  const packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: ([...(packaged?[]:[root]),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
-  const errors=[];let page;
+  const packaged=appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, show: 'inactive' });
+
   const snap=async name=>{const png=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage({},{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name),Buffer.from(png,'base64'));};
   try {
-    page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
+
     page.on('console',message=>{if(message.type()==='error' && /shader|WebGL|linkProgram/i.test(message.text())) errors.push(message.text());});
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.showInactive();});
+
     await page.getByRole('button',{name:'Movement',exact:true}).click();
     const sidebarWidth=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     assert.equal(await page.getByRole('dialog',{name:'Portrait settings',exact:true}).count(),0);
     await page.getByRole('button',{name:'Portrait settings',exact:true}).click();
     await page.getByRole('button',{name:'New Camera',exact:true}).click();
     await page.getByRole('button',{name:'Full Model View',exact:true}).waitFor();
-    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el).runtime; if (state?.native&&state.controls) return state; }
+    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native&&state.controls) return state; }
 throw Error('No preview runtime');};});
     await page.waitForFunction(()=>portraitRuntime().portraitActive);
     await page.getByRole('button',{name:'Stop',exact:true}).click();
     assert.ok(!/portrait/i.test(await page.getByLabel('Movement current sequence',{exact:true}).inputValue()));
     assert.equal(await page.getByRole('button',{name:'Control Model',exact:true}).count(),0);
     const save=async name=>{
-      const output=path.join(out,name+'.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
+      const output=path.join(out,name+'.mdx');await stubDialogs(app, { save: (output) });
       await page.keyboard.press('Escape');await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});return openDocument(fs.readFileSync(output),output).model;
     };

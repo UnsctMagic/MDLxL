@@ -1,36 +1,21 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Packaged UI regression. Mutations use the public controls; React reads only
 // inspect geometry, selection, camera state and UV-canvas screen coordinates.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const root = path.resolve(__dirname, '..'), output = path.join(root, 'out', 'mesh-density-review');
-const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/triangle-subdivision-package/MDLxL-win32-x64/MDLxL.exe');
+const executable = appTarget().executablePath;
 
-function ownerOf(selector) {
-  const element = document.querySelector(selector);
-  if (!element) throw Error('Missing ' + selector);
-  let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))], top = fiber;
-  while (top.return) top = top.return;
-  const stack = [top.stateNode.current];
-  while (stack.length) {
-    const node = stack.pop();
-    if (node.stateNode === element) return { element, fiber: node };
-    for (let child = node.child; child; child = child.sibling) stack.push(child);
-  }
-  throw Error('Missing current React owner');
-}
 function readPreview() {
-  const { fiber } = ownerOf('.uv-preview-canvas .game-preview-root');
-  for (let node = fiber; node; node = node.return) for (let hook = node.memoizedState; hook; hook = hook.next) {
-    const state = hook.memoizedState?.current;
-    if (state?.native && state?.controls) return { model: structuredClone(node.memoizedProps.model), selection: structuredClone(node.memoizedProps.selectionByGeoset), camera: state.controls.object.quaternion.toArray() };
-  }
-  throw Error('Missing native preview');
+  const selector='.uv-preview-canvas .game-preview-root';let props;
+  const state=findFiberState(selector,(state,p)=>{if(!state?.native||!state?.controls)return false;props=p;return true;},{current:true});
+  if(!state)throw Error('Missing native preview');
+  return {model:structuredClone(props.model),selection:structuredClone(props.selectionByGeoset),camera:state.controls.object.quaternion.toArray()};
 }
 function readUV() {
-  const { element, fiber } = ownerOf('[aria-label="UV coordinate editor"]');
-  for (let node = fiber; node; node = node.return) for (let hook = node.memoizedState; hook; hook = hook.next) {
-    const state = hook.memoizedState?.current, props = node.memoizedProps;
-    if (!state?.uv || !state.draw || !props.geoset) continue;
+  const element=document.querySelector('[aria-label="UV coordinate editor"]');let props;
+  const state=findFiberState(element,(state,p)=>{if(!state?.uv||!state.draw||!p.geoset)return false;props=p;return true;},{current:true});
+  if(state){
     const rect = element.getBoundingClientRect(), aspect = Math.max(.01, (Number(props.textureSize?.[0]) || 1) / (Number(props.textureSize?.[1]) || 1));
     const base = Math.max(20, Math.min((rect.width - 40) / 2.7, (rect.height - 40) / 2.3));
     const sizeX = base * (aspect >= 1 ? aspect : 1) * state.zoom, sizeY = base * (aspect >= 1 ? 1 : 1 / aspect) * state.zoom;
@@ -63,15 +48,15 @@ async function setRange(locator, value) {
     model.Geosets.push(untouched, plane);
   });
   fs.writeFileSync(fixture, doc.serialize('mdx')); const original = fs.readFileSync(fixture);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  let uv, main; const errors = [], checks = [];
+  const { app, page: main, errors } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
+  let uv; const checks = [];
   const capture = async name => {
     const window = await app.browserWindow(uv || main);
     const png = await window.evaluate(window => window.webContents.capturePage().then(image => image.toPNG().toString('base64')));
     fs.writeFileSync(path.join(output, name + '.png'), Buffer.from(png, 'base64'));
   };
   try {
-    main = await app.firstWindow(); main.setDefaultTimeout(15000); main.on('pageerror', error => errors.push(error.message));
+
     const mainWindow = await app.browserWindow(main);
     await mainWindow.evaluate(window => { window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -4000, y: 0, width: 1600, height: 1000 }); window.showInactive(); });
     await main.getByLabel('Select geoset 2', { exact: true }).waitFor();
@@ -80,7 +65,6 @@ async function setRange(locator, value) {
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
     uv = main; const uvw = main.locator('.uv-tab-window'); await main.locator('[data-hotkey="uv"]').click(); // in-app dialog since f7316110
     await uvw.getByLabel('UV coordinate editor').waitFor();
-    await uv.evaluate('window.ownerOf = ' + ownerOf.toString());
     await uv.evaluate('window.readDensityPreview = ' + readPreview.toString());
     await uv.waitForFunction(() => window.readDensityPreview().model.Geosets.length === 3);
     const initial = await uv.evaluate(readPreview);

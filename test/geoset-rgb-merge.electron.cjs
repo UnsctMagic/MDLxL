@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Rebuilt Electron regression for checked-geoset RGB editing followed by merge.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -22,21 +22,16 @@ const path = require('node:path');
   const original = fs.readFileSync(source);
   const initialCount = api.openDocument(original, path.basename(source)).model.Geosets.length;
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, source]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  let page;
+  const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: source , pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
+
   try {
-    page = await app.firstWindow();
-    page.setDefaultTimeout(30000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win.webContents.setBackgroundThrottling(false); win.setPosition(-3000, 0); win.showInactive();
-    });
+
     await page.waitForFunction(count => document.title.includes('.mdx') && document.querySelectorAll('.classic-geoset-list [role="option"]').length === count, initialCount);
     await page.evaluate(() => {
       window.rgbMergeState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
         if (!host) return window.rgbMergeApp;
-        
+
         { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return window.rgbMergeApp = current; }
 
         return window.rgbMergeApp;

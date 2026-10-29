@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -14,15 +15,14 @@ const path = require('node:path');
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'learn.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [], checks = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 800 } });
+  const checks = [];
   const check = message => { checks.push(message); console.log('✓ ' + message); };
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
+
     await page.clock.install();
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 800); });
+
     await page.locator('.classic-view canvas').first().waitFor();
     const { LEARN_TEST_VERSION } = await import('../src/learn-keycaps.js');
     const popup = page.locator('.learn-keycap');
@@ -224,7 +224,7 @@ const path = require('node:path');
     // The overlay must leave the existing camera mouse controls usable.
     const camera = () => page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      
+
       { const state = findFiberState(host, state => state?.renderer && state?.entries); if (state?.renderer && state?.entries) return state.camera.quaternion.toArray(); }
 
       throw Error('Viewport runtime not found');
@@ -353,7 +353,7 @@ const path = require('node:path');
 
   } finally {
     // Unsaved Paint work makes the window ask before closing; don't wait for it.
-    await Promise.race([app.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 10000))]);
+    await Promise.race([closeApp(app).catch(() => {}), new Promise(resolve => setTimeout(resolve, 10000))]);
     // Kill the whole Electron process tree (renderer and GPU too), not just its main process.
     try { const pid = app.process().pid; if (process.platform === 'win32') require('node:child_process').spawnSync('taskkill', ['/pid', String(pid), '/T', '/F']); else app.process().kill(); } catch {}
     await fs.rm(profile, { recursive: true, force: true }).catch(() => {});

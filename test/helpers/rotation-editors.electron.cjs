@@ -34,11 +34,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await menu('vertices');await page.getByLabel('3D model viewport',{exact:true}).waitFor();
   await page.locator('[data-hotkey="geosetsClear"]').click();await page.getByLabel('Select geoset 0',{exact:true}).check();await page.getByLabel('3D model viewport',{exact:true}).focus();await menu('selectAll');
   await page.evaluate(() => {
-    window.rotationView = (scope='') => {
-      const host=document.querySelector(scope+' [aria-label="3D model viewport"]');let runtime,props;
-      for(let f=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.renderer&&v?.entries)runtime=v;if(v?.model&&v?.transformMode)props=v;}
-      if(!runtime||!props)throw Error('Mesh runtime missing '+scope);return {runtime,props};
-    };
+    window.rotationView = (scope='')=>{const host=document.querySelector(scope+' [aria-label="3D model viewport"]');const runtime=findFiberState(host,v=>v?.renderer&&v?.entries,{last:true}),props=findFiberState(host,v=>v?.model&&v?.transformMode,{last:true});if(!runtime||!props)throw Error('Mesh runtime missing '+scope);return {runtime,props};};
     window.rotationMeshSnap = (scope='') => {
       const {runtime:s,props:p}=rotationView(scope),r=s.controls.domElement.getBoundingClientRect(),vertices=Array.from(s.entries[0].geoset.Vertices),center=[0,0,0];
       vertices.forEach((v,i)=>center[i%3]+=v/(vertices.length/3));const q=s.controls.target.clone().set(...center).project(s.controls.object);
@@ -83,7 +79,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   // UV uses its own editor preference and keeps the existing 2D pivot.
   await menu('uv');const uv=page.locator('.uv-tab-window');await uv.waitFor();
   await uv.getByRole('button',{name:'Rotate',exact:true}).click();await idle();
-  await page.evaluate(()=>{window.rotationUV=()=>{const el=document.querySelector('.uv-editor');let state,props;for(let f=el?.[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.uv&&v?.draw)state=v;if(v?.geoset&&v?.onSelectVertices)props=v;}if(!state||!props)throw Error('UV runtime missing');return {state,props};};});
+  await page.evaluate(()=>{window.rotationUV=()=>{const el=document.querySelector('.uv-editor'),state=findFiberState(el,v=>v?.uv&&v?.draw,{last:true}),props=findFiberState(el,v=>v?.geoset&&v?.onSelectVertices,{last:true});if(!state||!props)throw Error('UV runtime missing');return {state,props};};});
   const uvSnap=()=>page.evaluate(()=>{const {state,props}=rotationUV();return {uv:Array.from(state.uv),authored:Array.from(props.geoset.TVertices[0]),selected:Array.from(props.selectedVertices)};});
   const uvCanvas=uv.locator('.uv-editor canvas'),uvBox=await uvCanvas.boundingBox();
   const uvBefore=await uvSnap();await dragMouse({x:uvBox.x+uvBox.width*.65,y:uvBox.y+uvBox.height*.45},30,0);const uvAfter=await uvSnap();
@@ -113,7 +109,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     check('UV Along the ring pull turns 30 degrees',ids.every(i=>{const x=uvBefore.uv[i*2]-center[0],y=uvBefore.uv[i*2+1]-center[1];return Math.abs(uvRing.uv[i*2]-(center[0]+x*c-y*s))<.01&&Math.abs(uvRing.uv[i*2+1]-(center[1]+x*s+y*c))<.01;}),{ring,before:uvBefore.uv.slice(0,6),after:uvRing.uv.slice(0,6)});
     await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
   }
-  const previewCamera=()=>page.evaluate(()=>{const el=document.querySelector('.uv-tab-window .game-preview-root');for(let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls)return v.controls.object.quaternion.toArray();}throw Error('UV camera missing');});
+  const previewCamera=()=>page.evaluate(()=>{const runtime=mdlxlProbe('.uv-tab-window .game-preview-root').runtime;if(!runtime)throw Error('UV camera missing');return runtime.controls.object.quaternion.toArray();});
   const cameraBefore=await previewCamera(),previewBox=await uv.locator('[data-clean-model-canvas]').boundingBox();
   await dragMouse({x:previewBox.x+previewBox.width*.4,y:previewBox.y+previewBox.height*.5},40,20);
   const cameraAfter=await previewCamera();check('UV preview actual mouse camera rotation',Math.hypot(...cameraBefore.map((v,i)=>v-cameraAfter[i]))>.01);

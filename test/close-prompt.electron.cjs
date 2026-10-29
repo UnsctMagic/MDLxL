@@ -19,9 +19,8 @@ const root = path.resolve(__dirname, '..');
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: ${JSON.stringify(saveDestination)} });
     require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});
   `);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(run, 'profile'), entry, args: (['--disable-backgrounding-occluded-windows', entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS: '1', MDLXL_STYLED_CLOSE_PROMPT: '1' }, timeout: 30000 })).app;
-  const editor = await app.firstWindow();
-  editor.setDefaultTimeout(15000);
+  const { app, page: editor } = await launchApp({ out: run, profile: path.join(run, 'profile'), entry: entry, env: { MDLVIS_HEADLESS: '1', MDLXL_STYLED_CLOSE_PROMPT: '1' }, timeout: 30000 , pageTimeout: 15000 });
+
   await editor.waitForFunction(() => !!document.querySelector('.classic-app'));
   const openPrompt = async () => {
     await editor.evaluate(() => window.desktop.close());
@@ -58,17 +57,18 @@ const root = path.resolve(__dirname, '..');
     prompt = await openPrompt();
     await prompt.keyboard.down('Escape');
     await closedPrompt(prompt);
+    await editor.keyboard.up('Escape');
     await settlePage(editor, 200);
     assert.equal(editor.isClosed(), false, 'Escape cancels');
     console.log('PASS Escape cancels closing');
 
     prompt = await openPrompt();
     const exited = app.waitForEvent('close');
-    await prompt.getByRole('button', { name: 'Close', exact: true }).click();
+    await prompt.getByRole('button', { name: 'Close', exact: true }).dispatchEvent('click');
     await exited;
     assert.equal(['.mdl', '.mdx'].some(extension => fs.existsSync(saveDestination + extension)), false, 'Close discards without saving');
     console.log('PASS the red Close closes without saving');
   } finally {
-    if (app.windows().length) await closeApp(app).catch(() => {});
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

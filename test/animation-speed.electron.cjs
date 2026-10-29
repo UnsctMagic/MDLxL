@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -23,18 +25,17 @@ const path = require('node:path');
   });
   const baseline = doc.model.Bones[0].Translation.Keys.map(key => key.Frame);
   const fixture = path.join(out, 'speed-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = []; let page;
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].capturePage({}, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
     const width = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
@@ -46,7 +47,7 @@ const path = require('node:path');
     assert.equal(await page.getByRole('dialog').count(), 0);
     const placement = await slider.evaluate(el => ({ afterRarity: el.closest('.ac-actual-speed').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('.ac-actual-speed').nextElementSibling.textContent }));
     assert.equal(placement.afterRarity, true); assert.equal(placement.nextButton, 'Adjust All Speed');
-    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/unused.' + options.filters[0].extensions[0] }); }, out);
+    await stubDialogs(app, { save: (out) + '/unused.' + options.filters[0].extensions[0] });
     await page.keyboard.press('F12');
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
@@ -58,8 +59,8 @@ const path = require('node:path');
     const typePercent = async (input, value) => { await input.fill(String(value)); await input.press('Enter'); await written(); };
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
-      
-      { const state = mdlxlProbe(el).runtime; if (state?.native && state.controls) return { frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), translation: Array.from(state.native.model.Bones[0].Translation.Keys.map(key => key.Frame)), interval: Array.from(state.native.model.Sequences[0].Interval), ready: state.captureApi?.isReady, rootMatrix: state.native.model.Nodes[0].matrix?.toArray?.() }; }
+
+      { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) return { frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), translation: Array.from(state.native.model.Bones[0].Translation.Keys.map(key => key.Frame)), interval: Array.from(state.native.model.Sequences[0].Interval), ready: state.captureApi?.isReady, rootMatrix: state.native.model.Nodes[0].matrix?.toArray?.() }; }
 
       return null;
     });
@@ -117,7 +118,7 @@ const path = require('node:path');
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), width);
     // Speed changes are saved as native timing only; no editor data is added.
     const adjusted = await readRuntime();
-    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
+    await stubDialogs(app, { save: (out) + '/saved.' + options.filters[0].extensions[0] });
     for (const format of ['mdx', 'mdl']) {
       await page.keyboard.press('F12');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
@@ -130,7 +131,7 @@ const path = require('node:path');
       assert.deepEqual(saved.model.Bones[0].Translation.Keys.map(key => key.Frame), adjusted.translation);
     }
     for (const format of ['mdx', 'mdl']) {
-      await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(out, 'saved.' + format));
+      await stubDialogs(app, { open: [(path.join(out, 'saved.' + format))] });
       await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: 'saved.' + format, exact: true, selected: true }).waitFor(); // the Save As tab keeps the same name
       await page.getByRole('button', { name: 'Animations', exact: true }).click();
       await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
@@ -149,10 +150,7 @@ const path = require('node:path');
       assert.equal(prepared.editorDataBytes, size);
       const input = path.join(out, `boundary-${size}.${format}`), output = path.join(out, `boundary-${size}-saved.${format}`);
       await fs.writeFile(input, prepared.bytes);
-      await app.evaluate(({ dialog }, paths) => {
-        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.input] });
-        dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });
-      }, { input, output });
+      await stubDialogs(app, { open: [({ input, output }).input], save: ({ input, output }).output });
       await page.keyboard.press('Control+o');
       await page.getByRole('tab', { name: path.basename(input), exact: true }).waitFor();
       await page.keyboard.press('F12');

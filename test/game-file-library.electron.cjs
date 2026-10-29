@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // The Library button browses every installed game file; texture pickers stay texture-only.
@@ -15,11 +16,10 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   model.Materials[model.Geosets[0].MaterialID].Layers[0].TextureID=model.Textures.length-1;
   const fixture=path.join(out,'demo.mdx');fs.writeFileSync(fixture,document.serialize('mdx'));
   fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile','settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},...(process.env.MDLXL_TEST_THEME?{theme:process.env.MDLXL_TEST_THEME}:{})}}));
-  const packaged=process.env.MDLXL_PACKAGED_EXE,flags=['--disable-gpu-vsync','--disable-frame-rate-limit'];
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile'), args: (packaged?[...flags,fixture]:[...flags,root,fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:\\Warcraft III' }, timeout: 90000 })).app;
+  const packaged=appTarget().packaged,flags=['--disable-gpu-vsync','--disable-frame-rate-limit'];
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile'), args: [...flags], env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:\\Warcraft III' }, timeout: 90000, fixture: fixture , pageTimeout: 45000, bounds: { x: -3000, y: 0, width: 1440, height: 980 }, show: 'inactive' });
   try{
-    const page=await app.firstWindow();page.setDefaultTimeout(45000);
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1440,980);w.showInactive();});
+
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).waitFor();
     // The UV Wrapper's library is the unchanged texture picker: no tabs, same title.
     await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').focus();await page.keyboard.press('Control+a');
@@ -104,7 +104,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
       assert.equal(await page.locator('.gf-stage img, .gf-info img').count(),0,'icons stay in the folder list, never in the preview');
     }
     const cameraDistance=()=>page.evaluate(()=>{const host=document.querySelector('.gf-stage .game-preview-root');
-      { const state = mdlxlProbe(host).runtime; if (state?.native&&state?.controls) return Math.round(state.controls.object.position.distanceTo(state.controls.target)); }
+      { const state = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (state?.native&&state?.controls) return Math.round(state.controls.object.position.distanceTo(state.controls.target)); }
 return null;});
     await settlePage(page, 2000);const chestDistance=await cameraDistance();
     assert.ok(chestDistance>150&&chestDistance<320,'the camera settles on the small treasure chest, not on the previous model or hidden geometry: '+chestDistance);
@@ -124,8 +124,7 @@ return null;});
     await settlePage(page, 2500);await shot(page,'opened-in-editor');
     checks.push('Double-clicking Footman opens it in the editor as a new tab');
     // Geoset box: pick geosets of a model, split them, import them, open only them.
-    const editorModel=()=>page.evaluate(()=>{const host=document.querySelector('.classic-view > .viewport');let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return){const model=fiber.memoizedProps?.model;if(model?.Geosets)return {version:model.Version,geosets:model.Geosets.length,dummy:(model.Bones||[]).filter(bone=>bone.Name==='DummyBone').length};}return null;});
+    const editorModel=()=>page.evaluate(() => { const model=findFiberProps('.classic-view > .viewport',p=>p.model?.Geosets)?.model; return model ? {version:model.Version,geosets:model.Geosets.length,dummy:(model.Bones||[]).filter(bone=>bone.Name==='DummyBone').length} : null; });
     // Import into the MDX 800 model, while the game's classic models use a newer format.
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await settlePage(page, 800);
     const before=await editorModel();

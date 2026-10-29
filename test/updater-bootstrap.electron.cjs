@@ -1,3 +1,4 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Test the repair-first online path with the unchanged 0.20.1 updater and helper.
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path');
 const {execFile}=require('node:child_process'),{promisify}=require('node:util'),run=promisify(execFile);
@@ -47,16 +48,15 @@ require('./updater.cjs').Updater.prototype.prepare=async function(){const result
   await fs.writeFile(path.join(root,'release.json'),JSON.stringify({tag_name:'v'+version,name:'Updater repair',html_url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v'+version,body:'- Updater repair.',assets:[{name:`MDLxL-${version}-win32-x64.zip`,size:(await fs.stat(zip)).size,digest:'sha256:'+await digest(zip),browser_download_url:`https://github.com/UnsctMagic/MDLxL/releases/download/v${version}/MDLxL-${version}-win32-x64.zip`}]}));
  }
  await offer(repair,'0.20.2');
- const launcher=path.join(root,'launch.ps1');await fs.writeFile(launcher,'param($Executable,$Directory)\nStart-Process -FilePath $Executable -WorkingDirectory $Directory -WindowStyle Hidden\n');
  const env={...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile};
- let browser;
+ let browser, initialApp;
  async function connect(version){
   let page;
   await waitFor(async()=>{try{const port=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];const response=await fetch('http://127.0.0.1:'+port+'/json/version',{signal:AbortSignal.timeout(1000)});if(!response.ok)return false;browser=await chromium.connectOverCDP('http://127.0.0.1:'+port);page=browser.contexts()[0].pages()[0];await page.waitForFunction(()=>!!window.desktop?.updateStatus);return (await page.evaluate(()=>window.desktop.updateStatus())).currentVersion===version;}catch{return false;}});
   return page;
  }
  try{
-  await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',launcher,path.join(target,'MDLxL.exe'),target],{windowsHide:true,env});
+  initialApp=(await launchApp({out:root,profile,target:{executablePath:path.join(target,'MDLxL.exe'),args:[],packaged:true},cwd:target,env:{MDLVIS_HEADLESS:'1'}})).app;
   let page=await connect('0.20.1');
   await page.getByRole('button',{name:'Update and restart',exact:true}).click();
   await waitFor(async()=>JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version==='0.20.2');
@@ -84,5 +84,6 @@ require('./updater.cjs').Updater.prototype.prepare=async function(){const result
  }finally{
   const cleanup=path.join(root,'close.ps1');await fs.writeFile(cleanup,"param($Executable)\nGet-Process MDLxL -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Executable } | Stop-Process\n");
   await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',cleanup,path.join(target,'MDLxL.exe')],{windowsHide:true});
+  if(initialApp)await closeApp(initialApp);
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

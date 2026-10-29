@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -22,12 +24,11 @@ const path = require('node:path');
   const original = doc.serialize('mdx'), fixture = path.join(out, 'bake.mdx');
   await fs.writeFile(fixture, original);
   const before = openDocument(original, 'bake.mdx').model;
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(process.env.MDLXL_SUITE_PKG || path.join(root, 'out/pkg/MDLxL-win32-x64'), 'MDLxL.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: ([fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
     const alpha = page.getByLabel('Visibility alpha percent', { exact: true });
@@ -35,7 +36,7 @@ const path = require('node:path');
     const save = async (name, format = 'mdx') => {
       const file = path.join(out, name + '.' + format);
       await fs.rm(file, { force: true });
-      await app.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, file);
+      await stubDialogs(app, { save: (file) });
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'saveAs'));
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
       await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });

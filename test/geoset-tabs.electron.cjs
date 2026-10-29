@@ -1,3 +1,5 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,11 +12,10 @@ const path = require('node:path');
   const copy = path.join(out, 'fixture.mdl'); fs.writeFileSync(copy, original);
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'), args: [], packaged: true }, args: (packaged ? ['--disable-backgrounding-occluded-windows', copy] : ['--disable-backgrounding-occluded-windows', root, copy]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     const screenshot = async name => {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const png = await app.evaluate(async ({ BrowserWindow }) => {
@@ -35,22 +36,7 @@ const path = require('node:path');
     await picker.selectOption('action:create'); await page.keyboard.press('Escape');
     assert.equal(await page.getByLabel('New geoset tab name').count(), 0);
     assert.equal(await picker.inputValue(), 'all');
-    const state = () => page.evaluate(async () => {
-      await new Promise(resolve => requestAnimationFrame(resolve));
-      const host = document.querySelector('.viewport');
-      let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      while (fiber?.return) fiber = fiber.return;
-      const stack = [fiber?.stateNode?.current];
-      while (stack.length) {
-        const current = stack.pop(); if (!current) continue;
-        if (current.memoizedProps?.model?.Geosets && current.memoizedProps?.hiddenGeosets) {
-          const props = current.memoizedProps;
-          return { count: props.model.Geosets.length, hidden: [...props.hiddenGeosets], selectable: [...props.selectableGeosets], tabs: props.model._GeosetTabs || [], memberships: props.model.Geosets.map(geoset => geoset._GeosetTabId || null) };
-        }
-        stack.push(current.sibling, current.child);
-      }
-      throw Error('Viewport model props not found');
-    });
+    const state = () => page.evaluate(async () => { await new Promise(resolve=>requestAnimationFrame(resolve));const props=findFiberState('.viewport',p=>p?.model?.Geosets&&p?.hiddenGeosets,{tree:true,props:true});if(!props)throw Error('Viewport model props not found');return {count:props.model.Geosets.length,hidden:[...props.hiddenGeosets],selectable:[...props.selectableGeosets],tabs:props.model._GeosetTabs||[],memberships:props.model.Geosets.map(g=>g._GeosetTabId||null)}; });
     const initial = await state(); assert.ok(initial.count >= 3);
     const create = async name => {
       await picker.selectOption('action:create'); await page.getByLabel('New geoset tab name').fill(name);
@@ -123,7 +109,7 @@ const path = require('node:path');
       await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });
       assert.ok(fs.existsSync(path.join(out, 'ui-tabs.' + format)));
     }
-    await app.evaluate(({ dialog }, output) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [output + '/ui-tabs.mdx'] }); }, out);
+    await stubDialogs(app, { open: [(out) + '/ui-tabs.mdx'] });
     await page.keyboard.press('Control+o');
     await page.getByRole('tab', { name: 'ui-tabs.mdx', exact: true }).waitFor();
     assert.equal((await state()).tabs.length, 2);
@@ -150,7 +136,7 @@ const path = require('node:path');
     assert.deepEqual(errors, []);
     console.log('Geoset tabs UI passed: clicked-only right-click assignment in vertices/animations, undo/redo, single dropdown above box, view toggle inside box, dismissible actions, create, move, rename, delete, selection/visibility isolation, All tabs, unchanged sidebar/list size, worker MDL/MDX saves and MDX reopen; fixture unchanged.');
   } catch (error) {
-    const page = await app.firstWindow();
+
     console.error('UI status:', await page.locator('.classic-status').innerText());
     console.error('Renderer errors:', errors);
     throw error;

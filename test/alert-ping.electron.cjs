@@ -10,11 +10,10 @@ const path = require('node:path');
   const copy = path.join(out, 'fixture.mdl'); fs.copyFileSync(path.join(root, 'test/fixtures/demo.mdl'), copy);
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? ['--disable-backgrounding-occluded-windows', copy] : ['--disable-backgrounding-occluded-windows', root, copy]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     const screenshot = async name => {
       const png = await app.evaluate(async ({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.invalidate(); await new Promise(resolve => setTimeout(resolve, 1000)); return (await window.capturePage(undefined, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'); });
       fs.writeFileSync(path.join(out, name), Buffer.from(png, 'base64'));

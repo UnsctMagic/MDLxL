@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -18,17 +19,13 @@ const path = require('node:path');
   document.model.GlobalSequences = [];
   const fixture = path.join(out, 'dropdown-wheel.mdx');
   await fs.writeFile(fixture, document.serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (process.env.MDLXL_ELECTRON_PATH ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [], checks = [], consoleErrors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1100, height: 480 } });
+  const checks = [], consoleErrors = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false); window.setSize(1100, 480);
-    });
+
     const sidebar = page.locator('.classic-sidebar'); await sidebar.waitFor();
     const select = page.locator('[data-hotkey="animationSequence"]');
     const scrollState = () => page.evaluate(() => ({

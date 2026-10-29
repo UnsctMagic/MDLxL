@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Exercise the rebuilt Electron bundle: set MDLXL_PLAYWRIGHT_MODULE if Playwright is external.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -31,18 +31,10 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-5,
   const fixture = path.join(out, 'preview-fixture.mdx');
   fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   const bytes = fs.readFileSync(fixture);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = [];
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
+
   try {
-    const page = await app.firstWindow();
-    page.setDefaultTimeout(15000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false);
-      window.setPosition(-3000, 0);
-      window.showInactive();
-    });
+
     const toggle = page.getByRole('checkbox', { name: 'RGB', exact: true });
     await toggle.waitFor({ timeout: 60000 });
     // The toolbar renders before the viewport, which mounts once the saved preferences are read.
@@ -51,7 +43,7 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-5,
     await page.evaluate(() => {
       window.viewportState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
 
         throw Error('Viewport runtime not found');

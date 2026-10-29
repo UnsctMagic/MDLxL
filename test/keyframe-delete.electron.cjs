@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance for direct Movement keyframe deletion.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,9 +21,9 @@ const assert = require('node:assert/strict');
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
 
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: {  }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+
     await page.locator('[data-hotkey="animation"]').click();
     const reel = page.locator('.classic-reel-track'), frameInput = page.getByLabel('Current animation frame');
     const marker = frame => page.locator(`.classic-reel-key[data-frame="${frame}"]`);
@@ -44,7 +44,7 @@ const assert = require('node:assert/strict');
     let saved = openDocument(fs.readFileSync(fixture), 'keyframe-delete.mdx').model;
     assert.equal(saved.Bones[0].Translation.Keys.some(key => key.Frame === 377), false);
     assert.equal(saved.Bones[0].Rotation.Keys.some(key => key.Frame === 377), false);
-    assert.equal(saved.Bones[1].Translation.Keys.some(key => key.Frame === 377), false);
+    assert.equal(saved.Bones[1].Translation, undefined, 'Deleting the sole key removes the empty channel');
     assert.equal(saved.GeosetAnims[4].Alpha.Keys.some(key => key.Frame === 377), false);
 
     await page.getByLabel('Movement bone or node').selectOption('0');

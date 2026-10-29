@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -13,25 +14,18 @@ const path = require('node:path');
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'playback.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_PLAYBACK_EXE || path.join(root, 'out', 'pkg', 'MDLxL-win32-x64', 'MDLxL.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const samples = [], errors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 900 }, show: 'inactive' });
+  const samples = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.setSize(1600, 900); w.showInactive(); });
+
     await page.waitForFunction(() => document.querySelector('.model-tabs')?.textContent.includes('playback.mdx'));
     const click = async locator => { const box = await locator.boundingBox(); assert.ok(box); await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); };
     await click(page.locator('button[data-hotkey="animation"]:visible').first());
     await page.getByLabel('Movement current sequence', { exact: true }).selectOption('0');
     await page.locator('.game-preview-root canvas[data-clean-model-canvas]').waitFor();
     await page.evaluate(() => {
-      const host = document.querySelector('.game-preview-root');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))], runtime;
-      for (; fiber && !runtime; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const value = hook.memoizedState?.current;
-        if (value?.native && value?.controls) { runtime = value; break; }
-      }
+      const runtime=mdlxlProbe().runtime;
       if (!runtime) throw Error('Main viewport runtime not found');
       const probe = window.__playbackCost = { runtime, sample: null };
       const render = runtime.native.render;

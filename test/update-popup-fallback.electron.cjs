@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Hidden packaged regression: optional eye rendering must not take down either popup.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -24,7 +24,7 @@ const root = path.resolve(__dirname, '..');
     const profile = path.join(run, 'profile');
     await fs.mkdir(profile);
     await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({preferences:{language:'en',checkUpdatesOnStartup:false,disableSounds:true}}));
-    app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, args: (['--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'' }, timeout: 30000 })).app;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, env: { MDLVIS_HEADLESS:'' }, timeout: 30000 })).app;
     const page = await app.firstWindow(), errors = [];
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));

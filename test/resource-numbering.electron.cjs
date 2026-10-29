@@ -1,19 +1,12 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
   const root = process.cwd(), fixture = path.join(root, 'fixtures', 'demo.mdx');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(root, 'out', 'resource-numbering-profile'), args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: path.dirname(path.join(root, 'out', 'resource-numbering-profile')), profile: path.join(root, 'out', 'resource-numbering-profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow();
-    page.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false);
-      window.setPosition(-3000, 0);
-      window.showInactive();
-    });
+
     await page.getByLabel('Select geoset 1', { exact: true }).waitFor({ timeout: 60000 });
 
     const openManager = async (command, title, list) => {

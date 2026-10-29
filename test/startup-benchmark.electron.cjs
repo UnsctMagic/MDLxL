@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // node test/startup-benchmark.electron.cjs [app directory or exe] [runs=5] [profile to copy]
 // Measures hidden viewport readiness and a real Grid toggle, not a splash screen.
@@ -27,12 +28,9 @@ const root = path.resolve(__dirname, '..');
   const rows = [];
   for (let index = 0; index < runs; index++) {
     const began = performance.now();
-    const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [target])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, show: 'hide' })).app;
+    const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, show: 'hide', target: process.argv[2] ? (packaged ? { executablePath: target, args: [], packaged: true } : { ...appTarget({}), args: [target] }) : appTarget() });
     try {
-      const page = await app.firstWindow();
-      const errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
       await page.waitForFunction(() => !!document.querySelector('[aria-label="3D model viewport"] canvas'), null, { polling: 20, timeout: 30000 });
       const viewportMs = performance.now() - began;
       const grid = page.locator('[data-hotkey="grid"]');

@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -20,31 +22,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     model.Cameras = [{ Name: 'Portrait', Position: new Float32Array([400, -500, 100]), TargetPosition: new Float32Array([400, 0, 100]), FieldOfView: Math.PI / 4, NearClip: 1, FarClip: 2000 }];
   });
   const original = Buffer.from(doc.serialize('mdx')); fs.writeFileSync(fixture, original);
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([...(packaged ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  let page;
-  const errors = [];
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, show: 'inactive' });
+
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].capturePage({}, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
     fs.writeFileSync(path.join(out, name), Buffer.from(png, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false);
-      window.showInactive();
-    });
+
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     await page.getByRole('button', { name: 'Portrait Frame View', exact: true }).click();
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await page.evaluate(() => {
       window.portraitRuntime = () => {
         const el = document.querySelector('.game-preview-root');
-        
-        { const state = mdlxlProbe(el).runtime; if (state?.native && state.controls) return state; }
+
+        { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) return state; }
 
         throw Error('Preview runtime missing');
       };
@@ -55,7 +50,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await page.getByRole('button', { name: 'Set Current View', exact: true }).click();
     const save = async name => {
       const file = path.join(out, name + '.mdx');
-      await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: output }); }, file);
+      await stubDialogs(app, { save: (file) });
       await page.keyboard.press('F12');
       await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
       await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });

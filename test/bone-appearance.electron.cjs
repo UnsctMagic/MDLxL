@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building; MDLXL_PLAYWRIGHT_MODULE can point to shared Playwright.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -13,29 +13,19 @@ const path = require('node:path');
   const errors = [], result = { combinations: [], rotation: null, persisted: null };
   let app;
   const launch = async () => {
-    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.locator('.game-preview-surface canvas').first().waitFor();
     await page.evaluate(() => {
-      window.currentFiber = host => {
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))], top = fiber;
-        while (top.return) top = top.return;
-        return top.stateNode.current === top ? fiber : fiber.alternate || fiber;
-      };
+
       window.previewRuntime = () => {
-        for (let fiber = currentFiber(document.querySelector('.game-preview-surface')); fiber; fiber = fiber.return) {
-          for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-            const state = hook.memoizedState?.current;
-            if (state?.native && state?.controls) return state;
-          }
-        }
-        throw Error('Preview runtime not found');
+        const runtime=mdlxlProbe(".game-preview-root").runtime;if(runtime)return runtime;throw Error('Preview runtime not found');
       };
       window.previewProps = () => {
-        for (let fiber = currentFiber(document.querySelector('.game-preview-surface')); fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps.preferences) return fiber.memoizedProps;
+        const props=findFiberProps('.game-preview-surface',p=>p.model&&p.preferences);if(props)return props;
         throw Error('Preview props not found');
       };
     });

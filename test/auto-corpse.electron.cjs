@@ -1,19 +1,13 @@
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real production bundle, hidden window, isolated profile. No desktop input.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/auto-corpse'),fixture=process.env.MDLXL_CORPSE_FIXTURE;
 if(!fixture)throw Error('Set MDLXL_CORPSE_FIXTURE to a model with Death.');
-function runtime(scope) {
-  const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');
-  if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];
-  // A scoped preview is found from its own element upward; otherwise the first in the app.
-  const ancestors=[];if(scope)for(let f=top;f;f=f.return)ancestors.push(f);else{while(top.return)top=top.return;}
-  const stack=scope?ancestors.reverse():[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}if(!scope)for(let c=f.child;c;c=c.sibling)stack.push(c);}
-  throw Error('Missing viewport runtime');
-}
+function runtime(scope){const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');if(!el)throw Error('Missing viewport');let p;const s=findFiberState(el,(s,props)=>{if(props?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){p=props;return true;}return false;},{tree:!scope});if(!s)throw Error('Missing viewport runtime');const c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}
 (async()=>{
   fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(out,'profile-'));fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({gameData:'D:\\Warcraft III',preferences:{language:'en'}}));
-  const original=fs.readFileSync(fixture),app=(await launchApp({ out: path.resolve('out'), profile: profile, args: ([...(process.env.MDLXL_TEST_EXE?[]:[root]),fixture,'--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-background-timer-throttling']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
+  const original=fs.readFileSync(fixture),app=(await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture })).app;
   const appPid=await app.evaluate(()=>process.pid),errors=[],checks=[];
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(25000);page.on('pageerror',e=>errors.push(e.message));
@@ -62,7 +56,7 @@ function runtime(scope) {
     const {EditorDocument}=await import('../src/editor-document.js');
     for(const format of ['MDX','MDL']) {
       const saved=path.join(out,'saved.'+format.toLowerCase());
-      await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},saved);
+      await stubDialogs(app, { save: (saved) });
       await page.keyboard.press('F12');await page.getByRole('button',{name:'Save '+format+'…',exact:true}).click();
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
       for(let n=0;n<100&&!fs.existsSync(saved);n++)await settlePage(page, 100);

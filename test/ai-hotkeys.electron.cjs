@@ -49,7 +49,10 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
         for (const chord of row.keys.split(' / ')) {
           assert.ok(!chord.includes('>') && chord.split('+').length <= 2, `${row.id}: ${chord}`);
           assert.ok(!used.has(chord), `${place}: duplicate ${chord}`); used.add(chord);
-          if (chord !== 'Escape') assert.ok(row.label.toUpperCase().includes(chord.split('+').at(-1)), `${row.id}: ${chord} is not from ${row.label}`);
+          // HOTKEYS.md permits other letters after a name's letters are occupied.
+          const paletteFallback = { 'color:green': 'Q', 'color:blue': 'Z' }[row.id];
+          if (paletteFallback) assert.equal(chord, paletteFallback, row.id + ' keeps its distinct palette key');
+          else if (chord !== 'Escape') assert.ok(row.label.toUpperCase().includes(chord.split('+').at(-1)), row.id + ': ' + chord + ' is not from ' + row.label);
         }
       }
       rows.push(...found.map(row => ({ place, ...row })));

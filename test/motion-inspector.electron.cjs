@@ -1,3 +1,5 @@
+const { clickMenu } = require('./helpers/app.cjs');
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance; synthetic data and an isolated profile only.
 const fs = require('node:fs');
@@ -21,11 +23,11 @@ const assert = require('node:assert/strict');
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   const original = fs.readFileSync(fixture), errors = [], metrics = {};
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: {  }, timeout: 60000, fixture: fixture , errors, pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
+
     // A never-shown headless window cannot be captured by page.screenshot; show it inactive and off-screen.
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     page.on('console', message => { if (message.type() === 'error' && /TypeError|ReferenceError/.test(message.text())) errors.push(message.text()); });
     await page.locator('[data-hotkey="animation"]').waitFor({ timeout: 60000 });
     await page.evaluate(() => {
@@ -121,10 +123,10 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('.classic-reel-key[data-frame="600"]').count(), 0);
     assert.equal(await page.locator('.classic-reel-key[data-frame="0"]').count(), 1);
     assert.equal(await page.locator('.classic-reel-key[data-frame="850"]').count(), 1);
-    await page.locator('[data-hotkey="undo"]').click(); await holding.waitFor();
-    await page.locator('[data-hotkey="redo"]').click();
+    await clickMenu(app, 'Undo'); await holding.waitFor();
+    await clickMenu(app, 'Redo');
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="800"]'));
-    await page.locator('[data-hotkey="undo"]').click(); await holding.waitFor(); await holding.click();
+    await clickMenu(app, 'Undo'); await holding.waitFor(); await holding.click();
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).click();
     await page.getByRole('button', { name: 'Restore warning', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Close motion warning', exact: true }).click();
@@ -157,20 +159,20 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('Delete');
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="2224"]'));
     assert.equal(await page.locator('.classic-reel-key[data-frame="2377"]').count(), 1);
-    await page.locator('[data-hotkey="undo"]').click(); await spike.waitFor();
-    await page.locator('[data-hotkey="redo"]').click();
+    await clickMenu(app, 'Undo'); await spike.waitFor();
+    await clickMenu(app, 'Redo');
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="2224"]'));
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await page.waitForFunction(() => +document.querySelector('[aria-label="Current animation frame"]').value > 2050);
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await page.screenshot({ path: path.join(out, '03-hold-removed-pose-kept.png') });
-    await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, saved);
+    await stubDialogs(app, { save: (saved) });
     await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Modified'));
     const expected = openDocument(original, 'fixture.mdx');
     expected.apply('Delete only the holding rotation keys', ['Nodes'], current => { const arm = current.Bones[0]; arm.Rotation.Keys = arm.Rotation.Keys.filter(k => ![2224, 2472, 2690, 2853, 2997].includes(k.Frame)); });
     assert.deepEqual(fs.readFileSync(saved), Buffer.from(expected.serialize('mdx')), 'The intended pose and all other channels must survive the ordinary Delete operation');
-    await app.evaluate(({ dialog }, saved) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [saved] }); }, saved);
+    await stubDialogs(app, { open: [(saved)] });
     await page.keyboard.press('Control+o'); await page.waitForFunction(() => document.title.includes('motion-saved'));
     await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption('0');
     await rescan();
@@ -187,7 +189,7 @@ const assert = require('node:assert/strict');
     console.log('PASS', JSON.stringify(metrics));
   } catch (error) {
     console.error('Renderer errors:', errors);
-    const page = await app.firstWindow();
+
     await page.screenshot({ path: path.join(out, 'failure.png') });
     throw error;
   } finally { await closeApp(app); }

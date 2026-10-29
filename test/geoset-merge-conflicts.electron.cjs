@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against rebuilt dist or set MDLXL_TEST_PACKAGE to a packaged app directory.
 const assert = require('node:assert/strict');
@@ -24,11 +25,10 @@ const path = require('node:path');
   const bytes = fs.readFileSync(source), initial = openDocument(bytes, path.basename(source)).model;
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'), args: [], packaged: true }, args: (['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [root]), source]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  let page;
+  const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, cwd: packaged || root, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: source , pageTimeout: 15000 });
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.waitForFunction(count => document.title.includes('.mdx') && document.querySelectorAll('.classic-geoset-list [role="option"]').length === count, initial.Geosets.length);
     const screenshot = async name => {
       await app.evaluate(async ({ BrowserWindow }) => { await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true }); });
@@ -39,14 +39,14 @@ const path = require('node:path');
     await page.evaluate(() => {
       window.mergeState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return current; }
 
         throw Error('Editor state missing');
       };
       window.mergeViewport = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const current = findFiberState(host, current => current?.controls?.object); if (current?.controls?.object) return current; }
 
         throw Error('Viewport state missing');

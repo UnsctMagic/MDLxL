@@ -1,3 +1,5 @@
+const { clickMenu } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Verify collection preserves every RGB palette track; import selects one RGB.
 const assert = require('node:assert/strict');
@@ -20,9 +22,9 @@ const path = require('node:path');
     model.GeosetAnims = model.Geosets.map((_, GeosetId) => ({ GeosetId, Flags: 2, Alpha: 1, Color: { LineType: 1, GlobalSeqId: null, Keys: model.Sequences.flatMap((sequence, si) => [sequence.Interval[0], sequence.Interval[1]].map(Frame => ({ Frame, Vector: Float32Array.from([si === 0 ? 1 : 0, si === 1 ? 1 : 0, si === 2 ? 1 : 0].map(value => value * (1 - GeosetId / 8))) }))) } }));
   });
   const original = Buffer.from(doc.serialize('mdx')); fs.writeFileSync(fixture, original);
-  const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), bank = path.join(process.env.MDLXL_TEST_EXE ? path.dirname(executable) : root, 'BitsAndParts');
+  const executable = appTarget().executablePath, bank = path.join(process.env.MDLXL_TEST_EXE ? path.dirname(executable) : root, 'BitsAndParts');
   const savedFile = path.join(bank, name + '.mdx'), savedTexture = path.join(bank, texturePath);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'collection-profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const app = (await launchApp({ out: output, profile: path.join(output, 'collection-profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
   try {
     const page = await app.firstWindow(), errors = []; page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.stack || error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 900); window.show(); });
@@ -74,9 +76,9 @@ const path = require('node:path');
     for (let gi = 0; gi < 5; gi++) assert.deepEqual(sampleGeosetAnimation(imported.model, gi + 5, 0, -1).color, [0, 0, 1 - gi / 8]);
     assert.equal(imported.model.Textures.length, 1); assert.equal(imported.model.Materials.length, 1);
     assert.deepEqual(validateModel(imported.model).filter(issue => issue.severity === 'error'), []);
-    await page.locator('[data-hotkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx'))), before);
+    await clickMenu(app, 'Undo'); assert.deepEqual(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx'))), before);
     assert.equal(await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width), sidebar);
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.deepEqual(errors, []);
     console.log('PASS packaged collection: all RGB animation tracks saved; Red and Blue render correctly; per-geoset selected RGB import, textures/materials reused, donor and sidebar preserved.');
-  } finally { await closeApp(app).catch(() => {}); await closeApp(app); for (const file of [savedFile, savedTexture]) if (fs.existsSync(file)) fs.unlinkSync(file); }
+  } finally { await closeApp(app); for (const file of [savedFile, savedTexture]) if (fs.existsSync(file)) fs.unlinkSync(file); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

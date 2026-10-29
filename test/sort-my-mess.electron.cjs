@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), zlib = require('node:zlib');
 function png(rgba) {
@@ -27,17 +28,16 @@ function png(rgba) {
     model.GeosetAnims = model.Geosets.map((_, GeosetId) => ({ GeosetId, Alpha: GeosetId === 2 ? steps([2100, 0]) : 1, Flags: GeosetId === 2 ? 2 : 0, Color: new Float32Array(GeosetId === 2 ? [1, 0, 0] : [1, 1, 1]) }));
   });
   const modelFile = path.join(output, 'sort-fixture.mdx'); fs.writeFileSync(modelFile, doc.serialize('mdx')); const source = fs.readFileSync(modelFile);
-  const exe = process.env.MDLXL_TEST_EXE || path.join(root, 'out/sort-my-mess-native/MDLxL-win32-x64/MDLxL.exe');
+  const exe = appTarget().executablePath;
   // Without a display the compositor runs at about 1 fps; these flags restore real playback timing.
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-gpu-vsync', '--disable-frame-rate-limit', modelFile]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 90000 })).app;
-  const errors = []; let page;
+  const { app, page, errors } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '1' }, timeout: 90000, fixture: modelFile , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1500, height: 980 }, show: 'inactive' });
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', cause => errors.push(cause.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.setSize(1500, 980); win.webContents.setBackgroundThrottling(false); win.showInactive(); });
+
     await page.getByText('Opened sort-fixture.mdx', { exact: true }).waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Materials'));
     await page.getByRole('dialog', { name: 'Material Manager', exact: true }).waitFor();
-    await page.evaluate(() => { const root = document.querySelector('.re-window'); for (let fiber = root[Object.keys(root).find(k => k.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) if (fiber.memoizedProps?.doc?.serialize) { window.sortDoc = fiber.memoizedProps.doc; break; } });
+    await page.evaluate(() => { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) { window.sortDoc = props.doc;  }   });
     const originalState = await page.evaluate(() => JSON.stringify(sortDoc.model));
     assert.equal(await page.locator('.smm-window').count(), 0);
     await page.getByRole('button', { name: 'Sort My Mess', exact: true }).click();
@@ -133,7 +133,7 @@ function png(rgba) {
   finally {
     await closeApp(app).catch(() => {});
     // A packaged close can hang; never leave the test build running.
-    await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 8000))]);
+    await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 8000))]);
     try { app.process().kill(); } catch {}
   }
 })().catch(cause => { console.error(cause); process.exitCode = 1; });

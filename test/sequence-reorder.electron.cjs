@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -19,24 +21,23 @@ const path = require('node:path');
     const global = createNode(model, 'EventObject', 'SNDxGlobal'); global.GlobalSeqId = 0; global.EventTrack = new Uint32Array([100]);
   });
   const fixture = path.join(out, 'reorder-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: ([fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  let page; const errors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].capturePage({}, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     const choose = page.getByLabel('Choose animation sequence', { exact: true }), button = page.getByRole('button', { name: 'Reorder', exact: true });
     await choose.selectOption('2');
     const readRuntime = () => page.evaluate(() => {
       const element = document.querySelector('.game-preview-root');
-      
-      { const state = mdlxlProbe(element).runtime; if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) }; }
+
+      { const state = mdlxlProbe(element?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) }; }
 
       return null;
     });
@@ -91,7 +92,7 @@ const path = require('node:path');
     // its options to that disabled labelled input.
     await choose.press('Home'); await choose.press('ArrowDown');
     assert.equal(await choose.inputValue(), '0');
-    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
+    await stubDialogs(app, { save: (out) + '/saved.' + options.filters[0].extensions[0] });
     for (const format of ['mdx', 'mdl']) {
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'saveAs'));
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
@@ -103,7 +104,7 @@ const path = require('node:path');
       assert.equal(saved.model.TextureAnims[0].Translation.GlobalSeqId, 1);
       assert.equal(saved.model.EventObjects[1].GlobalSeqId, 1);
       assert.deepEqual(Array.from(saved.model.EventObjects[0].EventTrack), [777, 3777, 6777]);
-      await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(out, 'saved.' + format));
+      await stubDialogs(app, { open: [(path.join(out, 'saved.' + format))] });
       await page.keyboard.press('Control+o');
       await page.getByRole('tab', { name: 'saved.' + format, exact: true, selected: true }).waitFor();
       await page.getByRole('button', { name: 'Animations', exact: true }).click(); await choose.selectOption('0');

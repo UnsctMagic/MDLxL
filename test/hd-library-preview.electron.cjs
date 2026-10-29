@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real installed HD assets, isolated hidden profile, production packaged renderer.
@@ -8,8 +9,8 @@ const checks = [];
 (async () => {
   fs.mkdirSync(path.join(out, 'profile'), { recursive: true });
   fs.writeFileSync(path.join(out, 'profile/settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const executablePath = process.env.MDLXL_PACKAGED_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (process.env.MDLXL_PACKAGED_EXE ? [] : [root]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1', MDLVIS_GAME_DATA: process.env.MDLVIS_GAME_DATA || (await gameFolder()) }, timeout: 90000 })).app;
+  const executablePath = appTarget().executablePath;
+  const app = (await launchApp({ out: out, profile: path.join(out, 'profile'), env: { MDLVIS_HEADLESS: '1', MDLVIS_GAME_DATA: process.env.MDLVIS_GAME_DATA || (await gameFolder()) }, timeout: 90000 })).app;
   try {
     const page = await app.firstWindow(), errors = []; page.setDefaultTimeout(30000);
     page.on('pageerror', error => errors.push(error.message));
@@ -25,8 +26,8 @@ const checks = [];
     };
     const state = () => page.evaluate(() => {
       const host = document.querySelector('.game-preview-root');
-      
-      { const s = mdlxlProbe(host).runtime; if (s?.native && s?.controls) return { frame: s.native.getFrame(), sequence: s.native.getSequence(), position: s.controls.object.position.toArray(), matrices: s.native.rendererData.nodes.filter(Boolean).flatMap(n => Array.from(n.matrix)), version: s.native.model.Version, glError: s.native.gl.getError() }; }
+
+      { const s = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (s?.native && s?.controls) return { frame: s.native.getFrame(), sequence: s.native.getSequence(), position: s.controls.object.position.toArray(), matrices: s.native.rendererData.nodes.filter(Boolean).flatMap(n => Array.from(n.matrix)), version: s.native.model.Version, glError: s.native.gl.getError() }; }
 
       return null;
     });

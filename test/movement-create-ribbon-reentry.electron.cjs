@@ -1,3 +1,4 @@
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,12 +24,11 @@ const assert = require('node:assert/strict');
     fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, starterTextureAsset(name).bytes);
   }
   const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || 'out/pkg/MDLxL-win32-x64');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const checks = [], errors = [];
-  let page;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out, 'profile'), args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+  const checks = [];
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     const menu = action => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), action);
     const closeEditor = async () => {
       await page.getByRole('button', { name: 'Close Particle Editor', exact: true }).click();
@@ -77,9 +77,8 @@ const assert = require('node:assert/strict');
         const after = await state(), index = before.sequences.length, created = after.sequences[index];
         assert.equal(after.sequences.length, index + 1); assert.equal(created.interval[1] - created.interval[0], 1000);
         assert.equal(await page.getByLabel('Movement current sequence', { exact: true }).inputValue(), String(index));
-        const timing = await page.locator('.movement-controller').evaluate(el => {
-          for (let fiber = el[Object.keys(el).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) if (fiber.memoizedProps?.onTimelineChange) return { time: fiber.memoizedProps.time, playing: fiber.memoizedProps.playing };
-        });
+        const timing = await page.locator('.movement-controller').evaluate(el => { const props = findFiberProps(el, props => props?.onTimelineChange); if (props) return { time: props.time, playing: props.playing };
+         });
         assert.equal(timing.time, created.interval[0]); assert.equal(timing.playing, false); assert.equal(after.undo, before.undo + 1);
         await page.getByText('One-second blank sequence created.', { exact: true }).waitFor();
         await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Control+z');
@@ -113,7 +112,7 @@ const assert = require('node:assert/strict');
     assert.equal((await state()).model, initial.model);
     checks.push({ check: 'Selected effect, effect dropdown, Library and New preserved' });
     await closeEditor();
-    await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, empty);
+    await stubDialogs(app, { open: [(empty)] });
     await menu('open'); await page.getByText('Opened No-effects.mdx', { exact: true }).waitFor();
     await menu('particles'); assert.equal(await page.getByLabel('Particle context', { exact: true }).inputValue(), 'Lab');
     await page.getByRole('button', { name: 'Close Particle Library', exact: true }).click();

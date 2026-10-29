@@ -22,7 +22,7 @@ async function orbit(dx,dy,zoom){
 async function tab(name){await page.getByRole('tab',{name,exact:true}).click();await page.waitForFunction(n=>document.querySelector('.model-tab.active [role="tab"]')?.getAttribute('aria-label')===n,name);await settle();await settle();}
 async function beginPainting(){await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await settle();await settle();}
 async function run(){
-  app=(await launchApp({ out: path.resolve('out'), profile: fs.mkdtempSync(path.join(out,'profile-')), args: (['--disable-backgrounding-occluded-windows',root,first]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
+  app=(await launchApp({ out: path.resolve('out'), profile: fs.mkdtempSync(path.join(out,'profile-')), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: first })).app;
   page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();});
   await page.getByRole('tab',{name:'FirstFootman.mdx',exact:true}).waitFor();

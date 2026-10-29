@@ -1,3 +1,4 @@
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -32,13 +33,10 @@ const root = path.resolve(__dirname, '..');
   const profile = path.join(run, 'profile');
   await fs.mkdir(profile);
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({preferences:{language:'en',checkUpdatesOnStartup:false}}));
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, args: (['--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 30000 })).app;
-  const errors = [];
-  let page;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, env: {  }, timeout: 30000 , pageTimeout: 15000 });
+
   try {
-    page = await app.firstWindow();
-    page.setDefaultTimeout(15000);
-    page.on('pageerror', error => errors.push(error.message));
+
     await page.waitForFunction(() => !!document.querySelector('.classic-app canvas'));
     assert.equal(await page.locator('.update-shredder-layer').count(),0);
     const sidebar = await page.locator('.classic-sidebar').first().boundingBox();
@@ -136,7 +134,7 @@ const root = path.resolve(__dirname, '..');
     console.log('PASS packaged Shredder: four locations, slow looks/peck, escape, final departure, unchanged dialog and save flow');
   } finally {
     await page?.clock.resume();
-    await app.evaluate(({dialog}) => {dialog.showMessageBoxSync=()=>2;});
+    await stubDialogs(app, { message: 2 });
     await closeApp(app);
   }
 })().catch(error => {console.error(error);process.exitCode=1;});

@@ -61,16 +61,17 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
     }
     const data = JSON.parse(body);
     requests++;
-    const user = [...data.messages]
-      .reverse()
-      .find(
-        m =>
-          m.role === 'user' &&
-          Array.isArray(m.content) &&
-          m.content[0]?.text?.includes('MDLxL context captured'),
-      );
-    const text = user.content[0].text,
-      context = JSON.parse(text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1]);
+    // The app now asks a separate, tool-free reviewer after the editor checks.
+    if (String(data.messages[0]?.content).includes('independent reviewer')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, { choices: [{ delta: { content: JSON.stringify({ verdict: 'good', confidence: 0.9, problems: [], strengths: ['Selected faces mirrored; protected geometry preserved'] }) }, finish_reason: 'stop' }] });
+      res.end(); return;
+    }
+    const user = [...data.messages].reverse().find(message => message.role === 'user');
+    const captured = [...data.messages].reverse().find(message =>
+      message.role === 'user' && Array.isArray(message.content) && message.content[0]?.text?.includes('MDLxL context captured'));
+    const text = Array.isArray(user.content) ? user.content[0].text : user.content;
+    const context = JSON.parse(captured.content[0].text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1]);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const turnMessages = data.messages.slice(data.messages.lastIndexOf(user) + 1);
     const previousCall = turnMessages
@@ -93,12 +94,29 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
       });
       res.end();
     };
+    // The current agent protocol requires inspection and a recorded plan before edits.
+    const called = turnMessages.flatMap(message => message.tool_calls || []).map(call => call.function.name);
+    fs.writeFileSync(path.join(out, 'provider-protocol.json'), JSON.stringify({ text, called, previousCall, previousResult, users: data.messages.filter(message => message.role === 'user').map(message => message.content) }, null, 2));
+    if (!called.includes('mdlxl_context')) return emitTool('mdlxl_context', {});
+    if (!called.includes('mdlxl_plan')) return emitTool('mdlxl_plan', {
+      cause: text.startsWith('slow') ? 'The first vertex needs the timed +5 X test edit.' : 'The selected faces need their mirrored counterpart across X=0.',
+      reach: 'Selected faces in geoset 0.',
+      keep: ['Other geometry, rig, materials and textures'],
+      options: [
+        { fix: text.startsWith('slow') ? 'Move the first vertex +5 X after the requested delay' : 'Mirror selected faces and weld the compatible seam', cost: 'Changes only the requested geometry' },
+        { fix: 'Duplicate and mirror the whole geoset', cost: 'Also duplicates unselected faces' },
+      ],
+      choice: 0,
+      why: 'Preserves unselected geometry.',
+      checks: ['Mirrored selection and welded seam', 'Other mesh and rig unchanged', 'MDX and MDL save/reopen preserve the result'],
+    });
     if (previousCall?.name === 'mdlxl_script' && previousResult?.includes('"applied":true'))
       return emitTool('mdlxl_review', {
         target: context.target,
         action: 'inspect',
-        checksCode:
-          'return [{name:"Mirrored selected faces",passed:model.Geosets[0].Vertices.length===12&&model.Geosets[0].Faces.length===6},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];',
+        checksCode: text.startsWith('slow')
+          ? 'return [{name:"Timed vertex edit",passed:model.Geosets[0].Vertices[0]===before.Geosets[0].Vertices[0]+5},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];'
+          : 'return [{name:"Mirrored selected faces",passed:model.Geosets[0].Vertices.length===12&&model.Geosets[0].Faces.length===6},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];',
       });
     if (previousCall?.name === 'mdlxl_review') {
       if (JSON.parse(previousCall.arguments).action === 'inspect')
@@ -122,7 +140,7 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
       res.end();
       return;
     }
-    if (data.messages.at(-1).role === 'tool') {
+    if (previousCall?.name === 'mdlxl_script' && data.messages.at(-1).role === 'tool') {
       const result = JSON.parse(data.messages.at(-1).content);
       sse(res, {
         choices: [
@@ -309,7 +327,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page
     .locator('.classic-view canvas')
     .first()
-    .click({ position: { x: 20, y: 120 } });
+    .click({ position: { x: 120, y: 180 } });
   await page.keyboard.press('Control+A');
   await settle(page, 150);
   context = await tool('mdlxl_context');
@@ -475,7 +493,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page
     .locator('.classic-view canvas')
     .first()
-    .click({ position: { x: 20, y: 120 } });
+    .click({ position: { x: 120, y: 180 } });
   await page.keyboard.press('Control+A');
   await settle(page, 120);
   await assert.rejects(

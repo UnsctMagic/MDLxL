@@ -27,13 +27,13 @@ if (!archive?.url?.startsWith('https://') || !/^[a-f0-9]{64}$/.test(archive.sha2
 const binaries = Object.keys(provenance.files).filter(name => /\.(?:exe|dll)$/i.test(name)).sort();
 if (!binaries.length) throw Error('PROVENANCE.json lists no binaries.');
 
-async function matches(name) {
-  try { return await sha256(path.join(target, name)) === provenance.files[name]; }
-  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+let verified = false;
+if (!force) {
+  try { await verifyFFmpegBundle(target); verified = true; }
+  catch (error) { console.log('FFmpeg needs fetching: ' + error.message); }
 }
-
-if (!force && (await Promise.all(binaries.map(matches))).every(Boolean)) {
-  console.log(`FFmpeg ${provenance.version} is already present and verified (${binaries.length} files).`);
+if (verified) {
+  console.log('FFmpeg ' + provenance.version + ' is already present and verified (' + binaries.length + ' files).');
   process.exit(0);
 }
 

@@ -20,10 +20,9 @@ function sameOrientation(actual, expected, message) {
   });
   const fixture=path.join(out,'quad-test.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   const original=fs.readFileSync(fixture), errors=[];
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 10000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
+
     await page.getByRole('button',{name:'Quad View',exact:true}).waitFor({timeout:60000});
     // The view label renders before the viewport, which mounts once the saved preferences are read.
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({timeout:60000});
@@ -32,7 +31,7 @@ function sameOrientation(actual, expected, message) {
     await page.evaluate(()=>{
       window.viewportState=()=>{
         const host=document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer&&value?.entries); if (value?.renderer&&value?.entries) return value; }
 
         throw Error('Viewport runtime not found');
@@ -299,8 +298,8 @@ function sameOrientation(actual, expected, message) {
     await dropdown.selectOption('top');await idle();
     await page.evaluate(()=>{window.previewCameraState=()=>{
       const host=document.querySelector('.game-preview-surface');
-      
-      { const state = mdlxlProbe(host).runtime; if (state?.native&&state?.controls) {const camera=state.controls.object;return{cameraType:camera.isPerspectiveCamera?'perspective':'orthographic',position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),zoom:camera.zoom,target:state.controls.target.toArray()};} }
+
+      { const state = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (state?.native&&state?.controls) {const camera=state.controls.object;return{cameraType:camera.isPerspectiveCamera?'perspective':'orthographic',position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),zoom:camera.zoom,target:state.controls.target.toArray()};} }
 
       throw Error('Preview camera not found');
     };});
@@ -351,7 +350,7 @@ function sameOrientation(actual, expected, message) {
     console.log('PASS',JSON.stringify({metrics,sizes,lockedPlaneDrags:shiftMetrics.length,shiftLatchDrags:latchMetrics.length,checks:'shared live preview, exact depth, undo/redo, cancel, selection, marquee, independent cameras, perspective orbit, toggle restore, resize, input preservation, permanent planes, disabled global workplane override, blocked orthographic orbit/angles, Quad Shift H/V and per-hold latch, classic single-view canvas and Workplane Shift, single-view camera handoff to Bones and Movement, Shift camera pan and rotation in Bones and Movement, adaptive zoom, appearance bundles'}));
   } catch(error) {
     console.error(error);
-    const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')});
+    await page.screenshot({path:path.join(out,'failure.png')});
     console.error('Runtime',await page.evaluate(()=>({view:document.querySelector('[aria-label="3D model viewport"]')?viewportState().appliedView:null,preview:document.querySelector('.game-preview-surface')?(()=>{try{return previewCameraState()}catch{return null}})():null,pointerLog})));
     throw error;
   } finally {await closeApp(app);}

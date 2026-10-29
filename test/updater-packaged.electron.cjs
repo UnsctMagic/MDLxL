@@ -1,3 +1,4 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // End-to-end update/revert/restart using disposable real portable executables.
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');const path=require('node:path');const os=require('node:os');
@@ -6,7 +7,7 @@ const { chromium }=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const {MANIFEST,digest}=require('../electron/updater.cjs');
 const ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
 const root=path.resolve(__dirname,'..'),output=process.env.MDLXL_TEST_OUTPUT||path.join(root,'out/updater-live');
-let ownedBrowser;
+let ownedBrowser, initialApp;
 async function waitFor(check,timeout=30000){const end=Date.now()+timeout;while(Date.now()<end){const value=await check();if(value)return value;await new Promise(resolve=>setTimeout(resolve,200));}throw Error('Timed out waiting for updater lifecycle.');}
 (async()=>{
   await fs.mkdir(output,{recursive:true});const fixture=await fs.mkdtemp(path.join(output,'run-'));
@@ -41,10 +42,9 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',zipper,future,archive],{windowsHide:true});
   const release={tag_name:'v'+version,html_url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v'+version,body:'- Verified portable update.',assets:[{name:`MDLxL-${version}-win32-x64.zip`,size:(await fs.stat(archive)).size,digest:'sha256:'+await digest(archive),browser_download_url:`https://github.com/UnsctMagic/MDLxL/releases/download/v${version}/MDLxL-${version}-win32-x64.zip`}]};
   await fs.writeFile(path.join(fixture,'release.json'),JSON.stringify(release));
-  const launcher=path.join(fixture,'launch.ps1');await fs.writeFile(launcher,'param($Executable,$Directory)\nStart-Process -FilePath $Executable -WorkingDirectory $Directory -WindowStyle Hidden\n');
   // Stage the download inside this disposable fixture instead of the user's TEMP folder.
   const temp=path.join(fixture,'temp');await fs.mkdir(temp,{recursive:true});
-  await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',launcher,path.join(target,'MDLxL.exe'),target],{windowsHide:true,env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile,TEMP:temp,TMP:temp}});
+  const launched=await launchApp({out:fixture,profile,target:{executablePath:path.join(target,'MDLxL.exe'),args:[],packaged:true},cwd:target,env:{MDLVIS_HEADLESS:'1',TEMP:temp,TMP:temp}});initialApp=launched.app;
   async function connect(){const port=await waitFor(async()=>{try{const port=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];const response=await fetch('http://127.0.0.1:'+port+'/json/version');return response.ok?port:false;}catch{return false;}});return chromium.connectOverCDP('http://127.0.0.1:'+port);}
   const initialBrowser=await connect();ownedBrowser=initialBrowser;const initial=await waitFor(()=>initialBrowser.contexts()[0]?.pages()[0]);initial.setDefaultTimeout(15000);await initial.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
   assert.equal((await initial.evaluate(()=>window.desktop.updateStatus())).currentVersion,current);
@@ -70,5 +70,6 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   await restarted.waitForFunction(()=>!!window.desktop?.updateStatus);const restored=await waitFor(async()=>{try{const value=await restarted.evaluate(()=>window.desktop.updateStatus());return value.currentVersion===current?value:false;}catch{return false;}});
   assert.equal(restored.previousVersion,undefined);assert.equal(await fs.readFile(path.join(profile,'personal-save.mdx'),'utf8'),'immutable personal model');
   await restarted.evaluate(()=>{window.desktop.setDirty({dirty:false,saved:true});window.desktop.close();});await browser.close();ownedBrowser=null;
+  await closeApp(initialApp);initialApp=null;
   console.log('PASS real portable executable update, one-version retention, offline revert, and restarted version '+current);
-})().catch(async error=>{console.error(error);if(ownedBrowser){try{for(const page of ownedBrowser.contexts()[0].pages())await page.evaluate(()=>{window.desktop.setDirty({dirty:false,saved:true});window.desktop.close();});await ownedBrowser.close();}catch{}}process.exitCode=1;});
+})().catch(async error=>{console.error(error);if(ownedBrowser){try{for(const page of ownedBrowser.contexts()[0].pages())await page.evaluate(()=>{window.desktop.setDirty({dirty:false,saved:true});window.desktop.close();});await ownedBrowser.close();}catch{}}if(initialApp)await closeApp(initialApp);process.exitCode=1;});

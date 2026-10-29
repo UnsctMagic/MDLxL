@@ -20,11 +20,10 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
   const originalHash = digest(fs.readFileSync(fixture));
   const profile = path.join(out, 'profile'); fs.mkdirSync(profile, { recursive: true });
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '' }, timeout: 60000 })).app;
-  const records = [], errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+  const records = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     await page.locator('.vis-toggle').waitFor();
     await page.evaluate(() => {
       // Count the real layout reads, including callbacks left behind by a previous XL row.

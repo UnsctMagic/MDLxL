@@ -51,12 +51,10 @@ const root = path.resolve(__dirname, '..');
     // This profile already had the one-time draft cleanup, so the planted draft stays.
     fs.writeFileSync(path.join(profile, 'recovery', '.reset-1'), '');
     const began = performance.now();
-    const app = (await launchApp({ out: path.resolve('out'), profile: profile, entry, args: (['--disable-backgrounding-occluded-windows', entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS: '1', STARTUP_TEST_CRASH: crash ? '1' : '0' }, timeout: 30000, show: 'hide' })).app;
-    const errors = [];
+    const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, entry: entry, env: { MDLVIS_HEADLESS: '1', STARTUP_TEST_CRASH: crash ? '1' : '0' }, timeout: 30000, show: 'hide' , pageTimeout: 15000 });
+
     try {
-      const page = await app.firstWindow();
-      page.setDefaultTimeout(15000);
-      page.on('pageerror', error => errors.push(error.message));
+
       const command = action => app.evaluate(({ BrowserWindow }, value) => BrowserWindow.getAllWindows()[0].webContents.send('menu', value), action);
       if (!crash) {
         // This can only finish if normal startup does not await the held recovery scan.

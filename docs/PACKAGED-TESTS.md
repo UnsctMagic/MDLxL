@@ -2,9 +2,8 @@
 
 `test/*.cjs` drive the real MDLxL app with Playwright. The runner tells every
 test which app to use through one variable, `MDLXL_TEST_EXE` (see
-[Which app is tested](#which-app-is-tested)). About 65 harnesses use it or the
-package folder today; the rest still start the development Electron with `dist/`
-until they move to the [shared helper](#shared-helper). One command runs all of
+[Which app is tested](#which-app-is-tested)). The Electron harnesses use the
+[shared helper](#shared-helper), including tests that drive a patched package copy. One command runs all of
 them unattended and records the results:
 
 ```
@@ -141,17 +140,15 @@ Exceptions:
 - `showcase-actions`, `update-shredder`, `updater-packaged`, `updater-processes`,
   `geoset-merge-conflicts` and `geoset-tabs` copy or patch the whole package and
   get its folder as `MDLXL_TEST_PACKAGE`, from the same target.
-- Harnesses not yet on the helper still read their own variable (for example
-  `MDLXL_ELECTRON_PATH` or `MDLXL_OPTIMIZEXL_EXE`) which the runner does not set,
-  so they run on the development Electron. Move them family by family, with a
-  `default` run before and after.
+- Updater lifecycle tests attach over CDP after an installer-owned restart. Their
+  initial process uses `launchApp`; the installer still owns the real relaunch.
 
 ## Shared helper
 
 New and migrated harnesses use `test/helpers/` instead of copying boilerplate:
 
 - `app.cjs`: `appTarget()`, `appDist()` (the `dist/` the target loads),
-  `bundleHashes()`, `launchApp({ fixture, out, args, env, settings, show })`
+  `bundleHashes()`, `launchApp({ fixture, out, args, env, settings, show, entry, profile, target, cwd })`
   (throwaway profile under `out/`, `MDLVIS_HEADLESS`, the test hook switched on,
   window off-screen and unthrottled, page errors collected, Playwright loaded
   through `MDLXL_PLAYWRIGHT_MODULE` so variants apply), `stubDialogs(app,
@@ -169,7 +166,16 @@ New and migrated harnesses use `test/helpers/` instead of copying boilerplate:
   an explicit tolerance), `hive.mjs` (`loadHiveViewer`, `sanityTest`) and
   `pose-compare.mjs` (`comparePoses`, `maxNodeMatrixDifference`).
 
-The pose family (`test/pose-*.electron.cjs`) is the first one on the helper.
+Electron harnesses share these helpers across all families. A `target` override is
+only for a test-owned patched package; `entry` keeps a development wrapper entry.
+A seeded `profile` must be inside `out`. `closeApp(app, { keepProfile: true })`
+retains it only for an immediate restart; the last close removes it. Browser-only
+harnesses keep their headless Chromium launch and reuse the applicable helpers.
+
+Synthetic fixtures live under `test/fixtures/`. Private-model and independent
+Retera tools live under `test/manual/`; their commands remain in the relevant
+verification guides. Build-script staging uses `scripts/lib/paths.mjs`: `repoRoot`,
+`outDir()` and a new `tempDir(prefix)` under `MDLXL_TEMP` or `out/tmp`.
 
 ## Test hook
 

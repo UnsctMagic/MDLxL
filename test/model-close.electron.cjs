@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 
 async function launch(entry, profile, model) {
-  return launchApp({ out: path.resolve('out'), profile: profile, entry, args: (['--disable-backgrounding-occluded-windows', entry, ...(model ? [model] : [])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 }).then(({ app }) => app);
+  return launchApp({ out: path.dirname(profile), profile: profile, entry: entry, args: [...model ? [model] : []], env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 }).then(({ app }) => app);
 }
 
 (async () => {
@@ -35,6 +35,7 @@ async function launch(entry, profile, model) {
     const closed = clean.waitForEvent('close');
     await page.evaluate(() => window.desktop.close());
     await closed;
+    await closeApp(clean);
     assert.equal(fs.existsSync(promptLog), false);
     console.log('PASS a clean saved model closes without prompting');
   }
@@ -58,6 +59,6 @@ async function launch(entry, profile, model) {
     assert.equal(JSON.parse(fs.readFileSync(promptLog, 'utf8')).length, 2, 'successful Save closes without a second prompt');
     console.log('PASS a never-saved model offers Save, Cancel, Close and Save completes before exit');
   } finally {
-    if (unsaved.windows().length) await unsaved.close().catch(() => {});
+    await closeApp(unsaved);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

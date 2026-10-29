@@ -9,12 +9,10 @@ const path = require('node:path');
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'badges.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-gpu-vsync','--disable-frame-rate-limit',fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
-  const errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1100, height: 800 }, show: 'inactive' });
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({BrowserWindow}) => {const win=BrowserWindow.getAllWindows()[0];win.webContents.setBackgroundThrottling(false);win.setSize(1100,800);win.showInactive();});
+
     await page.locator('.learner-tool').waitFor();
     await page.waitForFunction(()=>document.querySelector('.model-tabs')?.textContent.includes('badges.mdx'));
     const click = async locator => {const b=await locator.boundingBox();await page.mouse.click(b.x+b.width/2,b.y+b.height/2);};

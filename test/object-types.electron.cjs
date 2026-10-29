@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against the rebuilt portable app with MDLXL_TEST_EXE; all fixtures/profiles use D:.
 const assert = require('node:assert/strict');
@@ -22,8 +23,8 @@ const { buildSync } = require('esbuild');
   const errors = [], result = { palettes: [], drags: [] };
   let app, page;
   const launch = async () => {
-    const exe = process.env.MDLXL_TEST_EXE;
-    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (exe ? [fixture, '--disable-backgrounding-occluded-windows'] : [root, fixture, '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+    const exe = appTarget().executablePath;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => { const w=BrowserWindow.getAllWindows()[0]; w.setSize(1600,1000); w.setPosition(-3000,0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
     await page.locator('[data-hotkey="bones"]').first().click();

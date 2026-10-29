@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building: node test/appearance.electron.cjs
 // Set MDLXL_PLAYWRIGHT_MODULE when Playwright is provided outside this checkout.
 const assert = require('node:assert/strict');
@@ -14,12 +14,10 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
   const modelPath = path.join(root, 'test/fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
   const bundle = buildSync({ stdin: { contents: `export { drawPreviewGeometryOverlay } from './app/preview-overlays.js'; export { drawPreviewBackground } from './app/game-preview-capture.js'; export { normalizePreferences } from './src/preferences.js'; export { exportConfiguration, importConfiguration } from './src/portable-settings.js'; export { BUILT_IN_VIEWPORT_PRESETS, backgroundImageRect } from './src/viewport-appearance.js'; export { OrthographicCamera, Vector3 } from 'three';`, resolveDir: root }, bundle: true, format: 'iife', globalName: 'appearanceAudit', write: false }).outputFiles[0].text;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, modelPath]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const result = { raster: null, presets: [], gaps: [] }, errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: modelPath , pageTimeout: 20000 });
+  const result = { raster: null, presets: [], gaps: [] };
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); });
+
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured');
     await page.locator('.game-preview-root').waitFor();
@@ -75,17 +73,13 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
     await menu('appearanceSettings');
     await page.getByRole('dialog', { name: 'Settings' }).waitFor();
     await page.evaluate(() => {
-      window.currentFiber = host => { let f = host[Object.keys(host).find(k => k.startsWith('__reactFiber'))], top=f; while(top.return)top=top.return; return top.stateNode.current===top?f:f.alternate||f; };
+
       window.auditSettings = () => {
-        const host = document.querySelector('.settings-window');
-        let fiber = currentFiber(host);
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.preferences && fiber.memoizedProps.onChange) return fiber.memoizedProps;
+        const props=findFiberProps('.settings-window',p=>p.preferences&&p.onChange);if(props)return props;
         throw Error('Settings owner not found');
       };
       window.auditPreview = () => {
-        const host = document.querySelector('.game-preview-root');
-        let fiber = currentFiber(host);
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps.preferences) return fiber.memoizedProps;
+        const props=findFiberProps('.game-preview-root',p=>p.model&&p.preferences);if(props)return props;
         throw Error('Preview owner not found');
       };
     });

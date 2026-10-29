@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
 // Drives the first-launch Auto update welcome hidden: a big icon beside a blue title, Yes / No thanks.
 const assert = require('node:assert/strict');
@@ -21,9 +21,9 @@ const root = path.resolve(__dirname, '..');
       globalThis.answers = [await ask(), await ask()];
     });
   `);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(run, 'profile'), args: ([entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 })).app;
+  const { app, page: prompt } = await launchApp({ out: run, profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 });
   try {
-    let prompt = await app.firstWindow();
+
     await prompt.waitForSelector('button.yes', { timeout: 15000 });
     const layout = await prompt.evaluate(() => {
       const img = document.querySelector('img').getBoundingClientRect(), h1 = document.querySelector('h1');

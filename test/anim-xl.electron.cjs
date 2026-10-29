@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Disposable packaged AnimXL check with real mouse input. Never opens or replaces a user profile.
 // MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_TEST_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs
@@ -59,11 +60,11 @@ async function closeTestApp(app) {
 (async () => {
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-ui');
   const fixture = path.resolve(process.env.MDLXL_ANIMXL_FIXTURE || 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_TEST_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
+  const executablePath = appTarget().executablePath;
   fs.mkdirSync(out, { recursive: true });
   const model = path.join(out, path.basename(fixture)); fs.copyFileSync(fixture, model);
   const errors = [], checks = [];
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([model, '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const app = (await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: model })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 950 }); win.showInactive(); });

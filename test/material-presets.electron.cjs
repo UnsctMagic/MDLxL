@@ -1,14 +1,13 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 (async()=>{
  const input=path.resolve(process.argv[2]),original=fs.readFileSync(input),out=path.resolve('out/material-presets');fs.mkdirSync(out,{recursive:true});
- const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),input]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
- let uv,page;
+ const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: input , pageTimeout: 20000, bounds: {x:-3000,y:0,width:1920,height:1080}, show: 'inactive' });
+ let uv;
  try{
-  page=await app.firstWindow();page.setDefaultTimeout(20000);
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3000,y:0,width:1920,height:1080});w.showInactive();});
+
   await page.getByLabel('Select geoset 4',{exact:true}).waitFor({timeout:60000});
   await page.locator('[data-hotkey="geosetsClear"]').click();await page.getByLabel('Select geoset 4',{exact:true}).check();
   await page.locator('[aria-label="3D model viewport"]').click();await page.keyboard.press('Control+a');
@@ -22,8 +21,8 @@ const assert = require('node:assert/strict');
   const colorSamples=colors.map(r=>{const bytes=Uint8Array.from(r.bytes),magic=Buffer.from(bytes.slice(0,4)).toString(),pixels=magic==='DDS '?decodeDds(bytes.buffer):magic==='BLP2'?decodeBlp2(bytes.buffer):magic==='BLP1'?getBLPImageData(decodeBLP(bytes.buffer),0):new TGALoader().parse(bytes.buffer);return {name:r.name,pixel:Array.from(pixels.data.slice(0,4))};});
   assert.equal(colorSamples.length,25);assert.deepEqual(colorSamples[12].pixel,[156,0,0,255]);assert.deepEqual(colorSamples[24].pixel,[46,45,46,255]);console.log('PASS: all 25 native fixed colors resolve; Maroon and Black pixels verified');
   await uv.evaluate(()=>{
-   window.uvState=()=>{let f=document.querySelector('.uv-workspace');f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)if(f.memoizedProps?.onMaterialPreset)return f.memoizedProps;throw Error('Missing UV state');};
-   window.nativeState=()=>{let f=document.querySelector('.uv-tab-window .game-preview-root');if(!f)return null;f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.current?.native)return h.memoizedState.current.native;return null;};
+   window.uvState=()=> { const props = findFiberProps('.uv-workspace', props => props?.onMaterialPreset); if (props) return props; throw Error('Missing UV state'); };
+   window.nativeState=()=>mdlxlProbe('.uv-tab-window .game-preview-root').runtime?.native||null;
   });
   await uv.waitForFunction(()=>nativeState()?.model?.Materials[4]?.Layers.length===3);
   await uvw.getByLabel('Material Properties',{exact:true}).selectOption('Team Color Overlay');

@@ -46,7 +46,7 @@ async function launchApp({ fixture, out, entry, target = appTarget(), cwd, profi
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile, ...env },
     timeout,
   });
-  profiles.set(app, profile);
+  profiles.set(app, { profile, child: app.process?.() });
   const page = await app.firstWindow();
   await prepareWindow(app, page, { bounds, show, pageTimeout, errors });
   return { app, page, errors, profile, target };
@@ -90,7 +90,7 @@ const settle = (page, ms = 150) => page.waitForTimeout(ms);
 // Quits the app and removes the throwaway profile launchApp created.
 // keepProfile is only for a test that immediately restarts with the same disposable draft/library.
 async function closeApp(app, { keepProfile = false } = {}) {
-  const profile = profiles.get(app), child = app.process?.();
+  const { profile, child } = profiles.get(app);
   try { await app.evaluate(({ app }) => app.exit(0)); } catch { /* the connection closes as the app exits */ }
   if (child && child.exitCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 10000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
   if (profile && !keepProfile) {

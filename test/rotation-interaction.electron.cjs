@@ -1,3 +1,6 @@
+const { appDist } = require('./helpers/app.cjs');
+const { sha256File } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real mouse acceptance against the production bundle or a disposable package.
 const fs = require('node:fs');
@@ -26,20 +29,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     model.Geosets[0].Vertices.forEach((value, index, vertices) => { vertices[index] = value * [1.65, .65, 1.2][index % 3]; });
   });
   const fixture = path.join(out, 'Rotation.mdx'); fs.writeFileSync(fixture, doc.serialize('mdx'));
-  const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const hash = sha256File;
   const fixtureHash = hash(fixture), checks = [], errors = [];
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const assets = path.join(packaged ? path.join(path.dirname(executablePath), 'resources/app/dist') : path.join(root, 'dist'), 'assets');
+  const packaged = appTarget().packaged;
+  const executablePath = appTarget().executablePath;
+  const assets = path.join(packaged ? appDist() : path.join(root, 'dist'), 'assets');
   const bundleDigest = crypto.createHash('sha256');
   for (const name of fs.readdirSync(assets).sort()) bundleDigest.update(name).update(fs.readFileSync(path.join(assets, name)));
   const bundleHash = bundleDigest.digest('hex');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', ...(packaged ? [fixture] : [root, fixture])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile'), args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 900 } });
   const check = (label, pass, evidence) => { checks.push({ label, pass: !!pass, ...(evidence === undefined ? {} : { evidence }) }); console.log((pass ? 'PASS ' : 'FAIL ') + label + (!pass && evidence !== undefined ? ' ' + JSON.stringify(evidence) : '')); };
-  let page;
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setSize(1280, 900); });
+
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
     await page.getByLabel('Movement bone or node').selectOption('0');
@@ -47,17 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await page.getByLabel('Current animation frame').fill('500'); await page.getByLabel('Current animation frame').press('Enter');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {
-      window.rotationProbe = () => {
-        const root = document.querySelector('.game-preview-root'); let runtime, props, session;
-        for (let fiber = root?.[Object.keys(root).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const ref = hook.memoizedState?.current;
-          if (ref?.native && ref?.controls) runtime = ref;
-          if (ref?.model && ref?.onNodeTransform) props = ref;
-          if (hook.memoizedState?.doc?.model && hook.memoizedState?.assets) session = hook.memoizedState;
-        }
-        if (!runtime || !props || !session) throw Error('Movement runtime missing');
-        return { runtime, props, session };
-      };
+      window.rotationProbe = ()=>{const {runtime,props,session}=mdlxlProbe();if(!runtime||!props||!session)throw Error('Movement runtime missing');return {runtime,props,session};};
     });
     await page.waitForFunction(() => rotationProbe().runtime.captureApi?.isReady);
     check('fresh profile defaults to world/grid axes', await page.evaluate(() => rotationProbe().props.transformSpace === 'world'));

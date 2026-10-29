@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against rebuilt dist; MDLXL_ELECTRON_PATH can point to a packaged MDLxL.exe.
 const assert = require('node:assert/strict');
@@ -32,19 +33,18 @@ const { createHash } = require('node:crypto');
   await fs.writeFile(texturePath, texture.bytes);
   // Also prove Animations works when the graphics effect preference is disabled.
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { particles: false }, emitterMarker: 'pentagram' } }));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '0' }, timeout: 60000 })).app;
-  const errors = [];
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '0' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   const screenshot = async name => {
     const png = await app.evaluate(async ({ BrowserWindow }) =>
       (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
-  let page;
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     await page.getByText('Opened animation-effects.mdx', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
@@ -67,8 +67,8 @@ const { createHash } = require('node:crypto');
     });
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
-      
-      { const state = mdlxlProbe(el).runtime; if (state?.native && state.controls) {
+
+      { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) {
           const native = state.native;
           return { frame: native.getFrame(), ready: state.captureApi?.isReady,
             particles: native.particlesController.emitters.map(emitter => emitter.particles.filter(particle => particle.lifeSpan > 0).length),

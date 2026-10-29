@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building. MDLXL_ELECTRON_PATH selects an isolated portable build;
 // MDLXL_INPUT_PATH optionally exercises an existing model without editing it.
@@ -28,31 +30,23 @@ const path = require('node:path');
   const targetBytes = scenario === 'node-order' ? Buffer.from(generateMDX({ ...target.model, BindPoses: undefined })) : Buffer.from(target.serialize('mdx'));
   const targetPath = path.join(out, 'paste-target.mdx'), donorPath = path.join(out, 'paste-donor.mdx'), savedPath = path.join(out, 'paste-saved.mdx'), reopenedPath = path.join(out, 'paste-reopened.mdx');
   await fs.writeFile(targetPath, targetBytes); await fs.writeFile(donorPath, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe'), packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [targetPath] : [root, targetPath]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-  const errors = []; let page;
+  const executablePath = appTarget().executablePath, packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: targetPath , pageTimeout: 20000 });
+
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].capturePage({}, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.getByRole('tab', { name: 'paste-target.mdx' }).waitFor();
     await page.evaluate(() => {
-      window.pasteSummary = () => {
-        const host = document.querySelector('.viewport');
-        let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets && fiber.memoizedProps?.model?.Nodes) {
-          const model = fiber.memoizedProps.model, dummy = model.Bones.find(node => node.Name === 'DummyBone');
-          let camera;
-          for (let hook = fiber.memoizedState; hook; hook = hook.next) if (hook.memoizedState?.current?.controls) camera = hook.memoizedState.current.controls.object.matrixWorld.elements;
+      window.pasteSummary = ()=>{const host=document.querySelector('.viewport');const props=findFiberProps('.viewport',p=>p.model?.Geosets&&p.model?.Nodes);if(!props)throw Error('Active model was not found.');          const model = props.model, dummy = model.Bones.find(node => node.Name === 'DummyBone');
+          const camera=findFiberState(host,s=>s?.controls,{current:true,last:true})?.controls.object.matrixWorld.elements;
           const ordered = ['Bones', 'Lights', 'Helpers', 'Attachments', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'EventObjects', 'CollisionShapes'].flatMap(key => model[key] || []).every((node, index) => node.ObjectId === index);
           return { geosets: model.Geosets.length, nodes: model.Nodes.filter(Boolean).length, ordered, dummyId: dummy?.ObjectId, parent: dummy?.Parent, lastGroups: model.Geosets.at(-1)?.Groups, model: JSON.stringify(model), camera: camera && Array.from(camera) };
-        }
-        throw Error('Active model was not found.');
-      };
+};
     });
     // The tab appears before the first frame mounts the 3D viewport (about a second later without a graphics card).
     await page.waitForFunction(() => { try { return !!pasteSummary(); } catch { return false; } });
@@ -60,7 +54,7 @@ const path = require('node:path');
     if (scenario === 'node-order') assert.equal(before.ordered, false, 'fixture reproduces the general node-order rejection');
     else assert.ok(before.parent != null && before.parent !== -1, 'fixture reproduces the root-bone rejection');
     const open = async file => {
-      await app.evaluate(({ dialog }, filePath) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] }); }, file);
+      await stubDialogs(app, { open: [(file)] });
       await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: path.basename(file) }).waitFor();
     };
     if (scenario === 'node-order') {
@@ -116,7 +110,7 @@ const path = require('node:path');
     await page.waitForFunction(count => pasteSummary().nodes > count, before.nodes);
     assert.equal((await page.evaluate(() => pasteSummary())).parent, null);
     assert.equal(await page.getByRole('dialog').count(), 0);
-    await app.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, savedPath);
+    await stubDialogs(app, { save: (savedPath) });
     await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
     await page.waitForFunction(() => !document.title.startsWith('* '));

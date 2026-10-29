@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/workplane-free-drag.electron.cjs
 // Set MDLXL_EXE to a packaged MDLxL.exe to drive the packaged app instead.
@@ -12,11 +13,10 @@ const assert = require('node:assert/strict');
   const doc = createDemoDocument();
   const fixture = path.join(out, 'workplane-drag.mdx'); fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   const errors = [];
-  const packaged = process.env.MDLXL_EXE && path.resolve(process.env.MDLXL_EXE);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (packaged ? [fixture, '--disable-backgrounding-occluded-windows'] : ['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const packaged = appTarget().packaged;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     const viewport = page.getByLabel('3D model viewport', { exact: true }); await viewport.waitFor();
     await page.locator('[data-hotkey="geosetsClear"]').click(); await page.getByLabel('Select geoset 0', { exact: true }).check();
@@ -24,7 +24,7 @@ const assert = require('node:assert/strict');
     await page.evaluate(() => {
       window.viewportState = (scope = '') => {
         const host = document.querySelector(scope + ' [aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
 
         throw Error('Viewport runtime not found');
@@ -166,7 +166,7 @@ const assert = require('node:assert/strict');
     await page.evaluate(() => {
       window.previewRuntime = () => {
         const root = document.querySelector('.game-preview-root');
-        { const ref = mdlxlProbe(root).runtime; if (ref?.native && ref?.controls) return ref; }
+        { const ref = mdlxlProbe(root?.closest('.game-preview-root') || null).runtime; if (ref?.native && ref?.controls) return ref; }
 
         throw Error('Preview runtime not ready');
       };

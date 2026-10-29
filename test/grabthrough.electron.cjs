@@ -11,9 +11,9 @@ const path = require('node:path');
   [[0, 20, -18], [0, 28, -18], [0, 20, -10], [0, 28, -10]].forEach((point, index) => fixtureVertices.set(point, [0, 3, 4, 7][index] * 3));
   fixtureGeoset.Faces = new Uint32Array([1, 2, 6, 1, 6, 5]);
   fs.writeFileSync(fixture, Buffer.from(fixtureDocument.serialize('mdx')));
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000);
+
     const marqueeAll = async locator => {
       const box = await locator.boundingBox(); assert.ok(box);
       await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10);
@@ -36,7 +36,7 @@ const path = require('node:path');
         return count;
       }, png.toString('base64'));
     };
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     const vertexToggle = page.getByLabel('Grabthrough', { exact: true });
     assert.equal(await vertexToggle.isChecked(), true, 'Vertex Grabthrough defaults on');
@@ -76,16 +76,7 @@ const path = require('node:path');
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.getByLabel('Bones controller').waitFor();
     await page.getByLabel('Grabthrough', { exact: true }).uncheck();
-    const previewState = () => page.locator('.game-preview-root').evaluate(element => {
-      let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))], top = fiber;
-      while (top.return) top = top.return;
-      fiber = top.stateNode.current === top ? fiber : fiber.alternate || fiber;
-      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps?.preferences) return {
-        mode: fiber.memoizedProps.mode, grabThrough: fiber.memoizedProps.grabThrough,
-        xrayVertices: fiber.memoizedProps.preferences.viewportAppearance.xrayVertices,
-      };
-      throw Error('GamePreview props not found');
-    });
+    const previewState = () => page.locator('.game-preview-root').evaluate(element=>{const props=findFiberState(element,p=>p?.model&&p?.preferences,{props:true,current:true});if(!props)throw Error('GamePreview props not found');return {mode:props.mode,grabThrough:props.grabThrough,xrayVertices:props.preferences.viewportAppearance.xrayVertices};});
     assert.deepEqual(await previewState(), { mode: 'textured', grabThrough: false, xrayVertices: false });
     const bonesOccluded = await selectedPixels(page.locator('.game-preview-root'), 'bones-grabthrough-off.png');
     await page.getByLabel('Grabthrough', { exact: true }).check();

@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Exercise the rebuilt Electron bundle: node test/rig-node-order.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,10 +18,9 @@ const path = require('node:path');
   const fixture = path.join(output, 'rig-node-order.mdx'), original = Buffer.from(source.serialize('mdx'));
   fs.writeFileSync(fixture, original);
   const errors = [];
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(60000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     const picker = page.getByLabel('Movement bone or node'); await picker.waitFor();
     const organized = await picker.evaluate(element => ({
@@ -49,5 +48,5 @@ const path = require('node:path');
     assert.deepEqual(errors, []);
     assert.ok(fs.readFileSync(fixture).equals(original));
     console.log('PASS rebuilt Electron Bones dropdown: anatomical order, section separation, colors, and unchanged model');
-  } finally { const child = app.process(); await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 3000))]); child?.kill(); }
+  } finally { await closeApp(app); }
 })().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });

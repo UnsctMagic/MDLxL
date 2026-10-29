@@ -1,3 +1,5 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -15,21 +17,20 @@ const path = require('node:path');
     model.Cameras=[]; createPortraitCamera(model,framePortraitSubject(model,null,3000,1));
   });
   const fixture=path.join(out,'portrait-no-background.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
-  const packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: ([...(packaged?[]:[root]),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
-  const errors=[];let page;
+  const packaged=appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, show: 'inactive' });
+
   const snap=async name=>{const png=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage({},{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name),Buffer.from(png,'base64'));};
   // Share of clearly lit pixels inside the preview canvas (the portrait background is black without a backdrop).
   const litShare=async()=>{const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox();return app.evaluate(async ({BrowserWindow},box)=>{const w=BrowserWindow.getAllWindows()[0];const image=await w.capturePage({x:Math.round(box.x),y:Math.round(box.y),width:Math.round(box.width),height:Math.round(box.height)},{stayHidden:true,stayAwake:true});const {width,height}=image.getSize(),bitmap=image.toBitmap();let lit=0,count=0;for(let y=0;y<height;y+=3)for(let x=0;x<width;x+=3){const i=(y*width+x)*4;count++;if(bitmap[i]+bitmap[i+1]+bitmap[i+2]>120)lit++;}return lit/count;},box);};
   try {
-    page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.showInactive();});
+
     await page.getByRole('button',{name:'Movement',exact:true}).click();
     const add=page.getByRole('button',{name:'Add Background',exact:true});
     await add.waitFor(); assert.match(await add.getAttribute('title'),/team-color background/);
     await page.getByRole('button',{name:'Portrait Frame View',exact:true}).click();
     await page.getByRole('button',{name:'Full Model View',exact:true}).waitFor();
-    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el).runtime; if (state?.native&&state.controls) return state; }
+    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native&&state.controls) return state; }
 throw Error('No preview runtime');};});
     await page.waitForFunction(()=>portraitRuntime().portraitActive);
     await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 600);
@@ -68,7 +69,7 @@ throw Error('No preview runtime');};});
     assert.ok(Math.hypot(...turned.position.map((n,i)=>n-view.position[i]))>1,'mouse drag still rotates the portrait camera');
     await page.getByRole('button',{name:'Set Current View *',exact:true}).waitFor();await snap('4-rotated.png');
     console.log('PASS mouse rotation still works');
-    const output=path.join(out,'with-background.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
+    const output=path.join(out,'with-background.mdx');await stubDialogs(app, { save: (output) });
     await page.keyboard.press('Escape');await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
     await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
     const saved=openDocument(fs.readFileSync(output),output).model,index=findPortraitBackground(saved);

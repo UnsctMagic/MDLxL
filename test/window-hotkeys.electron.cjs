@@ -5,7 +5,7 @@ const {launchApp,closeApp}=require('./helpers/app.cjs');
   const out=path.resolve('out/window-hotkeys');fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument}=await import('../src/editor-document.js'),doc=createDemoDocument();
   const fixture=path.join(out,'WindowKeys.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
-  const {app,page,errors}=await launchApp({fixture,out,settings:{preferences:{hotkeys:{undo:['Ctrl+F9'],redo:['Ctrl+F10'],play:['F11'],'paint-key:E':['F12']},learn:{enabled:true},showHotkeys:true}}});
+  const {app,page,errors}=await launchApp({ fixture: fixture, out: out, settings: {preferences:{hotkeys:{undo:['Ctrl+F9'],redo:['Ctrl+F10'],play:['F11'],'paint-key:E':['F12']},learn:{enabled:true},showHotkeys:true}} });
   const checks=[];
   try{
     await page.evaluate(()=>{window.windowKeyUses=[];window.addEventListener('mdlxl-hotkey-used',event=>window.windowKeyUses.push({id:event.detail.id,chord:event.detail.chord}));});
@@ -70,5 +70,5 @@ const {launchApp,closeApp}=require('./helpers/app.cjs');
     assert.equal(await manager.getAttribute('role'),'dialog');await managerRedo.focus();await page.keyboard.press('Escape');await manager.waitFor({state:'detached'});
     checks.push('Resource manager: rebound history, existing button badges and Escape');
     assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks},null,2));console.log(checks.join('\n'));
-  }catch(error){console.error({errors,uses:await page.evaluate(()=>window.windowKeyUses),history:await page.evaluate(()=>{const el=document.querySelector('.showcase-workspace');let fiber=el?.[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const h=hook.memoizedState?.current;if(h?.travel&&h.undo)return {undo:h.undo.length,redo:h.redo.length,light:h.present?.light};}return null;}),body:(await page.locator('body').innerText()).slice(-2500)});throw error;}finally{await closeApp(app);}
+  }catch(error){console.error({errors,uses:await page.evaluate(()=>window.windowKeyUses),history:await page.evaluate(()=>{const h=findFiberState('.showcase-workspace',h=>h?.travel&&h.undo);return h?{undo:h.undo.length,redo:h.redo.length,light:h.present?.light}:null;}),body:(await page.locator('body').innerText()).slice(-2500)});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building dist; uses a hidden Electron window and a synthetic model.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -16,7 +16,7 @@ const root = path.resolve(__dirname, '..');
   });
   const fixture = path.join(run, 'dense.mdx'), original = Buffer.from(doc.serialize('mdx'));
   fs.writeFileSync(fixture, original);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(run, 'profile'), args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const app = (await launchApp({ out: run, profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
   try {
     const page = await app.firstWindow(), errors = [];
     page.on('pageerror', error => errors.push(error.message));

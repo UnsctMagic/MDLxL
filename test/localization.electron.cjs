@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building dist: node test/localization.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -26,8 +26,8 @@ const path = require('node:path');
     const profile = path.join(output, `profile-${language}-${Date.now()}`);
     fs.mkdirSync(profile, { recursive: true });
     fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { language } }));
-    const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', process.cwd(), file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+    const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: file , pageTimeout: 15000 });
+
     page.on('pageerror', error => failures.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
@@ -41,14 +41,7 @@ const path = require('node:path');
     await page.locator('.language-trigger').waitFor();
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor();
     await page.evaluate(() => {
-      window.testDocument = () => {
-        const root = document.querySelector('.classic-app');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          if (hook.memoizedState?.current?.doc?.model) return hook.memoizedState.current.doc;
-        }
-        throw Error('Document unavailable');
-      };
+      window.testDocument = ()=>{const state=findFiberState('.classic-app',s=>s?.doc?.model);if(!state)throw Error('Document unavailable');return state.doc;};
     });
     await page.waitForFunction(() => testDocument().name === 'Materials.mdx');
     const before = await page.evaluate(() => JSON.stringify(testDocument().model));

@@ -9,7 +9,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
   const profile = path.join(out, 'profile-' + Date.now()); fs.mkdirSync(profile);
   // Start from a customized Durotar: the switch must bring that exact look back.
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, theme: 'gruvbox-dark', accent: '#123456', viewportPreset: 'custom' } }));
-  const launch = () => launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), path.join(root, 'test/fixtures/demo.mdx')]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 }).then(({ app }) => app);
+  const launch = () => launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: path.join(root, 'test/fixtures/demo.mdx') }).then(({ app }) => app);
   const errors = [];
   const open = async app => {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));

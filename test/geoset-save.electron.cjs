@@ -1,3 +1,4 @@
+const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -6,12 +7,11 @@ const path = require('node:path');
   fs.mkdirSync(out, { recursive: true });
   const copy = path.join(out, 'ui-fixture.mdx');
   fs.copyFileSync('test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', copy);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, copy]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: {  }, timeout: 60000, fixture: copy , pageTimeout: 10000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow();
-    page.setDefaultTimeout(10000);
+
     // A never-shown headless window cannot be captured by page.screenshot; show it inactive and off-screen.
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     page.on('pageerror', e => console.log('PAGE ERROR', e.message));
     await page.waitForSelector('[data-hotkey="animations"]', { timeout: 60000 });
     console.log('LOADED', await page.title());
@@ -61,7 +61,7 @@ const path = require('node:path');
     if (metrics.some(event => event.ticksDuringSave < 1)) throw Error('UI did not tick during worker save');
     fs.writeFileSync(path.join(out, 'electron-metrics.json'), JSON.stringify(metrics, null, 2));
     if (!fs.readFileSync(copy).equals(fs.readFileSync('test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx'))) throw Error('Original copy changed on Save As');
-    await app.evaluate(({ dialog }, out) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [out + '/ui-saved.mdx'] }); }, out);
+    await stubDialogs(app, { open: [(out) + '/ui-saved.mdx'] });
     await page.keyboard.press('Control+o');
     await page.waitForFunction(() => document.title.includes('ui-saved.mdx'));
     await page.locator('[data-hotkey="animations"]').click();

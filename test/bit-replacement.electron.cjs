@@ -1,3 +1,5 @@
+const { clickMenu } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building; MDLXL_TEST_EXE exercises the packaged desktop executable.
 const assert = require('node:assert/strict');
@@ -32,14 +34,14 @@ const path = require('node:path');
   const fixture = path.join(output, 'replacement-target.mdx'), original = Buffer.from(doc.serialize('mdx'));
   fs.writeFileSync(fixture, original);
   fs.mkdirSync(path.join(output, 'Textures'), { recursive: true }); fs.writeFileSync(path.join(output, texturePath), texture);
-  const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
+  const executable = appTarget().executablePath;
   const bank = path.join(process.env.MDLXL_TEST_EXE ? path.dirname(executable) : root, 'BitsAndParts');
   fs.mkdirSync(bank, { recursive: true });
   const bitName = 'Replacement Test Bit ' + Date.now() + '.mdx', bitFile = path.join(bank, bitName);
   const donorBytes = Buffer.from(source.serialize('mdx')); fs.writeFileSync(bitFile, donorBytes);
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
   try {
-    const page = await app.firstWindow(), pageErrors = []; page.setDefaultTimeout(15000); page.on('pageerror', error => pageErrors.push(error.message));
+    const pageErrors = [];  page.on('pageerror', error => pageErrors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 900); window.show(); });
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     await page.locator('.classic-view [aria-label="3D model viewport"]').waitFor({ timeout: 60000 });
@@ -142,12 +144,12 @@ const path = require('node:path');
     // Selection changes have their own history entries in MDLxL.
     const serialized = () => page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx')));
     const seen = [];
-    for (let step = 0; step < 8 && JSON.stringify(seen.at(-1)) !== JSON.stringify(before); step++) { await page.locator('[data-hotkey="undo"]').click(); seen.push(await serialized()); }
+    for (let step = 0; step < 8 && JSON.stringify(seen.at(-1)) !== JSON.stringify(before); step++) { await clickMenu(app, 'Undo'); seen.push(await serialized()); }
     assert.deepEqual(seen.at(-1), before); assert.ok(seen.some(state => JSON.stringify(state) === JSON.stringify(Array.from(bytes))), 'undo passes through the unmoved replacement');
-    for (let step = 0; step < 8 && JSON.stringify(await serialized()) !== JSON.stringify(moved); step++) await page.locator('[data-hotkey="redo"]').click();
+    for (let step = 0; step < 8 && JSON.stringify(await serialized()) !== JSON.stringify(moved); step++) await clickMenu(app, 'Redo');
     assert.deepEqual(await serialized(), moved);
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.ok(fs.readFileSync(bitFile).equals(donorBytes)); assert.deepEqual(pageErrors, []);
     fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, fittedToSelection: true, noPlacementToolsInBitz: true, previewCameraRotates: true, selectedInVertexEditor: true, movedWithVertexMoveTool: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
     console.log('PASS packaged Electron: BITZ previews only, preview camera rotates, cancel, replacement lands selected in the vertex editor and moves with its Move tool, dependency reuse, bones, undo/redo and unchanged fixtures/sidebar.');
-  } finally { await closeApp(app).catch(() => {}); await closeApp(app); fs.unlinkSync(bitFile); }
+  } finally { await closeApp(app); fs.unlinkSync(bitFile); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

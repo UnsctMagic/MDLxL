@@ -26,10 +26,9 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     fixture = path.join(out, 'billboard-drag.mdx'); fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   }
   const original = fs.readFileSync(fixture), errors = [];
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     await page.getByLabel('3D model viewport', { exact: true }).waitFor();
     await page.locator('[data-hotkey="geosetsClear"]').click(); await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).check();
@@ -38,7 +37,7 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
       window.dragGeosetIndex = index;
       window.viewportState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
 
         throw Error('Viewport runtime not found');

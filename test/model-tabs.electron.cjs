@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/model-tabs.electron.cjs
 const assert = require('node:assert/strict');
@@ -10,31 +11,28 @@ const { spawn } = require('node:child_process');
   fs.mkdirSync(out, { recursive: true });
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const firstPath = path.join(root, 'test/fixtures/demo.mdx'), secondPath = path.join(root, 'test/fixtures/demo.mdl'), executablePath = path.join(root, 'node_modules/electron/dist/electron.exe');
+  const firstPath = path.join(root, 'test/fixtures/demo.mdx'), secondPath = path.join(root, 'test/fixtures/demo.mdl'), executablePath = appTarget().executablePath;
   const env = { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile };
-  const app = (await launchApp({ out: path.resolve('out'), args: (['--disable-backgrounding-occluded-windows', root]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: env, timeout: 60000 })).app;
+  const { app, page, errors } = await launchApp({ out: path.resolve('out'), profile: profile, env: env, timeout: 60000 , pageTimeout: 30000 });
   const launchAgain = (...files) => new Promise((resolve, reject) => {
-    const child=spawn(executablePath,[root,...files],{cwd:root,env,stdio:'ignore'}),timer=setTimeout(()=>{child.kill();reject(Error('Secondary MDLxL process did not hand off to the primary instance.'));},15000);
+    const child=spawn(executablePath,[...appTarget().args,...files],{cwd:root,env,stdio:'ignore'}),timer=setTimeout(()=>{child.kill();reject(Error('Secondary MDLxL process did not hand off to the primary instance.'));},15000);
     child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);code===0?resolve():reject(Error(`Secondary MDLxL exited with ${code}.`));});
   });
-  const errors = [];
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
+
     await page.getByRole('tab', { name: 'Untitled.mdl' }).waitFor();
     await launchAgain(firstPath);
     await page.getByRole('tab', { name: 'demo.mdx' }).waitFor();
     assert.equal(await page.getByRole('tab').count(), 1, 'the first externally opened model replaces only the pristine starter tab');
     await page.evaluate(() => {
-      window.modelTabSummary = () => {
-        const host = document.querySelector('.viewport');
-        let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets && fiber.memoizedProps?.model?.Nodes) {
-          const model = fiber.memoizedProps.model, nodes = model.Nodes.filter(Boolean);
+      window.modelTabSummary = () => { const props = findFiberProps('.viewport', props => props?.model?.Geosets && props?.model?.Nodes); if (props) {
+          const model = props.model, nodes = model.Nodes.filter(Boolean);
           const dummy = model.Bones.find(node => node.Name === 'DummyBone');
           return { geosets: model.Geosets.length, nodes: nodes.length, dummy: dummy ? 1 : 0, dummyId: dummy?.ObjectId ?? null, lastGroups: model.Geosets.at(-1)?.Groups };
         }
         throw Error('Active model props were not found.');
-      };
+       };
     });
     const firstBefore = await page.evaluate(() => modelTabSummary()), canvases = await page.locator('.viewport canvas').count();
     await launchAgain(secondPath);

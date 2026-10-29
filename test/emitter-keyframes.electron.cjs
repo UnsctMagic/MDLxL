@@ -1,15 +1,16 @@
+const { sha256File } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run the rebuilt test app; input models are never saved or overwritten.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const{_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
-const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const hash = sha256File;
 (async()=>{
  const{createStarterDocument}=await import('../src/starter-model.js'),{createNode,openDocument}=await import('../src/editor-document.js');
  const out=path.resolve(process.env.MDLXL_EMITTER_KEYS_OUT||'out/emitter-keyframes');fs.mkdirSync(out,{recursive:true});
  let fixture=process.env.MDLXL_EMITTER_KEYS_MODEL;
  if(!fixture){const doc=createStarterDocument();doc.apply('Emitter timeline fixture',['Nodes','PivotPoints','Sequences'],model=>{model.Sequences=[{Name:'Spell',Interval:new Uint32Array([100,1000]),MoveSpeed:0,NonLooping:false,Rarity:0}];const emitter=createNode(model,'ParticleEmitter2');emitter.Name='Keyframe emitter';emitter.Parent=0;emitter.Visibility={LineType:0,GlobalSeqId:null,Keys:[[100,0],[250,1],[600,1],[1000,0]].map(([Frame,value])=>({Frame,Vector:new Float32Array([value])}))};emitter.Translation={LineType:1,Keys:[{Frame:350,Vector:new Float32Array([0,0,0])}]};const other=createNode(model,'ParticleEmitter2');other.Name='Other emitter';other.Visibility={LineType:0,Keys:[{Frame:750,Vector:new Float32Array([1])}]};});fixture=path.join(out,'emitter-keyframes.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));}
  const originalHash=hash(fixture),source=openDocument(fs.readFileSync(fixture)).model,emitter=source.ParticleEmitters2.find(node=>/shockwaves|Keyframe emitter/i.test(node.Name));assert.ok(emitter);const sequence=source.Sequences.findIndex(item=>item.Name==='Spell'),interval=Array.from(source.Sequences[sequence].Interval),visibilityFrames=emitter.Visibility.Keys.filter(key=>key.Frame>=interval[0]&&key.Frame<=interval[1]).map(key=>key.Frame),onKeys=emitter.Visibility.Keys.filter(key=>key.Frame>interval[0]&&key.Frame<interval[1]&&key.Vector[0]>0);assert.ok(onKeys.length>=2);const editFrame=onKeys[0].Frame,deleteFrame=onKeys[1].Frame,pasteFrame=Math.round(interval[0]+.72*(interval[1]-interval[0]));
- const appRoot=path.resolve(process.env.MDLXL_APP_ROOT||'.'),app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',appRoot,fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;const errors=[],checks=[];
+ const appRoot=path.resolve(process.env.MDLXL_APP_ROOT||'.'),app=(await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture })).app;const errors=[],checks=[];
  try{
   const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.webContents.setBackgroundThrottling(false);win.setBounds({x:-3000,y:0,width:1280,height:900});win.showInactive();});
   await page.locator('[data-hotkey="animation"]').click();await page.getByLabel('Movement current sequence').selectOption(String(sequence));await page.getByLabel('Movement bone or node').selectOption(String(emitter.ObjectId));await page.getByLabel('Highlight KF').check();

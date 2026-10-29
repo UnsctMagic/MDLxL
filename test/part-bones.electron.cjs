@@ -17,10 +17,9 @@ const assert = require('node:assert/strict');
     model.Bones[0].Rotation = { LineType: 1, Keys: [[0, 0], [1000, 25], [2000, 0]].map(([Frame, degrees]) => ({ Frame, Vector: tilt(degrees) })) };
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: {  }, timeout: 60000, fixture: fixture , errors, pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.setSize(1600, 1000); window.showInactive(); });
+
     page.on('console', message => { if (message.type() === 'error' && /TypeError|ReferenceError/.test(message.text())) errors.push(message.text()); });
     await page.locator('[data-hotkey="animation"]').click({ timeout: 60000 });
     await page.getByLabel('Movement current sequence').selectOption('0');

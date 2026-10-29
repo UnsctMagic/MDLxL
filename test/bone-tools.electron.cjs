@@ -11,13 +11,12 @@ const path = require('node:path');
   fs.writeFileSync(fixture, Buffer.from(createStarterDocument().serialize('mdx')));
   const errors = [];
   console.log('Launching Electron');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
     console.log('Waiting for first window');
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+
     console.log('Window ready');
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     // The view label renders before the viewport, which mounts once the saved preferences are read.
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({ timeout: 60000 });
@@ -25,7 +24,7 @@ const path = require('node:path');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     const before = await page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      
+
       { const state = findFiberState(host, state => state?.renderer && state?.controls); if (state?.renderer && state?.controls) {
           state.camera.position.addScalar(37); state.controls.target.addScalar(5); state.controls.update();
           return { position: state.camera.position.toArray(), target: state.controls.target.toArray(), zoom: state.camera.zoom };
@@ -44,8 +43,8 @@ const path = require('node:path');
     console.log('Reading bone camera');
     const after = await page.evaluate(() => {
       const host = document.querySelector('.game-preview-surface');
-      
-      { const state = mdlxlProbe(host).runtime; if (state?.native && state?.controls) return { position: state.controls.object.position.toArray(), target: state.controls.target.toArray(), zoom: state.controls.object.zoom }; }
+
+      { const state = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (state?.native && state?.controls) return { position: state.controls.object.position.toArray(), target: state.controls.target.toArray(), zoom: state.controls.object.zoom }; }
 
       throw Error('Bone camera not found');
     });
@@ -74,8 +73,8 @@ const path = require('node:path');
     assert.equal(await page.getByRole('button', { name: 'Attach', exact: true }).getAttribute('aria-pressed'), 'true');
     const parentPoint = await page.evaluate(() => {
       const host = document.querySelector('.game-preview-surface');
-      
-      { const state = mdlxlProbe(host).runtime; if (state?.native && state?.controls) {
+
+      { const state = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (state?.native && state?.controls) {
           const projected = state.controls.target.clone().set(0, 0, 0).project(state.controls.object);
           const bounds = host.querySelector('canvas[data-clean-model-canvas]').getBoundingClientRect();
           return { x: bounds.x + (projected.x + 1) * bounds.width / 2, y: bounds.y + (1 - projected.y) * bounds.height / 2 };
@@ -101,5 +100,5 @@ const path = require('node:path');
     await page.screenshot({ path: path.join(output, 'bones-tab.png') });
     assert.deepEqual(errors, []);
     console.log('Bones desktop UI and camera handoff passed.');
-  } finally { const child = app.process(); await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 3000))]); child?.kill(); }
+  } finally { await closeApp(app); }
 })().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });

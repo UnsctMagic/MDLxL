@@ -1,10 +1,11 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Glow Up in EMTR: button beside Add ribbon, trim panel, live preview with real
 // mouse orbit, Create as one undo step, and no Glow Up left in Forge.
 // MDLXL_GLOW_MODEL runs it on another model (weapon checks then follow that model).
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/glow-up-ui');
-const executable=process.env.MDLXL_TEST_EXE||path.join(root,'out/pkg-glow-up/MDLxL-win32-x64/MDLxL.exe');
+const executable=appTarget().executablePath;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function heroFixture(file){
@@ -24,16 +25,15 @@ async function heroFixture(file){
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const custom=process.env.MDLXL_GLOW_MODEL,fixture=custom||path.join(out,'hero.mdx');if(!custom)await heroFixture(fixture);
- const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows','--disable-gpu-vsync','--disable-frame-rate-limit',fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
- const checks=[],errors=[];let page;
+ const { app, page, errors } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000, bounds: {x:0,y:0,width:1600,height:1000} });
+ const checks=[];
  const capture=async name=>{const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage().then(i=>i.toPNG().toString('base64')));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64'));};
  const read=()=>page.evaluate(()=>{const el=document.querySelector('.classic-app');{ const v = findFiberState(el, v => v?.doc?.model&&v.assets); if (v?.doc?.model&&v.assets) return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps}; }
 throw Error('No document');});
  // The model the EMTR preview is drawing, and its camera.
- const preview=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');if(!el)throw Error('No preview');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))],model=null,camera=null;for(;f;f=f.return){if(!model&&f.memoizedProps?.presentation==='preview'&&f.memoizedProps.model)model=JSON.parse(JSON.stringify(f.memoizedProps.model));for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current,c=s?.camera||s?.controls?.object;if(!camera&&c?.position)camera=c.position.toArray();}}return {model,camera};});
+ const preview=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');if(!el)throw Error('No preview');const props=findFiberState(el,p=>p?.presentation==='preview'&&p.model,{props:true});const runtime=findFiberState(el,s=>(s?.camera||s?.controls?.object)?.position);return {model:props?JSON.parse(JSON.stringify(props.model)):null,camera:runtime?(runtime.camera||runtime.controls.object).position.toArray():null};});
  try{
-  page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setBounds({x:0,y:0,width:1600,height:1000});});
+
   await page.getByLabel('3D model viewport',{exact:true}).waitFor();
   const original=(await read()).model,sidebar=await page.locator('.classic-sidebar').boundingBox();
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('menu','particles'));
@@ -75,7 +75,7 @@ throw Error('No document');});
   assert.ok(Math.hypot(...middle(now).map((v,i)=>v-middle(before)[i]))>2,'Move shifts the ground glow');
   assert.ok(same((await preview()).camera,kept),'origin handle drags keep the camera');
   // A near miss still grabs (animation moves the dots), and the animation holds still during the drag.
-  const playingNow=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)if(f.memoizedProps?.presentation==='preview'&&'playing' in f.memoizedProps)return f.memoizedProps.playing;});
+  const playingNow=()=>page.evaluate(()=>findFiberState(document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas'),p=>p?.presentation==='preview'&&'playing' in p,{props:true})?.playing);
   assert.equal(await playingNow(),true);
   {const [mx,my]=await centerOf('Move origin glow');before=(await preview()).model;await page.mouse.move(mx+13,my+9);await page.mouse.down();await page.mouse.move(mx+43,my+29,{steps:6});await sleep(500);
    assert.equal(await playingNow(),false,'the animation pauses while a handle is dragged');
@@ -132,5 +132,5 @@ throw Error('No document');});
   fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({executable,fixture,checks,rendererErrors:errors},null,2));
   console.log(checks.join('\n'));
  }catch(e){if(page)await capture('failure').catch(()=>{});console.error('Renderer errors:',errors);throw e;}
- finally{await Promise.race([app.evaluate(({app})=>app.exit(0)).catch(()=>{}),sleep(5000)]);}
+ finally{await Promise.race([closeApp(app).catch(()=>{}),sleep(5000)]);}
 })().catch(e=>{console.error(e);process.exit(1);});

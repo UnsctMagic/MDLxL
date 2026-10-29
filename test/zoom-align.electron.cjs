@@ -12,17 +12,16 @@ const assert = require('node:assert/strict');
   doc.apply('Crooked test vertices', ['Geosets'], model => { model.Geosets[0].Vertices.set([17,29,43],0); model.Geosets[0].Vertices.set([-21,-8,30],3); });
   const fixture=path.join(out,'zoom-align.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   const errors=[];
-  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 10000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
+
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({timeout:60000});
     await page.waitForFunction(()=>document.querySelector('.classic-counts')?.textContent.includes('Vertices: 8'));
     // Read existing React runtime refs for assertions; no production test API.
     await page.evaluate(()=>{
       window.viewportState=()=>{
         const host=document.querySelector('[aria-label="3D model viewport"]');
-        
+
         { const value = findFiberState(host, value => value?.renderer&&value?.entries); if (value?.renderer&&value?.entries) return value; }
 
         throw Error('Viewport runtime not found');

@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // A model with duplicate geoset animations opens straight into the editor. The fix waits behind a
 // status-bar warning, is an ordinary undoable edit, and a read-only file (as Windows hands out from a zip)
@@ -22,13 +23,11 @@ const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = 
   const original = fs.readFileSync(model);
   if (!scanGeosetAnimationDuplicates(openDocument(original, 'duplicate.mdx').model).length) throw Error('Fixture has no duplicate geoset animations.');
   fs.chmodSync(model, 0o444);
-  const executablePath = path.resolve(process.env.MDLXL_DUPLICATE_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: ([model]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
-  const errors = [], started = Date.now(), step = name => console.log(`${((Date.now() - started) / 1000).toFixed(1)}s ${name}`);
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out, 'profile'), env: {  }, timeout: 60000, fixture: model , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1400, height: 900 }, show: 'inactive' });
+  const started = Date.now(), step = name => console.log(`${((Date.now() - started) / 1000).toFixed(1)}s ${name}`);
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 900 }); win.showInactive(); });
+
     await page.waitForSelector('[data-hotkey="animations"]', { timeout: 60000 }); step('editor shown');
     const warning = page.getByRole('button', { name: 'Duplicate geoset animations' });
     await warning.waitFor();
@@ -69,5 +68,5 @@ const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = 
     if (scanGeosetAnimationDuplicates(reopened.model).length) throw Error('Saved copy still has duplicates.');
     if (errors.length) throw Error('Page errors: ' + errors.join(' | '));
     step('PASS ' + saved);
-  } finally { await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 8000))]); fs.chmodSync(model, 0o666); }
+  } finally { await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 8000))]); fs.chmodSync(model, 0o666); }
 })().catch(error => { console.error('FAIL', error.message); process.exitCode = 1; });

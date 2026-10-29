@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Exercise the rebuilt Electron picker: node test/bones-picker.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,10 +10,9 @@ const path = require('node:path');
   const { createStarterDocument } = await import('../src/starter-model.js');
   const fixture = path.join(output, 'bones-picker.mdx');
   fs.writeFileSync(fixture, Buffer.from(createStarterDocument().serialize('mdx')));
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(60000);
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     const picker = page.getByLabel('Movement bone or node');
     await picker.waitFor();
@@ -28,6 +27,6 @@ const path = require('node:path');
     await page.screenshot({ path: path.join(output, 'bones-picker.png') });
     console.log('Bones picker menu labels are visible.');
   } finally {
-    const child = app.process(); await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 3000))]); child?.kill();
+    await closeApp(app);
   }
 })().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });

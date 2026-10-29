@@ -56,6 +56,8 @@ for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor',
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
+SPECIAL['ai-parallel'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
 // packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
 export const DEV_ONLY = ['close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];

@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -12,17 +13,17 @@ const path = require('node:path');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
   const legacy = { enabled: false, position: 'top', size: 'large', style: 'plain', duration: 10, learnUses: 3, quietHours: 8 };
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { shredder: legacy, hotkeys: { shredder: ['Alt+J'] } } }));
-  const executablePath = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
+  const executablePath = appTarget().executablePath;
   let app, page;
   const errors = [];
   const launch = async () => {
-    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setSize(1100, 760); win.showInactive(); });
     await page.locator('.classic-view canvas').first().waitFor();
   };
-  const close = async () => { if (app) { await closeApp(app); app = null; } };
+  const close = async (keepProfile = false) => { if (app) { await closeApp(app, { keepProfile }); app = null; } };
   const click = async locator => {
     await locator.waitFor();
     const point = await locator.evaluate(element => {
@@ -46,7 +47,7 @@ const path = require('node:path');
   const rotateCamera = async () => {
     const camera = () => page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      
+
       { const state = findFiberState(host, state => state?.renderer && state?.entries); if (state?.renderer && state?.entries) return state.camera.quaternion.toArray(); }
 
       throw Error('Viewport runtime missing');
@@ -163,7 +164,7 @@ const path = require('node:path');
     await page.waitForFunction(() => document.querySelector('[data-hotkey="translate"]').dataset.hotkeyAvailable === 'true');
     console.log('✓ Persistent letters recompute for an opened, focused and closed detached window');
 
-    await close(); await launch();
+    await close(true); await launch();
     await page.waitForFunction(() => document.documentElement.dataset.shortcutHints === 'true');
     assert.equal((await hintState(page.locator('button[data-hotkey="translate"]:visible').first())).visibility, 'visible');
     await open(); assert.equal(await row('Show hotkeys').getAttribute('aria-checked'), 'true');

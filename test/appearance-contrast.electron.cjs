@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after rebuilding dist: node test/appearance-contrast.electron.cjs
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {buildSync}=require(path.resolve('node_modules/esbuild'));
@@ -6,12 +6,11 @@ const {buildSync}=require(path.resolve('node_modules/esbuild'));
  const root=process.cwd(),out=path.join(root,'out/ui-audit');fs.mkdirSync(out,{recursive:true});
  const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile);
  fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{rendererRevision:3}}));
- const app=(await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_TEST_EXE?[]:[root]),path.join(root,'test/fixtures/demo.mdx')]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
- const errors=[],report={contrast:[],untranslated:{},screens:0};
+ const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: path.join(root,'test/fixtures/demo.mdx') , pageTimeout: 12000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
+ const report={contrast:[],untranslated:{},screens:0};
  try {
   assert.equal(await app.evaluate(({app})=>app.getVersion()),JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version);
-  const page=await app.firstWindow();page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
+
   await page.locator('.classic-app').waitFor();await page.getByLabel('Select geoset 0',{exact:true}).waitFor();
   const bundle=buildSync({stdin:{contents:"export {translate} from './src/localization.js'; export {applyApplicationTheme} from './app/theme.js'; export {default as themes} from './src/application-themes.json';",resolveDir:root},bundle:true,format:'iife',globalName:'uiAudit',write:false}).outputFiles[0].text;
   await page.evaluate(bundle);

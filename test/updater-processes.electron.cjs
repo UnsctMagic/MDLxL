@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Native Windows regression: a locked portable EXE is reported and preserved, and the
 // installer waits for real Electron processes of this installation before replacing it.
 const assert = require('node:assert/strict');
@@ -41,7 +41,7 @@ async function waitForFile(file) {
   const install = () => run(ps, ['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',installer,planFile], {windowsHide:true,env});
   let holder, starting;
   try {
-    remaining = (await launchApp({ out: path.resolve('out'), profile: path.join(root,'remaining-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
+    remaining = (await launchApp({ out: root, profile: path.join(root,'remaining-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
     await remaining.firstWindow();
     // The installer publishes files with an atomic replace, which Windows allows for a
     // running EXE (the editor's own processes are waited for instead). A handle without
@@ -66,7 +66,7 @@ async function waitForFile(file) {
     await fs.writeFile(installer,installerSource.replace(marker,`    [IO.File]::WriteAllText((Join-Path $stage 'verification-started'), '')
     while (!(Test-Path -LiteralPath (Join-Path $stage 'continue-verification'))) { Start-Sleep -Milliseconds 20 }
 ${marker}`));
-    owner = (await launchApp({ out: path.resolve('out'), profile: path.join(root,'owner-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
+    owner = (await launchApp({ out: root, profile: path.join(root,'owner-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
     await owner.firstWindow();
     plan.pid = await owner.evaluate(() => process.pid);
     await fs.writeFile(planFile,JSON.stringify(plan));

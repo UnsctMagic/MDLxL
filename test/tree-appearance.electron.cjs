@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,11 +10,9 @@ const path = require('node:path');
   const profile = path.join(root, 'out/tree-appearance/profile-' + Date.now());
   const file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
   const original = fs.readFileSync(file), errors = [];
-  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: ([root, file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' } })).app;
+  const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, fixture: file , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.setSize(1600, 1000); w.setPosition(-3000, 0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
+
     await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
     const menu = command => app.evaluate(({ BrowserWindow }, c) => BrowserWindow.getAllWindows()[0].webContents.send('menu', c), command);
     // Appearance shows one page at a time and reopens on the last page used.

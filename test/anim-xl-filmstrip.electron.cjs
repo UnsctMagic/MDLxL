@@ -1,3 +1,4 @@
+const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Contact sheet of one animation in AnimXL: rows for Original and presets, columns over time.
 // MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_TEST_EXE=<MDLxL.exe> node test/anim-xl-filmstrip.electron.cjs <model.mdx> <animation name> [presets...]
@@ -9,13 +10,12 @@ const fs = require('node:fs'), path = require('node:path');
   const [model, sequence = 'Attack - 1', ...presets] = process.argv.slice(2);
   const rows = ['Original', ...(presets.length ? presets : ['Default', 'Heavy'])];
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-filmstrip'), frames = 9;
-  const executablePath = path.resolve(process.env.MDLXL_TEST_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
+  const executablePath = appTarget().executablePath;
   fs.mkdirSync(out, { recursive: true });
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([...(process.env.MDLXL_ANIMXL_APP ? [path.resolve(process.env.MDLXL_ANIMXL_APP)] : []), path.resolve(model), '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: path.resolve(model) , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1400, height: 950 }, show: 'inactive' });
   const shots = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 950 }); win.showInactive(); });
+
     await page.locator('[data-hotkey="animation"]').click();
     await page.locator('button.animxl-tool, [data-hotkey="animXL"]').first().click();
     const dialog = page.getByRole('dialog', { name: 'AnimXL' });

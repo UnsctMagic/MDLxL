@@ -21,11 +21,11 @@ const assert = require('node:assert/strict');
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
 
-  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+
     page.on('pageerror', error => { throw error; });
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement bone or node').selectOption(String(shoulderId));
     await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Rotate', exact: true }).click();
@@ -104,8 +104,7 @@ function sendMenu(app, command) {
 function screenPoint(page, world) {
   return page.evaluate(world => {
     const root = document.querySelector('.game-preview-root'), canvas = root.querySelector('canvas'), rect = canvas.getBoundingClientRect();
-    let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))], camera;
-    for (; fiber && !camera; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const state = hook.memoizedState?.current; if (state?.native && state.controls) { camera = state.controls.object; break; } }
+    const camera=mdlxlProbe(root?.closest('.game-preview-root') || null).runtime.controls.object;
     camera.updateMatrixWorld();
     const apply = (m, [x, y, z, w]) => [0, 1, 2, 3].map(r => m[r] * x + m[4 + r] * y + m[8 + r] * z + m[12 + r] * w);
     const clip = apply(camera.projectionMatrix.elements, apply(camera.matrixWorldInverse.elements, [...world, 1]));
