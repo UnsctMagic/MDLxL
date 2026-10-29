@@ -2,6 +2,20 @@ import { Color, LinearFilter, LinearMipmapLinearFilter, NearestFilter, Vector3 }
 
 // The native SD shader consumes encoded colors; Three materials consume linear.
 export const nativeTeamColor = hex => { const value = new Color(hex).getHex(); return [value >> 16 & 255, value >> 8 & 255, value & 255].map(channel => channel / 255); };
+/** Default player colour for the native (game-style) preview renderer. */
+export const DEFAULT_TEAM_COLOR = '#ed3333';
+/** Brightness (0..1) of the team-glow replaceable texture (ReplaceableId 2) at pixel (x, y) of a width x height picture. */
+export const teamGlowFactor = (x, y, width, height = width) => Math.sin(Math.max(0, Math.min(1, 1 - Math.hypot((x + .5) / width - .5, (y + .5) / height - .5) * 2 * 1.4)));
+/** RGBA pixels of a team-colour replaceable picture: flat colour for id 1, colour x glow for id 2. rgb is 0..1 per channel. */
+export function teamColorPixels(id, rgb, size) {
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const factor = id === 2 ? teamGlowFactor(x, y, size) : 1, offset = (y * size + x) * 4;
+    for (let k = 0; k < 3; k++) data[offset + k] = Math.round(255 * rgb[k] * factor);
+    data[offset + 3] = 255;
+  }
+  return data;
+}
 // Below 1 the viewport draws fewer pixels than the screen and is scaled up;
 // software rendering cost follows the pixel count.
 export const viewportPixelRatio = (graphics, device = 1, lowPower = false) => graphics.pixelRatio < 1 ? graphics.pixelRatio : lowPower ? 1 : graphics.antialias ? Math.min(device || 1, graphics.pixelRatio) : device || 1;

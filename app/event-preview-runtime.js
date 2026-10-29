@@ -1,52 +1,29 @@
-import { Matrix4, Vector3, Quaternion, Color } from 'three';
+import { Matrix4, Vector3, Quaternion } from 'three';
 import { ModelRenderer } from 'war3-model';
 import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { EVENT_TABLE_PATHS, parseEventName, parseSlk, resolveEventDefinition, activeEventInstances, sampleEventDecal } from './event-preview-data.js';
 import { parseEventRenderModel } from './event-render-model.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 import { billboardCameraCorrection } from './preview-pose.js';
+import { DEFAULT_TEAM_COLOR, nativeTeamColor } from './viewport-quality.js';
+import { compensateRibbonWallClock, guardRendererDestroy } from './war3-model-patches.js';
+import { createGLProgram, preserveGLState, uploadTexture } from './gl-utils.js';
 import { particleTravelDistance } from './particle-preview-adapter.js';
 import { gamePathKey } from '../src/game-path.js';
 
 const readText = bytes => new TextDecoder().decode(bytes);
 
 function destroyRenderer(native) {
-  const destroyShader = native.destroyShaderProgramObject;
-  if (destroyShader) native.destroyShaderProgramObject = function (shader) { if (shader) return destroyShader.call(this, shader); };
+  guardRendererDestroy(native);
   try { native.destroy(); } catch (cause) { console.warn('Event renderer cleanup:', cause); }
 }
 
-function preserveGLState(gl) {
-  const names = ['CURRENT_PROGRAM','VERTEX_ARRAY_BINDING','ARRAY_BUFFER_BINDING','ACTIVE_TEXTURE','DEPTH_WRITEMASK','DEPTH_FUNC','BLEND_SRC_RGB','BLEND_DST_RGB','BLEND_SRC_ALPHA','BLEND_DST_ALPHA','BLEND_EQUATION_RGB','BLEND_EQUATION_ALPHA','POLYGON_OFFSET_FACTOR','POLYGON_OFFSET_UNITS','CULL_FACE_MODE','FRONT_FACE'];
-  const state = Object.fromEntries(names.map(name => [name,gl.getParameter(gl[name])]));
-  const enabled = [gl.BLEND,gl.DEPTH_TEST,gl.CULL_FACE,gl.POLYGON_OFFSET_FILL].map(name => [name,gl.isEnabled(name)]);
-  const textures = [];
-  for (let i = 0; i < Math.min(8,gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS)); i++) { gl.activeTexture(gl.TEXTURE0+i); textures.push(gl.getParameter(gl.TEXTURE_BINDING_2D)); }
-  gl.activeTexture(state.ACTIVE_TEXTURE);
-  return () => {
-    textures.forEach((texture,i) => { gl.activeTexture(gl.TEXTURE0+i); gl.bindTexture(gl.TEXTURE_2D,texture); }); gl.activeTexture(state.ACTIVE_TEXTURE);
-    gl.useProgram(state.CURRENT_PROGRAM); gl.bindVertexArray(state.VERTEX_ARRAY_BINDING); gl.bindBuffer(gl.ARRAY_BUFFER,state.ARRAY_BUFFER_BINDING);
-    gl.depthMask(state.DEPTH_WRITEMASK); gl.depthFunc(state.DEPTH_FUNC);
-    gl.blendFuncSeparate(state.BLEND_SRC_RGB,state.BLEND_DST_RGB,state.BLEND_SRC_ALPHA,state.BLEND_DST_ALPHA); gl.blendEquationSeparate(state.BLEND_EQUATION_RGB,state.BLEND_EQUATION_ALPHA);
-    gl.polygonOffset(state.POLYGON_OFFSET_FACTOR,state.POLYGON_OFFSET_UNITS); gl.cullFace(state.CULL_FACE_MODE); gl.frontFace(state.FRONT_FACE);
-    for (const [name,value] of enabled) value ? gl.enable(name) : gl.disable(name);
-  };
-}
-
 export function createDecalRenderer(gl) {
-  const compile = (type, source) => {
-    const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { const message = gl.getShaderInfoLog(shader); gl.deleteShader(shader); throw new Error(message); }
-    return shader;
-  };
-  const vertex = compile(gl.VERTEX_SHADER, `#version 300 es
+  const program = createGLProgram(gl, `#version 300 es
 uniform mat4 transform; uniform vec4 atlas; uniform float extent; out vec2 uv;
-void main(){ vec2 p[6]=vec2[6](vec2(-1.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(-1.,-1.),vec2(1.,1.),vec2(-1.,1.)); vec2 v=p[gl_VertexID]; uv=mix(atlas.xy,atlas.zw,vec2(1.-v.y,1.-v.x)*.5); gl_Position=transform*vec4(v*extent,0.,1.); }`);
-  const fragment = compile(gl.FRAGMENT_SHADER, `#version 300 es
+void main(){ vec2 p[6]=vec2[6](vec2(-1.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(-1.,-1.),vec2(1.,1.),vec2(-1.,1.)); vec2 v=p[gl_VertexID]; uv=mix(atlas.xy,atlas.zw,vec2(1.-v.y,1.-v.x)*.5); gl_Position=transform*vec4(v*extent,0.,1.); }`, `#version 300 es
 precision mediump float; in vec2 uv; uniform sampler2D image; uniform vec4 tint; out vec4 color;
 void main(){color=texture(image,uv)*tint; if(color.a<.001)discard;}`);
-  const program = gl.createProgram(); gl.attachShader(program, vertex); gl.attachShader(program, fragment); gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
   const uniforms = Object.fromEntries(['transform', 'atlas', 'extent', 'image', 'tint'].map(name => [name, gl.getUniformLocation(program, name)]));
   const vao = gl.createVertexArray(), projection = new Matrix4();
   return {
@@ -71,7 +48,7 @@ void main(){color=texture(image,uv)*tint; if(color.a<.001)discard;}`);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthMask(previous.depthMask); gl.bindTexture(gl.TEXTURE_2D, previousTexture); gl.activeTexture(previous.active);
       gl.bindVertexArray(previous.vao); gl.useProgram(previous.program);
     },
-    dispose() { gl.deleteVertexArray(vao); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); },
+    dispose() { gl.deleteVertexArray(vao); gl.deleteProgram(program); },
   };
 }
 
@@ -139,11 +116,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
             const image = await decode(asset, { Image:definition.resourcePath });
             if (disposed) break;
             const texture = gl.createTexture(); textures.add(texture);
-            gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texture);
-            const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
-            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+            uploadTexture(gl, texture, image);
             resources.set(key, { texture });
           }
         } catch (cause) { warn(`Event ${definition.resourcePath}: ${cause.message}`); }
@@ -203,8 +176,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
               state.vao = gl.createVertexArray(); gl.bindVertexArray(state.vao);
               state.native = new ModelRenderer(structuredClone(resource.source)); state.native.initGL(gl); state.native.setSequence(0);
               if (state.native.ribbonsController) {
-                const controller = state.native.ribbonsController, update = controller.update; let previous = Date.now();
-                controller.update = function(delta) { const now = Date.now(), shift = now - previous - delta; previous = now; for (const emitter of this.emitters || []) for (let i = 0; i < emitter.creationTimes.length; i++) emitter.creationTimes[i] += shift; return update.call(this, delta); };
+                compensateRibbonWallClock(state.native.ribbonsController);
               }
               for (const [name,image] of resource.images) image.data ? state.native.setTextureImageData(name,[image]) : state.native.setTextureImage(name,image);
             } catch (cause) { if (state.native) destroyRenderer(state.native); state.native = null; state.failed = true; warn(`Event renderer: ${cause.message}`); }
@@ -228,7 +200,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
         const inverse = state.world.clone().invert(), position = camera.position.clone().applyMatrix4(inverse);
         const rotation = new Quaternion().setFromRotationMatrix(inverse).multiply(camera.quaternion).multiply(billboardCameraCorrection);
         native.setCamera(position.toArray(),rotation.toArray());
-        const color = new Color(teamColor || '#ff0000'); native.setTeamColor([color.r,color.g,color.b]);
+        native.setTeamColor(nativeTeamColor(teamColor || DEFAULT_TEAM_COLOR));
         const matrix = new Matrix4().multiplyMatrices(camera.matrixWorldInverse,state.world);
         gl.bindVertexArray(state.vao); gl.depthFunc(gl.LEQUAL); native.render(matrix.elements,camera.projectionMatrix.elements,{wireframe:false,useEnvironmentMap:false});
       }

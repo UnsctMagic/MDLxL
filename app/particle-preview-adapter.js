@@ -3,6 +3,7 @@ import { ModelRenderer } from 'war3-model';
 import { particleSweepPath } from '../src/particle-sweep.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { screenPlaneTranslation } from './viewport-math.js';
+import { teamColorPixels } from './viewport-quality.js';
 import { sampleTrack, skinGeoset, sampleGeosetAnimation } from '../src/animation.js';
 import { pickParticleSamples } from '../src/particle-handles.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
@@ -172,11 +173,7 @@ export function pickPreviewParticles(native,camera,width,height,x,y,selectedId,h
   const replacements=[...native.model.Textures.map((texture,id)=>[texture,id]),...native.model.ParticleEmitters2.filter(p=>[1,2].includes(p.ReplaceableId)).map(p=>[{ReplaceableId:p.ReplaceableId},'replacement:'+p.ReplaceableId])];
   replacements.forEach(([texture,id])=>{
     if(texture.ReplaceableId!==1&&texture.ReplaceableId!==2)return;
-    const size=32,data=new Uint8Array(size*size*4),color=native.rendererData.teamColor||[1,0,0];
-    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-      const factor=texture.ReplaceableId===2?Math.sin(Math.max(0,Math.min(1,1-Math.hypot((x+.5)/size-.5,(y+.5)/size-.5)*2*1.4))):1,offset=(y*size+x)*4;
-      for(let k=0;k<3;k++)data[offset+k]=Math.round(255*color[k]*factor);data[offset+3]=255;
-    }
+    const size=32,data=teamColorPixels(texture.ReplaceableId,native.rendererData.teamColor||[1,0,0],size);
     pictures.set(id,{width:size,height:size,data,flags:0});
   });
   const depth=particleOpaqueDepth(native,camera,width,height,x,y,hiddenGeosets,pictures);

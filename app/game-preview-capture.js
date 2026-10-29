@@ -62,3 +62,13 @@ export function previewPlaybackStep(interval, frame, delta, loop = true) {
   if (!loop && current + elapsed >= end) return { frame: start, elapsed: Math.max(0, end - current), finished: true };
   return { frame: loop ? start + ((current - start + elapsed) % duration) : current + elapsed, elapsed, finished: false };
 }
+
+/** Hidden thumbnail queues: wait for the preview, frame it, return a PNG data URL.
+ * `camera` is an optional { current } holder: the first call frames the model and
+ * stores that view, later calls reuse it so a set of thumbnails shares one camera. */
+export async function capturePreviewThumbnail(api, { maxDimension = 256, camera } = {}) {
+  await api.whenReady();
+  if (camera?.current) api.setCameraView(camera.current);
+  else { api.fit(); if (camera) camera.current = api.cameraView(); }
+  return api.captureFrame({ maxDimension }).toDataURL('image/png');
+}
