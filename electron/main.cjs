@@ -296,7 +296,6 @@ async function saveArtifact(payload){
   catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
 ipcMain.handle('artifact:save',(_,payload)=>{const operation=artifactSaveQueue.catch(()=>{}).then(()=>saveArtifact(payload));artifactSaveQueue=operation;return operation;});
-const imageExtensions=IMAGE_EXTENSIONS;
 async function resolveTextures(payload, extensions){
   if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');
   if(!payload.names.length)return [];
@@ -570,7 +569,7 @@ function saveBeforeClose(current){
   current.webContents.send('app:saveBeforeClose',requestId);
 }
 async function readTexture(file,logicalName){const stat=await fs.stat(file);if(stat.size>64*1024*1024)throw new Error('Texture exceeds 64 MB.');return {name:logicalName||path.basename(file),bytes:await fs.readFile(file)};}
-ipcMain.handle('texture:open',async()=>{const result=await dialog.showOpenDialog(win,{filters:[{name:'Textures',extensions:imageExtensions}],properties:['openFile','multiSelections']});if(result.canceled)return [];return Promise.all(result.filePaths.map(p=>readTexture(p)));});
+ipcMain.handle('texture:open',async()=>{const result=await dialog.showOpenDialog(win,{filters:[{name:'Textures',extensions:IMAGE_EXTENSIONS}],properties:['openFile','multiSelections']});if(result.canceled)return [];return Promise.all(result.filePaths.map(p=>readTexture(p)));});
 ipcMain.handle('texture:folder',async(_,requested)=>{
   const result=await dialog.showOpenDialog(win,{title:'Choose a texture root folder',properties:['openDirectory']});if(result.canceled)return [];
   const root=path.resolve(result.filePaths[0]);const loaded=[];
@@ -579,7 +578,7 @@ ipcMain.handle('texture:folder',async(_,requested)=>{
     const relative=name.replace(/[\\/]+/g,path.sep);
     for(const candidate of [path.resolve(root,relative),path.resolve(root,path.basename(relative))]){
       if(!candidate.toLowerCase().startsWith(root.toLowerCase()+path.sep))continue;
-      if(!imageExtensions.includes(path.extname(candidate).slice(1).toLowerCase()))continue;
+      if(!IMAGE_EXTENSIONS.includes(path.extname(candidate).slice(1).toLowerCase()))continue;
       try{loaded.push(await readTexture(candidate,name));break;}catch(error){if(!['ENOENT','EISDIR'].includes(error.code))throw error;}
     }
   }
