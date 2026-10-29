@@ -229,3 +229,6 @@ code and may be removed.
   Refined item 5 to omit the separator space for reserved-looking user comments
   (native metadata requires that space), preserving pre-existing backslashes
   without an ambiguous escape scheme. Literal-prefix regression passed.
+- [x] Item 18: moved popup eye textures under Warcraft data and added the
+  existing Blizzard rights/no-new-license wording. Paths and provenance retained;
+  inspected the resulting Markdown section boundaries.
