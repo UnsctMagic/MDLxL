@@ -1,0 +1,121 @@
+files=497 window=10 duplicate blocks=46 duplicated normalized lines (sum over pairs)=808
+
+  77  test/pose-complex.electron.cjs:22-110  <->  test/pose-setup.electron.cjs:22-110
+      const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', M
+  36  test/particle-ribbon-fit.electron.cjs:5-41  <->  test/ribbon-track.electron.cjs:5-41
+      const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader('D:/Warcraft III',root);let bytes; | try{bytes=await reader.read('war3.w3mod:units\\orc
+  32  test/movement-gizmo-layout.electron.cjs:12-50  <->  test/pose-performance.electron.cjs:14-52
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  29  test/movement-gizmo-layout.electron.cjs:12-46  <->  test/pose-view.electron.cjs:12-46
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  29  test/pose-performance.electron.cjs:14-48  <->  test/pose-view.electron.cjs:12-46
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  24  test/movement-gizmo-layout.electron.cjs:15-43  <->  test/pose-complex.electron.cjs:17-45
+      const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements
+  24  test/pose-complex.electron.cjs:17-45  <->  test/pose-performance.electron.cjs:17-45
+      const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements
+  24  test/pose-complex.electron.cjs:17-45  <->  test/pose-view.electron.cjs:15-43
+      const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements
+  23  test/movement-gizmo-layout.electron.cjs:12-37  <->  test/movement-gizmo.electron.cjs:13-38
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  23  test/movement-gizmo.electron.cjs:13-38  <->  test/pose-performance.electron.cjs:14-39
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  23  test/movement-gizmo.electron.cjs:13-38  <->  test/pose-view.electron.cjs:12-37
+      fs.mkdirSync(out, { recursive: true }); | const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findInd
+  21  test/movement-gizmo.electron.cjs:16-38  <->  test/pose-complex.electron.cjs:17-39
+      const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements
+  20  test/pose-console.electron.cjs:28-50  <->  test/pose-copy-body.electron.cjs:29-51
+      await page.evaluate(() => { | window.poseProbe = () => { | const root = document.querySelector('.game-preview-root'); let runtime, props, session;
+  19  test/movement-gizmo-layout.electron.cjs:20-43  <->  test/pose-setup.electron.cjs:22-45
+      const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', M
+  19  test/pose-performance.electron.cjs:22-45  <->  test/pose-setup.electron.cjs:22-45
+      const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', M
+  19  test/pose-setup.electron.cjs:22-45  <->  test/pose-view.electron.cjs:20-43
+      const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', M
+  17  test/ai-live-tabs.electron.cjs:34-51  <->  test/ai-live.electron.cjs:34-51
+      Normals: new Float32Array([0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), | Faces: new Uint16Array([0, 1, 2, 0, 2, 3]), | VertexGroup: new Uint8Array(4),
+  17  test/citadel-edges.electron.cjs:5-24  <->  test/citadel-flow.electron.cjs:5-24
+      if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman.'); | fs.mkdirSync(out,{recursive:true});const sourceHash=createHash('sha256').
+  17  test/citadel-edges.electron.cjs:5-24  <->  test/citadel-locales.electron.cjs:5-24
+      if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman.'); | fs.mkdirSync(out,{recursive:true});const sourceHash=createHash('sha256').
+  17  test/citadel-flow.electron.cjs:5-24  <->  test/citadel-locales.electron.cjs:5-24
+      if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman.'); | fs.mkdirSync(out,{recursive:true});const sourceHash=createHash('sha256').
+  17  test/pose-ik.electron.cjs:32-51  <->  test/pose-ragdoll.electron.cjs:32-51
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  16  test/movement-gizmo.electron.cjs:21-38  <->  test/pose-setup.electron.cjs:22-39
+      const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', M
+  14  test/pose-ik.electron.cjs:2-16  <->  test/pose-ragdoll.electron.cjs:2-16
+      const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto'); | const { _electron } = req
+  12  test/pose-complex.electron.cjs:2-14  <->  test/pose-performance.electron.cjs:2-14
+      const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto'); | const { _electron } = req
+  12  test/uv-grabthrough.electron.cjs:31-44  <->  test/uv-preview-picking.electron.cjs:34-47
+      window.uvState = () => { | const root = document.querySelector('.uv-workspace'); | let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber')
+  11  test/ai-awareness.electron.cjs:31-43  <->  test/ai-versions.electron.cjs:17-29
+      async function rpc(method, params = {}) { | const response = await fetch(link.url, { | method: 'POST',
+  11  test/movement-gizmo-layout.electron.cjs:52-63  <->  test/pose-performance.electron.cjs:54-65
+      const menu = command => command === 'undo' ? page.keyboard.press('Control+z') : command === 'redo' ? page.keyboard.press('Control+y') : app.evaluate(({ BrowserW
+  11  test/movement-gizmo-layout.electron.cjs:49-60  <->  test/pose-view.electron.cjs:49-60
+      const settle = () => page.waitForTimeout(180); | const tool = name => page.getByRole('group', { name: 'Movement tool', exact: true }).getByRole('button', { name
+  11  test/movement-gizmo-layout.electron.cjs:26-37  <->  test/pose-ik.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/movement-gizmo-layout.electron.cjs:26-37  <->  test/pose-ragdoll.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/movement-gizmo.electron.cjs:27-38  <->  test/pose-ik.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/movement-gizmo.electron.cjs:27-38  <->  test/pose-ragdoll.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-complex.electron.cjs:28-39  <->  test/pose-ik.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-complex.electron.cjs:28-39  <->  test/pose-ragdoll.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-complex.electron.cjs:86-97  <->  test/pose-ragdoll.electron.cjs:86-97
+      const source = samplePreviewMatrices(before.model, preview.frame, preview.sequence, preview.frame, camera); | meshMoved = preview.model.Geosets.some(geoset => {
+  11  test/pose-ik.electron.cjs:32-43  <->  test/pose-performance.electron.cjs:28-39
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-ik.electron.cjs:32-43  <->  test/pose-setup.electron.cjs:28-39
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-ik.electron.cjs:32-43  <->  test/pose-view.electron.cjs:26-37
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-performance.electron.cjs:28-39  <->  test/pose-ragdoll.electron.cjs:32-43
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-ragdoll.electron.cjs:32-43  <->  test/pose-setup.electron.cjs:28-39
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  11  test/pose-ragdoll.electron.cjs:86-97  <->  test/pose-setup.electron.cjs:86-97
+      const source = samplePreviewMatrices(before.model, preview.frame, preview.sequence, preview.frame, camera); | meshMoved = preview.model.Geosets.some(geoset => {
+  11  test/pose-ragdoll.electron.cjs:32-43  <->  test/pose-view.electron.cjs:26-37
+      await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); | await page.evaluate(() => { | window.poseProbe = () => {
+  10  test/ai-awareness.electron.cjs:61-71  <->  test/ai-live.electron.cjs:59-69
+      args: [fixture], | env: { | ...process.env,
+  10  test/citadel-brushes.electron.cjs:5-14  <->  test/citadel-studio.electron.cjs:5-14
+      if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman.'); | fs.mkdirSync(out,{recursive:true});const sourceHash=createHash('sha256').
+  10  test/pose-ik.electron.cjs:19-29  <->  test/pose-ragdoll.electron.cjs:19-29
+      fs.mkdirSync(out, { recursive: true }); | fs.cpSync(path.join(path.dirname(fixture), 'Textures'), path.join(out, 'Textures'), { recursive: true }); | const fixt
+  10  test/optimizexl-format.electron.cjs:15-26  <->  test/optimizexl-spline.electron.cjs:16-27
+      await app.evaluate(({BrowserWindow,dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});for(const w of BrowserWindow.get
+
+Most-involved files:
+  215  test/pose-complex.electron.cjs
+  183  test/pose-setup.electron.cjs
+  172  test/pose-performance.electron.cjs
+  171  test/movement-gizmo-layout.electron.cjs
+  157  test/pose-view.electron.cjs
+  129  test/pose-ragdoll.electron.cjs
+  128  test/movement-gizmo.electron.cjs
+  107  test/pose-ik.electron.cjs
+   36  test/particle-ribbon-fit.electron.cjs
+   36  test/ribbon-track.electron.cjs
+   34  test/citadel-edges.electron.cjs
+   34  test/citadel-flow.electron.cjs
+   34  test/citadel-locales.electron.cjs
+   27  test/ai-live.electron.cjs
+   21  test/ai-awareness.electron.cjs
+   20  test/pose-console.electron.cjs
+   20  test/pose-copy-body.electron.cjs
+   17  test/ai-live-tabs.electron.cjs
+   12  test/uv-grabthrough.electron.cjs
+   12  test/uv-preview-picking.electron.cjs
+   11  test/ai-versions.electron.cjs
+   10  test/citadel-brushes.electron.cjs
+   10  test/citadel-studio.electron.cjs
+   10  test/optimizexl-format.electron.cjs
+   10  test/optimizexl-spline.electron.cjs
