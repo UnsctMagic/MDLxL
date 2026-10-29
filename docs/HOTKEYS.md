@@ -47,9 +47,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
     | Paint: Paste texture | Ctrl+Alt+V | Alt+V |
     | Paint: Import image | Ctrl+Shift+O | Alt+O |
 
-    Citadel Paint's keys live in its own key handler
-    ([app/PaintStudioLayout.jsx](../app/PaintStudioLayout.jsx)). It handles them
-    before the rest of the app does.
+    Citadel Paint keeps its keycap renderer; its plain keys use the same catalog.
 
   - Patterns:
     - F4–F9 open the workspaces and editors.
@@ -80,6 +78,8 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
   - A key, once given, is saved with the discovered controls (`defaultKey`), so
     new controls never move an existing shortcut.
 
+Tool-window keys come from the catalog, including local Undo/Redo/Play and Paint’s plain keys. Window actions follow the user’s command bindings until rebound separately, so Settings, badges and Learn agree. Escape closes every tool window after its active inner state is cancelled. AI drawing tools, Learn, bone creation and shortcut recording keep their Escape order through claims; the generic `mdlxl-window-key` event carries `detail.scope` and `detail.event`.
+
 ## The same key in different windows
 
 A letter can mean different things in different windows. N is Show normals in
@@ -96,7 +96,7 @@ together.
 
 ## Workspaces that own keys first
 
-- Citadel Paint handles its own keys before the rest of the app.
+- Citadel Paint’s catalog actions take priority over mesh commands in Paint.
 - Forge's shape tools win inside Forge.
 - The focused UV editor owns the number pad, even when nothing is selected.
   Numpad keys there never reach digit shortcuts such as 6 (Team color) or

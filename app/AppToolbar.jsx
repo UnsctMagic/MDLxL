@@ -46,7 +46,7 @@ export default function AppToolbar({
     return () => window.removeEventListener('resize', position);
   }, [learnOpen, visUI]);
   useEffect(() => { if (learnOpen) dock.current.querySelector('.learn-menu')?.focus({ preventScroll: true }); }, [learnOpen]);
-  useDismiss(learnOpen, [() => dock.current?.querySelector('.learner-tool'), () => dock.current?.querySelector('.learn-menu')], () => setLearnOpen(false));
+  useDismiss(learnOpen, [() => dock.current?.querySelector('.learner-tool'), () => dock.current?.querySelector('.learn-menu')], () => setLearnOpen(false), {claimEscape:true, escapePriority:-20});
   useLayoutEffect(() => {
     const row = editorRow.current;
     row.removeAttribute('data-short-editors');

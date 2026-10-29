@@ -1,3 +1,4 @@
+import { useWindowKeyClaim } from './Hotkeys.jsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
 import ToolWindow from './ToolWindow.jsx';
@@ -153,10 +154,10 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
     setAdjusting(new Set()); setAllNumbers(false);
     requestAnimationFrame(() => root.current?.focus());
   };
-  const keys = event => {
-    event.stopPropagation();
-    if (event.key === 'Escape') { event.preventDefault(); if (open) setOpen(null); else onClose(); }
-  };
+  useWindowKeyClaim(({event, localWindow}) => {
+    if (localWindow !== root.current || event.key !== 'Escape' || !open) return false;
+    setOpen(null); return true;
+  });
 
   const statusOf = item => { const decision = decisionOf(item); return decision?.leave ? 'leave' : decisionChanges(decision) ? 'selected' : ''; };
   const details = item => {
@@ -242,7 +243,7 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
   const mergedInto = new Map();
   for (const [id, target] of applied?.report.merged || []) mergedInto.set(target, [...(mergedInto.get(target) || [target]), id]);
   const common = { textureAssets, modelPath, preferences: previewPreferences, teamColor, presentation: 'preview', sequenceIndex: sequence, time, seekId, playing: false, syncPlayback: true, playbackRunning: playing, playbackGlobalTime: globalTime, cameraMode: 'rotate', compareCamera: camera.current, preserveCameraView: true, showGrid: false, showAxes: false, showParticles: false };
-  return <ToolWindow title="Sort My Mess" overlayClass="smm-overlay" className="smm-window" ownEscape windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'sort-my-mess' }}
+  return <ToolWindow title="Sort My Mess" overlayClass="smm-overlay" className="smm-window" windowRef={root} onClose={onClose} sectionProps={{ 'data-hotkey-scope': 'sort-my-mess' }}
     caption={<><strong>Sort My Mess</strong><span className="smm-muted">{`${inventory.counts.geosets} geosets · ${inventory.counts.materials} materials · ${inventory.counts.textures} textures · ${groups.length} texture groups`}</span></>}>
       <div className="smm-body">
         <div className="smm-left">

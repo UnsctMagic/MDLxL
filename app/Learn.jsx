@@ -52,13 +52,13 @@ export default function Learn({ settings }) {
     let serial = 0;
     const save = next => { notebook.current = next; storeNotebook(next); };
     /** Citadel Paint's keys are its own (`data-paint-key`); everything else uses the shortcut settings. */
-    const keysOf = id => id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : latest.current.shortcuts[id];
+    const keysOf = id => latest.current.shortcuts[id] || (id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : undefined);
     const show = (id, element) => {
       // A window's extra Close / Cancel / Done buttons close it like its own close button: with Esc,
       // when Esc closes that window (in Forge it clears the selection).
       // Only hand-picked command keys are taught: a window's own buttons get keys from their names
       // (Settings' file icons), which are for working that window, not for learning.
-      const command = id.startsWith(PAINT_KEY_PREFIX) || latest.current.catalog.some(action => action.id === id && !action.contextual);
+      const command = id.startsWith(PAINT_KEY_PREFIX) || latest.current.catalog.some(action => action.id === id && (!action.contextual || action.bindingCommand || action.keys));
       const label = element?.getAttribute('aria-label') || element?.textContent || '';
       const closer = !command && isCloseControl(id, label) && [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts="Escape"]') || [])]
         .some(other => isCloseControl(controlActionId(other), other.getAttribute('aria-label') || other.textContent || ''));
@@ -75,7 +75,7 @@ export default function Learn({ settings }) {
       if (!event.isTrusted || event.detail === 0) return;
       if (event.target.closest?.(OWN_UI)) return;
       const paintKey = event.target.closest?.('[data-paint-key]');
-      if (paintKey) { show(PAINT_KEY_PREFIX + paintKey.getAttribute('data-paint-key'), paintKey); return; }
+      if (paintKey && !paintKey.hasAttribute('data-hotkey')) { show(PAINT_KEY_PREFIX + paintKey.getAttribute('data-paint-key'), paintKey); return; }
       const element = event.target.closest?.('[data-hotkey]');
       if (!element || !element.matches(CONTROLS)) return;
       const id = controlActionId(element);
@@ -83,8 +83,10 @@ export default function Learn({ settings }) {
     };
     const menu = event => { if (typeof event.detail?.id === 'string') show(event.detail.id, null); };
     const used = event => {
-      const { id, chord, event: source } = event.detail || {};
-      if (typeof id !== 'string') return;
+      const { id: actionId, chord, event: source } = event.detail || {};
+      if (typeof actionId !== 'string') return;
+      // Paint sliders retain their composite keycap (for example − +) and shared notebook entry.
+      const id = latest.current.catalog.find(action => action.id === actionId)?.learnGroup || actionId;
       // Pressing the key a popup shows closes it, even when another button owns that key (Esc).
       const current = latest.current.popup;
       if (current && (current.id === id || chord && current.chord === formatChord(chord))) setPopup(null);

@@ -1,3 +1,4 @@
+import { useWindowKeyClaim } from './Hotkeys.jsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
 import ToolWindow from './ToolWindow.jsx';
@@ -67,12 +68,9 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
     try { if (onCommit({ rows: plan.rows, chosen, pivots: pivots.current, parents }) !== false) onClose(); }
     catch (cause) { setError(cause.message); }
   };
-  const keys = event => {
-    event.stopPropagation();
-    if (event.key === 'Escape' && !picking) { event.preventDefault(); onClose(); }
-  };
+  useWindowKeyClaim(({event, localWindow}) => localWindow === root.current && event.key === 'Escape' && !!picking);
 
-  return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" ownEscape windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
+  return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" windowRef={root} onClose={onClose} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
     caption={<><strong title="Places the standard attachment points where Blizzard's own units have them, on the right bones.">Attachemator</strong><span className="atm-spacer"/></>}>
       <div className="atm-body">
         <div className="atm-list" role="table" aria-label="Attachment points">

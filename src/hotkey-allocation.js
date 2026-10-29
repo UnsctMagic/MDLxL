@@ -59,13 +59,19 @@ export const isCloseControl = (id, label = '') => /(^|:)close$/.test(id) || /^(c
  * Alt+, Ctrl+ and F keys, for crowded windows. Returns id → key;
  * a control that finds no free key is left out.
  */
-export function allocateGroup(controls, taken = [], { editor = false, wide = editor } = {}) {
+export function allocateGroup(controls, taken = [], { editor = false, wide = editor, bindings = {} } = {}) {
   const used = new Set([...taken, ...(editor ? [] : DIALOG_KEEP)]), result = new Map();
-  const order = [...controls].sort((a, b) => Number(isCloseControl(b.id, b.label)) - Number(isCloseControl(a.id, a.label)) || CONTROL_KINDS.indexOf(a.kind || 'action') - CONTROL_KINDS.indexOf(b.kind || 'action'));
+  const order = [...controls].sort((a, b) => Number(isCloseControl(b.id, b.label)) - Number(isCloseControl(a.id, a.label)) || Number(!!(b.bindingCommand || b.keys)) - Number(!!(a.bindingCommand || a.keys)) || CONTROL_KINDS.indexOf(a.kind || 'action') - CONTROL_KINDS.indexOf(b.kind || 'action'));
   for (const control of order) {
     if (perItemControl(control.id)) continue;
     if (isCloseControl(control.id, control.label)) {
       if (!editor && !used.has('Escape')) { used.add('Escape'); result.set(control.id, 'Escape'); }
+      continue;
+    }
+    if (control.bindingCommand || control.keys) {
+      const keys = control.bindingCommand ? bindings[control.bindingCommand] || [] : control.keys;
+      for (const key of keys) used.add(key);
+      result.set(control.id, keys);
       continue;
     }
     const key = keyCandidates(allocationWords(control.id, control.label), { editor: wide }).find(candidate => !used.has(candidate));

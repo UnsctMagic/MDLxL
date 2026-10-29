@@ -373,7 +373,7 @@ export default function AnimationController({
     <button disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
     </SidebarSection>
     {error && !speedMenu && !reorder && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
-    {reorder && <Dialog title="Reorder Animations" onClose={() => setReorder(null)} overlayClass="ac-reorder-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setReorder(null); }} footer={<><button onClick={() => setReorder(null)}>Cancel</button><button disabled={disabled || reorder.order.every((index, position) => index === position)} onClick={applyReorder}>Apply</button></>}>
+    {reorder && <Dialog title="Reorder Animations" onClose={() => setReorder(null)} overlayClass="ac-reorder-menu" footer={<><button onClick={() => setReorder(null)}>Cancel</button><button disabled={disabled || reorder.order.every((index, position) => index === position)} onClick={applyReorder}>Apply</button></>}>
       <select aria-label="Animation order type" value={reorder.global ? 'global' : 'local'} onChange={event => openReorder(event.target.value === 'global')}><option value="local">Animations</option><option value="global">Global sequences</option></select>
       <select className="ac-reorder-list" aria-label="Animation order" size="10" value={reorder.selected} onChange={event => setReorder(current => ({ ...current, selected: Number(event.target.value) }))}>
         {reorder.order.map((index, position) => <option key={index} value={index} translate="no">{position + 1}. {reorder.global ? `${model.GlobalSequences[index]} ms (${index + 1})` : model.Sequences[index]?.Name}</option>)}
@@ -388,7 +388,7 @@ export default function AnimationController({
       {!reorder.global && <p>Animation indices change to match this order.</p>}
       {error && <p className="ac-error" role="alert">{error}</p>}
     </Dialog>}
-    {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
+    {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu">
       <SpeedControl label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onCommit={percent => changeActualSpeed(null, percent)}/>
       <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
         <label className="ac-speed-name"><input type="checkbox" aria-label={`Include ${item.Name} in Master Controller`} checked={animationSpeedChecked(item)} disabled={disabled} onChange={event => commit('Select animation for Master Controller', ['Sequences', ANIMATION_SPEED_KEY], current => setAnimationSpeedChecked(current, index, event.target.checked), '')}/><span translate="no">{item.Name}</span></label>

@@ -7,9 +7,16 @@ import {PAINT_BRUSH_SHAPES} from '../src/paint-brush-shapes.js';
 import {paintRampColor} from '../src/paint-palette.js';
 import {paintRegionEntries} from '../src/paint-region.js';
 import {PAINT_KEY_PREFIX,paintKeyLabel} from '../src/learn-keycaps.js';
+import {normalizeChord,isTextEditingTarget} from '../src/preferences.js';
+import {useHotkeys,useWindowHotkeys,useWindowKeyClaim} from './Hotkeys.jsx';
+const paintChord = key => typeof key === 'string' && !/[ /]|hold/.test(key) ? normalizeChord(key.replace('↵','Enter')) : '';
+const paintActionId = key => paintChord(key) ? PAINT_KEY_PREFIX + key : undefined;
 
-export function PaintKey({children}){return <kbd aria-hidden="true" className="paint-key">{children}</kbd>;}
-function Action({label,keys,children,title,...props}){return <button aria-label={label} data-paint-key={keys||undefined} title={title||(keys?`${label} (${keys})`:label)} {...props}>{children}{label}{keys&&<PaintKey>{keys}</PaintKey>}</button>;}
+export function PaintKey({children,actionId}){
+  const {shortcuts}=useHotkeys(),id=actionId||paintActionId(children);
+  return <kbd aria-hidden="true" className="paint-key">{id&&shortcuts[id] ? shortcuts[id].join(' / ') : children}</kbd>;
+}
+function Action({label,keys,children,title,...props}){return <button aria-label={label} data-paint-key={keys||undefined} data-hotkey={paintActionId(keys)} data-hotkey-absolute data-hotkey-badges="false" title={title||label} {...props}>{children}{label}{keys&&<PaintKey>{keys}</PaintKey>}</button>;}
 function Slider({label,value,min=0,max=1,step=.01,onChange,suffix='',keys}){
   return <RangeField className="studio-slider" label={<>{label}{keys&&<PaintKey>{keys}</PaintKey>}</>} aria-label={label} inputProps={{'data-paint-key':keys||undefined}} min={min} max={max} step={step} value={value} onChange={onChange}><input aria-label={label+' value'} type="number" min={min} max={max} step={step} value={Number(value.toFixed(2))} onChange={e=>{if(Number.isFinite(e.target.valueAsNumber))onChange(Math.max(min,Math.min(max,e.target.valueAsNumber)));}}/><small>{suffix}</small></RangeField>;
 }
@@ -28,44 +35,41 @@ function StrokeHistory({strokes,disabled,onToggle,open,setOpen}){
 }
 
 export default function PaintStudioLayout(p){
-  const {project,brush,material,tool}=p,controls=useRef(),keys=useRef(),[help,setHelp]=useState(false),[strokeList,setStrokeList]=useState(null);
+  const {project,brush,material,tool}=p,controls=useRef(),outsideKey=useRef(),[help,setHelp]=useState(false),[strokeList,setStrokeList]=useState(null);
   const limited=!!p.region||p.targetMode==='geoset'||!!p.textureRegion;
   const selectedParts=paintRegionEntries(p.region),faceCount=selectedParts.reduce((n,[,faces])=>n+faces.size,0);
   useLayoutEffect(()=>{if(controls.current)controls.current.scrollTop=0;},[tool,material?.id]);
-  keys.current=e=>{
-    if(!project||p.disabled||p.dialog)return;
-    if(e.target.closest('.learn-menu'))return;
-    if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
-    if(help&&e.key!=='Escape'&&e.key!=='?'){if(!['Tab','Enter',' '].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();}return;}
-    const k=/^Key[A-Z]$/.test(e.code)?e.code.slice(3).toLowerCase():e.code==='Comma'?',':e.code==='Period'?'.':e.key.toLowerCase(),ctrl=e.ctrlKey||e.metaKey;
-    let act;
-    if(k==='escape')act=()=>{p.onCancel();setHelp(false);setStrokeList(null);};
-    else if(k==='?')act=()=>setHelp(v=>!v);
-    else if(ctrl){
-      act=({a:p.onSelectAll,c:p.onCopy,v:p.onPaste,x:()=>p.onCopy(true),d:p.onClearSelection,i:p.onInvertSelection,z:()=>p.onHistory(e.shiftKey),y:()=>p.onHistory(true),s:p.onSave,o:p.onOpen,n:p.onNew,e:p.onExport,enter:p.onDone,j:p.onSeparate,k:p.onSaveSource})[k];
-    }else if(e.altKey){
-      // Two keys at most: Alt with a letter for the texture clipboard, cutting a patch and importing.
-      if(!e.shiftKey)act=({c:p.onCopyTexture,v:p.onPasteTexture,x:p.onGrab,o:p.onImport})[k];
-    }else{
-      act=({b:()=>p.onTool('paint'),t:()=>p.onTool('stamp'),e:()=>p.onTool('erase'),n:()=>p.onTool('smudge'),z:e.shiftKey?p.onUndoStroke:undefined,d:()=>p.onTool('blend'),i:()=>p.onTool('sample'),q:p.onSelectToggle,p:()=>p.onSelectionKind('piece'),g:()=>p.onSelectionKind('geoset'),f:e.shiftKey?p.onFill:()=>p.onSelectionKind('faces'),x:p.onTextureMask,l:()=>limited&&p.onIsolate(!p.isolate),o:p.onOutlines,y:p.onColorfy,h:p.onShading,c:p.onPalette,m:e.shiftKey?()=>p.onTextureAction('mirror'):p.onFlip,r:()=>p.onOutside(true),',':()=>p.onStampAngle((p.stampAngle-15+540)%360-180),'.':()=>p.onStampAngle((p.stampAngle+15+540)%360-180),k:p.onCrop,j:p.onNative,home:p.onFrame,f6:p.onOriginal,s:()=>p.onTextureAction('select'),u:()=>p.onTextureAction('mapping'),w:()=>p.onTextureAction('mesh'),'0':()=>p.onTextureAction('fit'),'[':()=>p.onBrush({size:Math.max(1,Math.round(brush.size*.8))}),']':()=>p.onBrush({size:Math.min(1024,Math.max(brush.size+1,Math.round(brush.size*1.25)))}),'-':()=>p.onBrush({opacity:Math.max(0,brush.opacity-.1)}),'=':()=>p.onBrush({opacity:Math.min(1,brush.opacity+.1)}),'+':()=>p.onBrush({opacity:Math.min(1,brush.opacity+.1)})})[k];
-      if(e.shiftKey&&(['BracketLeft','BracketRight'].includes(e.code)||['[',']','{','}'].includes(k))){const increase=e.code==='BracketRight'||k===']'||k==='}';act=()=>p.onBrush(tool==='blend'?{blendStrength:Math.max(0,Math.min(1,(brush.blendStrength??.15)+(increase?.05:-.05)))}:{hardness:Math.max(0,Math.min(1,brush.hardness+(increase?-.05:.05)))});}
-      if(['1','2','3'].includes(k))act=()=>p.onBorrowMode(['image','texture','highlights'][+k-1]);
-      if(['4','5','6','7','8'].includes(k))act=()=>p.onShape(PAINT_BRUSH_SHAPES[+k-4].id);
-    }
-    if(act){e.preventDefault();e.stopImmediatePropagation();act();
-      // Learn reminders count Paint's own keys like any other shortcut.
-      window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used',{detail:{id:PAINT_KEY_PREFIX+paintKeyLabel(k,{ctrl,shift:e.shiftKey,alt:e.altKey}),event:e}}));}
-  };
+  const entries = [
+    ...[['B','Paint','paint'],['T','Stamp','stamp'],['E','Erase','erase'],['N','Smudge','smudge'],['D','Blend brush','blend'],['I','Pick color','sample']].map(([key,label,tool])=>[key,label,()=>p.onTool(tool)]),
+    ['Q','Select',p.onSelectToggle],...['piece','geoset','faces'].map((kind,i)=>[['P','G','F'][i],['Connected piece','Geoset','Faces'][i],()=>p.onSelectionKind(kind)]),['Shift+F','Fill selection',p.onFill],
+    ['X','Protect texture pixels',p.onTextureMask],['L','Isolate',()=>limited&&p.onIsolate(!p.isolate)],['O','Outlines',p.onOutlines],['Y','Colorfy',p.onColorfy],['H','Shade',p.onShading],['C','Build related color palette',p.onPalette],
+    ['M','Mirror stamp',p.onFlip],['Shift+M','Mirror the selected UVs',()=>p.onTextureAction('mirror')],['R','Paint outside the edge',event=>{outsideKey.current=event.code;p.onOutside(true);}],
+    [',','Rotate stamp left',()=>p.onStampAngle((p.stampAngle-15+540)%360-180)],['.','Rotate stamp right',()=>p.onStampAngle((p.stampAngle+15+540)%360-180)],['K','Cut source',p.onCrop],['J','WC3 library',p.onNative],['Home','Frame model',p.onFrame],['F6','Original',p.onOriginal],
+    ...[['S','Select pixels','select'],['U','Adjust UVs','mapping'],['W','UV mesh','mesh'],['0','Fit texture','fit']].map(([key,label,kind])=>[key,label,()=>p.onTextureAction(kind)]),
+    ['[','Smaller brush',()=>p.onBrush({size:Math.max(1,Math.round(brush.size*.8))})],[']','Larger brush',()=>p.onBrush({size:Math.min(1024,Math.max(brush.size+1,Math.round(brush.size*1.25)))})],
+    ['-','Lower opacity',()=>p.onBrush({opacity:Math.max(0,brush.opacity-.1)})],['=','Raise opacity',()=>p.onBrush({opacity:Math.min(1,brush.opacity+.1)})],
+    ...[false,true].map(increase=>['Shift+'+(increase?']':'['),increase?'Softer brush':'Harder brush',()=>p.onBrush(tool==='blend'?{blendStrength:Math.max(0,Math.min(1,(brush.blendStrength??.15)+(increase?.05:-.05)))}:{hardness:Math.max(0,Math.min(1,brush.hardness+(increase?-.05:.05)))})]),
+    ...['image','texture','highlights'].map((mode,i)=>[String(i+1),['Full image','Texture','Highlights'][i],()=>p.onBorrowMode(mode)]),
+    ...PAINT_BRUSH_SHAPES.slice(0,5).map((shape,i)=>[String(i+4),shape.name,()=>p.onShape(shape.id)]),
+    ['Ctrl+A','Select all',p.onSelectAll],['Ctrl+C','Copy selection',p.onCopy],['Ctrl+V','Paste as stamp',p.onPaste],['Ctrl+X','Copy and erase paint',()=>p.onCopy(true)],['Ctrl+D','Clear selection',p.onClearSelection],['Ctrl+I','Invert selection',p.onInvertSelection],
+    ['Ctrl+Z','Undo',()=>p.onHistory(false),'undo'],['Ctrl+Y','Redo',()=>p.onHistory(true),'redo'],['Shift+Z','Undo last brush stroke',p.onUndoStroke],
+    ['Ctrl+S','Save project',p.onSave],['Ctrl+O','Open…',p.onOpen],['Ctrl+N','New…',p.onNew],['Ctrl+E','Export…',p.onExport],['Ctrl+↵','Use paint on model',p.onDone],['Ctrl+J','Separate UVs',p.onSeparate],['Ctrl+K','Keep source',p.onSaveSource],
+    ['Alt+C','Copy texture',p.onCopyTexture],['Alt+V','Paste texture',p.onPasteTexture],['Alt+X','Cut patch',p.onGrab],['Alt+O','Import image',p.onImport],['?','Help',()=>setHelp(v=>!v)],
+  ];
+  useWindowHotkeys('paint', entries.map(([key,label,run,bindingCommand])=>({id:paintActionId(key),label,category:'Citadel Paint',keys:key==='?'?['?','Shift+?']:key==='='?['=','Shift+Plus']:key==='Shift+['?['Shift+{']:key==='Shift+]'?['Shift+}']:[paintChord(key)],bindingCommand,repeat:true,learnGroup:['[',']','Shift+[','Shift+]','-','=',',','.'].includes(key)?PAINT_KEY_PREFIX+paintKeyLabel(key.replace('Shift+',''),{shift:key.startsWith('Shift+')}):undefined,run,enabled:!!project&&!p.disabled&&!p.dialog&&!help})),!!project);
+  useWindowKeyClaim(({event,scope,localWindow})=>{
+    if(!project||p.disabled||p.dialog||event.key!=='Escape'||isTextEditingTarget(event.target)||localWindow&&!help||scope!=='paint'&&!help)return false;
+    p.onCancel();setHelp(false);setStrokeList(null);return true;
+  });
   const outsideAction=useRef();outsideAction.current=p.onOutside;
-  useEffect(()=>{const release=e=>{if(!e||e.code==='KeyR'||e.key?.toLowerCase()==='r')outsideAction.current(false);};window.addEventListener('keyup',release,true);window.addEventListener('blur',release);return()=>{window.removeEventListener('keyup',release,true);window.removeEventListener('blur',release);};},[]);
+  useEffect(()=>{const release=e=>{if(!e||e.code===outsideKey.current){outsideAction.current(false);outsideKey.current=null;}},blur=()=>release();window.addEventListener('keyup',release,true);window.addEventListener('blur',blur);return()=>{window.removeEventListener('keyup',release,true);window.removeEventListener('blur',blur);};},[]);
   useEffect(()=>{if(p.dialog||help||p.disabled)p.onOutside(false);},[p.dialog,help,p.disabled]);
-  useEffect(()=>{const listener=e=>keys.current(e),delegate=e=>{keys.current(e.detail);if(e.detail.defaultPrevented)e.preventDefault();};window.addEventListener('keydown',listener,true);window.addEventListener('mdlxl-paint-key',delegate);return()=>{window.removeEventListener('keydown',listener,true);window.removeEventListener('mdlxl-paint-key',delegate);};},[]);
-  return <div className={'paint-workspace paint-studio'+(!project?' paint-setup':'')} style={p.style}>
+  return <div className={'paint-workspace paint-studio'+(!project?' paint-setup':'')} style={p.style} data-hotkey-prefix="paint-studio" data-hotkey-scope="paint">
     {project&&<>
       <header className="paint-toolbar studio-toolbar"><strong>Paint</strong><div className="studio-tools" role="group" aria-label="Painting tools">
         {[['paint','Paint','B',Brush],['stamp','Stamp','T',Stamp],['erase','Erase','E',Eraser],['smudge','Smudge','N',FingerprintPattern,'Smudge (N): drag to push and smear the colors already painted, like a finger in wet paint.']].map(([id,label,key,Icon,title])=><Action key={id} label={label} keys={key} title={title} aria-pressed={id==='paint'?['paint','blend','sample'].includes(tool):tool===id} disabled={p.disabled} onClick={()=>p.onTool(id)}><Icon size={15}/></Action>)}
       </div><span className="paint-toolbar-spacer"/>
-      <Action label="Shade" keys="H" aria-pressed={p.shading} onClick={p.onShading}/><Action label="Outlines" keys="O" aria-pressed={p.outlines} onClick={p.onOutlines}/><Action label="Colorfy" keys="Y" aria-pressed={p.colorfy} onClick={p.onColorfy}/><Action label="Original" keys="F6" aria-pressed={p.original} onClick={p.onOriginal}/><button title="Frame model (Home)" aria-label="Frame model" data-paint-key="Home" onClick={p.onFrame}><Focus size={15}/><PaintKey>Home</PaintKey></button><Action label="Help" keys="?" onClick={()=>setHelp(v=>!v)}/>
+      <Action label="Shade" keys="H" aria-pressed={p.shading} onClick={p.onShading}/><Action label="Outlines" keys="O" aria-pressed={p.outlines} onClick={p.onOutlines}/><Action label="Colorfy" keys="Y" aria-pressed={p.colorfy} onClick={p.onColorfy}/><Action label="Original" keys="F6" aria-pressed={p.original} onClick={p.onOriginal}/><button title="Frame model (Home)" aria-label="Frame model" data-paint-key="Home" data-hotkey="paint-key:Home" data-hotkey-absolute data-hotkey-badges="false" onClick={p.onFrame}><Focus size={15}/><PaintKey>Home</PaintKey></button><Action label="Help" keys="?" onClick={()=>setHelp(v=>!v)}/>
       </header>
       <aside ref={controls} className="paint-panel paint-left studio-controls"><fieldset disabled={p.disabled}>
         <section className="studio-selection">
@@ -80,7 +84,7 @@ export default function PaintStudioLayout(p){
             <div className="studio-borrow" role="group" aria-label="Borrow">{[['image','Full image','1'],['texture','Texture','2'],['highlights','Highlights','3']].map(([id,label,key])=><Action key={id} label={label} keys={key} aria-pressed={p.borrowMode===id} onClick={()=>p.onBorrowMode(id)}/>)}</div>
           </section>
         </>:tool==='smudge'?null:<>
-          <section><div className="studio-segments"><Action label="Color" keys="B" aria-pressed={tool==='paint'} onClick={()=>p.onTool('paint')}/><Action label="Blend" keys="D" aria-pressed={tool==='blend'} onClick={()=>p.onTool('blend')}/><button title="Pick color (I)" aria-label="Pick color from model" data-paint-key="I" aria-pressed={tool==='sample'} onClick={()=>p.onTool('sample')}><Pipette size={14}/><PaintKey>I</PaintKey></button></div>
+          <section><div className="studio-segments"><Action label="Color" keys="B" aria-pressed={tool==='paint'} onClick={()=>p.onTool('paint')}/><Action label="Blend" keys="D" aria-pressed={tool==='blend'} onClick={()=>p.onTool('blend')}/><button title="Pick color (I)" aria-label="Pick color from model" data-paint-key="I" data-hotkey="paint-key:I" data-hotkey-absolute data-hotkey-badges="false" aria-pressed={tool==='sample'} onClick={()=>p.onTool('sample')}><Pipette size={14}/><PaintKey>I</PaintKey></button></div>
             <label className="paint-color">Color<input aria-label="Paint color" type="color" value={brush.color} onChange={e=>p.onBrush({color:e.target.value})}/></label>
             <div className="studio-swatches">{swatches.map(color=><button key={color} aria-label={'Color '+color} style={{background:color}} onClick={()=>p.onBrush({color})}/>)}</div>
             <Action label="Related colors" keys="C" onClick={p.onPalette}/>
@@ -98,8 +102,8 @@ export default function PaintStudioLayout(p){
     <section className={'paint-stage'+(project?' paint-stage-split':'')} style={{'--paint-split':p.split+'%'}}><div className="paint-model-view">{p.viewport}</div>
       {project?<><div className="paint-view-divider" role="separator" aria-label="Resize paint views" aria-orientation="horizontal" tabIndex={0} onKeyDown={e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();p.onSplit(p.split+(e.key==='ArrowUp'?-5:5));}}} onPointerDown={e=>e.currentTarget.setPointerCapture(e.pointerId)} onPointerMove={e=>{if(e.buttons===1){const rect=e.currentTarget.parentElement.getBoundingClientRect();p.onSplit((e.clientY-rect.top)/rect.height*100);}}}/>{p.texture}<div className="paint-stage-label">{p.outside?'Outside edge · selection stays protected':p.original?'Original skin':p.selecting?'Select parts · Q returns to brush':p.colorfy?'Colorfy · view only':limited?'Selection protects the rest':'Whole model'}</div><div className="paint-orbit-hint">{p.navigationHint}</div></>:<section className="paint-start-card"><h2>Citadel Paint</h2><p>Paint your model, borrow Warcraft textures, and mix them together.</p><div className="paint-start-options"><button aria-pressed={p.sourceMode==='current'} onClick={()=>p.onSourceMode('current')}><strong>Edit the texture</strong><span>Start with the skin already on your model.</span></button><button aria-pressed={p.sourceMode==='primer'} onClick={()=>p.onSourceMode('primer')}><strong>New base coat</strong><span>Start with a clean surface and paint your own.</span></button></div>{p.sourceMode==='primer'&&<label className="paint-color">Base coat color<input aria-label="Base coat color" type="color" value={brush.color} onChange={e=>p.onBrush({color:e.target.value})}/></label>}{p.sourceMode==='primer'&&<label className="paint-resolution">Texture size<select value={p.resolution} onChange={e=>p.onResolution(+e.target.value)}><option value="256">256 × 256</option><option value="512">512 × 512</option></select></label>}{p.sourceMode==='current'&&<details className="studio-start-detail"><summary>Texture detail</summary><label>Working size<select aria-label="Working size" value={p.resolution} onChange={e=>p.onResolution(+e.target.value)}><option value="512">512 px · Standard</option><option value="1024">1024 px · Fine detail</option><option value="0">Native · Exact pixel work</option></select></label><small>The skin keeps its layout. Only your working copy changes.</small></details>}<div className="paint-button-row"><button onClick={p.onOpen}>Open project…</button><button className="studio-primary" disabled={p.disabled} onClick={p.onBegin}>{p.busy?'Preparing…':'Begin painting'}</button></div></section>}
     </section>
-    {project&&<><aside className="paint-panel paint-right"><fieldset disabled={p.disabled}>{p.shelf}</fieldset></aside><footer className="paint-footer"><button title="Undo (Ctrl+Z)" aria-label="Undo paint" data-paint-key="Ctrl+Z" disabled={!project.history.undo.length||p.disabled} onClick={()=>p.onHistory(false)}><Undo2 size={16}/><PaintKey>Ctrl+Z</PaintKey></button><button title="Redo (Ctrl+Y)" aria-label="Redo paint" data-paint-key="Ctrl+Y" disabled={!project.history.redo.length||p.disabled} onClick={()=>p.onHistory(true)}><Redo2 size={16}/><PaintKey>Ctrl+Y</PaintKey></button><StrokeHistory strokes={p.strokes||[]} disabled={p.disabled} onToggle={p.onToggleStroke} open={strokeList} setOpen={setStrokeList}/><span role="status">{p.textureName} · {p.width} × {p.height}{project.dirty?' · Unsaved':''}</span><Action label="New…" keys="Ctrl+N" onClick={p.onNew}/><Action label="Open…" keys="Ctrl+O" onClick={p.onOpen}/><Action label="Save project" keys="Ctrl+S" disabled={p.disabled} onClick={p.onSave}/><Action label="Export…" keys="Ctrl+E" disabled={p.disabled} onClick={p.onExport}/><Action label="Use paint on model" keys="Ctrl+↵" className="studio-primary" disabled={p.disabled} onClick={p.onDone}/></footer></>}
-    {help&&<div className="paint-modal-shade"><section className="paint-shortcuts" role="dialog" aria-modal="true" aria-label="Paint shortcuts"><header><strong>Paint shortcuts</strong><button autoFocus onClick={()=>setHelp(false)}>Close <PaintKey>Esc</PaintKey></button></header><div>{shortcuts.map(([key,text])=><p key={key}><PaintKey>{key}</PaintKey><span>{text}</span></p>)}</div></section></div>}
+    {project&&<><aside className="paint-panel paint-right"><fieldset disabled={p.disabled}>{p.shelf}</fieldset></aside><footer className="paint-footer"><button title="Undo" aria-label="Undo paint" data-paint-key="Ctrl+Z" data-hotkey="paint-key:Ctrl+Z" data-hotkey-absolute data-hotkey-badges="false" disabled={!project.history.undo.length||p.disabled} onClick={()=>p.onHistory(false)}><Undo2 size={16}/><PaintKey>Ctrl+Z</PaintKey></button><button title="Redo" aria-label="Redo paint" data-paint-key="Ctrl+Y" data-hotkey="paint-key:Ctrl+Y" data-hotkey-absolute data-hotkey-badges="false" disabled={!project.history.redo.length||p.disabled} onClick={()=>p.onHistory(true)}><Redo2 size={16}/><PaintKey>Ctrl+Y</PaintKey></button><StrokeHistory strokes={p.strokes||[]} disabled={p.disabled} onToggle={p.onToggleStroke} open={strokeList} setOpen={setStrokeList}/><span role="status">{p.textureName} · {p.width} × {p.height}{project.dirty?' · Unsaved':''}</span><Action label="New…" keys="Ctrl+N" onClick={p.onNew}/><Action label="Open…" keys="Ctrl+O" onClick={p.onOpen}/><Action label="Save project" keys="Ctrl+S" disabled={p.disabled} onClick={p.onSave}/><Action label="Export…" keys="Ctrl+E" disabled={p.disabled} onClick={p.onExport}/><Action label="Use paint on model" keys="Ctrl+↵" className="studio-primary" disabled={p.disabled} onClick={p.onDone}/></footer></>}
+    {help&&<div className="paint-modal-shade"><section className="paint-shortcuts" role="dialog" aria-modal="true" aria-label="Paint shortcuts" data-hotkey-prefix="shortcuts"><header><strong>Paint shortcuts</strong><button data-hotkey="close" data-hotkey-badges="false" autoFocus onClick={()=>{p.onCancel();setHelp(false);setStrokeList(null);}}>Close <PaintKey actionId="paint-studio:shortcuts:close">Esc</PaintKey></button></header><div>{shortcuts.map(([key,text])=><p key={key}><PaintKey>{key}</PaintKey><span>{text}</span></p>)}</div></section></div>}
     {p.children}
   </div>;
 }

@@ -19,8 +19,8 @@ export default function CollectBit({ source, preferences, textureAssets, teamCol
       await onSaved(result);
     } catch (error) { setError(error.message); } finally { setBusy(false); }
   };
-  return <div className="parts-overlay" onKeyDown={event => { if (event.key === 'Escape' && !busy) { event.stopPropagation(); onClose(); } }}><section className="parts-dialog parts-collect-dialog" role="dialog" aria-modal="true" aria-label="Collect Bit">
-    <header><h2>Collect Bit</h2><button onClick={onClose} disabled={busy} aria-label="Close Collect Bit">✕</button></header>
+  return <div className="parts-overlay"><section data-hotkey-prefix="collect-bit" className="parts-dialog parts-collect-dialog" role="dialog" aria-modal="true" aria-label="Collect Bit">
+    <header><h2>Collect Bit</h2><button onClick={onClose} disabled={busy} data-hotkey="close" aria-label="Close Collect Bit">✕</button></header>
     <div className="parts-body"><aside>
       <label className="parts-collect-name">Bit name<input autoFocus aria-label="Bit name" value={name} onChange={event => setName(event.target.value)}/></label>
       <p className="parts-note">{source.Geosets.length} geosets · {source.Geosets.reduce((count, geoset) => count + geoset.Vertices.length / 3, 0)} selected vertices</p>

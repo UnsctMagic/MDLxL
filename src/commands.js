@@ -52,3 +52,11 @@ export const COMMANDS = coreHotkeyDefaults([
   // Photoshop's interface-brightness keys.
   ...group('Settings', [['theme:dark','Darker interface','Shift+F1'],['theme:light','Lighter interface','Shift+F2']]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);
+
+/** A window keeps the user's Undo/Redo/Play keys, with its own history and playback. */
+export function windowCommandActions(scope, title, handlers, extra = {}) {
+  return Object.entries(handlers).map(([command, run]) => ({
+    id: scope + ':' + command, category: title, label: COMMANDS.find(action => action.id === command).label,
+    bindingCommand: command, run, ...extra,
+  }));
+}

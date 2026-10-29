@@ -141,3 +141,35 @@ test('Forge owns nearby single keys without replacing other editors or allowing 
   const global = [...COMMANDS, {id:'global:test',scope:'global',defaultKeys:['F8']}];
   assert.deepEqual(hotkeyConflicts(global, {}, 'forge:shape:cut', 'F8'), ['global:test']);
 });
+
+test('window history and playback use the command bindings and can be rebound locally', async () => {
+  const {windowCommandActions} = await import('../src/commands.js');
+  for (const scope of ['animxl','showcase','showcase-animation','particles','optimizexl']) {
+    const local = windowCommandActions(scope, scope, {undo(){},redo(){},play(){}}).map(action => ({...action,scope,group:scope,contextual:true}));
+    const catalog = contextualHotkeyDefaults([...COMMANDS,...local,control(scope+':close','Close',scope)]);
+    const bindings = effectiveBindings(catalog,{undo:['Ctrl+F9'],redo:['Ctrl+F10'],play:['F11']});
+    assert.deepEqual(bindings[scope+':undo'],['Ctrl+F9']);
+    assert.deepEqual(bindings[scope+':redo'],['Ctrl+F10']);
+    assert.deepEqual(bindings[scope+':play'],['F11']);
+    assert.deepEqual(bindings[scope+':close'],['Escape']);
+    const allocated = contextualHotkeyDefaults([...COMMANDS,...local],['Ctrl+F9'],{undo:['Ctrl+F9']});
+    assert.deepEqual(allocated.find(action=>action.id===scope+':undo').defaultKeys,['Ctrl+F9']);
+    assert.deepEqual(effectiveBindings(catalog,{undo:['Ctrl+F9'],[scope+':undo']:['F12']})[scope+':undo'],['F12']);
+    assert.deepEqual(effectiveBindings(catalog,{undo:[]})[scope+':undo'],[]);
+    assert.equal(assignHotkey({},catalog,scope+':undo','Ctrl+F9').ok,true);
+  }
+});
+
+test('Paint plain keys stay in their window and reserve their original short keys', () => {
+  const entries=[control('paint-key:B','Paint','paint',{keys:['B'],scope:'paint'}),control('paint-key:Ctrl+Z','Undo','paint',{bindingCommand:'undo',scope:'paint'}),control('paint-key:brush','Brush','paint',{scope:'paint'})];
+  const catalog=contextualHotkeyDefaults([...COMMANDS,...entries],['Ctrl+F9'],{undo:['Ctrl+F9']});
+  assert.deepEqual(catalog.find(action=>action.id==='paint-key:B').defaultKeys,['B']);
+  assert.deepEqual(catalog.find(action=>action.id==='paint-key:Ctrl+Z').defaultKeys,['Ctrl+F9']);
+  assert.notEqual(catalog.find(action=>action.id==='paint-key:brush').defaultKeys[0],'B');
+});
+
+test('a window action inherits a global command without a false Settings conflict',()=>{
+  const actions=[{id:'undo',scope:'global',defaultKeys:['Ctrl+Z']},{id:'animxl:undo',bindingCommand:'undo',scope:'animxl',group:'animxl',contextual:true,defaultKeys:['Ctrl+Z']}];
+  assert.deepEqual(hotkeyConflicts(actions,{},'animxl:undo','Ctrl+Z'),[]);
+  assert.deepEqual(hotkeyConflicts(actions,{},'undo','Ctrl+Z'),[]);
+});

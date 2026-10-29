@@ -35,7 +35,7 @@ export default function EmitterTextDialog({doc,id,onEdit,onClose}){
   const found=index[line]?.find(piece=>column>=piece.from&&column<piece.to),box=area.parentElement.getBoundingClientRect();
   setTip(found?{text:found.tip,x:Math.min(event.clientX-box.left+14,box.width-330),y:event.clientY-box.top+18}:null);
  };
- return <Dialog title="Adjust emitter manually" className="emitter-text-dialog" onClose={onClose} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}
+ return <Dialog title="Adjust emitter manually" className="emitter-text-dialog" onClose={onClose}
   footer={<div className="emitter-text-actions"><button onClick={apply} disabled={!original}>Apply</button><button onClick={()=>{setText(original?.block||'');setError('');}}>Reset</button><button onClick={onClose}>Cancel</button></div>}>
    <div className="emitter-text-heading"><span>Exact MDL text of this emitter</span></div>
    <p className="emitter-text-help">Hover over a highlighted word to see what it does. Keyframes are <code>frame: value,</code> lines. Apply checks the text like opening an SD model; Ctrl+Z undoes it.</p>
