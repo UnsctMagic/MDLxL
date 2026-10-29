@@ -4,7 +4,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
 import { addHeroGlow, glowLayout, hasHeroGlow, originGlowSize, weaponCandidates, weaponChoices, weaponLine } from '../src/glow-up.js';
-import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { sampleGeosetAnimation, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { samplePreviewMatrices } from '../app/preview-pose.js';
 
 const near = (a, b, tolerance = 1e-3) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < tolerance, `${a} != ${b}`));
@@ -208,4 +208,14 @@ test('a glow across a hammer head keeps its dragged ends apart', () => {
   assert.ok(across.start.reduce((s, v, a) => s + (v - across.end[a]) * side[a], 0) < 0, 'the start stays on its own side');
   assert.deepEqual(across.from, [1.02, -.3, 0]);
   assert.ok(weaponCandidates({ ...m, Bones: m.Bones.map(b => b === sword ? { ...b, Name: 'Wep' } : b) })[0].score >= 4, 'Wep is a weapon name');
+});
+
+
+test('glow visibility classifies Death, Decay and Dissipate by their first word', () => {
+  const names = ['Undeath', 'Stand - Death', 'Stand Decay', 'Stand Dissipate', 'Death Alternate', 'Decay Flesh', 'Dissipate'];
+  const doc = hero({ sequences: names });
+  const result = addHeroGlow(doc.model, { origin: true });
+  for (const id of result.geosetIndices) for (const [index, sequence] of doc.model.Sequences.entries()) {
+    assert.equal(sampleGeosetAnimation(doc.model, id, sequence.Interval[0], index).alpha, index < 4 ? 1 : 0, sequence.Name);
+  }
 });

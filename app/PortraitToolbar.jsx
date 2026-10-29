@@ -1,3 +1,4 @@
+import { isPortraitSequence } from '../src/sequence-editor.js';
 import React, { useEffect, useRef, useState } from 'react';
 import useDismiss from './useDismiss.js';
 import { evaluateModelCamera, portraitPreviewSequences, MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
@@ -61,7 +62,7 @@ function CameraFields({ view, name, disabled, onEdit, onPause }) {
 
 export default function PortraitToolbar({ model, active, cameraIndex, disabled, allowControlModel = true, controlModel, controlGroups = [], controlModelGroup = 'all', onToggle, onCameraIndex, onSetView, onSnap, onControlModel, onControlModelGroup, frame = 0, sequenceIndex = -1, onSequence, onNew, onMakePortrait, onEdit, onShot, onPause, settings, onSettings, previewChanged, lightingStatus, onCreatePortraitSequence, hasBackground = false, onBackground, backgroundLook, teamColor }) {
   const cameras = model.Cameras || [], camera = cameras[cameraIndex], choices = portraitPreviewSequences(model);
-  const missingPortrait = active && !(model.Sequences || []).some(item => /portrait/i.test(item.Name || ''));
+  const missingPortrait = active && !(model.Sequences || []).some(isPortraitSequence);
   // false, 'settings' or 'background': one popover at a time.
   const [open, setOpen] = useState(false), container = useRef(null), [look, setLook] = useState(BACKDROP_LOOK);
   const openBackground = () => { if (open === 'background') { setOpen(false); return; } setLook(normalizeBackdropLook(backgroundLook?.())); setOpen('background'); };

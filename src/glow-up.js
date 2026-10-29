@@ -2,7 +2,7 @@ import { isWeaponName, nameSide, nameTokens } from './rig-names.js';
 import { clamp } from './math.js';
 import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
-import { fillSequenceExtents } from './sequence-editor.js';
+import { fillSequenceExtents, isDeathSequence, isDecaySequence, isDissipateSequence } from './sequence-editor.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 import { nodeIndex, uniqueName } from './node-hierarchy.js';
@@ -17,7 +17,7 @@ import { vertexBones } from './part-bones.js';
 // The planes, heights and pulse keys are the Paladin/Jaina/Uther template,
 // scaled to the model. Layer three runs on its own period, as Gluma does.
 
-const HIDDEN = /death|decay|dissipate/i;
+const HIDDEN = sequence => isDeathSequence(sequence) || isDecaySequence(sequence) || isDissipateSequence(sequence);
 const HERMITE = 2;
 const PULSE_FAST = [[0, 1, 0, .255], [1100, 1.17, 0, 0], [1600, 1, -.255, 0]];
 const PULSE_SLOW = [[0, 1, 0, -.244], [833, .823, -.043, -.04], [1600, .917, .094, -.138], [2400, .78, .038, .044], [3333, 1, .308, 0]];
@@ -203,12 +203,12 @@ function pulse(model, keys, period) {
 /** Visible in every animation except Death, Decay and Dissipate. */
 function visibility(model) {
   const sequences = model.Sequences || [];
-  if (!sequences.some(s => HIDDEN.test(s.Name || ''))) return 1;
+  if (!sequences.some(s => HIDDEN(s))) return 1;
   // Sequences may share a start frame; any visible one keeps the glow on there.
   const keys = new Map();
   for (const s of sequences) {
     // Some Blizzard files carry a stray sequence at an unsigned -167; it cannot be keyed.
-    const frame = Number(s.Interval[0]), value = HIDDEN.test(s.Name || '') ? 0 : 1;
+    const frame = Number(s.Interval[0]), value = HIDDEN(s) ? 0 : 1;
     if (Number.isInteger(frame) && frame >= 0 && frame <= 2147483647) keys.set(frame, Math.max(keys.get(frame) ?? 0, value));
   }
   return { LineType: 0, GlobalSeqId: null, Keys: [...keys].sort((a, b) => a[0] - b[0]).map(([Frame, value]) => ({ Frame, Vector: new Float32Array([value]) })) };

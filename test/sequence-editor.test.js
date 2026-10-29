@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
+  sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence, isPortraitSequence, portraitSequenceIndices, standSequenceIndex,
   fillSequenceExtents, setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
 } from '../src/sequence-editor.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
@@ -192,4 +193,63 @@ test('shared blank-sequence action keeps its notice and does not switch after a 
   assert.equal(addAnimationSequence({ ...callbacks, onEdit: (_label, _sections, mutate) => { try { mutate({ Sequences: [{ Interval: [0, 0xffffffff] }] }); } catch { return false; } } }), false);
   assert.match(errors.at(-1), /not enough frame space/); assert.equal(notices.at(-1), '');
   assert.equal(switched.length, before);
+});
+
+
+test('sequence classes use the first word before the variation label; Portrait keeps its existing name rule', () => {
+  const cases = [
+    ['Stand', ['stand'], false, false, false, false],
+    ['Stand Ready', ['stand', 'ready'], false, false, false, false],
+    ['Stand - 2', ['stand'], false, false, false, false],
+    ['Death Alternate', ['death', 'alternate'], true, false, false, false],
+    ['Decay Flesh', ['decay', 'flesh'], false, true, false, false],
+    ['Dissipate', ['dissipate'], false, false, true, false],
+    ['Portrait Talk', ['portrait', 'talk'], false, false, false, true],
+    ['Stand Channel', ['stand', 'channel'], false, false, false, false],
+    ['  DEATH Alternate - 2', ['death', 'alternate'], true, false, false, false],
+    ['Stand - Death', ['stand'], false, false, false, false],
+    ['Stand Death', ['stand', 'death'], false, false, false, false],
+    ['Deathmatch', ['deathmatch'], false, false, false, false],
+    ['', [], false, false, false, false],
+  ];
+  for (const [Name, words, death, decay, dissipate, portrait] of cases) {
+    const sequence = { Name };
+    assert.deepEqual(sequenceWords(Name), words, Name);
+    assert.equal(isDeathSequence(sequence), death, Name);
+    assert.equal(isDecaySequence(sequence), decay, Name);
+    assert.equal(isDissipateSequence(sequence), dissipate, Name);
+    assert.equal(isPortraitSequence(sequence), portrait, Name);
+  }
+  assert.deepEqual(sequenceWords(), []);
+  for (const classify of [isDeathSequence, isDecaySequence, isDissipateSequence, isPortraitSequence]) assert.equal(classify(), false);
+  const Sequences = [{ Name: 'Stand' }, { Name: 'Portrait Talk' }, { Name: 'AlternatePortrait' }];
+  assert.deepEqual(portraitSequenceIndices({ Sequences }), [1, 2]);
+});
+
+test('shared Stand selection keeps Attachemator ranking and fallback', async () => {
+  const { attachematorStandSequence } = await import('../src/attachemator.js');
+  assert.equal(attachematorStandSequence, standSequenceIndex);
+  const model = names => ({ Sequences: names.map(Name => ({ Name })) });
+  assert.equal(standSequenceIndex(model(['Stand Ready', 'Stand - 2', 'Stand Channel', 'Stand'])), 3);
+  assert.equal(standSequenceIndex(model(['Stand Ready', 'Stand - 2', 'Stand - 1'])), 2);
+  assert.equal(standSequenceIndex(model(['Portrait', 'Stand Alternate', 'Stand Channel', 'Stand Work', 'Stand Ready'])), 4);
+  assert.equal(standSequenceIndex(model(['Death Alternate', 'Decay Flesh', 'Dissipate', 'Portrait Talk', 'Walk'])), 4);
+  assert.equal(standSequenceIndex(model(['Death', 'Decay Flesh', 'Dissipate', 'Portrait'])), -1);
+  assert.equal(standSequenceIndex({}), -1);
+});
+
+
+test('Paint visibility, Portrait fallback and Showcase use the shared sequence classes', async () => {
+  const { paintStandHidden } = await import('../src/paint-view.js');
+  const { firstPortraitSequenceIndex } = await import('../app/portrait-view.js');
+  const { finishesShowcaseEffects } = await import('../app/showcase-effects.js');
+  const model = {
+    Sequences: [{ Name: 'Stand Ready', Interval: [0, 99] }, { Name: 'Stand', Interval: [100, 199] }],
+    Geosets: [{}],
+    GeosetAnims: [{ GeosetId: 0, Alpha: { LineType: 0, Keys: [key(0, [1]), key(100, [0])] } }],
+  };
+  assert.deepEqual([...paintStandHidden(model)], [0]);
+  assert.equal(firstPortraitSequenceIndex(model), 1);
+  for (const Name of ['Death Alternate', 'Decay Flesh', 'Dissipate']) assert.equal(finishesShowcaseEffects({ Name }), true);
+  for (const Name of ['Stand Death', 'Stand - Decay', 'Stand Dissipate']) assert.equal(finishesShowcaseEffects({ Name }), false);
 });

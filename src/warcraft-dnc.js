@@ -1,3 +1,4 @@
+import { standSequenceIndex } from './sequence-editor.js';
 import {Vector3} from 'three';
 import {parseMDL} from 'war3-model';
 import {sampleNodeMatrices,sampleTrack} from './animation.js';
@@ -65,7 +66,7 @@ export function readWarcraftDnc(input,name='dnc.mdx',{currentLightLayout=false}=
  * toward the source; the emitter's beam travels along local -Z.
  */
 export function sampleWarcraftDnc(model,hour=12) {
-  const sequenceIndex=Math.max(0,model.Sequences.findIndex(s=>/^stand/i.test(s.Name))),interval=model.Sequences[sequenceIndex]?.Interval||[0,60000];
+  const sequenceIndex=standSequenceIndex(model),interval=model.Sequences[sequenceIndex]?.Interval||[0,60000];
   const frame=interval[0]+(((hour%24)+24)%24)/24*(interval[1]-interval[0]),options={interval,globalSequences:model.GlobalSequences,globalTime:frame};
   const matrices=sampleNodeMatrices(model,frame,sequenceIndex,frame);
   return model.Lights.map(light=>{

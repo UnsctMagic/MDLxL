@@ -1,3 +1,4 @@
+import { standSequenceIndex } from '../src/sequence-editor.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Box,ChevronDown,ChevronRight,File,FileText,Film,Folder,FolderOpen,Image,Map as MapIcon,Music,Type} from 'lucide-react';
 import {openDocument,deleteGeoset} from '../src/editor-document.js';
@@ -179,7 +180,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
     setLoadingModel(true);
     try{
       const loaded=await loadGameModel(entry,signature);if(request!==modelRequest.current)return;
-      const preview=previewAssets(loaded.textures),stand=loaded.doc.model.Sequences.findIndex(item=>/^stand\b/i.test(item.Name||'')),first=stand>=0?stand:loaded.doc.model.Sequences.length?0:-1;
+      const preview=previewAssets(loaded.textures),first=standSequenceIndex(loaded.doc.model);
       setShown(previous=>{previous?.release();return {...loaded,key:row.key+'|'+choice,assets:preview.assets,release:preview.release,revision:request};});
       setSequence(first);setTime(loaded.doc.model.Sequences[first]?.Interval?.[0]||0);setPlaying(true);
       if(pendingOpen.current===row.key){pendingOpen.current=null;await onOpenGameModel({name:entry.name,path:entry.path,bytes:loaded.bytes,textures:loaded.textures});onClose?.();}
