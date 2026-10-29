@@ -4,6 +4,7 @@ import { deleteGeoset } from './editor-document.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { updateBounds } from './mesh-tools.js';
 import { buildCorpseGeometry } from './corpse-geometry.js';
+import { applyDeathBlood } from './corpse-blood.js';
 
 const PREFIX='MDLxL Corpse ', FLESH='MDLxL Flesh ';
 export const AUTO_CORPSE_SECTIONS=['Sequences','GlobalSequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','Bones','PivotPoints','BindPoses','Nodes','Attachments','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','Lights','EventObjects'];
@@ -95,8 +96,11 @@ function decayExtents(model,pair,ids) {
 /** Runs inside EditorDocument.apply: a failure rolls back the complete command.
  * Frozen decay meshes avoid rewriting the authored rig, global motion, Death
  * curves, living animations or skin bindings. Original meshes are only masked
- * during decay. A second click replaces this command's meshes and reuses bones. */
-export function autoCorpse(model) {
+ * during decay. A second click replaces this command's meshes and reuses bones.
+ * Options from the Auto Corpse window: size, height, color ([r,g,b], 0-1) and
+ * pieces (the first Death's edited piece list); blood replaces the first
+ * Death's blood splats and spray (see corpse-blood.js). */
+export function autoCorpse(model, options={}) {
   const deaths=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>deathSequence(s));
   if(!deaths.length)throw Error('Auto Corpse needs a Death animation.');
   const originals=allNodes(model).filter(n=>!generated(n)),generatedIds=new Set(allNodes(model).filter(generated).map(n=>n.ObjectId));
@@ -108,12 +112,12 @@ export function autoCorpse(model) {
   // fuzzy texture-name match that would mistake living skeletons for corpses.
   for(let i=0;i<model.Geosets.length;i++)if(!glow(model,model.Geosets[i])&&nonDecay.length&&nonDecay.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[0],si).alpha<.01)&&deaths.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[1],si).alpha<.01)&&model.Sequences.some((s,si)=>/\bdecay\s+bones?\b/i.test(s.Name)&&sampleGeosetAnimation(model,i,s.Interval[0],si).alpha>.5))oldCorpses.add(i);
   // Plan all terminal poses before masking the source visibility.
-  const plans=deaths.map(({s,i})=>{
+  const plans=deaths.map(({s,i},n)=>{
     const frame=s.Interval[1],eligible=model.Geosets.map((g,id)=>({g,id})).filter(({g,id})=>!oldCorpses.has(id)&&!glow(model,g)&&g.Faces?.length);
     let body=eligible.filter(({id})=>bodyVisible(model,id,frame,i));
     if(!body.length) body=eligible.filter(({id})=>[0,.5,.99].some(t=>bodyVisible(model,id,s.Interval[0]+(frame-s.Interval[0])*t,i)));
     if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
-    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i),matrices=sampleNodeMatrices(model,frame,i);
+    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,{...options,pieces:n===0?options.pieces:null}),matrices=sampleNodeMatrices(model,frame,i);
     const frozen=body.map(({g,id})=>{
       const copy=structuredClone(g);copy.Vertices=skinGeoset(g,matrices);copy.Normals=skinGeosetNormals(g,matrices);delete copy.Tangents;
       updateBounds(copy);
@@ -166,17 +170,18 @@ export function autoCorpse(model) {
     const corpseStart=Math.min(fs.Interval[0]+167,fs.Interval[1]-1);
     const alpha=sequenceVisibility(model,new Map([[pair.flesh,[[fs.Interval[0],0],[corpseStart,1],[fs.Interval[1],1]]],[pair.bone,[[bs.Interval[0],1],[bs.Interval[1]-1,1],[bs.Interval[1],0]]]]));
     const g=pair.geometry.geoset;bind(g,corpse);g.MaterialID=corpseMaterial;
-    const ids=[addGeoset(model,g,alpha)];
+    const ids=[addGeoset(model,g,alpha,options.color||[1,1,1])];
     for(const frozen of pair.frozen) {
       bind(frozen.g,flesh);frozen.g.MaterialID=material(model,frozen.mat);
       ids.push(addGeoset(model,frozen.g,sequenceVisibility(model,new Map([[pair.flesh,[[fs.Interval[0],frozen.alpha],[fs.Interval[1]-1,frozen.alpha],[fs.Interval[1],0]]]])),frozen.color));
     }
     decayExtents(model,pair,ids);
-    results.push({death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:ids[0],bodyGeosets:ids.slice(1),sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,boneSinkDistance:boneSink,parts:pair.geometry.parts,ground:pair.geometry.ground});
+    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:ids[0],bodyGeosets:ids.slice(1),sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,boneSinkDistance:boneSink,parts:pair.geometry.parts,ground:pair.geometry.ground});
   }
   for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds
   // only when a geoset already uses the per-sequence extent convention.
   for(const g of model.Geosets.slice(0,originalGeosetCount))if(g.Anims?.length)while(g.Anims.length<model.Sequences.length)g.Anims.push({MinimumExtent:new Float32Array(g.MinimumExtent),MaximumExtent:new Float32Array(g.MaximumExtent),BoundsRadius:g.BoundsRadius});
+  if(options.blood)applyDeathBlood(model,deaths[0].i,options.blood);
   return {corpses:results,originalNodes:originals.length};
 }

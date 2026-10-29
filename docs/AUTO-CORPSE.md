@@ -1,10 +1,40 @@
 # Auto Corpse
 
-The temporary **CORP** button lives in the existing VIS toolbar row. It runs one
-undoable edit and immediately shows the first frame of Decay Bone, paused.
-There is no dialog, settings panel or
-additional permanent inspector. The existing animation controls preview the
-result. A second click regenerates from Death and does not accumulate copies.
+The temporary **CORP** button lives in the existing VIS toolbar row. It opens
+the small Auto Corpse window (`app/AutoCorpse.jsx`, laid out like
+Attachemator) with two tabs and one preview that turns with the mouse.
+**Create** runs one undoable edit for both tabs and immediately shows the
+first frame of Decay Bone, paused; **Close** changes nothing; **Reset** goes
+back to the fitted corpse and the model's own blood. Creating again
+regenerates from Death and does not accumulate copies.
+
+**Corpse Editor** shows the corpse at the start of Decay Bone, with a chalk
+line around where the dead body lies (**Body outline**, on by default; it
+follows the body only, not what it holds). **Show body** puts the textured
+body back over the corpse.
+- Double-click a body part in the preview to grab it, then drag the
+  EMTR/Glow Up handles (`app/CorpseStageTools.jsx`): the middle moves it,
+  the ends stretch it, the side handle widens it. Double-click empty ground
+  to let go. Delete removes the grabbed part. Ctrl+Z / Ctrl+Y undo and redo
+  changes inside the window.
+- **+ Skull / + Ribs / + Bone / + Hand** add a part in the middle of the body.
+- **Size** and **Height** sliders in AnimXL's slider style (25-200%, 100% =
+  fitted) and **Color Tint** R/G/B, like the Animations colour tint.
+
+**Blood Editor** (`src/corpse-blood.js`) plays or scrubs the Death animation
+with its splats and sprays. It works like Blizzard's own units, which bleed
+with 2–5 ground splats (`SPL` events from `Splats\SplatData.slk`, code =
+race letter + B + S/L + shape 0–3: H red, O dark red, U undead, E night elf,
+D green demon) and one spray model (an `SPN` event from
+`Splats\SpawnData.slk`; blood sprays have B as their second letter and
+spawn particle-only models). The list starts with the Death animation's own
+blood. **Blood** recolours every splat; each splat has Size and Shape, each
+spray a choice of the game's sprays that have a model; every row has a Time
+(**Now** takes the preview's time) and a position dragged with the move
+handle. Only blood keys inside the first Death animation are replaced; keys
+in other animations and all non-blood events stay. Community blood models
+were studied (Hive Workshop, XGM) but are not bundled: their credit terms
+could not be confirmed, and the game's own blood ships with every copy.
 
 ## What owns the result
 
@@ -16,10 +46,37 @@ result. A second click regenerates from Death and does not accumulate copies.
   bone length. A wide body with the same joint layout therefore gets wider ribs
   and limbs. Heads sharing one torso use a shared central rib cage.
   Connected body components distinguish a hand/head from equipment sharing its
-  binding. The existing polygon boolean owner trims complete corpse triangles
-  to the posed body outline, preserving UVs and interior volume.
-  Forearms continue into the atlas's hand region; legs use the native long-bone
-  regions without adding stretched hand-texture pieces as feet.
+  binding.
+  Forearms continue into the atlas's hand region; legs continue to the foot's
+  skin tip in the native long-bone regions, never stretched hand texture.
+  The pieces follow the native gutz standard measured on the 58 study
+  models that have one (`NATIVE` in `corpse-geometry.js`). Every limb gets
+  one long-bone rectangle for its upper and one for its lower half (a longer
+  joint chain is split once near half its length; a limb starts where it
+  leaves the trunk, so a thigh above a three-joint leg belongs to the leg);
+  each arm gets one palm rectangle; feet, neck and short trunk links get
+  none. Rectangles keep the native width/length (bones 0.47, hands 0.62, ribs
+  0.57; a broad body widens them up to 0.8, never further, since a wider
+  rectangle squashes the bone picture into strings). Sizes come from the
+  unit's typical limb bone (joint to joint), which predicted the native sizes
+  most steadily: ribs 2.57 and skull 1.18 limb bones long, a hand 1.62 of its
+  forearm, and each bone reaching 1.6x its own joints. Heights are shares of
+  the dead body's height: legs, arms, hands and ribs on fixed levels from
+  12% up in 4% steps, the skull's crown at 43%; overlapping pieces of one
+  kind are lifted a quarter level apart and no overlapping pair shares a
+  height. Measured against the native corpses on the same models, piece
+  lengths, widths and heights match within about 10% (medians), and ours
+  covers a median 78% of the native corpse's ground area. Pieces are not cut
+  to the body outline. One rib cage per unit: a separate leg-only rig gets
+  none of its own.
+  Whatever hangs below a hand is held equipment (a weapon, its head or
+  chain, a carried object) and never becomes a skull, limb or branch,
+  whatever its bones are called.
+  A body whose head is not recognized still gets a trunk: the skin of the
+  joints its limbs hang from, along that skin's long axis.
+  A joint that fans out to several pieces is linked to them only where the
+  body actually lies along the link; spokes to scattered pieces are skipped.
+  A single continuing link, such as a tail tip, is kept.
 - `src/auto-corpse.js` applies the edit through `EditorDocument`. It reuses
   matching Decay Flesh/Bone intervals, promotes matching generic Decay to Decay
   Flesh, or appends 60-second non-looping clips. Alternate Death variants have
@@ -96,6 +153,11 @@ palette constraints still needs visual review. The command reports an error
 atomically when no body exists, the final pose is collapsed, the timeline has no
 room, or visibility cannot be made sequence-local without altering global
 behavior. It does not silently erase global animation to complete a command.
+
+Flying units' Death falls far below the terrain (for example Gargoyle,
+Harpy, Gryphon Rider), and some deaths turn into an effect (Dreadlord bats)
+or a separate bone pile (summoned Skeleton). Warcraft III leaves no corpse
+for those units, so their fitted corpse is not tuned.
 
 The native preview has no opaque terrain surface by default, so a sunk body can
 remain visible below the grid during scrubbing. The final-frame visibility is

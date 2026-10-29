@@ -39,6 +39,7 @@ import './animation-resources.css'; // keeps the stylesheet's place in the CSS o
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
 const Attachemator = lazy(() => import('./Attachemator.jsx'));
+const AutoCorpse = lazy(() => import('./AutoCorpse.jsx'));
 import { AppUVWorkspace, AppTextureLibrary, AppTimeline } from './AppPanels.jsx';
 import useMotionInspector from './useMotionInspector.js';
 import { rememberMotionSave } from '../src/motion-decisions.js';
@@ -239,7 +240,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
   // Each model tab keeps its own cameras, so switching tabs returns to the view left there.
   const cameraHandoff = session.cameraHandoff ||= { current: null };
   const paintCamera = session.paintCamera ||= { current: null };
@@ -1708,12 +1709,13 @@ export default function App() {
       runCommand, runLatest, saving, selectAnimationPanel, selectMode, session,
       sessionDirty, sessions, setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
-      placeCorpse: async () => {
-        setPlaying(false);
-        const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, autoCorpse);
-        if (result) { await selectAnimationPanel('animations'); selectSequence(result.corpses[0].bone); }
-      }
+      placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
+    {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={options => {
+      const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, current => autoCorpse(current, options), { rethrow: true });
+      if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
+      return !!result;
+    }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">

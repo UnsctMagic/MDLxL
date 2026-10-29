@@ -3524,7 +3524,7 @@
   "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。",
   "Auto Corpse": "自动遗骸",
   "Auto Corpse (test)": "自动遗骸（测试）",
-  "One click: fit a corpse to the last Death frame, set visibility, and create flesh and bone decay. Undo restores the model.": "一键根据死亡动画的最后一帧放置遗骸，设置可见性和血肉、骨骼消退动画。撤销可恢复模型。",
+  "Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model.": "预览贴合 Death 最后一帧的尸体，调整大小和高度，然后连同血肉与骨骼腐烂一起创建。撤销可恢复模型。",
   "Auto Corpse needs a Death animation.": "自动遗骸需要 Death 动画。",
   "Death has no body geometry to place a corpse beneath.": "Death 中没有可用于放置遗骸的身体几何体。",
   "The last Death frame collapses the body to a point. A corpse needs a visible final pose.": "Death 最后一帧将身体缩为一点。遗骸需要可见的最终姿势。",

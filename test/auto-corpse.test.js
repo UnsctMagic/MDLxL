@@ -72,9 +72,74 @@ test('corpse torso uses skin on mesh children and grows with body girth while jo
     const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[width,1,.3][i%3]);g.Groups=[[torso.ObjectId]];
     const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*.3+(i%3===1?45:0));h.Groups=[[skull.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(1));
   });return buildCorpseGeometry(d.model,[0,1],1);}
-  const narrow=body(1),wide=body(2),extent=(r,part)=>{const xs=part.vertices.map(i=>r.geoset.Vertices[i*3]);return Math.max(...xs)-Math.min(...xs);};
-  const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.7,'Broad bodies need broad ribs, not a fixed narrow strip');
+  const narrow=body(.3),wide=body(1),extent=(r,part)=>{const xs=part.vertices.map(i=>r.geoset.Vertices[i*3]);return Math.max(...xs)-Math.min(...xs);};
+  const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.15,'Broad bodies get broader ribs, within the native rib shape');
   assert.ok(narrow.parts.find(p=>p.kind==='skull').vertices.length>=9);
+});
+test('corpse ribs are one flat native rectangle on a level above the ground, and whatever hangs from a hand is no anatomy',()=>{
+  const d=fixture();d.apply('Armed body',[],m=>{
+    const root=m.Bones[0];root.Name='Bone_Root';delete root.Translation;
+    const chest=createNode(m,'Bone');chest.Name='Bone_Chest';chest.Parent=root.ObjectId;
+    const head=createNode(m,'Bone');head.Name='Bone_Head';head.Parent=chest.ObjectId;head.PivotPoint.set([0,35,0]);
+    const hand=createNode(m,'Bone');hand.Name='Bone_Hand_R';hand.Parent=chest.ObjectId;hand.PivotPoint.set([30,0,0]);
+    // A held object whose bone happens to carry an anatomical name.
+    const held=createNode(m,'Bone');held.Name='Spiked_Head';held.Parent=hand.ObjectId;held.PivotPoint.set([60,0,0]);
+    const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[1.5,1,.6][i%3]);g.Groups=[[chest.ObjectId]];
+    for(const [node,dx,dy] of [[head,0,45],[held,60,0]]){const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*.3+[dx,dy,0][i%3]);h.Groups=[[node.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(m.Geosets.length-1));}
+  });
+  const m=d.model,r=buildCorpseGeometry(m,[0,1,2],1),body=skinGeoset(m.Geosets[0],sampleNodeMatrices(m,r.frame,1));
+  assert.equal(r.parts.filter(p=>p.kind==='skull').length,1,'Bones below a hand are held equipment, whatever they are called');
+  assert.ok(!r.parts.some(p=>p.ids.includes(m.Bones.find(b=>b.Name==='Spiked_Head').ObjectId)));
+  const ribs=r.parts.find(p=>p.kind==='torso').vertices.map(i=>r.geoset.Vertices[i*3+2]),top=Math.max(...Array.from(body).filter((_,i)=>i%3===2));
+  assert.equal(ribs.length,4,'Like the native gutz corpses, a rib cage is one rectangle');
+  assert.ok(Math.max(...ribs)-Math.min(...ribs)<1e-6&&Math.min(...ribs)>=2,'It lies flat, on a level above the ground');
+  assert.ok(Math.max(...ribs)<top,'It stays below the body surface');
+});
+test('a body without a recognized head still gets ribs, and overlapping pieces never share a height',()=>{
+  const d=fixture();d.apply('Headless',[],m=>{
+    const root=m.Bones[0];root.Name='Bone_Root';delete root.Translation;
+    const chest=createNode(m,'Bone');chest.Name='Bone_Chest';chest.Parent=root.ObjectId;chest.PivotPoint.set([0,10,0]);
+    const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[1,2,.6][i%3]);g.Groups=[[chest.ObjectId]];
+    for(const side of [-1,1]){let parent=chest;for(const [name,x] of [['Arm1',20],['Arm2',40],['Hand',60]]){
+      const bone=createNode(m,'Bone');bone.Name=`Bone_${name}_${side<0?'L':'R'}`;bone.Parent=parent.ObjectId;bone.PivotPoint.set([x*side,10,0]);parent=bone;
+      const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*[.4,.2,.5][i%3]+[(x-10)*side,10,0][i%3]);h.Groups=[[bone.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(m.Geosets.length-1));
+    }}
+  });
+  const r=buildCorpseGeometry(d.model,d.model.Geosets.map((_,i)=>i),1),{Vertices:v,Faces:f}=r.geoset;
+  assert.equal(r.parts.filter(p=>p.kind==='skull').length,0);
+  assert.equal(r.parts.filter(p=>p.kind==='torso').length,1,'The trunk comes from the body the limbs hang from, not from a head');
+  // Where pieces overlap, the visible top and the surface just below it
+  // belong to different pieces at clearly different heights.
+  const owner=new Map();r.parts.forEach((p,k)=>p.vertices.forEach(i=>owner.set(i,k)));
+  const p=i=>[v[i*3],v[i*3+1],v[i*3+2]],xs=v.filter((_,i)=>i%3===0),ys=v.filter((_,i)=>i%3===1);
+  let overlap=0,fighting=0;
+  for(let gx=0;gx<=60;gx++)for(let gy=0;gy<=60;gy++) {
+    const x=Math.min(...xs)+(Math.max(...xs)-Math.min(...xs))*gx/60,y=Math.min(...ys)+(Math.max(...ys)-Math.min(...ys))*gy/60,hits=[];
+    for(let t=0;t<f.length;t+=3){const [a,b,c]=[f[t],f[t+1],f[t+2]].map(p),det=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(det)<1e-9)continue;const s=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/det,u=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/det;if(s>=0&&u>=0&&s+u<=1)hits.push({z:s*a[2]+u*b[2]+(1-s-u)*c[2],part:owner.get(f[t])});}
+    hits.sort((a,b)=>b.z-a.z);if(hits.length<2||hits[0].part===hits[1].part)continue;overlap++;if(hits[0].z-hits[1].z<.05)fighting++;
+  }
+  assert.ok(overlap>0&&fighting/overlap<.02,`Pieces z-fight over ${fighting} of ${overlap} overlapping samples`);
+});
+test('Size and Height scale the fitted corpse, and 100% keeps it unchanged',()=>{
+  const make=options=>{const d=fixture();const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,options)).corpses[0];return {g:d.model.Geosets[r.corpseGeoset],r,m:d.model};};
+  const plain=make({}),same=make({size:1,height:1}),big=make({size:1.5,height:1}),tall=make({size:1,height:2});
+  assert.deepEqual(same.g.Vertices,plain.g.Vertices);
+  const spread=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===0))-Math.min(...g.Vertices.filter((_,i)=>i%3===0)),peak=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===2));
+  assert.ok(Math.abs(spread(big.g)/spread(plain.g)-1.5)<.01,'Size scales the footprint');
+  assert.ok(peak(tall.g)>peak(plain.g)*1.5,'Height raises the bones');
+  // A taller corpse is still buried completely before Decay Bone hides it.
+  const bs=tall.m.Sequences[tall.r.bone];assert.ok(Math.max(...Array.from(posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[1]-1)).filter((_,i)=>i%3===2))<0);
+});
+test('edited, added and removed pieces and the corpse tint reach the made corpse',()=>{
+  const make=options=>{const d=fixture();const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,options)).corpses[0];return {r,m:d.model,g:d.model.Geosets[r.corpseGeoset]};};
+  const plain=make({}),pieces=plain.r.pieces,[cx,cy]=plain.r.sizeCenter,far=plain.r.span*2;
+  assert.ok(pieces.length>0&&pieces.every(p=>p.start&&p.end&&p.half>0));
+  // A piece placed outside the body outline is kept exactly where it was put.
+  const added=make({pieces:[...pieces,{kind:'branch',start:[cx+far,cy,0],end:[cx+far+20,cy,0],half:4,rect:[.006,.005,.31,.495],ids:[],free:true}]});
+  assert.ok(added.g.Vertices.filter((_,i)=>i%3===0).some(x=>x>cx+far),'An added piece outside the body is not trimmed away');
+  const removed=make({pieces:added.r.pieces.slice(1)});assert.equal(removed.r.pieces.length,pieces.length);
+  const red=make({color:[1,.3,.3]}),anim=red.m.GeosetAnims.find(a=>a.GeosetId===red.r.corpseGeoset);
+  assert.deepEqual(Array.from(anim.Color).map(v=>+v.toFixed(2)),[1,.3,.3]);assert.equal(anim.Flags&2,2);
 });
 test('native body geometry, skin weights, Death keys and non-decay alpha curves are preserved',()=>{
   const d=fixture();d.apply('Cubic',[],m=>{m.GeosetAnims[0].Alpha=track([[0,[.3]],[500,[.8]],[900,[.5]],[1000,[1]],[1900,[1]]],3);for(const k of m.GeosetAnims[0].Alpha.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}});
@@ -96,4 +161,13 @@ test('a nearly zero final Death scale is rejected without creating a tiny corpse
 test('missing Death or unsupported double-global visibility fails atomically',()=>{
   const d=fixture();d.apply('No Death',[],m=>{m.Sequences=m.Sequences.slice(0,1);});let before=structuredClone(d.model);assert.throws(()=>apply(d),/needs a Death/);assert.deepEqual(d.model,before);
   const other=fixture();other.apply('Global',[],m=>{m.GlobalSequences=[1000];m.GeosetAnims[0].Alpha=track([[0,[1]],[1000,[0]]],1,0);m.Materials[0].Layers[0].Alpha=track([[0,[1]],[1000,[0]]],1,0);});before=structuredClone(other.model);assert.throws(()=>apply(other),/global visibility/);assert.deepEqual(other.model,before);
+});
+test('Death blood: splats and a spray are keyed in Death, other animations keep their events',()=>{
+  const d=fixture();d.apply('Blood',[],m=>{const old=createNode(m,'EventObject');old.Name='SPLxHBS0';old.EventTrack=new Uint32Array([500,1400]);});
+  const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,{blood:[{type:'SPL',id:'OBL2',time:300,position:[5,6,0]},{type:'SPN',id:'HBF0',time:100,position:[0,0,0]}]})).corpses[0],m=d.model,[start]=m.Sequences[r.death].Interval;
+  const names=m.EventObjects.map(e=>e.Name+':'+Array.from(e.EventTrack).join(','));
+  assert.ok(names.includes('SPLxHBS0:500'),'The Stand key of an existing splat stays; its Death key is replaced');
+  assert.ok(m.EventObjects.some(e=>/^SPL.OBL2$/.test(e.Name)&&e.EventTrack[0]===start+300&&e.PivotPoint[0]===5));
+  assert.ok(m.EventObjects.some(e=>/^SPN.HBF0$/.test(e.Name)&&e.EventTrack[0]===start+100));
+  assert.throws(()=>fixture().apply('Bad',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,{blood:[{type:'SPL',id:'SND0',time:0,position:[0,0,0]}]}),{rethrow:true}),/not a blood event/);
 });
