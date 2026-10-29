@@ -1,6 +1,5 @@
 const APPLICATION_THEMES = require('../src/application-themes.json');
-
-const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+const { showThemedPrompt, escapeHtml } = require('./themed-prompt.cjs');
 
 // The native Windows message box cannot color its buttons, so the close prompt
 // is a small themed window: a green Save, a yellow CANCEL? and, set apart below, a red Close.
@@ -34,34 +33,9 @@ addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault
 
 // Resolves 'save', 'cancel' or 'close'. Closing the prompt window itself cancels.
 function showClosePrompt(parent, { title, message, detail, labels, theme }) {
-  // Loaded on use so main.cjs stays loadable where Electron is stubbed or absent.
-  const { BrowserWindow } = require('electron');
-  return new Promise(resolve => {
-    const prompt = new BrowserWindow({
-      parent, modal: true, show: false, width: 340, height: 220, useContentSize: true, title,
-      resizable: false, minimizable: false, maximizable: false, fullscreenable: false, autoHideMenuBar: true,
-      backgroundColor: (APPLICATION_THEMES[theme] || APPLICATION_THEMES.light).colors.panel,
-      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false },
-    });
-    let answer = 'cancel';
-    prompt.setMenu(null);
-    prompt.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    prompt.webContents.on('will-navigate', event => event.preventDefault());
-    // Buttons report through the page title; the window keeps its own title.
-    prompt.on('page-title-updated', (event, pageTitle) => {
-      event.preventDefault();
-      const action = /^mdlxl-close:(save|cancel|close)$/.exec(pageTitle)?.[1];
-      if (action && !prompt.isDestroyed()) { answer = action; prompt.close(); }
-    });
-    prompt.webContents.once('did-finish-load', async () => {
-      try {
-        const height = await prompt.webContents.executeJavaScript('document.documentElement.scrollHeight');
-        if (!prompt.isDestroyed()) prompt.setContentSize(340, Math.min(600, Math.ceil(height)));
-      } catch {}
-      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); }
-    });
-    prompt.on('closed', () => resolve(answer));
-    prompt.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(closePromptHtml({ message, detail, labels, theme })));
+  return showThemedPrompt(parent, {
+    html: closePromptHtml({ message, detail, labels, theme }), title, theme, width: 340, height: 220,
+    prefix: 'mdlxl-close', answers: ['save', 'cancel', 'close'], fallback: 'cancel',
   });
 }
 

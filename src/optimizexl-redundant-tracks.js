@@ -1,6 +1,7 @@
+import { typedJson } from './value-key.js';
 import { sampleTrack } from './animation.js';
 
-const json = value => JSON.stringify(value,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
+const json = typedJson;
 const local = t => t.GlobalSeqId == null || t.GlobalSeqId === -1 || t.GlobalSeqId === 0xffffffff;
 // Largest component difference; NaN anywhere gives NaN, like Math.max.
 const distance = (a,b) => {let d=-Infinity;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i]);if(x>d||x!==x){d=x;if(x!==x)break;}}return d;};

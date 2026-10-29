@@ -1,4 +1,5 @@
-import { Euler, Quaternion, Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
+import { quaternionToDegrees, degreesToQuaternion } from './rotation-math.js';
 import { allNodes, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementProperties, sampleMovement } from './movement.js';
 import { animationTrackId } from './animation-tracks.js';
@@ -39,7 +40,7 @@ export function motionPose(model, id, property, time, sequenceIndex) {
   const keyTime = duration > 0 ? frame % duration : frame;
   const keys = (track?.Keys || []).filter(key => shared || key.Frame >= interval[0] && key.Frame <= interval[1]);
   const value = sampleMovement(model, node, property, frame, sequenceIndex);
-  const degrees = property === 'Rotation' ? new Euler().setFromQuaternion(new Quaternion().fromArray(value).normalize(), 'XYZ').toArray().slice(0, 3).map(v => v * 180 / Math.PI) : value;
+  const degrees = property === 'Rotation' ? quaternionToDegrees(value) : value;
   return { node, property, frame, keyTime, shared, keys, value, display: degrees, lineType: track?.LineType ?? 1,
     key: keys.find(key => key.Frame === keyTime), previous: keys.findLast(key => key.Frame < keyTime), next: keys.find(key => key.Frame > keyTime) };
 }
@@ -50,7 +51,7 @@ export function setMotionPose(model, id, property, time, sequenceIndex, display)
   if (!pose || pose.shared) throw Error('Select a local animation track to edit its pose here. Shared global tracks are inspection only.');
   if (display.length !== 3 || display.some(value => !Number.isFinite(value))) throw Error('Enter three finite values.');
   if (property === 'Scaling' && display.some(value => Math.abs(value) < 1e-6)) throw Error('Scale must not be zero.');
-  const value = property === 'Rotation' ? new Quaternion().setFromEuler(new Euler(...display.map(v => v * Math.PI / 180), 'XYZ')).toArray() : display;
+  const value = property === 'Rotation' ? degreesToQuaternion(display).toArray() : display;
   const target = { kind: 'node', id, property }, trackId = animationTrackId(target);
   return setTimelineKeys(model, [target], pose.frame, timelineDomain(model, sequenceIndex), { [trackId]: value });
 }

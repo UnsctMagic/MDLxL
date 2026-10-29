@@ -1,5 +1,6 @@
 import { MeshoptSimplifier } from './vendor/meshoptimizer-1.3.0/meshopt_simplifier.js';
 import { excludedGeosets } from './optimizexl-exclusions.js';
+import { distance } from './vec.js';
 
 let nuclearSimplifier = null;
 export async function prepareNuclearReduction() {
@@ -10,7 +11,6 @@ export async function prepareNuclearReduction() {
 
 const same = (a, b) => JSON.stringify(Array.from(a || [])) === JSON.stringify(Array.from(b || []));
 const point = (a, i, n) => Array.from(a.slice(i * n, (i + 1) * n));
-const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
 const binding = (g, i) => g.Groups[g.VertexGroup[i]] || [];
 const normalAngle = (a, b) => Math.acos(Math.max(-1, Math.min(1, a.reduce((s, v, i) => s + v * b[i], 0) / (Math.hypot(...a) * Math.hypot(...b) || 1)))) * 180 / Math.PI;
 

@@ -1,3 +1,4 @@
+import { typedJson } from './value-key.js';
 import { allNodes, sampleNodeMatrices } from './animation.js';
 
 // A classic matrix group averages its bones equally. Some edits fake uneven
@@ -8,7 +9,7 @@ import { allNodes, sampleNodeMatrices } from './animation.js';
 // part hidden at zero scale is ordinary and keeps every member collapsed.
 const COLLAPSED = 1e-3, LIVE = 1e-2;
 const list = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
-const json = value => JSON.stringify(value, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
+const json = typedJson;
 const reach = m => { const e = m.elements; return Math.max(Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10])); };
 
 export function skinCollapseProposals(model) {

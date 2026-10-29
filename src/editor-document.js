@@ -1,3 +1,4 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { MODEL_COMMENTS_KEY, readModelComments, writeModelComments } from './model-comments.js';
 import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdContentKind, clearHDMaterialSettings, HD_VIEW_ONLY_MESSAGE } from './model-version.js';
 import { adaptPasteFormat } from './paste-format.js';
@@ -44,7 +45,6 @@ const SECTION_TYPES = {
   ...Object.fromEntries(Object.entries(NODE_TYPES).map(([name, [key, tag]]) => [key, [name, tag]])),
 };
 const MDL_TO_KEY = Object.fromEntries(Object.entries(SECTION_TYPES).map(([k, v]) => [v[0], k]));
-const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 const nodeCollections = (model) => Object.values(NODE_TYPES).flatMap(([key]) => model[key] || []);
 const fingerprint = (value) => JSON.stringify(value, (key, val) => {
   if ([GEOSET_TAB_KEY, ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key)) return undefined;

@@ -1,4 +1,5 @@
-import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
+import { Matrix4, Quaternion, Vector3 } from 'three';
+import { degreesToQuaternion } from './rotation-math.js';
 import { allNodes, inheritedParentMatrix, nodePivot, sampleNodeMatrices, sampleNodeProperty, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
@@ -379,7 +380,7 @@ export function applyMovementTransform(model, ids, time, sequenceIndex, change =
     const parent = byId.get(node.Parent);
     return !parent ? new Vector3() : worldMoves.get(parent.ObjectId)?.clone() || inheritedMove(parent, visited);
   };
-  const deltaRotation = new Quaternion().setFromEuler(new Euler(...values.map(value => value * Math.PI / 180), 'XYZ'));
+  const deltaRotation = degreesToQuaternion(values);
   const changes = nodes.map(node => {
     const current = sampleMovement(model, node, property, time, sequenceIndex);
     const parent = movementParentMatrix(node, matrices);

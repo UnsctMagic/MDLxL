@@ -1,11 +1,6 @@
 import { cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices } from './forge-shape-editing.js';
 
-const add = (a, b) => a.map((v, i) => v + b[i]);
-const sub = (a, b) => a.map((v, i) => v - b[i]);
-const mul = (a, n) => a.map(v => v * n);
-const dot = (a, b) => a.reduce((n, v, i) => n + v * b[i], 0);
-const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-const unit = a => mul(a, 1 / (Math.hypot(...a) || 1));
+import { add, sub, scale as mul, dot, cross, unit } from './vec.js';
 const edges = face => face.vertices.map((a, i) => [a, face.vertices[(i + 1) % face.vertices.length]]);
 const faceVertices = faces => [...new Set(faces.flatMap(f => f.triangles.flatMap(t => t.vertices)))];
 const sizeOf = shape => Math.max(1, ...[0,1,2].map(a => {

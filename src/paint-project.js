@@ -1,3 +1,4 @@
+import { crc32 } from './crc32.js';
 import { PAINT_COATS, PAINT_PROJECT_SCHEMA, PAINT_PROJECT_VERSION, isPaintResolution, isPaintRaster } from './paint-types.js';
 import { applyRasterDelta, clonePaintRaster, compositePaintRasters, createPaintRaster, rasterRegionDelta, resizePaintRaster } from './paint-raster.js';
 import { storedZipArchive } from './forge-assets.js';
@@ -116,9 +117,6 @@ export function recordPaintSurfaceChange(project,targetId,staged,label){
   applySurfaceState(project,after);return entry;
 }
 
-function crcTableValue(number) { for (let bit = 0; bit < 8; bit++) number = number & 1 ? 0xedb88320 ^ (number >>> 1) : number >>> 1; return number >>> 0; }
-const crcTable = Uint32Array.from({ length: 256 }, (_, number) => crcTableValue(number));
-function crc32(bytes) { let value = 0xffffffff; for (const byte of bytes) value = crcTable[(value ^ byte) & 255] ^ value >>> 8; return (value ^ 0xffffffff) >>> 0; }
 function pngChunk(type, data) {
   const name = encoder.encode(type), output = new Uint8Array(12 + data.length), view = new DataView(output.buffer); view.setUint32(0, data.length); output.set(name, 4); output.set(data, 8); view.setUint32(8 + data.length, crc32(output.subarray(4, 8 + data.length))); return output;
 }

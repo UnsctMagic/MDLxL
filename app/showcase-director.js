@@ -1,7 +1,6 @@
+import { clamp, lerp as mix } from '../src/math.js';
 import { showcaseAnimation } from './showcase-timeline.js';
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const mix = (a, b, t) => a + (b - a) * t;
 export const shotCount = value => clamp(Math.round(Number(value) || 1), 1, 20);
 export const SHOWCASE_QUALITY = {
   low: { pixelRatio: 1, antialias: false, anisotropy: 1, textureFiltering: 'bilinear' },

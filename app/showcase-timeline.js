@@ -1,5 +1,5 @@
+import { lerp as mix } from '../src/math.js';
 const positive = (value, fallback) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback;
-const mix = (a, b, t) => a + (b - a) * t;
 const easing = (t, curve) => curve === 'smooth' ? t * t * (3 - 2 * t) : curve === 'ease-in' ? t * t : curve === 'ease-out' ? 1 - (1 - t) ** 2 : t;
 
 /** Pose and effect clock for one playlist entry, shared by rendering substeps. */
