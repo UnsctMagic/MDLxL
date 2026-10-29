@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
+import { trapTab } from './focus-trap.js';
 import { previewPlaybackStep } from './game-preview-capture.js';
 import { sortMyMessInventory, applySortMyMess, decisionChanges, describeSortMyMessChanges, verifySortMyMess, visibilityFacts, unionVisibilityOverrides, canMergeMembers } from '../src/sort-my-mess.js';
 import { displayNumber as n } from '../src/display-number.js';
@@ -155,11 +156,7 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
   const keys = event => {
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (open) setOpen(null); else onClose(); }
-    if (event.key === 'Tab') {
-      const controls = [...root.current.querySelectorAll('button:not(:disabled),select:not(:disabled),input:not(:disabled)')].filter(element => element.getClientRects().length);
-      if (event.shiftKey && (document.activeElement === controls[0] || document.activeElement === root.current)) { event.preventDefault(); controls.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
-    }
+    trapTab(event, root.current);
   };
 
   const statusOf = item => { const decision = decisionOf(item); return decision?.leave ? 'leave' : decisionChanges(decision) ? 'selected' : ''; };

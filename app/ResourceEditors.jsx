@@ -1,6 +1,7 @@
 import ModelManager from './ModelManager.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Inspector from './Inspectors.jsx';
+import { trapTab } from './focus-trap.js';
 import NodeEventEditor from './NodeEventEditor.jsx';
 import { EVENT_TYPES, loadEventCatalog } from './node-event-data.js';
 import { Bone, Paperclip, Camera, Volume2, Droplets, Footprints, Lightbulb, Sparkles, Box, Circle, ChevronRight, ChevronDown } from 'lucide-react';
@@ -196,12 +197,7 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
     }
     if (['Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.stopPropagation();
     if (event.key === 'Escape' && !embedded && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) { event.stopPropagation(); onClose?.(); }
-    if (event.key === 'Tab' && !livePreview && !embedded) {
-      const focusable = [...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')].filter(element => element.getClientRects().length);
-      const first = focusable[0], last = focusable.at(-1);
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    }
+    if (!livePreview && !embedded) trapTab(event, dialog.current);
   };
 
   const seek = value => { setFrame(value); onSeek?.(value); };

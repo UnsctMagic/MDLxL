@@ -7,6 +7,7 @@ import {getUVPreviewSelection,existingTextureIndex,materialsUsingTexture} from '
 import './texture-library.css';
 import { translate } from '../src/localization.js';
 import { readStoredText, writeStoredText } from '../src/local-store.js';
+import { trapTab } from './focus-trap.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
 const LIBRARY_TABS=[['textures','Textures','Warcraft III textures and textures beside your model'],['models','Models','Every Warcraft III model; double-click one to open it in the editor'],['sounds','Sounds','Every Warcraft III sound, voice and music file'],['all','All files','Every Warcraft III game file, organised like the game folders']];
@@ -144,7 +145,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const keys=event=>{
     event.stopPropagation();
     if(event.key==='Escape'){event.preventDefault();if(!busy)choice?setChoice(null):onClose();}
-    if(event.key==='Tab'){const elements=[...(choicePopup.current||dialog.current).querySelectorAll('button:not(:disabled),input,select,[tabindex="0"]')].filter(el=>el.getClientRects().length);const first=elements[0],last=elements.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    trapTab(event,choicePopup.current||dialog.current);
   };
   return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
     <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>Material &amp; Texture Library</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>

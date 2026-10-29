@@ -1,4 +1,5 @@
 import ParticleIngredients from './ParticleIngredients.jsx';
+import { trapTab } from './focus-trap.js';
 import ParticleTestView from './ParticleTestView.jsx';
 import ParticleExampleComparison from './ParticleExampleComparison.jsx';
 import {activeParticleSample} from '../src/particle-sampling.js';
@@ -312,7 +313,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     if(event.key==='Escape'){event.preventDefault();if(sizeKey){setSizeKey(null);sync();}else if(gesture.current)cancel();else if(placement)setPlacement(null);else if(glow)setGlow(null);else if(ingredients)setIngredients(null);else if(library)setLibrary(false);else close();}
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();undo(event.shiftKey);}
     if(event.key===' '&&!isTypingTarget(event.target)){event.preventDefault();setPlaying(v=>!v);}
-    if(event.key==='Tab'){const controls=[...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]')].filter(e=>e.getClientRects().length);if(event.shiftKey&&document.activeElement===controls[0]){event.preventDefault();controls.at(-1)?.focus();}else if(!event.shiftKey&&document.activeElement===controls.at(-1)){event.preventDefault();controls[0]?.focus();}}
+    trapTab(event,dialog.current);
   }}>
     <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window pe-window" role="dialog" aria-modal="true" aria-label="Particle Editor" data-hotkey-scope="dialog" data-hotkey-prefix="particles">
       <header className="re-caption" {...movable.handleProps}><span>Particle Editor <small>· {context}</small></span><button className="re-caption-close" aria-label="Close Particle Editor" onClick={close}>×</button></header>
