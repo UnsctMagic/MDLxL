@@ -71,6 +71,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await learningToggle.isChecked(), false);
     await learningToggle.check();
     assert.equal(await learner.getAttribute('aria-pressed'), 'true', 'Settings and LER share one value');
+    // A window's own buttons get keys from their names; Learn teaches only command keys.
+    await page.locator('#settings-tab-configuration').click(); await page.waitForTimeout(200);
+    assert.equal(await popup.count(), 0, 'clicking a Settings page tab shows no reminder');
     await closeSettings();
     if (await popup.count()) await clickPopup();
     check('Ancient of Lore LER tile is 40px and synchronizes button, Ctrl+J and Settings; off stops reminders');
@@ -171,7 +174,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // 5. Settings: position, size, flashing, and bringing keys back.
     await settings();
     const restoreSilenced = page.getByRole('button', { name: /Bring back silenced keys/ }), restoreLearned = page.getByRole('button', { name: /Bring back learned keys/ });
-    await page.locator('#settings-tab-hotkeys').click(); await popup.waitFor();
+    // The menu bar still works while Settings is open; its Resize command reminds of Z.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: 'scale' } }))); await popup.waitFor();
+    assert.deepEqual(await caps(), ['Z']);
     await clickPopup('right'); await gone();
     assert.match(await restoreSilenced.textContent(), /2/, 'muting while Settings is open refreshes its count');
     // Learning a key while Settings remains open updates the count only at a quiet-time change.
