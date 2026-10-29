@@ -46,6 +46,12 @@ marked "Sent while the AI was working". The AI picks it up at its next step; if 
 had just finished, the message starts a follow-up turn on the same task. **Stop**
 (the square) cancels; applied edits stay in Undo.
 
+When Codex asks a clarification, the question and its choices appear directly in
+chat. Choose an option or type your own answer, then click **Send answer**. A bird's
+question also appears in its organiser chat, and the answer returns to that exact
+request. **Stop** cancels a waiting question. Answered and stopped questions stay
+readable when switching chats; questions left by an app restart are stopped.
+
 ### Editing handbook
 
 The **Editing handbook** switch (the book icon in the console header, next to the

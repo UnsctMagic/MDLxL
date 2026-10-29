@@ -471,8 +471,10 @@ async function runApi({
 }
 
 class CodexProcess {
-  constructor(settings, { directory, event = () => {}, mcp, signal, web = false } = {}) {
+  constructor(settings, { directory, event = () => {}, mcp, signal, web = false, askUser } = {}) {
     this.settings = settings;
+    this.askUser = askUser;
+    this.questions = new AbortController();
     this.directory = directory;
     this.web = web;
     this.event = event;
@@ -552,6 +554,14 @@ class CodexProcess {
     });
   }
   receive(message) {
+    if (message.id !== undefined && message.method === 'item/tool/requestUserInput' && this.askUser) {
+      const signal = this.signal ? AbortSignal.any([this.signal, this.questions.signal]) : this.questions.signal;
+      Promise.resolve().then(() => this.askUser(message.params, signal)).then(
+        result => { if (!signal.aborted) this.write({ id: message.id, result }); },
+        error => { if (!signal.aborted) this.write({ id: message.id, error: { code: -32602, message: error.message } }); },
+      );
+      return;
+    }
     if (message.id !== undefined && message.method) {
       // The editor grants model tools, not terminal or arbitrary filesystem access.
       const decision = message.method.includes('requestApproval') ? { decision: 'decline' } : null;
@@ -625,6 +635,7 @@ class CodexProcess {
       this.event({ type: 'notice', text: p.error?.message || 'Codex reported an error.' });
   }
   fail(error) {
+    this.questions.abort(error);
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(error);
@@ -637,6 +648,7 @@ class CodexProcess {
     return this.request('account/read', { refreshToken: true });
   }
   async close() {
+    this.questions.abort(Error('AI question cancelled.'));
     this.signal?.removeEventListener('abort', this.abort);
     stopAgent(this.child);
     if (this.exited)
@@ -671,7 +683,7 @@ async function runCodex(options) {
       value = { ...value, tokens: Math.max(0, value.tokens - tokenBaseline) };
     }
     event(value);
-  }, mcp, signal, web });
+  }, mcp, signal, web, askUser: options.askUser });
   let unsubscribe,
     unsteer,
     turnId,

@@ -302,6 +302,40 @@ function CostLine({ cost }) {
     </div>
   );
 }
+function QuestionPart({ part }) {
+  const [values, setValues] = useState({}), [custom, setCustom] = useState({}),
+    [sending, setSending] = useState(false), [error, setError] = useState('');
+  const pending = part.status === 'running';
+  const answer = q => custom[q.id] ? custom[q.id].trim() : values[q.id] || '';
+  async function submit(event) {
+    event.preventDefault();
+    if (sending || !pending) return;
+    setSending(true); setError('');
+    try {
+      await window.desktop.aiAnswerQuestion({ questionId: part.questionId,
+        answers: Object.fromEntries(part.questions.map(q => [q.id, { answers: [answer(q)] }])) });
+    } catch (reason) { setError(reason.message); }
+    finally { setSending(false); }
+  }
+  return <form className="ai-question" onSubmit={submit}>
+    <div className="ai-message-note">{part.name ? part.name + ': ' : ''}{pending ? 'Waiting for your answer' : part.status === 'done' ? 'Answered' : 'Question stopped'}</div>
+    {part.questions.map(q => <fieldset key={q.id} disabled={!pending || sending}>
+      <legend translate="no">{q.question}</legend>
+      {pending ? <>
+        {!q.isSecret && (q.options || []).map((option, index) => <label key={index} className="ai-question-option">
+          <input type="radio" name={part.questionId + q.id} checked={!custom[q.id] && values[q.id] === option.label}
+            onChange={() => { setValues(old => ({ ...old, [q.id]: option.label })); setCustom(old => ({ ...old, [q.id]: '' })); }} />
+          <span translate="no"><b>{option.label}</b>{option.description && <small>{option.description}</small>}</span>
+        </label>)}
+        <input type={q.isSecret ? 'password' : 'text'} aria-label={q.question} autoComplete="off"
+          placeholder={q.options?.length ? 'Or type your answer' : 'Your answer'} value={custom[q.id] || ''}
+          onChange={event => { const value = event.target.value; setCustom(old => ({ ...old, [q.id]: value })); setValues(old => ({ ...old, [q.id]: '' })); }} />
+      </> : <div translate="no">{part.answers?.[q.id]?.answers.join(', ')}</div>}
+    </fieldset>)}
+    {pending && <button type="submit" title="Send these answers to the AI that asked." disabled={sending || part.questions.some(q => !answer(q))}>Send answer</button>}
+    {error && <p className="ai-message-error" role="alert">{error}</p>}
+  </form>;
+}
 function AssistantMessage({ message, live, onOpenWorker }) {
   // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
   const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
@@ -310,6 +344,8 @@ function AssistantMessage({ message, live, onOpenWorker }) {
   const shown = parts.map((part, index) =>
     part.type === 'worker' ? (
       <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
+    ) : part.type === 'question' ? (
+      <QuestionPart key={part.questionId} part={part} />
     ) : part.type === 'thinking' ? (
       <ThinkingPart key={index} part={part} live={live && index === parts.length - 1} />
     ) : part.type === 'tool' ? (
@@ -449,6 +485,11 @@ function AiAssistant({ bridge, visUI }) {
           if (last?.type === event.type) message.parts[message.parts.length - 1] = { ...last, text: last.text + event.text };
           else message.parts.push({ type: event.type, text: event.text });
         });
+      if (event.type === 'question')
+        update(message => message.parts.push({ type: 'question', questionId: event.questionId, questions: event.questions, name: event.name, status: 'running' }));
+      if (event.type === 'question-result')
+        setMessages(previous => previous.map(message => ({ ...message, parts: message.parts?.map(part =>
+          part.type === 'question' && part.questionId === event.questionId ? { ...part, status: event.status, answers: event.answers } : part) })));
       if (event.type === 'tool')
         update(message =>
           message.parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, status: 'running' }),

@@ -202,3 +202,11 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 
 /* Viewport bar tag while a drawing tool owns the left mouse button. */
 .ai-drawing-tag{margin-left:6px;border:1px solid var(--ui-accent,#71b5f3);background:color-mix(in srgb,var(--ui-accent,#71b5f3) 16%,var(--ui-panel,#f0f0f0));color:var(--ui-text,#202020);font-weight:600}
+
+/* Clarifications stay in the conversation, beside the bird that asked. */
+.ai-question{margin:10px 0;padding:10px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-soft)}
+.ai-question fieldset{border:0;margin:8px 0;padding:0;min-width:0}
+.ai-question legend{font-weight:600;margin-bottom:6px;white-space:pre-wrap}
+.ai-question-option{display:flex;align-items:flex-start;gap:7px;margin:6px 0;cursor:pointer}
+.ai-question-option small{display:block;color:var(--ui-muted)}
+.ai-question input[type=text],.ai-question input[type=password]{width:100%;padding:5px 7px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field)}

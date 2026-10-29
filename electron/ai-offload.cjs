@@ -97,6 +97,11 @@ class AiRecorder {
       if (value.active && !running) reply.parts.push({ type: 'compaction', status: 'running' });
       else if (!value.active && running) running.status = 'done';
       else return;
+    } else if (value.type === 'question') {
+      reply.parts.push({ type: 'question', questionId: value.questionId, questions: value.questions, name: value.name, status: 'running' });
+    } else if (value.type === 'question-result') {
+      const part = this.parts().find(p => p.type === 'question' && p.questionId === value.questionId);
+      if (part) Object.assign(part, { status: value.status, answers: value.answers });
     } else if (value.type === 'tool') {
       reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
     } else if (value.type === 'tool-result') {

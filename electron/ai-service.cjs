@@ -56,6 +56,7 @@ class AiService {
     this.electron = electron;
     this.getWindow = getWindow;
     this.pending = new Map();
+    this.questions = new Map();
     this.conversations = new Map();
     this.ready = false;
     this.config = null;
@@ -966,6 +967,7 @@ class AiService {
           settings,
           key: this.decrypt(settings.key),
           directory: this.directory,
+          askUser: (params, questionSignal) => this.askUser(conversation, recorder, params, questionSignal),
           event: this.measureUsage(conversation, recorder, conversation.kind === 'worker' ? 'bird' : organiser || conversation.toolsOff ? 'organiser' : 'direct'),
           tools,
           call,
@@ -1619,6 +1621,49 @@ class AiService {
   modelBusy(modelKey) {
     return [...this.tasks.values()].some(t => t.modelKey && t.modelKey === modelKey);
   }
+  async askUser(conversation, recorder, params, signal) {
+    const questions = params?.questions;
+    if (!Array.isArray(questions) || !questions.length || questions.some(q =>
+      !q || typeof q.id !== 'string' || !q.id || typeof q.question !== 'string' || !q.question.trim() ||
+      (q.options != null && (!Array.isArray(q.options) || q.options.some(o => typeof o?.label !== 'string' || !o.label.trim())))) ||
+      new Set(questions.map(q => q.id)).size !== questions.length)
+      throw Error('The AI must supply a question with a unique ID and readable options.');
+    signal.throwIfAborted();
+    const questionId = crypto.randomUUID();
+    const parent = this.taskOf(conversation.id)?.recorder;
+    const recorders = parent && parent !== recorder ? [recorder, parent] : [recorder];
+    const publish = value => { for (const target of recorders) target.event(value); };
+    const persist = () => Promise.all(recorders.map(target => this.persistConversation(target.conversation)));
+    let resolve, reject, answers;
+    const response = new Promise((yes, no) => { resolve = yes; reject = no; });
+    response.catch(() => {});
+    const abort = () => reject(signal.reason || Error('AI question cancelled.'));
+    this.questions.set(questionId, { questions, resolve });
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      publish({ type: 'question', questionId, questions, name: conversation.name || '', status: 'running' });
+      await persist();
+      answers = await response;
+      return { answers };
+    } finally {
+      signal.removeEventListener('abort', abort);
+      this.questions.delete(questionId);
+      const shown = answers && Object.fromEntries(questions.map(q => [q.id, q.isSecret ? { answers: ['••••'] } : answers[q.id]]));
+      publish({ type: 'question-result', questionId, status: answers ? 'done' : 'stopped', answers: shown });
+      await persist();
+    }
+  }
+  answerQuestion({ questionId, answers }) {
+    const pending = this.questions.get(questionId);
+    if (!pending) throw Error('This question is no longer waiting for an answer.');
+    if (!answers || typeof answers !== 'object' || pending.questions.some(q =>
+      !Array.isArray(answers[q.id]?.answers) || answers[q.id].answers.length !== 1 ||
+      typeof answers[q.id].answers[0] !== 'string' || !answers[q.id].answers[0].trim() || answers[q.id].answers[0].length > 20000))
+      throw Error('Answer each question before sending.');
+    this.questions.delete(questionId);
+    pending.resolve(Object.fromEntries(pending.questions.map(q => [q.id, { answers: [answers[q.id].answers[0]] }])));
+    return { answered: true };
+  }
   async steer({ id, text, annotations }) {
     const active = this.taskOf(id);
     if (!active?.steering) return { queued: false };
@@ -1826,6 +1871,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:send', input => service.send(input));
   handle('ai:cancel', id => service.cancel(id));
   handle('ai:steer', input => service.steer(input));
+  handle('ai:answerQuestion', input => service.answerQuestion(input));
   handle('ai:organiser', input => service.organiser(input));
   handle('ai:newOrganiser', input => service.newOrganiser(input));
   handle('ai:rekey', input => service.rekey(input));
