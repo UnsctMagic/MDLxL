@@ -26,8 +26,10 @@ change, installed-app update, or release is included.
   Its existing checkpoints retain displaced particle positions.
 - `event-preview-runtime.js` also offsets automatic `FPT` ground decals by
   authored movement speed and their animation age. Manual event tests, unrelated
-  blood/spawn effects, original event timing/fade and loop lifetime behavior are
-  preserved. Pausing or redrawing does not accumulate decal displacement.
+  blood/spawn effects and original event timing/fade are preserved. A separate
+  unwrapped animation clock gives each footprint its own loop identity and full
+  lifespan. Looping adds new prints without clearing older ones. Pause/resume
+  preserves the trail; deliberate seeking or changing animations resets it.
 
 ## Verification
 
@@ -47,6 +49,9 @@ change, installed-app update, or release is included.
   `footprint-travel.electron.cjs` verified all four real Chaos Knight hoofprint
   GPU transforms against their contact positions and authored speed, repeated
   paused draws, unchanged model data, normal Alt-drag rotation and no page errors.
+  The loop regression test follows the same hoofprint through more than twelve
+  actual Walk loops, a pause/resume, its natural fading alpha, and expiration at
+  the installed Warcraft table's full seven-second lifespan; newer prints remain.
   The source-built test window was left open for owner review; the installed app
   and model original were not changed.
 

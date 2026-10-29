@@ -173,12 +173,12 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
     // Expiration must render one final clean frame, even at a low frame cap.
     get active() { return [...tests.values()].some(test => !test.completed); },
     cancelTests() { tests.clear(); invalidate?.(); },
-    render({ frame, sequenceIndex, globalTime, playback, camera, teamColor, bloodSteps = true, spawn = true, travel = true }) {
+    render({ frame, sequenceIndex, globalTime, playback, footprintPlayback, camera, teamColor, bloodSteps = true, spawn = true, travel = true }) {
       if (disposed || !loaded) return;
       // A frozen event key must not recreate the decal just tested. Release it
       // when the timeline moves so normal playback and scrubbing stay intact.
       for (const [id,test] of tests) if (test.completed && (test.completed.frame !== frame || test.completed.sequenceIndex !== sequenceIndex || test.completed.globalTime !== globalTime)) tests.delete(id);
-      const active = activeEventInstances(model, definitions, { frame, sequenceIndex, globalTime, playback, maxInstances:64 })
+      const active = activeEventInstances(model, definitions, { frame, sequenceIndex, globalTime, playback, footprintPlayback, maxInstances:64 })
         .filter(item => (item.definition.type === 'SPN' ? spawn : bloodSteps) && !tests.has(item.event.ObjectId));
       for (const [id,test] of tests) {
         if (test.completed) continue;
@@ -217,7 +217,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
           const world = state.world.clone();
           // Hoof/footprints stay at their ground contact while the centered unit travels.
           // Derive the offset from age so pauses, repeated draws and scrubs do not drift.
-          if (travel && !item.manual && /^FPT/i.test(item.event.Name)) world.elements[12] -= particleTravelDistance(model,sequenceIndex,item.ageMs * (playback?.speed ?? 1));
+          if (travel && !item.manual && /^FPT/i.test(item.event.Name)) world.elements[12] -= particleTravelDistance(model,sequenceIndex,item.ageMs * ((footprintPlayback ?? playback)?.speed ?? 1));
           decals ||= createDecalRenderer(gl); decals.render(resource.texture,item,world,camera); continue;
         }
         const native = state.native, start = resource.source.Sequences[0].Interval[0];

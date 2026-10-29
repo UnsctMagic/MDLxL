@@ -1185,6 +1185,7 @@ export default function GamePreview(inputProps) {
     const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved Â· load the model's texture files`] : []), ...failures]); });
     let reportAt = performance.now(), activeSequence = -99, externalFrame, reportedFrame, lastPlaying = false, globalClock = 0, playbackStopped = false;
     let showcaseSample, recordingSink = null;
+    let footprintTime = 0, footprintSegment = 0, footprintRangeKey = '';
     const color = new THREE.Color(), cameraQuaternion = new THREE.Quaternion();
     function setPreviewFrame(frame) {
       native.setFrame(frame);
@@ -1313,6 +1314,14 @@ export default function GamePreview(inputProps) {
           updateNative(0);
         } else if (!p.showcase && Math.abs(native.getFrame() - playback.frame) > 1e-5) { setPreviewFrame(playback.frame); updateNative(0); }
         poseSequence = useAuthoredSequenceInterval(native.getFrame());
+        const footprintInterval = poseSequence === selected ? [start,end] : ownedModel.Sequences[poseSequence]?.Interval;
+        const footprintKey = `${poseSequence}:${footprintInterval?.join(':')}:${!!p.restPose}:${globalPreviewId}`;
+        if (sequenceChanged || userSeek || playback.finished || nodeGesture || footprintKey !== footprintRangeKey) {
+          footprintTime = Math.max(0,native.getFrame() - (footprintInterval?.[0] ?? 0)); footprintSegment++; footprintRangeKey = footprintKey;
+        } else footprintTime += dt;
+        // Keep an unwrapped animation clock: a loop creates new prints while old
+        // prints continue aging. Pauses retain this clock; deliberate seeks reset it.
+        const footprintPlayback = p.showcase ? undefined : {motionSeconds:footprintTime/1000,clipTime:footprintTime,speed:1,segment:footprintSegment,interval:footprintInterval,loop:p.loop !== false};
         if (poseSequence !== selected) updateNative(0);
         applyRestPoseMatrices(native.rendererData, p.restPose);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
@@ -1379,7 +1388,7 @@ export default function GamePreview(inputProps) {
           native.particlesController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
           native.ribbonsController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
         }
-        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
+        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, footprintPlayback, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
         if (!captureOnly && !p.portraitMode) presentation.draw(camera, p.preferences, p.workplane, false, center, radius, bounds.min.z, { platformOnly: true });
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
       if (!captureOnly) {
