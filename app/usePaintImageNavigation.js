@@ -1,28 +1,51 @@
-import {useEffect,useLayoutEffect,useRef} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {bindScrollSensitivity,pointerSensitivityValue,wheelZoomFactor} from './viewport-performance.js';
+import {cameraBindings} from '../src/preferences.js';
 
-/** Wheel zoom stays under the pointer; middle/right drag pans either image view. */
-export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate){
-  const current=useRef(),anchor=useRef(),pan=useRef();
-  current.current={zoom,setZoom,onNavigate};
+/** Wheel zoom stays under the pointer; Mouse bindings choose image navigation. */
+export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate,options={}){
+  const current=useRef(),anchor=useRef(),pan=useRef(),[adjustingSensitivity,setAdjustingSensitivity]=useState(null);
+  current.current={zoom,setZoom,onNavigate,...options};
   useEffect(()=>{
     const element=scroll.current;
-    const wheel=e=>{
-      if(!image.current)return;e.preventDefault();current.current.onNavigate?.();
-      const rect=image.current.getBoundingClientRect(),z=current.current.zoom;
-      anchor.current={x:(e.clientX-rect.left)/z,y:(e.clientY-rect.top)/z,clientX:e.clientX,clientY:e.clientY};
-      current.current.setZoom(Math.max(.05,Math.min(32,z*Math.exp(-e.deltaY*.002))));
-    };
-    element.addEventListener('wheel',wheel,{passive:false});return()=>element.removeEventListener('wheel',wheel);
+    return bindScrollSensitivity(element,{
+      getPreferences:()=>current.current.preferences,
+      onChange:value=>current.current.onSensitivityChange?.(value),
+      onPointerChange:value=>current.current.onPointerSensitivityChange?.(value),
+      onCameraModeToggle:()=>current.current.onCameraModeToggle?.(),
+      onPointerAdjustment:()=>{pan.current=null;current.current.onNavigate?.();},
+      onIndicator:setAdjustingSensitivity,
+      onWheel:(e,sensitivity)=>{
+        if(!image.current)return;e.preventDefault();current.current.onNavigate?.();
+        const rect=image.current.getBoundingClientRect(),z=current.current.zoom;
+        anchor.current={x:(e.clientX-rect.left)/z,y:(e.clientY-rect.top)/z,clientX:e.clientX,clientY:e.clientY};
+        current.current.setZoom(Math.max(.05,Math.min(32,z*wheelZoomFactor(e,sensitivity))));
+      },
+    });
   },[]);
   useLayoutEffect(()=>{
     const a=anchor.current;if(!a)return;anchor.current=null;
     const rect=image.current.getBoundingClientRect();scroll.current.scrollLeft+=rect.left+a.x*zoom-a.clientX;scroll.current.scrollTop+=rect.top+a.y*zoom-a.clientY;
   },[zoom]);
-  return {
+  const navigation={
     onContextMenu:e=>e.preventDefault(),
-    onPointerDownCapture:e=>{if(e.button!==1&&e.button!==2)return;e.preventDefault();e.stopPropagation();current.current.onNavigate?.();pan.current={x:e.clientX,y:e.clientY,left:scroll.current.scrollLeft,top:scroll.current.scrollTop};scroll.current.setPointerCapture(e.pointerId);},
-    onPointerMoveCapture:e=>{const p=pan.current;if(!p)return;e.preventDefault();e.stopPropagation();scroll.current.scrollLeft=p.left+p.x-e.clientX;scroll.current.scrollTop=p.top+p.y-e.clientY;},
+    onPointerDownCapture:e=>{
+      const preferences=current.current.preferences,bindings=cameraBindings(preferences),binding=e.button===2?bindings.right:e.button===1?bindings.middle:null;
+      if(!binding||binding==='none'||binding==='toggle')return;
+      e.preventDefault();e.stopPropagation();current.current.onNavigate?.();
+      pan.current={type:binding==='zoom'?'zoom':'pan',x:e.clientX,y:e.clientY,left:scroll.current.scrollLeft,top:scroll.current.scrollTop,zoom:current.current.zoom,sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)*(e.altKey?(preferences?.fineSensitivity??.2):1)};
+      scroll.current.setPointerCapture(e.pointerId);
+    },
+    onPointerMoveCapture:e=>{
+      const p=pan.current;if(!p)return;e.preventDefault();e.stopPropagation();
+      if(p.type==='zoom'){
+        const rect=image.current.getBoundingClientRect(),z=current.current.zoom;
+        anchor.current={x:(p.x-rect.left)/z,y:(p.y-rect.top)/z,clientX:p.x,clientY:p.y};
+        current.current.setZoom(Math.max(.05,Math.min(32,p.zoom*Math.exp(-(e.clientY-p.y)*.01*p.sensitivity))));
+      }else{scroll.current.scrollLeft=p.left+(p.x-e.clientX)*p.sensitivity;scroll.current.scrollTop=p.top+(p.y-e.clientY)*p.sensitivity;}
+    },
     onPointerUpCapture:e=>{if(!pan.current)return;pan.current=null;e.stopPropagation();if(scroll.current.hasPointerCapture(e.pointerId))scroll.current.releasePointerCapture(e.pointerId);},
     onPointerCancel:()=>{pan.current=null;},
   };
+  return {navigation,adjustingSensitivity};
 }

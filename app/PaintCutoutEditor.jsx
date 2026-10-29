@@ -4,14 +4,15 @@ import {shapeSelection,magicSelection,combineSelection,featherSelection,extractP
 import {flattenPaintRasterAlpha} from '../src/paint-raster.js';
 import {paintRasterCanvas} from './paint-raster.js';
 import {usePaintImageNavigation} from './usePaintImageNavigation.js';
+import {sensitivityIndicatorStyle,sensitivityIndicatorText} from './viewport-performance.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
 
 /** Selection tools operate on a copyable mask. Closing never changes the source asset. */
-export default function PaintCutoutEditor({source,onClose,onUse,onSave,onMask,initialMask}) {
+export default function PaintCutoutEditor({preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle,source,onClose,onUse,onSave,onMask,initialMask}) {
   const {name}=source,raster=useMemo(()=>source.nativeSource?flattenPaintRasterAlpha(source.raster):source.raster,[source]),dialog=useRef(),canvas=useRef(),maskCanvas=useRef(),drag=useRef(null),scroll=useRef(),image=useRef();
   const [tool,setTool]=useState('crop'),[cropShape,setCropShape]=useState('rectangle'),[operation,setOperation]=useState('replace'),[tolerance,setTolerance]=useState(32),[contiguous,setContiguous]=useState(true),[feather,setFeather]=useState(0),[zoom,setZoom]=useState(()=>[8,4,2,1,.5,.25].find(v=>raster.width*v<window.innerWidth-160&&raster.height*v<window.innerHeight-300)||.25);
   const [mask,setMask]=useState(()=>initialMask?new Uint8ClampedArray(initialMask):new Uint8ClampedArray(raster.width*raster.height).fill(255)),[points,setPoints]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const navigation=usePaintImageNavigation(scroll,image,zoom,setZoom);
+  const {navigation,adjustingSensitivity}=usePaintImageNavigation(scroll,image,zoom,setZoom,undefined,{preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle});
   const history=useRef([]),redo=useRef([]);
   const [hoverPoint,setHoverPoint]=useState(null),[crop,setCrop]=useState(null),polygonOperation=useRef('replace');
   const selectedCount=useMemo(()=>mask.reduce((n,value)=>n+(value>127?1:0),0),[mask]);
@@ -112,9 +113,10 @@ export default function PaintCutoutEditor({source,onClose,onUse,onSave,onMask,in
         <label>{msg('paint.feather')} {keyHint('F')}<input aria-label="Selection feather" type="number" min="0" max="32" value={feather} onChange={e=>setFeather(Math.max(0,Math.min(32,+e.target.value)))}/></label>
         <label>{msg('paint.zoom')} {keyHint('− + / 0')}<select value={zoom} onChange={e=>setZoom(+e.target.value)}>{[...new Set([.25,.5,1,2,4,8,zoom])].sort((a,b)=>a-b).map(v=><option key={v} value={v}>{Math.round(v*100)}%</option>)}</select></label>
         {tool==='polygon'&&<button disabled={points.length<3} onClick={polygon}>{msg('paint.finishSelection')}{keyHint('Enter')}</button>}
-        <small>{raster.width} × {raster.height} · Wheel zoom / Right-drag pan</small>
+        <small>{raster.width} × {raster.height} · Wheel zoom / Mouse buttons: Settings → Mouse</small>
       </div>
       <div className="paint-selection-guide" role="status"><strong>{msg('paint.select.'+tool)}</strong><span>{instructions[tool]}</span><small>{points.length?'Esc cancels the outline':'Bright area = selected. Dark area = protected.'}</small><span>{Math.round(selectedCount/mask.length*100)}% selected</span></div>
+      {adjustingSensitivity!==null&&<div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
       <div ref={scroll} className="paint-cutout-scroll" {...navigation}><div ref={image} className="paint-cutout-image" style={{width:raster.width*zoom,height:raster.height*zoom}} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancelDrag} onDoubleClick={()=>{if(tool==='polygon')polygon();}}>
         <canvas ref={canvas}/><canvas ref={maskCanvas}/><svg viewBox={`0 0 ${raster.width} ${raster.height}`}>{tool==='crop'&&crop&&(()=>{const bounds=cropBounds(crop),size=8/zoom,corners=[['nw',bounds.left,bounds.top],['ne',bounds.right,bounds.top],['se',bounds.right,bounds.bottom],['sw',bounds.left,bounds.bottom]];return <>{crop.shape==='ellipse'||crop.shape==='circle'?<ellipse className="paint-crop-shape" cx={(bounds.left+bounds.right)/2} cy={(bounds.top+bounds.bottom)/2} rx={bounds.width/2} ry={bounds.height/2}/>:<rect className="paint-crop-shape" x={bounds.left} y={bounds.top} width={bounds.width} height={bounds.height}/>}<g>{corners.map(([id,x,y])=><rect key={id} data-corner={id} className="paint-crop-handle" x={x-size/2} y={y-size/2} width={size} height={size}/>)}</g></>;})()}{a&&b&&tool==='lasso'&&<><polygon className="paint-selection-fill" points={points.map(p=>p.x+','+p.y).join(' ')}/><polyline points={points.map(p=>p.x+','+p.y).join(' ')}/></>}{tool==='polygon'&&a&&b&&<><polygon className="paint-selection-fill" points={[...points,...(hoverPoint?[hoverPoint]:[])].map(p=>p.x+','+p.y).join(' ')}/><polyline points={points.map(p=>p.x+','+p.y).join(' ')}/>{hoverPoint&&<path className="paint-selection-closing" d={`M${b.x},${b.y}L${hoverPoint.x},${hoverPoint.y}L${a.x},${a.y}`}/>}<g>{points.map((p,i)=><g key={i}><circle className={i===0?'paint-selection-first':''} cx={p.x} cy={p.y} r={(i===0?6:4)/zoom}/><text x={p.x+9/zoom} y={p.y-8/zoom} fontSize={12/zoom}>{i+1}</text></g>)}</g></>}</svg>
       </div></div>

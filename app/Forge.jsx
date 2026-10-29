@@ -3,6 +3,8 @@ import { windowCommandActions } from '../src/commands.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { alphaMask, buildForgeMesh, combineMask, cropContour, cropMask, encodeForgeTga, magicWand, polygonMask } from '../src/forge.js';
 import { textureFromAsset } from './Viewport.jsx';
+import { bindScrollSensitivity, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelZoomFactor } from './viewport-performance.js';
+import { cameraBindings } from '../src/preferences.js';
 import { trapTab } from './focus-trap.js';
 import TextureLibrary from './TextureLibrary.jsx';
 import ForgePreview from './ForgePreview.jsx';
@@ -20,8 +22,9 @@ async function readImage(asset) {
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
   } finally { texture.dispose(); }
 }
-function MaskEditor({ image, mask, selected, points, setPoints, closed, setClosed, tool, cropShape, tolerance, connected, onSelected, onCrop, onBeginEdit, onBeginPolygon }) {
+function MaskEditor({ preferences, onSensitivityChange, onPointerSensitivityChange, image, mask, selected, points, setPoints, closed, setClosed, tool, cropShape, tolerance, connected, onSelected, onCrop, onBeginEdit, onBeginPolygon }) {
   const host = useRef(), canvas = useRef(), drag = useRef(), [size, setSize] = useState([600, 400]), [zoom, setZoom] = useState(1), [pan, setPan] = useState([0, 0]);
+  const current = useRef(), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const layers = useMemo(() => {
     if (!image) return null;
     const source = document.createElement('canvas'); source.width = image.width; source.height = image.height;
@@ -36,6 +39,21 @@ function MaskEditor({ image, mask, selected, points, setPoints, closed, setClose
   useEffect(() => { setZoom(1); setPan([0, 0]); }, [image]);
   const scale = image ? Math.min((size[0] - 32) / image.width, (size[1] - 32) / image.height) * zoom : 1;
   const origin = image ? [(size[0] - image.width * scale) / 2 + pan[0], (size[1] - image.height * scale) / 2 + pan[1]] : [0, 0];
+  current.current = { image, preferences, onSensitivityChange, onPointerSensitivityChange, zoom, pan, size, scale, origin };
+  useEffect(() => bindScrollSensitivity(canvas.current, {
+    getPreferences: () => current.current.preferences,
+    onChange: value => current.current.onSensitivityChange?.(value),
+    onPointerChange: value => current.current.onPointerSensitivityChange?.(value),
+    onPointerAdjustment: () => { drag.current = null; },
+    onIndicator: setAdjustingSensitivity,
+    onWheel: (e, sensitivity) => {
+      e.preventDefault(); e.stopPropagation(); const p = current.current; if (!p.image || drag.current) return;
+      const rect = canvas.current.getBoundingClientRect(), next = Math.max(.25, Math.min(24, p.zoom * wheelZoomFactor(e, sensitivity))), factor = next / p.zoom;
+      const cursor = [e.clientX - rect.left, e.clientY - rect.top];
+      setPan(cursor.map((v, i) => v - (v - p.origin[i]) * factor - (p.size[i] - (i ? p.image.height : p.image.width) * p.scale * factor) / 2));
+      setZoom(next);
+    },
+  }), []);
   const local = e => { const r = canvas.current.getBoundingClientRect(); return [(e.clientX - r.left - origin[0]) / scale, (e.clientY - r.top - origin[1]) / scale]; };
   const clampPoint = p => [Math.max(0, Math.min(image.width, p[0])), Math.max(0, Math.min(image.height, p[1]))];
   useEffect(() => {
@@ -49,8 +67,11 @@ function MaskEditor({ image, mask, selected, points, setPoints, closed, setClose
     ctx.restore();
   }, [image, layers, size, zoom, pan, points, closed]);
   const down = e => {
-    if (!image) return; e.preventDefault(); canvas.current.setPointerCapture(e.pointerId);
-    if (tool === 'Pan' || e.button === 1 || e.button === 2) { drag.current = { type: 'pan', start: [e.clientX, e.clientY], pan }; return; }
+    if (!image) return;
+    const bindings = cameraBindings(preferences), binding = e.button === 2 ? bindings.right : e.button === 1 ? bindings.middle : null;
+    if (e.button !== 0 && (!binding || binding === 'none' || binding === 'toggle')) return;
+    e.preventDefault(); canvas.current.setPointerCapture(e.pointerId);
+    if (tool === 'Pan' || binding) { drag.current = { type: binding === 'zoom' ? 'zoom' : 'pan', start: [e.clientX, e.clientY], pan, zoom, origin, scale, sensitivity: pointerSensitivityValue(preferences?.pointerSensitivity) * (e.altKey ? (preferences?.fineSensitivity ?? .2) : 1) }; return; }
     const p = clampPoint(local(e)); onBeginEdit();
     if (tool === 'Wand') { onSelected(magicWand(image, ...p, tolerance, connected)); setPoints([]); setClosed(false); }
     else if (tool === 'Crop') {
@@ -69,7 +90,11 @@ function MaskEditor({ image, mask, selected, points, setPoints, closed, setClose
   };
   const move = e => {
     if (!drag.current || !image) return; const d = drag.current;
-    if (d.type === 'pan') { setPan([d.pan[0] + e.clientX - d.start[0], d.pan[1] + e.clientY - d.start[1]]); return; }
+    if (d.type === 'pan') { setPan([d.pan[0] + (e.clientX - d.start[0]) * d.sensitivity, d.pan[1] + (e.clientY - d.start[1]) * d.sensitivity]); return; }
+    if (d.type === 'zoom') {
+      const next = Math.max(.25, Math.min(24, d.zoom * Math.exp(-(e.clientY - d.start[1]) * .01 * d.sensitivity))), factor = next / d.zoom, rect = canvas.current.getBoundingClientRect();
+      setPan(d.start.map((v, i) => v - (i ? rect.top : rect.left) - (v - (i ? rect.top : rect.left) - d.origin[i]) * factor - (size[i] - (i ? image.height : image.width) * d.scale * factor) / 2)); setZoom(next); return;
+    }
     const p = clampPoint(local(e));
     if (d.type === 'crop') {
       let start = d.start, end = d.end;
@@ -83,10 +108,10 @@ function MaskEditor({ image, mask, selected, points, setPoints, closed, setClose
     else { const next = points.map((v, i) => i === d.index ? p : v); setPoints(next); if (closed) onSelected(polygonMask(image.width, image.height, next)); }
   };
   const up = () => { const d = drag.current; if (d?.type === 'crop') { const { start, end } = d.next || d; if (Math.abs(start[0] - end[0]) >= 1 && Math.abs(start[1] - end[1]) >= 1) onCrop(cropMask(image.width, image.height, cropShape, start, end)); } drag.current = null; };
-  return <div className="forge-image-stage"><div className="forge-zoom"><button onClick={() => setZoom(z => Math.max(.25, z / 1.3))} aria-label="Zoom out">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom(z => Math.min(24, z * 1.3))} aria-label="Zoom in">+</button><button onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit image</button></div><div ref={host} className="forge-image-host"><canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }} onContextMenu={e => e.preventDefault()} onWheel={e => { e.stopPropagation(); setZoom(z => Math.max(.25, Math.min(24, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))); }} aria-label="Image cleanup canvas"/>{!image && <div className="forge-empty">Load an image to crop and clean its silhouette.</div>}</div></div>;
+  return <div className="forge-image-stage"><div className="forge-zoom"><button onClick={() => setZoom(z => Math.max(.25, z / 1.3))} aria-label="Zoom out">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom(z => Math.min(24, z * 1.3))} aria-label="Zoom in">+</button><button onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit image</button></div><div ref={host} className="forge-image-host"><canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }} onContextMenu={e => e.preventDefault()} aria-label="Image cleanup canvas"/>{adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}{!image && <div className="forge-empty">Load an image to crop and clean its silhouette.</div>}</div></div>;
 }
 const DEFAULTS = { detail: 35, size: 100, thickness: 0, trim: false, trimWidth: 3, trimThickness: 1, trimOffset: 0, trimHoles: true };
-export default function Forge({ model, modelPath, preferences, editorState, onClose, onCommit }) {
+export default function Forge({ model, modelPath, preferences, onSensitivityChange, onPointerSensitivityChange, editorState, onClose, onCommit }) {
   const [asset, setAsset] = useState(null), [image, setImage] = useState(null), [mask, setMask] = useState(null), [selected, setSelected] = useState(null), [points, setPoints] = useState([]), [closed, setClosed] = useState(false), [tool, setTool] = useState('Polygon'), [tolerance, setTolerance] = useState(24), [connected, setConnected] = useState(true), [selectionMode, setSelectionMode] = useState('Replace'), [settings, setSettings] = useState(DEFAULTS), [wire, setWire] = useState(false), [trimColor, setTrimColor] = useState('#cca64d'), [library, setLibrary] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [texturePath, setTexturePath] = useState(''), [undoCount, setUndoCount] = useState(0), [preview, setPreview] = useState({ mesh: null, error: '' }), [updating, setUpdating] = useState(false);
   const input = useRef(), history = useRef([]), draftHistory = useRef([]), original = useRef(), generation = useRef(0), dialog = useRef(), selectionBase = useRef(null);
   const [draftCount, setDraftCount] = useState(0);
@@ -136,7 +161,7 @@ export default function Forge({ model, modelPath, preferences, editorState, onCl
     {shapesOpened && <div className="forge-shapes-slot" hidden={sourceMode !== 'shapes'}><ForgeShapes editorState={editorState} modelPath={modelPath} preferences={preferences} onClose={onClose} onCommit={onCommit} onBusyChange={setBusy}/></div>}
     {sourceMode === 'shapes' ? null : <>{!image ? <div className="forge-start"><svg viewBox="0 0 80 64" aria-hidden="true"><rect x="7" y="5" width="66" height="54" rx="5"/><circle cx="27" cy="23" r="6"/><path d="M8 49 29 32 43 44 56 29 73 47"/></svg><div><button disabled={busy} className="forge-primary" onClick={() => input.current.click()}>Load from PC</button><button disabled={busy} onClick={() => setLibrary(true)}>Texture library</button></div></div> : <div className="forge-body"><section className="forge-cleanup"><div className="forge-preview-heading"><h3>Image</h3><button className={cleanup ? 'active' : ''} aria-expanded={cleanup} onClick={() => { setCleanup(v => !v); clearSelection(); }}>Cut out</button></div>{cleanup && <><div className="forge-tools">{['Polygon', 'Wand', 'Crop', 'Pan'].map(t => <button key={t} className={tool === t ? 'active' : ''} aria-pressed={tool === t} onClick={() => { setTool(t); clearSelection(); }}>{t === 'Wand' ? 'Magic wand' : t}</button>)}<button disabled={!undoCount && !draftCount} onClick={undo}>Undo</button></div>
       <div className="forge-clean-options">{tool === 'Crop' && <><label>Crop shape<select value={cropShape} onChange={e => { setCropShape(e.target.value); clearSelection(); }}>{['Rectangle', 'Square', 'Circle', 'Triangle'].map(v => <option key={v}>{v}</option>)}</select></label><button disabled={!selected} onClick={() => operate('keep')}>Apply crop</button></>}<label>Selection<select value={selectionMode} onChange={e => setSelectionMode(e.target.value)}>{['Replace', 'Add', 'Subtract'].map(v => <option key={v}>{v}</option>)}</select></label>{tool === 'Wand' && <><label>Tolerance<input type="range" min="0" max="255" value={tolerance} onChange={e => setTolerance(+e.target.value)}/><span>{tolerance}</span></label><label className="forge-check"><input type="checkbox" checked={connected} onChange={e => setConnected(e.target.checked)}/>Connected only</label></>}</div></>}
-      <MaskEditor cropShape={cropShape} image={image} mask={mask} selected={selected} points={points} setPoints={setPoints} closed={closed} setClosed={setClosed} tool={cleanup ? tool : 'Pan'} tolerance={tolerance} connected={connected} onSelected={selectMask} onBeginEdit={rememberDraft} onBeginPolygon={() => { selectionBase.current = selected; }} onCrop={next => setSelected(next)}/>
+      <MaskEditor preferences={preferences} onSensitivityChange={onSensitivityChange} onPointerSensitivityChange={onPointerSensitivityChange} cropShape={cropShape} image={image} mask={mask} selected={selected} points={points} setPoints={setPoints} closed={closed} setClosed={setClosed} tool={cleanup ? tool : 'Pan'} tolerance={tolerance} connected={connected} onSelected={selectMask} onBeginEdit={rememberDraft} onBeginPolygon={() => { selectionBase.current = selected; }} onCrop={next => setSelected(next)}/>
       {cleanup && <><div className="forge-mask-actions">{[['keep', 'Keep'], ['remove', 'Remove'], ['add', 'Restore'], ['subtract', 'Subtract'], ['invert', 'Invert'], ['reset', 'Reset']].map(([action, label]) => <button key={action} disabled={!mask || !selected && !['invert', 'reset'].includes(action)} onClick={() => operate(action)}>{label}</button>)}</div><div className="forge-polygon-actions"><button disabled={points.length < 3 || closed} onClick={() => { rememberDraft(); setClosed(true); selectMask(polygonMask(image.width, image.height, points)); }}>Close polygon</button><button disabled={!points.length && !selected} onClick={clearSelection}>Cancel selection</button></div></>}</section>
       <section className="forge-mesh"><div className="forge-preview-heading"><h3>Preview</h3><label className="forge-check"><input type="checkbox" checked={checker} onChange={e => setChecker(e.target.checked)}/>Checker</label><label className="forge-check"><input type="checkbox" checked={wire} onChange={e => setWire(e.target.checked)}/>Wireframe</label></div><div className="forge-preview-row"><ForgePreview editorState={editorState} checker={checker} preferences={preferences} geosets={preview.mesh?.geosets || []} image={image} wire={wire} trimColor={trimColor}/><label className="forge-detail">Detail<input type="range" min="0" max="100" value={settings.detail} onChange={e => setting('detail', +e.target.value)} aria-label="Mesh detail"/><strong>{settings.detail}</strong><span>Smooth</span><small>Rough</small></label></div>
       <div className="forge-counts" aria-live="polite">{updating ? 'Updating preview…' : preview.mesh ? `${preview.mesh.vertexCount.toLocaleString()} vertices · ${preview.mesh.triangleCount.toLocaleString()} triangles · ${preview.mesh.geosets.length} geosets` : ''}</div>
