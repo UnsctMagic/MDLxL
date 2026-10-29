@@ -54,7 +54,7 @@ function influences(g,i) {
 
 /** Build a ground corpse from this model's joints and its skinned final Death
  * frame. No source-model names, vertex numbers or race/size presets are used. */
-export function buildCorpseGeometry(model, bodyIds, deathIndex) {
+export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1}={}) {
   const frame=model.Sequences[deathIndex].Interval[1], matrices=sampleNodeMatrices(model,frame,deathIndex);
   const meshes=bodyIds.map(id=>({g:model.Geosets[id],vertices:skinGeoset(model.Geosets[id],matrices)}));
   const points=meshes.flatMap(({vertices})=>Array.from({length:vertices.length/3},(_,i)=>Array.from(vertices.slice(i*3,i*3+3))));
@@ -290,6 +290,15 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     const level=levelOf[i/3],roof=under(vertices[i],vertices[i+1]),floor=ground+level*step,room=roof-clearance-lowest;
     vertices[i+2]=!Number.isFinite(roof)?floor:room>=need?Math.min(Math.max(vertices[i+2],floor),roof-clearance-(levels-1-level)*step)
       :room>0?lowest+room*(level*step+ground-lowest)/need:Math.max(floor,roof+clearance+level*step);
+  }
+  // The user's Size and Height choice. Above 100% the corpse is no longer
+  // fitted under the body and can show through it while the body sinks.
+  if(size!==1||height!==1) {
+    const xs=vertices.filter((_,i)=>i%3===0),ys=vertices.filter((_,i)=>i%3===1),center=[(Math.min(...xs)+Math.max(...xs))/2,(Math.min(...ys)+Math.max(...ys))/2];
+    for(let i=0;i<vertices.length;i+=3) {
+      const base=Math.min(vertices[i+2],ground+levelOf[i/3]*step);
+      vertices[i]=center[0]+(vertices[i]-center[0])*size;vertices[i+1]=center[1]+(vertices[i+1]-center[1])*size;vertices[i+2]=base+(vertices[i+2]-base)*height;
+    }
   }
   if(vertices.length/3>65535)throw Error('The fitted corpse exceeds the MDX vertex limit.');
   const normals=new Float32Array(vertices.length);

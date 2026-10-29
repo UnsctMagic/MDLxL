@@ -6324,7 +6324,7 @@
   "Commit keeps them in the open model without saving the file.": "«Применить» оставит их в открытой модели без сохранения файла.",
   "Auto Corpse": "Автотруп",
   "Auto Corpse (test)": "Автотруп (тест)",
-  "One click: fit a corpse to the last Death frame, set visibility, and create flesh and bone decay. Undo restores the model.": "Одним нажатием: подогнать останки по последнему кадру смерти, настроить видимость и распад тела и костей. Отмена восстанавливает модель.",
+  "Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model.": "Предпросмотр трупа, подогнанного под последний кадр Death: настройте размер и высоту, затем создайте его вместе с разложением плоти и костей. Отмена восстанавливает модель.",
   "Auto Corpse needs a Death animation.": "Для автотрупа нужна анимация Death.",
   "Death has no body geometry to place a corpse beneath.": "В Death нет геометрии тела для размещения останков.",
   "The last Death frame collapses the body to a point. A corpse needs a visible final pose.": "В последнем кадре Death тело сжимается в точку. Для останков нужна видимая конечная поза.",

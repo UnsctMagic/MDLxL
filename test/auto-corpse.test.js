@@ -119,6 +119,16 @@ test('a body without a recognized head still gets ribs, and overlapping pieces n
   }
   assert.ok(overlap>0&&fighting/overlap<.02,`Pieces z-fight over ${fighting} of ${overlap} overlapping samples`);
 });
+test('Size and Height scale the fitted corpse, and 100% keeps it unchanged',()=>{
+  const make=options=>{const d=fixture();const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,options)).corpses[0];return {g:d.model.Geosets[r.corpseGeoset],r,m:d.model};};
+  const plain=make({}),same=make({size:1,height:1}),big=make({size:1.5,height:1}),tall=make({size:1,height:2});
+  assert.deepEqual(same.g.Vertices,plain.g.Vertices);
+  const spread=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===0))-Math.min(...g.Vertices.filter((_,i)=>i%3===0)),peak=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===2));
+  assert.ok(Math.abs(spread(big.g)/spread(plain.g)-1.5)<.01,'Size scales the footprint');
+  assert.ok(peak(tall.g)>peak(plain.g)*1.5,'Height raises the bones');
+  // A taller corpse is still buried completely before Decay Bone hides it.
+  const bs=tall.m.Sequences[tall.r.bone];assert.ok(Math.max(...Array.from(posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[1]-1)).filter((_,i)=>i%3===2))<0);
+});
 test('native body geometry, skin weights, Death keys and non-decay alpha curves are preserved',()=>{
   const d=fixture();d.apply('Cubic',[],m=>{m.GeosetAnims[0].Alpha=track([[0,[.3]],[500,[.8]],[900,[.5]],[1000,[1]],[1900,[1]]],3);for(const k of m.GeosetAnims[0].Alpha.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}});
   const before=structuredClone(d.model);apply(d);for(const field of ['Vertices','Normals','TVertices','Faces','Groups','VertexGroup'])assert.deepEqual(d.model.Geosets[0][field],before.Geosets[0][field]);

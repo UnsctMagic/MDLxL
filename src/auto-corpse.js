@@ -96,7 +96,7 @@ function decayExtents(model,pair,ids) {
  * Frozen decay meshes avoid rewriting the authored rig, global motion, Death
  * curves, living animations or skin bindings. Original meshes are only masked
  * during decay. A second click replaces this command's meshes and reuses bones. */
-export function autoCorpse(model) {
+export function autoCorpse(model, options={}) {
   const deaths=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>deathSequence(s));
   if(!deaths.length)throw Error('Auto Corpse needs a Death animation.');
   const originals=allNodes(model).filter(n=>!generated(n)),generatedIds=new Set(allNodes(model).filter(generated).map(n=>n.ObjectId));
@@ -113,7 +113,7 @@ export function autoCorpse(model) {
     let body=eligible.filter(({id})=>bodyVisible(model,id,frame,i));
     if(!body.length) body=eligible.filter(({id})=>[0,.5,.99].some(t=>bodyVisible(model,id,s.Interval[0]+(frame-s.Interval[0])*t,i)));
     if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
-    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i),matrices=sampleNodeMatrices(model,frame,i);
+    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,options),matrices=sampleNodeMatrices(model,frame,i);
     const frozen=body.map(({g,id})=>{
       const copy=structuredClone(g);copy.Vertices=skinGeoset(g,matrices);copy.Normals=skinGeosetNormals(g,matrices);delete copy.Tangents;
       updateBounds(copy);

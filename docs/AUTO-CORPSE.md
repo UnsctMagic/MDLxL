@@ -1,9 +1,17 @@
 # Auto Corpse
 
-The temporary **CORP** button lives in the existing VIS toolbar row. It runs one
-undoable edit and selects Decay Flesh. There is no dialog, settings panel or
-additional permanent inspector. The existing animation controls preview the
-result. A second click regenerates from Death and does not accumulate copies.
+The temporary **CORP** button lives in the existing VIS toolbar row. It opens
+the small Auto Corpse window (`app/AutoCorpse.jsx`, laid out like
+Attachemator): a preview that turns with the mouse, **Size** and **Height**
+sliders in AnimXL's slider style (25–200%, 100% = fitted), **Show body** and
+**Reset**. The preview shows the corpse alone at the start of Decay Bone, or
+under the body 200 ms into Decay Flesh with Show body. **Create** runs one
+undoable edit and selects Decay Flesh; **Close** changes nothing. Size scales
+the fitted corpse's footprint about its centre; Height scales how far each
+piece rises above its own level. Above 100% the corpse is no longer fitted
+under the body and can show through it while the body sinks; the tooltips
+say so. Burial before the last-frame hide still uses the scaled corpse.
+Creating again regenerates from Death and does not accumulate copies.
 
 ## What owns the result
 

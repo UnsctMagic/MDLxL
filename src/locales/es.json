@@ -6336,7 +6336,7 @@
   "Commit keeps them in the open model without saving the file.": "Aplicar los mantiene en el modelo abierto sin guardar el archivo.",
   "Auto Corpse": "Cadáver automático",
   "Auto Corpse (test)": "Cadáver automático (prueba)",
-  "One click: fit a corpse to the last Death frame, set visibility, and create flesh and bone decay. Undo restores the model.": "Un clic: ajusta el cadáver al último fotograma de muerte, configura la visibilidad y crea la descomposición de carne y huesos. Deshacer restaura el modelo.",
+  "Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model.": "Previsualiza un cadáver ajustado bajo el último fotograma de Death, ajusta su tamaño y altura y créalo con la descomposición de carne y huesos. Deshacer restaura el modelo.",
   "Auto Corpse needs a Death animation.": "El cadáver automático necesita una animación Death.",
   "Death has no body geometry to place a corpse beneath.": "Death no contiene geometría corporal bajo la que colocar un cadáver.",
   "The last Death frame collapses the body to a point. A corpse needs a visible final pose.": "El último fotograma de Death reduce el cuerpo a un punto. Se necesita una pose final visible.",

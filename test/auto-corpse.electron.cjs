@@ -3,10 +3,12 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/auto-corpse'),fixture=process.env.MDLXL_CORPSE_FIXTURE;
 if(!fixture)throw Error('Set MDLXL_CORPSE_FIXTURE to a model with Death.');
-function runtime() {
-  const el=document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');
-  if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];while(top.return)top=top.return;
-  const stack=[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}for(let c=f.child;c;c=c.sibling)stack.push(c);}
+function runtime(scope) {
+  const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');
+  if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];
+  // A scoped preview is found from its own element upward; otherwise the first in the app.
+  const ancestors=[];if(scope)for(let f=top;f;f=f.return)ancestors.push(f);else{while(top.return)top=top.return;}
+  const stack=scope?ancestors.reverse():[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}if(!scope)for(let c=f.child;c;c=c.sibling)stack.push(c);}
   throw Error('Missing viewport runtime');
 }
 (async()=>{
@@ -21,12 +23,23 @@ function runtime() {
     await page.getByLabel('3D model viewport',{exact:true}).waitFor();
     const before=await page.evaluate(runtime),button=page.getByRole('button',{name:'Auto Corpse (test)',exact:true}),vis=page.getByRole('button',{name:'VIS',exact:true});
     const a=await button.boundingBox(),b=await vis.boundingBox();assert.ok(Math.abs(a.y-b.y)<4);assert.ok(a.width<=50);assert.equal(await page.getByRole('dialog').count(),0);
-    await button.click();await page.locator('[data-clean-model-canvas]').waitFor();await page.waitForTimeout(700);
-    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Flesh/i);assert.equal(await page.getByRole('dialog').count(),0);
-    checks.push('One compact button beside VIS; one click creates corpse and opens Decay Flesh without a dialog');
+    async function capture(name){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}).then(i=>i.toPNG().toString('base64')));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64'));}
+    // CORP opens a preview first. Size/Height and Close leave the model alone.
+    const window_=page.getByRole('dialog',{name:'Auto Corpse',exact:true});
+    await button.click();await window_.waitFor();await window_.locator('.game-preview-root').waitFor();await page.waitForTimeout(700);
+    const scoped=()=>page.evaluate(runtime,'[aria-label="Auto Corpse preview"]'),preview=await scoped(),pr=preview.rect;assert.ok(preview.model.Geosets.length>before.model.Geosets.length,'The preview shows the corpse');
+    await page.mouse.move(pr.x+pr.width*.6,pr.y+pr.height*.5);await page.mouse.down();await page.mouse.move(pr.x+pr.width*.6+70,pr.y+pr.height*.5+35,{steps:8});await page.mouse.up();await page.waitForTimeout(100);
+    assert.notDeepEqual((await scoped()).quaternion,preview.quaternion);checks.push('Auto Corpse preview turns with a normal mouse drag');
+    const size=window_.getByRole('slider',{name:'Size',exact:true});await size.focus();for(let n=0;n<10;n++)await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(()=>document.querySelector('[aria-label="Auto Corpse"] output')?.textContent==='150%');await page.waitForTimeout(500);await capture('window-size-150');
+    await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
+    assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
+    await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
+    await page.locator('[data-clean-model-canvas]').waitFor();await page.waitForTimeout(700);
+    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Flesh/i);
+    checks.push('One compact button beside VIS; Create makes the corpse and opens Decay Flesh');
     const input=page.getByLabel('Current animation frame',{exact:true});
     async function seek(time){await input.fill(String(time));await input.press('Enter');await page.waitForFunction(t=>Math.abs(window.corpseRuntime().frame-t)<1,time);await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}
-    async function capture(name){const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}).then(i=>i.toPNG().toString('base64')));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64'));}
     for(const label of ['Bones','Skeleton','Nodes','Emitters','Events','Sounds']) {const box=page.getByRole('checkbox',{name:label,exact:true});if(await box.count())await box.uncheck();}
     const s=after.model.Sequences[after.sequence];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
     const bi=after.model.Sequences.findIndex(s=>/^Decay Bones?$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(bi));await seek(after.model.Sequences[bi].Interval[0]);await capture('corpse');
@@ -37,7 +50,9 @@ function runtime() {
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.keyboard.press('Shift+E');
     const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await page.waitForTimeout(100);assert.notDeepEqual((await page.evaluate(runtime)).quaternion,view.quaternion);checks.push('Normal mouse camera rotation remains functional');
     await page.keyboard.press('Control+z');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.keyboard.press('Control+y');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
-    await button.click();await page.waitForTimeout(100);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('Repeat click creates no duplicate corpse, mesh, material or key');
+    await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await page.waitForTimeout(150);
+    await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
+    assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('Repeat Create adds no duplicate corpse, mesh, material or key');
     console.log('Camera, Undo, Redo and repeat click passed.');
     const {EditorDocument}=await import('../src/editor-document.js');
     for(const format of ['MDX','MDL']) {
