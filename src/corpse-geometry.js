@@ -11,8 +11,8 @@ const quantile = (values,t) => values.toSorted((a,b)=>a-b)[Math.floor((values.le
 const accessory = /weapon|sword|axe|shield|bow|staff|spear|hammer|gun|rifle|cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
 const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 
-/** Top surface of the actual terminal pose, rather than its bounding rectangle.
- * A uniform XY grid keeps footprint/height fitting linear in mesh size. */
+/** Top (or, with `low`, bottom) surface of the actual terminal pose, rather
+ * than its bounding rectangle. A uniform XY grid keeps fitting linear in mesh size. */
 function surface(meshes, span) {
   const cell = Math.max(span/24,1e-4), bins = new Map();
   for (const {g,vertices} of meshes) for (let f=0;f<g.Faces.length;f+=3) {
@@ -24,15 +24,27 @@ function surface(meshes, span) {
       const key=x+','+y,list=bins.get(key)||[]; list.push({tri,determinant});bins.set(key,list);
     }
   }
-  return (x,y) => {
-    let top=-Infinity;
+  return (x,y,low=false) => {
+    let top=low?Infinity:-Infinity;
     for(const {tri:[a,b,c],determinant:d} of bins.get(Math.floor(x/cell)+','+Math.floor(y/cell))||[]) {
       const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/d;
       const v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/d;
-      if(u>=-1e-5&&v>=-1e-5&&u+v<=1.00001) top=Math.max(top,u*a[2]+v*b[2]+(1-u-v)*c[2]);
+      if(u>=-1e-5&&v>=-1e-5&&u+v<=1.00001){const z=u*a[2]+v*b[2]+(1-u-v)*c[2];top=low?Math.min(top,z):Math.max(top,z);}
     }
-    return top;
+    return low&&top===Infinity?-Infinity:top;
   };
+}
+
+/** Projected triangles overlap by area (separating-axis test). Touching
+ * along an edge or corner is not an overlap. */
+function trianglesOverlap(a,b,tolerance) {
+  for(const tri of [a,b])for(let i=0;i<3;i++) {
+    const p=tri[i],q=tri[(i+1)%3],axis=[q[1]-p[1],p[0]-q[0]];
+    const range=t=>{const d=t.map(v=>v[0]*axis[0]+v[1]*axis[1]);return [Math.min(...d),Math.max(...d)];};
+    const [a0,a1]=range(a),[b0,b1]=range(b),scale=Math.hypot(...axis)||1;
+    if(a1-b0<=tolerance*scale||b1-a0<=tolerance*scale)return false;
+  }
+  return true;
 }
 
 function influences(g,i) {
@@ -65,7 +77,12 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   const ancestors=id=>{const result=[],seen=new Set();while(byId.has(id)&&!seen.has(id)){seen.add(id);result.push(id);id=byId.get(id).Parent;}return result;};
   const hasSkin=id=>[...clouds.keys()].some(key=>ancestors(key).includes(id));
   const at=id=>new Vector3().fromArray(byId.get(id)?.PivotPoint||model.PivotPoints?.[id]||[0,0,0]).applyMatrix4(matrices.get(id)).toArray();
-  const rig=suggestPoseRig(model,frame,deathIndex),chains=rig.chains.filter(c=>poseChainIds(c).some(hasSkin)&&!poseChainIds(c).some(id=>accessory.test(byId.get(id)?.Name||'')&&!/hand|foot|toe|hoof|ref\b/i.test(byId.get(id)?.Name||'')));
+  const rig=suggestPoseRig(model,frame,deathIndex),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
+  // Whatever hangs below a hand is held (a weapon, its head or chain, a
+  // carried object), never anatomy, whatever its bones are called.
+  const hands=new Set(rig.chains.filter(c=>c.kind==='arm').map(c=>c.end));
+  const held=id=>ancestors(byId.get(id)?.Parent).some(a=>hands.has(a)||role(a)==='Hand');
+  const chains=rig.chains.filter(c=>!held(c.root)&&poseChainIds(c).some(hasSkin)&&!poseChainIds(c).some(id=>accessory.test(byId.get(id)?.Name||'')&&!/hand|foot|toe|hoof|ref\b/i.test(byId.get(id)?.Name||'')));
   // Blizzard commonly binds skin to Mesh/Box children, while the actual
   // anatomical joints own no vertices. Attribute that skin to the nearest
   // recognized joint. Measuring only directly bound skin turns full bodies
@@ -94,9 +111,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   // body surface closest to the joint, not a shield, blade or tall helmet.
   for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);regions.set(owner,list[0].points);}
   const cloud=id=>regions.get(id)||clouds.get(id)||[];
-  const role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
-  // A "head" carried by a hand (flail or mace head) is equipment, not a skull.
-  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!ancestors(n.Parent).some(id=>['Head','Hand'].includes(role(id))));
+  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
   const vertices=[],uv=[],faces=[],parts=[],used=new Set(),reach=span/48;
   // Lowest body surface around a point: the body's top drops sharply at
   // limb edges, and a corner fitted only to its own spot rises past them.
@@ -105,17 +120,13 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[.7,.7],[-.7,.7],[.7,-.7],[-.7,-.7]]){const h=top(x+dx*reach,y+dy*reach);if(Number.isFinite(h))low=Math.min(low,h);}
     return low;
   };
-  function vertex(p,t) {
-    const roof=under(p[0],p[1]);
-    // Coverage changes height/width, never the joint-to-joint limb length.
-    // Keep the corpse on the ground like the native gutz meshes, clearly
-    // beneath the body's visible surface: a piece poking through pops into
-    // view when the corpse switches on. Death meshes often penetrate the
-    // floor; there the corpse stays above the terrain, clear of that limb,
-    // rather than burying its own limbs before decay.
-    let z=Number.isFinite(roof)?Math.min(Math.max(p[2],ground),roof-clearance):ground;
-    if(z<ground*.25)z=Math.max(ground,roof+clearance);
-    const i=vertices.length/3;vertices.push(p[0],p[1],z);uv.push(...t);return i;
+  // Wanted positions; heights are settled once every piece is known.
+  function vertex(p,t) {const i=vertices.length/3;vertices.push(p[0],p[1],p[2]);uv.push(...t);return i;}
+  // Principal axis of a point set, from its 10th to 90th percentile.
+  function axisEnds(cloud) {
+    const center=mean(cloud),xx=cloud.reduce((s,p)=>s+(p[0]-center[0])**2,0),yy=cloud.reduce((s,p)=>s+(p[1]-center[1])**2,0),xy=cloud.reduce((s,p)=>s+(p[0]-center[0])*(p[1]-center[1]),0),angle=.5*Math.atan2(2*xy,xx-yy),axis=[Math.cos(angle),Math.sin(angle)];
+    const projection=cloud.map(p=>(p[0]-center[0])*axis[0]+(p[1]-center[1])*axis[1]);
+    return [.1,.9].map(t=>[center[0]+axis[0]*quantile(projection,t),center[1]+axis[1]*quantile(projection,t),ground]);
   }
   function halfWidth(a,b,ids,factor=1) {
     const len=distance(a,b);if(len<1e-6)return span*.015;
@@ -126,23 +137,25 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   }
   function strip(label,a,b,half,rect,ids=[]) {
     const len=distance(a,b);if(len<span*.0001)return;
-    const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len], rows=[];
-    for(let r=0;r<=4;r++) {
-      const t=r/4,c=mix(a,b,t),v=rect[1]+t*(rect[3]-rect[1]),row=[];
+    const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len], rows=[], first=faces.length, count=Math.max(4,Math.min(32,Math.ceil(len/(span/32))));
+    // Native gutz limbs and ribs are rounded lumps, not flat decals. Raise
+    // each point by the piece's width and, where the body rests on the
+    // ground there, to 40% of the body's own thickness, keeping its bulk.
+    // Rows and columns are dense enough to follow dips in the body above.
+    const lump=(x,y)=>{const roof=top(x,y),bottom=top(x,y,true);return Math.max(half*.6,Number.isFinite(roof)&&bottom-ground<(roof-ground)*.35?(roof-ground)*.4:0);};
+    for(let r=0;r<=count;r++) {
+      const t=r/count,c=mix(a,b,t),v=rect[1]+t*(rect[3]-rect[1]),widths=[];
       for(const side of [-1,1]) {
         let width=half,roof=top(c[0]+normal[0]*width*side,c[1]+normal[1]*width*side);
         if(Number.isFinite(top(c[0],c[1]))&&!Number.isFinite(roof)) {
           let low=0,high=width;for(let k=0;k<10;k++){const mid=(low+high)/2;if(Number.isFinite(top(c[0]+normal[0]*mid*side,c[1]+normal[1]*mid*side)))low=mid;else high=mid;}width=low;
         }
-        row.push(vertex([c[0]+normal[0]*width*side,c[1]+normal[1]*width*side,ground], [side<0?rect[0]:rect[2],v]));
+        widths.push(width);
       }
-      // Native gutz limbs and ribs are rounded lumps, not flat decals: raise
-      // the middle so the corpse keeps a visible share of the body's height.
-      row.splice(1,0,vertex([c[0],c[1],ground+half*.6],[(rect[0]+rect[2])/2,v]));
-      rows.push(row);
+      rows.push([-1,-.5,0,.5,1].map(s=>{const w=widths[s<0?0:1]*s,x=c[0]+normal[0]*w,y=c[1]+normal[1]*w;return vertex([x,y,ground+lump(x,y)*(1-s*s)],[rect[0]+(s+1)/2*(rect[2]-rect[0]),v]);}));
     }
-    for(let i=1;i<rows.length;i++){const [a,m,b]=rows[i-1],[c,n,d]=rows[i];faces.push(a,m,c,m,n,c,m,b,n,b,d,n);}
-    parts.push({kind:label,start:a,end:b,length:len,ids,vertices:rows.flat()});
+    for(let i=1;i<rows.length;i++)for(let k=1;k<5;k++){const a=rows[i-1][k-1],b=rows[i-1][k],c=rows[i][k-1],d=rows[i][k];faces.push(a,b,c,b,d,c);}
+    parts.push({kind:label,start:a,end:b,length:len,ids,vertices:rows.flat(),faces:[first,faces.length]});
   }
   // Native gutz atlas: upper/lower long bones at left; palm/forearm in the
   // middle; ribs/pelvis at bottom right. Match every actual chain link.
@@ -183,8 +196,8 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     // surface landmarks retain a broad cranium and jaw, scaled to head skin.
     const shape=[[.489,.014,1,.808594,.21582],[0,.079,.223,.816406,.451172],[.234,.730,0,.910156,.369141],[.787,.737,.15,.917969,.124512],[1,-.091,.427,.789063,.012939],[.915,-.841,.201,.699219,.07373],[.489,-1,.36,.6875,.236328],[.234,-.755,.053,.695313,.376953],[.489,1,.29,.941406,.233398]];
     const skullIds=shape.map(([along,across,z,u,v])=>vertex([neck[0]+axis[0]*(near+length*along)+side[0]*width*across,neck[1]+axis[1]*(near+length*along)+side[1]*width*across,ground+z*Math.min(width,length*.45)],[u,v]));
-    for(const index of [0,1,2,3,4,0,5,6,0,7,1,0,2,8,0,0,8,3,0,4,5,0,6,7])faces.push(skullIds[index]);
-    parts.push({kind:'skull',ids:[id],start:neck,end:center,vertices:skullIds});
+    const first=faces.length;for(const index of [0,1,2,3,4,0,5,6,0,7,1,0,2,8,0,0,8,3,0,4,5,0,6,7])faces.push(skullIds[index]);
+    parts.push({kind:'skull',ids:[id],start:neck,end:center,vertices:skullIds,faces:[first,faces.length]});
     // Choose the closest shared body ancestor, separating rider and mount.
     const headAncestors=ancestors(id);
     let hips=chains.filter(c=>c.kind==='leg').map(c=>c.root);
@@ -197,32 +210,53 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     }
     const key=pelvis.slice(0,2).map(v=>Math.round(v/Math.max(span*.01,1e-4))).join(':');
     const torso=torsos.get(key)||{necks:[],pelvis,ids:new Set()};torso.necks.push(neck);
-    for(const i of [...headAncestors.slice(1),...hips.flatMap(ancestors)])if(!accessory.test(byId.get(i)?.Name||''))torso.ids.add(i);
+    for(const i of [...headAncestors.slice(1),...hips.flatMap(ancestors)])if(!accessory.test(byId.get(i)?.Name||'')&&!held(i))torso.ids.add(i);
     torsos.set(key,torso);
   }
   for(const {necks,pelvis,ids} of torsos.values()){const neck=mean(necks),trunkIds=[...ids];strip('torso',neck,pelvis,halfWidth(neck,pelvis,trunkIds),[.634,.505,.999,.995],trunkIds);}
+  // A body whose head is not recognized still has a trunk: the skin of the
+  // joints its limbs hang from, along that skin's own long axis.
+  const limbIds=new Set(chains.flatMap(poseChainIds)),actors=new Map(),headed=new Set(heads.map(h=>ancestors(h.ObjectId).at(-1)));
+  for(const chain of chains){const owner=ancestors(chain.root).at(-1),list=actors.get(owner)||[];list.push(chain);actors.set(owner,list);}
+  for(const [owner,limbs] of actors) {
+    if(headed.has(owner))continue;
+    const trunkIds=[...new Set(limbs.flatMap(c=>ancestors(byId.get(c.root)?.Parent)))].filter(id=>!limbIds.has(id)&&!held(id)&&!accessory.test(byId.get(id)?.Name||''));
+    let skin=trunkIds.flatMap(cloud);if(skin.length<3)skin=limbs.map(c=>at(c.root));
+    if(skin.length<2)continue;
+    const [a,b]=axisEnds(skin);if(distance(a,b)>span*.05)strip('torso',a,b,halfWidth(a,b,trunkIds),[.634,.505,.999,.995],trunkIds);
+  }
   // Tails, wings and anonymous rigs retain their real articulated branches.
   // Geometry evidence excludes weapon/cloth branches; no humanoid-only template.
   const inferredAnatomy=parts.length>0;
   for(const node of nodes) {
-    const parent=byId.get(node.Parent);if(!parent||accessory.test(node.Name)||accessory.test(parent.Name))continue;
+    const parent=byId.get(node.Parent);if(!parent||accessory.test(node.Name)||accessory.test(parent.Name)||held(node.ObjectId))continue;
     if(inferredAnatomy&&(node.GeosetId!==undefined||['Chest','Pelvis','Body','Spine'].includes(role(node.ObjectId))||chains.some(c=>c.root===node.ObjectId)&&!/leg|tail|wing/i.test(parent.Name)))continue;
     const key=[parent.ObjectId,node.ObjectId].sort().join(':');if(used.has(key))continue;
     const anatomical=/leg|shin|calf|arm|tail|wing|spine|neck|chest|pelvis|head|body|back|front|toe/i.test(node.Name);
     if(!hasSkin(node.ObjectId)||(!anatomical&&inferredAnatomy)||['Head','Hand','Foot','Hoof'].includes(role(node.ObjectId)))continue;
     const a=at(parent.ObjectId),b=at(node.ObjectId);
-    if(distance(a,b)>span*.6)continue;
+    // A joint that fans out to several pieces links them only where the body
+    // lies along the link; spokes to scattered pieces cross empty ground. A
+    // single continuing link (a tail or wing tip) may thin out past the skin.
+    const fan=nodes.filter(n=>n.Parent===parent.ObjectId&&hasSkin(n.ObjectId)&&nodes.some(c=>c.Parent===n.ObjectId)).length>1;
+    if(distance(a,b)>span*.6||fan&&Array.from({length:9},(_,k)=>mix(a,b,k/8)).filter(p=>Number.isFinite(top(p[0],p[1]))).length<6)continue;
     strip('branch',a,b,halfWidth(a,b,[node.ObjectId,parent.ObjectId]),[.006,.005,.31,.495],[parent.ObjectId,node.ObjectId]);used.add(key);
   }
   if(!faces.length) {
     // A single rigid object has no joints. Its own surface's principal axis
     // supplies a fitted remnant, rather than fabricating arms and legs.
-    const center=mean(points),xx=points.reduce((s,p)=>s+(p[0]-center[0])**2,0),yy=points.reduce((s,p)=>s+(p[1]-center[1])**2,0),xy=points.reduce((s,p)=>s+(p[0]-center[0])*(p[1]-center[1]),0),angle=.5*Math.atan2(2*xy,xx-yy),axis=[Math.cos(angle),Math.sin(angle)];
-    const projection=points.map(p=>(p[0]-center[0])*axis[0]+(p[1]-center[1])*axis[1]);
-    const a=[center[0]+axis[0]*quantile(projection,.1),center[1]+axis[1]*quantile(projection,.1),ground],b=[center[0]+axis[0]*quantile(projection,.9),center[1]+axis[1]*quantile(projection,.9),ground];
+    const [a,b]=axisEnds(points);
     strip('rigid remnant',a,b,span*.12,[.634,.505,.999,.995]);
   }
   if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');
+  // Overlapping pieces at one height z-fight: the corpse shimmers as the
+  // camera moves. Each overlapping piece gets its own level, ribs lowest.
+  const shapes=parts.map(part=>{const tris=[];for(let f=part.faces[0];f<part.faces[1];f+=3)tris.push([0,1,2].map(k=>[vertices[faces[f+k]*3],vertices[faces[f+k]*3+1]]));return tris;});
+  const boxes=shapes.map(tris=>{const ps=tris.flat();return [0,1].flatMap(a=>[Math.min(...ps.map(p=>p[a])),Math.max(...ps.map(p=>p[a]))]);});
+  const touches=(i,j)=>boxes[i][0]<boxes[j][1]&&boxes[j][0]<boxes[i][1]&&boxes[i][2]<boxes[j][3]&&boxes[j][2]<boxes[i][3]&&shapes[i].some(a=>shapes[j].some(b=>trianglesOverlap(a,b,span*1e-4)));
+  const rank={torso:0,hand:2,foot:2,skull:3},order=parts.map((_,i)=>i).sort((i,j)=>(rank[parts[i].kind]??1)-(rank[parts[j].kind]??1)||i-j);
+  for(const [n,i] of order.entries()){const taken=new Set(order.slice(0,n).filter(j=>touches(i,j)).map(j=>parts[j].level));let level=0;while(taken.has(level))level++;parts[i].level=level;}
+  const levels=Math.max(...parts.map(p=>p.level))+1,step=Math.max(span*.0015,.15);
   // Fit the complete textured pieces to the actual projected body outline.
   // Sampling only corner widths can still leave a triangle spanning empty
   // space between a bent limb and torso. Use the existing polygon owner to
@@ -242,6 +276,21 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     }
   }
   if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');
+  // Coverage changes height/width, never the joint-to-joint limb length.
+  // Keep the corpse on the ground like the native gutz meshes, clearly
+  // beneath the body's visible surface: a piece poking through pops into
+  // view when the corpse switches on. Death meshes often penetrate the
+  // floor; there the corpse stays above the terrain, clear of that limb,
+  // rather than burying its own limbs before decay. Each level keeps its
+  // own band, so overlapping pieces never meet at one height; where the
+  // body leaves too little room, the bands close up rather than poke out.
+  const levelOf=new Uint8Array(vertices.length/3),lowest=ground*.25,need=(levels-1)*step+ground-lowest;
+  for(const part of parts){for(const id of part.vertices)levelOf[id]=part.level;delete part.faces;}
+  for(let i=0;i<vertices.length;i+=3) {
+    const level=levelOf[i/3],roof=under(vertices[i],vertices[i+1]),floor=ground+level*step,room=roof-clearance-lowest;
+    vertices[i+2]=!Number.isFinite(roof)?floor:room>=need?Math.min(Math.max(vertices[i+2],floor),roof-clearance-(levels-1-level)*step)
+      :room>0?lowest+room*(level*step+ground-lowest)/need:Math.max(floor,roof+clearance+level*step);
+  }
   if(vertices.length/3>65535)throw Error('The fitted corpse exceeds the MDX vertex limit.');
   const normals=new Float32Array(vertices.length);
   for(let f=0;f<faces.length;f+=3){const [a,b,c]=faces.slice(f,f+3).map(i=>new Vector3().fromArray(vertices,i*3)),n=b.sub(a).cross(c.sub(a));for(const id of faces.slice(f,f+3)){normals[id*3]+=n.x;normals[id*3+1]+=n.y;normals[id*3+2]+=n.z;}}

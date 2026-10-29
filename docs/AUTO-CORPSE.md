@@ -19,11 +19,19 @@ result. A second click regenerates from Death and does not accumulate copies.
   to the posed body outline, preserving UVs and interior volume.
   Forearms continue into the atlas's hand region; legs continue to the foot's
   skin tip in the native long-bone regions, never stretched hand texture.
-  Each limb and rib piece has a raised middle (60% of its half-width), so the
-  corpse is a lump like the native gutz meshes, whose top sits at a median
-  39% of the dead body's height in the study, not a flat decal.
-  A "head" bone hanging from a hand (a flail or mace head) is equipment and
-  never becomes a skull.
+  Each limb and rib piece is a rounded lump, not a flat decal: its middle
+  rises by 60% of its half-width and, where the body rests on the ground,
+  to 40% of the body's own thickness there. Native gutz corpses top out at a
+  median 39% of the dead body's height in the study; the fitted corpses now
+  measure a median 40% on the same models.
+  Whatever hangs below a hand is held equipment (a weapon, its head or
+  chain, a carried object) and never becomes a skull, limb or branch,
+  whatever its bones are called.
+  A body whose head is not recognized still gets a trunk: the skin of the
+  joints its limbs hang from, along that skin's long axis.
+  A joint that fans out to several pieces is linked to them only where the
+  body actually lies along the link; spokes to scattered pieces are skipped.
+  A single continuing link, such as a tail tip, is kept.
 - `src/auto-corpse.js` applies the edit through `EditorDocument`. It reuses
   matching Decay Flesh/Bone intervals, promotes matching generic Decay to Decay
   Flesh, or appends 60-second non-looping clips. Alternate Death variants have
@@ -49,6 +57,12 @@ least 0.25) below the lowest body surface in its small neighbourhood. A
 corpse almost touching the body's visible surface z-fights, and a piece
 poking through pops into view when the bones switch on; both read as
 flicker right after Death.
+Corpse pieces that overlap each other (ribs under an arm, a skull on the
+ribs) would z-fight with each other in the same way, most visibly in Decay
+Bone once the body is gone. Each overlapping piece therefore gets its own
+level, one band of 0.15% of the span (at least 0.15) above the next, ribs
+lowest. Where the body leaves too little room for every band, the bands
+close up instead of poking through the body.
 Effects and attachments are masked in those decay intervals;
 ordinary Death events and original transform animation are retained.
 
@@ -105,6 +119,11 @@ palette constraints still needs visual review. The command reports an error
 atomically when no body exists, the final pose is collapsed, the timeline has no
 room, or visibility cannot be made sequence-local without altering global
 behavior. It does not silently erase global animation to complete a command.
+
+Flying units' Death falls far below the terrain (for example Gargoyle,
+Harpy, Gryphon Rider), and some deaths turn into an effect (Dreadlord bats)
+or a separate bone pile (summoned Skeleton). Warcraft III leaves no corpse
+for those units, so their fitted corpse is not tuned.
 
 The native preview has no opaque terrain surface by default, so a sunk body can
 remain visible below the grid during scrubbing. The final-frame visibility is
