@@ -30,15 +30,11 @@ import './ai-assistant.css';
 import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import BIRDS from '../src/ai-birds.json';
+import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
 
-const providers = [
-  ['codex', 'Codex / ChatGPT'],
-  ['claude', 'Claude Code'],
-  ['openai', 'OpenAI API'],
-  ['anthropic', 'Claude API'],
-  ['compatible', 'Other AI / local model'],
-];
+// What a connection supports decides which settings rows it shows.
+const providerInfo = id => PROVIDERS.find(p => p.id === id) || {};
 const activity = {
   mdlxl_context: 'Inspecting the model',
   mdlxl_capabilities: 'Finding modeling tools',
@@ -400,7 +396,7 @@ function FrameLabel({ bridge }) {
 function AiAssistant({ bridge, visUI }) {
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
-    [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
+    [settings, setSettings] = useState({ provider: PROVIDERS[0].id, model: '', executable: '', baseUrl: '' });
   const [apiKey, setApiKey] = useState(''),
     [models, setModels] = useState([]),
     [status, setStatus] = useState(''),
@@ -729,8 +725,9 @@ function AiAssistant({ bridge, visUI }) {
   const readOnly = viewWorker?.status === 'retired' || earlierView;
   const liveWorkers = org?.workers.filter(worker => worker.status !== 'retired') || [];
   const retiredWorkers = org?.workers.filter(worker => worker.status === 'retired') || [];
-  const native = ['codex', 'claude'].includes(settings.provider);
-  const providerName = providers.find(p => p[0] === settings.provider)?.[1] || 'AI';
+  const provider = providerInfo(settings.provider),
+    native = !!provider.native;
+  const providerName = provider.label || 'AI';
   const strokes = summary ? sketch.strokes.filter(s => s.documentId === summary.documentId) : [];
   const activeTool = tools.find(t => t.id === sketch.tool);
   const colorTool = sketch.tool === 'pen' || sketch.tool === 'marker' ? sketch.tool : null;
@@ -909,7 +906,7 @@ function AiAssistant({ bridge, visUI }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (['codex', 'claude'].includes(settings.provider) && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
+      else if (native && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -1233,7 +1230,7 @@ function AiAssistant({ bridge, visUI }) {
                         disabled={anyBusy || authBusy}
                         onChange={event => changeProvider(event.target.value)}
                       >
-                        {providers.map(([value, label]) => (
+                        {PROVIDERS.map(({ id: value, label }) => (
                           <option key={value} value={value}>
                             {label}
                           </option>
@@ -1263,7 +1260,7 @@ function AiAssistant({ bridge, visUI }) {
                           </button>
                         )}
                       </div>
-                    ) : (
+                    ) : provider.apiKey && (
                       <label title="Your key for the AI service, stored encrypted.">
                         API key
                         <input
@@ -1275,7 +1272,7 @@ function AiAssistant({ bridge, visUI }) {
                         />
                       </label>
                     )}
-                    {settings.provider === 'compatible' && (
+                    {provider.baseUrl && (
                       <label title="Address of the AI server.">
                         API base URL
                         <input
@@ -1315,7 +1312,7 @@ function AiAssistant({ bridge, visUI }) {
                         </select>
                       </label>}
                     </>)}
-                    {settings.provider !== 'compatible' && (
+                    {provider.effort && (
                       <label title={EFFORT_TIP}>
                         Thinking effort
                         <select aria-label="Thinking effort" data-hotkey="thinking-effort" value={settings.effort || 'high'} onChange={event => setSettings(previous => ({ ...previous, effort: event.target.value }))}>
@@ -1338,7 +1335,7 @@ function AiAssistant({ bridge, visUI }) {
                       <input data-hotkey="outside-check" data-hotkey-label="Outside check" type="checkbox" checked={settings.outsideCheck !== false} onChange={event => setSettings(previous => ({ ...previous, outsideCheck: event.target.checked }))} />
                       Outside check
                     </label>
-                    {!native && (
+                    {provider.spendLimit && (
                       <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
                         Spending limit per prompt ($)
                         <input
@@ -1351,7 +1348,7 @@ function AiAssistant({ bridge, visUI }) {
                         />
                       </label>
                     )}
-                    {settings.provider !== 'codex' && (
+                    {provider.stepLimit && (
                       <label title="Optional. A prompt stops after this many AI steps (each look, edit or check is a step); progress is kept. Leave empty for the usual maximum.">
                         Step limit per prompt
                         <input

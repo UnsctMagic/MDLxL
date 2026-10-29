@@ -5,6 +5,11 @@ const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-proce
 const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
+// The connections in settings order, with what each one supports: native (a
+// signed-in CLI), apiKey, baseUrl (own server address), effort, spendLimit,
+// stepLimit, web (has its own web tools) and the logFolders cleanup sweeps.
+const PROVIDERS = require('../src/ai-providers.json');
+const providerInfo = id => PROVIDERS.find(p => p.id === id);
 
 function endpoint(value) {
   const url = new URL(value);
@@ -1132,6 +1137,8 @@ async function providerModels(settings, key, signal) {
   }));
 }
 module.exports = {
+  PROVIDERS,
+  providerInfo,
   anthropicCost,
   anthropicThinking,
   claudeCompaction,

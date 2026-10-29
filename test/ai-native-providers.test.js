@@ -293,3 +293,24 @@ test(
     assert.equal(await exited, 'SIGKILL');
   },
 );
+
+test('the provider table keeps the settings order, labels and what each connection supports', () => {
+  const { PROVIDERS, providerInfo } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  assert.deepEqual(PROVIDERS.map(p => [p.id, p.label]), [
+    ['codex', 'Codex / ChatGPT'],
+    ['claude', 'Claude Code'],
+    ['openai', 'OpenAI API'],
+    ['anthropic', 'Claude API'],
+    ['compatible', 'Other AI / local model'],
+  ]);
+  const has = flag => PROVIDERS.filter(p => p[flag]).map(p => p.id);
+  assert.deepEqual(has('native'), ['codex', 'claude']);
+  assert.deepEqual(has('apiKey'), ['openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('baseUrl'), ['compatible']);
+  assert.deepEqual(has('effort'), ['codex', 'claude', 'openai', 'anthropic']);
+  assert.deepEqual(has('spendLimit'), ['openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('stepLimit'), ['claude', 'openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('web'), ['codex', 'claude', 'anthropic']);
+  assert.deepEqual(PROVIDERS.flatMap(p => p.logFolders), ['codex/sessions', 'codex/archived_sessions', 'claude/projects']);
+  assert.equal(providerInfo('unknown'), undefined);
+});

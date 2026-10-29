@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 // Everyday birds only; a model's organiser never reuses a name. The console
 // colours each bird by its place in this list.
 const BIRDS = require('../src/ai-birds.json');
+const PROVIDERS = require('../src/ai-providers.json');
 // The first bird of a chat is a corvid; later ones come from the whole list.
 const CORVIDS = ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'];
 function nextBird(used = [], random = Math.random) {
@@ -243,7 +244,7 @@ async function deleteProviderSessions(directory, ids) {
       }
     }
   };
-  for (const provider of ['codex', 'claude']) await walk(path.join(directory, provider), 0);
+  for (const provider of PROVIDERS.filter(p => p.native)) await walk(path.join(directory, provider.id), 0);
   return removed;
 }
 

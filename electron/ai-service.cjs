@@ -10,6 +10,8 @@ const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
+  PROVIDERS,
+  providerInfo,
   runProvider,
   providerModels,
   CodexProcess,
@@ -125,7 +127,7 @@ class AiService {
           this.config = JSON.parse(await fs.readFile(path.join(this.directory, 'connections.json'), 'utf8'));
         } catch (error) {
           if (error.code !== 'ENOENT') throw error;
-          this.config = { provider: 'codex', enabled: false, port: 0, providers: {} };
+          this.config = { provider: PROVIDERS[0].id, enabled: false, port: 0, providers: {} };
         }
         this.awareness.setEnabled(this.config.awareness === true);
         return this.config;
@@ -251,12 +253,11 @@ class AiService {
       if (unchanged) return this.status();
       throw Error('Stop the current AI request before changing providers.');
     }
-    if (!['codex', 'claude', 'openai', 'anthropic', 'compatible'].includes(input.provider))
-      throw Error('Unknown AI provider.');
+    if (!providerInfo(input.provider)) throw Error('Unknown AI provider.');
     if (input.routing !== undefined && !['manual', 'automatic', 'both'].includes(input.routing)) throw Error('Choose Manual, Automatic, or Both routing.');
     const previous = config.providers?.[input.provider] || {};
     if (input.baseUrl) endpoint(input.baseUrl);
-    const native = ['codex', 'claude'].includes(input.provider),
+    const native = providerInfo(input.provider).native,
       baseUrl = String(input.baseUrl || '').trim();
     // A new CLI path must name the provider's CLI; an unchanged saved path keeps working.
     const requested = String(input.executable || '').trim();
@@ -460,7 +461,7 @@ class AiService {
       controller = new AbortController();
     // Account discovery/model lists can work while signed out. Check the actual
     // account before recording a turn or letting a provider make a model request.
-    if (['codex', 'claude'].includes(settings.provider)) {
+    if (providerInfo(settings.provider)?.native) {
       const auth = await this.auth('status');
       if (!auth.loggedIn) {
         const error = authenticationRequired();
@@ -1709,7 +1710,7 @@ class AiService {
     };
     const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
     await sweep(path.join(this.directory, 'temp'), () => true);
-    for (const folder of ['codex/sessions', 'codex/archived_sessions', 'claude/projects'])
+    for (const folder of PROVIDERS.flatMap(p => p.logFolders))
       await sweep(path.join(this.directory, folder), orphanLog);
     return { models, files };
   }
@@ -1730,7 +1731,7 @@ class AiService {
     // holding the birds' reports, so they travel in the prompt (API routes send the
     // ledger as history).
     const ledger =
-      ['codex', 'claude'].includes(settings.provider) && !organiser.threadId && organiser.messages?.length
+      providerInfo(settings.provider)?.native && !organiser.threadId && organiser.messages?.length
         ? '\n\nThe requests and bird reports from this conversation, oldest first:\n' +
           organiser.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
         : '';
@@ -1916,7 +1917,7 @@ class AiService {
     const exclusive = action !== 'status';
     if (exclusive && this.busy()) throw Error('Stop the current AI request before signing in or out.');
     const settings = await this.settings();
-    if (!['codex', 'claude'].includes(settings.provider)) throw Error('This provider uses an API key.');
+    if (!providerInfo(settings.provider)?.native) throw Error('This provider uses an API key.');
     const controller = new AbortController();
     if (exclusive) this.active = { controller, auth: true };
     try {
