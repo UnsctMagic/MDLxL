@@ -1,3 +1,4 @@
+import { isPortraitSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { Vector3 } from 'three';
 import { sampleTrack } from '../src/animation.js';
 
@@ -18,11 +19,11 @@ export const HUMAN_TILE_LAYOUT = Object.freeze([
 export const HUMAN_FRAME_CROP = Object.freeze({ x: 414, y: 116, width: 184, height: 184 });
 
 export function portraitPreviewSequences(model) {
-  const sequences = model?.Sequences || [], indices = sequences.map((_, index) => index);
+  const sequences = model?.Sequences || [], indices = sequences.map((_, index) => index), stand = standSequenceIndex(model || {});
   return {
-    idle: indices.filter(index => /portrait/i.test(sequences[index].Name || '') && !/talk/i.test(sequences[index].Name || '')),
-    talk: indices.filter(index => /portrait/i.test(sequences[index].Name || '') && /talk/i.test(sequences[index].Name || '')),
-    stand: indices.filter(index => /^stand(?:\s|$)/i.test(sequences[index].Name || '')),
+    idle: indices.filter(index => isPortraitSequence(sequences[index]) && !/talk/i.test(sequences[index].Name || '')),
+    talk: indices.filter(index => isPortraitSequence(sequences[index]) && /talk/i.test(sequences[index].Name || '')),
+    stand: stand < 0 ? [] : [stand],
   };
 }
 export function firstPortraitSequenceIndex(model) {
@@ -119,7 +120,7 @@ function shiftCameraRoll(track, delta) {
 }
 
 function portraitIntervals(model) {
-  return (model?.Sequences || []).filter(sequence => /portrait/i.test(String(sequence?.Name || '')) && sequence?.Interval?.length >= 2)
+  return (model?.Sequences || []).filter(sequence => isPortraitSequence(sequence) && sequence?.Interval?.length >= 2)
     .map(sequence => [Number(sequence.Interval[0]), Number(sequence.Interval[1])]).filter(interval => interval.every(Number.isFinite));
 }
 

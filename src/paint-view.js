@@ -1,3 +1,4 @@
+import { standSequenceIndex } from './sequence-editor.js';
 import {paintUVTriangles,paintUVCoverage,paintUVFilterCoverage,forEachPaintUVTexel} from './paint-uv-coverage.js';
 import {applyPaintMaterials,paintableGeosets} from './paint-materials.js';
 import {sampleGeosetAnimation} from './animation.js';
@@ -5,7 +6,7 @@ import {sampleGeosetAnimation} from './animation.js';
 /** Use the model's own living/Stand visibility for initial framing. Corpse and
  * portrait parts remain in the model and can be revealed through selection. */
 export function paintStandHidden(model){
-  const sequence=model.Sequences?.findIndex(s=>/^Stand(?:$|[ -])/i.test(s.Name||''))??-1;
+  const sequence=standSequenceIndex(model);
   if(sequence<0)return new Set();
   const frame=model.Sequences[sequence].Interval[0];
   return new Set(model.Geosets.map((_,i)=>i).filter(i=>sampleGeosetAnimation(model,i,frame,sequence,frame).alpha<=.001));

@@ -1,3 +1,4 @@
+import { isDeathSequence, isDecaySequence, isDissipateSequence } from '../src/sequence-editor.js';
 import {keysInInterval, sampleTrack} from '../src/animation.js';
 import {parseEventName} from './event-preview-data.js';
 
@@ -6,7 +7,6 @@ const roundUp = seconds => Math.max(.02, Math.ceil(seconds * 100 - 1e-8) / 100);
 // Death tails (corpse decals, lingering particles) can run for minutes. A death
 // take stops after this many seconds unless its motion alone is longer.
 export const SHOWCASE_DEATH_SECONDS = 10;
-const isDeath = sequence => /\bdeath\b/i.test(String(sequence?.Name || '').replace(/[^a-z]+/gi, ' '));
 const globalPeriod = (model, track) => model.GlobalSequences?.[track?.GlobalSeqId] || 0;
 const localKeys = (track, sequence) => track?.Keys ? keysInInterval(track, sequence.Interval) : [];
 
@@ -15,7 +15,7 @@ const localKeys = (track, sequence) => track?.Keys ? keysInInterval(track, seque
 // names (e.g. Spell Channel, Attack Walk Stand Spin).
 export function finishesShowcaseEffects(sequence) {
   const words = new Set(String(sequence?.Name || '').toLowerCase().match(/[a-z]+/g) || []);
-  if (['birth', 'death', 'morph', 'decay', 'dissipate'].some(word => words.has(word))) return true;
+  if (isDeathSequence(sequence) || isDecaySequence(sequence) || isDissipateSequence(sequence) || ['birth', 'morph'].some(word => words.has(word))) return true;
   if (['channel', 'walk', 'run', 'looping'].some(word => words.has(word))) return false;
   if (['attack', 'spell'].some(word => words.has(word))) return true;
   if (['swim', 'fly'].some(word => words.has(word))) return false;
@@ -93,7 +93,7 @@ export function loopEffectTiming(model, index, loops = 1, speed = 1, globalStart
   // A complete action includes its own tail, BEFORE the next action starts.
   // Continuous loops keep the exact authored period (no per-loop rounding/holds).
   let cycleSeconds = finishEffects ? roundUp((finish + (finish > motion + 1e-6 ? 1000 / 30 : 0)) / 1000) : motion / 1000;
-  if (finishEffects && isDeath(sequence)) cycleSeconds = Math.min(cycleSeconds, Math.max(SHOWCASE_DEATH_SECONDS, roundUp(motion / 1000)));
+  if (finishEffects && isDeathSequence(sequence)) cycleSeconds = Math.min(cycleSeconds, Math.max(SHOWCASE_DEATH_SECONDS, roundUp(motion / 1000)));
   return {seconds: roundUp(cycleSeconds * count), durationLoops: count, motionSeconds: motion * count / 1000,
     cycleSeconds, cycleMotionSeconds: motion / 1000, finishEffects, emissionEnds};
 }

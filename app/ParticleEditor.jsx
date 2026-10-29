@@ -1,3 +1,4 @@
+import { standSequenceIndex } from '../src/sequence-editor.js';
 import ParticleIngredients from './ParticleIngredients.jsx';
 import { trapTab } from './focus-trap.js';
 import ParticleTestView from './ParticleTestView.jsx';
@@ -225,7 +226,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     cancel();if(!doc||doc.readOnly)return;
     if(glow){setGlow(null);return;}
     try{
-      const best=weaponChoices(doc.model,selectedGeometry)[0],clips=doc.model.Sequences,stand=clips.findIndex(s=>/^stand$/i.test((s.Name||'').trim())),clip=stand>=0?stand:Math.max(0,clips.findIndex(s=>/stand/i.test(s.Name||'')));
+      const best=weaponChoices(doc.model,selectedGeometry)[0],clips=doc.model.Sequences,clip=standSequenceIndex(doc.model);
       if(context!=='On model'){setContext('On model');setEmitterId(effectNodes(doc.model)[0]?.node.ObjectId??null);setStructure(v=>v+1);}
       setSequence(clip);setTime(clips[clip]?.Interval[0]??0);setPlaying(true);
       // Weapon glow starts on only for a clear weapon: marked polygons or a weapon-named bone.
