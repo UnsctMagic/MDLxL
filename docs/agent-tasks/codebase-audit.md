@@ -1,6 +1,7 @@
 # MDLxL codebase audit and repair plan
 
-Status: audit complete, repair plan drafted, **awaiting joint review with the owner before any repair work starts**.
+Status: audit complete, repair plan drafted, **reviewed with the owner on 2026-10-29** (decisions in
+section 5, plan changes in section 7 "Review notes"). Final plan and wave 0 launch pending.
 Revision audited: `origin/main` at `fe46a534` (0.35.0), 2026-10-29.
 Branch: `claude/codebase-audit` (this document and the evidence folder only; no code changed).
 Session: claude (this session; id recorded in the PR when opened).
@@ -125,27 +126,30 @@ owner should know they exist. **Visible today** means a user can see it without 
 
 ## 5. Decisions needed from the owner before the related work starts
 
-| # | Question | Default if you say "your call" | Blocks |
-| --- | --- | --- | --- |
-| D1 | Game-path key: three sites turn a missing name into `"undefined"` or throw. Make all give `''`? Also B16 normal fallback. | Yes, `''`; fix B16 to zero x and y | WP-1.2 |
-| D2 | Which Warcraft installation should particles and the Texture Library read when a custom CASC source exists: the Settings folder (like the Library browser) or the custom one? | Settings folder first, everywhere | WP-2.4 |
-| D3 | Empty geoset extents: zeros (Recalculate extents) or ±Infinity (`updateBounds`, `classic-mesh`)? Changes saved bytes for that edge case only. | Zeros | WP-2.3b |
-| D4 | Inspector "Recalculate normals" uses an area-weighted sum; NormalsXL uses the SD-style unit sum. Switch the button to NormalsXL defaults, or rename it? | Rename to "Quick normals" and leave the maths | wave 3 |
-| D5 | Unify Stand / Death / Decay / Portrait detection across features (the shared rule would be Attachemator's)? Changes which clip some features pick. | Unify, with Attachemator's rule | wave 3 |
-| D6 | Sort My Mess and Merge Similar: one "same material" key? They treat missing materials differently today. | One key, Sort My Mess's `missing` policy as an option | wave 3 |
-| D7 | Fix weapon-name false positives (`Elbow`, `Balance`)? Changes Glow Up and Attachemator rankings on affected rigs. | Fix, word-boundary tokens | wave 3 |
-| D8 | 2D image zoom in Paint and Forge mask editor: follow the Wheel sensitivity and Mouse settings like the UV editor does? | Yes | wave 3 |
-| D9 | Viewport antialias: restore the setting, or drop the dependency? | Drop the dependency | WP-1.9 |
-| D10 | Vertex click rule: editor uses Manhattan 5 px, previews Euclidean 7 px. One rule? | Leave both, document | wave 3 |
-| D11 | Settings number fields and Showcase number fields commit on every keystroke; the rest commit on blur/Enter. Unify? | Leave as is | WP-2.6 |
-| D12 | Should all sliders look alike (they already behave alike after WP-2.6)? | No | WP-2.6 |
-| D13 | AI: live errors shown inline like after reload? Sign-in pre-check: drop or cache? Routing JSON leniency? Atomic `connections.json`? Tool detail short line? | inline yes; cache; keep strict; atomic yes; short line yes | WP-2.5 |
-| D14 | Delete the dead OptimizeXL save validator (`electron/optimizexl-validation.js` plus its build and package steps)? | Delete | WP-0.2 |
-| D15 | Delete the unused detached UV window (`openDetachedUVWindow`) or is it a planned option? | Delete | WP-0.2 |
-| D16 | Tests: add one small app-side test hook (`window.__mdlxl`) so harnesses stop walking React fibers? Adds ~20 lines of product code. | Yes | WP-1.7 |
-| D17 | Keep the localStorage mirror of preferences on desktop (two sources of truth) or browser-only? | Browser-only | WP-2.4 |
-| D18 | Should UV split percentages and AI panel width join exported preferences? | No | WP-1.6 |
-| D19 | Preload error unwrapping (B7) changes the wording users see in error toasts. OK? | Yes | WP-1.5 |
+All 19 answered by the owner on 2026-10-29 (walkthrough session). Answers that differ from
+the default are in bold; see the review notes in section 7 for what they change in the plan.
+
+| # | Question | Default if you say "your call" | Owner's answer | Blocks |
+| --- | --- | --- | --- | --- |
+| D1 | Game-path key: three sites turn a missing name into `"undefined"` or throw. Make all give `''`? Also B16 normal fallback. | Yes, `''`; fix B16 to zero x and y | **Decided:** yes (default) | WP-1.2 |
+| D2 | Which Warcraft installation should particles and the Texture Library read when a custom CASC source exists: the Settings folder (like the Library browser) or the custom one? | Settings folder first, everywhere | **Decided:** Settings folder first, everywhere (default) | WP-2.4 |
+| D3 | Empty geoset extents: zeros (Recalculate extents) or ±Infinity (`updateBounds`, `classic-mesh`)? Changes saved bytes for that edge case only. | Zeros | **Decided:** zeros (default) | WP-2.3b |
+| D4 | Inspector "Recalculate normals" uses an area-weighted sum; NormalsXL uses the SD-style unit sum. Switch the button to NormalsXL defaults, or rename it? | Rename to "Quick normals" and leave the maths | **Decided: switch the button to the NormalsXL (SD-style) maths**; one way of doing it, matches SD | wave 3 |
+| D5 | Unify Stand / Death / Decay / Portrait detection across features (the shared rule would be Attachemator's)? Changes which clip some features pick. | Unify, with Attachemator's rule | **Decided:** unify with Attachemator's rule (default) | wave 3 |
+| D6 | Sort My Mess and Merge Similar: one "same material" key? They treat missing materials differently today. | One key, Sort My Mess's `missing` policy as an option | **Decided: no, keep them separate.** Merge Similar is the quick "merge these geosets" tool, Sort My Mess is for sorting out a messy model; different jobs, own checks | wave 3 |
+| D7 | Fix weapon-name false positives (`Elbow`, `Balance`)? Changes Glow Up and Attachemator rankings on affected rigs. | Fix, word-boundary tokens | **Decided:** fix, word-boundary tokens (default) | wave 3 |
+| D8 | 2D image zoom in Paint and Forge mask editor: follow the Wheel sensitivity and Mouse settings like the UV editor does? | Yes | **Decided:** yes (default) | wave 3 |
+| D9 | Viewport antialias: restore the setting, or drop the dependency? | Drop the dependency | **Decided: neither; make the setting real everywhere, with sharp overlay lines**, plus a first-run choice and a toolbar switch (new package WP-3.10, see review notes) | WP-1.9 → WP-3.10 |
+| D10 | Vertex click rule: editor uses Manhattan 5 px, previews Euclidean 7 px. One rule? | Leave both, document | **Decided:** leave both, document (default) | wave 3 |
+| D11 | Settings number fields and Showcase number fields commit on every keystroke; the rest commit on blur/Enter. Unify? | Leave as is | **Decided: unify; Settings and Showcase number fields commit on Enter/blur like the rest** | WP-2.6 |
+| D12 | Should all sliders look alike (they already behave alike after WP-2.6)? | No | **Decided: yes, all sliders look alike** (one shared look from the theme variables) | WP-2.6 |
+| D13 | AI: live errors shown inline like after reload? Sign-in pre-check: drop or cache? Routing JSON leniency? Atomic `connections.json`? Tool detail short line? | inline yes; cache; keep strict; atomic yes; short line yes | **Decided:** all five defaults (inline yes; cache; keep strict; atomic yes; short line yes) | WP-2.5 |
+| D14 | Delete the dead OptimizeXL save validator (`electron/optimizexl-validation.js` plus its build and package steps)? | Delete | **Decided:** delete (default) | WP-0.2 |
+| D15 | Delete the unused detached UV window (`openDetachedUVWindow`) or is it a planned option? | Delete | **Decided:** delete, not planned (default) | WP-0.2 |
+| D16 | Tests: add one small app-side test hook (`window.__mdlxl`) so harnesses stop walking React fibers? Adds ~20 lines of product code. | Yes | **Decided:** yes (default) | WP-1.7 |
+| D17 | Keep the localStorage mirror of preferences on desktop (two sources of truth) or browser-only? | Browser-only | **Decided:** browser-only (default) | WP-2.4 |
+| D18 | Should UV split percentages and AI panel width join exported preferences? | No | **Decided:** no, leave them out (default) | WP-1.6 |
+| D19 | Preload error unwrapping (B7) changes the wording users see in error toasts. OK? | Yes | **Decided:** yes (default) | WP-1.5 |
 
 ---
 
@@ -197,7 +201,7 @@ owner should know they exist. **Visible today** means a user can see it without 
 | WP-1.6 | **React shell step 1.** Move `Dialog` verbatim to `app/Dialog.jsx` and delete the `Dialog` prop from the 6 components; `src/local-store.js` (`readStored/writeStored/useStoredState`, keys unchanged) replacing the 6 helper pairs and guarding the 2 unguarded sites; `app/useDismiss.js` for the 8 outside-click/Escape copies (ownerDocument, capture, stopPropagation on Escape); `app/focus-trap.js` `trapTab` for the 5 copies; `LoadingWindow` for the window-type Suspense fallbacks. Update the 11 `App.jsx` text tests. **Pending D18.** | 04-F2 step 1, F6, F7, F9, F15 | `app/App.jsx:131-134` + the prop sites, `app/AppDialogs.jsx`, `app/AppSidebar.jsx`, `app/AnimationController.jsx`, `app/SanityCheck.jsx`, `app/SaveEditorData.jsx`, `app/UpdatePrompt.jsx`, `app/GeosetTabs.jsx`, `app/UVWorkspace.jsx`, `app/GameFileBrowser.jsx`, `app/AnimXL.jsx` (storage lines only), `app/TextureLibrary.jsx`, `app/ShowcaseWorkspace.jsx:31-37`, `app/NodeEventEditor.jsx`, the 8 dismiss sites, the 5 trap sites, `app/AppPanels.jsx:51` | Opus | medium |
 | WP-1.7 | **Test helpers foundation.** `test/helpers/app.cjs` (`appTarget` from one variable `MDLXL_TEST_EXE` with `MDLXL_SUITE_PKG` fallback then dev Electron, `launchApp`, `stubDialogs`, `clickMenu`, `sha256File`, `settle`, `closeApp` that deletes the profile), `fiber-probe.cjs` (or the app hook, **pending D16**), `model-fixtures.js`, `assert-near.js`, `temp.js` rooted at `MDLXL_TEMP || out/tmp`, `hive.mjs`, `pose-compare.mjs`, `fixturePath()`; the runner sets the one variable for every test and drops the exe rows from `SPECIAL`; wrapper harnesses that stub `main.cjs` opt out explicitly. Migrate the **pose family (8 files)** as proof, run `test:packaged default` and `release` before and after, expect and report new real failures. | 07-T1, T2, T3, T7, T8, T9, T12 | `test/helpers/*` (new), `scripts/run-packaged-tests.mjs`, `test/pose-*.electron.cjs`, `docs/PACKAGED-TESTS.md` (variable name) | Opus | medium |
 | WP-1.8 | **AI service helpers.** `runProvider()` in `ai-providers.cjs` and `AiService.askOnce()` (4 + 3 sites); `toolSummary`, `providerImage`, one `IMAGE_DATA_URL` regex; `prepareEnvironment` in `ai-process.cjs`; `catalogKey`, `chatFile`, `CHAT_ID`, `addressedBird`, `MCP_TOOL_TIMEOUT_MS`, `apiBase`, `ANTHROPIC_HEADERS`; `setSwitch` behind the five toggles; `AI_ROUTER_PROMPT` and `AI_EDITING_INTRO/BODY` in `src/ai-tools.js` with a test that the assembled strings are byte-identical; `contextNote`, `memoryNoteText`, `CANCELLED`, `TOOLS_ONLY` constants. No product behaviour change. | 03-F1, F6, F10, F14, F17, F20, F22 | `electron/ai-service.cjs`, `electron/ai-providers.cjs`, `electron/ai-process.cjs`, `electron/ai-mcp.cjs` (regex export), `src/ai-tools.js`, `electron/ai-model-choice.cjs` | Opus | medium |
-| WP-1.9 | **Preview small helpers.** Delete `src/capture-settings.js` duplicate (or make it the one owner); `capturePreviewThumbnail` for the 4 queues; `app/gl-utils.js` (`createGLProgram`, `uploadTexture`, `preserveGLState`); `app/war3-model-patches.js` (`guardRendererDestroy` ×3, `compensateRibbonWallClock` ×2) with a header comment listing which module owns which patch; `teamGlowFactor`, `teamColorPixels`, `DEFAULT_TEAM_COLOR` in `viewport-quality.js`, and `event-preview-runtime.js:231` switches to `nativeTeamColor` (B3, **ready to test**: spawn a blood or footprint event on a blue-team unit); Viewport antialias dependency (**pending D9**). Excludes `Viewport.jsx`/`PaintViewport.jsx` bodies (WP-2.1). | 05-F8, F9, F14, F15, F16, F19 | `app/event-preview-runtime.js`, `app/EventDecalPreview.jsx`, `app/game-preview-background-gl.js`, `app/preview-scene-gl.js`, `app/rig-markers-gl.js`, `app/particle-*.js/jsx` (glow and thumbnail lines), `app/uv-material-preview.js:40-48`, `app/viewport-shared.js`, `app/viewport-quality.js`, `app/showcase-playback.js`, `app/node-effect-controls.js`, `src/update-popup-effects.js:109`, `GamePreview.jsx:102-115` and `:1366` only | Sonnet | medium |
+| WP-1.9 | **Preview small helpers.** Delete `src/capture-settings.js` duplicate (or make it the one owner); `capturePreviewThumbnail` for the 4 queues; `app/gl-utils.js` (`createGLProgram`, `uploadTexture`, `preserveGLState`); `app/war3-model-patches.js` (`guardRendererDestroy` ×3, `compensateRibbonWallClock` ×2) with a header comment listing which module owns which patch; `teamGlowFactor`, `teamColorPixels`, `DEFAULT_TEAM_COLOR` in `viewport-quality.js`, and `event-preview-runtime.js:231` switches to `nativeTeamColor` (B3, **ready to test**: spawn a blood or footprint event on a blue-team unit); ~~Viewport antialias dependency (pending D9)~~ moved to WP-3.10 (D9 decided, see review notes). Excludes `Viewport.jsx`/`PaintViewport.jsx` bodies (WP-2.1). | 05-F8, F9, F14, F15, F16, F19 | `app/event-preview-runtime.js`, `app/EventDecalPreview.jsx`, `app/game-preview-background-gl.js`, `app/preview-scene-gl.js`, `app/rig-markers-gl.js`, `app/particle-*.js/jsx` (glow and thumbnail lines), `app/uv-material-preview.js:40-48`, `app/viewport-shared.js`, `app/viewport-quality.js`, `app/showcase-playback.js`, `app/node-effect-controls.js`, `src/update-popup-effects.js:109`, `GamePreview.jsx:102-115` and `:1366` only | Sonnet | medium |
 
 ### Wave 2: shared primitives with each caller's policy kept (parallel, 9 agents; after wave 1 merges)
 
@@ -254,7 +258,59 @@ owner should know they exist. **Visible today** means a user can see it without 
 
 | Package | Branch / PR | State | Notes |
 | --- | --- | --- | --- |
-| audit | `claude/codebase-audit` | report drafted, awaiting joint review | — |
+| audit | `claude/codebase-audit` | reviewed with the owner 2026-10-29; D1 to D19 answered | final plan and wave 0 launch pending (Fable session) |
+
+### Review notes (owner walkthrough, 2026-10-29)
+
+Nothing was declared off limits and no package was dropped. Changes to the plan:
+
+- **Likely bugs (section 4):** the owner wants every B-item fixed, whichever they had noticed;
+  they did not single any out. Keep all B-items in their packages.
+- **D4 → WP-3.6:** the Inspector "Recalculate normals" button switches to the NormalsXL
+  (SD-style unit sum) maths instead of being renamed. Keep its current label. Already-saved models
+  do not change; only the button's result does. Probably Sonnet **medium** rather than low (it has
+  to call the NormalsXL path with its defaults, not copy it). **Ready to test**: press the button on
+  an SD unit and compare with NormalsXL.
+- **D6 → WP-3.4:** drop the shared `materialKey`. Sort My Mess and Merge Similar keep their own
+  "same material" checks because they are different tools for different jobs. The rest of WP-3.4
+  (`isTeamColorLayer`/`isTeamGlowLayer`, `visitTextureReferences` for the 5 remap copies) stays.
+- **D9 → new WP-3.10, removed from WP-1.9.** WP-1.9 no longer touches the antialias dependency.
+  WP-3.10 (Opus, high, after WP-2.1 merges because it touches `Viewport.jsx`):
+  - The **Smooth edges (antialiasing)** setting works in every 3D view, including the main editor
+    `Viewport.jsx` (today it is hard-coded off there since `59cf9ce7` while still rebuilding on
+    every toggle). Stop the pointless rebuild either way.
+  - When smoothing is on, **only the model is smoothed**: bones, wireframe, vertex dots, normals and
+    other editor lines stay pixel-sharp on their own non-multisampled layer, the way GamePreview
+    already draws bone connectors on a 2D canvas with `app/pixel-lines.js`. Check the
+    "bone preview layering" fixed in `59cf9ce7` still holds with smoothing on.
+  - **Off by default** stays (`src/preferences.js`); existing users keep their current value and
+    are not asked again. Software rendering and low-power modes still force it off.
+  - Re-check `viewportPixelRatio` (`app/viewport-quality.js:7`): with antialias on it currently
+    caps the editor at the pixel-ratio setting, which made "on" slightly blurrier on HiDPI. Keep
+    HerrDave's test `HD06` (`test/herrdave-render.test.js:32`) meaningful for the Classic choice.
+  - **First-run question** in the existing welcome prompt (`electron/welcome-prompt.cjs`, the
+    first-open window that asks about automatic updates), owner-approved wording:
+    "**How should your models look?**" with **Smooth** ("Clean, soft edges. Bones and lines stay
+    sharp.", highlighted/default button) and **Classic MDLVis** ("Crisp pixel edges, like the old
+    MDLVis."), note "You can change this any time in Settings → Graphics." Keep it one small
+    window in the same style; translate into the four languages.
+  - **Quick switch in the top toolbar** next to team colour and language (`app/AppToolbar.jsx`):
+    one small button toggling Smooth / Classic MDLVis, the existing toolbar button look, a short
+    tooltip, the same preference as Settings and the welcome prompt. **Hidden in VIS** (VIS stays
+    MDLVis, see `vis-mdlvis-mode.md`).
+  - **Ready to test**: first-run prompt on a fresh profile, toolbar switch in XL (absent in VIS),
+    bones and wireframe stay crisp with Smooth on, mouse camera rotation in every preview.
+  - Background the owner asked for: sharp edges came from HerrDave's September 10 contract
+    (0.10.2, ticket HD06). Of HerrDave's recorded requests this is the only one that locked
+    MDLxL to the old look: his lighting is only a default with presets in Settings, and his
+    MdlVis Rotate drag is already optional (Pivot-based default again, `ecbb4088`). His full
+    original ticket list is not in the repository (tests show HD01, 03 to 06, 10, 13 only).
+- **D11 and D12 → WP-2.6:** Settings and Showcase number fields commit on Enter/blur like every
+  other number field (behaviour change, **ready to test**). All sliders share one look built from
+  the theme variables instead of each wrapper keeping its own CSS (visible change, **ready to
+  test** in light, dark and VIS). WP-2.6's "keep their CSS" for sliders no longer applies.
+- **D10:** WP-3.7 only documents the two vertex click rules; no code change for that half.
+- All other decisions took the default, so the packages they block can start as written.
 
 ---
 
