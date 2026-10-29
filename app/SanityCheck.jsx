@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { checkSanity, sanityLocation } from '../src/sanity-check.js';
 import { hiveSanity } from './optimizexl-hive.js';
+import Dialog from './Dialog.jsx';
 
-export default function SanityCheck({ model, revision, doc, Dialog, onClose }) {
+export default function SanityCheck({ model, revision, doc, onClose }) {
   const [state, setState] = useState(null);
   useEffect(() => {
     let active = true;
