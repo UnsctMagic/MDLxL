@@ -134,7 +134,9 @@ function browserRecovery(operation, value) {
 
 export default function App() {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
-  const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
+  // Browser runs keep preferences in localStorage. The desktop app keeps them
+  // only in settings.json and replaces these defaults when initial() answers.
+  const [preferences, setPreferences] = useState(() => { if (window.desktop) return normalizePreferences({}); try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
   setLanguage(preferences.language);
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
   const [settingsTab, setSettingsTab] = useState(null), [preferencesReady, setPreferencesReady] = useState(!window.desktop);
@@ -1543,8 +1545,8 @@ export default function App() {
   useEffect(() => {
     if(!preferencesReady) return;
     const encoded=JSON.stringify(preferences);
-    try { localStorage.setItem('mdlvis-preferences',encoded); } catch(error) { say('Settings could not be stored in this browser: '+error.message,true); }
-    if(!window.desktop || savedPreferences.current===encoded)return;
+    if(!window.desktop){ try { localStorage.setItem('mdlvis-preferences',encoded); } catch(error) { say('Settings could not be stored in this browser: '+error.message,true); } return; }
+    if(savedPreferences.current===encoded)return;
     const timer=preferencesTimer.current=setTimeout(() => { window.desktop.configure({preferences}).then(result => {settings.current=result; savedPreferences.current=encoded;}).catch(error=>say('Settings could not be saved: '+error.message,true)); },200);
     return () => clearTimeout(timer);
   },[preferences,preferencesReady]);

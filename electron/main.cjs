@@ -611,7 +611,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
     }return original(...args);};
   }
   preferenceApi=preferences;commandCatalog=commands.COMMANDS;
-  settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences);
+  settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences,preferences.PREFERENCE_LIMITS);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status)});
