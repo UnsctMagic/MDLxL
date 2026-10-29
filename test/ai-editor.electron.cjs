@@ -6,10 +6,7 @@ const http = require('node:http');
 const assert = require('node:assert/strict');
 const { isDeepStrictEqual: equal } = require('node:util');
 const crypto = require('node:crypto');
-const { _electron } = require(
-  process.env.MDLXL_PLAYWRIGHT_MODULE ||
-    'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright',
-);
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-editor');
 const checks = [];
 let app, server, page;
@@ -174,33 +171,11 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
     res.end();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const profile = path.join(out, 'profile'),
-    executablePath = process.env.MDLXL_TEST_EXE || require('electron');
-  app = await _electron.launch({
-    executablePath,
-    args: [
-      ...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]),
-      fixture,
-      '--disable-gpu-vsync',
-      '--disable-frame-rate-limit',
-    ],
-    env: {
-      ...process.env,
-      MDLXL_PROFILE: profile,
-      MDLXL_DISABLE_UPDATES: '1',
-      TEMP: path.join(out, 'temp'),
-      TMP: path.join(out, 'temp'),
-    },
-    timeout: 60000,
-  });
-  page = await app.firstWindow();
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false);
-  });
+  const launched = await launchApp({ pageTimeout: 30000, fixture, out, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') } });
+  ({ app, page } = launched);
+  const { profile, errors } = launched;
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(1000);
+  await settle(page, 1000);
   // This workflow checks direct editing by one chat; Offload Mode (organiser and
   // workers) has its own test in ai-console.electron.cjs.
   await page.evaluate(() => window.desktop.aiOffload(false));
@@ -243,7 +218,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   await page.reload();
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   await app.evaluate(({ shell }) => {
     shell.openExternal = async () => {};
   });
@@ -335,7 +310,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     .first()
     .click({ position: { x: 20, y: 120 } });
   await page.keyboard.press('Control+A');
-  await page.waitForTimeout(150);
+  await settle(page, 150);
   context = await tool('mdlxl_context');
   check('normal editor selection reaches AI context', JSON.stringify(context.selection) === '{"0":[0,1,2]}', {
     selection: context.selection,
@@ -483,9 +458,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page.waitForFunction(
     () => document.querySelector('.ai-status')?.textContent === 'Working on the model',
   );
-  await page.waitForTimeout(300);
+  await settle(page, 300);
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
-  await page.waitForTimeout(3500);
+  await settle(page, 3500);
   check(
     'Stop prevents pending script mutations',
     equal(await tool('mdlxl_read', { path: '/Geosets/0' }), mirrored),
@@ -501,7 +476,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     .first()
     .click({ position: { x: 20, y: 120 } });
   await page.keyboard.press('Control+A');
-  await page.waitForTimeout(120);
+  await settle(page, 120);
   await assert.rejects(
     () =>
       tool('mdlxl_patch', {
@@ -525,7 +500,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page.mouse.move(box.x + box.width * 0.5 + 90, box.y + box.height * 0.5 + 45, { steps: 10 });
   await page.mouse.up();
   await page.keyboard.up('Alt');
-  await page.waitForTimeout(200);
+  await settle(page, 200);
   check(
     'normal mouse drag still rotates the viewport',
     digest(beforeCamera) !== digest(await canvas.screenshot()),
@@ -545,7 +520,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     ],
     modifiers: ['alt'],
   });
-  await page.waitForTimeout(150);
+  await settle(page, 150);
   check(
     'AI can use the actual viewport mouse controls',
     digest(beforeGesture) !== digest(await canvas.screenshot()),
@@ -688,7 +663,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     win.unmaximize();
     win.setContentSize(1280, 800);
   });
-  await page.waitForTimeout(150);
+  await settle(page, 150);
   const panelAfter = await panel.boundingBox(),
     size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
   check(
@@ -960,14 +935,7 @@ return {duration:end-start,loop:!model.Sequences[sequence].NonLooping,keys:anim.
     process.exitCode = 1;
   })
   .finally(async () => {
-    if (app) {
-      await app
-        .evaluate(({ BrowserWindow }) => {
-          for (const win of BrowserWindow.getAllWindows()) win.destroy();
-        })
-        .catch(() => {});
-      await app.close().catch(() => {});
-    }
+    if (app) await closeApp(app);
     if (server)
       await new Promise(resolve => {
         server.closeAllConnections();

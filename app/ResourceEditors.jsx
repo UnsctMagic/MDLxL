@@ -1,7 +1,7 @@
 import ModelManager from './ModelManager.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Inspector from './Inspectors.jsx';
-import { trapTab } from './focus-trap.js';
+import ToolWindow from './ToolWindow.jsx';
 import NodeEventEditor from './NodeEventEditor.jsx';
 import { EVENT_TYPES, loadEventCatalog } from './node-event-data.js';
 import { Bone, Paperclip, Camera, Volume2, Droplets, Footprints, Lightbulb, Sparkles, Box, Circle, ChevronRight, ChevronDown } from 'lucide-react';
@@ -17,7 +17,6 @@ import { materialName, textureName } from '../src/resource-relations.js';
 import ResourceDetails from './ResourceDetails.jsx';
 import SortMyMess from './SortMyMess.jsx';
 import { applySortMyMess } from '../src/sort-my-mess.js';
-import useMovableWindow from './useMovableWindow.js';
 import './resource-editors.css';
 import './resource-managers-xl.css';
 
@@ -90,7 +89,6 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
   const [sorting, setSorting] = useState(false);
   const [managerSequence, setManagerSequence] = useState(doc?.model?.Sequences?.[sequenceIndex] ? sequenceIndex : 0);
   const dialog = useRef(null), list = useRef(null), lastApplySucceeded = useRef(true);
-  const movable = useMovableWindow(dialog);
   const [catalog, setCatalog] = useState(null), [catalogError, setCatalogError] = useState('');
   useEffect(() => { if(currentKind !== 'Nodes' || catalog) return; let active=true; loadEventCatalog(modelPath).then(value=>{if(active){setCatalog(value);if(!Object.values(value).some(rows=>rows.length))setCatalogError('Event data not found in the configured game files.');}},cause=>{if(active)setCatalogError(cause.message);});return()=>{active=false;}; }, [currentKind, modelPath, catalog]);
   useEffect(() => { if (kind !== currentKind) { setCurrentKind(kind); setSelectedIndex(initialIndex()); setMessage(''); } }, [kind]);
@@ -198,15 +196,14 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
     }
     if (['Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.stopPropagation();
     if (event.key === 'Escape' && !embedded && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) { event.stopPropagation(); onClose?.(); }
-    if (!livePreview && !embedded) trapTab(event, dialog.current);
   };
 
   const seek = value => { setFrame(value); onSeek?.(value); };
   const changeSequence = value => { setManagerSequence(value); onSequenceChange?.(value); seek(model.Sequences[value].Interval[0]); };
   if (sorting) return <SortMyMess doc={doc} modelPath={modelPath} textureAssets={textureAssets} preferences={preferences} teamColor={teamColor} sequenceIndex={managerSequence} frame={frame} onClose={() => { setSorting(false); requestAnimationFrame(() => dialog.current?.focus()); }} onCommit={decisions => apply('Sort My Mess', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Materials', 'Textures', 'RibbonEmitters', 'ParticleEmitters2', 'Info'], m => applySortMyMess(m, decisions))}/>;
-  return <div className={`resource-editor re-xl ${embedded ? 're-workspace' : ''} ${friendly ? '' : 're-compact-manager'}`} onKeyDown={keyDown}>
-    <section data-hotkey-scope="dialog" data-hotkey-prefix={`resource:${currentKind}`} data-hotkey-category={`${title} controls`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} role={embedded ? "region" : "dialog"} aria-modal={embedded ? undefined : !livePreview} aria-label={title} tabIndex={-1} ref={dialog} style={embedded ? undefined : movable.style}>
-      {!embedded && <header className="re-caption" {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}<button data-hotkey="close" className="re-caption-close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header>}
+  return <ToolWindow title={title} embedded={embedded} modal={!livePreview} trap={!livePreview} windowRef={dialog} overlayClass={`resource-editor re-xl ${embedded ? 're-workspace' : ''} ${friendly ? '' : 're-compact-manager'}`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} headerClass="re-caption" closeClass="re-caption-close" groupButtons onClose={onClose} onKeyDown={keyDown}
+    actions={onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}
+    sectionProps={{ 'data-hotkey-scope': 'dialog', 'data-hotkey-prefix': `resource:${currentKind}`, 'data-hotkey-category': `${title} controls` }}>
       <nav className="re-manager-tabs" aria-label="Resource managers">{Object.entries(managerTabs).map(([next, label]) => <button key={next} disabled={!model} aria-pressed={next === currentKind} title={titles[next]} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{label}</button>)}</nav>
       {currentKind === 'Model' ? <ModelManager key={modelPath} doc={doc} edit={apply} assets={textureAssets} preferences={preferences} teamColor={teamColor}/> : <div className="re-body"><aside className="re-list-pane">
         {friendly && <input className="re-search" type="search" aria-label={`Search ${currentKind.toLowerCase()}`} placeholder="Search name, type or ID…" value={query} onChange={event => setQuery(event.target.value)}/>}
@@ -237,8 +234,7 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
 
       </div></div>}
       <footer className="re-footer">{['Materials', 'Textures', 'Geosets'].includes(currentKind) && <button data-hotkey="sort-my-mess" disabled={!model || doc.readOnly} onClick={() => setSorting(true)}>Sort My Mess</button>}{friendly && onUndo && <div className="re-history-actions"><button aria-label="Undo manager edit" disabled={!doc.canUndo || doc.readOnly} onClick={onUndo}>Undo</button><button aria-label="Redo manager edit" disabled={!doc.canRedo || doc.readOnly} onClick={onRedo}>Redo</button></div>}<div key={warnings} className="re-status" role="status" data-alert={message ? '' : undefined}>{message || (doc?.readOnly ? 'Read-only model.' : '')}</div>{(!friendly || currentKind === 'Nodes' && selected && nodeKind(model,selected.item) === 'EventObjects') && <label className="re-frame">Frame:<input data-hotkey="frame" aria-label="Resource keyframe time" type="number" min="0" step="1" value={frame} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 0 && value <= 0x7fffffff) seek(value); }}/></label>}{!embedded && <button data-hotkey="resourceeditors:action:4" onClick={onClose}>Close</button>}</footer>
-    </section>
-  </div>;
+  </ToolWindow>;
 }
 
 export default ResourceEditor;

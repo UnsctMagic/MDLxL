@@ -5,6 +5,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { createResourceImporter } from '../src/model-import.js';
+import { omitEmptyMdxNodeTracks } from '../src/mdx-compatibility.js';
 import { createDemoDocument, createNode, openDocument, importGeosets } from '../src/editor-document.js';
 import { captureNodeSelection, pasteNodesToDummy } from '../src/node-clipboard.js';
 import { commitPart } from '../src/bits-and-parts.js';
@@ -30,6 +31,8 @@ function withResources(input) {
   const global = model.GlobalSequences.length - 1;
   root.Translation = track([0, 0, 2], global);
   child.Translation = track([1, 0, 0]);
+  root.Rotation = { LineType: 1, GlobalSeqId: null, Keys: [] };
+  child.Scaling = { LineType: 1, GlobalSeqId: null, Keys: [] };
   const textureId = model.Textures.push({ Image: 'Textures/Importer.blp', ReplaceableId: 0, Flags: 3 }) - 1;
   model.Textures.push({ Flags: 3, Image: 'textures\\importer.BLP', ReplaceableId: 0 });
   const animationId = model.TextureAnims.push({ Translation: track([0, 0, 0], global), Scaling: track([1, 1, 1]) }) - 1;
@@ -61,6 +64,7 @@ function compare(before, after, source, target, invoke, label, roundTrip = true)
   for (const format of ['mdx', 'mdl']) {
     const a = saveDocument(left), b = saveDocument(right);
     const oldBytes = a.serialize(format), newBytes = b.serialize(format);
+    if (format === 'mdx') assert.deepStrictEqual(omitEmptyMdxNodeTracks(Buffer.from(newBytes)), Buffer.from(newBytes), `${label}: no empty MDX node tracks`);
     roundTrips[format]++;
     assert.deepStrictEqual(newBytes, oldBytes, `${label}: ${format} bytes`);
     assert.deepStrictEqual(clone(openDocument(newBytes, `after.${format}`).model), clone(openDocument(oldBytes, `before.${format}`).model), `${label}: ${format} reopened model`);

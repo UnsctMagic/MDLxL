@@ -1,5 +1,5 @@
-// Frozen from origin/main 76a481c8451561ef8b82aa7dc2a6bdd1d56d2725 for WP-3.3 identity tests.
-// Function bodies are unchanged; imports point to shared, untouched dependencies.
+// Frozen from origin/main a953a6949db1bf1e47303e517766b15062a19c60 for WP-3.3 identity tests.
+// Function bodies are unchanged; imports point to the shared source dependencies.
 import { TEXTURE_SLOTS } from '../../../src/mdx-compatibility.js';
 import { isGlobalTrack } from '../../../src/animation.js';
 import { createNode, NODE_TYPES } from '../../../src/editor-document.js';

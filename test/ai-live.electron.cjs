@@ -4,16 +4,9 @@ const fs = require('node:fs'),
   path = require('node:path'),
   crypto = require('node:crypto'),
   assert = require('node:assert/strict');
-const { _electron } = require(
-  process.env.MDLXL_PLAYWRIGHT_MODULE ||
-    'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright',
-);
-const profile = process.env.MDLXL_AI_LIVE_PROFILE,
-  executablePath = process.env.MDLXL_AI_TEST_EXE;
-if (!profile || !executablePath)
-  throw Error(
-    'Set MDLXL_AI_LIVE_PROFILE to a signed-in MDLxL profile and MDLXL_AI_TEST_EXE to the packaged app.',
-  );
+const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
+const profile = process.env.MDLXL_AI_LIVE_PROFILE;
+if (!profile) throw Error('Set MDLXL_AI_LIVE_PROFILE to a disposable signed-in profile.');
 const out = path.resolve(process.env.MDLXL_AI_TEST_OUT || 'out/ai-live'),
   checks = [],
   replies = [];
@@ -54,21 +47,11 @@ let app, page, initialSettings, initialChat;
   const fixture = path.join(out, 'AI-live-acceptance.mdx');
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   const originalBytes = fs.readFileSync(fixture);
-  app = await _electron.launch({
-    executablePath,
-    args: [fixture],
-    env: {
-      ...process.env,
-      MDLXL_PROFILE: profile,
-      MDLXL_DISABLE_UPDATES: '1',
-      TEMP: path.join(out, 'temp'),
-      TMP: path.join(out, 'temp'),
-    },
-    timeout: 60000,
-  });
-  page = await app.firstWindow();
+  const launched = await launchApp({ pageTimeout: 30000, fixture, out, env: { MDLVIS_HEADLESS: '', MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp'), MDLXL_PROFILE: profile } });
+  ({ app, page } = launched);
+
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
-  await page.waitForTimeout(500);
+  await settle(page, 500);
   initialSettings = await page.evaluate(() => window.desktop.aiStatus());
   initialChat = await page.evaluate(() => localStorage.getItem('mdlxl-ai-chat'));
   if (process.env.MDLXL_AI_LIVE_AWARENESS === '1')
@@ -275,12 +258,7 @@ let app, page, initialSettings, initialChat;
             { settings: initialSettings, chat: initialChat },
           )
           .catch(error => console.error(error));
-      await app
-        .evaluate(({ BrowserWindow }) => {
-          for (const win of BrowserWindow.getAllWindows()) win.destroy();
-        })
-        .catch(() => {});
-      await app.close().catch(() => {});
+      await closeApp(app);
     }
     for (const name of ['temp', 'AI-live-acceptance.mdx'])
       fs.rmSync(path.join(out, name), { recursive: true, force: true });

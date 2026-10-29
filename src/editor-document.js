@@ -5,7 +5,7 @@ import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdCon
 import { adaptPasteFormat } from './paste-format.js';
 import { Buffer } from 'buffer';
 import { parseMDL, generateMDL } from 'war3-model';
-import { parseCompatibleMdx as parseMDX, generateCompatibleMdx as generateMDX } from './mdx-compatibility.js';
+import { parseCompatibleMdx as parseMDX, generateCompatibleMdx as generateMDX, omitEmptyMdxNodeTracks } from './mdx-compatibility.js';
 import { prepareCompatibleMdl, finishCompatibleMdl, formatGeneratedMdl, readMdlPivotPoints } from './mdl-compatibility.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes, SERIALIZED_NODE_COLLECTIONS } from './node-id-order.js';
 import { assertModelEquivalent, formatSaveIssues } from './save-equivalence.js';
@@ -392,7 +392,7 @@ export class EditorDocument {
     const bytes=writeMdxEventGlobalSequences(generateMDX({...candidate,GeosetAnims:convertMdxGeosetColorTracks(candidate.GeosetAnims),BindPoses:candidate.BindPoses?.length?candidate.BindPoses:undefined}),candidate);
     const check=openDocument(bytes,'converted.mdx',{allowHD:true});
     if(check.readOnly || check.version!==target || check.diagnostics.some(d=>d.severity==='error')) throw new Error('Target format verification failed. The model was kept.');
-    assertModelEquivalent(candidate,check.model,{keys:Object.keys(SECTION_TYPES)});
+    assertModelEquivalent(candidate,check.model,{keys:Object.keys(SECTION_TYPES),format:'mdx'});
     for(const key of Object.keys(SECTION_TYPES)) if(Array.isArray(candidate[key]) && candidate[key].length!==check.model[key]?.length) throw new Error('Target conversion changed '+key+' count.');
     this._versionConversion=true;
     try { return this.apply('Convert to MDX'+target,['Version','Materials','Geosets'],model=>normalizeVersionFields(model,target)); }
@@ -562,8 +562,17 @@ export class EditorDocument {
     if (this.hdViewOnly) throw new Error(HD_VIEW_ONLY_MESSAGE);
     const impact = this.saveImpact(format);
     if (!impact.canSave) throw new Error(`This document cannot be saved in that format. ${impact.warnings.at(-1) || 'An exact copy in its original format is available.'}`);
-    const remember = (data) => {
-      const bytes = new Uint8Array(data);
+    const remember = (data, expectedModel = this.model) => {
+      const original = Buffer.from(data);
+      const compatible = format === 'mdx' && !this.readOnly ? omitEmptyMdxNodeTracks(original) : original;
+      if (!compatible.equals(original)) {
+        // Exact-copy and sibling-preservation paths can retain legacy empty
+        // tracks. Verify their removal against the same export snapshot.
+        const reopened = openDocument(compatible, 'validation.mdx', { allowHD: true });
+        if (reopened.readOnly) throw new Error('Save verification failed: empty-track removal did not reopen.');
+        assertModelEquivalent(expectedModel, reopened.model, { keys: Object.keys(SECTION_TYPES), format });
+      }
+      const bytes = new Uint8Array(compatible);
       // Saving is asynchronous in the desktop host. Associate the bytes with
       // their model revision so an edit during disk I/O cannot be marked saved.
       this._serializedStates.set(bytes, { model: clone(this.model), revision: this.revision });
@@ -639,7 +648,7 @@ export class EditorDocument {
       nextStage('errorFormattingMs');
       throw new Error(formatSaveIssues('Save verification failed', newErrors.map(d => d.message)));
     }
-    return remember(output);
+    return remember(output, saveModel);
     } finally {
       timings[stage] += performance.now() - start;
       // assertModelEquivalent measures formatting within the verification stage.
@@ -918,6 +927,7 @@ export function deleteGeoset(model, index) {
   updateCounts(model);
 }
 
+// Quick area-weighted normals for generated geometry (Forge, shaping); user-facing buttons use NormalsXL.
 export function recalculateNormals(geoset) {
   const vertices = geoset.Vertices, faces = geoset.Faces;
   const normals = new Float32Array(vertices.length);

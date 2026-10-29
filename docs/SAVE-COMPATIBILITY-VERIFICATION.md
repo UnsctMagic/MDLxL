@@ -15,6 +15,40 @@ Two related edit failures found during the audit are repaired: merging native
 empty animation bounds no longer overflows, and the initial pending EMTR replay
 initializes material texture references before rendering.
 
+## Empty node-track export compatibility — 2026-10-29
+
+Editable MDX saves omit zero-key KGTR, KGRT and KGSC blocks, including records
+reused by the unchanged-file and sibling-preservation paths. The codec removes
+only those track headers and recalculates node, enclosing record and chunk
+sizes. Nonempty tracks (including interpolation, global-sequence IDs, keys and
+tangents), node references, event/collision tails and other bytes stay intact.
+The live model and undo history retain their original empty-track metadata;
+MDL serialization and read-only preservation copies keep their existing behavior.
+Save verification allows an absent empty node transform only for MDX; losing a
+nonempty track, key, tangent or metadata still fails.
+
+Both owner-supplied models were verified without committing model assets:
+
+| Input | Input bytes | MDX Save output | Empty node tracks |
+| --- | ---: | ---: | --- |
+| New Reborn (for UnsanctionedMagic (1).mdx | 224,478 | 224,350 | 8 → 0 |
+| New202C2920Repaired.mdx | 224,350 | 224,350 | 0 → 0 |
+
+Both ordinary Save outputs exactly match the supplied repaired binary (SHA-256
+`aa5073e668ebc70e24663bf0fd5df4f5b241ff7d6206d854ace92aa069d13c01`).
+BONE payload size changes from 119,808 to 119,680 bytes on the original. All 40
+nonempty bone tracks are byte-exact. All 17 geosets match at 39 sampled poses
+(start, middle and end of each of 13 sequences). Direct codec export, unrelated
+and node edits, compact/full recovery, undo/redo and repeated saves pass for both
+inputs. Input hashes, live model data and history remain unchanged.
+
+`test/mdx-empty-node-tracks.test.js` independently checks binary boundaries and
+unchanged nonempty track/tail bytes across all ten node families, all three
+transform tags, interpolation modes 0–3 and local/global tracks. It also covers
+save preservation, MDL conversion, version conversion and strict rejection of
+real data loss. War3 Model Editor v1.07 and Warcraft III were not run; byte identity
+with the owner-tested repair is the external-compatibility evidence.
+
 ## Independent evidence
 
 Retera's installed `craft3data-0.4.5.jar`, Java 17.0.2 and Nashorn loaded the saved
@@ -84,9 +118,10 @@ checks passed, but this is not a claim of an error-free UI session.
   Knight reference's former 26 "Helper flag" differences were later traced to
   the Bone node-type bit 0x100 on Helpers. MDL has no spelling for it, so MDL
   verification now ignores only type bits; Knight exports to MDL.)
-- No-op saves remain byte-exact. This patch is not an automatic repair of
-  pre-existing corrupt files or arbitrary nonstandard source syntax. Untouched
-  authored records, unknown data and existing loss-prevention checks remain.
+- No-op saves remain byte-exact except for the explicit empty node-track MDX
+  compatibility correction described above. Unsupported/read-only source files
+  retain their original bytes. This does not repair arbitrary corrupt files or
+  nonstandard syntax; authored keys, unknown data and loss-prevention checks remain.
 - Native Retera checks cover versions 800 and 1000. Newer-format source tests
   do not establish support in an older external editor. MDLvis model-open and
   render behavior, Warcraft runtime playback, external sound playback and
