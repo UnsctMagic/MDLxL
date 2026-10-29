@@ -1,4 +1,5 @@
 import { ModelRenderer } from 'war3-model';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
 const at=(m,path)=>path.reduce((v,k)=>v[k],m);
@@ -23,7 +24,7 @@ export function splineTrackProposals(model,entries,existing){
   for(const {track,path}of entries){
     const property=path.at(-1),rotation=property==='Rotation',width=rotation?4:3;
     if(!['Bones','Helpers'].includes(path[0])||!['Translation','Rotation','Scaling'].includes(property)||
-      ![2,3].includes(track.LineType)||!(track.GlobalSeqId==null||track.GlobalSeqId===-1||track.GlobalSeqId===0xffffffff))continue;
+      ![2,3].includes(track.LineType)||!optimizexlLocalTrack(track))continue;
     const findings=existing.filter(f=>f.kind==='redundantTracks'&&f.path.join('.')===path.join('.'));
     if(!findings.some(f=>f.remaining.length)||findings.some(f=>f.preservedTurns?.length)||existing.some(f=>f.path?.join('.')===path.join('.')&&!f.inspectionOnly))continue;
     const spans=[];let valid=true;

@@ -1,12 +1,12 @@
 import { typedJson } from './value-key.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 const json = typedJson;
 const resolve = (model, path) => path.reduce((value, key) => value?.[key], model);
-const local = track => track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
 
 export function unusedTrackProposals(model, entries) {
   const findings = [];
   for (const { track, path } of entries) {
-    if (!local(track) || !model.Sequences.length) continue;
+    if (!optimizexlLocalTrack(track) || !model.Sequences.length) continue;
     const active = key => model.Sequences.some(s => key.Frame >= s.Interval[0] && key.Frame <= s.Interval[1]);
     // mdx-m3-viewer exempts frame zero (the setup key). Match its unused-key diagnostic
     // rather than deleting setup data simply because sequences start later.

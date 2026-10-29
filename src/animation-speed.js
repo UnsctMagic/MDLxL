@@ -1,6 +1,7 @@
 import { Buffer } from 'buffer';
 import { parseMdl } from './mdl-lossless.js';
 import { parseMdx } from './mdx-container.js';
+import { isGlobalTrack } from './animation.js';
 
 export const ANIMATION_SPEED_KEY = '_AnimationSpeed';
 export const ANIMATION_SPEED_FRAME = '_AnimationSpeedFrame';
@@ -15,7 +16,6 @@ const MAX_FRAME = 0x7fffffff;
 const MIN_FRAME = -0x80000000;
 const percentValid = value => Number.isInteger(value) && value >= 1 && value <= 300;
 const intervalValid = value => Array.isArray(value) && value.length === 2 && value.every(frame => Number.isInteger(frame) && frame >= 0 && frame <= MAX_FRAME) && value[1] >= value[0];
-const global = value => Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId >= 0;
 
 export function animationSpeed(sequence) { return sequence?.[ANIMATION_SPEED_KEY]?.percent ?? 100; }
 export function animationSpeedChecked(sequence) { return sequence?.[ANIMATION_SPEED_KEY]?.checked !== false; }
@@ -35,8 +35,8 @@ function timingRecords(model) {
   function visit(value, path) {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
     seen.add(value);
-    if (Array.isArray(value.Keys)) { if (!global(value)) tracks.push({ value, path }); return; }
-    if (value.EventTrack && !global(value)) events.push({ value, path });
+    if (Array.isArray(value.Keys)) { if (!isGlobalTrack(value)) tracks.push({ value, path }); return; }
+    if (value.EventTrack && !isGlobalTrack(value)) events.push({ value, path });
     for (const [key, child] of Object.entries(value)) {
       if (privateKeys.has(key) || key === 'Nodes' || key === 'EventTrack') continue;
       visit(child, [...path, Array.isArray(value) ? Number(key) : key]);

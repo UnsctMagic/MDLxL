@@ -1,11 +1,10 @@
-import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
+import { allNodes, globalSequenceId, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { animationTargets, animationTrackId, assertSingleGeosetOwner, readAnimationTrack } from './animation-tracks.js';
 
 const transforms = ['Translation', 'Rotation', 'Scaling'];
 const clone = value => structuredClone(value);
 const isTrack = value => value && Array.isArray(value.Keys);
-const globalId = track => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : null;
 const vector = value => typeof value === 'number' ? [value] : Array.from(value || []);
 // A fresh copy each call: callers may keep and edit the default they receive.
 const defaults = property => { const value = { ...TRANSFORM_DEFAULTS, Color: [1, 1, 1], AmbColor: [1, 1, 1] }[property]; return value ? [...value] : 1; };
@@ -30,7 +29,7 @@ export function timelineTracks(model) {
   (model.Materials || []).forEach((material, id) => (material.Layers || []).forEach((layer, i) => addContext(layer, ['Materials', id, 'Layers', i], `Material ${id + 1} · Layer ${i + 1}`)));
   (model.TextureAnims || []).forEach((owner, id) => addContext(owner, ['TextureAnims', id], `Texture animation ${id + 1}`));
   (model.Cameras || []).forEach((owner, id) => addContext(owner, ['Cameras', id], `Camera ${id + 1}`));
-  return targets.map(target => ({ ...target, trackId: animationTrackId(target), globalSeqId: globalId(timelineReadTrack(model, target)) }));
+  return targets.map(target => ({ ...target, trackId: animationTrackId(target), globalSeqId: globalSequenceId(timelineReadTrack(model, target)) }));
 }
 
 export function timelineReadTrack(model, target) {
@@ -188,7 +187,7 @@ export function pasteTimelineKeys(model, targets, clipboard, time, domain, polic
   checkedTime(time, domain);
   const prepared = clipboardEntries(model, targets, clipboard, domain, 'keys').map(entry => {
     const original = timelineReadTrack(model, entry.target);
-    if (isTrack(original) && (original.LineType !== entry.track.LineType || globalId(original) !== globalId(entry.track))) throw new Error('Track interpolation or global association changed since copying. Restore the matching track metadata before pasting.');
+    if (isTrack(original) && (original.LineType !== entry.track.LineType || globalSequenceId(original) !== globalSequenceId(entry.track))) throw new Error('Track interpolation or global association changed since copying. Restore the matching track metadata before pasting.');
     const track = editableTrack(model, entry.target, domain, entry.track); let count = 0;
     for (const source of entry.track.Keys) {
       const key = clone(source); key.Frame = checkedTime(time + source.Frame - clipboard.origin, domain);

@@ -1,8 +1,9 @@
 import { typedJson } from './value-key.js';
 import { sampleTrack } from './animation.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 
 const json = typedJson;
-const local = track => !track?.Keys || track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
+const local = track => !track?.Keys || optimizexlLocalTrack(track);
 const alpha = (model, gi) => model.GeosetAnims.find(a => a.GeosetId === gi)?.Alpha;
 const layers = (model, gi) => model.Materials[model.Geosets[gi].MaterialID]?.Layers || [];
 const bones = g => [...new Set(Array.from(g.VertexGroup || []).flatMap(i => g.Groups?.[i] || []))].sort((a,b) => a-b);

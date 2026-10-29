@@ -1,4 +1,5 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { isGlobalTrack } from './animation.js';
 import { createNode, NODE_TYPES } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
@@ -26,7 +27,7 @@ export function pasteNodesToDummy(target, clipboard) {
   const reuse = (collection, value) => { const key = fingerprint(value), index = collection.findIndex(item => fingerprint(item) === key); return index < 0 ? collection.push(value) - 1 : index; };
   const remapGlobals = value => {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId >= 0) {
+    if (isGlobalTrack(value)) {
       const old = value.GlobalSeqId, duration = source.GlobalSequences?.[old];
       if (!Number.isInteger(duration) || duration <= 0) throw Error(`Copied node references missing global sequence ${old}.`);
       if (!maps.globals.has(old)) maps.globals.set(old, reuse(target.GlobalSequences, duration));

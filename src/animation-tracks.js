@@ -1,4 +1,4 @@
-import { allNodes, sampleTrack, sampleGeosetAnimation } from './animation.js';
+import { allNodes, isGlobalTrack, sampleTrack, sampleGeosetAnimation } from './animation.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 
 // EditorDocument normalizes MDL and MDX animated colors into RGB order.
@@ -136,7 +136,7 @@ function trackForGlobalEdit(model, target, globalSeqId) {
   if (isTrack(original)) {
     if (original.GlobalSeqId !== globalSeqId) {
       const channel = target.property === 'Color' ? 'RGB' : 'visibility';
-      const owner = Number.isInteger(original.GlobalSeqId) && original.GlobalSeqId >= 0 ? `global sequence ${original.GlobalSeqId + 1}` : 'model sequences';
+      const owner = isGlobalTrack(original) ? `global sequence ${original.GlobalSeqId + 1}` : 'model sequences';
       throw new Error(`This ${channel} track uses ${owner}. Change it to Global sequence ${globalSeqId + 1} in Text tracks before editing it here.`);
     }
     return clone(original);
@@ -159,7 +159,7 @@ function applyPrepared(model, prepared) {
 }
 function editFrame(model, track, frame, sequenceIndex) {
   validFrame(frame);
-  if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) {
+  if (isGlobalTrack(track)) {
     const duration = model.GlobalSequences?.[track.GlobalSeqId];
     if (!(duration > 0)) throw new Error('The track references an invalid global sequence.');
     return frame % duration;
@@ -224,7 +224,7 @@ function prepareSequenceTracks(model, targets, value, sequenceIndices) {
     let track = trackForEdit(model, target);
     // Setting sequence values moves a global-sequence track onto model
     // sequences, holding its first value in the animations left untouched.
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) {
+    if (isGlobalTrack(track)) {
       const first = track.Keys[0]?.Vector ?? fallback(target.property);
       const held = (typeof first === 'number' ? [first] : Array.from(first)).map(v => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1);
       track = { LineType: lineDefault(target.property), GlobalSeqId: null, Keys: [] };
@@ -315,7 +315,7 @@ export function collectAnimationKeyframes(model, { geosetIds = [], nodeIds = [],
   const times = new Set();
   for (const target of animationTargets(model, { geosetIds, nodeIds })) {
     const track = readAnimationTrack(model, target);
-    if (!isTrack(track) || (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0)) continue;
+    if (!isTrack(track) || isGlobalTrack(track)) continue;
     for (const key of track.Keys) if (!interval || key.Frame >= interval[0] && key.Frame <= interval[1]) times.add(key.Frame);
   }
   return [...times].sort((a, b) => a - b);

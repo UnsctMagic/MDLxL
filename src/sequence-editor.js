@@ -1,5 +1,5 @@
 import { recalculateExtents } from './editor-document.js';
-import { keysInInterval, sampleTrack } from './animation.js';
+import { globalSequenceId, isGlobalTrack, keysInInterval, sampleTrack } from './animation.js';
 import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
@@ -110,7 +110,7 @@ export function createSequenceFromCurrent(model, sourceIndex) {
   }
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const copies = keysInInterval(track, [start, end]).map(key => {
         const copy = { ...structuredClone(key), Frame: key.Frame + offset };
         if (source[ANIMATION_SPEED_KEY]) {
@@ -123,7 +123,7 @@ export function createSequenceFromCurrent(model, sourceIndex) {
       track.Keys.sort((a, b) => a.Frame - b.Frame);
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const frames = Array.from(node.EventTrack);
       const copies = frames.filter(frame => frame >= start && frame <= end).map(frame => frame + offset);
       const combined = [...frames, ...copies].sort((a, b) => a - b);
@@ -158,7 +158,7 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
   const copies = [];
   if (source) visitModel(model, {
     track(track, owner, property) {
-      if (!['Alpha', 'Color', 'AmbColor', 'Visibility'].includes(property) || !track.Keys.length || Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (!['Alpha', 'Color', 'AmbColor', 'Visibility'].includes(property) || !track.Keys.length || isGlobalTrack(track)) return;
       const [start, end] = source.Interval;
       const sample = Frame => {
         const value = sampleTrack(track, Frame, { interval: source.Interval, fallback: property === 'Color' || property === 'AmbColor' ? [1, 1, 1] : 1 });
@@ -205,7 +205,7 @@ function visitModel(model, visitor) {
 }
 
 function sameGlobalId(value, id) {
-  return Number.isInteger(value?.GlobalSeqId) && value.GlobalSeqId >= 0 && value.GlobalSeqId === id;
+  return globalSequenceId(value) === id;
 }
 
 export const SEQUENCE_REORDER_SECTIONS = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras'];
@@ -275,7 +275,7 @@ export function reorderSequences(model, order) {
   const edits = [];
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const keys = track.Keys.flatMap(key => mapped(key.Frame, key[ANIMATION_SPEED_FRAME]).map(record => ({
         ...structuredClone(key), Frame: record.frame,
         ...(key[ANIMATION_SPEED_FRAME] ? { [ANIMATION_SPEED_FRAME]: record } : {}),
@@ -283,7 +283,7 @@ export function reorderSequences(model, order) {
       edits.push(() => { track.Keys = keys; });
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const stored = [...(node[ANIMATION_SPEED_EVENTS] || [])];
       const records = Array.from(node.EventTrack).flatMap(frame => {
         const index = stored.findIndex(record => record?.frame === frame);
@@ -329,13 +329,13 @@ export function deleteSequence(model, sequenceIndex) {
   let removedKeys = 0;
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const before = track.Keys.length;
       track.Keys = track.Keys.filter(key => key.Frame < start || key.Frame > end);
       removedKeys += before - track.Keys.length;
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const values = Array.from(node.EventTrack), filtered = values.filter(frame => frame < start || frame > end);
       removedKeys += values.length - filtered.length;
       node.EventTrack = ArrayBuffer.isView(node.EventTrack) ? new node.EventTrack.constructor(filtered) : filtered;

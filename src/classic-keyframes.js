@@ -1,9 +1,9 @@
+import { isGlobalTrack } from './animation.js';
 import { animationTrackId } from './animation-tracks.js';
 import { timelineDomain, timelineTracks, timelineReadTrack, pasteTimelineKeys, pasteTimelinePose } from './keyframe-timeline.js';
 
 const transforms = { move: 'Translation', rotate: 'Rotation', scale: 'Scaling' };
 const appearance = new Set(['Alpha', 'Color', 'AmbColor', 'Visibility']);
-const globalId = track => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : null;
 
 /** Preserve visible/copyable tracks while excluding locked rig edit channels. */
 export function unrestrictedTimelineTargets(targets, restrictions = {}) {
@@ -28,7 +28,7 @@ export function classicTimelineDomain(model, sequenceIndex = -1, globalSeqId = n
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || visited.has(value)) return;
     visited.add(value);
     if (Array.isArray(value.Keys)) {
-      if (globalId(value) === null) for (const key of value.Keys) include(key.Frame);
+      if (!isGlobalTrack(value)) for (const key of value.Keys) include(key.Frame);
       return;
     }
     for (const child of Object.values(value)) visit(child);
