@@ -6,14 +6,14 @@ import { parseEventRenderModel } from './event-render-model.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 import { billboardCameraCorrection } from './preview-pose.js';
 import { DEFAULT_TEAM_COLOR, nativeTeamColor } from './viewport-quality.js';
+import { compensateRibbonWallClock, guardRendererDestroy } from './war3-model-patches.js';
 import { particleTravelDistance } from './particle-preview-adapter.js';
 
 const pathKey = path => String(path || '').replaceAll('/', '\\').toLowerCase();
 const readText = bytes => new TextDecoder().decode(bytes);
 
 function destroyRenderer(native) {
-  const destroyShader = native.destroyShaderProgramObject;
-  if (destroyShader) native.destroyShaderProgramObject = function (shader) { if (shader) return destroyShader.call(this, shader); };
+  guardRendererDestroy(native);
   try { native.destroy(); } catch (cause) { console.warn('Event renderer cleanup:', cause); }
 }
 
@@ -204,8 +204,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
               state.vao = gl.createVertexArray(); gl.bindVertexArray(state.vao);
               state.native = new ModelRenderer(structuredClone(resource.source)); state.native.initGL(gl); state.native.setSequence(0);
               if (state.native.ribbonsController) {
-                const controller = state.native.ribbonsController, update = controller.update; let previous = Date.now();
-                controller.update = function(delta) { const now = Date.now(), shift = now - previous - delta; previous = now; for (const emitter of this.emitters || []) for (let i = 0; i < emitter.creationTimes.length; i++) emitter.creationTimes[i] += shift; return update.call(this, delta); };
+                compensateRibbonWallClock(state.native.ribbonsController);
               }
               for (const [name,image] of resource.images) image.data ? state.native.setTextureImageData(name,[image]) : state.native.setTextureImage(name,image);
             } catch (cause) { if (state.native) destroyRenderer(state.native); state.native = null; state.failed = true; warn(`Event renderer: ${cause.message}`); }

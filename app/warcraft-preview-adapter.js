@@ -1,6 +1,7 @@
 import { portraitFragmentDeclarations, portraitFragmentLight, portraitLightDeclarations, portraitLightCalculation } from './portrait-lighting.js';
 import { sampleTrack, sampleGeosetAnimation } from '../src/animation.js';
 import { previewLighting } from '../src/preview-lighting.js';
+import { compensateRibbonWallClock } from './war3-model-patches.js';
 
 /** war3-model 4.0.1 omits geoset RGB and fractional alpha in its mesh shader. */
 export function patchWarcraftMeshFragmentShader(source) {
@@ -241,15 +242,8 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
         };
       }
       if (native.ribbonsController) {
-        updateRibbons = native.ribbonsController.update;
-        let ribbonWallClock = Date.now();
-        native.ribbonsController.update = function (delta) {
-          const now = Date.now(), adjustment = now - ribbonWallClock - delta; ribbonWallClock = now;
-          // Upstream ribbons use wall-clock birth times. Shift those times so
-          // their ages advance only by the simulated delta, including pause.
-          for (const emitter of this.emitters || []) for (let i = 0; i < emitter.creationTimes.length; i++) emitter.creationTimes[i] += adjustment;
-          return updateRibbons.call(this, delta);
-        };
+        // Upstream ribbons use wall-clock birth times; keep their ages on the simulated delta, including pause.
+        updateRibbons = compensateRibbonWallClock(native.ribbonsController);
         renderRibbons = native.ribbonsController.render;
         native.ribbonsController.render = function (...args) {
           if (!effectsPass(meshPass)) return;

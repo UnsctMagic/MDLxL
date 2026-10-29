@@ -15,6 +15,7 @@ import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
 import { drawCollisionSpheres } from './optimizexl-overlays.js';
 import { ModelRenderer } from 'war3-model';
+import { guardRendererDestroy } from './war3-model-patches.js';
 import { advanceShowcaseModel } from './showcase-playback.js';
 import { showcaseOrbitRadius, setShowcaseOrbitCamera, showcaseFraming } from './showcase-orbit.js';
 import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js';
@@ -102,10 +103,7 @@ function releasePreviewGraphics(native, gl, canvas) {
   // war3-model 4.0.1 destroys HD environment shaders even for SD models,
   // where those shader objects were never created. Guard only missing shaders
   // so the rest of its normal resource cleanup can still run to completion.
-  const destroyShader = native?.destroyShaderProgramObject;
-  if (typeof destroyShader === 'function') native.destroyShaderProgramObject = function (shader) {
-    if (shader) return destroyShader.call(this, shader);
-  };
+  guardRendererDestroy(native);
   try { native?.destroy(); }
   catch (cause) { console.warn('Warcraft preview cleanup failed; releasing its graphics context.', cause); }
   finally {

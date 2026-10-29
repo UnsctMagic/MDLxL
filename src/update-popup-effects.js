@@ -1,6 +1,7 @@
 import { ModelRenderer, parseMDX, decodeBLP, getBLPImageData } from 'war3-model';
 import { Matrix4, Vector3 } from 'three';
 import { playUpdateChime } from './update-chime.js';
+import { guardRendererDestroy } from './war3-model-patches.js';
 import { eyeScene, eyeTextures } from './update-helmet-assets.js';
 
 export const POPUP_EFFECT_DELAY = 650;
@@ -105,10 +106,7 @@ class HelmetView {
     delete this.element.dataset.effects;
     // Same pinned SD cleanup compatibility as GamePreview: upstream also tries
     // to destroy HD shader objects that were never created for this model.
-    if (this.native) {
-      const destroyShader = this.native.destroyShaderProgramObject;
-      this.native.destroyShaderProgramObject = function(shader) { if (shader) return destroyShader.call(this, shader); };
-    }
+    guardRendererDestroy(this.native);
     try { this.native?.destroy(); }
     catch (error) { console.warn('Could not finish update helmet cleanup.', error); }
     finally { this.gl?.getExtension('WEBGL_lose_context')?.loseContext(); }
