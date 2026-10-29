@@ -221,3 +221,6 @@ code and may be removed.
   thickness rule was requested. Very small measurable axes still fit exactly
   or reject atomically rather than inventing thickness. Existing replacement
   tests passed; no fit implementation change.
+- [x] Item 16: cancel an active collision draft when its selected handle no
+  longer appears in the projected stage. Existing lost-pointer-capture and
+  Escape cancellation remain. Packaged disappearing-handle regression pending.

@@ -34,6 +34,15 @@ export default function ModelManager({ doc, edit, assets, preferences, teamColor
   };
   const cancel = () => { pending.current = null; gesture.current = null; setDraft(null); };
   useEffect(() => () => { pending.current = null; }, []);
+  useEffect(() => {
+    const active = gesture.current;
+    if (!active) return;
+    const row = stage?.rows.find(item => item.id === active.before.ObjectId);
+    const retained = selectedId === active.before.ObjectId && row && (active.handle.move
+      ? row.move && visible(row.center)
+      : row.handles.some(handle => handle.axis === active.handle.axis && handle.sign === active.handle.sign && visible(handle.point)));
+    if (!retained) cancel();
+  }, [stage, selectedId]);
   const add = type => {
     const id = edit(type === 2 ? 'Add collision sphere' : 'Add collision box', sections, m => {
       const created = createNode(m, 'CollisionShape');
