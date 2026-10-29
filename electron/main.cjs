@@ -86,8 +86,8 @@ ipcMain.handle('particles:import',async()=>{
 });
 ipcMain.handle('particles:export',async(_,id)=>{
  const data=await particleLibrary.exportData(id),{parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(data);
- const result=await dialog.showSaveDialog(win,{title:'Export particle preset',defaultPath:recipe.name.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.mdlxl-particle',filters:[{name:'MDLxL particle preset',extensions:['mdlxl-particle']}]});
- if(result.canceled)return null;await fs.writeFile(result.filePath,data,'utf8');return {path:result.filePath};
+ const destination=await chooseSavePath({title:'Export particle preset',defaultPath:recipe.name.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.mdlxl-particle',extension:'mdlxl-particle',filterName:'MDLxL particle preset'});
+ if(!destination)return null;await fs.writeFile(destination,data,'utf8');return {path:destination};
 });
 ipcMain.handle('particles:thumbnail',(_,data)=>particleLibrary.thumbnail(data));
 ipcMain.handle('particles:catalog',()=>particleLibrary.catalog());
@@ -106,6 +106,17 @@ const previewRecordings=new PreviewRecordingStore({destination:showcaseRecording
 function captureOperation(operation){captureOperations.add(operation);operation.finally(()=>captureOperations.delete(operation)).catch(()=>{});return operation;}
 // Requests from other windows are refused: with a message, an error; without one, false.
 function editorOnly(event,message){if(event.sender===win?.webContents)return true;if(message)throw Error(message);return false;}
+// Native save dialog. The chosen path always ends in `extension` (without the
+// dot) when one is given; null when the user cancels.
+async function chooseSavePath({title,defaultPath,extension,filterName,buttonLabel}){
+  const result=await dialog.showSaveDialog(win,{title,defaultPath,...(buttonLabel?{buttonLabel}:{}),...(extension?{filters:[{name:filterName||extension.toUpperCase(),extensions:[extension]}]}:{})});
+  if(result.canceled||!result.filePath)return null;
+  let destination=result.filePath;
+  if(extension&&path.extname(destination).toLowerCase()!=='.'+extension.toLowerCase())destination+='.'+extension;
+  return destination;
+}
+// Shows a library folder in Explorer.
+async function openFolder(directory){const error=await shell.openPath(directory);if(error)throw Error(error);return directory;}
 function captureOwner(event){editorOnly(event,'Preview capture is unavailable in this window.');return event.sender.id;}
 const recoveryStore=new RecoveryStore(path.join(profile,'recovery'));
 const sessionJournal=new SessionJournal(path.join(profile,'sessions'));
@@ -189,20 +200,20 @@ ipcMain.handle('preview:openModel',async event=>{
 ipcMain.handle('parts:list',()=>getBitsAndPartsLibrary().list());
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));
 ipcMain.handle('parts:save',(_,data)=>getBitsAndPartsLibrary().save(data));
-ipcMain.handle('parts:folder',async()=>{const {directory}=await getBitsAndPartsLibrary().list();const error=await shell.openPath(directory);if(error)throw Error(error);return directory;});
+ipcMain.handle('parts:folder',async()=>openFolder((await getBitsAndPartsLibrary().list()).directory));
 ipcMain.handle('preview:backgrounds',()=>getPreviewBackgroundLibrary().list());
 ipcMain.handle('preview:background',(_,id)=>getPreviewBackgroundLibrary().read(id));
-ipcMain.handle('preview:backgroundFolder',async()=>{const {directory}=await getPreviewBackgroundLibrary().list();const error=await shell.openPath(directory);if(error)throw Error(error);return directory;});
+ipcMain.handle('preview:backgroundFolder',async()=>openFolder((await getPreviewBackgroundLibrary().list()).directory));
 ipcMain.handle('paint:textures',()=>getPaintTextureLibrary().list());
 ipcMain.handle('paint:texture',(_,id)=>getPaintTextureLibrary().read(id));
 ipcMain.handle('paint:saveTexture',(_,payload)=>getPaintTextureLibrary().save(payload));
-ipcMain.handle('paint:textureFolder',async()=>{await getPaintTextureLibrary().ensure();const error=await shell.openPath(getPaintTextureLibrary().directory);if(error)throw Error(error);});
+ipcMain.handle('paint:textureFolder',async()=>{await getPaintTextureLibrary().ensure();return openFolder(getPaintTextureLibrary().directory);});
 ipcMain.handle('paint:exportTexture',async(_,payload)=>{
   const name=path.basename(String(payload?.name||'')),extension=path.extname(name).slice(1).toLowerCase();
   if(!['png','blp','dds'].includes(extension))throw Error('Save a PNG, BLP or DDS texture.');
   const bytes=Buffer.from(payload.bytes||[]);if(!bytes.length||bytes.length>64*1024*1024)throw Error('Choose a texture smaller than 64 MiB.');
-  const result=await dialog.showSaveDialog(win,{title:'Save texture copy',defaultPath:name,filters:[{name:extension.toUpperCase(),extensions:[extension]}]});
-  if(result.canceled)return null;let destination=result.filePath;if(!destination.toLowerCase().endsWith('.'+extension))destination+='.'+extension;
+  const destination=await chooseSavePath({title:'Save texture copy',defaultPath:name,extension,filterName:extension.toUpperCase()});
+  if(!destination)return null;
   await fs.writeFile(destination,bytes);return {name:path.basename(destination),path:destination};
 });
 ipcMain.on('preview:busy',(event,value)=>{if(editorOnly(event))captureBusy=!!value;});
@@ -237,7 +248,7 @@ async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  const choose=async title=>{const result=await dialog.showSaveDialog(win,{title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});return result.canceled?null:result.filePath;};
+  const choose=title=>chooseSavePath({title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,extension:payload.format,filterName:payload.format.toUpperCase()+' model'});
   let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
   if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
@@ -245,7 +256,6 @@ async function saveModel(payload){
     // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
     if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
     if(!(destination=await choose('This file is read-only. Save model as')))return null;
-    if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
     await writeModelFile(destination,bytes,payload.forgeAssets||[]);
   }
   openedPaths.add(path.resolve(destination));await persistRecents(destination);
@@ -296,8 +306,8 @@ async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
   if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
   const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The painter artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The painter artifact exceeds 512 MB.');
-  const result=await dialog.showSaveDialog(win,{title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,filters:[{name:extension==='.zip'?'ZIP package':'MDLxL Paint Project',extensions:[extension.slice(1)]}]});
-  if(result.canceled)return null;let destination=result.filePath;if(path.extname(destination).toLowerCase()!==extension)destination+=extension;
+  const destination=await chooseSavePath({title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
+  if(!destination)return null;
   if(!allowed.has(path.extname(destination).toLowerCase()))throw Error('The selected painter artifact extension is not allowed.');
   await writeFileAtomic(destination,bytes,{verify:true});
   return {name:path.basename(destination),path:destination,bytes:bytes.length};
@@ -370,9 +380,10 @@ ipcMain.handle('gameFiles:findPath',(_,payload)=>trackTextureOperation(gameFileI
 })));
 ipcMain.handle('gameFiles:export',async(_,payload)=>{
   const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
-  const answer=await dialog.showSaveDialog(win,{title:'Save a copy of '+entry.name,defaultPath:entry.name,buttonLabel:'Save copy'});
-  if(answer.canceled||!answer.filePath)return null;
-  await fs.writeFile(answer.filePath,await library.read(index,entry));return answer.filePath;
+  const extension=path.extname(entry.name).slice(1).toLowerCase();
+  const destination=await chooseSavePath({title:'Save a copy of '+entry.name,defaultPath:entry.name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
+  if(!destination)return null;
+  await fs.writeFile(destination,await library.read(index,entry));return destination;
 });
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
