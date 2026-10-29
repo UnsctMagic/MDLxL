@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import { nodePivot } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 
 export function viewportOverlayOptions(props) {
@@ -40,7 +41,7 @@ export function viewportNodeLayout(model, nodes) {
 export function updateNodeOverlayPositions(model, nodes, matrices, positions) {
   const pivot = new Vector3();
   nodes.forEach((node, index) => {
-    pivot.fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]);
+    pivot.fromArray(nodePivot(model, node));
     const matrix = matrices?.get(node.ObjectId);
     if (matrix) pivot.applyMatrix4(matrix);
     pivot.toArray(positions, index * 3);

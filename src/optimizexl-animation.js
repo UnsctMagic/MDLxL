@@ -2,7 +2,11 @@ import { sampleTrack } from './animation.js';
 
 const same=(a,b)=>a?.length===b?.length&&Array.from(a||[]).every((v,i)=>v===b[i]);
 const zero=a=>a&&Array.from(a).every(v=>v===0);
-const error=(a,b,rotation)=>{
+// OptimizeXL's distance between two track values: degrees for rotations,
+// model units otherwise. Its tolerances and baselines depend on this exact
+// arithmetic. motion-inspector.js rotationDistance is the three.js version: it
+// normalises first, so a zero quaternion reads as identity there but 180° here.
+export const trackValueError=(a,b,rotation)=>{
  if(!rotation)return Math.hypot(...a.map((v,i)=>v-b[i]));
  const dot=Math.abs(a.reduce((n,v,i)=>n+v*b[i],0)/(Math.hypot(...a)*Math.hypot(...b)||1));
  return 2*Math.acos(Math.min(1,dot))*180/Math.PI;
@@ -23,7 +27,7 @@ function constantSegment(t,a,b,rotation){
 // its error, so a long weapon chain gets a tighter limit than a short joint.
 function motionBudgets(probes,rotation,worldLimit=Infinity){
  if(!probes.length)return;
- const values=probes.map(p=>rotation?[error(probes[0].value,p.value,true)]:p.value);
+ const values=probes.map(p=>rotation?[trackValueError(probes[0].value,p.value,true)]:p.value);
  const width=values[0].length,limits=[],roundoff=[];
  for(let axis=0;axis<width;axis++){
   let lo=Infinity,hi=-Infinity,magnitude=0;
@@ -56,7 +60,7 @@ function preserveMotion(track,original,probes,sample,rotation,worldLimit){
  const ratio=(e,p,axis)=>e?e/(p.motionLimits[axis]*.95+p.roundoff[axis]):0;
  const excess=p=>{
   const actual=sample(track,p.frame);
-  if(rotation)return ratio(error(p.value,actual,true),p,0);
+  if(rotation)return ratio(trackValueError(p.value,actual,true),p,0);
   return Math.max(...p.value.map((v,axis)=>ratio(Math.abs(v-actual[axis]),p,axis)));
  };
  const present=new Set(track.Keys.map(k=>k.Frame)),missing=original.filter(k=>!present.has(k.Frame));
@@ -117,7 +121,7 @@ export function reduceAnimationTrack(model,track,property,tolerance,onRemove,{re
    const exact=track.LineType===0?same(a.Vector,k.Vector):constantSegment(track,a,k,rotation)&&constantSegment(track,k,b,rotation);
    if(!exact&&!canApproximate){i++;continue;}
    track.Keys.splice(i,1);
-   const valid=exact||probes.every(p=>p.frame<a.Frame||p.frame>b.Frame||error(p.value,sample(track,p.frame),rotation)<=tolerance*.95);
+   const valid=exact||probes.every(p=>p.frame<a.Frame||p.frame>b.Frame||trackValueError(p.value,sample(track,p.frame),rotation)<=tolerance*.95);
    if(valid)removals.push({sequence,frame:k.Frame,from:a.Frame,to:b.Frame});
    else{track.Keys.splice(i,0,k);i++;}
   }

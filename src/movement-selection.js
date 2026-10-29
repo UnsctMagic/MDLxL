@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from './animation.js';
 
 /** Count each directly influenced vertex once, including positive HD weights. */
 export function movementChildVertexCount(model, ids = []) {
@@ -70,7 +70,7 @@ export function movementSelectionSummary(model, ids = [], selectionByGeoset = {}
   if (selectedCount) vertexCenter.divideScalar(selectedCount);
   const center = new Vector3();
   for (const node of selected) {
-    const point = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]);
+    const point = new Vector3().fromArray(nodePivot(model, node));
     const matrix = matrices.get(node.ObjectId); if (matrix) point.applyMatrix4(matrix);
     center.add(point);
   }

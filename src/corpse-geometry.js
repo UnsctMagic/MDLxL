@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { updateBounds } from './mesh-tools.js';
 import { booleanContours, polygonGroups, signedArea } from './forge-geometry.js';
@@ -81,7 +81,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   const ancestors=id=>{const result=[],seen=new Set();while(byId.has(id)&&!seen.has(id)){seen.add(id);result.push(id);id=byId.get(id).Parent;}return result;};
   const hasSkin=id=>[...clouds.keys()].some(key=>ancestors(key).includes(id));
-  const at=id=>new Vector3().fromArray(byId.get(id)?.PivotPoint||model.PivotPoints?.[id]||[0,0,0]).applyMatrix4(matrices.get(id)).toArray();
+  const at=id=>new Vector3().fromArray(nodePivot(model,byId.get(id),id)).applyMatrix4(matrices.get(id)).toArray();
   const rig=suggestPoseRig(model,frame,deathIndex),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
   // Whatever hangs below a hand is held (a weapon, its head or chain, a
   // carried object), never anatomy, whatever its bones are called.

@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { allNodes, NODE_COLLECTION_KEYS, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
@@ -24,7 +24,7 @@ function hierarchy(model, ids) {
       if (seen.has(node.ObjectId)) throw new Error('POSE cannot use a cyclic hierarchy.');
       seen.add(node.ObjectId);
       if (node.Flags & 120) throw new Error('POSE cannot use billboarding joints or ancestors.');
-      if (node.Flags & 7) throw new Error('POSE cannot use non-default inherited transforms: this preview renderer does not reproduce those flags.');
+      if (node.Flags & 7) throw new Error('POSE cannot use non-default inherited transforms: the preview shows them, but the POSE joint solver does not account for them.');
       if (!finite(node.PivotPoint || model.PivotPoints?.[node.ObjectId])) throw new Error('A POSE joint has a missing or invalid pivot.');
       if (node.Parent == null || node.Parent < 0) break;
       node = byId.get(node.Parent);
@@ -520,7 +520,7 @@ function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole,
 // mutate geometry, pivots, resources, intervals or the model's editor metadata.
 export function posePreviewModel(model) {
   const copy = { ...model }, copies = new Map();
-  for (const key of ['Nodes', 'Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'Lights', 'RibbonEmitters']) if (model[key]) copy[key] = model[key].map(node => {
+  for (const key of NODE_COLLECTION_KEYS) if (model[key]) copy[key] = model[key].map(node => {
     if (!node) return node;
     if (!copies.has(node)) copies.set(node, { ...node });
     return copies.get(node);

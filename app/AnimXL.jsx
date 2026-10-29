@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'rea
 import useMovableWindow from './useMovableWindow.js';
 import { isTypingTarget } from '../src/preferences.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
-import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
 import { createNode } from '../src/editor-document.js';
@@ -101,7 +101,7 @@ function withTracks(model, tracks) {
 // The weapon's tip: the point of its mesh furthest from its pivot (bind pose).
 function weaponTip(model, weaponId) {
   const node = allNodes(model).find(n => n.ObjectId === weaponId);
-  const pivot = new Vector3().fromArray(node?.PivotPoint || model.PivotPoints?.[weaponId] || [0, 0, 0]);
+  const pivot = new Vector3().fromArray(nodePivot(model, node, weaponId));
   if (!node) return pivot;
   let tip = pivot.clone(), far = 0;
   const point = new Vector3();
@@ -310,7 +310,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const skeleton = useMemo(() => {
     const nodes = allNodes(model).filter(n => (model.Bones || []).includes(n) || (model.Helpers || []).includes(n)), ids = new Set(nodes.map(n => n.ObjectId)), children = new Map();
     for (const n of nodes) if (ids.has(n.Parent)) (children.get(n.Parent) || children.set(n.Parent, []).get(n.Parent)).push(n.ObjectId);
-    const pivots = new Map(nodes.map(n => [n.ObjectId, new Vector3().fromArray(n.PivotPoint || model.PivotPoints?.[n.ObjectId] || [0, 0, 0])]));
+    const pivots = new Map(nodes.map(n => [n.ObjectId, new Vector3().fromArray(nodePivot(model, n))]));
     const xs = [...pivots.values()], extent = axis => Math.max(...xs.map(p => p[axis])) - Math.min(...xs.map(p => p[axis]));
     return { links: nodes.filter(n => ids.has(n.Parent)).map(n => [n.Parent, n.ObjectId]), children, parent: new Map(nodes.map(n => [n.ObjectId, n.Parent])), pivots, size: Math.max(20, ...['x', 'y', 'z'].map(extent)) };
   }, [model, doc.revision]);
@@ -407,7 +407,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const event = createNode(m, 'EventObject');
     event.Name = `SNDx${id}`;
     if (holderId != null) {
-      const holder = nodes.find(node => node.ObjectId === holderId), pivot = new Float32Array(holder.PivotPoint || m.PivotPoints?.[holderId] || [0, 0, 0]);
+      const holder = nodes.find(node => node.ObjectId === holderId), pivot = new Float32Array(nodePivot(m, holder, holderId));
       event.Parent = holderId; event.PivotPoint = pivot; m.PivotPoints[event.ObjectId] = pivot;
     }
     event.EventTrack = new Uint32Array([...new Set(frames)].sort((a, b) => a - b));

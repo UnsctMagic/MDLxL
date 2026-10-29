@@ -1,3 +1,4 @@
+import {nodePivot} from './animation.js';
 const peak=value=>typeof value==='number'?value:value?.Keys?.length?Math.max(...value.Keys.map(key=>key.Vector[0])):0;
 const keyed=value=>!!value?.Keys;
 const mapKeys=(track,map)=>({...track,Keys:track.Keys.map(key=>({...key,Vector:new Float32Array(map(Array.from(key.Vector))),...(key.InTan?{InTan:new Float32Array(map(Array.from(key.InTan),true))}:{}),...(key.OutTan?{OutTan:new Float32Array(map(Array.from(key.OutTan),true))}:{})}))});
@@ -42,7 +43,7 @@ export function setRibbonQuick(model,id,change){
  if(change.below!=null)shift('HeightBelow',change.below,now.below);
  if(change.move){
   // Moves the whole strip: the pivot is in the weapon's rest space, so every animation follows.
-  const pivot=Array.from(node.PivotPoint||model.PivotPoints?.[id]||[0,0,0]).map((v,i)=>v+finite(change.move[i]));
+  const pivot=Array.from(nodePivot(model,node,id)).map((v,i)=>v+finite(change.move[i]));
   node.PivotPoint=new Float32Array(pivot);if(model.PivotPoints)model.PivotPoints[id]=new Float32Array(pivot);
  }
  return node;
