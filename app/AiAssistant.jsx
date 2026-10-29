@@ -805,6 +805,10 @@ function AiAssistant({ bridge, visUI }) {
       attached = images,
       context = bridge.context();
     let sending = id;
+    const updateSendingDraft = patch => {
+      const key = sending;
+      setDrafts(previous => ({ ...previous, [key]: { ...previous[key], ...patch } }));
+    };
     setSendingId(sending);
     setError('');
     setStatus('Connecting…');
@@ -822,19 +826,24 @@ function AiAssistant({ bridge, visUI }) {
       if (org && !viewWorker) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
+          const previousId = sending;
           sending = fresh.id;
-          bridge.setChat(context.documentId, fresh.id);
+          bridge.rebindChat(context.documentId, previousId, sending);
+          setDrafts(previous => {
+            const next = { ...previous, [sending]: { ...previous[sending], ...previous[previousId] } };
+            delete next[previousId];
+            return next;
+          });
+          setSendingId(current => current === previousId ? fresh.id : current);
           Object.assign(context, bridge.context(context.target, fresh.id));
           if (activeId.current === id) {
             activeId.current = sending;
-            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setMessages([]);
           }
         }
       }
       if (!resume) {
-        setPrompt('');
-        setImages([]);
-        setJobRoute('');
+        updateSendingDraft({ prompt: '', images: [], jobRoute: '' });
       }
       if (activeId.current === sending) setMessages(previous => [
         ...previous,
@@ -857,7 +866,7 @@ function AiAssistant({ bridge, visUI }) {
         route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
       if (result.modelChoiceRequired) {
-        setModelQuestion(result.message); setPrompt(text); setImages(attached); setJobRoute(jobRoute);
+        updateSendingDraft({ modelQuestion: result.message, prompt: text, images: attached, jobRoute });
         const transcript = await window.desktop.aiTranscript(sending);
         if (activeId.current === sending) setMessages(transcript);
       }
@@ -865,8 +874,7 @@ function AiAssistant({ bridge, visUI }) {
         setSignedIn(false);
         setSettingsOpen(true);
         if (!resume) {
-          setPrompt(text);
-          setImages(attached);
+          updateSendingDraft({ prompt: text, images: attached });
         }
         const transcript = await window.desktop.aiTranscript(sending);
         if (activeId.current === sending) setMessages(transcript);
@@ -874,7 +882,7 @@ function AiAssistant({ bridge, visUI }) {
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
     } finally {
-      setSendingId(current => (current === sending ? null : current));
+      setSendingId(current => (current === id || current === sending ? null : current));
       if (activeId.current === sending) setStatus('');
     }
   }

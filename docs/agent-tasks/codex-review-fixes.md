@@ -209,3 +209,8 @@ code and may be removed.
   unloaded chats; the composer is disabled with a localized loading state until
   a draft key exists. Packaged attachment regressions now cover delayed chat
   loading and earlier-chat controls/paste; execution pending the final build.
+- [x] Item 14: organiser replacement moves scoped references and drafts to the
+  returned chat ID, restores model-choice/auth drafts there, and clears either
+  ID used for the sending indicator. Updates do not steal another viewed chat.
+  Background reference migration regression passed; delayed IPC/tab-switch
+  composer regression pending in the packaged suite.
