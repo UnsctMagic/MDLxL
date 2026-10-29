@@ -34,6 +34,15 @@ export default function ModelManager({ doc, edit, assets, preferences, teamColor
   };
   const cancel = () => { pending.current = null; gesture.current = null; setDraft(null); };
   useEffect(() => () => { pending.current = null; }, []);
+  useEffect(() => {
+    const active = gesture.current;
+    if (!active) return;
+    const row = stage?.rows.find(item => item.id === active.before.ObjectId);
+    const retained = selectedId === active.before.ObjectId && row && (active.handle.move
+      ? row.move && visible(row.center)
+      : row.handles.some(handle => handle.axis === active.handle.axis && handle.sign === active.handle.sign && visible(handle.point)));
+    if (!retained) cancel();
+  }, [stage, selectedId]);
   const add = type => {
     const id = edit(type === 2 ? 'Add collision sphere' : 'Add collision box', sections, m => {
       const created = createNode(m, 'CollisionShape');
@@ -93,7 +102,7 @@ export default function ModelManager({ doc, edit, assets, preferences, teamColor
       <label className="mm-name">Model name<input aria-label="Model name" title="The name stored inside the model, separate from the file name." disabled={doc.readOnly} maxLength={79} value={name} onChange={event => setName(event.target.value)} onBlur={() => { if (name !== model.Info.Name) edit('Rename model', ['Info'], m => { m.Info.Name = name; }); }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}/></label>
       <div className="mm-add"><button disabled={doc.readOnly} onClick={() => add(2)} title="Add a sphere fitted around the model"><Circle size={17}/> Sphere</button><button disabled={doc.readOnly} onClick={() => add(0)} title="Add a box fitted around the model"><Box size={17}/> Box</button></div>
       <div className="mm-shapes" role="listbox" aria-label="Model collision shapes">{model.CollisionShapes.map(item => <button key={item.ObjectId} role="option" aria-selected={item.ObjectId === selectedId} onClick={() => { commit(); setSelectedId(item.ObjectId); }}>{item.Shape === 2 ? <Circle size={16}/> : <Box size={16}/>}<span>{item.Name || 'Collision shape'}</span></button>)}</div>
-      {shape && <fieldset disabled={doc.readOnly} className="mm-size"><legend>{shape.Shape === 2 ? 'Radius' : 'Size'}</legend>{(shape.Shape === 2 ? [0] : [0, 1, 2]).map(axis => {
+      {shape && <fieldset disabled={doc.readOnly} className="mm-size"><legend>{shape.Shape === 2 ? 'Radius' : 'Size'}</legend>{(shape.Shape === 2 ? [0] : shape.Shape === 0 ? [0, 1, 2] : []).map(axis => {
         const value = shape.Shape === 2 ? shape.BoundsRadius : shape.Vertices[axis + 3] - shape.Vertices[axis];
         const original = selected.Shape === 2 ? selected.BoundsRadius : selected.Vertices[axis + 3] - selected.Vertices[axis];
         const label = shape.Shape === 2 ? 'Radius' : ['Width', 'Depth', 'Height'][axis];

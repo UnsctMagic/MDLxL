@@ -14,13 +14,6 @@ Exact dependency versions and transitive packages are recorded in `package-lock.
 - **Electron 40.8.0**, Electron contributors — MIT. Chromium's component notices accompany its runtime.
 - **Vite 7.3.1** and **esbuild** — MIT; build/development tools.
 
-## Update popup eye textures
-
-Blizzard Entertainment, `Textures\red_Glow2.blp`
-  and `Units\NightElf\EvilIllidan\Shadow.blp`, used by Unsanctioned Magic's Aspiring
-  Champion eye emitters. The popup preserves the four approved native emitter
-  definitions and original texture pixels; it does not include the model mesh.
-
 ## Project contributions
 
 - **Unsanctioned Magic** — Project direction, feature requests, modeling workflows and hands-on testing.
@@ -84,6 +77,15 @@ The AI toolbar image, `public/classic/btn-metamorphosis.png`, was converted with
 Citadel Paint's native starter shelf contains crop recipes in `src/paint-assets.js` and `public/paint-assets/manifest.json`. Their pixels are read from the configured local Warcraft III installation, including the cinematic Footman texture; those source images are not bundled. The retired generated/derived Paint texture collection is no longer shipped or seeded. The separate brush-mask collection retains its own provenance manifest.
 
 Citadel Paint's default texture library in `public/paint-library` contains 31 texture crops provided and selected for distribution by Unsanctioned Magic, organized and named by visible material. These are user-authored crops of Warcraft imagery, not the retired generated stock collection. Underlying Warcraft artwork remains Blizzard Entertainment's; no independent license or exact native source path is asserted for these crops. `manifest.json` records original library names, dimensions and SHA-256 hashes. The program copies these defaults into its editable `Textures` folder without overwriting personal files.
+
+### Update popup eye textures
+
+Blizzard Entertainment, `Textures\red_Glow2.blp`
+  and `Units\NightElf\EvilIllidan\Shadow.blp`, used by Unsanctioned Magic's Aspiring
+  Champion eye emitters. The popup preserves the four approved native emitter
+  definitions and original texture pixels; it does not include the model mesh.
+
+The artwork retains Blizzard Entertainment's rights; no new asset license is granted.
 
 ## CascLib
 

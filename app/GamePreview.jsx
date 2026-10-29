@@ -266,7 +266,7 @@ export default function GamePreview(inputProps) {
     hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -338,11 +338,15 @@ export default function GamePreview(inputProps) {
       viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
       native = new ModelRenderer(ownedModel);
+      // Synced Before/After previews run through playbackRunning; Showcase moves at its row speed,
+      // the same rate its footprints use. The All timeline's sequence is looked up once per frame.
+      let travelSequence = { frame: NaN, sequence: -1 };
       installParticleNativeCompatibility(native, { getTravelDistance: delta => {
         const p = latest.current;
-        if (p.restPose || globalPreviewId !== null || !p.showcase && !p.playing) return 0;
-        const sequence = p.sequenceIndex >= 0 ? p.sequenceIndex : localSequenceAtFrame(p.model, native.getFrame());
-        return particleTravelDistance(p.model, sequence, delta);
+        if (p.restPose || globalPreviewId !== null || !p.showcase && !(p.playing || p.syncPlayback && p.playbackRunning)) return 0;
+        const frame = native.getFrame();
+        if (p.sequenceIndex < 0 && travelSequence.frame !== frame) travelSequence = { frame, sequence: localSequenceAtFrame(p.model, frame) };
+        return particleTravelDistance(p.model, p.sequenceIndex >= 0 ? p.sequenceIndex : travelSequence.sequence, delta * (p.showcase ? showcaseTravelRate : 1));
       } });
       native.initGL(gl); previewAdapter.ready(native);
       // Layered WC3 materials redraw the same triangles at identical depth.
@@ -1289,6 +1293,7 @@ export default function GamePreview(inputProps) {
         // Narrow particle/ribbon visibility windows must survive a slow frame.
         // Substep effects during long frames rather than jumping over their keys.
         if (p.showcase) {
+          showcaseTravelRate = showcaseNext?.effectTail ? 0 : showcaseNext?.speed ?? 1;
           showcaseSample = advanceShowcaseModel(native, ownedModel, showcaseNext, showcaseSample);
           activeSequence = selected; globalClock = showcaseSample.globalTime;
         } else if(particleAuthor) {

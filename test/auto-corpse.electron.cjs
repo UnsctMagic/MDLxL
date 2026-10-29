@@ -8,7 +8,7 @@ function runtime(scope) {
   if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];
   // A scoped preview is found from its own element upward; otherwise the first in the app.
   const ancestors=[];if(scope)for(let f=top;f;f=f.return)ancestors.push(f);else{while(top.return)top=top.return;}
-  const stack=scope?ancestors.reverse():[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}if(!scope)for(let c=f.child;c;c=c.sibling)stack.push(c);}
+  const stack=scope?ancestors.reverse():[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}if(!scope)for(let c=f.child;c;c=c.sibling)stack.push(c);}
   throw Error('Missing viewport runtime');
 }
 (async()=>{
@@ -36,12 +36,17 @@ function runtime(scope) {
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
     await page.locator('[data-clean-model-canvas]').waitFor();await page.waitForTimeout(700);
-    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Flesh/i);
-    checks.push('One compact button beside VIS; Create makes the corpse and opens Decay Flesh');
+    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Bones?/i);
+    assert.equal(after.frame,after.model.Sequences[after.sequence].Interval[0]);
+    assert.equal(after.playing,false);
+    await page.waitForTimeout(200);
+    assert.equal((await page.evaluate(runtime)).frame,after.frame);
+    checks.push('One compact button beside VIS; Create immediately displays the first Bone Decay frame, paused');
     const input=page.getByLabel('Current animation frame',{exact:true});
     async function seek(time){await input.fill(String(time));await input.press('Enter');await page.waitForFunction(t=>Math.abs(window.corpseRuntime().frame-t)<1,time);await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}
     for(const label of ['Bones','Skeleton','Nodes','Emitters','Events','Sounds']) {const box=page.getByRole('checkbox',{name:label,exact:true});if(await box.count())await box.uncheck();}
-    const s=after.model.Sequences[after.sequence];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
+    const fi=after.model.Sequences.findIndex(s=>/^Decay Flesh$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(fi));
+    const s=after.model.Sequences[fi];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
     const bi=after.model.Sequences.findIndex(s=>/^Decay Bones?$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(bi));await seek(after.model.Sequences[bi].Interval[0]);await capture('corpse');
     console.log('Body and corpse captured at the same camera scale.');
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;

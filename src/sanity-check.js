@@ -5,7 +5,7 @@ import { generateCompatibleMdx } from './mdx-compatibility.js';
 // verbatim as advisory evidence, separate from the current editor's validator.
 export async function checkSanity(model, hive, sourceDiagnostics = []) {
   const snapshot = structuredClone(model);
-  const diagnostics = [...sourceDiagnostics, ...validateModel(snapshot)];
+  const diagnostics = [...sourceDiagnostics.filter(f => f.code !== 'HD_VIEW_ONLY'), ...validateModel(snapshot)];
   const unique = [...new Map(diagnostics.map(f => [JSON.stringify([f.code, f.path, f.message]), f])).values()];
   const structural = unique.map(f => {
     // Zero durations occur in shipped Blizzard portraits and effects. Preserve

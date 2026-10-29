@@ -509,7 +509,7 @@ class AiService {
       const bird = await this.conversation(prior.workerId, settings.provider);
       recorder.start({ role: 'user', text: 'Resume task' });
       active.cost = {};
-      const result = await this.runWorker({ organiser: conversation, active, args: { worker: bird.name, job: bird.task?.plan?.reach || 'Resume task', resumeTask: structuredClone(bird.task) }, userText: prior.prompt, images: [], context, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
+      const result = await this.runWorker({ organiser: conversation, active, args: { worker: bird.name, job: conversation.workers?.find(w => w.id === bird.id)?.job || 'Resume task', resumeTask: structuredClone(bird.task) }, userText: prior.prompt, images: [], context, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
       prior.workerId = active.lastWorker || conversation.currentWorker;
       if (result.status !== 'done') { prior.status = 'incomplete'; throw Error(result.error || result.report); }
       conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
@@ -647,6 +647,8 @@ class AiService {
           const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
           if (Array.isArray(args?.jobs) && args.jobs.length) {
             const jobs = args.jobs.map(jobOf);
+            const assigned = jobs.filter(j => j.worker).map(j => j.worker);
+            if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
             jobs.forEach((j, i) => {
               if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
               if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
@@ -843,7 +845,7 @@ class AiService {
     };
     if (!conversation.toolsOff && !conversation.helperOnly && helper && !resume) startHelper(helper);
     // A crashed helper only did reads; restart its bounded investigation, never an edit.
-    if (resume && task.helper?.status === 'working') { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
+    if (resume && ['working', 'failed', 'cancelled'].includes(task.helper?.status) && !task.helper.delivered) { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
     if (checks?.length) prompt += '\n\nOrganiser completion criteria: ' + JSON.stringify(checks);
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
@@ -1812,7 +1814,7 @@ class AiService {
         (q.allowCustom === false && values.some(v => !q.options?.some(o => o.label === v)));
     })) throw Error('Answer each required question before sending.');
     const result = Object.fromEntries(pending.questions.map(q => [q.id, { answers: [...answers[q.id].answers] }]));
-    pending.validate?.(result);
+    if (typeof pending.validate === 'function') pending.validate(result);
     this.questions.delete(questionId);
     pending.resolve(result);
     return { answered: true };

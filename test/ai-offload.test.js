@@ -790,17 +790,24 @@ test('dependent jobs receive only completed prerequisite reports',async t=>{
 
 
 
-test('stopping a job also stops its helper and closes the helper target',async t=>{
-  let ready, release;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
+test('stopping a job stops its helper and Resume restarts the read-only investigation',async t=>{
+  let ready, release, helperTurns=0;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
   const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:async data=>{
     if(data.messages[0].content.startsWith('Route one message'))return say(JSON.stringify({job:'Inspect',helper:{job:'Measure reference',instructions:'Read the reference.'}}));
-    if(data.messages[0].content.startsWith('You are a read-only')){ready();await hold;return say('Read only.');}
+    if(data.messages[0].content.startsWith('You are a read-only')){helperTurns++;ready();await hold;return say('Read only.');}
     await hold;return say('Read only.');
   }});
   const regions=helperRegions(f);const {id}=await f.service.organiser({modelKey});
   const pending=f.service.send({id,text:'Inspect the reference and target together',route:'auto',context});
   await started; f.service.cancel(id);release();const result=await pending;
   assert.equal(result.cancelled,true,JSON.stringify(result));assert.equal(regions.closed(),1);assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
+  const org=await f.service.readConversation(id), bird=await f.service.readConversation(org.task.workerId);
+  assert.equal(bird.task.helper.status,'failed');
+  const resumed=await f.service.send({id,context,resume:true});
+  assert.equal(resumed.ok,true,JSON.stringify(resumed)); assert.equal(helperTurns,2);
+  const after=await f.service.readConversation(org.task.workerId);
+  assert.equal(after.task.helper.status,'done');assert.equal(after.task.helper.delivered,true);
+  assert.equal(regions.closed(),2);assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
 });
 
 test('an exact value edit uses the existing direct bird path without a plan or helper',async t=>{
@@ -820,4 +827,40 @@ test('direct messages to an editor bird retain organiser lifecycle and destinati
   const result=await f.service.send({id:bird.id,text:'Inspect that same model again',context});
   assert.equal(result.ok,true,JSON.stringify(result));assert.equal(org.workers.length,1);assert.equal(org.currentWorker,bird.id);
   assert.equal(org.transcript.filter(m=>m.role==='user').length,2);assert.equal(f.requests.length,2);
+});
+
+
+test('resuming an interrupted bird preserves its job title rather than its plan reach', async t=>{
+ let ready,release,turn=0;
+ const started=new Promise(r=>ready=r), hold=new Promise(r=>release=r);
+ const f=await setup(t,{organiser:()=>assert.fail('No organiser'),worker:async data=>{
+   if(userText(data).includes('Resume the interrupted task')) return say('Inspection complete.');
+   if(++turn===1) return jobTool('mdlxl_plan',jobPlan({reach:'Only the left shoulder vertices.'}));
+   ready(); await hold; return say('Stopped inspection.');
+ }});
+ const {id}=await f.service.organiser({modelKey});
+ const pending=f.service.send({id,text:'Inspect the shoulder',job:'Shoulder inspection',context,route:'new'});
+ await started; f.service.cancel(id); release();
+ assert.equal((await pending).cancelled,true);
+ assert.equal((await f.service.send({id,context,resume:true})).ok,true);
+ const org=await f.service.readConversation(id);
+ assert.equal(org.workers[0].job,'Shoulder inspection');
+ assert.equal(org.workers.length,1);
+});
+
+
+test('region routing rejects the same bird named by both name and id before dispatch',async t=>{
+ let existing;
+ const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:data=>{
+   if(!data.messages[0].content.startsWith('Route one message')) return say('Initial inspection complete.');
+   return say(JSON.stringify({jobs:[{job:'First region',worker:existing.name,readOnly:true},{job:'Second region',worker:existing.id.toUpperCase(),readOnly:true}]}));
+ }});
+ const {id}=await f.service.organiser({modelKey});
+ assert.equal((await f.service.send({id,text:'Inspect the model',route:'new',context})).ok,true);
+ existing=(await f.service.readConversation(id)).workers[0];
+ const before=f.requests.length, result=await f.service.send({id,text:'Inspect two regions',route:'auto',context});
+ assert.equal(result.ok,false); assert.match(result.error,/different bird/);
+ assert.equal(f.requests.length-before,2,'only the router and its correction ran');
+ assert.equal((await f.service.readConversation(id)).workers.length,1);
+ assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
 });

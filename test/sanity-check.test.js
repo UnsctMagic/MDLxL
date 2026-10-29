@@ -45,3 +45,14 @@ test('parser errors and opaque chunks cannot produce a clean result', async () =
  const r=await checkSanity(m,hive,[{severity:'error',code:'BAD_CHUNK',message:'Truncated source'}]); assert.equal(r.status,'Structural errors found');
  const opaque=await checkSanity(m,hive,[{severity:'info',code:'OPAQUE_DATA_PRESERVED',message:'Unknown chunk'}]);assert.equal(opaque.status,'Check partially completed');
 });
+
+
+test('HD view-only is a mode notice while real source errors remain structural', async () => {
+ const m=createStarterDocument().model; m.Version=1000;
+ const notice={severity:'error',code:'HD_VIEW_ONLY',message:'Saving is disabled in view-only mode.'};
+ const result=await checkSanity(m,hive,[notice]);
+ assert.equal(result.errors,0); assert.equal(result.status,'Check partially completed');
+ assert.ok(!result.structural.some(f=>f.code==='HD_VIEW_ONLY'));
+ const broken=await checkSanity(m,hive,[notice,{severity:'error',code:'BAD_CHUNK',message:'Truncated source'}]);
+ assert.equal(broken.errors,1); assert.equal(broken.status,'Structural errors found');
+});

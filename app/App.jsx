@@ -1713,7 +1713,7 @@ export default function App() {
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={options => {
       const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, current => autoCorpse(current, options), { rethrow: true });
-      if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].flesh));
+      if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
       return !!result;
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}

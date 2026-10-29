@@ -6,7 +6,7 @@ Attachemator): a preview that turns with the mouse, **Size** and **Height**
 sliders in AnimXL's slider style (25–200%, 100% = fitted), **Show body** and
 **Reset**. The preview shows the corpse alone at the start of Decay Bone, or
 under the body 200 ms into Decay Flesh with Show body. **Create** runs one
-undoable edit and selects Decay Flesh; **Close** changes nothing. Size scales
+undoable edit and immediately shows the first frame of Decay Bone, paused; **Close** changes nothing. Size scales
 the fitted corpse's footprint about its centre; Height scales how far each
 piece rises above its own level. Above 100% the corpse is no longer fitted
 under the body and can show through it while the body sinks; the tooltips
