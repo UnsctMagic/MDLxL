@@ -145,6 +145,25 @@ function contextUse(conversation) {
   return stored / 4 / handoverAt(200000);
 }
 
+// Saves JSON (as it is now) through a temporary file, so a crash or a full disk
+// never leaves half a file. Writes to one file happen in the order asked.
+const writing = new Map();
+function writeJsonAtomic(file, value, space) {
+  const text = JSON.stringify(value, null, space);
+  const write = (writing.get(file) || Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
+      await fs.rename(file + '.tmp', file);
+    });
+  writing.set(file, write);
+  write.then(
+    () => writing.get(file) === write && writing.delete(file),
+    () => writing.get(file) === write && writing.delete(file),
+  );
+  return write;
+}
+
 // Organisers per model file (or per unsaved tab), their earlier chats, memory notes
 // and the remembered save-cleanup choice.
 class OrganiserRegistry {
@@ -162,9 +181,8 @@ class OrganiserRegistry {
     }
     return this.data;
   }
-  async save() {
-    await fs.writeFile(this.file + '.tmp', JSON.stringify(this.data, null, 2), { mode: 0o600 });
-    await fs.rename(this.file + '.tmp', this.file);
+  save() {
+    return writeJsonAtomic(this.file, this.data, 2);
   }
   async model(key, name) {
     if (typeof key !== 'string' || !key || key.length > 1000) throw Error('Invalid model key.');
@@ -223,6 +241,7 @@ module.exports = {
   AiRecorder,
   contextUse,
   OrganiserRegistry,
+  writeJsonAtomic,
   removeFiles,
   deleteProviderSessions,
 };

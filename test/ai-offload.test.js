@@ -961,3 +961,14 @@ test('removeFiles deletes what it is asked to, six folders deep at most', async 
   assert.deepEqual((await fs.readdir(deep(7))).sort(), ['keep.txt', 'old.log']);
   assert.equal(await removeFiles(path.join(directory, 'missing'), () => true), 0);
 });
+
+test('connection settings are saved whole through a temporary file, in the order changed', async t => {
+  const profile = tempDir('mdlxl-ai-connections-');
+  t.after(() => fs.rm(profile, { recursive: true, force: true }));
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await Promise.all([service.setOffload(false), service.setWebResearch(true), service.setEditingHandbook(true), service.setOffload(true)]);
+  const saved = JSON.parse(await fs.readFile(path.join(service.directory, 'connections.json'), 'utf8'));
+  assert.deepEqual([saved.offload, saved.webResearch, saved.editingHandbook], [true, true, true]);
+  assert.deepEqual((await fs.readdir(service.directory)).filter(name => name.endsWith('.tmp')), []);
+});

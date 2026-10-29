@@ -30,6 +30,7 @@ const {
   nextBird,
   contextUse,
   removeFiles,
+  writeJsonAtomic,
   deleteProviderSessions,
   settleConversation,
 } = require('./ai-offload.cjs');
@@ -149,10 +150,8 @@ class AiService {
       });
     return this.loading;
   }
-  async persist() {
-    await fs.writeFile(path.join(this.directory, 'connections.json'), JSON.stringify(this.config, null, 2), {
-      mode: 0o600,
-    });
+  persist() {
+    return writeJsonAtomic(path.join(this.directory, 'connections.json'), this.config, 2);
   }
   encrypt(secret) {
     if (!this.electron.safeStorage.isEncryptionAvailable())
@@ -428,12 +427,7 @@ class AiService {
     return path.join(this.directory, 'chat-' + id + '.json');
   }
   persistConversation(conversation) {
-    const file = this.chatFile(conversation.id),
-      text = JSON.stringify(conversation);
-    const write = (this.writes.get(conversation.id) || Promise.resolve()).then(async () => {
-      await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
-      await fs.rename(file + '.tmp', file);
-    });
+    const write = writeJsonAtomic(this.chatFile(conversation.id), conversation);
     this.writes.set(conversation.id, write);
     return write;
   }
