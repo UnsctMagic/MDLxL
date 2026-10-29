@@ -4,9 +4,9 @@ import ModernIcon, { hasModernIcon } from './ModernIcon.jsx';
 import LookIcon, { hasLookIcon } from './LookIcon.jsx';
 
 // look: also draw the new look's icon for this action (shown only with VIS off).
-export function Tool({ icon, title, description, onClick, active, disabled, children, flip, action, badge, className = '', look = false }) {
+export function Tool({ icon, title, description, onClick, active, disabled, children, flip, action, badge, className = '', look = false, ...rest }) {
   const lookIcon = look && hasLookIcon(action);
-  return <button data-hotkey={action} type="button" className={`classic-tool${active ? ' active' : ''}${lookIcon ? ' has-look-icon' : ''}${className ? ' ' + className : ''}`} title={description || title} aria-label={title} aria-pressed={active === undefined ? undefined : !!active} disabled={disabled} onClick={onClick}>{lookIcon && <LookIcon name={action}/>}{icon ? hasModernIcon(icon) ? <ModernIcon name={icon} flip={flip}/> : <img src={`./classic/${icon}${/\.(png|gif|svg)$/.test(icon)?'':'.png'}`} alt="" draggable={false} style={flip ? { transform: 'scaleX(-1)' } : undefined}/> : children}{badge && <span className="module-icon-badge" aria-hidden="true">{badge}</span>}</button>;
+  return <button data-hotkey={action} {...rest} type="button" className={`classic-tool${active ? ' active' : ''}${lookIcon ? ' has-look-icon' : ''}${className ? ' ' + className : ''}`} title={description || title} aria-label={title} aria-pressed={active === undefined ? undefined : !!active} disabled={disabled} onClick={onClick}>{lookIcon && <LookIcon name={action}/>}{icon ? hasModernIcon(icon) ? <ModernIcon name={icon} flip={flip}/> : <img src={`./classic/${icon}${/\.(png|gif|svg)$/.test(icon)?'':'.png'}`} alt="" draggable={false} style={flip ? { transform: 'scaleX(-1)' } : undefined}/> : children}{badge && <span className="module-icon-badge" aria-hidden="true">{badge}</span>}</button>;
 }
 
 const coordinateText = value => Number.isFinite(value) ? String(Number(value.toFixed(4))) : '0';

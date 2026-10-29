@@ -224,3 +224,13 @@ test('window styles name the shared classes once and the layers come from three 
   assert.match(css('paint-workspace.css'), /\.paint-modal-shade\{[^}]*z-index:var\(--z-workspace-modal,16000\)/);
   assert.doesNotMatch(css('sort-my-mess.css') + css('attachemator.css'), /border-radius:7px;box-shadow/, 'the Sort My Mess and Attachemator windows share one rule');
 });
+test('the UV tool row uses the main toolbar Tool with its own icons', async () => {
+  const { Tool } = load(await bundle('EditorControls.jsx'));
+  const { hasModernIcon } = load(await bundle('ModernIcon.jsx'));
+  for (const name of ['select', 'move', 'rotate', 'scale', 'mirrorX', 'mirrorY', 'uncouple', 'fold']) assert.ok(hasModernIcon('uv_' + name), 'ModernIcon draws uv_' + name);
+  const html = renderToStaticMarkup(React.createElement(Tool, { action: 'translate', icon: 'uv_move', title: 'Move', active: true, className: 'uv-tool', 'data-hotkey-category': 'UV' }, 'Move'));
+  assert.match(html, /^<button data-hotkey="translate" data-hotkey-category="UV" type="button" class="classic-tool active uv-tool" title="Move" aria-label="Move" aria-pressed="true"><svg[^>]*class="lucide lucide-hand modern-retro-icon/);
+  const uv = readFileSync(new URL('../app/UVWorkspace.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(uv, /UV_ICONS|from 'lucide-react'/);
+  assert.match(uv, /<EditorTool action=\{action\} icon=\{`uv_\$\{icon\}`\}[^>]*className="uv-tool" data-hotkey-category="UV">/);
+});
