@@ -7,7 +7,7 @@ import { selectedVertexCenter } from './bone-tools.js';
 import { updateBounds } from './mesh-tools.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
-import { createSequence, setSequenceName } from './sequence-editor.js';
+import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
 import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 
 import { gamePathKey } from './game-path.js';
@@ -46,7 +46,7 @@ export function collectPart(source, selection) {
   model.Sequences = structuredClone(source.Sequences || []);
   const bone = ensureDummyBone(model, { weighted: captured.indices.some(index => captured.model.Geosets[index].SkinWeights?.length) });
   importGeosets(model, captured.model, captured.indices, null, { rigidNode: bone.ObjectId });
-  for (const geoset of model.Geosets) geoset.Anims = model.Sequences.map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
+  for (const geoset of model.Geosets) fillSequenceExtents(model, geoset);
   return model;
 }
 
@@ -234,7 +234,7 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
     for (const [sourceId, targetId] of maps.materials) if (targetId > id) maps.materials.set(sourceId, targetId - 1);
   }
   recalculateExtents(next);
-  for (const index of geosetIndices) { const geoset = next.Geosets[index]; geoset.Anims = (next.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius })); }
+  for (const index of geosetIndices) fillSequenceExtents(next, next.Geosets[index]);
   if (next.Info) Object.assign(next.Info, { NumGeosets: next.Geosets.length, NumGeosetAnims: next.GeosetAnims.length, NumBones: next.Bones.length });
   Object.assign(target, next);
   const boneIds = replacement ? [...new Set(donors.flatMap(vertex => vertex.group))] : [bone.ObjectId];

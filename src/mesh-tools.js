@@ -1,5 +1,6 @@
 /** Mesh edits are explicit commands. Run them inside EditorDocument.apply for undo. */
 import { cross } from './vec.js';
+import { geosetBounds } from './editor-document.js';
 const LIMIT = 65536;
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -29,12 +30,7 @@ function validate(g, indices) {
 }
 
 export function updateBounds(g) {
-  const minimum = new Float32Array([Infinity, Infinity, Infinity]);
-  const maximum = new Float32Array([-Infinity, -Infinity, -Infinity]);
-  for (let i = 0; i < g.Vertices.length; i++) { const axis = i % 3; minimum[axis] = Math.min(minimum[axis], g.Vertices[i]); maximum[axis] = Math.max(maximum[axis], g.Vertices[i]); }
-  const center = minimum.map((v, i) => (v + maximum[i]) / 2); let radius = 0;
-  for (let i = 0; i < g.Vertices.length; i += 3) radius = Math.max(radius, Math.hypot(g.Vertices[i] - center[0], g.Vertices[i + 1] - center[1], g.Vertices[i + 2] - center[2]));
-  g.MinimumExtent = minimum; g.MaximumExtent = maximum; g.BoundsRadius = radius;
+  Object.assign(g, geosetBounds(g.Vertices));
 }
 
 /** Copy every standard SD/HD vertex stream, retaining each typed array type. */

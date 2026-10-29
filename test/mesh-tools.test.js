@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { weldVertices, detachFaces, extrudeFaces } from '../src/mesh-tools.js';
-import { createDemoDocument, openDocument } from '../src/editor-document.js';
+import { weldVertices, detachFaces, extrudeFaces, updateBounds } from '../src/mesh-tools.js';
+import { createDemoDocument, openDocument, geosetBounds } from '../src/editor-document.js';
+
+test('updateBounds uses the shared geoset bounds: an empty geoset gets zero extents', () => {
+  const g = { Vertices: new Float32Array([0, 0, 0, 2, 4, 4]) };
+  updateBounds(g);
+  assert.deepEqual(g, { Vertices: g.Vertices, MinimumExtent: new Float32Array([0, 0, 0]), MaximumExtent: new Float32Array([2, 4, 4]), BoundsRadius: 3 });
+  const empty = { Vertices: new Float32Array() };
+  updateBounds(empty);
+  assert.deepEqual([empty.MinimumExtent, empty.MaximumExtent, empty.BoundsRadius], [new Float32Array(3), new Float32Array(3), 0]);
+  assert.throws(() => geosetBounds(new Float32Array([-3e38, 0, 0, 3e38, 3e38, 3e38])), /coordinate range/);
+});
 
 function geoset(vertices, faces, hd = true) {
   const count = vertices.length / 3;

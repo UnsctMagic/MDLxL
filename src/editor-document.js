@@ -924,12 +924,15 @@ export function recalculateNormals(geoset) {
   geoset.Normals = normals;
   return normals;
 }
-function bounds(vertices) {
+/** Box and radius (farthest vertex from the box centre) of flat XYZ vertices.
+ * No vertices give zero extents. Throws when the radius cannot be stored. */
+export function geosetBounds(vertices) {
   const min = V3(Infinity, Infinity, Infinity), max = V3(-Infinity, -Infinity, -Infinity);
   if (!vertices.length) return { MinimumExtent: V3(), MaximumExtent: V3(), BoundsRadius: 0 };
   for (let i = 0; i < vertices.length; i++) { const k = i % 3; min[k] = Math.min(min[k], vertices[i]); max[k] = Math.max(max[k], vertices[i]); }
   const center = min.map((v, i) => (v + max[i]) / 2); let radius = 0;
   for (let i = 0; i < vertices.length; i += 3) radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
+  if (!Number.isFinite(Math.fround(radius))) throw new Error('The resulting mesh bounds exceed the file format’s coordinate range.');
   return { MinimumExtent: min, MaximumExtent: max, BoundsRadius: radius };
 }
 /** With geosetIndices, only those geosets are rewritten; the others keep their stored bounds. */
@@ -937,11 +940,11 @@ export function recalculateExtents(model, geosetIndices = null) {
   const min = V3(Infinity, Infinity, Infinity), max = V3(-Infinity, -Infinity, -Infinity), only = geosetIndices && new Set(geosetIndices);
   for (const [index, g] of (model.Geosets || []).entries()) {
     const stored = g.MinimumExtent?.length === 3 && g.MaximumExtent?.length === 3;
-    const extent = !only || only.has(index) ? Object.assign(g, bounds(g.Vertices)) : stored ? g : bounds(g.Vertices);
+    const extent = !only || only.has(index) ? Object.assign(g, geosetBounds(g.Vertices)) : stored ? g : geosetBounds(g.Vertices);
     for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], extent.MinimumExtent[k]); max[k] = Math.max(max[k], extent.MaximumExtent[k]); }
   }
   const vertices = model.Geosets?.length ? new Float32Array([...min, ...max]) : new Float32Array();
-  Object.assign(model.Info, bounds(vertices));
+  Object.assign(model.Info, geosetBounds(vertices));
   // Existing animation bounds are intentionally retained; bind-pose geometry is
   // insufficient to compute their animated swept bounds.
   return model.Info;
@@ -972,7 +975,7 @@ export function transformGeoset(geoset, { translation = [0, 0, 0], rotation = [0
     if (scale[0] * scale[1] * scale[2] < 0) geoset.Tangents[i + 3] *= -1;
   }
   if (scale[0] * scale[1] * scale[2] < 0) for (let i = 0; i < geoset.Faces.length; i += 3) [geoset.Faces[i + 1], geoset.Faces[i + 2]] = [geoset.Faces[i + 2], geoset.Faces[i + 1]];
-  Object.assign(geoset, bounds(geoset.Vertices));
+  Object.assign(geoset, geosetBounds(geoset.Vertices));
   return geoset;
 }
 
@@ -1011,7 +1014,7 @@ export function appendGeosetGeometry(target, source) {
   target.TotalGroupsCount = groups.reduce((total, group) => total + group.length, 0);
   if (target.Tangents?.length) target.Tangents = append(target.Tangents, source.Tangents);
   if (target.SkinWeights?.length) target.SkinWeights = append(target.SkinWeights, source.SkinWeights);
-  Object.assign(target, bounds(target.Vertices));
+  Object.assign(target, geosetBounds(target.Vertices));
   return Array.from({ length: sourceCount }, (_, index) => targetCount + index);
 }
 
@@ -1200,7 +1203,7 @@ function makeGeoset(vertices, faces, material, bone = 0) {
   const geoset = {
     Vertices: new Float32Array(vertices), Faces: new Uint16Array(faces), Normals: new Float32Array(vertices.length),
     TVertices: [new Float32Array(vertices.length / 3 * 2)], VertexGroup: new Uint8Array(vertices.length / 3), Groups: [[bone]], TotalGroupsCount: 1,
-    ...bounds(vertices), Anims: [], MaterialID: material, SelectionGroup: 0, Unselectable: false,
+    ...geosetBounds(vertices), Anims: [], MaterialID: material, SelectionGroup: 0, Unselectable: false,
   };
   for (let i = 0; i < vertices.length / 3; i++) { geoset.TVertices[0][i * 2] = (vertices[i * 3] + 50) / 100; geoset.TVertices[0][i * 2 + 1] = vertices[i * 3 + 2] / 200; }
   recalculateNormals(geoset); return geoset;

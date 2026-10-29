@@ -1,4 +1,5 @@
 /** MDLVis geometry commands. Invoke within EditorDocument.apply for undo. */
+import { geosetBounds } from './editor-document.js';
 const LIMIT = 65536;
 const STREAMS = [['Vertices', 3], ['Normals', 3], ['VertexGroup', 1], ['Tangents', 4], ['SkinWeights', 8]];
 
@@ -28,15 +29,6 @@ function centerOf(g, selected, supplied) {
   return center;
 }
 
-function bounds(vertices) {
-  const minimum = new Float32Array([Infinity, Infinity, Infinity]), maximum = new Float32Array([-Infinity, -Infinity, -Infinity]);
-  for (let i = 0; i < vertices.length; i++) { minimum[i % 3] = Math.min(minimum[i % 3], vertices[i]); maximum[i % 3] = Math.max(maximum[i % 3], vertices[i]); }
-  const center = Array.from(minimum, (v, i) => (v + maximum[i]) / 2);
-  let radius = 0;
-  for (let i = 0; i < vertices.length; i += 3) radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
-  if (!Number.isFinite(Math.fround(radius))) throw new Error('The resulting mesh bounds exceed the file format’s coordinate range.');
-  return { MinimumExtent: minimum, MaximumExtent: maximum, BoundsRadius: radius };
-}
 
 function gather(g, indices) {
   const take = (data, stride) => {
@@ -55,7 +47,7 @@ export function collapseVertices(geoset, indices, center) {
   center = centerOf(geoset, selected, center);
   const vertices = geoset.Vertices.slice();
   for (const i of selected) vertices.set(center, i * 3);
-  const extents = bounds(vertices);
+  const extents = geosetBounds(vertices);
   geoset.Vertices = vertices; Object.assign(geoset, extents);
   return { selection: selected, center };
 }
@@ -82,7 +74,7 @@ export function weldSelectedVertices(geoset, indices, center) {
   }
   if (geoset.Faces.length && !faces.length) throw new Error('This weld would remove every triangle. Delete the geoset instead.');
   const streams = gather(geoset, kept); streams.Vertices.set(center, target * 3);
-  const extents = bounds(streams.Vertices), removedFaces = (geoset.Faces.length - faces.length) / 3;
+  const extents = geosetBounds(streams.Vertices), removedFaces = (geoset.Faces.length - faces.length) / 3;
   Object.assign(geoset, streams, extents, { Faces: new Uint16Array(faces) });
   return { selection: [target], merged: removed.size, removedFaces, retainedVertex: target };
 }
@@ -120,7 +112,7 @@ export function uncoupleVertices(geoset, indices) {
     for (let axis = 0; axis < 3; axis++) streams.Vertices[faces[offset + corner] * 3 + axis] =
       (1 - inset) * geoset.Vertices[source * 3 + axis] + inset / 2 * geoset.Vertices[left * 3 + axis] + inset / 2 * geoset.Vertices[right * 3 + axis];
   }
-  const extents = bounds(streams.Vertices);
+  const extents = geosetBounds(streams.Vertices);
   Object.assign(geoset, streams, extents, { Faces: faces });
   return { selection, added };
 }

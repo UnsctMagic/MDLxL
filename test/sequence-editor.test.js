@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
-  setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
+  fillSequenceExtents, setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
 } from '../src/sequence-editor.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
@@ -10,6 +10,18 @@ const key = (Frame, values) => ({ Frame, Vector: new Float32Array(values) });
 const track = (...keys) => ({ LineType: 1, GlobalSeqId: null, Keys: keys });
 const extent = () => ({ MinimumExtent: new Float32Array([-1, -2, -3]), MaximumExtent: new Float32Array([4, 5, 6]), BoundsRadius: 8 });
 const geoset = () => ({ Vertices: new Float32Array([0, 0, 0, 2, 4, 6]), Groups: [[0]], Anims: [extent(), extent()], ...extent() });
+
+test('fillSequenceExtents copies the geoset bounds once per sequence', () => {
+  const model = { Sequences: [{}, {}, {}] }, g = geoset();
+  const anims = fillSequenceExtents(model, g);
+  assert.equal(g.Anims, anims);
+  assert.deepEqual(anims, [extent(), extent(), extent()]);
+  assert.notEqual(anims[0].MinimumExtent, g.MinimumExtent);
+  const bare = { ...extent(), Anims: [] };
+  fillSequenceExtents(model, bare, { onlyIfPresent: true });
+  assert.deepEqual(bare.Anims, []);
+  assert.deepEqual(fillSequenceExtents({}, geoset()), []);
+});
 
 test('Create from current copies metadata, local keys, tangents and events independently', () => {
   const motion = track({ ...key(100, [1, 2, 3]), InTan: new Float32Array([4, 5, 6]), OutTan: new Float32Array([7, 8, 9]) }, key(1100, [3, 2, 1]), key(4000, [9, 9, 9]));

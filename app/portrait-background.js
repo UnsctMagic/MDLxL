@@ -4,6 +4,7 @@ import { createRigNode } from '../src/bone-tools.js';
 import { recalculateExtents } from '../src/editor-document.js';
 import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
+import { fillSequenceExtents } from '../src/sequence-editor.js';
 import { evaluateModelCamera, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from './portrait-view.js';
 
 // Measured from 152 distinct SD portrait backdrops (units\*_portrait.mdx) and
@@ -239,7 +240,7 @@ function placeBackdrop(model, index, placement, frame, sequenceIndex) {
     }
   }
   const bounds = { Geosets: [geoset], Info: {} }; recalculateExtents(bounds);
-  geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
+  fillSequenceExtents(model, geoset);
   if (model.Info) {
     for (const key of ['MinimumExtent', 'MaximumExtent']) model.Info[key] = new Float32Array([0, 1, 2].map(axis => (key === 'MinimumExtent' ? Math.min : Math.max)(model.Info[key]?.[axis] ?? geoset[key][axis], geoset[key][axis])));
     model.Info.BoundsRadius = Math.max(model.Info.BoundsRadius || 0, Math.hypot(...[0, 1, 2].map(axis => (model.Info.MaximumExtent[axis] - model.Info.MinimumExtent[axis]) / 2)));

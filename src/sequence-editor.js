@@ -63,6 +63,13 @@ export function setGlobalSequenceDuration(model, globalSeqId, duration) {
   return duration;
 }
 
+/** One extent per sequence, each a copy of the geoset's own bounds.
+ * onlyIfPresent leaves a geoset without per-sequence extents as it is. */
+export function fillSequenceExtents(model, geoset, { onlyIfPresent = false } = {}) {
+  if (onlyIfPresent && !geoset.Anims?.length) return geoset.Anims;
+  return geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
+}
+
 export function createSequence(model, duration = 1000) {
   duration = wholeFrame(Number(duration), 'Sequence length');
   if (duration < 1) throw new Error('Sequence length must be at least 1 ms.');
