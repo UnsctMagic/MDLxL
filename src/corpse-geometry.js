@@ -6,6 +6,7 @@ import { booleanContours, polygonGroups, signedArea } from './forge-geometry.js'
 import { lerp as mix } from './vec.js';
 import { quantile } from './math.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 const mean = points => points.length ? points.reduce((sum,p) => sum.map((v,i) => v+p[i]/points.length), [0,0,0]) : null;
 const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -55,10 +56,8 @@ function trianglesOverlap(a,b,tolerance) {
   return true;
 }
 
-function influences(g,i) {
-  if(g.SkinWeights?.length >= (i+1)*8) return Array.from(g.SkinWeights.slice(i*8,i*8+4)).filter((id,k)=>g.SkinWeights[i*8+4+k]>=32);
-  return Array.from(g.Groups?.[g.VertexGroup?.[i]]||[]);
-}
+// HD slots under 32/255 are blend noise, not the body part a vertex belongs to.
+const influences=(g,i)=>vertexBones(g,i,{minWeight:32});
 
 /** Build a ground corpse from this model's joints and its skinned final Death
  * frame. No source-model names, vertex numbers or race/size presets are used. */

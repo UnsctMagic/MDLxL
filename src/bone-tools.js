@@ -1,5 +1,6 @@
 import { createNode, deleteNode } from './editor-document.js';
 import { bindVertices } from './editor-commands.js';
+import { vertexBones } from './part-bones.js';
 
 const IDENTITY_BIND_POSE = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
 
@@ -178,10 +179,7 @@ export function boneVertexHighlights(model, selectedNodeIds = []) {
   (model.Geosets || []).forEach((geoset, geosetIndex) => {
     const vertices = new Map(), count = (geoset.Vertices?.length || 0) / 3;
     for (let vertex = 0; vertex < count; vertex++) {
-      const skin = geoset.SkinWeights, offset = vertex * 8;
-      const influences = skin?.length === count * 8
-        ? Array.from({ length: 4 }, (_, slot) => skin[offset + 4 + slot] > 0 ? skin[offset + slot] : null).filter(id => id != null)
-        : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
+      const influences = vertexBones(geoset, vertex);
       if (influences.some(id => selected.has(id))) vertices.set(vertex, '#000000');
       else if (influences.some(id => descendants.has(id))) vertices.set(vertex, '#808080');
     }

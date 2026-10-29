@@ -3,6 +3,7 @@ import { nodePivot, sampleNodeMatrices, sampleGeosetAnimation, skinGeoset } from
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { createRigNode } from './bone-tools.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { vertexBoneWeights } from './part-bones.js';
 
 // Attachemator places Warcraft III's standard attachment points the way the
 // game's own SD unit models do. The rules below were measured on the 417 SD
@@ -68,11 +69,9 @@ function measureUnit(model) {
   let shown = geosets.filter(({ index }) => sequence < 0 || sampleGeosetAnimation(model, index, frame, sequence, frame).alpha > .01);
   if (!shown.length) shown = geosets;
   for (const { geoset } of shown) {
-    const posed = skinGeoset(geoset, matrices), skin = geoset.SkinWeights, count = geoset.Vertices.length / 3;
+    const posed = skinGeoset(geoset, matrices), count = geoset.Vertices.length / 3;
     for (let vertex = 0; vertex < count; vertex++) {
-      const hd = skin?.length >= (vertex + 1) * 8;
-      const bones = hd ? [0, 1, 2, 3].filter(slot => skin[vertex * 8 + 4 + slot] > 0).map(slot => [skin[vertex * 8 + slot], skin[vertex * 8 + 4 + slot] / 255])
-        : (geoset.Groups?.[geoset.VertexGroup?.[vertex]] || []).map((id, _, group) => [id, 1 / group.length]);
+      const bones = vertexBoneWeights(geoset, vertex);
       vertices.push({ point: new Vector3(posed[vertex * 3], posed[vertex * 3 + 1], posed[vertex * 3 + 2]), bones });
     }
   }

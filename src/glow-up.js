@@ -4,6 +4,7 @@ import { recalculateExtents } from './editor-document.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 // Hero glow as Blizzard and Gluma build it (docs/GLOW_UP.md): team glow
 // (ReplaceableId 2), Additive, Unshaded, alpha 0.75.
@@ -28,10 +29,8 @@ const ORIGIN_LAYERS = [
 ];
 
 const isTeamGlowGeoset = (model, g) => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => model.Textures?.[l.TextureID]?.ReplaceableId === 2);
-const bindingsOf = (g, id) => {
-  if (g.SkinWeights?.length >= (id + 1) * 8) return Array.from(g.SkinWeights.slice(id * 8, id * 8 + 4)).filter((_, i) => g.SkinWeights[id * 8 + 4 + i] >= 128);
-  return Array.from(g.Groups?.[g.VertexGroup?.[id]] || []);
-};
+// Only a bone carrying at least half an HD vertex counts as holding it.
+const bindingsOf = (g, id) => vertexBones(g, id, { minWeight: 128 });
 const point = (g, id) => [g.Vertices[id * 3], g.Vertices[id * 3 + 1], g.Vertices[id * 3 + 2]];
 
 /** Does the model already carry visible team glow geometry? */

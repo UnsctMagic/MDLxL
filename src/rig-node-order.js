@@ -1,5 +1,6 @@
 import { allNodes } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 export const HELPER_LIST_COLOR = '#8a2be2';
 
@@ -112,12 +113,9 @@ function layoutEvidence(nodes) {
 function directInfluences(model) {
   const counts = new Map();
   for (const geoset of model.Geosets || []) {
-    const count = Math.floor((geoset.Vertices?.length || 0) / 3), skin = geoset.SkinWeights;
+    const count = Math.floor((geoset.Vertices?.length || 0) / 3);
     for (let vertex = 0; vertex < count; vertex++) {
-      const ids = skin?.length === count * 8
-        ? [0, 1, 2, 3].filter(slot => skin[vertex * 8 + 4 + slot] > 0).map(slot => skin[vertex * 8 + slot])
-        : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
-      for (const id of new Set(ids)) counts.set(id, (counts.get(id) || 0) + 1);
+      for (const id of new Set(vertexBones(geoset, vertex))) counts.set(id, (counts.get(id) || 0) + 1);
     }
   }
   return counts;

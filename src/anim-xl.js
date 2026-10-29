@@ -2,6 +2,7 @@ import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from './animation.js';
 import { suggestPoseRig } from './pose-ik.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { isHdSkinned, vertexBones } from './part-bones.js';
 
 // AnimXL: flavour for hand-keyed animations. The authored keys drive a target
 // pose; springs on top add easing, overlap, settle and weight. The result is
@@ -952,11 +953,10 @@ function boneRadii(model) {
   const pivots = new Map([...(model.Bones || []), ...(model.Helpers || [])].map(n => [n.ObjectId, nodePivot(model, n)]));
   const distances = new Map(), add = (id, v, x, y, z) => { const p = pivots.get(id); if (!p) return; (distances.get(id) || distances.set(id, []).get(id)).push(Math.hypot(x - p[0], y - p[1], z - p[2])); };
   for (const geo of model.Geosets || []) {
-    const vertices = geo.Vertices || [], count = vertices.length / 3, skin = geo.SkinWeights;
+    const vertices = geo.Vertices || [], count = vertices.length / 3;
     for (let v = 0; v < count; v++) {
       const x = vertices[v * 3], y = vertices[v * 3 + 1], z = vertices[v * 3 + 2];
-      if (skin?.length === count * 8) { for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 127) add(skin[v * 8 + s], v, x, y, z); }
-      else for (const id of geo.Groups?.[geo.VertexGroup?.[v]] || []) add(id, v, x, y, z);
+      for (const id of vertexBones(geo, v, { minWeight: 128 })) add(id, v, x, y, z);
     }
   }
   return new Map([...distances].map(([id, list]) => [id, list.sort((a, b) => a - b)[list.length >> 1]]));
@@ -1128,8 +1128,8 @@ export function suggestAnimXLBones(model) {
 function skinnedBoneIds(model) {
   const out = new Set();
   for (const geo of model.Geosets || []) {
-    const vertices = (geo.Vertices?.length || 0) / 3, skin = geo.SkinWeights;
-    if (skin?.length === vertices * 8) { for (let v = 0; v < vertices; v++) for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 0) out.add(skin[v * 8 + s]); }
+    const vertices = (geo.Vertices?.length || 0) / 3;
+    if (isHdSkinned(geo)) { for (let v = 0; v < vertices; v++) for (const id of vertexBones(geo, v)) out.add(id); }
     else for (const index of new Set(geo.VertexGroup || [])) for (const id of geo.Groups?.[index] || []) out.add(id);
   }
   return out;
