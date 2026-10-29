@@ -10,6 +10,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   const { createStarterDocument } = await import('../src/starter-model.js');
   const { createNode } = await import('../src/editor-document.js');
   const { movementAxisHandles, projectMovementNodes } = await import('../app/movement-overlay.js');
+  const { rotationRingTangent } = await import('../src/rotation-drag.js');
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_ROTATION_OUT || 'out/rotation-interaction/' + Date.now());
   fs.mkdirSync(out, { recursive: true });
   const recordOnly = process.env.MDLXL_ROTATION_RECORD === '1', doc = createStarterDocument();
@@ -100,7 +101,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       });
       const camera = new ObjectLoader().parse(data.camera); camera.updateMatrixWorld(true); camera.updateProjectionMatrix();
       const active = projectMovementNodes(data.model, data.frame, data.sequence, camera, data.width, data.height).find(item => item.node.ObjectId === 0);
-      return { active, handles: movementAxisHandles(active, camera, data.width, data.height, data.radius, data.space, 'rotate') };
+      return { active, camera, handles: movementAxisHandles(active, camera, data.width, data.height, data.radius, data.space, 'rotate') };
     };
     if (process.env.MDLXL_ROTATION_LOCAL_ONLY === '1') {
       await require('./helpers/rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
@@ -117,8 +118,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       await dialog.getByLabel('Rotation editor',{exact:true}).selectOption('movement');await dialog.getByLabel('Rotational Behavior',{exact:true}).selectOption(behavior);
       await dialog.getByLabel('Use default rotation sensitivity').uncheck();await dialog.getByLabel('Rotation sensitivity',{exact:true}).fill(String(speed));await dialog.getByLabel('Rotation sensitivity',{exact:true}).press('Tab');await dialog.getByRole('button',{name:'Close Settings',exact:true}).click();await settle();
     };
-    // Pivot-based is the default; the steady-turn checks below measure Linear.
-    check('fresh profile defaults Rotate to Pivot-based', await page.evaluate(() => rotationProbe().props.preferences?.rotation?.behavior ?? 'pivot') === 'pivot');
+    // Along the ring is the default; the steady-turn checks below measure Straight drag (linear).
+    check('fresh profile defaults Rotate to Along the ring', await page.evaluate(() => rotationProbe().props.preferences?.rotation?.behavior) === 'ring');
     await movementSetting('linear',1);
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     for (const [plane, normal] of [['xy', 'Z'], ['xz', 'Y'], ['yz', 'X']]) {
@@ -254,10 +255,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       const afterRotate = await snap(); check('Workplane ' + enabled + ' actual Alt mouse camera rotation', delta(beforeRotate.camera.quaternion, afterRotate.camera.quaternion) > .01 && beforeRotate.model === afterRotate.model);
       const beforeZoom = await snap(); await page.mouse.move(x, y); await page.mouse.wheel(0, -120); await settle(); const afterZoom = await snap();
       check('Workplane ' + enabled + ' wheel zoom preserves model', afterZoom.camera.zoom > beforeZoom.camera.zoom && afterZoom.model === beforeZoom.model);
-      await page.locator('[data-hotkey="camera:zoom"]').click();
+      await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Shift+Z');
       const beforeDragZoom = await snap(); await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y - 30, { steps: 6 }); await page.mouse.up(); await settle(); const afterDragZoom = await snap();
       check('Workplane ' + enabled + ' mouse zoom preserves model', afterDragZoom.camera.zoom > beforeDragZoom.camera.zoom && afterDragZoom.model === beforeDragZoom.model);
-      await page.locator('[data-hotkey="camera:work"]').click();
+      await page.keyboard.press('Shift+Q');
     }
     await page.getByLabel('View direction',{exact:true}).selectOption('top');await workplane.check();await page.locator('[data-hotkey="plane:xy"]').check();await settle();
     await movementSetting('linear',.5);
@@ -292,6 +293,28 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.locator('[data-hotkey="plane:xy"]').check();await settle();
     }
     await movementSetting('',1);
+    {
+      // Along the ring (the default): the same pull along each axis ring turns X, Y and Z by the same angle.
+      await workplane.uncheck(); await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); await settle();
+      const orientation = snapshot => new Quaternion().setFromRotationMatrix(new Matrix4().fromArray(snapshot.matrix)).normalize(), turns = [];
+      for (const axis of ['X', 'Y', 'Z']) for (const grip of ['tip', 'shaft']) {
+        const { active, camera, handles: axes } = await handles(), handle = axes.find(item => item.axis === axis), before = await snap();
+        const start = grip === 'tip' ? handle : { x: active.x + handle.dx * .75, y: active.y + handle.dy * .75 };
+        const box = await page.locator('[data-clean-model-canvas]').boundingBox(), x = Math.round(box.x + start.x), y = Math.round(box.y + start.y);
+        const normal = new Vector3().setComponent({ X: 0, Y: 1, Z: 2 }[axis], 1);
+        const tangent = rotationRingTangent({ x: x - box.x - active.x, y: y - box.y - active.y }, normal.clone().transformDirection(camera.matrixWorldInverse).toArray());
+        await page.mouse.move(x, y); await page.mouse.down();
+        for (let step = 1; step <= 6; step++) await page.mouse.move(x + tangent.x * 5 * step, y + tangent.y * 5 * step);
+        await page.mouse.up(); await settle(); const after = await snap();
+        const turn = orientation(after).multiply(orientation(before).invert()); if (turn.w < 0) turn.set(-turn.x, -turn.y, -turn.z, -turn.w);
+        const degrees = 2 * Math.acos(Math.min(1, turn.w)) * 180 / Math.PI, along = new Vector3(turn.x, turn.y, turn.z).normalize().dot(normal);
+        turns.push(degrees);
+        check('Along the ring ' + axis + ' ' + grip + ' turns about +' + axis + ' by the 30 pixel pull', Math.abs(degrees - 30) < 1.5 && along > .999, { degrees, along, tangent, label: after.label });
+        check('Along the ring ' + axis + ' ' + grip + ' commits one Undo step', after.undo === before.undo + 1);
+        if (after.undo > before.undo) { await menu('undo'); await settle(); await waitMatrix(before.matrix); }
+      }
+      check('Along the ring turns every axis at the same speed', Math.max(...turns) - Math.min(...turns) < 1.5, turns);
+    }
     await require('./helpers/rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
     await require('./helpers/rotation-editors.electron.cjs')({ app, page, check, out });
     check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));

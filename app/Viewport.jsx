@@ -563,8 +563,8 @@ export default function Viewport(inputProps) {
       const lockedPlane = quad && boundPane.workplane;
       if (down.action === 'rotate') {
         const axis = [0, 1, 2].find(i => !planeAxes(lockedPlane || p.workplane).includes(i));
-        const facing = new THREE.Vector3().setComponent(axis, 1).dot(camera.position.clone().sub(controls.target).normalize());
-        down.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, p.rotationEditor || 'vertices'), x: down.x, y: down.y, pivot: down.pivotScreen, pivotSign: facing > 0 ? -1 : 1, facing });
+        const turn = new THREE.Vector3().setComponent(axis, 1).transformDirection(camera.matrixWorldInverse);
+        down.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, p.rotationEditor || 'vertices'), x: down.x, y: down.y, pivot: down.pivotScreen, axis: turn.toArray() });
       }
       state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
     }
