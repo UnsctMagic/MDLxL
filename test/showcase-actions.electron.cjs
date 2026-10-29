@@ -63,7 +63,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
       await redo();const restored=await page.evaluate(()=>window.showcaseAPI().cameraView().position);restored.forEach((value,index)=>assert.ok(Math.abs(value-turned[index])<1e-7));console.log('PASS isolated portrait undo and redo');return;
     }
     if(process.env.MDLXL_BATCH_PROOF){
-      await page.getByLabel('Graphics quality').selectOption('low');await ready();await page.getByLabel('Recording FPS').selectOption('10');
+      await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await ready();await page.getByLabel('Recording FPS').selectOption('10');
       const add=page.getByRole('button',{name:/^Add to recording list/});await add.click();await ready();await add.click();await ready();
       const pending=await page.evaluate(()=>window.showcaseState().recordingList.map(row=>row.id));
       await page.getByRole('button',{name:'RECORD',exact:true}).click();
@@ -80,7 +80,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     const light=page.getByLabel('Light',{exact:true});await light.selectOption('none');await undo();assert.equal(await light.inputValue(),'ingame');await redo();assert.equal(await light.inputValue(),'none');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('menu','undo'));await page.waitForTimeout(80);await ready();assert.equal(await light.inputValue(),'ingame');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('menu','redo'));await page.waitForTimeout(80);await ready();assert.equal(await light.inputValue(),'none');
-    await page.getByLabel('Graphics quality').selectOption('low');await ready();await page.getByLabel('Recording FPS').selectOption('10');
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await ready();await page.getByLabel('Recording FPS').selectOption('10');
     const crop=page.getByLabel('Crop size',{exact:true});await crop.selectOption('square');await undo();assert.equal(await crop.inputValue(),'free');await redo();assert.equal(await crop.inputValue(),'square');
     console.log('PASS settings, color, crop, undo and redo');
     const canvas=page.locator('.showcase-preview [data-clean-model-canvas]'),box=await canvas.boundingBox();
@@ -140,7 +140,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     const animations=page.getByRole('list',{name:'Animation sequence'});await animations.locator('li').first().click();
     const dialog=page.getByRole('dialog',{name:'Edit animation',exact:true}),extra=dialog.getByLabel('Animation Extra Time');
     await extra.fill('5');await undo();assert.equal(await extra.inputValue(),'0');await redo();assert.equal(await extra.inputValue(),'5');await dialog.getByRole('button',{name:'OK',exact:true}).click();
-    await page.getByRole('button',{name:'Low Size',exact:true}).click();assert.equal(await page.locator('.showcase-error').count(),0);assert.ok(!(await page.locator('.showcase-export-note').innerText()).includes('5s'));
+    await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'High',exact:true}).click();assert.equal(await page.locator('.showcase-error').count(),0);assert.ok(!(await page.locator('.showcase-export-note').innerText()).includes('5s'));
     const events=()=>app.evaluate(()=>global.captureEvents),reset=()=>app.evaluate(()=>{global.captureEvents=[];});
     const stop=page.getByRole('button',{name:'STOP',exact:true}),record=page.getByRole('button',{name:'RECORD',exact:true});
     await reset();await app.evaluate(()=>global.beginDelay=500);await record.click();await stop.click();await ready();await app.evaluate(()=>global.beginDelay=0);
@@ -164,7 +164,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
       else if(type===0x2c){frames++;const packed=bytes[offset+8];offset+=9;if(packed&128)offset+=3*(1<<((packed&7)+1));offset++;blocks();}
       else assert.fail('Invalid GIF block');}
     const result={duration,frames,bytes:bytes.length};
-    assert.equal(result.duration,7000);assert.equal(result.frames,210);console.log('PASS Low Size real GIF exceeds 5 seconds',JSON.stringify(result));
+    assert.equal(result.duration,7000);assert.equal(result.frames,210);console.log('PASS High-quality real GIF exceeds 5 seconds',JSON.stringify(result));
     assert.equal(hash(),originalHash);assert.deepEqual(errors,[]);await page.screenshot({path:path.join(out,'verified-showcase.png')});console.log('PASS source model unchanged; no renderer errors; artifacts',out);
   }catch(error){const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')});console.log('FAILURE DOM',await page.locator('.showcase-sidebar').innerText());console.log('FAILURE STATUS',await page.locator('.classic-status').innerText());console.log('FAILURE HISTORY',JSON.stringify(await page.evaluate(()=>({redo:window.showcaseHistory().redo.length,last:window.showcaseHistory().undo.slice(-2).map(row=>({before:row.before.source.modelName,after:row.after.source.modelName,changes:Object.keys(row.after).filter(key=>key==='view'?JSON.stringify(row.before.view)!==JSON.stringify(row.after.view):row.before[key]!==row.after[key])}))}))));throw error;}
   finally{await app.close();}

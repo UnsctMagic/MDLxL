@@ -1,11 +1,11 @@
 import { translate } from '../src/localization.js';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { CAPTURE_QUALITIES, normalizeCapture } from '../src/capture-settings.js';
+import { normalizeCapture } from '../src/capture-settings.js';
 import { recordingTimeline } from './showcase-timeline.js';
-import { showcaseExportPreferences } from './showcase-export.js';
+import { SHOWCASE_GIF_LEVELS, gifCaptureSize, gifLevel as knownLevel } from './showcase-export.js';
 import { queueRecording, subscribeRecordings, recordingQueueSnapshot, retryRecordingSaves } from './preview-recording-queue.js';
 
-export default function AnimationPreviewTools({ active, sessionId, captureAPI, modelName, loop, length, crop, disabled, onStatus, onBusy, preferences, locked=false,recordingList=[],prepareTake,onTakeComplete,beforeBatch,afterBatch,exportTarget=null,onExportTarget,cropAspect,mainPicture=false }) {
+export default function AnimationPreviewTools({ active, sessionId, captureAPI, modelName, loop, length, crop, disabled, onStatus, onBusy, preferences, locked=false,recordingList=[],prepareTake,onTakeComplete,beforeBatch,afterBatch,gifLevel,cropAspect,mainPicture=false }) {
   const [state,setState] = useState('idle'), [progress,setProgress] = useState(''), [error,setError] = useState(''), [batchLabel,setBatchLabel]=useState('');
   const latest = useRef(); latest.current = {onStatus,onBusy,prepareTake,onTakeComplete,beforeBatch,afterBatch};
   const running = useRef(null), retained = useRef(null), mounted = useRef(true);
@@ -31,19 +31,19 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   }
   function stop() { if(running.current){running.current.stop=true;running.current.finish?.();} }
   async function record(job,take) {
-    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take;
-    const settings=normalizeCapture(showcaseExportPreferences(preferences,mainPicture?'low-size-main':job.exportTarget).capture);
+    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take,level=knownLevel(take.gifLevel);
+    const settings=normalizeCapture(preferences.capture),quality=SHOWCASE_GIF_LEVELS[level];
     let worker,jobId;
-    const api=job.api, timing=recordingTimeline(length,settings.fps), quality=CAPTURE_QUALITIES[settings.recordingQuality];
+    const api=job.api, timing=recordingTimeline(length,settings.fps);
     try {
       await api.prepareRecording(); if(job.stop)return;
       // Size allocation and encoder preparation happen before the visible clock starts.
-      const selection=api.recordingDimensions({maxDimension:mainPicture?612:quality.gifSize,crop,aspect:mainPicture?612/490:cropAspect});
+      const selection=api.recordingDimensions({maxDimension:mainPicture?612:gifCaptureSize(level),crop,aspect:mainPicture?612/490:cropAspect});
       const canvas=document.createElement('canvas');canvas.width=selection.width;canvas.height=selection.height;
       const context=canvas.getContext('2d',{willReadFrequently:true});
       let request;
       if(window.desktop){
-        ({jobId}=await window.desktop.beginPreviewRecording({width:canvas.width,height:canvas.height,quality:settings.recordingQuality,loop:!!loop,modelName,exportTarget:mainPicture?'low-size-main':job.exportTarget||undefined}));
+        ({jobId}=await window.desktop.beginPreviewRecording({width:canvas.width,height:canvas.height,level,mainPicture:!!mainPicture,loop:!!loop,modelName}));
         request=message=>window.desktop.writePreviewRecordingFrame({jobId,...message});
       } else {
         worker=new Worker(new URL('./preview-gif.worker.js',import.meta.url),{type:'module'});
@@ -119,7 +119,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   async function start(){
     if(running.current||retained.current)return;
     // Snapshot the list once: editing or completing one row cannot alter later takes.
-    const plan=recordingList.slice(),job={stop:false,promise:null,api:captureAPI,exportTarget};running.current=job;
+    const plan=recordingList.slice(),job={stop:false,promise:null,api:captureAPI};running.current=job;
     setError('');setProgress('Preparing…');status('starting');
     job.promise=(async()=>{
       let batchStarted=false;
@@ -136,7 +136,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
           }
         }else{
           if(!job.api)throw Error('The Showcase preview is still loading.');
-          await record(job,{length,crop,cropAspect,mainPicture,preferences,loop,modelName});
+          await record(job,{length,crop,cropAspect,mainPicture,preferences,loop,modelName,gifLevel});
         }
       }catch(cause){if(mounted.current)setError(cause.message);latest.current.onStatus?.(cause.message,true);}
       finally{
@@ -161,8 +161,6 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   const stoppable=['starting','recording','finishing'].includes(state);
   return <div className="showcase-capture">
     <button className="showcase-record" disabled={!stoppable&&(state!=='idle'||!captureAPI||locked||(disabled&&!recordingList.length))} onClick={stoppable?stop:start}>{stoppable?'STOP':'RECORD'}</button>
-    <div className="showcase-export-target" role="group" aria-label="GIF destination"><button disabled={state!=='idle'||locked} aria-pressed={exportTarget==='low-size'} onClick={()=>onExportTarget?.('low-size')}>Low Size</button></div>
-    <small className="showcase-export-note">{mainPicture?'Low Size Main Picture · 612 × 490 · local GIF':exportTarget==='low-size'?'Low Size · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
     {state!=='idle'&&<div className="showcase-capture-status" role="status">{state==='retry'?'Save needs retry':state==='saving'?'Saving…':<>{translate(batchLabel)}{translate(progress)}</>}</div>}
     {background.pending>0&&<div className="showcase-capture-status" role="status">Making GIFs… {background.pending}</div>}
     {state==='retry'&&<button onClick={retry}>Retry Save</button>}

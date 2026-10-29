@@ -35,7 +35,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   await page.getByRole('combobox',{name:'Crop size',exact:true}).selectOption('square');
   await page.getByRole('combobox',{name:'Orbit timing',exact:true}).selectOption('circle');
   await changeAnimation();
-  await page.getByRole('combobox',{name:'Graphics quality',exact:true}).selectOption('low');await ready();
+  await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await ready();
   await page.getByRole('combobox',{name:'Recording FPS',exact:true}).selectOption('10');
   await add();let expected=await page.evaluate(()=>window.queueSummary());
   await load(other);assert.deepEqual(await page.evaluate(()=>window.queueSummary()),expected,'loading another model changed queued take');

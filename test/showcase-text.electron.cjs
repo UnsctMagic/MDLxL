@@ -42,7 +42,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     await page.getByLabel('Fade out start').fill('5');await page.getByLabel('Fade out length').fill('1.5');
     await page.locator('.showcase-font-grid').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'controls.png')});
     // showcase-text.js imports its rich-text runs helper since 97fabb9e; inline both sources.
-    const textSource=fs.readFileSync(path.join(root,'app/showcase-rich-text.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app/showcase-text.js'),'utf8').replace(/^import \{[^}]*\} from '\.\/showcase-rich-text\.js';$/m,'');
+    const textSource=fs.readFileSync(path.join(root,'app/showcase-rich-text.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app/showcase-text.js'),'utf8').replace(/^import \{[^}]*\} from '\.\/showcase-rich-text\.js';$/m,'').replace(/^import \{[^}]*\} from '\.\/showcase-custom-fonts\.js';$/m,'const customFontFamily=()=>undefined;');
     await page.evaluate(source=>{window.textModule=new Function(source.replaceAll('export ','')+';return {SHOWCASE_FONTS,TEXT_EFFECTS,paintShowcaseText,textFadeOpacity};')();},textSource);
     const report=await page.evaluate(async()=>{
       const {SHOWCASE_FONTS,TEXT_EFFECTS,paintShowcaseText:paint,textFadeOpacity}=window.textModule;

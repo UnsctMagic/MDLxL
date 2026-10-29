@@ -9,13 +9,12 @@ const { Worker, isMarkedAsUntransferable } = require('node:worker_threads');
 const MAX_TEMP_BYTES = 8 * 1024 ** 3;
 const DISK_RESERVE = 512 * 1024 ** 2;
 const FRAME_METADATA_BYTES = 512; // Charge timestamp/path/concat bookkeeping to the recording budget.
-// Keep local Showcase saves within the former Catbox encoding budget.
-const LOCAL_GIF_LIMIT = 20 * 1024 * 1024;
+// Showcase quality levels, shared with the renderer's Output controls.
+const GIF_LEVELS = require('./data/showcase-gif-levels.json');
 
-function gifSizeLimit(exportTarget, quality, duration) {
-  if (exportTarget === 'low-size') return Math.max(90000, Math.floor(45_000_000 * duration / 10000));
-  if (exportTarget !== undefined && exportTarget !== null) return Infinity;
-  return LOCAL_GIF_LIMIT;
+// The main picture has a fixed size, so it is never shrunk to fit a budget.
+function gifSizeLimit(level, mainPicture) {
+  return mainPicture ? Infinity : GIF_LEVELS[level].maxBytes;
 }
 
 function bitmap(rgba, width, height) {
@@ -98,9 +97,8 @@ class PreviewRecordingStore {
     return job;
   }
   async begin(owner, options) {
-    const { width, height, quality, loop, modelName, exportTarget } = options || {};
-    if(exportTarget!==undefined&&!['low-size','low-size-main'].includes(exportTarget))throw Error('Invalid export target.');
-    if (![width,height].every(n => Number.isInteger(n) && n > 0 && n <= 1920) || !['low','medium','high'].includes(quality) || typeof loop !== 'boolean') throw Error('Invalid recording settings.');
+    const { width, height, level, loop, modelName } = options || {}, mainPicture = options?.mainPicture === true;
+    if (![width,height].every(n => Number.isInteger(n) && n > 0 && n <= 1920) || !Object.hasOwn(GIF_LEVELS, level) || typeof loop !== 'boolean') throw Error('Invalid recording settings.');
     if (this.starting.has(owner) || [...this.jobs.values()].some(job => job.owner === owner && job.phase === 'recording')) throw Error('Finish capturing the current recording first.');
     this.starting.add(owner);
     try {
@@ -112,7 +110,7 @@ class PreviewRecordingStore {
       if (budget < width * height * 4 + 54) throw Error('Not enough temporary disk space to record. Free some disk space and try again.');
       const directory = await fs.mkdtemp(path.join(this.temporaryRoot, 'recording-'));
       const id = crypto.randomBytes(18).toString('hex');
-      this.jobs.set(id, { id, owner, directory, width, height, quality, loop, modelName, exportTarget, budget, bytes: 0, accountedBytes: 0, frames: [], phase: 'recording', queue: Promise.resolve(), pending: 0 });
+      this.jobs.set(id, { id, owner, directory, width, height, level, mainPicture, loop, modelName, budget, bytes: 0, accountedBytes: 0, frames: [], phase: 'recording', queue: Promise.resolve(), pending: 0 });
       return { jobId: id, storageBudget: budget };
     } finally { this.starting.delete(owner); }
   }
@@ -172,18 +170,18 @@ class PreviewRecordingStore {
     const manifest = entries => 'ffconcat version 1.0\n' + entries.map(entry => `file '${entry.file}'\noption framerate 100\nduration ${(entry.ticks / 100).toFixed(2)}\n`).join('');
     await fs.writeFile(path.join(job.directory, 'frames.ffconcat'), manifest(timing.entries), { flag: 'wx' });
     const input = name => ['-f','concat','-safe','0','-i',name];
-    const colors = job.quality === 'low' ? 128 : 256;
+    const settings = GIF_LEVELS[job.level], colors = settings.colors;
     // Preserve the frame schedule and palette quality. Size is controlled by
     // spatial resolution, never by dropping frames or truncating the take.
-    const limit = gifSizeLimit(job.exportTarget,job.quality,timing.duration);
+    const limit = gifSizeLimit(job.level,job.mainPicture);
     const target = limit * .94;
-    const presetScale=job.exportTarget===undefined||job.exportTarget===null?Math.min(1,864/Math.max(job.width,job.height)):job.exportTarget==='low-size'?Math.min(1,Math.sqrt(300000/(job.width*job.height))):1;
+    const presetScale=Math.min(1,settings.longEdge/Math.max(job.width,job.height));
     let width=Math.max(1,Math.floor(job.width*presetScale)),height=Math.max(1,Math.floor(job.height*presetScale));
-    if(job.exportTarget==='low-size-main'){width=612;height=490;}
+    if(job.mainPicture){width=612;height=490;}
     const output = path.join(job.directory, 'capture.gif');
     const scale = () => `scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
     const palette = () => runFFmpeg(this.executable, [...input('frames.ffconcat'), '-vf', `${scale()},palettegen=stats_mode=full:max_colors=${colors}`, '-frames:v','1','-y','palette.pam'], job);
-    const encode = (name, file, last) => runFFmpeg(this.executable, [...input(name), '-i','palette.pam','-lavfi',`[0:v]${scale()}[scaled];[scaled][1:v]paletteuse=dither=${job.quality === 'low' ? 'none' : 'sierra2_4a'}:diff_mode=rectangle`,
+    const encode = (name, file, last) => runFFmpeg(this.executable, [...input(name), '-i','palette.pam','-lavfi',`[0:v]${scale()}[scaled];[scaled][1:v]paletteuse=dither=${settings.dither ? 'sierra2_4a' : 'none'}:diff_mode=rectangle`,
       '-fps_mode','passthrough','-enc_time_base','1:100','-loop',job.loop ? '0' : '-1','-final_delay',String(last),'-y',file], job);
     const shrink = size => {
       const factor=Math.min(.95,Math.sqrt(target/size));
@@ -241,7 +239,7 @@ class PreviewRecordingStore {
     if (job.phase !== 'ready') throw Error('The recording is not ready to save.');
     job.phase = 'saving';
     try {
-      const result = await savePreviewCaptureFile(showcaseDirectory(this.destination, job.modelName), job.output,job.exportTarget==='low-size-main'?'Low-Size-Main-Picture':'Preview');
+      const result = await savePreviewCaptureFile(showcaseDirectory(this.destination, job.modelName), job.output,job.mainPicture?'Main-Picture':'Preview');
       await this.discard(owner, id).catch(error => console.warn(`Saved capture; temporary cleanup failed: ${error.message}`)); return result;
     } catch (error) { job.phase = 'ready'; throw error; }
   }
@@ -273,4 +271,4 @@ class PreviewRecordingStore {
     }
   }
 }
-module.exports = { PreviewRecordingStore, bitmap, timeline, gifSizeLimit, MAX_TEMP_BYTES, runFFmpeg };
+module.exports = { PreviewRecordingStore, bitmap, timeline, gifSizeLimit, GIF_LEVELS, MAX_TEMP_BYTES, runFFmpeg };

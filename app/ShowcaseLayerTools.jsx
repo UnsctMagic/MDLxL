@@ -1,14 +1,17 @@
 import { translate } from '../src/localization.js';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { listSignaturePresets, saveSignaturePreset, deleteSignaturePreset } from './showcase-signature.js';
 import { SHOWCASE_FONTS, TEXT_EFFECTS } from './showcase-text.js';
 import './showcase-fonts.css';
+import { addCustomFont, customFonts, customFontsVersion, loadCustomFonts, removeCustomFont, subscribeCustomFonts } from './showcase-custom-fonts.js';
 import ShowcaseNumber from './ShowcaseNumber.jsx';
 import { formatTextRange, replaceRichText, textStyleAt } from './showcase-rich-text.js';
 
 export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,onEditing,onStatus,length=10,grid,onGrid,gridDensity,onGridDensity,onAlign,presets,onPresets,onAssetURL,onPresetBusy}) {
   const [signaturesOpen,setSignaturesOpen]=useState(false),[textOpen,setTextOpen]=useState(false),[presetName,setPresetName]=useState('');
-  const input=useRef(null),beforeEdit=useRef(null);
+  const input=useRef(null),fontInput=useRef(null),beforeEdit=useRef(null);
+  useSyncExternalStore(subscribeCustomFonts,customFontsVersion);
+  useEffect(()=>{loadCustomFonts().catch(error=>onStatus?.('Could not load your fonts: '+error.message,true));},[]);
   const [selection,setSelection]=useState({id:null,start:0,end:0});
   const active=layers.find(layer=>layer.id===activeId),images=layers.filter(layer=>layer.kind==='image'),texts=layers.filter(layer=>layer.kind==='text');
   useEffect(()=>{onEditing(signaturesOpen||textOpen);},[signaturesOpen,textOpen,onEditing]);
@@ -41,6 +44,15 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
     const index=layers.findIndex(layer=>layer.id===activeId),target=index+direction;if(index<0||target<0||target>=layers.length)return;
     const next=[...layers];[next[index],next[target]]=[next[target],next[index]];onLayers(next);
   }
+  async function chooseFont(event){
+    const file=event.target.files?.[0];event.target.value='';if(!file)return;
+    try{const font=await addCustomFont(file);if(active?.kind==='text')updateFormat({font:font.id});onStatus?.('Font loaded: '+font.name);}
+    catch(error){onStatus?.(error.message,true);}
+  }
+  async function forgetFont(event,font){
+    event.preventDefault();
+    try{await removeCustomFont(font.id);onStatus?.('Font removed: '+font.name);}catch(error){onStatus?.(error.message,true);}
+  }
   function select(id,kind){onActive(id);setSignaturesOpen(kind==='image');setTextOpen(kind==='text');}
   async function savePreset(){
     if(active?.kind!=='image')return;
@@ -55,38 +67,47 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
   }
   function layerList(rows,kind){return rows.length>0&&<ol className="showcase-layer-list" aria-label={kind==='image'?'Signatures':'Text layers'}>{rows.map((layer,index)=><li key={layer.id}><button aria-pressed={activeId===layer.id} onClick={()=>select(layer.id,kind)}>{kind==='image'&&<img src={layer.url} alt=""/>}<span translate="no">{kind==='text'?layer.text||translate('Empty text'):layer.name}</span><small>{index+1}</small></button></li>)}</ol>;}
   function actions(){return <div className="showcase-layer-actions"><button title="Send backward" aria-label="Send layer backward" disabled={layers[0]?.id===activeId} onClick={()=>reorder(-1)}>↓</button><button title="Bring forward" aria-label="Bring layer forward" disabled={layers.at(-1)?.id===activeId} onClick={()=>reorder(1)}>↑</button><button onClick={remove}>Remove</button></div>;}
+  const fontButton=(font,user)=><button translate="no" className={user?'user':undefined} title={user?font.name+' · '+translate('right-click to remove'):font.name} aria-label={font.name} key={font.id} aria-pressed={format.font===font.id} onClick={()=>updateFormat({font:font.id})} onContextMenu={user?event=>forgetFont(event,font):undefined}><span style={{fontFamily:'"'+font.family+'"'}}>Aa</span></button>;
   return <>
-    <section className="showcase-section showcase-layer-tools" aria-label="Signature">
-      <header><button className="showcase-section-toggle" aria-expanded={signaturesOpen} onClick={()=>{setSignaturesOpen(!signaturesOpen);setTextOpen(false);if(active?.kind!=='image')onActive(images.at(-1)?.id||null);}}>Signature{images.length?' · '+images.length:''}</button><button onClick={()=>{setSignaturesOpen(true);setTextOpen(false);input.current.click();}}>Add</button></header>
-      <input ref={input} hidden multiple type="file" accept="image/*,.gif" onChange={choose}/>
-      {signaturesOpen&&<>
-        {layerList(images,'image')}
-        <select className="showcase-wide" aria-label="Signature presets" value="" onChange={event=>{const preset=presets.find(row=>row.id===event.target.value);if(preset){const layer=addImage(preset.blob,preset.name,preset.type,preset.id,preset.rect);layer.opacity=preset.opacity??1;onLayers([...layers,layer]);onActive(layer.id);}}}><option value="">Add preset…</option>{presets.map(preset=><option translate="no" key={preset.id} value={preset.id}>{preset.name}</option>)}</select>
-        {active?.kind==='image'&&<><small>Drag to place · corner to resize</small><label>Opacity<input aria-label="Signature opacity" type="range" min="0" max="100" value={Math.round(active.opacity*100)} onChange={event=>update({opacity:Number(event.target.value)/100})}/></label>
-          <input className="showcase-wide" data-showcase-native-undo="" aria-label="Signature preset name" value={presetName} onChange={event=>setPresetName(event.target.value)} placeholder="Preset name"/>
-          <div className="showcase-layer-actions"><button onClick={savePreset}>Save preset</button>{active.presetId&&<button onClick={deletePreset}>Delete preset</button>}</div>{actions()}</>}
-      </>}
-    </section>
     <section className="showcase-section showcase-layer-tools" aria-label="Text">
-      <header><button className="showcase-section-toggle" aria-expanded={textOpen} onClick={()=>{setTextOpen(!textOpen);setSignaturesOpen(false);if(active?.kind!=='text')onActive(texts.at(-1)?.id||null);}}>Text{texts.length?' · '+texts.length:''}</button><button onClick={addText}>Add</button></header>
+      <header><button className="showcase-section-toggle" aria-expanded={textOpen} onClick={()=>{setTextOpen(!textOpen);setSignaturesOpen(false);if(active?.kind!=='text')onActive(texts.at(-1)?.id||null);}}>Text{texts.length?' · '+texts.length:''}</button><button title="Add a text line to the picture" onClick={addText}>Add</button></header>
       {textOpen&&<>{layerList(texts,'text')}{active?.kind==='text'&&<>
+        {actions()}
         <textarea key={active.id} className="showcase-wide" aria-label="Text content" title="Highlight text to format just that selection" rows="2" value={active.text} onSelect={selectText} onBeforeInput={event=>{beforeEdit.current={start:event.currentTarget.selectionStart,end:event.currentTarget.selectionEnd};}} onChange={event=>{update(replaceRichText(active,event.target.value,beforeEdit.current));beforeEdit.current=null;selectText(event);}} onKeyDown={event=>event.stopPropagation()}/>
-
+        <div className="showcase-subhead"><span>Font</span><button title="Use your own TTF, OTF, WOFF or WOFF2 font file. It stays in the list for later." onClick={()=>fontInput.current.click()}>Load font…</button></div>
+        <input ref={fontInput} hidden type="file" accept=".ttf,.otf,.woff,.woff2" onChange={chooseFont}/>
         <div className="showcase-font-palette" onMouseDown={keepHighlight}>
-          <div className="showcase-font-grid" role="group" aria-label="Choose font">{SHOWCASE_FONTS.map(font=><button translate="no" title={font.name} aria-label={font.name} key={font.id} aria-pressed={format.font===font.id} onClick={()=>updateFormat({font:font.id})}><span style={{fontFamily:'"'+font.family+'"'}}>Aa</span></button>)}</div>
-          <div className="showcase-text-colors" role="group" aria-label="Text colors">{[['color','1','Main color','#ffffff'],['color2','2','Gradient color 2','#c6a46c'],['color3','3','Gradient color 3','#7895b2']].map(([key,label,title,fallback])=><label key={key} title={title}><span>{label}</span><input type="color" aria-label={title} value={format[key]||fallback} onChange={event=>updateFormat({[key]:event.target.value})}/></label>)}</div>
+          <div className="showcase-font-grid" role="group" aria-label="Choose font">{SHOWCASE_FONTS.map(font=>fontButton(font,false))}{customFonts().map(font=>fontButton(font,true))}</div>
         </div>
         <div className="showcase-text-format" onMouseDown={keepHighlight}>
           <label title="Text size">Size<ShowcaseNumber key={active.id+':'+range.start+':'+range.end} aria-label="Text size" min={6} max={300} value={format.size} onChange={size=>updateFormat({size})}/></label>
           <div className="showcase-text-style">{[['bold','B','Bold'],['italic','I','Italic'],['underline','U','Underline'],['outline','O','Outline']].map(([key,label,title])=><button className={key} style={key==='outline'?{color:'#ffffff'}:undefined} key={key} title={title} aria-label={title} aria-pressed={!!format[key]} onClick={()=>updateFormat({[key]:!format[key]})}>{label}</button>)}</div>
           <input className="showcase-outline-color" type="color" aria-label="Outline color" title="Outline color" value={format.outlineColor||'#111111'} onChange={event=>updateFormat({outlineColor:event.target.value})}/>
+        </div>
+        <div className="showcase-subhead" onMouseDown={keepHighlight}><span title="Color 1 is used by Solid. Gradient effects blend colors 1, 2 and 3.">Colors</span><div className="showcase-text-colors" role="group" aria-label="Text colors">{[['color','1','Main color','#ffffff'],['color2','2','Gradient color 2','#c6a46c'],['color3','3','Gradient color 3','#7895b2']].map(([key,label,title,fallback])=><label key={key} title={title}><span>{label}</span><input type="color" aria-label={title} value={format[key]||fallback} onChange={event=>updateFormat({[key]:event.target.value})}/></label>)}</div></div>
+        <div className="showcase-subhead"><span>Effect</span></div>
+        <div className="showcase-effect-grid" onMouseDown={keepHighlight} role="group" aria-label="Choose animated text effect">{TEXT_EFFECTS.map(([id,name])=><button key={id} className={'showcase-effect-tile '+id} style={{backgroundColor:'#252833',color:'#e6dfe9'}} aria-pressed={format.effect===id} onClick={()=>updateFormat({effect:id})}><span>{name}</span></button>)}</div>
+        <div className="showcase-subhead"><span>Placement</span>
+          <details className="showcase-align"><summary title="Align text">Align</summary><div className="showcase-align-menu"><div className="showcase-paragraph-align">{['left','center','right'].map(value=><button key={value} title={'Align lines '+value} aria-label={'Align lines '+value} aria-pressed={(active.textAlign||'center')===value} onClick={()=>update({textAlign:value})}><svg width="18" height="15" viewBox="0 0 18 15" aria-hidden="true"><path d={value==='left'?'M2 3H16M2 7H11M2 11H14':value==='right'?'M2 3H16M7 7H16M4 11H16':'M2 3H16M5 7H13M3 11H15'} fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button>)}</div><div className="showcase-align-grid">{[0,1,2].flatMap(y=>[0,1,2].map(x=><button key={x+':'+y} title={['Top','Middle','Bottom'][y]+' '+['left','center','right'][x]} aria-label={'Place text '+['top','middle','bottom'][y]+' '+['left','center','right'][x]} onClick={()=>onAlign(active.id,x,y)}>{[['↖','↑','↗'],['←','·','→'],['↙','↓','↘']][y][x]}</button>))}</div></div></details>
           <button className="showcase-grid-toggle" title="Alignment grid" aria-label="Alignment grid" aria-pressed={!!grid} onClick={()=>onGrid(!grid)}><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2 2H16V16H2ZM7 2V16M12 2V16M2 7H16M2 12H16" fill="none" stroke="#08651d" strokeWidth="3"/><path d="M2 2H16V16H2ZM7 2V16M12 2V16M2 7H16M2 12H16" fill="none" stroke="#39ff58" strokeWidth="1.3"/></svg></button>
           <ShowcaseNumber className="showcase-grid-density" aria-label="Grid density" title="Grid density · 1–99" min={1} max={99} value={gridDensity} onChange={value=>onGridDensity(Math.round(value))}/>
         </div>
-        <details className="showcase-align"><summary title="Align text">Align</summary><div className="showcase-align-menu"><div className="showcase-paragraph-align">{['left','center','right'].map(value=><button key={value} title={'Align lines '+value} aria-label={'Align lines '+value} aria-pressed={(active.textAlign||'center')===value} onClick={()=>update({textAlign:value})}><svg width="18" height="15" viewBox="0 0 18 15" aria-hidden="true"><path d={value==='left'?'M2 3H16M2 7H11M2 11H14':value==='right'?'M2 3H16M7 7H16M4 11H16':'M2 3H16M5 7H13M3 11H15'} fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button>)}</div><div className="showcase-align-grid">{[0,1,2].flatMap(y=>[0,1,2].map(x=><button key={x+':'+y} title={['Top','Middle','Bottom'][y]+' '+['left','center','right'][x]} aria-label={'Place text '+['top','middle','bottom'][y]+' '+['left','center','right'][x]} onClick={()=>onAlign(active.id,x,y)}>{[['↖','↑','↗'],['←','·','→'],['↙','↓','↘']][y][x]}</button>))}</div></div></details>
-        <div className="showcase-effect-grid" onMouseDown={keepHighlight} role="group" aria-label="Choose animated text effect">{TEXT_EFFECTS.map(([id,name])=><button key={id} className={'showcase-effect-tile '+id} style={{backgroundColor:'#252833',color:'#e6dfe9'}} aria-pressed={format.effect===id} onClick={()=>updateFormat({effect:id})}><span>{name}</span></button>)}</div>
-        <details className="showcase-text-fades"><summary>Fades</summary><div className="showcase-fade-grid"><span/><small>Start (s)</small><small>Length (s)</small>{[['In','fadeIn'],['Out','fadeOut']].map(([label,key])=><React.Fragment key={key}><span>{label}</span><input type="number" aria-label={'Fade '+label.toLowerCase()+' start'} min="0" step=".1" value={active[key+'Start']||0} onChange={event=>update({[key+'Start']:Math.max(0,Number(event.target.value)||0)})}/><input type="number" aria-label={'Fade '+label.toLowerCase()+' length'} title="Length in seconds; 0 turns the fade off" min="0" step=".1" value={active[key+'Length']||0} onChange={event=>update({[key+'Length']:Math.max(0,Number(event.target.value)||0)})}/></React.Fragment>)}</div></details><small>Drag to place · corner to resize · ↻ to rotate</small>{actions()}
+        <details className="showcase-text-fades"><summary>Fades</summary><div className="showcase-fade-grid"><span/><small>Start (s)</small><small>Length (s)</small>{[['In','fadeIn'],['Out','fadeOut']].map(([label,key])=><React.Fragment key={key}><span>{label}</span><input type="number" aria-label={'Fade '+label.toLowerCase()+' start'} min="0" step=".1" value={active[key+'Start']||0} onChange={event=>update({[key+'Start']:Math.max(0,Number(event.target.value)||0)})}/><input type="number" aria-label={'Fade '+label.toLowerCase()+' length'} title="Length in seconds; 0 turns the fade off" min="0" step=".1" value={active[key+'Length']||0} onChange={event=>update({[key+'Length']:Math.max(0,Number(event.target.value)||0)})}/></React.Fragment>)}</div></details>
+        <small>Drag to place · corner to resize · ↻ to rotate</small>
       </>}</>}
+    </section>
+    <section className="showcase-section showcase-layer-tools" aria-label="Signature">
+      <header><button className="showcase-section-toggle" aria-expanded={signaturesOpen} onClick={()=>{setSignaturesOpen(!signaturesOpen);setTextOpen(false);if(active?.kind!=='image')onActive(images.at(-1)?.id||null);}}>Signature{images.length?' · '+images.length:''}</button><button title="Add a picture, such as your logo or signature" onClick={()=>{setSignaturesOpen(true);setTextOpen(false);input.current.click();}}>Add</button></header>
+      <input ref={input} hidden multiple type="file" accept="image/*,.gif" onChange={choose}/>
+      {signaturesOpen&&<>
+        {layerList(images,'image')}
+        {active?.kind==='image'&&actions()}
+        <select className="showcase-wide" aria-label="Signature presets" value="" onChange={event=>{const preset=presets.find(row=>row.id===event.target.value);if(preset){const layer=addImage(preset.blob,preset.name,preset.type,preset.id,preset.rect);layer.opacity=preset.opacity??1;onLayers([...layers,layer]);onActive(layer.id);}}}><option value="">Add preset…</option>{presets.map(preset=><option translate="no" key={preset.id} value={preset.id}>{preset.name}</option>)}</select>
+        {active?.kind==='image'&&<><label>Opacity<input aria-label="Signature opacity" type="range" min="0" max="100" value={Math.round(active.opacity*100)} onChange={event=>update({opacity:Number(event.target.value)/100})}/></label>
+          <input className="showcase-wide" data-showcase-native-undo="" aria-label="Signature preset name" value={presetName} onChange={event=>setPresetName(event.target.value)} placeholder="Preset name"/>
+          <div className="showcase-layer-actions"><button onClick={savePreset}>Save preset</button>{active.presetId&&<button onClick={deletePreset}>Delete preset</button>}</div>
+          <small>Drag to place · corner to resize</small></>}
+      </>}
     </section>
   </>;
 }
