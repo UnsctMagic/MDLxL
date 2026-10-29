@@ -433,11 +433,14 @@ class AiService {
     const choices = this.lighterChoices(settings);
     const light = choices.find(m => m.id === settings.lightModel) || choices[0];
     const currentBird = conversation.workers?.find(w => w.status !== 'retired' && (worker ? (w.id === worker || w.name === worker) : (!route || route === 'continue') && w.id === conversation.currentWorker));
-    if (currentBird?.light && !simpleJob(text, images)) lightChoice = 'chosen';
     const canUseLight = settings.allowLighter && light && (await this.configuration()).offload !== false;
     if (lightChoice !== undefined && !['chosen', 'light'].includes(lightChoice)) throw Error('Choose which model should do this job.');
-    if (!resume && canUseLight && !simpleJob(text, images) && !lightChoice && conversation.kind !== 'worker') return { ok: false, modelChoiceRequired: true, message: 'This job may need judgement about shape or motion. A lighter model can lower the quality. Which model should do this job?' };
-    settings.jobModel = canUseLight && lightChoice !== 'chosen' && (simpleJob(text, images) || lightChoice === 'light') ? light.id : settings.model;
+    const routingConfig = await this.configuration();
+    const automatic = conversation.kind === 'organiser' && routingConfig.offload !== false && (route || (routingConfig.routing === 'automatic' ? 'auto' : 'continue')) === 'auto';
+    if (!automatic && currentBird?.light && !simpleJob(text, images)) lightChoice = 'chosen';
+    if (!resume && !automatic && canUseLight && !simpleJob(text, images) && !lightChoice && conversation.kind !== 'worker') return { ok: false, modelChoiceRequired: true, message: 'This job may need judgement about shape or motion. A lighter model can lower the quality. Which model should do this job?' };
+    settings.lightJobModel = canUseLight && lightChoice !== 'chosen' ? light.id : '';
+    settings.jobModel = !automatic && settings.lightJobModel && (simpleJob(text, images) || lightChoice === 'light') ? light.id : settings.model;
     if (conversation.retired)
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
@@ -528,9 +531,12 @@ class AiService {
     if (named) args.worker = named.name;
     else if (route === 'tiny') args.tiny = true;
     else if (route === 'continue' && current) { args.worker = current.name; args.job = current.job; }
-    else if (route === 'auto') args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure: await this.call('mdlxl_regions', { action: 'summary', target: context.target }, signal) });
+    else if (route === 'auto') {
+      args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure: await this.call('mdlxl_regions', { action: 'summary', target: context.target }, signal) });
+      settings = { ...settings, autoRouting: true, jobModel: args.tiny && settings.lightJobModel || settings.model };
+    }
     const continuing = args.worker && workers.find(w => w.name === args.worker);
-    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job }];
+    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job, tiny: args.tiny }];
     const previousNote = conversation.modelKey ? (await this.registry.model(conversation.modelKey)).note : null;
     conversation.task = { prompt: text, context, status: 'running', phase: 'inspecting', steps: [], sdBrain: policy };
     conversation.messages ||= [];
@@ -565,7 +571,7 @@ class AiService {
     const start = entry => {
       const promise = (async () => {
         const jobContext = await this.call('mdlxl_regions', { action: 'begin', batch: declared.batch, index: entry.index }, signal);
-        const result = await this.runWorker({ organiser: conversation, active, args: { ...entry.job, lockKey: declared.batch + ':' + entry.index }, userText: text, images, context: jobContext, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
+        const result = await this.runWorker({ organiser: conversation, active, args: { ...entry.job, lockKey: declared.batch + ':' + entry.index }, userText: text, images, context: jobContext, settings: settings.autoRouting ? { ...settings, jobModel: entry.job.tiny && settings.lightJobModel || settings.model } : settings, contract, signal, parent: recorder, parentSteering: steering, policy });
         results[entry.index] = result;
         conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
         if (result.status !== 'done') failure ||= Error(result.error || result.report);
@@ -599,29 +605,58 @@ class AiService {
   async routeJob({ conversation, recorder, text, workers, settings, signal, structure }) {
     const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
     let reply = '';
-    const meter = this.measureUsage(routing, recorder, 'router');
-    const available = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{ id: 'haiku' }] : []);
-    const light = available.find(m => /haiku|nano|mini|luna/i.test(m.id));
+    let meter;
+    const current = workers.find(w => w.id === conversation.currentWorker);
+    const next = this.pendingBird(conversation);
+    const input = {
+      text,
+      current: current ? { id: current.id, name: current.name, job: current.job } : null,
+      birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny, model: w.model, light: w.light })),
+      nextBird: next,
+      recent: (conversation.messages || []).slice(-4).map(m => ({ role: m.role, content: String(m.content || '').slice(0, 1000) })),
+      chosenModel: settings.model,
+      lighterModel: settings.lightJobModel || null,
+      ...(structure ? { structure } : {}),
+    };
     const options = {
-      settings: { ...settings, model: light?.id || settings.model, stepLimit: 1, effort: 'default' }, key: this.decrypt(settings.key), directory: this.directory,
+      settings: { ...settings, model: settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
       event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
       tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
-      system: 'Route one message. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. Continue the relevant bird for follow-ups. New unrelated jobs have an empty worker. Small one-step jobs use tiny:true. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"job":"short part-specific task","scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird.',
-      prompt: JSON.stringify({ text, current: conversation.currentWorker, birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny })), ...(structure ? { structure } : {}) }),
+      system: 'Route one message. In bird mode, act as the organiser. Judge the complexity and needs of the task, then delegate it. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. The worker must be an existing bird name or id from birds, or an empty string for a new bird; nextBird names that new bird. Use current and recent to identify follow-ups and continue the relevant bird. New unrelated jobs have an empty worker. Set tiny:true only for simple factual or exact one-step jobs; these may use lighterModel only when it is supplied. Shape, motion, binding, creative decisions and uncertain or dependent work use tiny:false and the chosen model. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"worker":"","job":"short part-specific task","tiny":false,"scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Judge complexity for each part. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird.',
+      prompt: JSON.stringify(input),
       images: [], conversation: routing, signal, awareness: null, steering: new AiSteering(() => {}),
     };
+    const jobOf = args => {
+      if (!args || typeof args !== 'object' || typeof args.job !== 'string' || !args.job.trim()) throw Error('Each job needs a short title.');
+      if (args.worker != null && typeof args.worker !== 'string') throw Error('The worker must be a bird name or id.');
+      if (args.tiny !== undefined && typeof args.tiny !== 'boolean') throw Error('The tiny field must be true or false.');
+      const destination = (args.worker || '').trim().toLowerCase();
+      const selected = workers.find(w => w.name.toLowerCase() === destination || w.id.toLowerCase() === destination);
+      if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
+      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true };
+    };
     try {
-      if (settings.provider === 'codex') await runCodex(options);
-      else if (settings.provider === 'claude') await runClaude(options);
-      else await runApi(options);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        reply = '';
+        meter = this.measureUsage(routing, recorder, 'router');
+        if (settings.provider === 'codex') await runCodex(options);
+        else if (settings.provider === 'claude') await runClaude(options);
+        else await runApi(options);
+        try {
+          const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
+          if (Array.isArray(args?.jobs) && args.jobs.length) {
+            const jobs = args.jobs.map(jobOf);
+            if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
+            return { jobs };
+          }
+          const { job, worker, tiny } = jobOf(args);
+          return { job, worker, tiny };
+        } catch (error) {
+          if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
+          options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
+        }
+      }
     } finally { options.steering.close(); }
-    const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
-    if (Array.isArray(args.jobs) && args.jobs.length) {
-      if (args.jobs.some(j => !j || typeof j.job !== 'string' || !j.job.trim() || (!j.readOnly && !Array.isArray(j.scope)))) throw Error('The router did not declare valid model parts.');
-      return { jobs: args.jobs };
-    }
-    if (typeof args.job !== 'string' || !args.job.trim() || (args.worker && !workers.some(w => w.name === args.worker))) throw Error('The router did not choose a valid job. Select a bird or New job and send again.');
-    return { job: args.job.slice(0, 160), worker: args.worker || undefined, tiny: args.tiny === true };
   }
   measureUsage(conversation, recorder, role) {
     let lastTokens = 0, lastUsd = 0;
@@ -1061,8 +1096,8 @@ class AiService {
           };
         if (worker.status === 'retired')
           return { error: `${worker.name} is retired. Start a new worker for this job and include what it needs to know.` };
-      } else if (args.tiny && !args.forceChosen) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
-      if (worker?.light && (args.forceChosen || !settings.allowLighter || !simpleJob(userText, images))) {
+      } else if (args.tiny && !args.forceChosen && !args.region) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
+      if (worker?.light && (args.forceChosen || !settings.allowLighter || (settings.autoRouting ? !args.tiny : !simpleJob(userText, images)))) {
         const previous = await this.conversation(worker.id, settings.provider);
         handover = { name: worker.name, note: this.workerHandover(previous, 'The follow-up requires the chosen model.') };
         await this.retireWorker(organiser, worker); worker = null; args = { ...args, forceChosen: true };

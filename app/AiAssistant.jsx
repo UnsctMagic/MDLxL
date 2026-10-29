@@ -1242,7 +1242,7 @@ function AiAssistant({ bridge, visUI }) {
                         </select>
                       </label>
                     )}
-                    <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
+                    <label title="Manual sends to the current bird until you choose New job. Automatic lets the organiser delegate unaddressed messages based on task complexity. Both lets you choose in the composer.">
                       Job routing
                       <select aria-label="Job routing" data-hotkey="job-routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
                         <option value="manual">Manual</option>
@@ -1670,7 +1670,7 @@ function AiAssistant({ bridge, visUI }) {
                     />
                     <span className="ai-footer-end">
                       {settings.offload !== false && !viewWorker && !readOnly && (
-                        <select aria-label="Job destination" data-hotkey="job-destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic asks a small router to choose." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
+                        <select aria-label="Job destination" data-hotkey="job-destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic lets the organiser choose based on task complexity." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
                           <option value="continue">Continue</option>
                           {settings.routing !== 'automatic' && <option value="new">New job</option>}
                           {settings.routing !== 'automatic' && <option value="tiny">Tiny job</option>}

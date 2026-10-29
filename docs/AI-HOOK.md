@@ -96,9 +96,12 @@ into compacting.
   selection and drawings. Only the working bird receives images and captured context.
 - **Job routing** in Connection settings offers Manual (default), Automatic, or Both.
   Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
-  uses the shared bird for quick tasks. Automatic uses one small text-only routing
-  call when a message has no chosen bird. Opening a bird chat or addressing its
-  name bypasses routing. The first Manual job starts a bird without a routing call. Automatic can split a new request using a compact structure summary.
+  uses the shared bird for quick tasks. Automatic asks the organiser on the chosen
+  model to judge task complexity and delegate an unaddressed message. It sees the
+  current bird, roster, recent job context and compact model structure. Bird names
+  and IDs resolve to the same destination. An invalid decision gets one correction
+  attempt before any worker starts; another invalid reply reports a routing error.
+  Opening a bird chat or addressing its name bypasses routing. The first Manual job starts a bird without a routing call. Automatic can split a new request using a compact structure summary.
 - The existing reply cost line shows calls and tokens by role. Codex reports provider
   turns; unavailable usage is labelled instead of estimated as zero.
 - A bird whose memory is half full writes a handover note and retires; a new bird
@@ -112,8 +115,11 @@ into compacting.
 - **Allow lighter models for simple jobs** is off by default. Load models in
   Connection settings to see the lighter choices supported by that connection.
   Select the lighter model there. Clear exact-value edits and factual reports use
-  it automatically; unclear or spatial work asks which model to use. The choice
-  applies to that job. A failed light review or complex follow-up hands over once
+  it automatically. In Automatic routing, the organiser judges complexity for each
+  job or region: simple work may use the permitted lighter model, while complex
+  work uses the chosen model without a manual model question. Manual routing still
+  asks which model to use for unclear or spatial work. The choice applies to that
+  job. A failed light review or complex follow-up hands over once
   to the chosen model, without replaying completed edits. Birds keep their model;
   rows show the model and its individual cost. Unknown wording is treated as complex.
 - The chips above the chat show the organiser and its birds (spinner: working,
