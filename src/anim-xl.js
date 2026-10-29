@@ -1,3 +1,4 @@
+import { isWeaponName, nameRegion } from './rig-names.js';
 import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from './animation.js';
 import { suggestPoseRig } from './pose-ik.js';
@@ -121,13 +122,8 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
   } catch { /* unusual rigs fall back to names */ }
   for (const node of nodes) if (!roles.has(node.ObjectId)) {
-    const name = node.Name || '';
-    if (/chest|torso/i.test(name)) roles.set(node.ObjectId, 'Chest');
-    else if (/spine|back|abdomen/i.test(name)) roles.set(node.ObjectId, 'Spine');
-    else if (/neck/i.test(name)) roles.set(node.ObjectId, 'Neck');
-    else if (/head/i.test(name)) roles.set(node.ObjectId, 'Head');
-    else if (/pelvis|hip|body/i.test(name)) roles.set(node.ObjectId, 'Pelvis');
-    else if (/foot|feet|toe|hoof/i.test(name)) roles.set(node.ObjectId, 'Foot');
+    const role = nameRegion(node.Name, { detailed: true });
+    if (role) roles.set(node.ObjectId, role);
   }
   if (body == null || !ids.has(body)) body = [...roles].find(([id, role]) => ['Pelvis', 'Body'].includes(role) && ids.has(id))?.[0] ?? null;
   if (body == null) {
@@ -1077,11 +1073,11 @@ export function suggestAnimXLBones(model) {
   // A machine (no legs, no arms) has no body parts: its arm is the throwing arm.
   const machine = rig && nodes.length >= 6 && !rig.legs.length && !rig.arms.length && !nodes.some(n => /hand|leg|foot|head|neck|spine|pelvis|chest/i.test(n.Name || ''));
   const bodyPart = machine ? /wheel|tail|mesh|death/i : /hand|arm|finger|wrist|toe|foot|leg|paw|claw|pinc|wolf|horse|boar|mount|mesh|death|tail|wheel|pelvis|spine|chest/i;
-  const weaponName = machine ? /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|glaive|attack|arm|launch|throw|bucket|crusher|barrel|cannon|turret/i : /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|choppa|glaive|halberd|scythe/i;
+  const weaponWords = machine ? ['attack', 'arm', 'launch', 'throw', 'bucket', 'crusher', 'barrel', 'cannon', 'turret'] : [];
   const soft = /cape|cloak|hair|tail|plume|ribbon|cloth|banner|skirt|robe|chain|beard|tabard|sling|(?<![a-z])rope/i;
   for (const node of nodes) {
     const name = node.Name || '';
-    if (weaponName.test(name) && !bodyPart.test(name) && !/cape|cloak|cloth|ribbon|banner|(?<![a-z])rope|sling/i.test(name) && carriesSkin(node.ObjectId)) heavyIds.push(node.ObjectId);
+    if (isWeaponName(name, weaponWords) && !bodyPart.test(name) && !/cape|cloak|cloth|ribbon|banner|(?<![a-z])rope|sling/i.test(name) && carriesSkin(node.ObjectId)) heavyIds.push(node.ObjectId);
     else if (soft.test(name) && carriesSkin(node.ObjectId)) looseIds.push(node.ObjectId);
   }
   // A "Weapon Ref" attachment names the weapon bone even when the bone itself has a generic name.

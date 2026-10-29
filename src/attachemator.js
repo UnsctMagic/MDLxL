@@ -1,3 +1,5 @@
+import { isWeaponName, nameSide } from './rig-names.js';
+export { nameSide } from './rig-names.js';
 import { Matrix4, Vector3 } from 'three';
 import { nodePivot, sampleNodeMatrices, sampleGeosetAnimation, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
@@ -37,7 +39,6 @@ export const ATTACHMENT_POINTS = Object.freeze([
 const STANDARD = new Map(ATTACHMENT_POINTS.map(point => [point.key, point]));
 /** "Head - Ref", "OverHead Ref " and "Foot Right  Ref" all name standard points. */
 export const attachmentKey = name => String(name || '').toLowerCase().replace(/\bref\b/g, ' ').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
-const WEAPON = /weapon|sword|blade|axe|hammer|mace|staff|spear|lance|club|scythe|dagger|knife|bow(?!l)|gun|rifle|wand|rod|totem|pike|halberd|glaive|sickle|flail|whip|polearm|trident|cleaver|maul|sabre|saber|katana/i;
 const NOT_A_WEAPON = /shield|hand|arm|finger|thumb|wrist|elbow|axel|axle|backpack/i;
 
 /** The animation Attachemator measures: the plainest Stand, else the first one. */
@@ -101,7 +102,7 @@ function chooseParts(unit) {
   const { rig, byId, tree, world, height } = unit, descendantOf = tree.isAncestor;
   const chains = (rig?.chains || []).filter(chain => byId.has(chain.end));
   const claimed = new Set([...chains.flatMap(poseChainIds), ...Object.keys(rig?.roles || {}).map(Number), ...(rig?.nodes || []), rig?.body].filter(id => id != null));
-  const weapons = unit.transforms.filter(node => WEAPON.test(node.Name || '') && !NOT_A_WEAPON.test(node.Name || '') && !claimed.has(node.ObjectId));
+  const weapons = unit.transforms.filter(node => isWeaponName(node.Name) && !NOT_A_WEAPON.test(node.Name || '') && !claimed.has(node.ObjectId));
   weapons.forEach(node => claimed.add(node.ObjectId));
   const mesh = new Map(), meshOf = id => { if (!mesh.has(id)) mesh.set(id, ownMesh(unit, id, claimed)); return mesh.get(id); };
   // Alternate bodies (a second copy of the rig in the same place) keep the copy
@@ -206,14 +207,6 @@ function chooseParts(unit) {
   const roots = unit.transforms.filter(node => !byId.has(node.Parent)).map(node => ({ node, mesh: ownMesh(unit, node.ObjectId, everything).length })).sort((a, b) => b.mesh - a.mesh);
   const body = (rig?.body != null && byId.get(rig.body)) || (roots[0]?.mesh ? roots[0].node : null);
   return { hands, feet, rear, head, chest, weapons, meshOf, claimed, realHand, body, grounded: chain => Number.isFinite(lowest) && grounded(chain) };
-}
-/** "left", "right" or null from names such as Bone_Hand_R, HandLeft or FrontL Toe. */
-export function nameSide(name) {
-  const text = String(name || '');
-  if (/left/i.test(text)) return 'left';
-  if (/right/i.test(text)) return 'right';
-  const tokens = text.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_.\-0-9\\/]+/).map(token => token.toLowerCase());
-  return tokens.includes('l') ? 'left' : tokens.includes('r') ? 'right' : null;
 }
 /** Blizzard follows the bone names when a whole pair is named the other way
  * round from where the mesh is, so Attachemator does too. */
