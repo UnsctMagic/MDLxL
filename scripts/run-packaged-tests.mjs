@@ -61,7 +61,7 @@ const SPECIAL = {
   'footprint-travel': { env: { MDLXL_ELECTRON_PATH: exe, MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel && path.resolve(hoofprintModel)], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
   'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel && path.resolve(effectModel)], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
 };
-for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
+for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
 for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-parallel', 'ai-questions', 'ai-routing', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_EXE: exe, MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
