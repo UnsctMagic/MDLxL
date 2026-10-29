@@ -183,3 +183,6 @@ code and may be removed.
 - [x] Item 3: re-keyed and corrected the es/ru/zh HD preview notice. The locale
   fixture did not track the old notice; regression tests the exported current
   message directly. Localization current/catalog checks passed.
+- [x] Item 4: restored Hive Workshop and XGM in the research prompt. Checked
+  all added lines in 7797f977 for repeated "X and X" names: this was the only
+  match. Focused prompt regression passed.
