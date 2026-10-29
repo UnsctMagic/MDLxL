@@ -1,6 +1,7 @@
 // Synthetic mappings exercise actual Electron pointer/preview/commit paths.
 // Fixture creation is explicit; no supplied model is rewritten for the test.
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
+
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=process.cwd(),out=path.resolve(process.env.MDLXL_PAINT_OUT||'out/citadel-audit/surfaces-'+Date.now());
 fs.mkdirSync(out,{recursive:true});let app,page;const result={checks:[],errors:[]};
@@ -35,13 +36,13 @@ async function fixture(){
   const raster=createPaintRaster(256,256,[94,108,123,255]);for(let y=0;y<256;y++)for(let x=0;x<256;x++)if(((x>>4)+(y>>4))%2)raster.data.set([129,142,157,255],(y*256+x)*4);
   fs.writeFileSync(path.join(out,'Fixture.png'),await encodePaintPng(raster));const other=createPaintRaster(64,128,[70,112,72,255]);for(let x=0;x<64;x++)other.data.set([212,12,10,255],((128-1)*64+x)*4);fs.writeFileSync(path.join(out,'Other.png'),await encodePaintPng(other));const filename=path.join(out,'Surfaces.mdx');fs.writeFileSync(filename,doc.serialize('mdx'));return filename;
 }
-async function settle(){await page.waitForTimeout(180);}
+async function settle(){await waitForSettle(page, 180);}
 async function helpers(){await page.evaluate(()=>{
-  window.audit=()=>{const el=document.querySelector('.paint-workspace');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];while(f.return)f=f.return;const find=(f,p)=>{if(p(f))return f;for(let c=f.child;c;c=c.sibling){const r=find(c,p);if(r)return r;}};const root=f.stateNode.current,workspace=find(root,f=>f.memoizedProps?.onWorkingModelChange&&f.memoizedProps?.originalModel),viewport=find(root,f=>f.memoizedProps?.onPaintStart&&f.memoizedProps?.paintMode);let runtime;for(let h=viewport.memoizedState;h;h=h.next)if(h.memoizedState?.current?.renderer&&h.memoizedState?.current?.camera)runtime=h.memoizedState.current;return {workspace,props:workspace.memoizedProps,runtime};};
+  window.audit=()=>{const props=findFiberState('.paint-workspace', p => p?.onWorkingModelChange && p?.originalModel, { tree: true, props: true }),viewport=findFiberState('.paint-workspace', p => p?.onPaintStart && p?.paintMode, { tree: true, props: true }),runtime=findFiberState('.paint-workspace', s => s?.renderer && s?.camera, { tree: true });return {props,project:props.project,runtime};};
   window.hashPaint=async data=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),x=>x.toString(16).padStart(2,'0')).join('');
   window.coatHash=()=>hashPaint(audit().props.project.targets[0].coats[0].raster.data);
   window.pointFor=(index,u=.5,v=.5)=>{const a=audit(),g=a.props.model.Geosets[index],x=g.MinimumExtent[0]+(g.MaximumExtent[0]-g.MinimumExtent[0])*u,z=g.MinimumExtent[2]+(g.MaximumExtent[2]-g.MinimumExtent[2])*v,y=index===3?-22*Math.cos((u-.5)*Math.PI):0,p=a.runtime.camera.position.clone().set(x,y,z).project(a.runtime.camera),b=a.runtime.renderer.domElement.getBoundingClientRect();return [b.x+(p.x+1)*b.width/2,b.y+(1-p.y)*b.height/2];};
-  window.hoverCoat=()=>{for(let h=audit().workspace.memoizedState;h;h=h.next)if(h.memoizedState?.current?.entries&&h.memoizedState.current.parts)return h.memoizedState.current.parts[0].coat.raster.data;};
+  window.hoverCoat=()=>findFiberState('.paint-workspace', s => s?.entries && s?.parts, { tree: true }).parts[0].coat.raster.data;
 });}
 async function placement(index,label){
   const before=await page.evaluate(()=>coatHash()),point=await page.evaluate(i=>pointFor(i),index);
@@ -50,8 +51,7 @@ async function placement(index,label){
   await page.mouse.move(945,490);await page.screenshot({path:path.join(out,label+'-committed.png')});await page.getByRole('button',{name:'Undo paint',exact:true}).click();await settle();assert.equal(await page.evaluate(()=>coatHash()),before);result.checks.push(label+' preview, commit and exact undo');
 }
 async function run(){
-  const model=await fixture();app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();});
+  const model=await fixture();({ app, page, errors: result.errors } = await launchApp({ fixture: model, out, pageTimeout: 15000 }));
   await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await page.getByRole('button',{name:'5 starters',exact:true}).click();await helpers();await settle();
   await page.getByRole('button',{name:'Pick color from model',exact:true}).click();await page.mouse.click(...await page.evaluate(()=>pointFor(8)));await settle();assert.equal(await page.getByLabel('Paint color',{exact:true}).inputValue(),'#467048');result.checks.push('Model eyedropper samples the repeated pixel rather than the clamped image edge');
   await page.getByRole('button',{name:'Footman chainmail',exact:true}).click();await page.getByRole('spinbutton',{name:'Stamp size value',exact:true}).fill('30');
@@ -71,4 +71,4 @@ async function run(){
   const otherPreview=await page.evaluate(()=>{const p=audit().props.project;for(let h=audit().workspace.memoizedState;h;h=h.next){const r=h.memoizedState?.current;if(r?.entries&&r.parts)return hashPaint(r.parts.find(part=>part.target.id===p.activeTargetId).coat.raster.data);}});await page.mouse.up();await settle();assert.equal(await page.evaluate(()=>hashPaint(audit().props.project.targets[1].coats[0].raster.data)),otherPreview);assert.equal(await page.evaluate(()=>coatHash()),untouched);result.checks.push('Choosing a source leaves Original view and stamping a different image target updates the live texture');
   assert.deepEqual(result.errors,[]);console.log(JSON.stringify({out,...result},null,2));fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));
 }
-run().catch(async error=>{console.error(error);result.failure=error.stack;if(page)await page.screenshot({path:path.join(out,'failure.png')});fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));process.exitCode=1;}).finally(async()=>{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});});
+run().catch(async error=>{console.error(error);result.failure=error.stack;if(page)await page.screenshot({path:path.join(out,'failure.png')});fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));process.exitCode=1;}).finally(async()=>{if(app)await closeApp(app);});

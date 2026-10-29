@@ -1,7 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
+
 (async()=>{
-  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','preview-ui-'+Date.now()),profile=path.join(out,'profile');fs.mkdirSync(profile,{recursive:true});
+  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','preview-ui-'+Date.now());fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js'),testPicture=(await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'),starterTextureAsset=()=>testPicture;
   const {evaluateModelCamera}=await import('../app/portrait-view.js');
   const doc=createDemoDocument(),texture=starterTextureAsset();
@@ -18,19 +19,17 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   });
   const fixture=path.join(out,'paired-preview.mdx'),bytes=Buffer.from(doc.serialize('mdx'));fs.writeFileSync(fixture,bytes);
   const model=openDocument(new Uint8Array(bytes),'x.mdx').model,texturePath=path.join(out,...texture.name.split('\\'));fs.mkdirSync(path.dirname(texturePath),{recursive:true});fs.writeFileSync(texturePath,texture.bytes);
-  fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false},emitterMarker:'pentagram'}}));
-  const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
-  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});let p;
+  const exe=appTarget().packaged;
+  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: fixture, out, settings: {preferences:{graphics:{particles:false},emitterMarker:'pentagram'}} });let p;
   try{
     const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();p=await pending;p.setDefaultTimeout(25000);p.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();p=await pending;
+    await prepareWindow(app, p, { bounds: { x: -3500, y: 0, width: 1600, height: 1000 }, errors, pageTimeout: 25000 });
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Insanity FIxer',exact:true}).click();
     await p.evaluate(()=>{window.previewSides=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{
-      let runtime,props;for(let f=root[Object.keys(root).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const c=h.memoizedState?.current;if(c?.native&&c?.controls)runtime=c;if(c?.model?.Geosets&&c?.compareCamera)props=c;}
-      if(!runtime||!props)return null;return {frame:runtime.native.getFrame(),sequence:runtime.native.getSequence(),particles:runtime.native.particlesController.emitters.map(e=>e.particles.filter(p=>p.lifeSpan>0).length),ribbons:runtime.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:root.querySelectorAll('[data-node-overlay]').length,portrait:!!props.portraitMode,framed:root.classList.contains('portrait-preview-root'),frameLoaded:!!root.querySelector('.portrait-human-frame'),camera:runtime.controls.object.position.toArray(),detached:runtime.cameraDetached,graphicsParticles:props.preferences.graphics.particles};
+      const { runtime, props } = mdlxlProbe(root); if(!runtime||!props)return null;return {frame:runtime.native.getFrame(),sequence:runtime.native.getSequence(),particles:runtime.native.particlesController.emitters.map(e=>e.particles.filter(p=>p.lifeSpan>0).length),ribbons:runtime.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:root.querySelectorAll('[data-node-overlay]').length,portrait:!!props.portraitMode,framed:root.classList.contains('portrait-preview-root'),frameLoaded:!!root.querySelector('.portrait-human-frame'),camera:runtime.controls.object.position.toArray(),detached:runtime.cameraDetached,graphicsParticles:props.preferences.graphics.particles};
     });});
     const states=()=>p.evaluate(()=>previewSides());
     const seek=async(si,frame)=>{await p.getByLabel('Animation',{exact:true}).selectOption(String(si));await p.getByLabel('Animation frame',{exact:true}).fill(String(frame));await p.waitForFunction(({si,frame})=>previewSides().every(s=>s&&s.sequence===si&&Math.abs(s.frame-frame)<1e-5),{si,frame});};
@@ -48,5 +47,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
     await seek(2,6000);await p.getByRole('button',{name:'Play',exact:true}).click();await p.waitForFunction(()=>previewSides().every(s=>s&&s.frame>6250&&s.particles[0]===0&&s.ribbons[0]===0&&!s.framed));await p.getByRole('button',{name:'Pause',exact:true}).click();const hidden=await states();hidden.forEach(s=>s.camera.forEach((v,i)=>assert.ok(Math.abs(v-stand[0].camera[i])<1e-5,'Leaving portrait restores full-model camera')));await p.screenshot({path:path.join(out,'03-authored-hidden-effects.png')});
     await seek(1,3500);const portraitSizes=await p.locator('.ox-preview .portrait-preview-stage').evaluateAll(stages=>stages.map(s=>({width:s.clientWidth,height:s.clientHeight})));portraitSizes.forEach(s=>assert.ok(s.width>100&&s.height>100,'Portrait remains visible after leaving and re-entering'));
     assert.deepEqual(fs.readFileSync(fixture),bytes);assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,stand,portrait,rotated,talk,hidden,sourceUnchanged:true,errors},null,2));console.log(out);
-  }catch(e){if(p){fs.writeFileSync(path.join(out,'failed-state.json'),JSON.stringify(await p.evaluate(()=>window.previewSides?.()),null,2));await p.screenshot({path:path.join(out,'failed-state.png')});}throw e;}finally{await app.close();}
+  }catch(e){if(p){fs.writeFileSync(path.join(out,'failed-state.json'),JSON.stringify(await p.evaluate(()=>window.previewSides?.()),null,2));await p.screenshot({path:path.join(out,'failed-state.png')});}throw e;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -45,15 +45,21 @@ async function launchApp({ fixture, out, args = [], env = {}, playwright, settin
   });
   profiles.set(app, profile);
   const errors = [], page = await app.firstWindow();
+  await prepareWindow(app, page, { bounds, show, pageTimeout, errors });
+  return { app, page, errors, profile, target };
+}
+
+// The OptimizeXL review is a second window; apply the same hidden setup, errors and probes there.
+async function prepareWindow(app, page, { bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', pageTimeout = 20000, errors = [] } = {}) {
   page.setDefaultTimeout(pageTimeout); page.on('pageerror', error => errors.push(error.message));
   await app.evaluate(({ BrowserWindow }, { bounds, show }) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    win.webContents.setBackgroundThrottling(false); win.setBounds(bounds);
-    if (show === 'hide') win.hide(); else win.showInactive();
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.setBackgroundThrottling(false); win.setBounds(bounds);
+      if (show === 'hide') win.hide(); else win.showInactive();
+    }
   }, { bounds, show });
   await page.addInitScript(PROBE_SOURCE).catch(() => {});
   await page.evaluate(PROBE_SOURCE).catch(() => {});
-  return { app, page, errors, profile, target };
 }
 
 // Replaces native dialogs in the main process. save: path for Save dialogs; open: path or paths for Open dialogs;
@@ -87,4 +93,4 @@ async function closeApp(app) {
   profiles.delete(app);
 }
 
-module.exports = { root, appTarget, appDist, bundleHashes, launchApp, stubDialogs, clickMenu, sha256File, settle, closeApp };
+module.exports = { root, appTarget, appDist, bundleHashes, launchApp, prepareWindow, stubDialogs, clickMenu, sha256File, settle, closeApp };

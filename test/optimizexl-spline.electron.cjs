@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('./helpers/app.cjs');
+
 (async()=>{
   const model=process.env.MDLXL_SPLINE_MODEL;if(!model)throw Error('Set MDLXL_SPLINE_MODEL to the private review fixture.');
   const source=fs.readFileSync(model),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','spline-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(model));fs.copyFileSync(model,work);
@@ -8,12 +9,12 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   for(let i=0;i<10;i++){const fixes=sanityProposals(openDocument(expected,'x.mdx').model).filter(f=>!f.inspectionOnly);if(!fixes.length)break;
     expected=runOptimizeStage(expected,'sanity',{}, {kind:'batch',stage:'sanity',entries:fixes.map(fix=>({fix}))}).bytes;passes.push({count:fixes.length,bytes:Buffer.from(expected)});
   }
-  const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
-  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
+  const exe=appTarget().packaged;
+  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: work, out });
   try{
-    const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;p.setDefaultTimeout(30000);p.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow,dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}},copies);
+    const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;
+    await prepareWindow(app, p, { bounds: { x: -3500, y: 0, width: 1600, height: 1000 }, errors, pageTimeout: 30000 }); await stubDialogs(app, { open: copies });
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     const stage=()=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Insanity FIxer',exact:true}).click();
@@ -48,5 +49,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
     await p.screenshot({path:path.join(out,'04-back.png')});
     assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,passes:passes.map(p=>p.count),approvedOnlySaves:true,beforePinned:true,backRestoresFindings:true,sourceUnchanged:true,errors,copies},null,2));console.log(out);
-  }finally{await app.close();}
+  }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

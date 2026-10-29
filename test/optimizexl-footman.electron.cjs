@@ -1,22 +1,23 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
+
 (async()=>{
- const model=process.env.MDLXL_FOOTMAN_MODEL||'C:/Users/PC/Downloads/Footman (Unoptimized).mdx',source=fs.readFileSync(model),exe=process.env.MDLXL_OPTIMIZEXL_EXE;
- const scale=process.env.MDLXL_TEST_DPR||'1',out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','footman-ui-'+scale),profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile,{recursive:true});
- const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),model,'--force-device-scale-factor='+scale],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
- const errors=[],alignment=[];
+ const model=process.env.MDLXL_FOOTMAN_MODEL||'C:/Users/PC/Downloads/Footman (Unoptimized).mdx',source=fs.readFileSync(model),exe=appTarget().packaged;
+ const scale=process.env.MDLXL_TEST_DPR||'1',out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','footman-ui-'+scale);fs.mkdirSync(out,{recursive:true});
+ const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out, args: ['--force-device-scale-factor='+scale] });
+ const alignment=[];
  try{
-  const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1920,height:1080});w.showInactive();}});
+  const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;
+  await prepareWindow(app, p, { bounds: { x: -3500, y: 0, width: 1920, height: 1080 }, errors, pageTimeout: 20000 });
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
   const stage=name=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name,exact:true}).click();
   const ready=()=>p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
   await stage('Irregularities Fixer');await p.getByLabel('Animation',{exact:true}).selectOption({label:'Stand - 1'});
-  await p.evaluate(()=>{window.sides=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{let runtime,props;for(let f=root[Object.keys(root).find(k=>k.startsWith('__reactFiber'))];f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const c=h.memoizedState?.current;if(c?.native&&c?.controls)runtime=c;if(c?.model?.Geosets&&c?.compareCamera)props=c;}return {root,runtime,props};});});
+  await p.evaluate(()=>{window.sides=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{const { runtime, props } = mdlxlProbe(root); return {root,runtime,props};});});
   for(const width of [1920,1600,1601,1279]){
    await app.evaluate(({BrowserWindow},width)=>{for(const w of BrowserWindow.getAllWindows())w.setSize(width,1000);},width);
-   await p.waitForTimeout(200);await p.waitForFunction(()=>sides().every(s=>s.runtime?.captureApi?.isReady));
+   await waitForSettle(p, 200);await p.waitForFunction(()=>sides().every(s=>s.runtime?.captureApi?.isReady));
    const state=await p.evaluate(()=>{
     const s=sides(),canvases=s.map(x=>x.root.querySelector('[data-clean-model-canvas]')),captures=s.map(x=>x.runtime.captureApi.captureFrame());
     const pixels=captures.map(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data);let changed=0;for(let i=0;i<pixels[0].length;i++)if(pixels[0][i]!==pixels[1][i])changed++;
@@ -52,5 +53,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   const afterSize=await p.getByLabel('After preview',{exact:true}).locator('h2 small').textContent();assert.ok(parseFloat(afterSize)<105);await p.screenshot({path:path.join(out,'animation-reduction.png')});
   await p.getByRole('button',{name:'Approve',exact:true}).click();await ready();await p.getByRole('button',{name:'Save',exact:true}).waitFor();assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,alignment,advancedHelp:Object.values(help).flat().length,boundsRepairApproved:true,afterSize,sourceUnchanged:true,errors},null,2));console.log('Passed Footman UI: '+afterSize+', '+scale+'x display, hover/click help and approved mdx-m3-viewer repair.');
- }finally{await app.close();}
+ }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});
