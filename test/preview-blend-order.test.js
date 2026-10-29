@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { installWarcraftPreviewAdapter, isExplicitHdMaterial } from '../app/warcraft-preview-adapter.js';
+import { installWarcraftPreviewAdapter, isExplicitHdMaterial, patchWarcraftMeshVertexShader } from '../app/warcraft-preview-adapter.js';
 
 function fixture() {
   const calls = [], buffers = [{}, {}, {}, {}], program = {};
@@ -29,6 +29,29 @@ function fixture() {
   const clock = { frame: 0, sequenceIndex: -1, globalTime: 0 };
   return { calls, gl, native, model, clock };
 }
+
+test('wide HD skin buffers keep indices and byte-scale weights without changing the model', () => {
+  const { gl, native, model, clock } = fixture(), pointers=[],uploads=[], skinBuffer={};
+  Object.assign(gl,{ARRAY_BUFFER:20,STATIC_DRAW:21,FLOAT:22,UNSIGNED_BYTE:23,
+    bufferData:(_,data)=>uploads.push(data),vertexAttribPointer:(...args)=>pointers.push(args)});
+  native.skinWeightBuffer=[skinBuffer];native.shaderProgramLocations={skinAttribute:3,weightAttribute:4};
+  model.Materials[0].Shader='Shader_HD_DefaultUnit';
+  model.Geosets[0].SkinWeights=new Uint16Array([102,5,0,0,137,118,0,0]);
+  const before=structuredClone(model),originalPointer=gl.vertexAttribPointer;
+  const adapter=installWarcraftPreviewAdapter(gl,model,()=>clock);adapter.ready(native);
+  assert.deepEqual(Array.from(uploads[0]),Array.from(new Float32Array([102,5,0,0,137/255,118/255,0,0])));
+  gl.bindBuffer(gl.ARRAY_BUFFER,skinBuffer);
+  gl.vertexAttribPointer(3,4,gl.UNSIGNED_BYTE,false,8,0);
+  gl.vertexAttribPointer(4,4,gl.UNSIGNED_BYTE,true,8,4);
+  gl.bindBuffer(gl.ARRAY_BUFFER,{});gl.vertexAttribPointer(3,4,gl.UNSIGNED_BYTE,false,8,0);
+  assert.deepEqual(pointers,[[3,4,gl.FLOAT,false,32,0],[4,4,gl.FLOAT,false,32,16],[3,4,gl.UNSIGNED_BYTE,false,8,0]]);
+  assert.deepEqual(model,before);adapter.dispose();assert.equal(gl.vertexAttribPointer,originalPointer);
+});
+
+test('HD shader starts its weighted matrix sum at zero', () => {
+  const source='in vec3 aNormal; uniform mat4 uMVMatrix; out vec2 vTextureCoord; in vec4 aSkin; in vec4 aBoneWeight; void main() { mat4 sum; sum += mat4(1.); }';
+  assert.match(patchWarcraftMeshVertexShader(source),/mat4 sum = mat4\(0\.\);/);
+});
 
 test('an early glow draws after later opaque faces, each layer and effect once, without model reordering', () => {
   const { calls, gl, native, model, clock } = fixture(), before = structuredClone(model);
@@ -103,4 +126,5 @@ test('only explicitly HD materials bypass the weighted Classic adapter', () => {
   assert.equal(isExplicitHdMaterial({ Shader: '', Layers: [{ TextureID: 0 }] }), false);
   assert.equal(isExplicitHdMaterial({ Shader: 'Shader_HD_DefaultUnit', Layers: [{ TextureID: 0 }] }), true);
   assert.equal(isExplicitHdMaterial({ Layers: [{ ShaderTypeId: 1, TextureID: 0 }] }), true);
+  assert.equal(isExplicitHdMaterial({ Layers: [{ ShaderTypeId: 0, TextureID: 0 }] }), false);
 });

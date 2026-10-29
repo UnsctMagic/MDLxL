@@ -9,7 +9,7 @@ import { prepareClipboardPaste } from '../src/clipboard-paste.js';
 import { createStarterRecipe } from '../src/particle-starters.js';
 import { placeParticleRecipe } from '../src/particle-recipes.js';
 
-const MESSAGE = "HD models aren't supported yet. This model is open view-only; saving is disabled.";
+const MESSAGE = "HD models can be previewed. This model is open view-only; saving is disabled.";
 // An SD 1000 starter that gains HD content. Save verification checks decoding
 // only, so these are the same bytes an HD model from another tool would have.
 function hdBytes(change, format = 'mdx') {

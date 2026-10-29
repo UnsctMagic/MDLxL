@@ -42,6 +42,7 @@ export function patchWarcraftMeshVertexShader(source) {
   if (mesh && !source.startsWith('#version 300 es')) source = '#version 300 es\n' + source.replace(/\battribute\b/g, 'in').replace(/\bvarying\b/g, 'out');
   // Every mesh fragment shader reads vMdlxlInfluence, so every mesh vertex shader writes it.
   if (mesh) source = patchBoneInfluenceVertexShader(source);
+  if (mesh && source.includes('aSkin')) source = source.replace('mat4 sum;', 'mat4 sum = mat4(0.);');
   if (!source.includes('vNormal = aNormal;')) return source;
   const count = /uNodesMatrices\[(\d+)\]/.exec(source)?.[1] || '256';
   const normal = source.includes('aGroup') ? `vec3 posedNormal = mat3(uNodesMatrices[int(aGroup[0])]) * aNormal;
@@ -102,7 +103,7 @@ export function applyReplaceableTextureColor(native, gl, textureID) {
 
 /** Reforged skin weights do not guarantee Reforged/PBR materials. */
 export function isExplicitHdMaterial(material) {
-  return /^Shader_HD_/i.test(material?.Shader || '') || (material?.Layers || []).some(layer => layer?.ShaderTypeId != null);
+  return /^Shader_HD_/i.test(material?.Shader || '') || (material?.Layers || []).some(layer => layer?.ShaderTypeId > 0);
 }
 
 function createSolidTexture(gl, rgba) {
@@ -127,7 +128,7 @@ const effectsPass = pass => pass === null || pass === 'blended' || pass === 'hot
 
 /** All hooks belong to this preview's private WebGL context, not global GL. */
 export function installWarcraftPreviewAdapter(gl, model, getClock) {
-  const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, useProgram: gl.useProgram, drawElements: gl.drawElements };
+  const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, vertexAttribPointer: gl.vertexAttribPointer, useProgram: gl.useProgram, drawElements: gl.drawElements };
   gl.shaderSource = function (shader, source) { return original.shaderSource.call(this, shader, patchWarcraftMeshVertexShader(patchWarcraftMeshFragmentShader(source))); };
   let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, renderParticles, render;
   let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey;
@@ -162,6 +163,24 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       if (!location) throw new Error('The Warcraft preview shader is incompatible with geoset color editing.');
       influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart'), ...Object.fromEntries(['Ghost', 'Direct', 'Follow'].map(name => [name.toLowerCase() + 'Color', gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}Color`)])) };
       byIndexBuffer = new Map(native.indexBuffer.map((buffer, index) => [buffer, index]));
+      // MDX 1400+ stores eight uint16 values, but war3-model binds eight bytes.
+      // Repack only GPU buffers: retain all authored indices and byte-scale
+      // weights in the document, and keep CPU picking/overlays on that data.
+      const wideSkinBuffers = new Set();
+      for (const [index, geoset] of (model.Geosets || []).entries()) {
+        if (!(geoset.SkinWeights instanceof Uint16Array) || !native.skinWeightBuffer?.[index]) continue;
+        const buffer = native.skinWeightBuffer[index];
+        const data = Float32Array.from(geoset.SkinWeights, (value, slot) => slot % 8 < 4 ? value : value / 255);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        wideSkinBuffers.add(buffer);
+      }
+      let skinBuffer;
+      gl.vertexAttribPointer = function (index, size, type, normalized, stride, offset) {
+        if (wideSkinBuffers.has(skinBuffer) && (index === native.shaderProgramLocations.skinAttribute || index === native.shaderProgramLocations.weightAttribute)) {
+          return original.vertexAttribPointer.call(this, index, size, this.FLOAT, false, 32, index === native.shaderProgramLocations.weightAttribute ? 16 : 0);
+        }
+        return original.vertexAttribPointer.call(this, index, size, type, normalized, stride, offset);
+      };
       setLayerProps = native.setLayerProps; setLayerPropsHD = native.setLayerPropsHD;
       if (classicSkinnedMaterials.size) {
         // The HD shader needs both maps even when the authored material is a
@@ -244,7 +263,11 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
         };
       }
       gl.useProgram = function (program) { activeProgram = program; return original.useProgram.call(this, program); };
-      gl.bindBuffer = function (target, buffer) { if (target === this.ELEMENT_ARRAY_BUFFER) elementBuffer = buffer; return original.bindBuffer.call(this, target, buffer); };
+      gl.bindBuffer = function (target, buffer) {
+        if (target === this.ELEMENT_ARRAY_BUFFER) elementBuffer = buffer;
+        if (target === this.ARRAY_BUFFER) skinBuffer = buffer;
+        return original.bindBuffer.call(this, target, buffer);
+      };
       gl.drawElements = function (...args) {
         const geosetIndex = activeProgram === native.shaderProgram ? byIndexBuffer.get(elementBuffer) : undefined;
         const drawLayer = () => {

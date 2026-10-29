@@ -178,13 +178,23 @@ class GameFileLibrary {
   /** A model's pictures come from its own module first (Reforged, Forsaken Kingdom), then the base game. */
   async resolve(index, model, names) {
     const modules = model.sourcePath.split(':'); modules.pop();
+    const prefixes = [];
+    for (let depth = modules.length; depth > 0; depth--) {
+      const prefix = modules.slice(0,depth).join(':').toLowerCase();
+      prefixes.push(prefix);
+      // The DE module overrides HD; assets absent from DE still come from HD.
+      if (prefix.includes('_de.w3mod')) prefixes.push(prefix.replace('_de.w3mod','_hd.w3mod'));
+    }
     const found = [], missing = [];
     for (const name of [...new Set(names)].slice(0,1024)) {
       if (typeof name !== 'string' || !name || name.includes('\0') || name.includes(':')) continue;
-      const logical = name.replaceAll('/','\\').toLowerCase(), alternates = [logical,logical.replace(/\.blp$/,'.dds'),logical.replace(/\.dds$/,'.blp')];
+      const logical = name.replaceAll('/','\\').toLowerCase(), alternates = [logical,logical.replace(/\.(?:blp|tiff?)$/,'.dds'),logical.replace(/\.(?:dds|tiff?)$/,'.blp')];
       let match = null;
-      for (let depth = modules.length; depth > 0 && !match; depth--) for (const candidate of new Set(alternates)) {
-        match = index.byName.get(modules.slice(0,depth).join(':').toLowerCase() + ':' + candidate); if (match) break;
+      for (const prefix of new Set(prefixes)) {
+        for (const candidate of new Set(alternates)) {
+          match = index.byName.get(prefix + ':' + candidate); if (match) break;
+        }
+        if (match) break;
       }
       if (!match) { missing.push(name); continue; }
       try { found.push({name,bytes:await this.read(index,match)}); } catch { missing.push(name); }

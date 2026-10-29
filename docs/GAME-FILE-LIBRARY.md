@@ -29,7 +29,15 @@ existing hotkey behaviour.
   (`_de`), Other languages, Teen & retired, All installed.
 - IPC `gameFiles:summary|browse|read|resolve|export`; reads always use the listed
   content key. Model textures resolve from the model's own module first
-  (Reforged/Forsaken Kingdom), then the base game.
+  (Reforged/Forsaken Kingdom), then the base game. Forsaken Kingdom inherits
+  missing pictures from Reforged before falling back to Classic. Authored TIF
+  paths resolve to the installed DDS/BLP assets without rewriting the model.
+- HD previews retain their original format and view-only editing restrictions.
+  The preview adapter repacks MDX 1400+ uint16 skin streams into private GPU
+  buffers with the original indices and byte-scale weights. Shader type 0
+  continues through the existing Classic-material adapter in mixed HD models.
+  The DDS decoder supports the installed ATI2/BC5 normal maps and reconstructs
+  their third normal component. No HD editing tools or save support are added.
 - [GameFileBrowser.jsx](../app/GameFileBrowser.jsx): icon tree on the left
   (virtualized; clicking a folder only opens or closes it), one central view,
   slim info panel on the right (name, path, version, animation, Open in editor,
@@ -105,6 +113,11 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
 
 ## Verification
 
+- `test/hd-library-preview.electron.cjs` uses an isolated hidden packaged app
+  (`MDLXL_PACKAGED_EXE`, `MDLXL_PLAYWRIGHT_MODULE`) and installed Classic Footman,
+  Forsaken Kingdom Peon and Reforged Blademaster: textures, Stand/Walk/Attack,
+  real mouse rotation, original-format editor opening and view-only restrictions.
+  Popcorn/external event effect rendering remains a separate capability.
 - `node --test test/game-file-library.test.js` (index, search, resolve, art
   rules, material choice).
 - `node --test test/world-editor-catalog.test.js` (races, units, spells, items,
