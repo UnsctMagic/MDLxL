@@ -14,18 +14,12 @@ const {
   providerInfo,
   runProvider,
   providerModels,
-  CodexProcess,
+  providerAuth,
   endpoint,
   authenticationRequired,
   CANCELLED,
 } = require('./ai-providers.cjs');
-const {
-  spawnAgent,
-  stopAgent,
-  lines,
-  prepareEnvironment,
-  checkAgentExecutable,
-} = require('./ai-process.cjs');
+const { checkAgentExecutable } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
 const { questionCancelled } = require('./ai-user-input.cjs');
 const {
@@ -1886,24 +1880,8 @@ class AiService {
     const active = { controller: new AbortController() };
     this.active = active;
     try {
-      const settings = await this.settings(),
-        signal = active.controller.signal;
-      if (settings.provider === 'codex') {
-        const client = new CodexProcess(settings, { directory: this.directory, signal });
-        try {
-          await client.start();
-          const result = await client.request('model/list');
-          const models = (result.data || []).map(m => ({
-            id: m.model || m.id,
-            name: m.displayName || m.model || m.id,
-          }));
-          (this.modelCatalog ||= {})[catalogKey(settings)] = models;
-          return models;
-        } finally {
-          await client.close();
-        }
-      }
-      const models = await providerModels(settings, this.decrypt(settings.key), signal);
+      const settings = await this.settings();
+      const models = await providerModels(settings, this.decrypt(settings.key), active.controller.signal, { directory: this.directory });
       (this.modelCatalog ||= {})[catalogKey(settings)] = models;
       return models;
     } finally {
@@ -1921,72 +1899,12 @@ class AiService {
     const controller = new AbortController();
     if (exclusive) this.active = { controller, auth: true };
     try {
-      if (settings.provider === 'codex') {
-        const client = new CodexProcess(settings, { directory: this.directory, signal: controller.signal });
-        try {
-          await client.start();
-          if (action === 'status') {
-            const result = await client.account();
-            return {
-              account: result.account,
-              loggedIn: !!result.account || result.requiresOpenaiAuth === false,
-            };
-          }
-          if (action === 'logout') {
-            await client.request('account/logout');
-            return { loggedIn: false };
-          }
-          const completed = new Promise((resolve, reject) => {
-            client.login = p => (p.success ? resolve() : reject(Error(p.error || 'Login failed.')));
-            client.loginError = reject;
-          });
-          completed.catch(() => {});
-          const login = await client.request('account/login/start', { type: 'chatgpt' });
-          const url = new URL(login.authUrl);
-          if (url.protocol !== 'https:') throw Error('Invalid sign-in URL.');
-          await this.electron.shell.openExternal(url.href);
-          this.emit({ type: 'auth', text: 'Complete sign-in in your browser.' });
-          await completed;
-          const result = await client.account();
-          if (!result.account) throw authenticationRequired();
-          return { loggedIn: true, account: result.account };
-        } finally {
-          await client.close();
-        }
-      }
-      const env = await prepareEnvironment(this.directory, 'claude');
-      if (controller.signal.aborted) throw Error('Sign-in cancelled.');
-      const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
-        cwd: this.directory,
-        env,
+      return await providerAuth(settings, action, {
+        directory: this.directory,
+        signal: controller.signal,
+        openExternal: url => this.electron.shell.openExternal(url),
+        notify: text => this.emit({ type: 'auth', text }),
       });
-      let output = '';
-      const abort = () => stopAgent(child);
-      controller.signal.addEventListener('abort', abort, { once: true });
-      try {
-        await new Promise((resolve, reject) => {
-          child.on('error', reject);
-          child.once('close', code =>
-            code === 0 || (action === 'status' && code === 1)
-              ? resolve()
-              : reject(Error('Claude authentication did not complete.')),
-          );
-          lines(child.stdout, line => {
-            output += line + '\n';
-            if (action === 'login') this.emit({ type: 'auth', text: line.slice(0, 1500) });
-          });
-          child.stderr.on('data', () => {});
-          child.stdin.end();
-        });
-        if (action === 'status') {
-          const status = JSON.parse(output);
-          return { loggedIn: !!status.loggedIn, authMethod: status.authMethod };
-        }
-        return { loggedIn: action === 'login' };
-      } finally {
-        controller.signal.removeEventListener('abort', abort);
-        stopAgent(child);
-      }
     } finally {
       if (exclusive) this.active = null;
     }

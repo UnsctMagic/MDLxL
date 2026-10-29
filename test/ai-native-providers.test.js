@@ -314,3 +314,15 @@ test('the provider table keeps the settings order, labels and what each connecti
   assert.deepEqual(PROVIDERS.flatMap(p => p.logFolders), ['codex/sessions', 'codex/archived_sessions', 'claude/projects']);
   assert.equal(providerInfo('unknown'), undefined);
 });
+
+test('Codex model lists come from its app server through providerModels and are kept per connection', async t => {
+  const config = await executable(t);
+  const service = new AiService({ root: path.resolve('.'), profile: config.directory, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await service.configure({ provider: 'codex', executable: config.executable });
+  assert.deepEqual(await service.models(), []);
+  assert.deepEqual(service.modelCatalog['codex:'], []);
+  assert.equal(service.active, null);
+  const requests = (await fs.readFile(path.join(service.directory, 'fixture-calls.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).method);
+  assert.deepEqual(requests, ['initialize', 'model/list']);
+});

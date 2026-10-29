@@ -1113,7 +1113,9 @@ function runProvider(options) {
   const provider = options.settings.provider;
   return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
 }
-async function providerModels(settings, key, signal) {
+// The models a connection offers: Codex asks its app server, Claude Code takes
+// aliases, and APIs list their own.
+async function providerModels(settings, key, signal, { directory } = {}) {
   // Claude Code takes these aliases for the newest model of each kind.
   if (settings.provider === 'claude')
     return [
@@ -1122,7 +1124,19 @@ async function providerModels(settings, key, signal) {
       { id: 'haiku', name: 'Haiku (newest, cheapest)' },
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
-  if (settings.provider === 'codex') return [];
+  if (settings.provider === 'codex') {
+    const client = new CodexProcess(settings, { directory, signal });
+    try {
+      await client.start();
+      const result = await client.request('model/list');
+      return (result.data || []).map(m => ({
+        id: m.model || m.id,
+        name: m.displayName || m.model || m.id,
+      }));
+    } finally {
+      await client.close();
+    }
+  }
   const response = await requestJson(
     apiBase(settings) + '/models',
     null,
@@ -1135,6 +1149,77 @@ async function providerModels(settings, key, signal) {
     id: item.id || item.name,
     name: item.display_name || item.id || item.name,
   }));
+}
+// Sign in, sign out or check the account of a native CLI connection. Codex
+// signs in through its app server and the browser; Claude Code runs
+// `claude auth <action>`. `notify` shows progress in the console.
+async function providerAuth(settings, action, { directory, signal, openExternal, notify }) {
+  if (settings.provider === 'codex') {
+    const client = new CodexProcess(settings, { directory, signal });
+    try {
+      await client.start();
+      if (action === 'status') {
+        const result = await client.account();
+        return {
+          account: result.account,
+          loggedIn: !!result.account || result.requiresOpenaiAuth === false,
+        };
+      }
+      if (action === 'logout') {
+        await client.request('account/logout');
+        return { loggedIn: false };
+      }
+      const completed = new Promise((resolve, reject) => {
+        client.login = p => (p.success ? resolve() : reject(Error(p.error || 'Login failed.')));
+        client.loginError = reject;
+      });
+      completed.catch(() => {});
+      const login = await client.request('account/login/start', { type: 'chatgpt' });
+      const url = new URL(login.authUrl);
+      if (url.protocol !== 'https:') throw Error('Invalid sign-in URL.');
+      await openExternal(url.href);
+      notify('Complete sign-in in your browser.');
+      await completed;
+      const result = await client.account();
+      if (!result.account) throw authenticationRequired();
+      return { loggedIn: true, account: result.account };
+    } finally {
+      await client.close();
+    }
+  }
+  const env = await prepareEnvironment(directory, 'claude');
+  if (signal.aborted) throw Error('Sign-in cancelled.');
+  const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
+    cwd: directory,
+    env,
+  });
+  let output = '';
+  const abort = () => stopAgent(child);
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    await new Promise((resolve, reject) => {
+      child.on('error', reject);
+      child.once('close', code =>
+        code === 0 || (action === 'status' && code === 1)
+          ? resolve()
+          : reject(Error('Claude authentication did not complete.')),
+      );
+      lines(child.stdout, line => {
+        output += line + '\n';
+        if (action === 'login') notify(line.slice(0, 1500));
+      });
+      child.stderr.on('data', () => {});
+      child.stdin.end();
+    });
+    if (action === 'status') {
+      const status = JSON.parse(output);
+      return { loggedIn: !!status.loggedIn, authMethod: status.authMethod };
+    }
+    return { loggedIn: action === 'login' };
+  } finally {
+    signal.removeEventListener('abort', abort);
+    stopAgent(child);
+  }
 }
 module.exports = {
   PROVIDERS,
@@ -1149,6 +1234,7 @@ module.exports = {
   runClaude,
   runProvider,
   providerModels,
+  providerAuth,
   CodexProcess,
   effortFor,
   authenticationRequired,
