@@ -10,19 +10,18 @@ const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
-  runApi,
-  runCodex,
-  runClaude,
+  runProvider,
   providerModels,
   CodexProcess,
   endpoint,
   authenticationRequired,
+  CANCELLED,
 } = require('./ai-providers.cjs');
 const {
   spawnAgent,
   stopAgent,
   lines,
-  providerEnvironment,
+  prepareEnvironment,
   checkAgentExecutable,
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
@@ -47,6 +46,28 @@ function limitOf(config, name) {
 const DAY = 24 * 60 * 60 * 1000;
 function cleanupDaysOf(config) {
   return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
+}
+// Chat ids, and chat files (with their temporary copies) in the AI folder.
+const CHAT_ID_PATTERN = '[a-zA-Z0-9_-]{1,80}';
+const CHAT_ID = new RegExp('^' + CHAT_ID_PATTERN + '$');
+const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$');
+// Model lists are kept per provider and server.
+function catalogKey(settings) {
+  return settings.provider + ':' + (settings.baseUrl || '');
+}
+// The editing instructions, with the handbook and web research when they are on.
+// A worker bird gets its own note in place of the opening line.
+function editingPrompt(contract, { handbook, web, worker }) {
+  return (
+    (worker ? contract.AI_WORKER_NOTE + '\n' + contract.AI_EDITING_BODY : contract.AI_SYSTEM_PROMPT) +
+    (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
+    (web ? '\n' + contract.AI_WEB_RESEARCH : '')
+  );
+}
+const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
+// The bird a message is addressed to by name: "Crow: …", "Crow, …" or "ask Crow to …".
+function addressedBird(workers, text) {
+  return workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
 }
 // The editor snapshot goes in full once per conversation (and again when its
 // provider history starts over); later prompts carry the target, where the user
@@ -158,14 +179,18 @@ class AiService {
       webResearch: config.webResearch === true,
     };
   }
-  async setAwareness(enabled) {
+  // An on/off setting: saved, applied by `after`, then announced to the console.
+  async setSwitch(key, eventType, enabled, after) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
     const config = await this.configuration();
-    config.awareness = enabled;
+    config[key] = enabled;
     await this.persist();
-    this.awareness.setEnabled(enabled);
-    this.emit({ type: 'awareness', enabled });
+    after?.();
+    this.emit({ type: eventType, enabled });
     return this.status();
+  }
+  setAwareness(enabled) {
+    return this.setSwitch('awareness', 'awareness', enabled, () => this.awareness.setEnabled(enabled));
   }
   // The model can change while the AI works: a running task keeps the settings it
   // started with, and the next message uses the new model.
@@ -263,7 +288,7 @@ class AiService {
     return this.status();
   }
   lighterChoices(settings) {
-    const models = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
+    const models = this.modelCatalog?.[catalogKey(settings)] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
     return lighterModels(models, settings.model);
   }
   async settings() {
@@ -294,7 +319,7 @@ class AiService {
         finish(
           controller.signal.reason instanceof Error
             ? controller.signal.reason
-            : Error('AI request cancelled.'),
+            : Error(CANCELLED),
         );
       };
       let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
@@ -365,7 +390,7 @@ class AiService {
     return this.status();
   }
   async conversation(id, provider) {
-    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    if (!CHAT_ID.test(id || '')) throw Error('Invalid conversation ID.');
     // A chat belongs to the connection it started on, also while it is still loaded.
     if (this.conversations.has(id)) {
       const loaded = this.conversations.get(id);
@@ -376,7 +401,7 @@ class AiService {
     try {
       // Loaded from disk means nothing of it is running in this app session.
       value = settleConversation(
-        JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')),
+        JSON.parse(await fs.readFile(this.chatFile(id), 'utf8')),
       );
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
@@ -386,8 +411,11 @@ class AiService {
     this.conversations.set(id, value);
     return value;
   }
+  chatFile(id) {
+    return path.join(this.directory, 'chat-' + id + '.json');
+  }
   persistConversation(conversation) {
-    const file = path.join(this.directory, 'chat-' + conversation.id + '.json'),
+    const file = this.chatFile(conversation.id),
       text = JSON.stringify(conversation);
     const write = (this.writes.get(conversation.id) || Promise.resolve()).then(async () => {
       await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
@@ -448,7 +476,7 @@ class AiService {
       const entry = await this.registry.model(conversation.modelKey);
       if (noteOwnerReply(entry, text)) await this.registry.save();
     }
-    if (settings.allowLighter && !this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] && settings.provider !== 'claude') await this.models();
+    if (settings.allowLighter && !this.modelCatalog?.[catalogKey(settings)] && settings.provider !== 'claude') await this.models();
     const choices = this.lighterChoices(settings);
     const light = choices.find(m => m.id === settings.lightModel) || choices[0];
     const currentBird = conversation.workers?.find(w => w.status !== 'retired' && (worker ? (w.id === worker || w.name === worker) : (!route || route === 'continue') && w.id === conversation.currentWorker));
@@ -537,7 +565,7 @@ class AiService {
     const config = await this.configuration();
     const workers = (conversation.workers || []).filter(w => w.status !== 'retired' && !w.helperOnly);
     const current = workers.find(w => w.id === conversation.currentWorker) || workers.at(-1);
-    const named = workers.find(w => worker === w.id || worker === w.name || new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+    const named = workers.find(w => worker === w.id || worker === w.name || addressedBird([w], text));
     route ||= config.routing === 'automatic' ? 'auto' : 'continue';
     if (!['continue', 'new', 'tiny', 'auto'].includes(route)) throw Error('Choose a job destination.');
     if (worker && !named) throw Error('That bird is no longer available. Choose a current bird.');
@@ -596,7 +624,7 @@ class AiService {
     };
     try {
       while (waiting.length || running.size) {
-        if (signal.aborted) throw Error('AI request cancelled.');
+        if (signal.aborted) throw Error(CANCELLED);
         for (let i = 0; i < waiting.length;) {
           const entry = waiting[i];
           // Earlier conflicting jobs keep their order, including an exclusive structural job.
@@ -619,10 +647,40 @@ class AiService {
       active.parallel = false;
     }
   }
-  async routeJob({ conversation, recorder, text, workers, settings, signal, structure }) {
-    const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
+  // One tool-free turn in a throwaway chat; returns the reply text. Usage goes to
+  // `meter`, `label` is the error for a tool call, and `stepLimit` caps the rounds.
+  // The AI never watches the editor (providers skip awareness when it is null) and is never steered.
+  async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
     let reply = '';
-    let meter;
+    const steering = new AiSteering(() => {});
+    try {
+      await runProvider({
+        settings: stepLimit ? { ...settings, stepLimit } : settings,
+        key: this.decrypt(settings.key),
+        directory: this.directory,
+        event: value => {
+          if (value.type === 'text') reply += value.text;
+          else meter(value);
+        },
+        tools: [],
+        call: async () => {
+          throw Error(label);
+        },
+        system,
+        prompt,
+        images,
+        conversation,
+        signal,
+        awareness: null,
+        steering,
+      });
+    } finally {
+      steering.close();
+    }
+    return reply;
+  }
+  async routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure }) {
+    const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
     const current = workers.find(w => w.id === conversation.currentWorker);
     const next = this.pendingBird(conversation);
     const input = {
@@ -636,12 +694,10 @@ class AiService {
       ...(structure ? { structure } : {}),
     };
     const options = {
-      settings: { ...settings, model: settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
-      event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
-      tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
-      system: 'Route one message. In bird mode, act as the organiser. Judge the complexity and needs of the task, then delegate it. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. The worker must be an existing bird name or id from birds, or an empty string for a new bird; nextBird names that new bird. Use current and recent to identify follow-ups and continue the relevant bird. New unrelated jobs have an empty worker. Set tiny:true only for simple factual or exact one-step jobs; these may use lighterModel only when it is supplied. Shape, motion, binding, creative decisions and uncertain or dependent work use tiny:false and the chosen model. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"worker":"","job":"short part-specific task","tiny":false,"scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Judge complexity for each part. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird. Prefer one editor for coupled changes and at most one read-only helper for independent reference analysis or measurements. For a single job you may add helper:{"job":"short title","instructions":"specific read-only investigation"}; omit it for simple jobs or when there is no useful independent work. Include checks:["concrete completion criteria"] for complex work. Region jobs may include instructions and dependsOn:[earlier zero-based job indices]; their reports are passed only to dependent jobs. Do not parallelize coupled writes or duplicate the full investigation.',
+      settings, stepLimit: 1, label: 'Routing has no editor tools.',
+      system: contract.AI_ROUTER_PROMPT,
       prompt: JSON.stringify(input),
-      images: [], conversation: routing, signal, awareness: null, steering: new AiSteering(() => {}),
+      conversation: routing, signal,
     };
     const jobOf = args => {
       if (!args || typeof args !== 'object' || typeof args.job !== 'string' || !args.job.trim()) throw Error('Each job needs a short title.');
@@ -652,35 +708,29 @@ class AiService {
       if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
       return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks) } : {}) };
     };
-    try {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        reply = '';
-        meter = this.measureUsage(routing, recorder, 'router');
-        if (settings.provider === 'codex') await runCodex(options);
-        else if (settings.provider === 'claude') await runClaude(options);
-        else await runApi(options);
-        try {
-          const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
-          if (Array.isArray(args?.jobs) && args.jobs.length) {
-            const jobs = args.jobs.map(jobOf);
-            const assigned = jobs.filter(j => j.worker).map(j => j.worker);
-            if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
-            jobs.forEach((j, i) => {
-              if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
-              if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
-              if (j.instructions !== undefined && (typeof j.instructions !== 'string' || j.instructions.length > 2000)) throw Error('Keep part instructions under 2000 characters.');
-            });
-            if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
-            return { jobs };
-          }
-          const { job, worker, tiny, helper, checks } = jobOf(args);
-          return { job, worker, tiny, helper, checks };
-        } catch (error) {
-          if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
-          options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const reply = await this.askOnce({ ...options, meter: this.measureUsage(routing, recorder, 'router') });
+      try {
+        const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
+        if (Array.isArray(args?.jobs) && args.jobs.length) {
+          const jobs = args.jobs.map(jobOf);
+          const assigned = jobs.filter(j => j.worker).map(j => j.worker);
+          if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
+          jobs.forEach((j, i) => {
+            if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
+            if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
+            if (j.instructions !== undefined && (typeof j.instructions !== 'string' || j.instructions.length > 2000)) throw Error('Keep part instructions under 2000 characters.');
+          });
+          if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
+          return { jobs };
         }
+        const { job, worker, tiny, helper, checks } = jobOf(args);
+        return { job, worker, tiny, helper, checks };
+      } catch (error) {
+        if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
+        options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
       }
-    } finally { options.steering.close(); }
+    }
   }
   measureUsage(conversation, recorder, role) {
     let lastTokens = 0, lastUsd = 0;
@@ -721,14 +771,10 @@ class AiService {
       AI_JOB_TOOLS,
       AI_JOB_CHECKPOINT,
       AI_HELPER_NOTE,
-      AI_SYSTEM_PROMPT,
-      AI_EDITING_HANDBOOK,
       AI_PLAN_TOOL,
       guidesForRequest,
-      AI_WEB_RESEARCH,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
-      AI_WORKER_NOTE,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -876,7 +922,7 @@ class AiService {
     let workerImages = images,
       lastInspect = null;
     const performCall = async (name, args, callSignal) => {
-      if (signal.aborted) throw Error('AI request cancelled.');
+      if (signal.aborted) throw Error(CANCELLED);
       if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this bird.');
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
@@ -1056,16 +1102,11 @@ class AiService {
         : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => READ_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
     // The organiser only routes, so web research goes to the AI that does the work.
     const web = sd.web === true && !organiser;
-    const editing =
-      (sd.handbook === true ? AI_SYSTEM_PROMPT + '\n' + AI_EDITING_HANDBOOK : AI_SYSTEM_PROMPT) +
-      (web ? '\n' + AI_WEB_RESEARCH : '');
     const system =
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
       : conversation.helperOnly ? AI_HELPER_NOTE
-      : conversation.kind === 'worker'
-        ? AI_WORKER_NOTE + '\n' + editing.slice(editing.indexOf('\n') + 1)
-        : editing;
+      : editingPrompt(contract, { handbook: sd.handbook === true, web, worker: conversation.kind === 'worker' });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
@@ -1093,9 +1134,7 @@ class AiService {
           steering,
           web,
         };
-        if (settings.provider === 'codex') await runCodex(options);
-        else if (settings.provider === 'claude') await runClaude(options);
-        else await runApi(options);
+        await runProvider(options);
         if (workerYield) throw workerYield;
         if (lightFailure) throw lightFailure;
         const findings = await helperFindings();
@@ -1202,9 +1241,7 @@ class AiService {
     return (
       (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
       names +
-      (entry?.note && conversation.transcript.length <= 2
-        ? '\n\nMemory note from earlier work on this model:\n' + entry.note
-        : '')
+      (entry?.note && conversation.transcript.length <= 2 ? memoryNoteText(entry.note) : '')
     );
   }
   // The next new worker's name is drawn once, so the organiser can announce it.
@@ -1292,7 +1329,7 @@ class AiService {
         (args.instructions ? '\n\nAssigned investigation or prerequisite evidence:\n' + args.instructions : '') +
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
-        (!conversation.messages.length && memory ? `\n\nMemory note from earlier work on this model:\n${memory}` : '');
+        (!conversation.messages.length && memory ? memoryNoteText(memory) : '');
       if (context.region) {
         await this.call('mdlxl_regions', { action: 'label', target: context.target, name: worker.name });
       }
@@ -1380,28 +1417,16 @@ class AiService {
       model = counts.geosets
         ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
         : `The open model ${context.name} is empty, so this creates something new.`;
-    let reply = '';
-    const options = {
+    const reply = await this.askOnce({
       settings,
-      key: this.decrypt(settings.key),
-      directory: this.directory,
-      event: (() => { const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'); return value => { if (value.type === 'text') reply += value.text; else meter(value); }; })(),
-      tools: [],
-      call: async () => {
-        throw Error('The art director has no tools.');
-      },
+      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'),
+      label: 'The art director has no tools.',
       system: contract.AI_SD_ART_DIRECTOR,
       prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
       images,
       conversation: art,
       signal,
-      // The art director never watches the editor (providers skip awareness when it is null).
-      awareness: null,
-      steering: new AiSteering(() => {}),
-    };
-    if (settings.provider === 'codex') await runCodex(options);
-    else if (settings.provider === 'claude') await runClaude(options);
-    else await runApi(options);
+    });
     return reply.trim().slice(0, 4000);
   }
   // One tool-free call to a fresh AI with no part of the worker's conversation.
@@ -1409,20 +1434,10 @@ class AiService {
   async outsideCheck({ request, plan, inspect, settings, contract, signal, conversation, recorder }) {
     const judge = { id: `${conversation.id}-check`, provider: settings.provider, transcript: [], messages: [], kind: 'check' };
     const { pictures, left } = choosePictures(inspect.images);
-    let reply = '';
-    const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check');
-    const options = {
+    const question = {
       settings,
-      key: this.decrypt(settings.key),
-      directory: this.directory,
-      event: value => {
-        if (value.type === 'text') reply += value.text;
-        else meter(value);
-      },
-      tools: [],
-      call: async () => {
-        throw Error('The outside check has no tools.');
-      },
+      meter: this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check'),
+      label: 'The outside check has no tools.',
       system: contract.AI_OUTSIDE_CHECK,
       prompt: [
         `The owner's request, exactly as written:\n${request}`,
@@ -1437,18 +1452,13 @@ class AiService {
       images: pictures.map(p => p.image),
       conversation: judge,
       signal,
-      // The judge never watches the editor and is never steered.
-      awareness: null,
-      steering: new AiSteering(() => {}),
     };
     // The check is a step in the chat like any tool: a tick when good, a cross otherwise;
     // clicking it shows the verdict.
     const callId = `${judge.id}-${Date.now()}`;
     recorder.event({ type: 'tool', name: 'outside_check', callId, detail: 'Judging the request, the keep list and the pictures.' });
     try {
-      if (settings.provider === 'codex') await runCodex(options);
-      else if (settings.provider === 'claude') await runClaude(options);
-      else await runApi(options);
+      const reply = await this.askOnce(question);
       const found = JSON.parse(reply.slice(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
       if (!['good', 'doubtful', 'wrong'].includes(found.verdict)) throw Error('no verdict');
       const verdict = {
@@ -1553,43 +1563,23 @@ class AiService {
   }
   async setSdBrain(enabled) {
     if (enabled && !(await this.sdBrainAvailable())) throw Error('SD Brain is not available in this version.');
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.sdBrain = enabled;
-    await this.persist();
-    this.emit({ type: 'sd-brain', enabled });
-    return this.status();
+    return this.setSwitch('sdBrain', 'sd-brain', enabled);
   }
   // The editing handbook is off until the user turns it on; it applies from the next task.
-  async setEditingHandbook(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.editingHandbook = enabled;
-    await this.persist();
-    this.emit({ type: 'editing-handbook', enabled });
-    return this.status();
+  setEditingHandbook(enabled) {
+    return this.setSwitch('editingHandbook', 'editing-handbook', enabled);
   }
   // Web research is off until the user turns it on; it applies from the next task.
-  async setWebResearch(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.webResearch = enabled;
-    await this.persist();
-    this.emit({ type: 'web-research', enabled });
-    return this.status();
+  setWebResearch(enabled) {
+    return this.setSwitch('webResearch', 'web-research', enabled);
   }
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
     return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
-  async setOffload(enabled) {
-    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
-    const config = await this.configuration();
-    config.offload = enabled;
-    await this.persist();
-    this.emit({ type: 'offload', enabled });
-    return this.status();
+  setOffload(enabled) {
+    return this.setSwitch('offload', 'offload', enabled);
   }
   async setRememberedCleanup({ modelKey, remember }) {
     if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
@@ -1646,7 +1636,7 @@ class AiService {
     for (const id of ids) {
       this.conversations.delete(id);
       await this.writes.get(id)?.catch(() => {});
-      await fs.rm(path.join(this.directory, 'chat-' + id + '.json'), { force: true });
+      await fs.rm(this.chatFile(id), { force: true });
     }
     return { ids, providerFiles: await deleteProviderSessions(this.directory, threads) };
   }
@@ -1673,7 +1663,7 @@ class AiService {
     const newest = async ids => {
       let time = 0;
       for (const id of ids) {
-        const stat = await fs.stat(path.join(this.directory, 'chat-' + id + '.json')).catch(() => null);
+        const stat = await fs.stat(this.chatFile(id)).catch(() => null);
         if (stat) time = Math.max(time, stat.mtimeMs);
       }
       return time;
@@ -1699,7 +1689,7 @@ class AiService {
     const old = async full => ((await fs.stat(full).catch(() => null))?.mtimeMs ?? now) <= cutoff;
     for (const name of await fs.readdir(this.directory).catch(() => [])) {
       const full = path.join(this.directory, name),
-        chat = /^chat-([a-zA-Z0-9_-]{1,80})\.json(\.tmp)?$/.exec(name);
+        chat = CHAT_FILE.exec(name);
       if (chat ? kept.has(chat[1]) || this.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
       if (!(await old(full))) continue;
       await fs.rm(full, { recursive: true, force: true });
@@ -1770,7 +1760,7 @@ class AiService {
   async readConversation(id) {
     if (this.conversations.has(id)) return this.conversations.get(id);
     try {
-      return settleConversation(JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')));
+      return settleConversation(JSON.parse(await fs.readFile(this.chatFile(id), 'utf8')));
     } catch {
       return null;
     }
@@ -1864,8 +1854,8 @@ class AiService {
     if (active.parallel && active.workers?.size) {
       const conversation = await this.readConversation(active.id);
       const workers = (conversation.workers || []).filter(w => active.workers.has(w.id));
-      const named = workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
-      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), signal: active.controller.signal });
+      const named = addressedBird(workers, text);
+      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), contract: await this.init(), signal: active.controller.signal });
       const selected = workers.find(w => w.name === choice.worker);
       const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
       for (const w of targets) deliver(w);
@@ -1906,14 +1896,14 @@ class AiService {
             id: m.model || m.id,
             name: m.displayName || m.model || m.id,
           }));
-          (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+          (this.modelCatalog ||= {})[catalogKey(settings)] = models;
           return models;
         } finally {
           await client.close();
         }
       }
       const models = await providerModels(settings, this.decrypt(settings.key), signal);
-      (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+      (this.modelCatalog ||= {})[catalogKey(settings)] = models;
       return models;
     } finally {
       if (this.active === active) this.active = null;
@@ -1963,9 +1953,7 @@ class AiService {
           await client.close();
         }
       }
-      const env = providerEnvironment(this.directory, 'claude');
-      await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
-      await fs.mkdir(env.TEMP, { recursive: true });
+      const env = await prepareEnvironment(this.directory, 'claude');
       if (controller.signal.aborted) throw Error('Sign-in cancelled.');
       const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
         cwd: this.directory,
@@ -2067,7 +2055,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {
-    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    if (!CHAT_ID.test(id || '')) throw Error('Invalid conversation ID.');
     return (await service.readConversation(id))?.transcript || [];
   });
   handle('ai:script', payload => {
@@ -2118,12 +2106,12 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
         modifiers: [...modifiers, ...(type === 'mouseMove' ? [button + 'buttondown'] : [])],
       });
     let last = points[0];
-    if (request.signal?.aborted) throw Error('AI request cancelled.');
+    if (request.signal?.aborted) throw Error(CANCELLED);
     mouse('mouseMove', last);
     mouse('mouseDown', last);
     try {
       for (const point of points.slice(1)) {
-        if (request.signal?.aborted) throw Error('AI request cancelled.');
+        if (request.signal?.aborted) throw Error(CANCELLED);
         last = point;
         mouse('mouseMove', point);
         await new Promise(resolve => setTimeout(resolve, 16));
@@ -2214,4 +2202,4 @@ function choosePictures(images, limit = 12) {
   return { pictures, left: images.filter(image => !pictures.includes(image)).map(image => image.label) };
 }
 
-module.exports = { AiService, AiSteering, registerAiService, choosePictures };
+module.exports = { AiService, AiSteering, registerAiService, choosePictures, editingPrompt };
