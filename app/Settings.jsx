@@ -81,7 +81,8 @@ const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
 let lastMousePage = 'Camera';
 function RotationSettings({ value, onChange }) {
   const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
-  const names = { linear: 'Linear', pivot: 'Pivot-based' };
+  const names = { ring: 'Along the ring', linear: 'Straight drag', pivot: 'Circle the pivot' };
+  const tips = { ring: 'Pull along the axis ring; every axis turns at the same speed.', linear: 'Drag right or up to turn steadily (MdlVis).', pivot: "Circle around the selection's center." };
   const change = patch => {
     if (global) { onChange({ ...value, ...patch }); return; }
     const entry = { ...override, ...patch };
@@ -93,11 +94,11 @@ function RotationSettings({ value, onChange }) {
   const inheritSpeed = !global && override.sensitivity === undefined;
   return <section className="settings-appearance-section"><h4>Rotational Behavior</h4><div className="settings-appearance-content">
     <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-    <label className="settings-select" title="Linear: drag right or up to turn steadily. Pivot-based: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <label className="settings-select" title="Along the ring: pull along the axis ring; every axis turns at the same speed. Straight drag: drag right or up to turn steadily (MdlVis). Circle the pivot: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id} title={tips[id]}>{label}</option>)}</select></label>
     <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly."><label className="settings-number"><span>Rotation sensitivity</span><span><input aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" type="number" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) change({ sensitivity: event.target.valueAsNumber }); }}/>×</span></label>
       {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
     </div>
-    <p className="settings-hint">Linear turns by drag distance; right or up is positive. Pivot-based follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
+    <p className="settings-hint">Along the ring turns one degree per pixel pulled along the axis ring, the same on every axis. Straight drag turns by drag distance; right or up is positive. Circle the pivot follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
   </div></section>;
 }
 const LEARN_CHOICES = [

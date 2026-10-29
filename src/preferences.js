@@ -47,7 +47,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
-  rotation: DEFAULT_ROTATION,
+  rotation: DEFAULT_ROTATION, rotationRevision: 2,
   rightScrollAdjust: true,
   highlightSelection: false,
   theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
@@ -141,8 +141,16 @@ export function migrateFollowupPreferences(value = {}) {
     ...(input.rendererRevision !== 1 ? {graphics:{...record(input.graphics),antialias:false}} : {})};
 }
 /** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
+/** Rotation revision 2 makes "Along the ring" the Rotate default. Saved
+ * profiles always stored the default behavior, so an earlier explicit choice
+ * cannot be told apart from the old default: everyone moves once. Per-editor
+ * overrides were only ever saved by choice and stay. */
+function migrateRotationDefault(input) {
+  if (input.rotationRevision === 2) return input;
+  return { ...input, rotationRevision: 2, ...(own(input, 'rotation') ? { rotation: { ...record(input.rotation), behavior: DEFAULT_ROTATION.behavior } } : {}) };
+}
 export function migratePreferences(value = {}) {
-  const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
+  const input = migrateRotationDefault(migrateFollowupPreferences(value)), hotkeys = migrateHotkeyBindings(input.hotkeys);
   const result = hotkeys === input.hotkeys ? input : { ...input, hotkeys };
   if (!own(result, 'shredder')) return result;
   const { shredder, ...current } = result;
@@ -179,7 +187,7 @@ export function normalizePreferences(value = {}) {
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
-    rotation: normalizeRotationPreferences(input.rotation),
+    rotation: normalizeRotationPreferences(input.rotation), rotationRevision: 2,
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',

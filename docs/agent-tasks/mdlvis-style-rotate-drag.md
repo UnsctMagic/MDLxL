@@ -1,8 +1,46 @@
 # MdlVis-style Rotate drag
 
-Status: completed — PR #327 then #336 (Pivot-based default), shipped in 0.33.0
+Status: in review — "Along the ring" default (branch `claude/audit-wp-r1-rotate-ring-344cc4`,
+from `origin/main` `4b3487f2`); earlier PR #327 then #336 (Pivot-based default) shipped in 0.33.0
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
-Updated: 2026-10-26
+Updated: 2026-10-29
+
+## Current status: "Along the ring" is the default (2026-10-29)
+
+Why: the owner found Rotate unprofessional. With Pivot-based, an axis facing the
+camera swept the angle around the pivot while an edge-on axis (`facing` < 0.3)
+silently fell back to the Linear pixel rule, so in a 3/4 view one axis cranked
+and the other two moved by pixels; the sweep also had a 12-pixel dead zone at the
+pivot (drags jammed) and turned too fast near the centre. After an interactive
+demo the owner approved: **direction from the ring, speed fixed in degrees per
+pixel** (Maya / 3ds Max / Unity / Unreal).
+
+The rule (`behavior: 'ring'`, `rotationRingTangent` in `src/rotation-drag.js`):
+at drag start the screen direction of the turn ring at the grab point is fixed
+for the drag. Callers pass the turn axis in view space (x right, y up, z toward
+the viewer). Off the axis, the ring through the grab point gives the tangent
+a × (G − P); on the axis (the gizmo's axis handles are shafts, so most grabs) or
+on a ring too thin to tell near from far side, the ring's near side does
+(perpendicular to the axis on screen); at the centre of a camera-facing axis,
+screen right. Each move adds `dot(drag, tangent) × 1° × Rotation sensitivity ×
+pointer DPI`, so X, Y and Z turn equally, the direction never flips during a
+drag, and there is no dead zone. Positive is the right-hand rule about the axis,
+exactly the angle every editor already applies, so authored animation data and
+Linear/Pivot results are unchanged. UV and Showcase text use axis `[0, 0, -1]`
+(their positive angle turns clockwise on screen).
+
+Settings → Mouse → Rotation lists "Along the ring" (default), "Straight drag"
+(`linear`, MdlVis) and "Circle the pivot" (`pivot`). Saved profiles always stored
+the global behavior, so an earlier choice cannot be told from the old default:
+`rotationRevision` 2 moves every profile's global behavior to `ring` once;
+per-editor overrides (only ever saved by choice) and speeds stay.
+
+Criteria 1, 2, 5 and 6 below still hold, with "straight drag" read as "pull along
+the ring". Proof: `test/rotation-drag.test.js` (equal turns on X/Y/Z in a 3/4
+view, direction on every side of the ring, no dead zone, opt-ins unchanged,
+migration) and the packaged `rotation-interaction` harness (real mouse ring
+drags in Movement world/Local/workplane/POSE, vertices and UV; it uses the
+Shift+Z / Shift+Q camera hotkeys since the toolbar camera buttons were removed).
 
 ## Goal and completion criteria
 

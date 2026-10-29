@@ -43,6 +43,8 @@ const SPECIAL = {
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
+  // About 18 minutes of real mouse drags across every editing Rotate tool.
+  'rotation-interaction': { timeout: 30 * 60 * 1000 },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },
   'particle-lifecycle': { env: { MDLXL_PARTICLE_INDEX: particleIndex }, needs: [particleIndex] },
   'footprint-travel': { env: { MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
