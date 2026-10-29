@@ -1,18 +1,18 @@
 // All edits use ordinary UI input. Fiber access observes project/preview state.
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
-const root=process.cwd(),fixture=process.env.MDLXL_PAINT_FIXTURE,out=path.resolve(process.env.MDLXL_PAINT_OUT||'out/citadel-audit/brushes-'+Date.now());
+const { launchApp, closeApp, sha256File, settle: waitForSettle } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=process.cwd(),fixture=(process.env.MDLXL_PAINT_FIXTURE || fixturePath('citadel-footman')),out=path.resolve(process.env.MDLXL_PAINT_OUT||'out/citadel-audit/brushes-'+Date.now());
 if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman.');
-fs.mkdirSync(out,{recursive:true});const sourceHash=createHash('sha256').update(fs.readFileSync(fixture)).digest('hex'),result={checks:[],errors:[]};let app,page;
-const settle=()=>page.waitForTimeout(120),shot=name=>page.screenshot({path:path.join(out,name+'.png')}),idle=async()=>{await page.mouse.move(940,70);await settle();};
+fs.mkdirSync(out,{recursive:true});const sourceHash=sha256File(fixture),result={checks:[],errors:[]};let app,page;
+const settle=()=>waitForSettle(page, 120),shot=name=>page.screenshot({path:path.join(out,name+'.png')}),idle=async()=>{await page.mouse.move(940,70);await settle();};
 const history=()=>page.evaluate(()=>audit().project.history.undo.length),coat=()=>page.evaluate(()=>digest(audit().project.targets[0].coats[0].raster.data));
 async function run(){
-  app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
-  page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();});
+  ({ app, page, errors: result.errors } = await launchApp({ fixture: fixture, out, pageTimeout: 15000 }));
+
   await page.locator('[data-hotkey="paint"]').click();await shot('00-start');await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();
   await page.evaluate(()=>{
-    window.audit=()=>{const e=document.querySelector('.paint-workspace');let f=e[Object.keys(e).find(k=>k.startsWith('__reactFiber'))];while(f.return)f=f.return;const find=(f,p)=>{if(p(f))return f;for(let c=f.child;c;c=c.sibling){const r=find(c,p);if(r)return r;}};const w=find(f.stateNode.current,f=>f.memoizedProps?.onWorkingModelChange&&f.memoizedProps?.originalModel),v=find(f.stateNode.current,f=>f.memoizedProps?.onPaintStart&&f.memoizedProps?.paintMode);let runtime,hover;for(let h=v.memoizedState;h;h=h.next)if(h.memoizedState?.current?.renderer&&h.memoizedState?.current?.camera)runtime=h.memoizedState.current;for(let h=w.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(s?.entries&&s.parts)hover=s;}return{props:w.memoizedProps,project:w.memoizedProps.project,runtime,hover};};
+    window.audit=()=>{const props=findFiberState('.paint-workspace', p => p?.onWorkingModelChange && p?.originalModel, { tree: true, props: true }),viewport=findFiberState('.paint-workspace', p => p?.onPaintStart && p?.paintMode, { tree: true, props: true }),runtime=findFiberState('.paint-workspace', s => s?.renderer && s?.camera, { tree: true });const hover=findFiberState('.paint-workspace', s => s?.entries && s?.parts, { tree: true });return {props,project:props.project,runtime,hover};};
     window.pointFor=world=>{const r=audit().runtime,p=r.camera.position.clone().set(...world).project(r.camera),b=r.renderer.domElement.getBoundingClientRect();return [b.x+(p.x+1)*b.width/2,b.y+(1-p.y)*b.height/2];};
     window.digest=async data=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),x=>x.toString(16).padStart(2,'0')).join('');
     window.geometryState=()=>JSON.stringify({geosets:audit().props.model.Geosets,edits:audit().project.geometryEdits,uv:audit().project.uvEdits,bindings:audit().project.targets.map(t=>t.bindings),dimensions:audit().project.targets.map(t=>[t.base.width,t.base.height])});
@@ -35,4 +35,4 @@ async function run(){
   await page.getByRole('button',{name:'New…',exact:true}).click();await page.getByRole('button',{name:'Discard and start new',exact:true}).click();await page.getByRole('button',{name:/New base coat/}).click();await page.getByLabel('Base coat color',{exact:true}).fill('#d9b451');await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await idle();
   const primer=await page.evaluate(()=>{const r=audit().project.targets[0].base;return {width:r.width,height:r.height,allGold:r.data.every((v,i)=>v===[217,180,81,255][i%4])};});assert.deepEqual(primer,{width:512,height:512,allGold:true});await shot('04-gold-basecoat');result.checks.push('New base coat starts with the chosen gold color and paintable mapping');assert.deepEqual(result.errors,[]);console.log(JSON.stringify({out,...result},null,2));
 }
-run().catch(async error=>{result.failure=error.stack;console.error(error);if(page){console.error((await page.locator('body').innerText()).slice(-3500));await shot('failure');}process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});});
+run().catch(async error=>{result.failure=error.stack;console.error(error);if(page){console.error((await page.locator('body').innerText()).slice(-3500));await shot('failure');}process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await closeApp(app);});

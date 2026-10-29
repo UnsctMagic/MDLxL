@@ -2,17 +2,15 @@
 // "Fix everything" must clear the finding without adding errors or severe ones.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { runOptimizeStage, sanityProposals } from '../src/optimizexl.js';
 import { checkerRepairProposals, GEOSET_VERTEX_LIMIT } from '../src/optimizexl-checker-repairs.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
 
-const hive = bytes => { const m = new ModelViewer.parsers.mdlx.Model(); m.load(bytes.slice().buffer); const r = ModelViewer.utils.mdlx.sanityTest(m); return { ...r, findings: flattenHiveFindings(r.nodes) }; };
+const hive = bytes => { const r = sanityTest(bytes); return { ...r, findings: flattenHiveFindings(r.nodes) }; };
 const key = (Frame, Vector, extra = {}) => ({ Frame, Vector: new Float32Array(Vector), ...extra });
 const track = (Keys, LineType = 1, GlobalSeqId = null) => ({ LineType, GlobalSeqId, Keys });
 const sequence = (Name, Interval) => ({ Name, Interval: new Uint32Array(Interval), MoveSpeed: 0, NonLooping: false, Rarity: 0, BoundsRadius: 0, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), SyncPoint: 0, Flags: 0 });

@@ -1,13 +1,12 @@
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
-import { ModelRenderer } from 'war3-model';
+import { comparePoses } from './helpers/pose-compare.mjs';
 import { openDocument } from '../src/editor-document.js';
 import { sampleTrack } from '../src/animation.js';
 import { sanityProposals, runOptimizeStage, SPHERE_PRESETS } from '../src/optimizexl.js';
 import { effectVisibilityProposals } from '../src/optimizexl-effect-visibility.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
-const sanity = bytes => {const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused};};
+const sanity = bytes => {const r=sanityTest(bytes);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused};};
 const read = bytes => openDocument(bytes,'x.mdx').model;
 const batch = (source,stage,fixes) => runOptimizeStage(source,stage,{}, {kind:'batch',stage,entries:fixes.map(fix=>({fix,settings:{}}))}).bytes;
 const at = (m,path) => path.reduce((v,k)=>v[k],m);
@@ -17,16 +16,13 @@ for (const path of process.argv.slice(2)) {
   const cleaned=batch(source,'sanity',fixes),after=read(cleaned);
   assert.deepEqual(sanity(cleaned),{errors:0,severe:0,warnings:0,unused:0});
   assert.deepEqual(sanityProposals(after),[]);
-  const a=new ModelRenderer(structuredClone(before)),b=new ModelRenderer(structuredClone(after));
   const paths=[...new Map(fixes.map(f=>[f.path.join('.'),f.path])).values()]; let samples=0;
-  for(let si=0;si<before.Sequences.length;si++) {a.setSequence(si);b.setSequence(si);
-    for(let f=before.Sequences[si].Interval[0];f<=before.Sequences[si].Interval[1];f++) {a.setFrame(f);b.setFrame(f);
+  comparePoses(before, after, ({ a, b }) => {
       for(const p of paths){const property=p.at(-1),ta=at(before,p),tb=at(after,p);
         const evaluate=(r,t)=>property==='Rotation'?r.interp.quat(new Float32Array(4),t):property==='Translation'?r.interp.vec3(new Float32Array(3),t):r.interp.num(t);
         assert.deepEqual(evaluate(a,ta),evaluate(b,tb));samples++;
       }
-    }
-  }
+  });
   for(const p of paths) at(after,p.slice(0,-1))[p.at(-1)]=structuredClone(at(before,p));
   assert.deepEqual(after,before,'Only the proposed local tracks changed');
   const cleanModel=read(cleaned),effects=effectVisibilityProposals(cleanModel);

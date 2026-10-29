@@ -1,15 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import {ModelRenderer} from 'war3-model';
 import {createStarterDocument} from '../src/starter-model.js';
 import {openDocument} from '../src/editor-document.js';
 import {runOptimizeStage,sanityProposals} from '../src/optimizexl.js';
 import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 const extent=()=>({MinimumExtent:new Float32Array([-999,-999,-999]),MaximumExtent:new Float32Array([999,999,999]),BoundsRadius:2000});
 const key=(Frame,Vector)=>({Frame,Vector:new Float32Array(Vector)});
 test('invalid animated bounds repair survives save/reopen and contains moving geometry',()=>{

@@ -1,16 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import {createStarterDocument} from '../src/starter-model.js';
 import {openDocument,createNode} from '../src/editor-document.js';
 import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
 import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
 const seq=(Name,a,b)=>({Name,Interval:new Uint32Array([a,b]),MinimumExtent:new Float32Array(3),MaximumExtent:new Float32Array(3),BoundsRadius:0,MoveSpeed:0,NonLooping:false,Rarity:0});
 const key=(Frame,Vector)=>({Frame,Vector:new Float32Array(Vector)});
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 function fixture(property='Rotation',global=false){const d=createStarterDocument();d.apply('Roundoff fixture',['Sequences','GlobalSequences','Bones'],m=>{
   m.Sequences=[seq('A',100,300),seq('B',500,700)];m.GlobalSequences=global?[300]:[];
   const a=property==='Rotation'?[0,0,0,1]:property==='Scaling'?[1,1,1]:[2,3,4],b=[...a];b[0]+=1e-7;

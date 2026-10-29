@@ -1,6 +1,6 @@
 // Private fixtures and repaired models remain outside Git.
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {ModelRenderer} from 'war3-model';
@@ -9,9 +9,8 @@ import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
 import {assertRoundTripFields} from '../src/model-optimizer.js';
 import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
 const hash=b=>createHash('sha256').update(b).digest('hex'),local=t=>t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff;
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused,findings:flattenHiveFindings(r.nodes)};};
 function entries(m){const out=[];function walk(v,path=[]){if(!v||typeof v!=='object'||ArrayBuffer.isView(v))return;
   if(v.Keys){out.push({track:v,path});return;}for(const [k,x]of Object.entries(v))if(k!=='Nodes')walk(x,[...path,k]);}walk(m);return out;}
 const at=(m,p)=>p.reduce((v,k)=>v[k],m);

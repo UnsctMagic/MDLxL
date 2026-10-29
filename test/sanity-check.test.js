@@ -1,14 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import { createStarterDocument } from '../src/starter-model.js';
 import { checkSanity, sanityLocation } from '../src/sanity-check.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
-const hive = async bytes => {const m = new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r = ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive = async bytes => {const r = sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 test('current unsaved data is checked without mutation, including mdx-m3-viewer notices', async () => {
  const m = createStarterDocument().model, before = structuredClone(m);
  const result = await checkSanity(m, hive);

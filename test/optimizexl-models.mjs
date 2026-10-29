@@ -1,7 +1,7 @@
 // Optional integration check against user-supplied files; never rewrites them.
 // node test/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import { ModelRenderer } from 'war3-model';
 import { Matrix4 } from 'three';
@@ -11,8 +11,7 @@ import { findIrregularities, runOptimizeStage, simpleSettings, SPHERE_PRESETS } 
 import { prepareNuclearReduction } from '../src/optimizexl-geometry.js';
 await prepareNuclearReduction();
 
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'),{filename:'hive-viewer.js'});
-function sanity(bytes){const m=new globalThis.ModelViewer.parsers.mdlx.Model();m.load(new Uint8Array(bytes).buffer);const {errors,severe,warnings,unused}=globalThis.ModelViewer.utils.mdlx.sanityTest(m);return {errors,severe,warnings,unused};}
+function sanity(bytes){const {errors,severe,warnings,unused}=sanityTest(bytes);return {errors,severe,warnings,unused};}
 function pose(model,sequence,frame){const r=new ModelRenderer(structuredClone(model));r.setSequence(sequence);r.setFrame(frame);r.updateNode(r.rendererData.rootNode);const matrices=new Map(r.rendererData.nodes.filter(Boolean).map(n=>[n.node.ObjectId,new Matrix4().fromArray(n.matrix)]));return model.Geosets.flatMap(g=>Array.from(skinGeoset(g,matrices)));}
 function difference(a,b){assert.equal(a.length,b.length);return Math.max(0,...a.map((v,i)=>Math.abs(v-b[i])));}
 function retainedPoseDifference(before,after){
