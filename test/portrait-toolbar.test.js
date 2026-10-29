@@ -76,6 +76,8 @@ test('Clear turns off the active view, including Shadows and Grid',()=>{
 test('Snap uses existing camera entry without altering document, playback or sequence',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
+  const portrait=readFileSync(new URL('../app/usePortraitState.js',import.meta.url),'utf8');
+  assert.match(portrait,/\[portraitSnapRevision, setPortraitSnapRevision\] = useState\(0\)/);
   assert.match(app,/onSnap=\{\(\) => \{ setPortraitView\('perspective'\); setPortraitSnapRevision\(value => value \+ 1\); \}\}/);
   assert.match(preview,/current\.enterPortrait\(evaluated\);\s*\}, \[props\.portraitMode, props\.portraitCameraIndex, props\.portraitSnapRevision/);
 

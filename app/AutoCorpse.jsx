@@ -53,7 +53,7 @@ function addChalkOutline(model, corpse) {
 /** Shows the fitted corpse before it is made. Pieces are dragged like EMTR
  * emitters; Size, Height and colour apply to the whole corpse. Create applies
  * it as one undoable edit. */
-export default function AutoCorpse({ doc, modelPath, textureAssets, preferences, teamColor, onCommit, onClose }) {
+export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, onCommit, onClose }) {
   const current = useMemo(() => structuredClone(doc.model), [doc.revision]);
   const [size, setSize] = useState(100), [height, setHeight] = useState(100), [rgb, setRgb] = useState([255, 255, 255]);
   const [pieces, setPieces] = useState(null), [selected, setSelected] = useState(null), [outline, setOutline] = useState(true), [withBody, setWithBody] = useState(false), [error, setError] = useState(''), [snapshot, setSnapshot] = useState(null);
@@ -220,7 +220,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
           <button disabled={!changed} title="Back to the fitted corpse" onClick={reset}>Reset</button>
         </div>}
         <section className="atm-preview acp-preview" aria-label="Auto Corpse preview" onDoubleClick={pick}>
-          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor}
+          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor}
             sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
           {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>

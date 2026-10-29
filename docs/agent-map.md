@@ -14,6 +14,13 @@ the current branch before using them. Historical evidence is not a fresh test re
 [AppToolbar.jsx](../app/AppToolbar.jsx), [AppSidebar.jsx](../app/AppSidebar.jsx),
 [AppPanels.jsx](../app/AppPanels.jsx) and [AppDialogs.jsx](../app/AppDialogs.jsx).
 Search the relevant component or dialog type before reading all of App.
+App's small state owners are [usePreferences.js](../app/usePreferences.js)
+(preferences, first-paint cache, settings tab and saves),
+[PreferencesContext.jsx](../app/PreferencesContext.jsx) (shared preferences and
+`openHotkeySettings`; explicit GamePreview/Viewport preferences still override it),
+[useEditorDisplay.js](../src/useEditorDisplay.js) (XL/VIS clean views and overlays,
+including POSE's display), and [usePortraitState.js](../app/usePortraitState.js)
+(portrait controls, session resets and remembered backdrop look).
 Shared shell pieces: the classic window and `LoadingWindow` in
 [Dialog.jsx](../app/Dialog.jsx) (`onSubmit` gives an OK/Cancel form), the tool-window
 shell in [ToolWindow.jsx](../app/ToolWindow.jsx) (resource editors, AnimXL, Particle

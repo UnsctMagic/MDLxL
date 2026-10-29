@@ -12,6 +12,7 @@ import VIEW_MENU from '../src/view-menu.json' with { type: 'json' };
 const toolbar = readFileSync(new URL('../app/AppToolbar.jsx', import.meta.url), 'utf8').replaceAll('\r', '');
 const css = readFileSync(new URL('../app/modules.css', import.meta.url), 'utf8').replaceAll('\r', '');
 const app = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
+const display = readFileSync(new URL('../src/useEditorDisplay.js', import.meta.url), 'utf8');
 const classic = readFileSync(new URL('../app/portrait-view.css', import.meta.url), 'utf8').replaceAll('\r', '');
 const effectBody = toolbar.match(/useLayoutEffect\(\(\) => \{(\s*const row = editorRow\.current;[\s\S]*?)\n  \}, \[mode, animationPanel, visUI, preferences.language\]\)/)[1];
 const layout = new Function('editorRow', 'visUI', 'ResizeObserver', effectBody);
@@ -75,7 +76,7 @@ test('VIS hides tabs and editors, restores classic placements and hides AI while
   assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>:not\(\.vis-toggle\)/);
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
-  assert.match(app, /const visibleOverlays = visUI \? \{ \.\.\.storedOverlays, bones: true, helpers: true, attachments: true \}/);
+  assert.match(display, /const visibleOverlays = visUI \? \{ \.\.\.storedOverlays, bones: true, helpers: true, attachments: true \}/);
   assert.match(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);

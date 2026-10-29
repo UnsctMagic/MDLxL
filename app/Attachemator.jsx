@@ -14,7 +14,7 @@ const PICKING = { ...OVERLAYS, bones: true, helpers: true };
 /** Places the standard attachment points like Blizzard's own units. Every
  * point can be dragged, given another bone, or unticked to stay as it is;
  * Commit applies the ticked points as one undoable edit. */
-export default function Attachemator({ doc, modelPath, textureAssets, preferences, teamColor, onCommit, onClose }) {
+export default function Attachemator({ doc, modelPath, textureAssets, teamColor, onCommit, onClose }) {
   const current = useMemo(() => structuredClone(doc.model), [doc.revision]);
   const plan = useMemo(() => { try { return planAttachments(current); } catch (cause) { return { rows: [], others: [], error: cause.message }; } }, [current]);
   const [chosen, setChosen] = useState(() => new Set(plan.rows.filter(row => row.state === 'new' || row.state === 'change').map(row => row.key)));
@@ -91,7 +91,7 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
           {!plan.rows.length && <p className="atm-muted atm-empty">{plan.error || 'This model has nothing to attach points to.'}</p>}
         </div>
         <section className="atm-preview" aria-label="Attachemator preview">
-          <GamePreview textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} model={draft.model}
+          <GamePreview textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} model={draft.model}
             hiddenGeosets={hidden} restPose sequenceIndex={-1} time={0} playing={false} showGrid fitModel showAxes={false} showParticles={false} overlays={picking ? PICKING : OVERLAYS}
             cameraMode="work" emptyDragRotates markersOnTop nodeLabels={labels} transformMode="move" transformSpace="world" compareCamera={camera.current} preserveCameraView
             selectedNodeIds={selectedId != null ? [selectedId] : []} onSelectNodes={ids => { const key = keyOf(ids.at(-1)); if (key) select(key); }}

@@ -195,7 +195,7 @@ test('the settings store and the editor share one preference rule', async t => {
 });
 
 test('desktop keeps preferences in settings.json with localStorage only as a first-paint cache', async () => {
-  const app = await fs.readFile(new URL('../app/App.jsx', import.meta.url), 'utf8');
+  const app = await fs.readFile(new URL('../app/usePreferences.js', import.meta.url), 'utf8');
   const writes = app.match(/localStorage\.setItem\('mdlvis-preferences'/g) || [], reads = app.match(/localStorage\.getItem\('mdlvis-preferences'\)/g) || [];
   // One browser store write, one paint-cache writer, one read for the first render.
   assert.equal(writes.length, 2); assert.equal(reads.length, 1);

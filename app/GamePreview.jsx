@@ -1,3 +1,4 @@
+import { usePreferencesContext } from './PreferencesContext.jsx';
 import { createNativeModelSmoothing } from './model-smoothing.js';
 import { collisionStageSnapshot } from './collision-stage.js';
 import { rotationOptions } from '../src/rotation-drag.js';
@@ -116,7 +117,8 @@ function releasePreviewGraphics(native, gl, canvas) {
 
 /** Upstream Warcraft renderer runs on its own GL canvas; editing is separate. */
 export default function GamePreview(inputProps) {
-  const presentationProps = previewPresentationProps(inputProps);
+  const { preferences } = usePreferencesContext();
+  const presentationProps = previewPresentationProps({ ...inputProps, preferences: inputProps.preferences === undefined ? preferences : inputProps.preferences });
   // Portrait keeps the v4 camera/frame path and normal Movement editing props.
   const props = presentationProps;
   if (props.showcase) props.portraitMode = !!props.showcasePortraitMode;
