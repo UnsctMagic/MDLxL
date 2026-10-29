@@ -168,6 +168,7 @@ New and migrated harnesses use `test/helpers/` instead of copying boilerplate:
 
 Electron harnesses share these helpers across all families. A `target` override is
 only for a test-owned patched package; `entry` keeps a development wrapper entry.
+`bounds: null` preserves a native prompt's own size.
 A seeded `profile` must be inside `out`. `closeApp(app, { keepProfile: true })`
 retains it only for an immediate restart; the last close removes it. Browser-only
 harnesses keep their headless Chromium launch and reuse the applicable helpers.
