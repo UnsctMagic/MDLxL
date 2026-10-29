@@ -1,3 +1,4 @@
+import { MODEL_LAYER } from './model-smoothing.js';
 import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -24,6 +25,7 @@ export function createViewportSketch({ parent, entries, invalidate }) {
   const objects = new Map(); // stroke id -> Line2
   const raycaster = new THREE.Raycaster(),
     pointer = new THREE.Vector2();
+  raycaster.layers.enable(MODEL_LAYER);
   let documentId = null,
     enabled = false,
     live = null,

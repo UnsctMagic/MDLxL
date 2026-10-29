@@ -6848,5 +6848,11 @@
   "A fixed 612 × 490 GIF, the usual main picture size on model pages": "固定 612 × 490 的 GIF，模型页面主图的常用尺寸",
   "Frames per second. Fewer frames make smaller files.": "每秒帧数。帧数越少，文件越小。",
   "Up to {0} px · {1} FPS · under {2} MB": "最大 {0} 像素 · {1} FPS · 小于 {2} MB",
-  "612 × 490 px · {0} FPS": "612 × 490 像素 · {0} FPS"
+  "612 × 490 px · {0} FPS": "612 × 490 像素 · {0} FPS",
+  "How should your models look?": "你希望模型呈现什么效果？",
+  "Clean, soft edges. Bones and lines stay sharp.": "边缘干净柔和，骨骼和线条保持清晰。",
+  "Crisp pixel edges, like the old MDLVis.": "像旧版 MDLVis 一样清晰的像素边缘。",
+  "You can change this any time in Settings → Graphics.": "你可以随时在设置 → 图形中更改。",
+  "Smooth edges: switch between Smooth and Classic MDLVis. Bones and lines stay sharp.": "边缘平滑：在平滑和经典 MDLVis 之间切换。骨骼和线条保持清晰。",
+  "Smooth model edges. Bones, wireframe and editor lines stay sharp. Turn off for Classic MDLVis pixel edges.": "平滑模型边缘。骨骼、线框和编辑器线条保持清晰。关闭后使用经典 MDLVis 像素边缘。"
 }

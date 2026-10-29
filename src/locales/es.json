@@ -6984,5 +6984,11 @@
   "A fixed 612 × 490 GIF, the usual main picture size on model pages": "Un GIF fijo de 612 × 490, el tamaño habitual de la imagen principal en páginas de modelos",
   "Frames per second. Fewer frames make smaller files.": "Fotogramas por segundo. Menos fotogramas, archivos más pequeños.",
   "Up to {0} px · {1} FPS · under {2} MB": "Hasta {0} px · {1} FPS · menos de {2} MB",
-  "612 × 490 px · {0} FPS": "612 × 490 px · {0} fotogramas/s"
+  "612 × 490 px · {0} FPS": "612 × 490 px · {0} fotogramas/s",
+  "How should your models look?": "¿Cómo quieres que se vean tus modelos?",
+  "Clean, soft edges. Bones and lines stay sharp.": "Bordes limpios y suaves. Los huesos y las líneas siguen nítidos.",
+  "Crisp pixel edges, like the old MDLVis.": "Bordes de píxeles nítidos, como en el antiguo MDLVis.",
+  "You can change this any time in Settings → Graphics.": "Puedes cambiarlo en cualquier momento en Ajustes → Gráficos.",
+  "Smooth edges: switch between Smooth and Classic MDLVis. Bones and lines stay sharp.": "Suavizado de bordes: alterna entre Suave y MDLVis clásico. Los huesos y las líneas siguen nítidos.",
+  "Smooth model edges. Bones, wireframe and editor lines stay sharp. Turn off for Classic MDLVis pixel edges.": "Suaviza los bordes del modelo. Los huesos, la malla y las líneas del editor siguen nítidos. Desactívalo para los bordes de píxeles del MDLVis clásico."
 }
