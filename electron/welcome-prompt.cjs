@@ -1,8 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const APPLICATION_THEMES = require('../src/application-themes.json');
-
-const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+const { showThemedPrompt, escapeHtml } = require('./themed-prompt.cjs');
 
 // The native Windows message box plays the alert sound and only fits a small
 // icon, so the first-launch welcome is a small frameless themed window like the close
@@ -44,39 +43,17 @@ addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault
 
 // Resolves 'yes' or 'no'. Closing the window itself counts as no.
 function showWelcomePrompt(parent, { title, heading, question, detail, note, labels, icon, theme, disableSounds = false }) {
-  // Loaded on use so main.cjs stays loadable where Electron is stubbed or absent.
-  const { BrowserWindow } = require('electron');
-  const width = 520;
-  return new Promise(resolve => {
-    const prompt = new BrowserWindow({
-      parent, modal: !!parent, show: false, frame: false, width, height: 240, useContentSize: true, title,
-      resizable: false, minimizable: false, maximizable: false, fullscreenable: false, autoHideMenuBar: true,
-      backgroundColor: (APPLICATION_THEMES[theme] || APPLICATION_THEMES.light).colors.panel,
-      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false, autoplayPolicy: 'no-user-gesture-required' },
-    });
-    let answer = 'no';
-    prompt.setMenu(null);
-    prompt.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    prompt.webContents.on('will-navigate', event => event.preventDefault());
-    // Buttons report through the page title; the window keeps its own title.
-    prompt.on('page-title-updated', (event, pageTitle) => {
-      event.preventDefault();
-      const action = /^mdlxl-welcome:(yes|no)$/.exec(pageTitle)?.[1];
-      if (action && !prompt.isDestroyed()) { answer = action; prompt.close(); }
-    });
-    prompt.webContents.once('did-finish-load', async () => {
+  const effectsScript=fs.readFileSync(path.join(__dirname,'../dist/update-popup-effects.js'),'utf8');
+  return showThemedPrompt(parent, {
+    html: welcomePromptHtml({ heading, question, detail, note, labels, icon, theme, effectsScript }), title, theme, width: 520, height: 240,
+    prefix: 'mdlxl-welcome', answers: ['yes', 'no'], fallback: 'no', frame: false, modal: !!parent,
+    webPreferences: { autoplayPolicy: 'no-user-gesture-required' },
+    onLoaded: async prompt => {
       try {
         await prompt.webContents.executeJavaScript('window.prepareWelcomeEffects?.()');
       } catch (error) { console.warn('Welcome effects unavailable.', error); }
-      try {
-        const height = await prompt.webContents.executeJavaScript('document.documentElement.scrollHeight');
-        if (!prompt.isDestroyed()) prompt.setContentSize(width, Math.min(600, Math.ceil(height)));
-      } catch {}
-      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); prompt.webContents.executeJavaScript(`requestAnimationFrame(()=>window.startWelcomeEffects?.(${!!disableSounds}))`).catch(error=>console.error(error)); }
-    });
-    prompt.on('closed', () => resolve(answer));
-    const effectsScript=fs.readFileSync(path.join(__dirname,'../dist/update-popup-effects.js'),'utf8');
-    prompt.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(welcomePromptHtml({ heading, question, detail, note, labels, icon, theme, effectsScript })));
+    },
+    onShown: prompt => prompt.webContents.executeJavaScript(`requestAnimationFrame(()=>window.startWelcomeEffects?.(${!!disableSounds}))`).catch(error=>console.error(error)),
   });
 }
 
