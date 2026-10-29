@@ -14,7 +14,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const app = await _electron.launch({
     executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
     args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) },
+    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) },
     timeout: 60000,
   });
   try {
@@ -82,12 +82,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Bones controller').waitFor();
     await page.getByLabel('Grabthrough', { exact: true }).uncheck();
     const previewState = () => page.locator('.game-preview-root').evaluate(element => {
-      let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))], top = fiber;
-      while (top.return) top = top.return;
-      fiber = top.stateNode.current === top ? fiber : fiber.alternate || fiber;
-      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps?.preferences) return {
-        mode: fiber.memoizedProps.mode, grabThrough: fiber.memoizedProps.grabThrough,
-        xrayVertices: fiber.memoizedProps.preferences.viewportAppearance.xrayVertices,
+      const props = window.__mdlxl.preview(element)?.props;
+      if (props?.model && props.preferences) return {
+        mode: props.mode, grabThrough: props.grabThrough,
+        xrayVertices: props.preferences.viewportAppearance.xrayVertices,
       };
       throw Error('GamePreview props not found');
     });

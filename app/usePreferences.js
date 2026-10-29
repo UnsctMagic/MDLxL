@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { normalizePreferences } from '../src/preferences.js';
 import { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
 
@@ -14,6 +14,7 @@ export default function usePreferences({ settings, say }) {
   // first-paint cache (see writePaintCache); initial() replaces it from settings.json.
   const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
   const [settingsTab, setSettingsTab] = useState(null), [preferencesReady, setPreferencesReady] = useState(!window.desktop);
+  const openHotkeySettings = useCallback(() => setSettingsTab('hotkeys'), []);
   const preferencesRef = useRef(preferences); preferencesRef.current = preferences;
   const savedPreferences = useRef(null), preferencesTimer = useRef();
   function changePreferences(next) { const value = normalizePreferences(typeof next === 'function' ? next(preferencesRef.current) : next); preferencesRef.current = value; setPreferences(value); }
@@ -32,5 +33,5 @@ export default function usePreferences({ settings, say }) {
     const timer=preferencesTimer.current=setTimeout(() => { window.desktop.configure({preferences}).then(result => {settings.current=result; savedPreferences.current=encoded; writePaintCache(encoded);}).catch(error=>say('Settings could not be saved: '+error.message,true)); },200);
     return () => clearTimeout(timer);
   },[preferences,preferencesReady]);
-  return { preferences, preferencesReady, settingsTab, setSettingsTab, setPreferencesReady, preferencesRef, changePreferences, loadPreferences, flushPreferences };
+  return { preferences, preferencesReady, openHotkeySettings, settingsTab, setSettingsTab, setPreferencesReady, preferencesRef, changePreferences, loadPreferences, flushPreferences };
 }

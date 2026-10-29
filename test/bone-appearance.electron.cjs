@@ -13,7 +13,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const errors = [], result = { combinations: [], rotation: null, persisted: null };
   let app;
   const launch = async () => {
-    app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
@@ -35,7 +35,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('Preview runtime not found');
       };
       window.previewProps = () => {
-        for (let fiber = currentFiber(document.querySelector('.game-preview-surface')); fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps.preferences) return fiber.memoizedProps;
+        const preview = window.__mdlxl.preview();
+        if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview props not found');
       };
     });

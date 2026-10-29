@@ -14,7 +14,7 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
   const modelPath = path.join(root, 'fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
   const bundle = buildSync({ stdin: { contents: `export { drawPreviewGeometryOverlay } from './app/preview-overlays.js'; export { drawPreviewBackground } from './app/game-preview-capture.js'; export { normalizePreferences } from './src/preferences.js'; export { exportConfiguration, importConfiguration } from './src/portable-settings.js'; export { BUILT_IN_VIEWPORT_PRESETS, backgroundImageRect } from './src/viewport-appearance.js'; export { OrthographicCamera, Vector3 } from 'three';`, resolveDir: root }, bundle: true, format: 'iife', globalName: 'appearanceAudit', write: false }).outputFiles[0].text;
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, modelPath], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, modelPath], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
   const result = { raster: null, presets: [], gaps: [] }, errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -84,8 +84,8 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
       };
       window.auditPreview = () => {
         const host = document.querySelector('.game-preview-root');
-        let fiber = currentFiber(host);
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model && fiber.memoizedProps.preferences) return fiber.memoizedProps;
+        const preview = window.__mdlxl.preview(host);
+        if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview owner not found');
       };
     });

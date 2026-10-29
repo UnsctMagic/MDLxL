@@ -30,6 +30,7 @@ import Learn from './Learn.jsx';
 import AppDialogs, { ResourceManagerView } from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
 import usePreferences from './usePreferences.js';
+import { PreferencesContext } from './PreferencesContext.jsx';
 import { Coordinate } from './EditorControls.jsx';
 import { setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
@@ -137,7 +138,7 @@ function browserRecovery(operation, value) {
 export default function App() {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
   const settings = useRef({});
-  const { preferences, preferencesReady, settingsTab, setSettingsTab, setPreferencesReady, preferencesRef, changePreferences, loadPreferences, flushPreferences } = usePreferences({ settings, say: (...args) => say(...args) });
+  const { preferences, preferencesReady, openHotkeySettings, settingsTab, setSettingsTab, setPreferencesReady, preferencesRef, changePreferences, loadPreferences, flushPreferences } = usePreferences({ settings, say: (...args) => say(...args) });
   setLanguage(preferences.language);
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
   const updates = useUpdates({ disableSounds: preferences.disableSounds, preferencesReady });
@@ -1681,7 +1682,8 @@ export default function App() {
     transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
-  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
+  const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings }), [preferences, openHotkeySettings]);
+  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       activateSession, animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
@@ -1692,19 +1694,19 @@ export default function App() {
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
       placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
-    {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={options => {
+    {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={options => {
       const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, current => autoCorpse(current, options), { rethrow: true });
       if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
       return !!result;
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
-    {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
+    {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       {mode !== 'manager' && <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
       }} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>}
-      {mode === 'manager' && <ResourceManagerView embedded kind={managerKind} onKindChange={setManagerKind} {...{activeGeoset, doc, edit, model, openLibrary, openParticles, preferences, refresh, selectAnimationPanel, selectManagerTextureFiles, selectSequence, selectedNodeIds, sequence, session, setActiveGeoset, setDialog, setMaterialVisibility, setPlaying, setSelectable, setSelectedNodeIds, setSelection, setSettingsTab, setTime, setUvSet, setView, teamColor, time, undo, validSelection}}/>}
+      {mode === 'manager' && <ResourceManagerView embedded kind={managerKind} onKindChange={setManagerKind} {...{activeGeoset, doc, edit, model, openLibrary, openParticles, preferences, refresh, selectAnimationPanel, selectManagerTextureFiles, selectSequence, selectedNodeIds, sequence, session, setActiveGeoset, setDialog, setMaterialVisibility, setPlaying, setSelectable, setSelectedNodeIds, setSelection, setTime, setUvSet, setView, teamColor, time, undo, validSelection}}/>}
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && mode !== 'manager' && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
@@ -1714,7 +1716,7 @@ export default function App() {
         {...cameraProps}
         rotationNormals={dialog?.type==='normalRotate'} onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset}
         highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView} onViewChange={setView}
-        preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
+        onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={session.id}
         hoveredGeoset={highlightedFromSelection} model={normalizerModel || previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
         selectedVertices={validSelection[activeGeoset] || []}
@@ -1746,7 +1748,7 @@ export default function App() {
         mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane}
         onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
         overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
-        preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
+        onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying}
         teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
@@ -1801,5 +1803,5 @@ export default function App() {
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Learn settings={preferences.learn}/>
     <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
-  </div></HotkeysProvider>;
+  </div></HotkeysProvider></PreferencesContext.Provider>;
 }

@@ -147,7 +147,7 @@ function BonePicker({ label, tip, ids, options, onChange, picking, onPick }) {
 }
 
 /** AnimXL: shape a hand-keyed animation with a few sliders, see it live, commit as plain keys. */
-export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, preferences, teamColor, modelPath, selectedNodeIds = [], poseRig = null, onClose }) {
+export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamColor, modelPath, selectedNodeIds = [], poseRig = null, onClose }) {
   const model = doc.model, sequences = model.Sequences || [];
   const [seq, setSeq] = useState(sequenceIndex >= 0 && sequences[sequenceIndex] ? sequenceIndex : 0);
   const fresh = () => ({ ...ANIMXL_DEFAULTS, ...suggestAnimXLBones(model) });
@@ -540,13 +540,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           {compare && <div className="ax-preview" aria-label="Original animation">
             <span className="ax-badge">Original</span>
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} liveNodeTracks={originalTracks} compareCamera={cameraBus.current} preserveCameraView overlayPaths={originalPath ? [originalPath] : undefined}/>
+              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} liveNodeTracks={originalTracks} compareCamera={cameraBus.current} preserveCameraView overlayPaths={originalPath ? [originalPath] : undefined}/>
             </Suspense>
           </div>}
           <div className="ax-preview" aria-label="AnimXL animation">
             {compare && <span className="ax-badge ax-badge-new">AnimXL</span>}
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [...ghostPaths, originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
+              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [...ghostPaths, originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
                 {...(target === 'selected' && !picking && !compare ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: selection, onSelectNodes: selectFromPreview, multiple: true, transformMode: 'select', poseConfig, poseDocumentModel: model, onPoseSelect: selectHandle, onPoseCommit: () => {} } : {})}
                 {...(picking ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
             </Suspense>
