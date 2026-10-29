@@ -1506,7 +1506,7 @@ function AiAssistant({ bridge, visUI }) {
                             <button
                               type="button"
                               aria-label={`Remove reference ${summary.name}`} data-hotkey="reference-current" data-hotkey-label="Remove current reference"
-                              title="Remove this reference model (closes its tab)."
+                              title="Remove this reference model from the chat."
                               onClick={() => bridge.host().removeReference(summary.documentId)}
                             >
                               <X size={12} aria-hidden="true" />
@@ -1520,7 +1520,7 @@ function AiAssistant({ bridge, visUI }) {
                           <button
                             type="button"
                             aria-label={`Remove reference ${reference.name}`} data-hotkey={`reference:${index}`} data-hotkey-label={`Remove reference ${index + 1}`}
-                            title="Remove this reference model (closes its tab)."
+                            title="Remove this reference model from the chat."
                             onClick={() => bridge.host().removeReference(reference.id)}
                           >
                             <X size={12} aria-hidden="true" />

@@ -21,7 +21,7 @@ function unit(walk = [key(200, 0), key(300, 5), key(400, 0)]) {
     Geosets: [{ Vertices: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0]), VertexGroup: new Uint8Array([0, 0, 0]), Groups: [[0]], Faces: new Uint16Array([0, 1, 2]) }],
   };
 }
-// The editor as ai-review sees it: one task tab showing Portrait Talk, a donor tab, and an
+// The editor as ai-review sees it: one task tab showing Portrait Talk, an AI-only donor, and an
 // off-screen renderer that records what each picture was asked to draw.
 function editor({ sequence = 0, frame = 50 } = {}) {
   const sessions = [
@@ -33,7 +33,8 @@ function editor({ sequence = 0, frame = 50 } = {}) {
   const bridge = {
     targets: new Map([['t', target]]),
     requireTarget: () => target,
-    state: () => ({ sessions }),
+    state: () => ({ sessions: [sessions[0]] }),
+    referenceSessions: () => sessions.slice(1),
     env: () => ({ live: true, model: sessions[0].doc.model, doc: sessions[0].doc, session: { assets: [] }, state: { model: sessions[0].doc.model, hiddenGeosets: new Set(), view: 'perspective', sequence: target.sequence, time: target.frame } }),
     context: () => ({}),
     contextFor: () => ({}),
@@ -99,7 +100,7 @@ test('a donor adds its matching phases, mapped across a different frame range', 
   assert.deepEqual(drawn.filter(d => d.source === 'donor').map(d => d.sample.frame), [1000, 1400, 1800]);
   assert.match(result.images[5].label, /^Donor Flail07\.mdx; "Walk" \(sequence 0\); 50% through; frame 1400$/);
   assert.equal(result.review.compared.donor, 'Flail07.mdx: "Walk" (sequence 0)');
-  await assert.rejects(inspect(bridge, { donor: { documentId: 'target' } }), /another open model/);
+  await assert.rejects(inspect(bridge, { donor: { documentId: 'target' } }), /reference attached to this chat/);
   await assert.rejects(inspect(bridge, { donor: { documentId: 'donor', sequence: 4 } }), /Donor: animation index is out of range/);
 });
 

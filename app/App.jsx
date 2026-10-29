@@ -171,6 +171,7 @@ export default function App() {
   const [showcaseSession,setShowcaseSession]=useState(null),[showcaseVisited,setShowcaseVisited]=useState(false);
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
+  const aiReferences = useRef([]);
   const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready'), [statusAlert, setStatusAlert] = useState(0);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
   const [managerKind, setManagerKind] = useState('Materials');
@@ -732,10 +733,17 @@ export default function App() {
   const uvAction = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
 
   function releaseUnusedTextureUrls() {
-    const keep = new Set([...(latest.current.sessions || [latest.current.session]).flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
+    const keep = new Set([...[...(latest.current.sessions || [latest.current.session]), ...aiReferences.current].flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
     for(const url of textureUrls.current) if(!keep.has(url)) {URL.revokeObjectURL(url);textureUrls.current.delete(url);}
   }
-  useEffect(() => { releaseUnusedTextureUrls(); },[sessions, session.assets,showcaseSession,showcaseSession?.assets]);
+  useEffect(() => {
+    const owners = new Set(sessions.map(item => item.id));
+    for (const reference of aiReferences.current) {
+      if (!owners.has(reference.referenceOwnerId)) nextTextureResolution(reference);
+    }
+    aiReferences.current = aiReferences.current.filter(item => owners.has(item.referenceOwnerId));
+    releaseUnusedTextureUrls();
+  },[sessions, session.assets,showcaseSession,showcaseSession?.assets]);
   useEffect(() => () => {for(const url of textureUrls.current)URL.revokeObjectURL(url);textureUrls.current.clear();},[]);
   const nextTextureResolution = target => {
     const generation = (textureResolutions.current.get(target) || 0) + 1;
@@ -1405,7 +1413,7 @@ export default function App() {
       return api.captureView().toDataURL('image/png');
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
-    sessions: () => latest.current.sessions,
+    sessions: () => [...latest.current.sessions, ...aiReferences.current],
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
     summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
@@ -1438,7 +1446,7 @@ export default function App() {
     // A model tab the AI works on while another tab is showing: its own document,
     // Undo history, tab view and textures, never the tab on screen.
     sessionOf: id => {
-      const target = latest.current.sessions.find(item => item.id === id);
+      const target = aiHost.current.sessions().find(item => item.id === id);
       if (!target) throw Error('The model this task works on was closed.');
       target.viewState ||= defaultSessionView(target.doc);
       return target;
@@ -1469,9 +1477,33 @@ export default function App() {
       // spec.model is the AI review's kept original, drawn with this tab's textures.
       return aiOffscreen.render({ ...spec, model: spec.model || structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
     },
-    // Reference models open as tabs; the console lists them as attachments the user can remove.
-    removeReference: id => { const target = latest.current.sessions.find(item => item.id === id); if (target) requestCloseSession(target); },
-    addReference: async (record, scope = { documentId: latest.current.session.id, chatId: null }) => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);next.reference=true;next.referenceOwnerId=scope.documentId;next.referenceChatId=scope.chatId;setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
+    // Chat references retain models and textures for AI reads and off-screen pictures only.
+    removeReference: id => {
+      const target = aiReferences.current.find(item => item.id === id);
+      if (!target) return;
+      nextTextureResolution(target);
+      aiReferences.current = aiReferences.current.filter(item => item !== target);
+      releaseUnusedTextureUrls();
+      aiBridge.editorChanged();
+    },
+    addReference: async (record, scope = { documentId: latest.current.session.id, chatId: null }) => {
+      if (!latest.current.sessions.some(item => item.id === scope.documentId)) throw Error('The model this reference belongs to was closed.');
+      const opened = openDocument(record.bytes, record.name);
+      if (!opened.model || opened.version == null) throw Error('This reference has no readable model.');
+      const next = newSession(opened, record.path);
+      Object.assign(next, { reference: true, referenceOwnerId: scope.documentId, referenceChatId: scope.chatId });
+      aiReferences.current.push(next);
+      try {
+        if (record.textures?.length) await loadTextures(record.textures, next, { source: 'gameFile', resolutionGeneration: nextTextureResolution(next) });
+        if (aiReferences.current.includes(next)) await resolveTextures(next);
+        if (!aiReferences.current.includes(next)) throw Error('This reference was removed while loading.');
+        aiBridge.editorChanged();
+        return { id: next.id, name: next.doc.name };
+      } catch (error) {
+        aiHost.current.removeReference(next.id);
+        throw error;
+      }
+    },
   };
   const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
   useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);

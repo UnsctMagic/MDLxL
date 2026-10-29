@@ -15,7 +15,11 @@ No release, installed-app/profile change, version bump or merge is authorized.
 
 - Branch: `codex/bird-auto-job-routing`, based on main `8a36f2a1`.
 - PR: https://github.com/UnsctMagic/MDLxL/pull/372; runtime commit `4ea20903`.
-- GitHub CI pending at handoff-note update; no merge authorized.
+- GitHub CI passed at `62ae0d96`; no merge authorized.
+- Refreshed from main `0635d566` after #371 landed. The only conflict was
+  the task-index table: retained the routing row and main's AI-only-reference
+  row, including main's removal of the completed attachment-isolation row.
+  No routing runtime changes were needed; CI reruns on the refreshed head.
 - Runtime: `electron/ai-service.cjs` (`send`, `runOffload`, `routeJob`,
   `runRegionJobs`, `runWorker`); tooltip wording: `app/AiAssistant.jsx`.
 - Contract: [AI-HOOK](../AI-HOOK.md#offload-mode-an-organiser-per-model-and-its-birds).

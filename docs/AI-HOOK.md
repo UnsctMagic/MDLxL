@@ -79,7 +79,12 @@ started with; a change applies from the next request.
 Each model has its own AI chat: switch model tabs to switch chats. Reference
 models, draft text and attached images stay with that model's organiser chat and
 its birds. Another model's chat cannot list, read or use those donors in scripts.
-References opened by a background bird stay with its original chat. **New chat**
+References opened by a background bird stay with its original chat. Attached
+models and models opened by AI tools are AI-only references: they do not create
+editor tabs or change your visible model. The AI can still read their data, use
+them in scripts and render donor comparison pictures. Remove them with their
+attachment chip; closing the owning model releases its references. Normal
+File → Open continues to open models in the editor. **New chat**
 starts without the previous organiser's attachments. With **Offload
 Mode** on (the default; the bird switch in the console header, next to the model
 picker) that chat keeps the job roster and forwards work directly to a worker with a simple bird name (the first one of a chat is a corvid, the
