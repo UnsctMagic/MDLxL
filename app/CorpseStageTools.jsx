@@ -2,8 +2,8 @@ import React,{useRef} from 'react';
 // Corpse piece handles in the Auto Corpse preview. Same handles, look and keys
 // as EMTR/Glow Up: the middle moves a piece like an emitter, the two ends
 // stretch it like a ribbon's edges, the side handle sets its width like the
-// spawn width. Click a piece's line to select it. Escape cancels a drag;
-// arrow keys nudge.
+// spawn width. Only the double-clicked piece shows handles. Escape cancels a
+// drag; arrow keys nudge.
 const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
 export const pieceMarks=(pieces,selected,show)=>{
   const marks={};
@@ -53,8 +53,6 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveO
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   return <svg className="pe-stage-tools acp-stage-tools" viewBox={'0 0 '+snapshot.width+' '+snapshot.height} aria-label="Corpse piece handles">
     {moveOnly&&pieces.map((_,k)=>k!==selected&&marks[k+'s']&&<circle key={'d'+k} className="acp-blood-dot" cx={marks[k+'s'][0]} cy={marks[k+'s'][1]} r="5" onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this blood</title></circle>)}
-    {!moveOnly&&pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={k} className="acp-piece-hit" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]} onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this piece</title></line>)}
-    {!moveOnly&&pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={'v'+k} className="acp-piece-line" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]}/>)}
     {piece&&moveOnly&&handle(marks.mid,'move','Move this blood','pe-move-emitter')}
     {piece&&!moveOnly&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>

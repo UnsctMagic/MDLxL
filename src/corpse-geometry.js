@@ -1,4 +1,4 @@
-import { ShapeUtils, Vector2, Vector3 } from 'three';
+import { Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { updateBounds } from './mesh-tools.js';
@@ -11,8 +11,8 @@ const quantile = (values,t) => values.toSorted((a,b)=>a-b)[Math.floor((values.le
 const accessory = /weapon|sword|axe|shield|bow|staff|spear|hammer|gun|rifle|cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
 const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 
-/** Top (or, with `low`, bottom) surface of the actual terminal pose, rather
- * than its bounding rectangle. A uniform XY grid keeps fitting linear in mesh size. */
+/** Top surface of the actual terminal pose, rather than its bounding rectangle.
+ * A uniform XY grid keeps footprint/height fitting linear in mesh size. */
 function surface(meshes, span) {
   const cell = Math.max(span/24,1e-4), bins = new Map();
   for (const {g,vertices} of meshes) for (let f=0;f<g.Faces.length;f+=3) {
@@ -24,14 +24,14 @@ function surface(meshes, span) {
       const key=x+','+y,list=bins.get(key)||[]; list.push({tri,determinant});bins.set(key,list);
     }
   }
-  return (x,y,low=false) => {
-    let top=low?Infinity:-Infinity;
+  return (x,y) => {
+    let top=-Infinity;
     for(const {tri:[a,b,c],determinant:d} of bins.get(Math.floor(x/cell)+','+Math.floor(y/cell))||[]) {
       const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/d;
       const v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/d;
-      if(u>=-1e-5&&v>=-1e-5&&u+v<=1.00001){const z=u*a[2]+v*b[2]+(1-u-v)*c[2];top=low?Math.min(top,z):Math.max(top,z);}
+      if(u>=-1e-5&&v>=-1e-5&&u+v<=1.00001) top=Math.max(top,u*a[2]+v*b[2]+(1-u-v)*c[2]);
     }
-    return low&&top===Infinity?-Infinity:top;
+    return top;
   };
 }
 
@@ -67,9 +67,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // Some flying/effect deaths shrink to 0.001, not exactly zero. That is a
   // disappearance frame, not a body-sized pose from which to make a corpse.
   if(!(span>1e-5)||Math.hypot(...hi.map((v,i)=>v-lo[i]))<Math.hypot(...restHi.map((v,i)=>v-restLo[i]))*.005) throw Error('The last Death frame collapses the body to a point. A corpse needs a visible final pose.');
-  // A corpse surface almost touching the body's visible surface z-fights in
-  // game, so it flickers as soon as it switches on beneath the body.
-  const ground=span*.012, clearance=Math.max(span*.006,.25), top=surface(meshes,span);
+  const ground=span*.012, top=surface(meshes,span);
   const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),clouds=new Map();
   for(const {g,vertices} of meshes) for(let i=0;i<g.Vertices.length/3;i++) for(const id of influences(g,i)) {
     const cloud=clouds.get(id)||[];cloud.push(Array.from(vertices.slice(i*3,i*3+3)));clouds.set(id,cloud);
@@ -112,14 +110,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);regions.set(owner,list[0].points);}
   const cloud=id=>regions.get(id)||clouds.get(id)||[];
   const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
-  const vertices=[],uv=[],faces=[],parts=[],pieces=[],used=new Set(),reach=span/48;
-  // Lowest body surface around a point: the body's top drops sharply at
-  // limb edges, and a corner fitted only to its own spot rises past them.
-  const under=(x,y)=>{
-    let low=top(x,y);if(!Number.isFinite(low))return low;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[.7,.7],[-.7,.7],[.7,-.7],[-.7,-.7]]){const h=top(x+dx*reach,y+dy*reach);if(Number.isFinite(h))low=Math.min(low,h);}
-    return low;
-  };
+  const vertices=[],uv=[],faces=[],parts=[],pieces=[],used=new Set();
   // Wanted positions; heights are settled once every piece is known.
   function vertex(p,t) {const i=vertices.length/3;vertices.push(p[0],p[1],p[2]);uv.push(...t);return i;}
   // Principal axis of a point set, from its 10th to 90th percentile.
@@ -138,27 +129,14 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // Pieces are planned first, so the Auto Corpse window can stretch, move,
   // add or remove them before the mesh is built from the edited list.
   function strip(kind,a,b,half,rect,ids=[]) {if(distance(a,b)>=span*.0001)pieces.push({kind,start:a,end:b,half,rect,ids});}
+  // The native gutz standard: each limb bone, hand, foot and rib cage is one
+  // flat rectangle showing its whole atlas region, lying at one height.
   function emitStrip({kind:label,start:a,end:b,half,rect,ids=[],free=false},index) {
     const len=distance(a,b);if(len<span*.0001)return;
-    const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len], rows=[], first=faces.length, count=Math.max(4,Math.min(32,Math.ceil(len/(span/32))));
-    // Native gutz limbs and ribs are rounded lumps, not flat decals. Raise
-    // each point by the piece's width and, where the body rests on the
-    // ground there, to 40% of the body's own thickness, keeping its bulk.
-    // Rows and columns are dense enough to follow dips in the body above.
-    const lump=(x,y)=>{const roof=top(x,y),bottom=top(x,y,true);return Math.max(half*.6,Number.isFinite(roof)&&bottom-ground<(roof-ground)*.35?(roof-ground)*.4:0);};
-    for(let r=0;r<=count;r++) {
-      const t=r/count,c=mix(a,b,t),v=rect[1]+t*(rect[3]-rect[1]),widths=[];
-      for(const side of [-1,1]) {
-        let width=half,roof=top(c[0]+normal[0]*width*side,c[1]+normal[1]*width*side);
-        if(!free&&Number.isFinite(top(c[0],c[1]))&&!Number.isFinite(roof)) {
-          let low=0,high=width;for(let k=0;k<10;k++){const mid=(low+high)/2;if(Number.isFinite(top(c[0]+normal[0]*mid*side,c[1]+normal[1]*mid*side)))low=mid;else high=mid;}width=low;
-        }
-        widths.push(width);
-      }
-      rows.push([-1,-.5,0,.5,1].map(s=>{const w=widths[s<0?0:1]*s,x=c[0]+normal[0]*w,y=c[1]+normal[1]*w;return vertex([x,y,ground+lump(x,y)*(1-s*s)],[rect[0]+(s+1)/2*(rect[2]-rect[0]),v]);}));
-    }
-    for(let i=1;i<rows.length;i++)for(let k=1;k<5;k++){const a=rows[i-1][k-1],b=rows[i-1][k],c=rows[i][k-1],d=rows[i][k];faces.push(a,b,c,b,d,c);}
-    parts.push({kind:label,start:a,end:b,length:len,ids,piece:index,free,vertices:rows.flat(),faces:[first,faces.length]});
+    const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len],first=faces.length;
+    const corners=[[a,-1,rect[0],rect[1]],[a,1,rect[2],rect[1]],[b,-1,rect[0],rect[3]],[b,1,rect[2],rect[3]]].map(([p,side,u,v])=>vertex([p[0]+normal[0]*half*side,p[1]+normal[1]*half*side,0],[u,v]));
+    faces.push(corners[0],corners[1],corners[2],corners[1],corners[3],corners[2]);
+    parts.push({kind:label,start:a,end:b,length:len,ids,piece:index,free,vertices:corners,faces:[first,faces.length]});
   }
   // Native gutz atlas: upper/lower long bones at left; palm/forearm in the
   // middle; ribs/pelvis at bottom right. Match every actual chain link.
@@ -251,69 +229,36 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   function emitSkull({start,end,half:width,ids=[],free=false},index) {
     const length=distance(start,end)||span*.01,axis=[(end[0]-start[0])/length,(end[1]-start[1])/length],side=[axis[1],-axis[0]];
     const shape=[[.489,.014,1,.808594,.21582],[0,.079,.223,.816406,.451172],[.234,.730,0,.910156,.369141],[.787,.737,.15,.917969,.124512],[1,-.091,.427,.789063,.012939],[.915,-.841,.201,.699219,.07373],[.489,-1,.36,.6875,.236328],[.234,-.755,.053,.695313,.376953],[.489,1,.29,.941406,.233398]];
-    const skullIds=shape.map(([along,across,z,u,v])=>vertex([start[0]+axis[0]*length*along+side[0]*width*across,start[1]+axis[1]*length*along+side[1]*width*across,ground+z*Math.min(width,length*.45)],[u,v]));
+    const skullIds=shape.map(([along,across,z,u,v])=>vertex([start[0]+axis[0]*length*along+side[0]*width*across,start[1]+axis[1]*length*along+side[1]*width*across,z*Math.min(width,length*.45)],[u,v]));
     const first=faces.length;for(const k of [0,1,2,3,4,0,5,6,0,7,1,0,2,8,0,0,8,3,0,4,5,0,6,7])faces.push(skullIds[k]);
     parts.push({kind:'skull',ids,start,end,piece:index,free,vertices:skullIds,faces:[first,faces.length]});
   }
   const plan=edited?structuredClone(edited):pieces;
   plan.forEach((piece,index)=>piece.kind==='skull'?emitSkull(piece,index):emitStrip(piece,index));
   if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');
-  // Overlapping pieces at one height z-fight: the corpse shimmers as the
-  // camera moves. Each overlapping piece gets its own level, ribs lowest.
+  // Native corpses keep overlapping pieces apart on a few fixed levels about
+  // 3 units apart: legs and arms lowest, the rib cage above them and the
+  // skull on top. Pieces at one height would z-fight and shimmer.
   const shapes=parts.map(part=>{const tris=[];for(let f=part.faces[0];f<part.faces[1];f+=3)tris.push([0,1,2].map(k=>[vertices[faces[f+k]*3],vertices[faces[f+k]*3+1]]));return tris;});
   const boxes=shapes.map(tris=>{const ps=tris.flat();return [0,1].flatMap(a=>[Math.min(...ps.map(p=>p[a])),Math.max(...ps.map(p=>p[a]))]);});
   const touches=(i,j)=>boxes[i][0]<boxes[j][1]&&boxes[j][0]<boxes[i][1]&&boxes[i][2]<boxes[j][3]&&boxes[j][2]<boxes[i][3]&&shapes[i].some(a=>shapes[j].some(b=>trianglesOverlap(a,b,span*1e-4)));
-  const rank={torso:0,hand:2,foot:2,skull:3},order=parts.map((_,i)=>i).sort((i,j)=>(rank[parts[i].kind]??1)-(rank[parts[j].kind]??1)||i-j);
+  const rank={leg:0,foot:0,arm:1,hand:1,branch:1,torso:2,'rigid remnant':2,skull:3},order=parts.map((_,i)=>i).sort((i,j)=>(rank[parts[i].kind]??1)-(rank[parts[j].kind]??1)||i-j);
   for(const [n,i] of order.entries()){const taken=new Set(order.slice(0,n).filter(j=>touches(i,j)).map(j=>parts[j].level));let level=0;while(taken.has(level))level++;parts[i].level=level;}
-  const levels=Math.max(...parts.map(p=>p.level))+1,step=Math.max(span*.0015,.15);
-  // Fit the complete textured pieces to the actual projected body outline.
-  // Sampling only corner widths can still leave a triangle spanning empty
-  // space between a bent limb and torso. Use the existing polygon owner to
-  // trim those edges, retaining UVs and substantial interior body volume.
+  const base=Math.max(2,span*.025),step=Math.max(2.5,span*.025);
+  for(const part of parts){for(const id of part.vertices)vertices[id*3+2]+=base+part.level*step;delete part.faces;}
+  // The footprint gives the window's chalk outline of the dead body: the
+  // body only, without what it holds or wears as equipment.
+  const equipment=id=>held(id)||ancestors(id).some(a=>accessory.test(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''));
   const projected=[];
-  for(const {g,vertices:v} of meshes)for(let i=0;i<g.Faces.length;i+=3){const tri=Array.from(g.Faces.slice(i,i+3),id=>[v[id*3],v[id*3+1]]);if(signedArea(tri)<0)tri.reverse();if(signedArea(tri)>span*span*1e-12)projected.push(tri);}
-  const footprint=booleanContours(projected,[],'add',span),originalV=vertices.splice(0),originalUV=uv.splice(0),originalFaces=faces.splice(0),partOf=new Map();
-  for(const part of parts){for(const id of part.vertices)partOf.set(id,part);part.vertices=[];}
-  for(let i=0;i<originalFaces.length;i+=3) {
-    const ids=originalFaces.slice(i,i+3),[a,b,c]=ids.map(id=>originalV.slice(id*3,id*3+3));
-    const determinant=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(determinant)<1e-10)continue;
-    // A piece the user stretched, moved or added stays exactly as placed.
-    const part=partOf.get(ids[0]);
-    if(part.free){for(const id of ids){const k=vertex(originalV.slice(id*3,id*3+3),originalUV.slice(id*2,id*2+2));part.vertices.push(k);faces.push(k);}continue;}
-    const tri=[a.slice(0,2),b.slice(0,2),c.slice(0,2)];if(signedArea(tri)<0)tri.reverse();
-    for(const {outer,holes} of polygonGroups(booleanContours([tri],footprint,'keep',span))) {
-      const outline=outer.map(p=>new Vector2(...p)),voids=holes.map(h=>h.map(p=>new Vector2(...p))),local=[...outer,...holes.flat()],offset=vertices.length/3;
-      for(const [x,y] of local){const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/determinant,v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/determinant,weights=[u,v,1-u-v];const id=vertex([x,y,weights.reduce((z,w,j)=>z+w*originalV[ids[j]*3+2],0)],[0,1].map(axis=>weights.reduce((t,w,j)=>t+w*originalUV[ids[j]*2+axis],0)));partOf.get(ids[0]).vertices.push(id);}
-      for(const t of ShapeUtils.triangulateShape(outline,voids))faces.push(...t.map(id=>offset+id));
-    }
+  for(const {g,vertices:v} of meshes)for(let i=0;i<g.Faces.length;i+=3){
+    const ids=Array.from(g.Faces.slice(i,i+3));if(ids.every(k=>{const bones=influences(g,k);return bones.length&&bones.every(equipment);}))continue;
+    const tri=ids.map(id=>[v[id*3],v[id*3+1]]);if(signedArea(tri)<0)tri.reverse();if(signedArea(tri)>span*span*1e-12)projected.push(tri);
   }
-  if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');
-  // Coverage changes height/width, never the joint-to-joint limb length.
-  // Keep the corpse on the ground like the native gutz meshes, clearly
-  // beneath the body's visible surface: a piece poking through pops into
-  // view when the corpse switches on. Death meshes often penetrate the
-  // floor; there the corpse stays above the terrain, clear of that limb,
-  // rather than burying its own limbs before decay. Each level keeps its
-  // own band, so overlapping pieces never meet at one height; where the
-  // body leaves too little room, the bands close up rather than poke out.
-  const levelOf=new Uint8Array(vertices.length/3),lowest=ground*.25,need=(levels-1)*step+ground-lowest;
-  const placed=new Uint8Array(vertices.length/3);
-  for(const part of parts){for(const id of part.vertices){levelOf[id]=part.level;placed[id]=part.free?1:0;}delete part.faces;}
-  for(let i=0;i<vertices.length;i+=3) {
-    const level=levelOf[i/3],roof=under(vertices[i],vertices[i+1]),floor=ground+level*step,room=roof-clearance-lowest;
-    vertices[i+2]=!Number.isFinite(roof)?(placed[i/3]?Math.max(vertices[i+2],floor):floor):room>=need?Math.min(Math.max(vertices[i+2],floor),roof-clearance-(levels-1-level)*step)
-      :room>0?lowest+room*(level*step+ground-lowest)/need:Math.max(floor,roof+clearance+level*step);
-  }
-  // The user's Size and Height choice. Above 100% the corpse is no longer
-  // fitted under the body and can show through it while the body sinks.
-  // About the dead body's centre, which stays put while pieces are edited.
+  const footprint=booleanContours(projected,[],'add',span);
+  // The user's Size and Height choice, about the dead body's centre, which
+  // stays put while pieces are edited.
   const center=[(lo[0]+hi[0])/2,(lo[1]+hi[1])/2];
-  if(size!==1||height!==1) {
-    for(let i=0;i<vertices.length;i+=3) {
-      const base=Math.min(vertices[i+2],ground+levelOf[i/3]*step);
-      vertices[i]=center[0]+(vertices[i]-center[0])*size;vertices[i+1]=center[1]+(vertices[i+1]-center[1])*size;vertices[i+2]=base+(vertices[i+2]-base)*height;
-    }
-  }
+  if(size!==1||height!==1)for(let i=0;i<vertices.length;i+=3){vertices[i]=center[0]+(vertices[i]-center[0])*size;vertices[i+1]=center[1]+(vertices[i+1]-center[1])*size;vertices[i+2]*=height;}
   if(vertices.length/3>65535)throw Error('The fitted corpse exceeds the MDX vertex limit.');
   const normals=new Float32Array(vertices.length);
   for(let f=0;f<faces.length;f+=3){const [a,b,c]=faces.slice(f,f+3).map(i=>new Vector3().fromArray(vertices,i*3)),n=b.sub(a).cross(c.sub(a));for(const id of faces.slice(f,f+3)){normals[id*3]+=n.x;normals[id*3+1]+=n.y;normals[id*3+2]+=n.z;}}

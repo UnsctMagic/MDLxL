@@ -8,21 +8,18 @@ first frame of Decay Bone, paused; **Close** changes nothing; **Reset** goes
 back to the fitted corpse and the model's own blood. Creating again
 regenerates from Death and does not accumulate copies.
 
-**Corpse Editor** shows the corpse at the start of Decay Bone.
-- **Size** and **Height** sliders in AnimXL's slider style (25–200%, 100% =
-  fitted). Size scales the footprint about the dead body's centre; Height
-  scales how far each piece rises above its own level. Above 100% the corpse
-  can show through the body while it sinks; the tooltips say so.
-- **Color Tint** R/G/B, like the Animations colour tint, sets the corpse
-  geoset's colour.
-- The pieces list (skull, ribs, limb bones, hands, feet). Click a row or a
-  piece's line in the preview, then drag the EMTR/Glow Up handles
-  (`app/CorpseStageTools.jsx`): the middle moves it, the ends stretch it, the
-  side handle widens it. **+ Skull / + Ribs / + Bone / + Hand** add a piece;
-  × or Delete removes one. Edited and added pieces are kept exactly as
-  placed (not trimmed to the body outline) and are marked with *.
-- **Body outline** draws a chalk line around where the body lies (preview
-  only), so the corpse can be fitted without the textured body hiding it.
+**Corpse Editor** shows the corpse at the start of Decay Bone, with a chalk
+line around where the dead body lies (**Body outline**, on by default; it
+follows the body only, not what it holds). **Show body** puts the textured
+body back over the corpse.
+- Double-click a body part in the preview to grab it, then drag the
+  EMTR/Glow Up handles (`app/CorpseStageTools.jsx`): the middle moves it,
+  the ends stretch it, the side handle widens it. Double-click empty ground
+  to let go. Delete removes the grabbed part. Ctrl+Z / Ctrl+Y undo and redo
+  changes inside the window.
+- **+ Skull / + Ribs / + Bone / + Hand** add a part in the middle of the body.
+- **Size** and **Height** sliders in AnimXL's slider style (25-200%, 100% =
+  fitted) and **Color Tint** R/G/B, like the Animations colour tint.
 
 **Blood Editor** (`src/corpse-blood.js`) plays or scrubs the Death animation
 with its splats and sprays. It works like Blizzard's own units, which bleed
@@ -49,15 +46,18 @@ could not be confirmed, and the game's own blood ships with every copy.
   bone length. A wide body with the same joint layout therefore gets wider ribs
   and limbs. Heads sharing one torso use a shared central rib cage.
   Connected body components distinguish a hand/head from equipment sharing its
-  binding. The existing polygon boolean owner trims complete corpse triangles
-  to the posed body outline, preserving UVs and interior volume.
+  binding.
   Forearms continue into the atlas's hand region; legs continue to the foot's
   skin tip in the native long-bone regions, never stretched hand texture.
-  Each limb and rib piece is a rounded lump, not a flat decal: its middle
-  rises by 60% of its half-width and, where the body rests on the ground,
-  to 40% of the body's own thickness there. Native gutz corpses top out at a
-  median 39% of the dead body's height in the study; the fitted corpses now
-  measure a median 40% on the same models.
+  The pieces follow the native gutz standard measured on the 58 study
+  models that have one: every limb bone, hand, foot and rib cage is one flat
+  rectangle showing its whole atlas region at one height; only the skull has
+  shape. Overlapping pieces sit on fixed levels about 3 units apart (2.5% of
+  the body, at least 2.5): legs lowest, arms next, the rib cage above them
+  and the skull on top. Native corpses use the same few levels instead of
+  bumps; pieces are not cut to the body outline. Measured on the same
+  models, typical corpse height is 16% of the body for native corpses and
+  17% for fitted ones, and the highest point 39% and 44%.
   Whatever hangs below a hand is held equipment (a weapon, its head or
   chain, a carried object) and never becomes a skull, limb or branch,
   whatever its bones are called.
@@ -86,17 +86,6 @@ lowers the fitted corpse. Each burial distance is calculated from the highest
 posed vertex and a size-dependent clearance; both phases hide their geometry on
 the final frame. Corpse vertices start above the ground even when the original
 Death mesh penetrates the floor, so limbs are not buried before decay begins.
-Elsewhere every corpse vertex keeps a clearance (0.6% of the body span, at
-least 0.25) below the lowest body surface in its small neighbourhood. A
-corpse almost touching the body's visible surface z-fights, and a piece
-poking through pops into view when the bones switch on; both read as
-flicker right after Death.
-Corpse pieces that overlap each other (ribs under an arm, a skull on the
-ribs) would z-fight with each other in the same way, most visibly in Decay
-Bone once the body is gone. Each overlapping piece therefore gets its own
-level, one band of 0.15% of the span (at least 0.15) above the next, ribs
-lowest. Where the body leaves too little room for every band, the bands
-close up instead of poking through the body.
 Effects and attachments are masked in those decay intervals;
 ordinary Death events and original transform animation are retained.
 

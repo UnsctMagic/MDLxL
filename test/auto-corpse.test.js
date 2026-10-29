@@ -76,7 +76,7 @@ test('corpse torso uses skin on mesh children and grows with body girth while jo
   const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.7,'Broad bodies need broad ribs, not a fixed narrow strip');
   assert.ok(narrow.parts.find(p=>p.kind==='skull').vertices.length>=9);
 });
-test('corpse ribs are a lump clearly beneath the body, and whatever hangs from a hand is no anatomy',()=>{
+test('corpse ribs are one flat native rectangle on a level above the ground, and whatever hangs from a hand is no anatomy',()=>{
   const d=fixture();d.apply('Armed body',[],m=>{
     const root=m.Bones[0];root.Name='Bone_Root';delete root.Translation;
     const chest=createNode(m,'Bone');chest.Name='Bone_Chest';chest.Parent=root.ObjectId;
@@ -91,8 +91,9 @@ test('corpse ribs are a lump clearly beneath the body, and whatever hangs from a
   assert.equal(r.parts.filter(p=>p.kind==='skull').length,1,'Bones below a hand are held equipment, whatever they are called');
   assert.ok(!r.parts.some(p=>p.ids.includes(m.Bones.find(b=>b.Name==='Spiked_Head').ObjectId)));
   const ribs=r.parts.find(p=>p.kind==='torso').vertices.map(i=>r.geoset.Vertices[i*3+2]),top=Math.max(...Array.from(body).filter((_,i)=>i%3===2));
-  assert.ok(Math.max(...ribs)-r.ground>r.span*.03,'Ribs need visible height, not a flat decal');
-  assert.ok(Math.max(...ribs)<top-r.span*.005,'The corpse keeps a clear gap below the body surface, so it cannot z-fight or pop through');
+  assert.equal(ribs.length,4,'Like the native gutz corpses, a rib cage is one rectangle');
+  assert.ok(Math.max(...ribs)-Math.min(...ribs)<1e-6&&Math.min(...ribs)>=2,'It lies flat, on a level above the ground');
+  assert.ok(Math.max(...ribs)<top,'It stays below the body surface');
 });
 test('a body without a recognized head still gets ribs, and overlapping pieces never share a height',()=>{
   const d=fixture();d.apply('Headless',[],m=>{
