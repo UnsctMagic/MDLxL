@@ -17,8 +17,13 @@ result. A second click regenerates from Death and does not accumulate copies.
   Connected body components distinguish a hand/head from equipment sharing its
   binding. The existing polygon boolean owner trims complete corpse triangles
   to the posed body outline, preserving UVs and interior volume.
-  Forearms continue into the atlas's hand region; legs use the native long-bone
-  regions without adding stretched hand-texture pieces as feet.
+  Forearms continue into the atlas's hand region; legs continue to the foot's
+  skin tip in the native long-bone regions, never stretched hand texture.
+  Each limb and rib piece has a raised middle (60% of its half-width), so the
+  corpse is a lump like the native gutz meshes, whose top sits at a median
+  39% of the dead body's height in the study, not a flat decal.
+  A "head" bone hanging from a hand (a flail or mace head) is equipment and
+  never becomes a skull.
 - `src/auto-corpse.js` applies the edit through `EditorDocument`. It reuses
   matching Decay Flesh/Bone intervals, promotes matching generic Decay to Decay
   Flesh, or appends 60-second non-looping clips. Alternate Death variants have
@@ -39,6 +44,11 @@ lowers the fitted corpse. Each burial distance is calculated from the highest
 posed vertex and a size-dependent clearance; both phases hide their geometry on
 the final frame. Corpse vertices start above the ground even when the original
 Death mesh penetrates the floor, so limbs are not buried before decay begins.
+Elsewhere every corpse vertex keeps a clearance (0.6% of the body span, at
+least 0.25) below the lowest body surface in its small neighbourhood. A
+corpse almost touching the body's visible surface z-fights, and a piece
+poking through pops into view when the bones switch on; both read as
+flicker right after Death.
 Effects and attachments are masked in those decay intervals;
 ordinary Death events and original transform animation are retained.
 

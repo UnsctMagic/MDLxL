@@ -55,7 +55,9 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   // Some flying/effect deaths shrink to 0.001, not exactly zero. That is a
   // disappearance frame, not a body-sized pose from which to make a corpse.
   if(!(span>1e-5)||Math.hypot(...hi.map((v,i)=>v-lo[i]))<Math.hypot(...restHi.map((v,i)=>v-restLo[i]))*.005) throw Error('The last Death frame collapses the body to a point. A corpse needs a visible final pose.');
-  const ground=span*.012, margin=Math.max(span*.0002,1e-5), top=surface(meshes,span);
+  // A corpse surface almost touching the body's visible surface z-fights in
+  // game, so it flickers as soon as it switches on beneath the body.
+  const ground=span*.012, clearance=Math.max(span*.006,.25), top=surface(meshes,span);
   const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),clouds=new Map();
   for(const {g,vertices} of meshes) for(let i=0;i<g.Vertices.length/3;i++) for(const id of influences(g,i)) {
     const cloud=clouds.get(id)||[];cloud.push(Array.from(vertices.slice(i*3,i*3+3)));clouds.set(id,cloud);
@@ -93,14 +95,26 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);regions.set(owner,list[0].points);}
   const cloud=id=>regions.get(id)||clouds.get(id)||[];
   const role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
-  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
-  const vertices=[],uv=[],faces=[],parts=[],used=new Set();
+  // A "head" carried by a hand (flail or mace head) is equipment, not a skull.
+  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!ancestors(n.Parent).some(id=>['Head','Hand'].includes(role(id))));
+  const vertices=[],uv=[],faces=[],parts=[],used=new Set(),reach=span/48;
+  // Lowest body surface around a point: the body's top drops sharply at
+  // limb edges, and a corner fitted only to its own spot rises past them.
+  const under=(x,y)=>{
+    let low=top(x,y);if(!Number.isFinite(low))return low;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[.7,.7],[-.7,.7],[.7,-.7],[-.7,-.7]]){const h=top(x+dx*reach,y+dy*reach);if(Number.isFinite(h))low=Math.min(low,h);}
+    return low;
+  };
   function vertex(p,t) {
-    const roof=top(p[0],p[1]);
+    const roof=under(p[0],p[1]);
     // Coverage changes height/width, never the joint-to-joint limb length.
-    // Death meshes often penetrate the floor. Keep the corpse on the ground
-    // like the native gutz meshes, rather than burying its limbs before decay.
-    const z=Math.max(ground,Number.isFinite(roof)?Math.min(p[2],roof-margin):Math.min(p[2],ground));
+    // Keep the corpse on the ground like the native gutz meshes, clearly
+    // beneath the body's visible surface: a piece poking through pops into
+    // view when the corpse switches on. Death meshes often penetrate the
+    // floor; there the corpse stays above the terrain, clear of that limb,
+    // rather than burying its own limbs before decay.
+    let z=Number.isFinite(roof)?Math.min(Math.max(p[2],ground),roof-clearance):ground;
+    if(z<ground*.25)z=Math.max(ground,roof+clearance);
     const i=vertices.length/3;vertices.push(p[0],p[1],z);uv.push(...t);return i;
   }
   function halfWidth(a,b,ids,factor=1) {
@@ -114,17 +128,20 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
     const len=distance(a,b);if(len<span*.0001)return;
     const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len], rows=[];
     for(let r=0;r<=4;r++) {
-      const t=r/4,c=mix(a,b,t),pair=[];
+      const t=r/4,c=mix(a,b,t),v=rect[1]+t*(rect[3]-rect[1]),row=[];
       for(const side of [-1,1]) {
         let width=half,roof=top(c[0]+normal[0]*width*side,c[1]+normal[1]*width*side);
         if(Number.isFinite(top(c[0],c[1]))&&!Number.isFinite(roof)) {
           let low=0,high=width;for(let k=0;k<10;k++){const mid=(low+high)/2;if(Number.isFinite(top(c[0]+normal[0]*mid*side,c[1]+normal[1]*mid*side)))low=mid;else high=mid;}width=low;
         }
-        pair.push(vertex([c[0]+normal[0]*width*side,c[1]+normal[1]*width*side,ground], [side<0?rect[0]:rect[2],rect[1]+t*(rect[3]-rect[1])]));
+        row.push(vertex([c[0]+normal[0]*width*side,c[1]+normal[1]*width*side,ground], [side<0?rect[0]:rect[2],v]));
       }
-      rows.push(pair);
+      // Native gutz limbs and ribs are rounded lumps, not flat decals: raise
+      // the middle so the corpse keeps a visible share of the body's height.
+      row.splice(1,0,vertex([c[0],c[1],ground+half*.6],[(rect[0]+rect[2])/2,v]));
+      rows.push(row);
     }
-    for(let i=1;i<rows.length;i++){const [a,b]=rows[i-1],[c,d]=rows[i];faces.push(a,b,c,b,d,c);}
+    for(let i=1;i<rows.length;i++){const [a,m,b]=rows[i-1],[c,n,d]=rows[i];faces.push(a,m,c,m,n,c,m,b,n,b,d,n);}
     parts.push({kind:label,start:a,end:b,length:len,ids,vertices:rows.flat()});
   }
   // Native gutz atlas: upper/lower long bones at left; palm/forearm in the
@@ -138,12 +155,15 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
       strip(chain.kind,a,b,halfWidth(a,b,[ids[i-1],ids[i]]),region,[ids[i-1],ids[i]]);
     }
     const end=at(chain.end),skin=cloud(chain.end);
-    if(chain.kind==='arm'&&skin.length) {
+    // Hands and feet continue past the last joint to their skin's tip. Feet
+    // keep the long-bone region; stretched palm texture looks wrong there.
+    const arm=chain.kind==='arm';
+    if((arm||chain.kind==='leg')&&skin.length) {
       const center=mean(skin),len=distance(end,center),dir=len>span*.002?[(center[0]-end[0])/len,(center[1]-end[1])/len]:null;
       if(dir) {
         const ordered=skin.toSorted((a,b)=>(b[0]-end[0])*dir[0]+(b[1]-end[1])*dir[1]-((a[0]-end[0])*dir[0]+(a[1]-end[1])*dir[1]));
         const tip=mean(ordered.slice(0,Math.max(1,Math.ceil(ordered.length*.1))));
-        if(distance(end,tip)<span*.3)strip('hand',end,tip,halfWidth(end,tip,[chain.end]),[.315,.75,.625,.5],[chain.end]);
+        if(distance(end,tip)<span*.3)strip(arm?'hand':'foot',end,tip,halfWidth(end,tip,[chain.end]),arm?[.315,.75,.625,.5]:[.006,.505,.31,.995],[chain.end]);
       }
     }
   }

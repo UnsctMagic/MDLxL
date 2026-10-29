@@ -76,6 +76,22 @@ test('corpse torso uses skin on mesh children and grows with body girth while jo
   const a=narrow.parts.find(p=>p.kind==='torso'),b=wide.parts.find(p=>p.kind==='torso');assert.ok(a&&b);assert.equal(a.length,b.length);assert.ok(extent(wide,b)>extent(narrow,a)*1.7,'Broad bodies need broad ribs, not a fixed narrow strip');
   assert.ok(narrow.parts.find(p=>p.kind==='skull').vertices.length>=9);
 });
+test('corpse ribs are a lump clearly beneath the body, and a head carried in a hand is no skull',()=>{
+  const d=fixture();d.apply('Flail warrior',[],m=>{
+    const root=m.Bones[0];root.Name='Bone_Root';delete root.Translation;
+    const chest=createNode(m,'Bone');chest.Name='Bone_Chest';chest.Parent=root.ObjectId;
+    const head=createNode(m,'Bone');head.Name='Bone_Head';head.Parent=chest.ObjectId;head.PivotPoint.set([0,35,0]);
+    const hand=createNode(m,'Bone');hand.Name='Bone_Hand_R';hand.Parent=chest.ObjectId;hand.PivotPoint.set([30,0,0]);
+    const flail=createNode(m,'Bone');flail.Name='Flail_Head';flail.Parent=hand.ObjectId;flail.PivotPoint.set([60,0,0]);
+    const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[1.5,1,.6][i%3]);g.Groups=[[chest.ObjectId]];
+    for(const [node,dx,dy] of [[head,0,45],[flail,60,0]]){const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*.3+[dx,dy,0][i%3]);h.Groups=[[node.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(m.Geosets.length-1));}
+  });
+  const m=d.model,r=buildCorpseGeometry(m,[0,1,2],1),body=skinGeoset(m.Geosets[0],sampleNodeMatrices(m,r.frame,1));
+  assert.equal(r.parts.filter(p=>p.kind==='skull').length,1,'Flail_Head hangs from a hand: equipment, not a second skull');
+  const ribs=r.parts.find(p=>p.kind==='torso').vertices.map(i=>r.geoset.Vertices[i*3+2]),top=Math.max(...Array.from(body).filter((_,i)=>i%3===2));
+  assert.ok(Math.max(...ribs)-r.ground>r.span*.03,'Ribs need visible height, not a flat decal');
+  assert.ok(Math.max(...ribs)<top-r.span*.005,'The corpse keeps a clear gap below the body surface, so it cannot z-fight or pop through');
+});
 test('native body geometry, skin weights, Death keys and non-decay alpha curves are preserved',()=>{
   const d=fixture();d.apply('Cubic',[],m=>{m.GeosetAnims[0].Alpha=track([[0,[.3]],[500,[.8]],[900,[.5]],[1000,[1]],[1900,[1]]],3);for(const k of m.GeosetAnims[0].Alpha.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}});
   const before=structuredClone(d.model);apply(d);for(const field of ['Vertices','Normals','TVertices','Faces','Groups','VertexGroup'])assert.deepEqual(d.model.Geosets[0][field],before.Geosets[0][field]);
