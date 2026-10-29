@@ -19,6 +19,7 @@ import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-trac
 import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
 import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const STAGES = [
   // Repairs come first: later reductions refuse models with broken references.
@@ -64,8 +65,8 @@ function duplicateBones(m,settings,changes){
  for(const n of m.Bones){if(parents.has(n.ObjectId)||protectedNodes.has(n.ObjectId))continue;const {Name,ObjectId,...rest}=n,key=json(rest);if(known.has(key)){removed.add(ObjectId);map.set(ObjectId,known.get(key));}else known.set(key,ObjectId);}
  if(removed.size){changes.push({kind:'bones',nodes:[...removed]});remapNodes(m,removed,map);}return removed.size;
 }
-function unusedNodes(m,changes){const used=new Set(m.Geosets.flatMap(g=>g.Groups.flat()));const nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n]));for(const k of collections)if(!['Bones','Helpers'].includes(k))for(const n of m[k]||[])used.add(n.ObjectId);for(const n of [...m.Bones,...m.Helpers])if(n.GeosetId!=null||n.GeosetAnimId!=null)used.add(n.ObjectId);
- for(const id of [...used]){let n=byId.get(id),seen=new Set();while(n&&n.Parent!=null&&!seen.has(n.Parent)){seen.add(n.Parent);used.add(n.Parent);n=byId.get(n.Parent);}}
+function unusedNodes(m,changes){const used=new Set(m.Geosets.flatMap(g=>g.Groups.flat()));const nodes=allNodes(m),tree=nodeIndex(m,nodes);for(const k of collections)if(!['Bones','Helpers'].includes(k))for(const n of m[k]||[])used.add(n.ObjectId);for(const n of [...m.Bones,...m.Helpers])if(n.GeosetId!=null||n.GeosetAnimId!=null)used.add(n.ObjectId);
+ for(const id of [...used])for(const parent of tree.ancestors(id))used.add(parent);
  const removed=new Set([...m.Bones,...m.Helpers].filter(n=>!used.has(n.ObjectId)).map(n=>n.ObjectId));for(const n of nodes)if(removed.has(n.ObjectId))changes.push({label:`${m.Bones.includes(n)?'Bone':'Helper'}: ${n.Name||n.ObjectId}`});if(removed.size)remapNodes(m,removed);return removed.size;}
 function unusedGlobals(m,changes){const owners=[...tracks(m).map(t=>t.track),...m.EventObjects],used=new Set(owners.map(t=>t.GlobalSeqId).filter(id=>Number.isInteger(id)&&id>=0&&id<m.GlobalSequences.length)),map=new Map(),kept=[];m.GlobalSequences.forEach((duration,id)=>{if(used.has(id)){map.set(id,kept.length);kept.push(duration);}else changes.push({label:`Global sequence ${id+1}`});});const removed=m.GlobalSequences.length-kept.length;for(const t of owners)if(map.has(t.GlobalSeqId))t.GlobalSeqId=map.get(t.GlobalSeqId);m.GlobalSequences=kept;return removed;}
 function unusedResources(m,stats,skipped,changes){

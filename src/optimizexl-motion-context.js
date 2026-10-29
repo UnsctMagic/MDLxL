@@ -5,6 +5,7 @@ import { scanIrregularMotion, applyMotionCorrection } from './optimizexl-motion.
 import { length, sub as subtract, dot } from './vec.js';
 import { quantile } from './math.js';
 import { scanSuspiciousSnaps } from './optimizexl-snaps.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 const properties = ['Translation', 'Rotation', 'Scaling'];
 const keyValue = k => Array.from(k.Vector);
@@ -178,9 +179,8 @@ export function scanModelMotionContext(model, existing = []) {
 }
 
 function isRelated(a, b, nodes) {
-  const byId = new Map(nodes.map(n => [n.ObjectId, n]));
-  const ancestor = (node, id) => { const seen = new Set(); while (node && !seen.has(node.ObjectId)) { if (node.ObjectId === id) return true; seen.add(node.ObjectId); node = byId.get(node.Parent); } return false; };
-  return ancestor(a, b.ObjectId) || ancestor(b, a.ObjectId);
+  const { isAncestor } = nodeIndex(null, nodes);
+  return isAncestor(a.ObjectId, b.ObjectId) || isAncestor(b.ObjectId, a.ObjectId);
 }
 
 export function repairContextMotion(model, fix, evidenceModel = model) {
