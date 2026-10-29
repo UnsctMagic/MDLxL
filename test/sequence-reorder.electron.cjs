@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'sequence-reorder-ui');
@@ -20,7 +20,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   });
   const fixture = path.join(out, 'reorder-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
-  const app = await _electron.launch({ executablePath, args: [fixture], cwd: root, env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: ([fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let page; const errors = [];
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -35,16 +35,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await choose.selectOption('2');
     const readRuntime = () => page.evaluate(() => {
       const element = document.querySelector('.game-preview-root');
-      let fiber = element?.[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) };
-      }
+      
+      { const state = mdlxlProbe(element).runtime; if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) }; }
+
       return null;
     });
     const waitFor = async (predicate, label) => {
       const until = Date.now() + 20000;
-      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await page.waitForTimeout(100); }
+      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await settlePage(page, 100); }
       throw Error(label + ': ' + JSON.stringify(await readRuntime()));
     };
     await waitFor(state => state.ready, 'Preview ready');
@@ -125,5 +123,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1400)); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

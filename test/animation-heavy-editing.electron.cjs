@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // node test/animation-heavy-editing.electron.cjs [model.mdx] [app directory]
 // Uses an isolated profile and the normal App transform callback in rebuilt dist.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(process.argv[3] || path.join(__dirname, '..'));
@@ -19,9 +19,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fixture = path.join(output, 'baked.mdx'); fs.writeFileSync(fixture, doc.serialize('mdx'));
   }
   const original = fs.readFileSync(fixture), profile = fs.mkdtempSync(path.join(output, 'profile-'));
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', root, fixture], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = [];
   let page;
   try {
@@ -34,14 +32,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.editingState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
+        
         const result = {};
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) result.app = current;
-          if (current?.renderer && current?.entries) result.viewport = current;
-          if (current?.onTransform && current?.model) result.props = current;
-        }
+        { const current = findFiberState(host, current => current?.doc?.apply, { last: true }); if (current?.doc?.apply) result.app = current; }
+{ const current = findFiberState(host, current => current?.renderer && current?.entries, { last: true }); if (current?.renderer && current?.entries) result.viewport = current; }
+{ const current = findFiberState(host, current => current?.onTransform && current?.model, { last: true }); if (current?.onTransform && current?.model) result.props = current; }
+
         return result;
       };
       const doc = editingState().app.doc;
@@ -124,6 +120,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       if (typeof editingState === 'function' && editingState().app) Object.defineProperty(editingState().app.doc, 'dirty', { get: () => false });
       window.desktop?.setDirty({ dirty: false, saved: true });
     });
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

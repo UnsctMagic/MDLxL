@@ -2,10 +2,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createRequire} from 'node:module';
-import {fileURLToPath} from 'node:url';
+import {repoRoot as root} from './lib/paths.mjs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const {digest,validateManifest,installPlan,extractArchive,MANIFEST}=createRequire(import.meta.url)('../electron/updater.cjs');
 const archive=path.resolve(process.argv[2]),output=path.resolve(process.argv[3]);
 if(await digest(archive)!=='1cd5066f378a7a7df13c1cc1393268768771e42048789d053b78cd50a140fd4b')throw Error('Expected the verified official MDLxL 0.20.1 ZIP.');

@@ -1,19 +1,19 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building; MDLXL_PLAYWRIGHT_MODULE can point to shared Playwright.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), output = path.resolve(process.env.MDLXL_APPEARANCE_OUTPUT || 'out/bone-appearance');
   fs.mkdirSync(output, { recursive: true });
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
-  const fixture = path.join(root, 'fixtures/demo.mdx'), original = fs.readFileSync(fixture);
+  const fixture = path.join(root, 'test/fixtures/demo.mdx'), original = fs.readFileSync(fixture);
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, language: 'en', checkUpdatesOnStartup: false, graphics: { pauseWhenHidden: false } } }));
   const errors = [], result = { combinations: [], rotation: null, persisted: null };
   let app;
   const launch = async () => {
-    app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
@@ -84,7 +84,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(before => previewRuntime().controls.object.position.toArray().some((value, index) => Math.abs(value - before[index]) > .01), before);
     result.rotation = { before, after: await page.evaluate(() => previewRuntime().controls.object.position.toArray()) };
     assert.equal(await page.evaluate(() => JSON.stringify(previewProps().model)), modelBefore, 'appearance and camera must not mutate model');
-    await app.close(); app = null;
+    await closeApp(app); app = null;
     page = await launch();
     await settings(page);
     result.persisted = { style: await page.getByLabel('Bone style', { exact: true }).inputValue(), connector: await page.getByLabel('Skeleton style', { exact: true }).inputValue() };
@@ -94,7 +94,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify({ ...result, errors }, null, 2));
     console.log(JSON.stringify(result, null, 2));
   } finally {
-    if (app) await app.close();
+    if (app) await closeApp(app);
     fs.rmSync(profile, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

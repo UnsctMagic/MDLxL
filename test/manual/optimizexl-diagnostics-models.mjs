@@ -1,9 +1,9 @@
-import fs from 'node:fs';import { sanityTest } from './helpers/hive.mjs';import assert from 'node:assert/strict';
-import { comparePoses } from './helpers/pose-compare.mjs';
-import {openDocument} from '../src/editor-document.js';
-import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
-import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
-import {flattenHiveFindings} from '../app/optimizexl-hive.js';
+import fs from 'node:fs';import { sanityTest } from '../helpers/hive.mjs';import assert from 'node:assert/strict';
+import { comparePoses } from '../helpers/pose-compare.mjs';
+import {openDocument} from '../../src/editor-document.js';
+import {sanityProposals,runOptimizeStage} from '../../src/optimizexl.js';
+import {classifyHiveFindings} from '../../src/optimizexl-diagnostics.js';
+import {flattenHiveFindings} from '../../app/optimizexl-hive.js';
 const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 const at=(m,p)=>p.reduce((v,k)=>v[k],m);
 for(const path of process.argv.slice(2)){

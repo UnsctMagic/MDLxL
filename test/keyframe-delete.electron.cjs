@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance for direct Movement keyframe deletion.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
@@ -21,7 +21,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
 
-  const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'), args: [cwd, fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     await page.locator('[data-hotkey="animation"]').click();
@@ -64,6 +64,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await reel.count(), 1);
     console.log('PASS: exact click, Del, Highlight KF scope, Select tool, and saved MDX');
   } finally {
-    await app.evaluate(({ app }) => app.exit(0));
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

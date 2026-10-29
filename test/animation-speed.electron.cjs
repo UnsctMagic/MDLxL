@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'animation-speed-ui');
@@ -25,8 +25,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const fixture = path.join(out, 'speed-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
   const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = []; let page;
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -54,21 +53,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
     assert.deepEqual(await fs.readFile(path.join(out, 'unused.mdx')), Buffer.from(original));
     // A write shows the progress bar for at least 300 ms; wait until it finishes.
-    const written = async () => { await page.waitForTimeout(50); await page.locator('.ac-speed-progress').waitFor({ state: 'detached' }); };
+    const written = async () => { await settlePage(page, 50); await page.locator('.ac-speed-progress').waitFor({ state: 'detached' }); };
     const setRange = async (range, value) => { await range.fill(String(value)); await written(); };
     const typePercent = async (input, value) => { await input.fill(String(value)); await input.press('Enter'); await written(); };
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
-      let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state.controls) return { frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), translation: Array.from(state.native.model.Bones[0].Translation.Keys.map(key => key.Frame)), interval: Array.from(state.native.model.Sequences[0].Interval), ready: state.captureApi?.isReady, rootMatrix: state.native.model.Nodes[0].matrix?.toArray?.() };
-      }
+      
+      { const state = mdlxlProbe(el).runtime; if (state?.native && state.controls) return { frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), translation: Array.from(state.native.model.Bones[0].Translation.Keys.map(key => key.Frame)), interval: Array.from(state.native.model.Sequences[0].Interval), ready: state.captureApi?.isReady, rootMatrix: state.native.model.Nodes[0].matrix?.toArray?.() }; }
+
       return null;
     });
     const waitFor = async (predicate, label) => {
       const until = Date.now() + 20000;
-      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await page.waitForTimeout(100); }
+      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await settlePage(page, 100); }
       throw Error(label + ': ' + JSON.stringify(await readRuntime()));
     };
     const start = await waitFor(state => state.ready, 'Preview loaded');
@@ -77,7 +74,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const track = await slider.boundingBox(), x = value => track.x + 8 + (track.width - 16) * (value - 1) / 299, y = track.y + track.height / 2;
     await page.mouse.move(x(100), y); await page.mouse.down();
     await page.mouse.move(x(40), y, { steps: 30 });
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const dragged = Number(await slider.inputValue());
     assert.ok(dragged < 100, 'slider follows the drag');
     assert.equal(await percent.inputValue(), String(dragged), 'number box follows the drag');
@@ -175,7 +172,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
     await waitFor(state => state.ready, 'Animation preview ready after opening boundary fixtures');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'camera:rotate'));
-    await page.waitForTimeout(150);
+    await settlePage(page, 150);
     const cameraBefore = (await readRuntime()).camera, canvas = await page.locator('[data-clean-model-canvas]').boundingBox();
     await page.mouse.move(canvas.x + canvas.width * .75, canvas.y + canvas.height * .75); await page.mouse.down();
     await page.mouse.move(canvas.x + canvas.width * .60, canvas.y + canvas.height * .60, { steps: 12 }); await page.mouse.up();
@@ -188,5 +185,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1400)); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

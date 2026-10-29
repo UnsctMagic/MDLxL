@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 (async () => {
@@ -32,7 +32,7 @@ const root = path.resolve(__dirname, '..');
   const profile = path.join(run, 'profile');
   await fs.mkdir(profile);
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({preferences:{language:'en',checkUpdatesOnStartup:false}}));
-  const app = await _electron.launch({executablePath:path.join(fixture,'MDLxL.exe'),args:['--disable-backgrounding-occluded-windows'],env:{...process.env,MDLXL_PROFILE:profile},timeout:30000});
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, args: (['--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 30000 })).app;
   const errors = [];
   let page;
   try {
@@ -137,6 +137,6 @@ const root = path.resolve(__dirname, '..');
   } finally {
     await page?.clock.resume();
     await app.evaluate(({dialog}) => {dialog.showMessageBoxSync=()=>2;});
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => {console.error(error);process.exitCode=1;});

@@ -1,9 +1,9 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Test the UV filter dropdown against an isolated rebuilt Windows package.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'out', 'glow-material-filters-' + Date.now());
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -28,8 +28,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   const input = path.join(out, 'TwoPassGlow.mdx'); fs.writeFileSync(input, doc.serialize('mdx'));
   const beforeHash = hash(input), textureHash = hash(texture), original = doc.model.Materials[0];
   const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE);
-  const app = await _electron.launch({ executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (['--disable-backgrounding-occluded-windows', input]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let main, uv;
   try {
     main = await app.firstWindow(); main.setDefaultTimeout(20000);
@@ -110,10 +109,9 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await uv.waitForFunction(before => glowState().camera.some((value, index) => Math.abs(value - before[index]) > .01), camera);
     assert.equal((await uvw.locator('.uv-side-panel').boundingBox()).width, sidebar.width);
     const bytes = await main.evaluate(() => {
-      const element = document.querySelector('.classic-app'); let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const doc = hook.memoizedState?.doc; if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx'));
-      }
+      const element = document.querySelector('.classic-app'); 
+      { const doc = findFiberState(element, doc => typeof doc?.serialize === 'function'); if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx')); }
+
       throw Error('Missing document');
     });
     assert.deepEqual(openDocument(Uint8Array.from(bytes), 'reopened.mdx').model.Materials[0], original);
@@ -122,5 +120,5 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   } catch (error) {
     if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(out, 'failure.png') });
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

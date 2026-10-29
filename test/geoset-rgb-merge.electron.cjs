@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron regression for checked-geoset RGB editing followed by merge.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
@@ -22,11 +22,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const original = fs.readFileSync(source);
   const initialCount = api.openDocument(original, path.basename(source)).model.Geosets.length;
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
-  const app = await _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', root, source], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, source]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let page;
   try {
     page = await app.firstWindow();
@@ -40,11 +36,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.rgbMergeState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
         if (!host) return window.rgbMergeApp;
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) return window.rgbMergeApp = current;
-        }
+        
+        { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return window.rgbMergeApp = current; }
+
         return window.rgbMergeApp;
       };
       window.rgbMergeState();
@@ -80,6 +74,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       if (state) Object.defineProperty(state.doc, 'dirty', { get: () => false });
       window.desktop?.setDirty({ dirty: false, saved: true });
     });
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

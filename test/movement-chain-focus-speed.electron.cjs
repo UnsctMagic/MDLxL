@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance for chain copy, focused skeleton, playback speed and collapsible sidebars.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { createNode } = await import('../src/editor-document.js');
@@ -21,11 +21,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
 
-  const app = await _electron.launch({
-    executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', cwd, fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => { throw error; });
@@ -52,15 +48,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const picker = page.getByLabel('Movement bone or node'), bones = page.locator('input[data-hotkey="display:bones"]').first();
     if (await bones.isChecked()) await bones.uncheck();
     await page.locator('[data-hotkey="select"]').click();
-    await picker.selectOption(String(shoulderId)); await page.waitForTimeout(300);
+    await picker.selectOption(String(shoulderId)); await settlePage(page, 300);
     const arm = await screenPoint(page, [50, 0, 0]), other = await screenPoint(page, [-40, -30, 0]);
-    await page.mouse.click(other.x, other.y); await page.waitForTimeout(300);
+    await page.mouse.click(other.x, other.y); await settlePage(page, 300);
     assert.doesNotMatch(await picker.locator('option:checked').textContent(), /Other Shoulder/, 'a bone outside the focused chain stays unpickable with Bones off');
-    await picker.selectOption(String(shoulderId)); await page.waitForTimeout(300);
-    await page.mouse.click(arm.x, arm.y); await page.waitForTimeout(300);
+    await picker.selectOption(String(shoulderId)); await settlePage(page, 300);
+    await page.mouse.click(arm.x, arm.y); await settlePage(page, 300);
     assert.match(await picker.locator('option:checked').textContent(), /Arm 1$/, 'clicking the focused child bone selects it');
     const hand = await screenPoint(page, [75, 20, 0]);
-    await page.mouse.click(hand.x, hand.y); await page.waitForTimeout(300);
+    await page.mouse.click(hand.x, hand.y); await settlePage(page, 300);
     assert.match(await picker.locator('option:checked').textContent(), /Hand 1$/, 'the next bone down the chain is pickable too');
     await page.screenshot({ path: path.join(out, 'focused-pick.png') });
 
@@ -91,7 +87,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.screenshot({ path: path.join(out, 'animations.png') });
     console.log('PASS: Highlight Chain copy, Focused Skeleton exclusivity, 1-250% playback speed, and collapsible Movement/Animations sidebars');
   } finally {
-    await app.evaluate(({ app }) => app.exit(0));
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });
 

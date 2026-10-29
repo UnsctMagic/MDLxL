@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against rebuilt dist or set MDLXL_TEST_PACKAGE to a packaged app directory.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), output = path.join(root, 'out/geoset-merge-conflicts');
@@ -24,11 +24,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const bytes = fs.readFileSync(source), initial = openDocument(bytes, path.basename(source)).model;
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = await _electron.launch({
-    executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [root]), source], cwd: packaged || root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'), args: [], packaged: true }, args: (['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [root]), source]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let page;
   try {
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
@@ -43,20 +39,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.mergeState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) return current;
-        }
+        
+        { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return current; }
+
         throw Error('Editor state missing');
       };
       window.mergeViewport = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.controls?.object) return current;
-        }
+        
+        { const current = findFiberState(host, current => current?.controls?.object); if (current?.controls?.object) return current; }
+
         throw Error('Viewport state missing');
       };
     });
@@ -121,6 +113,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.log('PASS: centered conflict popup, explicit independent choices, cancel/Escape, merge, MDX reopen, undo/redo, material warning, sidebar preservation, actual mouse rotation, original file unchanged');
   } finally {
     if (page && !page.isClosed()) await page.evaluate(() => { const state = typeof mergeState === 'function' && mergeState(); if (state) Object.defineProperty(state.doc, 'dirty', { get: () => false }); window.desktop?.setDirty({ dirty: false, saved: true }); });
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

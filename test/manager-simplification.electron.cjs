@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async()=>{
  const {openDocument}=await import('../src/editor-document.js');
  const root=process.cwd(), file=process.env.MDLXL_TEST_MODEL || 'C:\\Users\\PC\\Desktop\\WIP\\graveguard_Optimized Weapon (1).mdx';
  const original=fs.readFileSync(file), out=process.env.MDLXL_SCREENSHOTS || path.join(root,'out/managers-v3'); fs.mkdirSync(out,{recursive:true});
- const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:[root,file],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(root,'out/managers-v3/profile-'+Date.now())}});
+ const app=(await launchApp({ out: path.resolve('out'), profile: path.join(root,'out/managers-v3/profile-'+Date.now()), args: ([root,file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' } })).app;
  let page;const errors=[];
  try{
   page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
@@ -112,11 +112,9 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
     assert.deepEqual(isolation.fit, [0]); assert.equal(isolation.hidden.length, isolation.count - 1);
     const drawnIds = await page.evaluate(() => {
       const el = document.querySelector('.re-model-stage .game-preview-root'), canvas = el.querySelector('canvas[data-clean-model-canvas]');
-      let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native?.indexBuffer) return state.native.indexBuffer.flatMap((buffer, i) => window.meshDraws.get(canvas)?.has(buffer) ? [i] : []);
-      }
+      
+      { const state = findFiberState(el, state => state?.native?.indexBuffer); if (state?.native?.indexBuffer) return state.native.indexBuffer.flatMap((buffer, i) => window.meshDraws.get(canvas)?.has(buffer) ? [i] : []); }
+
     });
     assert.deepEqual(drawnIds, [0], 'actual GL draws must contain only the isolated mesh');
     await page.screenshot({ path: path.join(out, 'isolated-geoset.png') });
@@ -162,5 +160,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
   assert.deepEqual(fs.readFileSync(file),original);assert.deepEqual(errors,[]);
   console.log('PASS original editor pickers; shared visibility checkbox; sound playback; event creation/save; managers without duplicate visibility tracks or filler.');
  }catch(error){if(page)await page.screenshot({path:path.join(out,'failure.png')});throw error;}
- finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{await closeApp(app).catch(()=>{});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building; MDLXL_TEST_EXE exercises the packaged desktop executable.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), output = process.env.MDLXL_TEST_OUTPUT || path.join(root, 'out', 'bit-replacement');
@@ -37,7 +37,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   fs.mkdirSync(bank, { recursive: true });
   const bitName = 'Replacement Test Bit ' + Date.now() + '.mdx', bitFile = path.join(bank, bitName);
   const donorBytes = Buffer.from(source.serialize('mdx')); fs.writeFileSync(bitFile, donorBytes);
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(), pageErrors = []; page.setDefaultTimeout(15000); page.on('pageerror', error => pageErrors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 900); window.show(); });
@@ -46,13 +46,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.bitState = selector => {
         const host = document.querySelector(selector || '.classic-view [aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))]; const result = {};
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) result.app = current;
-          if (current?.renderer && current?.entries) result.viewport = current;
-          if (current?.model && current?.preferences) result.props = current;
-        }
+         const result = {};
+        { const current = findFiberState(host, current => current?.doc?.apply, { last: true }); if (current?.doc?.apply) result.app = current; }
+{ const current = findFiberState(host, current => current?.renderer && current?.entries, { last: true }); if (current?.renderer && current?.entries) result.viewport = current; }
+{ const current = findFiberState(host, current => current?.model && current?.preferences, { last: true }); if (current?.model && current?.preferences) result.props = current; }
+
         return result;
       };
     });
@@ -126,7 +124,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('[data-hotkey="translate"]').getAttribute('aria-pressed'), 'true');
     await page.screenshot({ path: path.join(output, 'replacement-selected.png') });
     // Place it with the vertex editor's own Move tool through a real mouse drag.
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const start = await page.evaluate(() => {
       const state = bitState().viewport, entry = state.entries[1];
       const source = entry.geometry.attributes.position.array, point = state.camera.position.clone().set(0, 0, 0);
@@ -135,8 +133,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const rect = state.controls.domElement.getBoundingClientRect();
       return { x: rect.x + (point.x + 1) * rect.width / 2, y: rect.y + (1 - point.y) * rect.height / 2 };
     });
-    await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.waitForTimeout(150);
-    await page.mouse.move(start.x + 40, start.y, { steps: 6 }); await page.waitForTimeout(150); await page.mouse.up();
+    await page.mouse.move(start.x, start.y); await page.mouse.down(); await settlePage(page, 150);
+    await page.mouse.move(start.x + 40, start.y, { steps: 6 }); await settlePage(page, 150); await page.mouse.up();
     await page.waitForFunction(old => Array.from(bitState().app.doc.model.Geosets[1].Vertices).some((value, index) => value !== old[index]), centered);
     const moved = await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx')));
     await page.screenshot({ path: path.join(output, 'replacement-moved.png') });
@@ -151,5 +149,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.ok(fs.readFileSync(bitFile).equals(donorBytes)); assert.deepEqual(pageErrors, []);
     fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, fittedToSelection: true, noPlacementToolsInBitz: true, previewCameraRotates: true, selectedInVertexEditor: true, movedWithVertexMoveTool: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
     console.log('PASS packaged Electron: BITZ previews only, preview camera rotates, cancel, replacement lands selected in the vertex editor and moves with its Move tool, dependency reuse, bones, undo/redo and unchanged fixtures/sidebar.');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); await app.close(); fs.unlinkSync(bitFile); }
+  } finally { await closeApp(app).catch(() => {}); await closeApp(app); fs.unlinkSync(bitFile); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

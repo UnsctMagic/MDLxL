@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // A bone picked in Movement or Bones must not take Visibility & Color away from
 // the checked geosets in Animations, and it must be there again on return.
@@ -12,8 +12,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const fixture = path.join(out, 'animations-geoset-target.mdx'); await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
   const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = [], checks = []; let page;
   try {
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));

@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { BUILT_IN_VIEWPORT_PRESETS: presets } = await import('../src/viewport-appearance.js');
@@ -10,7 +10,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const profile = path.join(root, 'out/tree-appearance/profile-' + Date.now());
   const file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
   const original = fs.readFileSync(file), errors = [];
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: [root, file], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile } });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: ([root, file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' } })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
@@ -89,5 +89,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(fs.readFileSync(file), original, 'model bytes unchanged');
     assert.deepEqual(errors, []);
     console.log('PASS categories, all palettes, custom controls, font sizes, preset switching and persisted settings');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

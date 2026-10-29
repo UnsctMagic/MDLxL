@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const output = path.resolve('out/grabthrough-ui'); fs.mkdirSync(output, { recursive: true });
@@ -11,12 +11,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   [[0, 20, -18], [0, 28, -18], [0, 20, -10], [0, 28, -10]].forEach((point, index) => fixtureVertices.set(point, [0, 3, 4, 7][index] * 3));
   fixtureGeoset.Faces = new Uint32Array([1, 2, 6, 1, 6, 5]);
   fs.writeFileSync(fixture, Buffer.from(fixtureDocument.serialize('mdx')));
-  const app = await _electron.launch({
-    executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) },
-    timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(30000);
     const marqueeAll = async locator => {
@@ -28,7 +23,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     };
     const selectedCount = async () => Number(await page.locator('.classic-counts>div').nth(1).locator('span').textContent());
     const selectedPixels = async (locator, name) => {
-      await page.waitForTimeout(100);
+      await settlePage(page, 100);
       const png = await locator.screenshot({ path: path.join(output, name) });
       return page.evaluate(async source => {
         const bytes = Uint8Array.from(atob(source), value => value.charCodeAt(0));
@@ -102,5 +97,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     assert.equal(await page.getByLabel('Grabthrough', { exact: true }).count(), 0, 'Grabthrough stays scoped to Vertex and Bones');
     console.log('Grabthrough is visible in Vertex and Bones, defaults on in Vertex and off in Bones, toggles on, and stays out of Movement.');
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

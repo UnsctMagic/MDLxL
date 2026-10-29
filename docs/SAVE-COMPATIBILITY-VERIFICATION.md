@@ -133,13 +133,13 @@ checks passed, but this is not a claim of an error-free UI session.
 Generate the redistributable synthetic corpus:
 
 ```text
-node test/save-compatibility-fixtures.mjs out/save-compatibility-synthetic
+node test/manual/save-compatibility-fixtures.mjs out/save-compatibility-synthetic
 ```
 
 Run the independent checker with the installed Retera Java distribution:
 
 ```powershell
-& "$retera/bin/java.exe" '-Djava.awt.headless=true' -cp "$retera/lib/*" org.openjdk.nashorn.tools.Shell test/save-compatibility.retera.js -- "$PWD/out/save-compatibility-synthetic"
+& "$retera/bin/java.exe" '-Djava.awt.headless=true' -cp "$retera/lib/*" org.openjdk.nashorn.tools.Shell test/manual/save-compatibility.retera.js -- "$PWD/out/save-compatibility-synthetic"
 ```
 
 The local `out/save-compatibility-fix-2026-10-03/` directory retains model copies,

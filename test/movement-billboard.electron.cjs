@@ -1,6 +1,6 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron regression; optional MDLXL_BILLBOARD_MODEL is read-only input.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const near = (actual, expected, label, tolerance = .003) => actual.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < tolerance, `${label}: ${actual} != ${expected}`));
 (async () => {
@@ -21,21 +21,25 @@ const near = (actual, expected, label, tolerance = .003) => actual.forEach((valu
     fixture=path.join(out,'movement-billboard.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   }
   const originalHash=hash(fixture), errors=[],checks=[],measurements=[];
-  const app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',process.cwd(),fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
     await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.webContents.setBackgroundThrottling(false);win.setBounds({x:-3000,y:0,width:1280,height:900});win.showInactive();});
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({timeout:60000});
-    const vertexSample=()=>page.evaluate(()=>{const root=document.querySelector('[aria-label="3D model viewport"]');for(let fiber=root?.[Object.keys(root).find(key=>key.startsWith('__reactFiber'))];fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const runtime=hook.memoizedState?.current;if(runtime?.renderer&&runtime?.entries){const rect=runtime.renderer.domElement.getBoundingClientRect();return{vertices:runtime.entries.map(entry=>Array.from(entry.geometry.attributes.position.array)),camera:runtime.controls.object.toJSON(),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};}}throw Error('Vertex runtime not ready');});
-    await page.waitForTimeout(250);const vertexBefore=await vertexSample(),v=vertexBefore.rect;
-    await page.keyboard.down('Alt');await page.mouse.move(v.x+v.width-80,v.y+v.height-80);await page.mouse.down();await page.mouse.move(v.x+v.width-140,v.y+v.height-100,{steps:5});await page.mouse.up();await page.keyboard.up('Alt');await page.waitForTimeout(250);
+    const vertexSample=()=>page.evaluate(()=>{const root=document.querySelector('[aria-label="3D model viewport"]');{ const runtime = findFiberState(root, runtime => runtime?.renderer&&runtime?.entries); if (runtime?.renderer&&runtime?.entries) {const rect=runtime.renderer.domElement.getBoundingClientRect();return{vertices:runtime.entries.map(entry=>Array.from(entry.geometry.attributes.position.array)),camera:runtime.controls.object.toJSON(),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};} }
+throw Error('Vertex runtime not ready');});
+    await settlePage(page, 250);const vertexBefore=await vertexSample(),v=vertexBefore.rect;
+    await page.keyboard.down('Alt');await page.mouse.move(v.x+v.width-80,v.y+v.height-80);await page.mouse.down();await page.mouse.move(v.x+v.width-140,v.y+v.height-100,{steps:5});await page.mouse.up();await page.keyboard.up('Alt');await settlePage(page, 250);
     const vertexAfter=await vertexSample();assert.notDeepEqual(vertexAfter.camera,vertexBefore.camera,'vertex editor mouse camera rotates');assert.deepEqual(vertexAfter.vertices,vertexBefore.vertices,'vertex geometry stays fixed while editing billboard-bound mesh');checks.push('vertex editor geometry stays fixed across camera rotation');
     await page.locator('[data-hotkey="animation"]').click();
     await page.locator('[data-clean-model-canvas]').waitFor({timeout:60000});
     await page.evaluate(()=>{
       window.movementProbe=()=>{
         const root=document.querySelector('.game-preview-root');let runtime,props,session;
-        for(let fiber=root?.[Object.keys(root).find(key=>key.startsWith('__reactFiber'))];fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const value=hook.memoizedState,ref=value?.current;if(ref?.native&&ref?.controls)runtime=ref;if(ref?.model&&Object.hasOwn(ref,'onNodeTransform'))props=ref;if(value?.doc?.model&&value?.assets)session=value;}
+        { const ref = findFiberState(root, ref => ref?.native&&ref?.controls, { last: true }); if (ref?.native&&ref?.controls) runtime=ref; }
+{ const ref = findFiberState(root, ref => ref?.model&&Object.hasOwn(ref,'onNodeTransform'), { last: true }); if (ref?.model&&Object.hasOwn(ref,'onNodeTransform')) props=ref; }
+{ const value = findFiberState(root, value => value?.doc?.model&&value?.assets, { last: true }); if (value?.doc?.model&&value?.assets) session=value; }
+
         if(!runtime||!props||!session)throw Error('Movement owners not ready');return{runtime,props,session};
       };
       window.movementSample=()=>{
@@ -51,7 +55,7 @@ const near = (actual, expected, label, tolerance = .003) => actual.forEach((valu
     await page.getByRole('group',{name:'Movement tool',exact:true}).getByRole('button',{name:'Move',exact:true}).click();
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     await page.getByRole('button',{name:'Fit',exact:true}).click();
-    const settle=()=>page.waitForTimeout(220),sample=()=>page.evaluate(()=>movementSample());
+    const settle=()=>settlePage(page, 220),sample=()=>page.evaluate(()=>movementSample());
     const undo=async()=>{await page.keyboard.press('Control+z');await settle();},redo=async()=>{await page.keyboard.press('Control+y');await settle();};
     await page.getByLabel('Workplane',{exact:true}).check();await settle();
     async function drag(plane,cancel=false){
@@ -117,5 +121,5 @@ const near = (actual, expected, label, tolerance = .003) => actual.forEach((valu
     assert.equal(hash(fixture),originalHash,'input bytes unchanged');assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({fixture,originalHash,checks,measurements,errors},null,2));console.log(JSON.stringify({checks,measurements,errors}));
   }catch(error){fs.writeFileSync(path.join(out,'failure.json'),JSON.stringify({error:error.stack,checks,measurements,errors},null,2));throw error;}
-  finally{await app.evaluate(({app})=>app.exit(0));}
+  finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

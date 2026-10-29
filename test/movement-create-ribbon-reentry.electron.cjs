@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   if (process.platform === 'win32') assert.equal(process.env.MDLXL_SUITE_HIDDEN, '1', 'Run through the hidden-desktop packaged runner');
@@ -23,7 +23,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, starterTextureAsset(name).bytes);
   }
   const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || 'out/pkg/MDLxL-win32-x64');
-  const app = await _electron.launch({ executablePath: path.join(pkg, 'MDLxL.exe'), args: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const checks = [], errors = [];
   let page;
   try {
@@ -37,35 +37,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const size = width => app.evaluate(({ BrowserWindow }, width) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.setSize(width, 900); w.showInactive(); }, width);
     const state = () => page.evaluate(() => {
       const el = document.querySelector('.classic-app');
-      for (let fiber = el[Object.keys(el).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
-        for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const value = hook.memoizedState;
-          if (value?.doc?.model) return { model: JSON.stringify(value.doc.model), sequences: value.doc.model.Sequences.map(s => ({ name: s.Name, interval: Array.from(s.Interval) })), ribbons: value.doc.model.RibbonEmitters.map(n => n.ObjectId), particles: value.doc.model.ParticleEmitters2.map(n => n.ObjectId), undo: value.doc.historyStats.undoSteps };
-        }
-      }
+      { const value = findFiberState(el, value => value?.doc?.model); if (value?.doc?.model) return { model: JSON.stringify(value.doc.model), sequences: value.doc.model.Sequences.map(s => ({ name: s.Name, interval: Array.from(s.Interval) })), ribbons: value.doc.model.RibbonEmitters.map(n => n.ObjectId), particles: value.doc.model.ParticleEmitters2.map(n => n.ObjectId), undo: value.doc.historyStats.undoSteps }; }
+
       throw Error('Live document unavailable');
     });
     const camera = () => page.evaluate(() => {
       const el = document.querySelector('.pe-preview .game-preview-root');
-      for (let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
-        for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const value = hook.memoizedState?.current;
-          if (value?.controls?.object) return value.controls.object.quaternion.toArray();
-        }
-      }
+      { const value = findFiberState(el, value => value?.controls?.object); if (value?.controls?.object) return value.controls.object.quaternion.toArray(); }
+
       return null;
     });
     const rotate = async () => {
       await page.locator('.pe-preview .game-preview-root canvas').first().waitFor();
       await page.waitForFunction(() => document.querySelector('.pe-preview .game-preview-root canvas')?.width > 0);
       let before;
-      for (let i = 0; i < 50 && !(before = await camera()); i++) await page.waitForTimeout(100);
+      for (let i = 0; i < 50 && !(before = await camera()); i++) await settlePage(page, 100);
       assert.ok(before, 'Native preview camera exists');
       const box = await page.locator('.pe-preview .game-preview-root').boundingBox();
       const x = box.x + box.width * .3, y = box.y + box.height * .4;
       await page.keyboard.down('Alt'); await page.mouse.move(x, y); await page.mouse.down();
       await page.mouse.move(x + 70, y + 30, { steps: 8 }); await page.mouse.up(); await page.keyboard.up('Alt');
-      await page.waitForTimeout(100);
+      await settlePage(page, 100);
       const after = await camera(), delta = Math.hypot(...after.map((v, i) => v - before[i]));
       assert.ok(delta > .01, 'Real mouse drag rotates EMTR camera');
       return delta;
@@ -102,7 +94,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('.ac-sequence-actions').getByRole('button', { name: 'Create', exact: true }).click();
     assert.equal((await state()).sequences.length, beforeAnimation.sequences.length + 1);
     await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Control+z');
-    await page.waitForTimeout(100); assert.equal((await state()).model, beforeAnimation.model);
+    await settlePage(page, 100); assert.equal((await state()).model, beforeAnimation.model);
     await menu('bones'); await page.locator('.movement-controller').waitFor(); assert.equal(await page.locator('.movement-sequence').count(), 0);
     checks.push({ check: 'Animations Create and rest-pose exclusion' });
     await menu('animation'); await page.locator('.movement-controller').waitFor();
@@ -133,5 +125,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.error(error.stack || error);
     if (page) { console.error((await page.locator('body').innerText()).slice(-2500)); await page.screenshot({ path: path.join(out, 'failure.png') }); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exit(1); });

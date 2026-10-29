@@ -1,15 +1,15 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building. Uses a disposable profile, never the user's running app.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/geoset-leave-visible');
   fs.mkdirSync(out, { recursive: true });
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, path.join(root, 'fixtures/demo.mdx')], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, path.join(root, 'test/fixtures/demo.mdx')]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
@@ -81,5 +81,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByLabel('Geoset 0 left visible').count(), 0);
     assert.deepEqual(errors, []);
     console.log('PASS vertex/movement visible-only state, hidden-geoset exclusion, selection protection, undo/redo, toggle and re-enable editing');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

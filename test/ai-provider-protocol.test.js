@@ -127,7 +127,7 @@ test('MCP URL input opens only on an explicit click for its live request and sup
 });
 
 async function claudeFixture(f) {
-  await fs.copyFile(new URL('../fixtures/ai-claude-question-agent.cjs', import.meta.url), path.join(f.service.directory, 'agent.js'));
+  await fs.copyFile(new URL('./fixtures/ai-claude-question-agent.cjs', import.meta.url), path.join(f.service.directory, 'agent.js'));
   const executable = path.join(f.service.directory, process.platform === 'win32' ? 'claude.cmd' : 'claude');
   if (process.platform === 'win32') await fs.writeFile(executable, '@"%dp0%\\agent.js" %*\r\n');
   else { await fs.writeFile(executable, '#!' + process.execPath + '\n' + await fs.readFile(path.join(f.service.directory, 'agent.js'))); await fs.chmod(executable, 0o700); }

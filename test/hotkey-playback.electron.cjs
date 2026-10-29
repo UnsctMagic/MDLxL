@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), variant = process.env.MDLXL_VARIANT_CPU ? 'slow-cpu' : 'default';
@@ -14,8 +14,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const fixture = path.join(out, 'playback.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
   const executablePath = process.env.MDLXL_PLAYBACK_EXE || path.join(root, 'out', 'pkg', 'MDLxL-win32-x64', 'MDLxL.exe');
-  const app = await _electron.launch({ executablePath, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const samples = [], errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -69,7 +68,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await click(page.locator('.learn-menu [data-hotkey="show-hotkeys"]'));
         await page.keyboard.press('Escape'); shown = on;
       }
-      await page.waitForTimeout(1000);
+      await settlePage(page, 1000);
       const sample = await page.evaluate(ms => new Promise(resolve => {
         const probe = window.__playbackCost, start = performance.now();
         probe.sample = { frames: 0, gaps: [], last: start, rects: 0, hintRects: 0, hintStyles: 0, cursorWrites: 0 };
@@ -100,7 +99,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }
     assert.deepEqual(errors, []);
   } finally {
-    await app.close();
+    await closeApp(app);
     await fs.rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   }
 })().then(() => process.exit(0), error => { console.error(error); process.exit(1); });

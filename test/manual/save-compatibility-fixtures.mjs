@@ -2,8 +2,8 @@
 // node test/save-compatibility-fixtures.mjs [output directory]
 import fs from 'node:fs';
 import path from 'node:path';
-import { createStarterDocument } from '../src/starter-model.js';
-import { createNode } from '../src/editor-document.js';
+import { createStarterDocument } from '../../src/starter-model.js';
+import { createNode } from '../../src/editor-document.js';
 const root = path.resolve(process.argv[2] || 'out/save-compatibility-synthetic');
 for (const folder of ['models', 'evidence']) fs.mkdirSync(path.join(root, folder), { recursive: true });
 const f = (...values) => Float32Array.from(values);

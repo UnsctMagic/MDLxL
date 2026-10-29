@@ -1,12 +1,12 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after rebuilding dist: node test/appearance-contrast.electron.cjs
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const {buildSync}=require(path.resolve('node_modules/esbuild'));
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out/ui-audit');fs.mkdirSync(out,{recursive:true});
  const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile);
  fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{rendererRevision:3}}));
- const app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_TEST_EXE?[]:[root]),path.join(root,'fixtures/demo.mdx')],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+ const app=(await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_TEST_EXE?[]:[root]),path.join(root,'test/fixtures/demo.mdx')]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
  const errors=[],report={contrast:[],untranslated:{},screens:0};
  try {
   assert.equal(await app.evaluate(({app})=>app.getVersion()),JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version);
@@ -60,5 +60,5 @@ const {buildSync}=require(path.resolve('node_modules/esbuild'));
    await page.screenshot({path:path.join(out,locale+'.png')});
   }
   assert.deepEqual(errors,[]);assert.deepEqual(report.contrast,[], 'All audited text must meet 4.5:1 contrast');fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));console.log('UI audit:',report.screens,'theme/screen combinations;',report.contrast.length,'contrast groups.');
- }finally{await app.close();}
+ }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

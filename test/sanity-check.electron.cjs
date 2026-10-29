@@ -1,8 +1,8 @@
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out/sanity-ui');fs.mkdirSync(out,{recursive:true});
- const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:[root,path.join(root,'fixtures/demo.mdx')],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
+ const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile'), args: ([root,path.join(root,'test/fixtures/demo.mdx')]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
  try {
   const page=await app.firstWindow(); page.setDefaultTimeout(20000); const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setFocusable(false);w.setSkipTaskbar(true);w.setIgnoreMouseEvents(true);w.setOpacity(0);w.setPosition(-5000,-5000);w.showInactive();});
@@ -17,7 +17,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await popup.getByRole('button',{name:'Close',exact:true}).click(); await popup.waitFor({state:'detached'});
   assert.deepEqual(errors,[]);
   console.log('PASS hidden Electron: native Help command opens current-model status, mdx-m3-viewer results render, Close dismisses, no renderer errors.');
- } finally {await app.close();}
+ } finally {await closeApp(app);}
 })();
 
 

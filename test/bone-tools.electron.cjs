@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt Electron bundle: node test/bone-tools.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const output = path.resolve('out/bone-tools-ui'); fs.mkdirSync(output, { recursive: true });
@@ -11,7 +11,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   fs.writeFileSync(fixture, Buffer.from(createStarterDocument().serialize('mdx')));
   const errors = [];
   console.log('Launching Electron');
-  const app = await _electron.launch({ executablePath: path.resolve('node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     console.log('Waiting for first window');
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
@@ -25,14 +25,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     const before = await page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.renderer && state?.controls) {
+      
+      { const state = findFiberState(host, state => state?.renderer && state?.controls); if (state?.renderer && state?.controls) {
           state.camera.position.addScalar(37); state.controls.target.addScalar(5); state.controls.update();
           return { position: state.camera.position.toArray(), target: state.controls.target.toArray(), zoom: state.camera.zoom };
-        }
-      }
+        } }
+
       throw Error('Vertex camera not found');
     });
     await page.evaluate(() => document.activeElement?.blur());
@@ -41,16 +39,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.getByLabel('Bones controller').waitFor({ timeout: 60000 });
     console.log('Bones controller ready');
-    await page.waitForTimeout(1500);
+    await settlePage(page, 1500);
     console.log('Preview diagnostic', await page.evaluate(() => ({ canvases: document.querySelectorAll('.game-preview-surface canvas').length, alerts: [...document.querySelectorAll('[role="alert"]')].map(node => node.textContent), surface: !!document.querySelector('.game-preview-surface') })));
     console.log('Reading bone camera');
     const after = await page.evaluate(() => {
       const host = document.querySelector('.game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state?.controls) return { position: state.controls.object.position.toArray(), target: state.controls.target.toArray(), zoom: state.controls.object.zoom };
-      }
+      
+      { const state = mdlxlProbe(host).runtime; if (state?.native && state?.controls) return { position: state.controls.object.position.toArray(), target: state.controls.target.toArray(), zoom: state.controls.object.zoom }; }
+
       throw Error('Bone camera not found');
     });
     before.position.forEach((value, index) => assert.ok(Math.abs(value - after.position[index]) < 1e-5));
@@ -78,15 +74,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('button', { name: 'Attach', exact: true }).getAttribute('aria-pressed'), 'true');
     const parentPoint = await page.evaluate(() => {
       const host = document.querySelector('.game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state?.controls) {
+      
+      { const state = mdlxlProbe(host).runtime; if (state?.native && state?.controls) {
           const projected = state.controls.target.clone().set(0, 0, 0).project(state.controls.object);
           const bounds = host.querySelector('canvas[data-clean-model-canvas]').getBoundingClientRect();
           return { x: bounds.x + (projected.x + 1) * bounds.width / 2, y: bounds.y + (1 - projected.y) * bounds.height / 2 };
-        }
-      }
+        } }
+
       throw Error('Bone camera not found');
     });
     await page.mouse.move(parentPoint.x + 160, parentPoint.y + 100);

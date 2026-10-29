@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance; synthetic data and an isolated profile only.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
@@ -21,7 +21,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   const original = fs.readFileSync(fixture), errors = [], metrics = {};
-  const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'), args: [cwd, fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
     // A never-shown headless window cannot be captured by page.screenshot; show it inactive and off-screen.
@@ -51,7 +51,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.waitForFunction(count => window.motionScanEvents.length > count, count);
     }
     // Selections are undoable since 70a053e8 ('Change selection' steps carry no model sections); count only model edits.
-    const modelUndoSteps = () => page.evaluate(() => { const element = document.querySelector('.classic-app'); for (let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const doc = hook.memoizedState?.doc; if (doc?.model) return doc._historyStore.undoEntries.filter(entry => entry.sections.length || entry.changes.length).length; } throw Error('Editor document not found'); });
+    const modelUndoSteps = () => page.evaluate(() => { const element = document.querySelector('.classic-app'); { const doc = findFiberState(element, doc => doc?.model); if (doc?.model) return doc._historyStore.undoEntries.filter(entry => entry.sections.length || entry.changes.length).length; }
+ throw Error('Editor document not found'); });
     async function showDesired() { await menu(); await page.getByRole('menuitemcheckbox', { name: 'Show Desired' }).click(); }
     await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption('0');
@@ -189,5 +190,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const page = await app.firstWindow();
     await page.screenshot({ path: path.join(out, 'failure.png') });
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -2,9 +2,9 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { ModelRenderer } from 'war3-model';
-import { openDocument } from '../src/editor-document.js';
-import { findIrregularities, runOptimizeStage, simpleSettings } from '../src/optimizexl.js';
-import { scanSuspiciousSnaps } from '../src/optimizexl-snaps.js';
+import { openDocument } from '../../src/editor-document.js';
+import { findIrregularities, runOptimizeStage, simpleSettings } from '../../src/optimizexl.js';
+import { scanSuspiciousSnaps } from '../../src/optimizexl-snaps.js';
 const paths = process.argv.slice(2);
 if (paths.length < 2) throw Error('Supply unoptimized and original Footman paths, then known-good flails.');
 const inputs = paths.map(p => new Uint8Array(fs.readFileSync(p))), models = inputs.map(b => openDocument(b, 'model.mdx').model);

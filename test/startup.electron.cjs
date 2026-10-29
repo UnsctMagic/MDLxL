@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building dist. Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
 // Every window stays hidden; slow storage and discovery are injected only into test processes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { performance } = require('node:perf_hooks');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 (async () => {
@@ -51,12 +51,7 @@ const root = path.resolve(__dirname, '..');
     // This profile already had the one-time draft cleanup, so the planted draft stays.
     fs.writeFileSync(path.join(profile, 'recovery', '.reset-1'), '');
     const began = performance.now();
-    const app = await _electron.launch({
-      executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-      args: ['--disable-backgrounding-occluded-windows', entry], cwd: root,
-      env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile, STARTUP_TEST_CRASH: crash ? '1' : '0' },
-      timeout: 30000,
-    });
+    const app = (await launchApp({ out: path.resolve('out'), profile: profile, entry, args: (['--disable-backgrounding-occluded-windows', entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS: '1', STARTUP_TEST_CRASH: crash ? '1' : '0' }, timeout: 30000, show: 'hide' })).app;
     const errors = [];
     try {
       const page = await app.firstWindow();
@@ -89,7 +84,7 @@ const root = path.resolve(__dirname, '..');
       }
       // Give the pending IPC a turn, then release the real recovery metadata read.
       // waitForFunction treats an async predicate's Promise as truthy, so poll the IPC result.
-      for (let tries = 0; !(await page.evaluate(async () => (await window.desktop.getSettings()).preferences != null)); tries++) { if (tries > 200) throw new Error('Settings never loaded.'); await page.waitForTimeout(50); }
+      for (let tries = 0; !(await page.evaluate(async () => (await window.desktop.getSettings()).preferences != null)); tries++) { if (tries > 200) throw new Error('Settings never loaded.'); await settlePage(page, 50); }
       assert.equal(await app.evaluate(() => startupTest.lists), 1, 'manual Recovery and crash recovery still enumerate drafts');
       await app.evaluate(() => startupTest.releaseRecovery());
       await page.getByRole('dialog', { name: 'Recovery', exact: true }).waitFor();
@@ -97,12 +92,8 @@ const root = path.resolve(__dirname, '..');
       await page.waitForFunction(() => !!document.querySelector('[aria-label="Select geoset 0"]'));
       const restored = await page.evaluate(() => {
         const element = document.querySelector('.classic-app');
-        for (let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
-          for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-            const doc = hook.memoizedState?.doc;
-            if (doc?.model) return { geosets: doc.model.Geosets.length, vertex: doc.model.Geosets[0].Vertices[0], undo: doc.historyStats.undoSteps };
-          }
-        }
+        { const doc = findFiberState(element, doc => doc?.model); if (doc?.model) return { geosets: doc.model.Geosets.length, vertex: doc.model.Geosets[0].Vertices[0], undo: doc.historyStats.undoSteps }; }
+
         throw Error('Editor session not found');
       });
       assert.deepEqual(restored, expected, 'recovery retains geometry and undo history');
@@ -123,7 +114,7 @@ const root = path.resolve(__dirname, '..');
       // These synthetic restored drafts are deliberately dirty. Destroy only
       // this test process's windows to avoid native before-unload dialog races.
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy()));
-      await app.close();
+      await closeApp(app);
     }
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

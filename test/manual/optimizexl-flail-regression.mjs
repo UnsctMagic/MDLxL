@@ -2,17 +2,17 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { openDocument } from '../src/editor-document.js';
-import { assertRoundTripFields } from '../src/model-optimizer.js';
-import { findIrregularities, sanityProposals, runOptimizeStage, simpleSettings } from '../src/optimizexl.js';
-import { prepareNuclearReduction } from '../src/optimizexl-geometry.js';
+import { openDocument } from '../../src/editor-document.js';
+import { assertRoundTripFields } from '../../src/model-optimizer.js';
+import { findIrregularities, sanityProposals, runOptimizeStage, simpleSettings } from '../../src/optimizexl.js';
+import { prepareNuclearReduction } from '../../src/optimizexl-geometry.js';
 await prepareNuclearReduction();
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const baselinePath = new URL('./fixtures/optimizexl-flail-baseline.json', import.meta.url);
+const baselinePath = new URL('../fixtures/optimizexl-flail-baseline.json', import.meta.url);
 const capture = process.argv.includes('--capture');
 const baseline = capture ? null : JSON.parse(fs.readFileSync(baselinePath));
-const motionEvidence = JSON.parse(fs.readFileSync(new URL('./fixtures/optimizexl-flail-retained-frames.json', import.meta.url)));
-const approvedUpdates = JSON.parse(fs.readFileSync(new URL('./fixtures/optimizexl-flail-approved-updates.json', import.meta.url)));
+const motionEvidence = JSON.parse(fs.readFileSync(new URL('../fixtures/optimizexl-flail-retained-frames.json', import.meta.url)));
+const approvedUpdates = JSON.parse(fs.readFileSync(new URL('../fixtures/optimizexl-flail-approved-updates.json', import.meta.url)));
 // The owner-approved welding rule: every output corner is its own source
 // corner or one saved twice within 2% of that corner's shortest source edge.
 // Triangles keep their order; nothing else in the geometry may move.

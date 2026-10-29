@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against the rebuilt portable app with MDLXL_TEST_EXE; all fixtures/profiles use D:.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { buildSync } = require('esbuild');
 (async () => {
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_OBJECT_TEST_OUT || 'out/object-types');
@@ -23,7 +23,7 @@ const { buildSync } = require('esbuild');
   let app, page;
   const launch = async () => {
     const exe = process.env.MDLXL_TEST_EXE;
-    app = await _electron.launch({ executablePath: exe || path.resolve('node_modules/electron/dist/electron.exe'), args: exe ? [fixture, '--disable-backgrounding-occluded-windows'] : [root, fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (exe ? [fixture, '--disable-backgrounding-occluded-windows'] : [root, fixture, '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => { const w=BrowserWindow.getAllWindows()[0]; w.setSize(1600,1000); w.setPosition(-3000,0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
     await page.locator('[data-hotkey="bones"]').first().click();
@@ -32,10 +32,9 @@ const { buildSync } = require('esbuild');
     await page.evaluate(() => {
       window.rigState = () => {
         const host = document.querySelector('.game-preview-root'); let runtime, props;
-        for (let fiber=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))]; fiber; fiber=fiber.return) {
-          // The shared latest-props ref stays current across React's alternate fibers.
-          for (let hook=fiber.memoizedState; hook; hook=hook.next) { const v=hook.memoizedState?.current; if (v?.native && v?.controls) runtime=v; if (v?.model && v?.overlays && v?.onSelectNodes) props=v; }
-        }
+        { const v = findFiberState(host, v => v?.native && v?.controls, { last: true }); if (v?.native && v?.controls) runtime=v; }
+{ const v = findFiberState(host, v => v?.model && v?.overlays && v?.onSelectNodes, { last: true }); if (v?.model && v?.overlays && v?.onSelectNodes) props=v; }
+
         if (!runtime || !props) throw Error('Rig runtime not ready'); return { runtime, props };
       };
       window.objectWorld = id => { const node=rigState().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id), m=node.matrix, [x,y,z]=node.node.PivotPoint; return [0,1,2].map(i=>m[i]*x+m[4+i]*y+m[8+i]*z+m[12+i]); };
@@ -44,8 +43,8 @@ const { buildSync } = require('esbuild');
     });
     await page.waitForFunction(() => { try { return !!rigState().runtime.captureApi?.isReady; } catch { return false; } });
   };
-  const close = async () => { if(app){ await app.evaluate(({app})=>app.exit(0)).catch(()=>{}); await app.close().catch(()=>{}); app=null; } };
-  const idle = () => page.waitForTimeout(220);
+  const close = async () => { if(app){ await closeApp(app).catch(()=>{}); await closeApp(app).catch(()=>{}); app=null; } };
+  const idle = () => settlePage(page, 220);
   const checks = () => page.locator('.movement-object-filters input').evaluateAll(es=>es.map(e=>e.checked));
   const menu = command => app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
   const settings = async tab => { await menu('appearanceSettings'); await page.locator('.settings-appearance-nav').getByRole('button',{name:tab,exact:true}).click(); };

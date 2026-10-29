@@ -1,9 +1,9 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building. MDLXL_ELECTRON_PATH selects an isolated portable build;
 // MDLXL_INPUT_PATH optionally exercises an existing model without editing it.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const scenario = process.env.MDLXL_PASTE_SCENARIO || 'parent';
@@ -29,8 +29,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const targetPath = path.join(out, 'paste-target.mdx'), donorPath = path.join(out, 'paste-donor.mdx'), savedPath = path.join(out, 'paste-saved.mdx'), reopenedPath = path.join(out, 'paste-reopened.mdx');
   await fs.writeFile(targetPath, targetBytes); await fs.writeFile(donorPath, createDemoDocument().serialize('mdx'));
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe'), packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [targetPath] : [root, targetPath], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [targetPath] : [root, targetPath]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = []; let page;
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -142,5 +141,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1000)); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

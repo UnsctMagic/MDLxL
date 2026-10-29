@@ -1,15 +1,11 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // Sound and blood events show only their own kind; node fields wait behind Node settings.
 (async () => {
   const root = process.cwd(), file = process.env.MDLXL_TEST_MODEL || path.join(root, 'out/pose/Footman.mdx');
-  const app = await _electron.launch({
-    executablePath: process.env.MDLXL_ELECTRON || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: process.env.MDLXL_ELECTRON ? [file] : [root, file],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(root, 'out/event-focus-test/profile-' + Date.now()) },
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(root, 'out/event-focus-test/profile-' + Date.now()), args: (process.env.MDLXL_ELECTRON ? [file] : [root, file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' } })).app;
   try {
     const page = await app.firstWindow();
     page.setDefaultTimeout(30000);
@@ -58,5 +54,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await page.getByRole('tree', { name: 'Sound categories' }).count(), 0, 'no sound list while editing blood');
     }
     console.log('PASS event editor shows only the chosen event kind; expansion filter works');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

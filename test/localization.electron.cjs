@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building dist: node test/localization.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { translate } = await import('../src/localization.js');
@@ -26,11 +26,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const profile = path.join(output, `profile-${language}-${Date.now()}`);
     fs.mkdirSync(profile, { recursive: true });
     fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { language } }));
-    const app = await _electron.launch({
-      executablePath: process.env.MDLXL_ELECTRON_PATH || path.resolve('node_modules/electron/dist/electron.exe'),
-      args: ['--disable-backgrounding-occluded-windows', process.cwd(), file],
-      env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-    });
+    const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', process.cwd(), file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => failures.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
@@ -113,7 +109,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before);
       }
     }
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 
   for (const locale of ['ru', 'es']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
@@ -127,7 +123,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await dialog.locator('[data-geoset-tint="0"]').selectOption('0');
       assert.equal(await dialog.getByRole('button', { name: translate('Fix', locale), exact: true }).isEnabled(), true);
       await repairPage.screenshot({ path: path.join(output, `${locale}-repair.png`) });
-    } finally { await repairApp.close(); }
+    } finally { await closeApp(repairApp); }
   }
   assert.deepEqual(fs.readFileSync(fixture), original);
   assert.deepEqual(fs.readFileSync(repairFixture), repairOriginal);

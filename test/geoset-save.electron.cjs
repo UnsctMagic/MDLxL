@@ -1,13 +1,12 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const cwd = process.cwd(), out = path.join(cwd, 'out/geoset-save');
   fs.mkdirSync(out, { recursive: true });
   const copy = path.join(out, 'ui-fixture.mdx');
   fs.copyFileSync('test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', copy);
-  const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'),
-    args: [cwd, copy], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([cwd, copy]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: {  }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow();
     page.setDefaultTimeout(10000);
@@ -71,5 +70,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (await page.getByLabel('Visibility alpha percent').inputValue() !== '0') throw Error('Reopened visibility edit was lost');
     await page.screenshot({ path: path.join(out, 'electron-reopened.png') });
     console.log('REOPENED alpha=0; fixture preserved; controls usable');
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

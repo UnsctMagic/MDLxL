@@ -1,3 +1,4 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Attachemator in the rebuilt Electron bundle: node test/attachemator.electron.cjs
 // Needs an SD unit with standard attachment points (default out/pose/Footman.mdx,
 // or MDLXL_ATTACHEMATOR_MODEL). Its Weapon and Chest points are removed and its
@@ -5,7 +6,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const source = path.resolve(process.env.MDLXL_ATTACHEMATOR_MODEL || 'out/pose/Footman.mdx');
@@ -28,7 +28,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   if (fs.existsSync(path.join(path.dirname(source), 'Textures'))) fs.cpSync(path.join(path.dirname(source), 'Textures'), path.join(output, 'Textures'), { recursive: true });
   const errors = [];
   const executablePath = process.env.MDLXL_TEST_EXE ? path.resolve(process.env.MDLXL_TEST_EXE) : path.resolve('node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath, args: [...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]), '--disable-backgrounding-occluded-windows', fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: ([...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]), '--disable-backgrounding-occluded-windows', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
@@ -49,7 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const dialog = page.getByRole('dialog', { name: 'Attachemator' });
     await dialog.waitFor();
     await page.locator('.atm-preview canvas').first().waitFor();
-    await page.waitForTimeout(1500);
+    await settlePage(page, 1500);
     const rowOf = name => page.locator('.atm-row').filter({ has: page.locator('span[role=cell]:nth-child(2)', { hasText: new RegExp(`^${name}`) }) });
     const boneText = name => dialog.getByLabel(new RegExp(`^Bone for ${name}`)).evaluate(select => select.selectedOptions[0].textContent);
     assert.equal(await page.locator('.atm-row').count(), doc.model.Attachments.length + 2, 'every point is listed, plus the two missing ones');
@@ -64,14 +64,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     const runtime = () => page.evaluate(() => {
       const host = document.querySelector('.atm-preview .game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state?.controls) {
+      
+      { const state = mdlxlProbe(host).runtime; if (state?.native && state?.controls) {
           window.__atm = state;
           return { position: state.controls.object.position.toArray(), quaternion: state.controls.object.quaternion.toArray() };
-        }
-      }
+        } }
+
       throw Error('Preview camera not found');
     });
     const project = point => page.evaluate(point => {
@@ -99,19 +97,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }, name);
     const handPoint = await project(await pointOf('Hand Left'));
     await page.mouse.click(handPoint.x, handPoint.y);
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     assert.match(await page.locator('.atm-row.is-selected').innerText(), /Hand Left/, 'clicking a point in the preview selects it');
     await page.screenshot({ path: path.join(output, '2b-clicked.png') });
 
     // Drag: select Chest Ref and drag its point with the mouse.
     await rowOf('Chest Ref').locator('span').nth(1).click();
-    await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await page.waitForTimeout(300);
+    await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await settlePage(page, 300);
     const pivotNow = await pointOf('Chest Ref');
     assert.ok(pivotNow, 'the chest point is in the preview');
     const start = await project(pivotNow);
     await page.mouse.move(start.x, start.y); await page.mouse.down();
     await page.mouse.move(start.x + 30, start.y - 25, { steps: 10 }); await page.mouse.up();
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const dragged = await pointOf('Chest Ref');
     assert.ok(dragged.some((value, i) => Math.abs(value - pivotNow[i]) > 1), 'dragging moves the point');
     await page.screenshot({ path: path.join(output, '3-adjusted.png') });
@@ -122,7 +120,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // Pick: click a bone in the preview, like Bones mode's Attach.
     await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).click();
-    await page.waitForTimeout(500);
+    await settlePage(page, 500);
     const headBone = await page.evaluate(() => {
       const host = document.querySelector('.atm-preview .game-preview-surface');
       let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
@@ -134,7 +132,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     const headPoint = await project(headBone);
     await page.mouse.click(headPoint.x, headPoint.y);
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const pickedBone = await boneText('Weapon Ref');
     assert.notEqual(pickedBone, 'Mesh02', 'picking a bone in the preview re-attaches the point');
     assert.equal(await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).getAttribute('aria-pressed'), 'false');

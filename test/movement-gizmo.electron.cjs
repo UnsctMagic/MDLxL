@@ -1,6 +1,6 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { ObjectLoader, Vector3, Matrix4 } = await import('three');
@@ -18,7 +18,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   for (const name of fs.readdirSync(path.join(dist, 'assets')).sort()) bundle.update(name).update(fs.readFileSync(path.join(dist, 'assets', name)));
   results.bundle = { indexHash: hash(path.join(dist, 'index.html')), assetsHash: bundle.digest('hex') };
   results.textureHashes = Object.fromEntries((fs.existsSync(path.join(out, 'Textures')) ? fs.readdirSync(path.join(out, 'Textures')) : []).map(name => [name, hash(path.join(out, 'Textures', name))]));
-  const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([fixture, '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.showInactive(); });
@@ -28,12 +28,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.poseProbe = () => {
         const root = document.querySelector('.game-preview-root'); let runtime, props, session;
-        for (let fiber = root?.[Object.keys(root).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState, ref = state?.current;
-          if (ref?.native && ref?.controls) runtime = ref;
-          if (ref?.model && ref?.onPoseCommit) props = ref;
-          if (state?.doc?.model && state?.assets) session = state;
-        }
+        { const ref = findFiberState(root, ref => ref?.native && ref?.controls, { last: true }); if (ref?.native && ref?.controls) runtime = ref; }
+{ const ref = findFiberState(root, ref => ref?.model && ref?.onPoseCommit, { last: true }); if (ref?.model && ref?.onPoseCommit) props = ref; }
+{ const state = findFiberState(root, state => state?.doc?.model && state?.assets, { last: true }); if (state?.doc?.model && state?.assets) session = state; }
+
         if (!runtime || !props || !session) throw Error('Packaged Movement owners not ready');
         return { runtime, props, session };
       };
@@ -44,7 +42,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(doc.model)));
       return {revision:doc.revision,model:Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join(''),undo:doc.historyStats.undoSteps};
     });
-    const settle = () => page.waitForTimeout(180);
+    const settle = () => settlePage(page, 180);
     const tool = name => page.getByRole('group', { name: 'Movement tool', exact: true }).getByRole('button', { name, exact: true }).click();
     const shot = async name => { const data = await app.evaluate(async ({BrowserWindow}) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')); fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64')); };
     const menu = command => command === 'undo' ? page.keyboard.press('Control+z') : command === 'redo' ? page.keyboard.press('Control+y') : app.evaluate(({ BrowserWindow }, command) => { BrowserWindow.getAllWindows()[0].webContents.send('menu', command); return true; }, command);
@@ -130,6 +128,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }
     assert.equal(await page.locator('.classic-sidebar').evaluate(el=>el.getBoundingClientRect().width),sidebarWidth);assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),0);
     assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({checks:results.checks,errors}));
-  } catch(error){console.error(error);const data=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(data,'base64'));throw error;} finally{await app.evaluate(({app})=>app.exit(0));}
+  } catch(error){console.error(error);const data=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(data,'base64'));throw error;} finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});
 function hash(file){return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');}

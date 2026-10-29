@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Verify collection preserves every RGB palette track; import selects one RGB.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), output = process.env.MDLXL_TEST_OUTPUT || path.join(root, 'out', 'bit-collection'); fs.mkdirSync(output, { recursive: true });
@@ -22,7 +22,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const original = Buffer.from(doc.serialize('mdx')); fs.writeFileSync(fixture, original);
   const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), bank = path.join(process.env.MDLXL_TEST_EXE ? path.dirname(executable) : root, 'BitsAndParts');
   const savedFile = path.join(bank, name + '.mdx'), savedTexture = path.join(bank, texturePath);
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'collection-profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'collection-profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(), errors = []; page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.stack || error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 900); window.show(); });
@@ -30,13 +30,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.bitTestState = selector => {
         const host = document.querySelector(selector || '.classic-view [aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))]; const result = {};
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) result.app = current;
-          if (current?.renderer && current?.entries) result.viewport = current;
-          if (current?.model && current?.preferences) result.props = current;
-        }
+         const result = {};
+        { const current = findFiberState(host, current => current?.doc?.apply, { last: true }); if (current?.doc?.apply) result.app = current; }
+{ const current = findFiberState(host, current => current?.renderer && current?.entries, { last: true }); if (current?.renderer && current?.entries) result.viewport = current; }
+{ const current = findFiberState(host, current => current?.model && current?.preferences, { last: true }); if (current?.model && current?.preferences) result.props = current; }
+
         return result;
       };
     });
@@ -80,5 +78,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width), sidebar);
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.deepEqual(errors, []);
     console.log('PASS packaged collection: all RGB animation tracks saved; Red and Blue render correctly; per-geoset selected RGB import, textures/materials reused, donor and sidebar preserved.');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); await app.close(); for (const file of [savedFile, savedTexture]) if (fs.existsSync(file)) fs.unlinkSync(file); }
+  } finally { await closeApp(app).catch(() => {}); await closeApp(app); for (const file of [savedFile, savedTexture]) if (fs.existsSync(file)) fs.unlinkSync(file); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

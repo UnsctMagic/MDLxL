@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Disposable packaged AnimXL check with real mouse input. Never opens or replaces a user profile.
 // MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_TEST_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 const { execFile } = require('node:child_process');
 
@@ -35,7 +35,7 @@ async function closeTestApp(app) {
         };
       }
     });
-    await app.close();
+    await closeApp(app);
     await exit;
     return true;
   })().catch(error => {
@@ -63,7 +63,7 @@ async function closeTestApp(app) {
   fs.mkdirSync(out, { recursive: true });
   const model = path.join(out, path.basename(fixture)); fs.copyFileSync(fixture, model);
   const errors = [], checks = [];
-  const app = await _electron.launch({ executablePath, args: [model, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([model, '--disable-backgrounding-occluded-windows']).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 950 }); win.showInactive(); });
@@ -83,12 +83,12 @@ async function closeTestApp(app) {
       let last = await read(), moves = 0;
       for (const until = Date.now() + 15000; moves < 2; ) {
         assert.ok(Date.now() < until, 'AnimXL playback starts moving');
-        await page.waitForTimeout(100);
+        await settlePage(page, 100);
         const next = await read(); moves = step(last, next) > 0 ? moves + 1 : 0; last = next;
       }
       const first = last; let played = 0;
       while (last[2] - first[2] < 1000) {
-        await page.waitForTimeout(100);
+        await settlePage(page, 100);
         const next = await read(); played += step(last, next); last = next;
       }
       return played / (last[2] - first[2]);
@@ -103,7 +103,7 @@ async function closeTestApp(app) {
     await dialog.getByRole('button', { name: 'Pause' }).click();
     const strip = dialog.getByRole('slider', { name: 'Animation time' }), sb = await strip.boundingBox();
     await page.mouse.click(sb.x + sb.width * 0.45, sb.y + sb.height / 2);
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     await dialog.screenshot({ path: path.join(out, '1-original.png') });
     // Effect cards: clicking one switches it on and opens its slider; real mouse clicks on the slider track.
     const card = name => dialog.locator('.ax-card-main', { hasText: name });
@@ -113,26 +113,26 @@ async function closeTestApp(app) {
       const box = await dialog.getByRole('slider', { name: label, exact: true }).boundingBox();
       await page.mouse.click(box.x + box.width * u, box.y + box.height / 2);
     }
-    await page.waitForTimeout(500);
+    await settlePage(page, 500);
     const status = await dialog.locator('.ax-status').textContent();
     assert.match(status, /bones shaped/, `status after sliders: ${status}`);
     checks.push(`Sliders shape the animation: "${status}"`);
     assert.ok(page.workers().some(worker => worker.url().includes('anim-xl.worker')), 'AnimXL builds in its worker');
     checks.push('Shaping runs in a background worker');
-    await page.waitForTimeout(500);
+    await settlePage(page, 500);
     assert.equal(await dialog.locator('svg.ax-graph').count(), 1, 'motion graph on the timeline');
     assert.ok(await dialog.locator('svg.ax-graph').isVisible(), 'motion graph is visible');
     assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1, 'ghost skeleton drawn');
-    await dialog.getByRole('button', { name: '×3', exact: true }).click(); await page.waitForTimeout(500);
+    await dialog.getByRole('button', { name: '×3', exact: true }).click(); await settlePage(page, 500);
     await dialog.screenshot({ path: path.join(out, '2b-magnified.png') });
     await dialog.getByRole('button', { name: '×3', exact: true }).click();
     checks.push('Motion graph, ghost skeleton and ×3 magnify show the changes');
     // Apply to: Selected bones waits for a selection; Auto goes back to AnimXL's own picks.
-    await dialog.getByRole('button', { name: 'Selected bones', exact: true }).click(); await page.waitForTimeout(800);
-    if (await dialog.getByRole('button', { name: 'Clear', exact: true }).count()) { await dialog.getByRole('button', { name: 'Clear', exact: true }).click(); await page.waitForTimeout(600); }
+    await dialog.getByRole('button', { name: 'Selected bones', exact: true }).click(); await settlePage(page, 800);
+    if (await dialog.getByRole('button', { name: 'Clear', exact: true }).count()) { await dialog.getByRole('button', { name: 'Clear', exact: true }).click(); await settlePage(page, 600); }
     assert.match(await dialog.locator('.ax-status').textContent(), /Click bones or POSE handles/);
     await dialog.screenshot({ path: path.join(out, '2c-selected-bones.png') });
-    await dialog.getByRole('button', { name: 'Auto', exact: true }).click(); await page.waitForTimeout(600);
+    await dialog.getByRole('button', { name: 'Auto', exact: true }).click(); await settlePage(page, 600);
     assert.match(await dialog.locator('.ax-status').textContent(), /bones shaped/);
     checks.push('Apply to switches between Auto and Selected bones');
     await dialog.screenshot({ path: path.join(out, '2-shaped.png') });
@@ -141,15 +141,15 @@ async function closeTestApp(app) {
     const before = await page.screenshot({ clip: pv });
     await page.mouse.move(pv.x + pv.width * 0.5, pv.y + pv.height * 0.5);
     await page.mouse.down(); await page.mouse.move(pv.x + pv.width * 0.75, pv.y + pv.height * 0.5, { steps: 12 }); await page.mouse.up();
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     const after = await page.screenshot({ clip: pv });
     assert.ok(!before.equals(after), 'camera drag changes the preview');
     checks.push('Preview camera rotates with a real mouse drag');
     await dialog.getByRole('button', { name: 'Arcs', exact: true }).click();
-    await page.waitForTimeout(1200);
+    await settlePage(page, 1200);
     assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1, 'arc overlay drawn');
     await dialog.screenshot({ path: path.join(out, '3b-arcs.png') });
-    if (await dialog.getByRole('combobox', { name: 'Arc bone' }).count()) { await dialog.getByRole('combobox', { name: 'Arc bone' }).selectOption({ index: 1 }); await page.waitForTimeout(600); assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1); checks.push('Arc bone can be switched'); }
+    if (await dialog.getByRole('combobox', { name: 'Arc bone' }).count()) { await dialog.getByRole('combobox', { name: 'Arc bone' }).selectOption({ index: 1 }); await settlePage(page, 600); assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1); checks.push('Arc bone can be switched'); }
     await dialog.getByRole('button', { name: 'Arcs', exact: true }).click();
     checks.push('Arcs draws the weapon tip path over the preview');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
@@ -159,7 +159,7 @@ async function closeTestApp(app) {
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
     await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).click();
-    await page.waitForTimeout(2500);
+    await settlePage(page, 2500);
     await page.keyboard.press('Escape');
     const soundOptions = await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).locator('option').count();
     const soundNote = await dialog.locator('.ax-note', { hasText: /sound/i }).count();
@@ -169,19 +169,19 @@ async function closeTestApp(app) {
       const filtered = await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).locator('option').count();
       assert.ok(filtered > 1 && filtered < soundOptions, `search narrows the list (${filtered} of ${soundOptions})`);
       checks.push(`Sound search narrows ${soundOptions - 1} sounds to ${filtered - 1} for "metal"`);
-      await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).selectOption({ index: 1 }); await page.waitForTimeout(800);
+      await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).selectOption({ index: 1 }); await settlePage(page, 800);
     }
     checks.push(soundOptions > 1 ? `THUNK sound picker lists ${soundOptions - 1} game sounds` : 'THUNK sound picker explains that game sound files are needed');
     // Quick start preset, heavy steps and a flinch.
     await dialog.getByRole('button', { name: 'Heavy', exact: true }).click();
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     assert.equal(await value('Weight'), '80');
     checks.push('Heavy preset sets the cards');
     await dialog.getByRole('button', { name: 'Undo', exact: true }).click();
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     assert.notEqual(await value('Weight'), '80');
     await page.keyboard.press('Control+y');
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     assert.equal(await value('Weight'), '80');
     checks.push('Undo and Ctrl+Y step through slider changes');
     await dialog.locator('summary', { hasText: 'Fine-tune' }).click();
@@ -193,27 +193,27 @@ async function closeTestApp(app) {
     await dialog.getByRole('button', { name: 'Add hit reaction here' }).click();
     assert.equal(await dialog.locator('.ax-flinch').count(), 1);
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     await dialog.screenshot({ path: path.join(out, '4-heavy-preset.png') });
     const feetNote = (await dialog.locator('.ax-note', { hasText: /^Feet/ }).textContent()).trim();
     assert.match(feetNote, /found .+/);
     await dialog.getByRole('combobox', { name: 'Body bone' }).selectOption({ index: 2 });
-    await page.waitForTimeout(500);
+    await settlePage(page, 500);
     await dialog.getByRole('combobox', { name: 'Body bone' }).selectOption({ index: 0 });
     checks.push(`Feet section shows the rig it found ("${feetNote}") and the body can be changed`);
     // Pick bones in the preview: the skeleton appears while picking.
     await dialog.getByRole('button', { name: 'Pick in view' }).first().click();
-    await page.waitForTimeout(500);
+    await settlePage(page, 500);
     await dialog.screenshot({ path: path.join(out, '5-picking.png') });
     await dialog.getByRole('button', { name: 'Done picking' }).click();
     checks.push('Pick in view toggles the skeleton picker');
     await dialog.getByRole('combobox', { name: 'Add stiff bones' }).selectOption({ index: 1 });
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     assert.match(await dialog.locator('summary', { hasText: 'Fine-tune' }).locator('small').textContent(), /1 stiff/);
     await dialog.locator('.ax-section', { hasText: 'Fine-tune' }).locator('.ax-chip').first().click();
     checks.push('Stiff bones can be picked and removed');
     await dialog.getByRole('button', { name: 'Side by side' }).click();
-    await page.waitForTimeout(1200);
+    await settlePage(page, 1200);
     assert.equal(await dialog.locator('.ax-preview').count(), 2);
     await dialog.screenshot({ path: path.join(out, '6-side-by-side.png') });
     await dialog.getByRole('button', { name: 'Side by side' }).click();
@@ -222,11 +222,11 @@ async function closeTestApp(app) {
     const overlapBefore = await value('Overlap');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await dialog.waitFor({ state: 'detached' });
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     await button.click();
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     assert.equal(await value('Overlap'), overlapBefore);
     checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
     await dialog.locator('summary', { hasText: 'Fine-tune' }).click();
@@ -237,22 +237,22 @@ async function closeTestApp(app) {
     await dialog.waitFor({ state: 'detached' });
     checks.push('Commit closes AnimXL');
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     checks.push('Undo pressed after commit without errors');
     // Retime a pose by dragging its diamond on the strip.
     await button.click();
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 2' });
-    await page.waitForTimeout(800);
+    await settlePage(page, 800);
     const diamond = await dialog.locator('.ax-key').nth(2).boundingBox();
     await page.mouse.move(diamond.x + diamond.width / 2, diamond.y + diamond.height / 2);
     await page.mouse.down(); await page.mouse.move(diamond.x + diamond.width / 2 + 40, diamond.y + diamond.height / 2, { steps: 8 }); await page.mouse.up();
-    await page.waitForTimeout(600);
+    await settlePage(page, 600);
     assert.equal(await dialog.locator('.ax-key-moved').count(), 1, 'one pose moved');
     await dialog.screenshot({ path: path.join(out, '7-retimed.png') });
     const moved = await dialog.locator('.ax-key-moved').boundingBox();
     await page.mouse.dblclick(moved.x + moved.width / 2, moved.y + moved.height / 2);
-    await page.waitForTimeout(600);
+    await settlePage(page, 600);
     assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
     checks.push('Dragging a pose diamond retimes it; double-click resets');
     // Sections: pick part of the timeline, shape only that, commit, and carry on.
@@ -261,30 +261,30 @@ async function closeTestApp(app) {
     const st = await dialog.getByRole('slider', { name: 'Animation time' }).boundingBox();
     await page.mouse.move(st.x + st.width * 0.3, st.y + st.height / 2); await page.mouse.down();
     await page.mouse.move(st.x + st.width * 0.7, st.y + st.height / 2, { steps: 6 }); await page.mouse.up();
-    await page.waitForTimeout(800);
+    await settlePage(page, 800);
     assert.equal(await dialog.locator('.ax-band').count(), 1, 'section band shown');
     assert.match(await dialog.locator('.ax-section-on').textContent(), /Section \d+–\d+ ms/);
     assert.equal(await dialog.getByRole('button', { name: 'Commit section', exact: true }).count(), 1);
     await dialog.screenshot({ path: path.join(out, '7b-section.png') });
     await dialog.getByRole('button', { name: 'Commit section', exact: true }).click();
-    await page.waitForTimeout(800);
+    await settlePage(page, 800);
     assert.ok(await dialog.isVisible(), 'AnimXL stays open after a section commit');
     assert.match(await dialog.locator('.ax-status').textContent(), /Section committed/);
     await dialog.getByRole('button', { name: 'Whole animation', exact: true }).click();
-    await page.waitForTimeout(600);
+    await settlePage(page, 600);
     checks.push('A section can be picked, shaped and committed on its own; AnimXL stays open for the next one');
     if (!(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).count())) await card('Overlap').click();
     await dialog.getByRole('slider', { name: 'Overlap', exact: true }).scrollIntoViewIfNeeded();
     const ov = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).boundingBox();
     await page.mouse.click(ov.x + ov.width * 0.7, ov.y + ov.height / 2);
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     await dialog.getByRole('button', { name: 'Commit as new' }).click();
     await dialog.waitFor({ state: 'detached' });
     const names = await page.getByLabel('Movement current sequence').locator('option').allTextContents();
     assert.ok(names.some(n => n.includes('Attack - 2 (AnimXL)')), 'new animation listed: ' + names.join(', '));
     checks.push('Commit as new adds "Attack - 2 (AnimXL)" and keeps the original');
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(400);
+    await settlePage(page, 400);
     const namesAfterUndo = await page.getByLabel('Movement current sequence').locator('option').allTextContents();
     assert.ok(!namesAfterUndo.some(n => n.includes('(AnimXL)')), 'Undo removes the new animation');
     checks.push('Undo removes the new animation in one step');

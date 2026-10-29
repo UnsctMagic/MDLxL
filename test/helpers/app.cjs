@@ -32,16 +32,16 @@ const loadPlaywright = () => require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'pla
 // show: 'inactive' shows the window without focus (default), 'hide' keeps it hidden.
 // settings: optional settings.json written into the new profile before start.
 // entry: a DEV_ONLY wrapper; profile/errors: retain a harness's seeded fixture profile and error collection.
-async function launchApp({ fixture, out, entry, profile: seededProfile, errors = [], args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
+async function launchApp({ fixture, out, entry, target = appTarget(), cwd, profile: seededProfile, errors = [], args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
   if (!out) throw Error('launchApp needs an out folder for its profile');
-  const target = appTarget(), { _electron } = playwright || loadPlaywright();
+  const { _electron } = playwright || loadPlaywright();
   if (entry && target.packaged) throw Error('A wrapper entry needs a DEV_ONLY harness');
   const profile = seededProfile ? path.resolve(seededProfile) : path.join(path.resolve(out), `profile-${Date.now()}-${process.pid}`);
   if (!profile.startsWith(path.resolve(out) + path.sep)) throw Error('Test profiles must be inside out');
   fs.mkdirSync(profile, { recursive: true });
   if (settings) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
   const app = await _electron.launch({
-    executablePath: target.executablePath,
+    executablePath: target.executablePath, cwd,
     args: [...(entry ? [entry] : target.args), ...(fixture ? [fixture] : []), '--disable-backgrounding-occluded-windows', ...args],
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile, ...env },
     timeout,

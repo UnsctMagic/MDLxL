@@ -1,11 +1,11 @@
 // Supplied repaired models are test oracles only. Runtime detection uses one model.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { openDocument } from '../src/editor-document.js';
-import { findIrregularities, runOptimizeStage } from '../src/optimizexl.js';
-import { scanIrregularMotion } from '../src/optimizexl-motion.js';
-import { scanSuspiciousSnaps } from '../src/optimizexl-snaps.js';
-import { scanModelMotionContext } from '../src/optimizexl-motion-context.js';
+import { openDocument } from '../../src/editor-document.js';
+import { findIrregularities, runOptimizeStage } from '../../src/optimizexl.js';
+import { scanIrregularMotion } from '../../src/optimizexl-motion.js';
+import { scanSuspiciousSnaps } from '../../src/optimizexl-snaps.js';
+import { scanModelMotionContext } from '../../src/optimizexl-motion-context.js';
 
 const paths = process.argv.slice(2);
 if (paths.length < 4) throw Error('Supply unoptimized Footman, good Footman, and both flail regression fixtures.');

@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const root=process.cwd(), out=path.join(root,'out/portrait-editor/ui'); fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
@@ -10,7 +10,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const fixture=path.join(out,'stand-only.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
   const original=openDocument(fs.readFileSync(fixture),fixture).model;
   const packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH || path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(packaged?[]:[root]),fixture],cwd:root,env:{...process.env,MDLXL_PROFILE:path.join(out,'profile-'+Date.now()),MDLVIS_HEADLESS:'1'},timeout:60000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: ([...(packaged?[]:[root]),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
   const errors=[];let page;
   const snap=async name=>{const png=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage({},{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name),Buffer.from(png,'base64'));};
   try {
@@ -23,7 +23,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Portrait settings',exact:true}).click();
     await page.getByRole('button',{name:'New Camera',exact:true}).click();
     await page.getByRole('button',{name:'Full Model View',exact:true}).waitFor();
-    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');let fiber=el[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state.controls)return state;}throw Error('No preview runtime');};});
+    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el).runtime; if (state?.native&&state.controls) return state; }
+throw Error('No preview runtime');};});
     await page.waitForFunction(()=>portraitRuntime().portraitActive);
     await page.getByRole('button',{name:'Stop',exact:true}).click();
     assert.ok(!/portrait/i.test(await page.getByLabel('Movement current sequence',{exact:true}).inputValue()));
@@ -56,15 +57,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const after=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(Math.abs(after.position[2]-before.z)>1,'vertical mouse drag changes elevation');
     await page.getByRole('button',{name:'Set Current View *',exact:true}).waitFor();
     const distance=v=>Math.hypot(...v.position.map((n,i)=>n-v.target[i]));
-    await page.mouse.move(x,y);await page.mouse.wheel(0,-100);await page.waitForTimeout(150);
+    await page.mouse.move(x,y);await page.mouse.wheel(0,-100);await settlePage(page, 150);
     const dolly=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(distance(dolly)<distance(after));assert.ok(Math.abs(dolly.fieldOfView-after.fieldOfView)<1e-6);
-    await page.keyboard.down('Shift');await page.mouse.wheel(0,-100);await page.keyboard.up('Shift');await page.waitForTimeout(150);
+    await page.keyboard.down('Shift');await page.mouse.wheel(0,-100);await page.keyboard.up('Shift');await settlePage(page, 150);
     const lens=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(Math.abs(distance(lens)-distance(dolly))<1e-5);assert.ok(lens.fieldOfView<dolly.fieldOfView);
     await page.getByRole('button',{name:'Set Current View *',exact:true}).click();
     const authored=await page.evaluate(()=>portraitRuntime().cameraView());
-    await page.keyboard.press('Control+z');await page.waitForTimeout(200);
+    await page.keyboard.press('Control+z');await settlePage(page, 200);
     const undone=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(Math.abs(undone.fieldOfView-before.view.fieldOfView)<1e-5);assert.ok(Math.abs(undone.position[2]-before.z)<1e-3);
-    await page.keyboard.press('Control+y');await page.waitForTimeout(200);const redone=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(Math.abs(redone.fieldOfView-authored.fieldOfView)<1e-5);
+    await page.keyboard.press('Control+y');await settlePage(page, 200);const redone=await page.evaluate(()=>portraitRuntime().cameraView());assert.ok(Math.abs(redone.fieldOfView-authored.fieldOfView)<1e-5);
     await snap('portrait-default.png');
     console.log('PASS real horizontal/vertical orbit, dolly, Shift-wheel lens, apply and Undo/Redo');
     await page.getByRole('button',{name:'Portrait settings',exact:true}).click();
@@ -126,5 +127,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged,sidebarWidth,lightingLoaded:lighting.includes('Game portrait lights loaded'),errors},null,2));
   } catch(error) {
     if(page){await snap('failure.png');fs.writeFileSync(path.join(out,'failure.txt'),await page.locator('body').innerText());}throw error;
-  } finally { await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{}); }
+  } finally { await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

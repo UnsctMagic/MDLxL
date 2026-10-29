@@ -8,7 +8,7 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
   const root = path.resolve(__dirname, '..');
   const out = path.resolve(process.env.MDLXL_TEST_OUTPUT || path.join(root, 'out/uv-numpad'));
   fs.mkdirSync(out, { recursive: true });
-  const fixture = path.join(root, 'fixtures/demo.mdx'), original = fs.readFileSync(fixture);
+  const fixture = path.join(root, 'test/fixtures/demo.mdx'), original = fs.readFileSync(fixture);
   const { app, page: launchedPage, errors } = await launchApp({ fixture, out, pageTimeout: 15000, settings: { preferences: { graphics: { pauseWhenHidden: false } } }, show: 'hide', bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
   const checks = [];
   let page;

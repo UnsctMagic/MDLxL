@@ -1,3 +1,5 @@
+const { gameFolder } = require('./helpers/fixtures.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // The Library button browses every installed game file; texture pickers stay texture-only.
 // Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, default D:\Warcraft III).
 // MDLXL_PACKAGED_EXE runs a packaged MDLxL.exe instead of the source checkout.
@@ -14,7 +16,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   const fixture=path.join(out,'demo.mdx');fs.writeFileSync(fixture,document.serialize('mdx'));
   fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile','settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},...(process.env.MDLXL_TEST_THEME?{theme:process.env.MDLXL_TEST_THEME}:{})}}));
   const packaged=process.env.MDLXL_PACKAGED_EXE,flags=['--disable-gpu-vsync','--disable-frame-rate-limit'];
-  const app=await _electron.launch({executablePath:packaged||path.join(root,'node_modules/electron/dist/electron.exe'),args:packaged?[...flags,fixture]:[...flags,root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:\\Warcraft III'},timeout:90000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile'), args: (packaged?[...flags,fixture]:[...flags,root,fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:\\Warcraft III' }, timeout: 90000 })).app;
   try{
     const page=await app.firstWindow();page.setDefaultTimeout(45000);
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1440,980);w.showInactive();});
@@ -53,7 +55,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     const paintings=await page.locator('.tl-tile').evaluateAll(tiles=>tiles.map(tile=>tile.title));
     assert.ok(paintings.length>=20,'painting search finds artwork');
     assert.ok(paintings.every(title=>/loading|keyart|campaignselect|concept|scorescreen|backgrounds|victoryscreen|timeindicator|day-indicator|splash|blizzcon|homescreen|definitive|sketch/i.test(title)),paintings.filter(t=>!/loading|keyart|campaignselect|concept|scorescreen|backgrounds/i.test(t)).slice(0,5).join(', '));
-    await page.waitForTimeout(1500);await shot(page,'painting-search');
+    await settlePage(page, 1500);await shot(page,'painting-search');
     checks.push(`Vibe search "painting" lists ${paintings.length} illustrations only`);
     // Material prompt from the Library's Add button, making a new material.
     await page.getByRole('searchbox',{name:'Search textures'}).fill('footman');
@@ -76,21 +78,21 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await row('Human').click();await row('Units').click();await row('Normal').click();
     await page.waitForFunction(()=>[...document.querySelectorAll('.gf-row img.gf-icon')].filter(img=>img.naturalWidth>0).length>=8,null,{timeout:45000});
     await row('Footman').click();await waitModel('Footman');
-    await page.getByRole('button',{name:'Pause',exact:true}).click();await page.waitForTimeout(2500);
+    await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2500);
     const clip=await stageClip(),shownFootman=await page.screenshot({clip});
-    await row('Heroes').click();await row('Units').click();await row('Buildings').click();await row('Normal').click();await page.waitForTimeout(1500);
+    await row('Heroes').click();await row('Units').click();await row('Buildings').click();await row('Normal').click();await settlePage(page, 1500);
     assert.ok(shownFootman.equals(await page.screenshot({clip})),'opening folders leaves the central view alone');
     await shot(page,'we-tree');
     checks.push('World Editor Style: Human … Items, Doodads with game icons; opening folders leaves the view unchanged');
     const box=await page.locator('.gf-stage canvas').first().boundingBox();
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+140,box.y+box.height/2+40,{steps:12});await page.mouse.up();
-    await page.waitForTimeout(2000);
+    await settlePage(page, 2000);
     assert.ok(!shownFootman.equals(await page.screenshot({clip})),'a mouse drag turns the camera');
     checks.push('A real mouse drag turns the camera in the central view');
     // A much larger model: the camera keeps its turned angle and glides out to frame it.
     await row('Altar of Kings').click();
-    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await page.waitForTimeout(100);}
-    await waitModel('Altar of Kings');await page.getByRole('button',{name:'Pause',exact:true}).click();await page.waitForTimeout(2000);
+    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await settlePage(page, 100);}
+    await waitModel('Altar of Kings');await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2000);
     frames.forEach((frame,i)=>fs.writeFileSync(path.join(out,`glide-${i}.png`),frame));await shot(page,'glide-end');
     checks.push('Choosing another model keeps the turned angle and glides to frame it (frames saved)');
     // Spells, doodads and items through World Editor search.
@@ -101,9 +103,10 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
       await page.waitForFunction(()=>document.querySelector('.gf-row.selected img.gf-icon')?.naturalWidth>0,null,{timeout:15000}).catch(()=>{throw Error(name+' shows no icon in the list');});
       assert.equal(await page.locator('.gf-stage img, .gf-info img').count(),0,'icons stay in the folder list, never in the preview');
     }
-    const cameraDistance=()=>page.evaluate(()=>{const host=document.querySelector('.gf-stage .game-preview-root');let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state?.controls)return Math.round(state.controls.object.position.distanceTo(state.controls.target));}return null;});
-    await page.waitForTimeout(2000);const chestDistance=await cameraDistance();
+    const cameraDistance=()=>page.evaluate(()=>{const host=document.querySelector('.gf-stage .game-preview-root');
+      { const state = mdlxlProbe(host).runtime; if (state?.native&&state?.controls) return Math.round(state.controls.object.position.distanceTo(state.controls.target)); }
+return null;});
+    await settlePage(page, 2000);const chestDistance=await cameraDistance();
     assert.ok(chestDistance>150&&chestDistance<320,'the camera settles on the small treasure chest, not on the previous model or hidden geometry: '+chestDistance);
     await shot(page,'we-item');await search.fill('');
     checks.push('Spell (Holy Light effect), doodad (Ashenvale Mushrooms) and item (Crown of Kings) open from World Editor search');
@@ -118,39 +121,39 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await row('Human').click();await row('Units').click();await row('Normal').click();
     await row('Footman').click();await waitModel('Footman');await row('Footman').dblclick();
     await library.waitFor({state:'hidden'});await page.getByRole('tab',{name:'Footman.mdx',exact:true}).waitFor();
-    await page.waitForTimeout(2500);await shot(page,'opened-in-editor');
+    await settlePage(page, 2500);await shot(page,'opened-in-editor');
     checks.push('Double-clicking Footman opens it in the editor as a new tab');
     // Geoset box: pick geosets of a model, split them, import them, open only them.
     const editorModel=()=>page.evaluate(()=>{const host=document.querySelector('.classic-view > .viewport');let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
       for(;fiber;fiber=fiber.return){const model=fiber.memoizedProps?.model;if(model?.Geosets)return {version:model.Version,geosets:model.Geosets.length,dummy:(model.Bones||[]).filter(bone=>bone.Name==='DummyBone').length};}return null;});
     // Import into the MDX 800 model, while the game's classic models use a newer format.
-    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await page.waitForTimeout(800);
+    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await settlePage(page, 800);
     const before=await editorModel();
     await page.locator('[data-hotkey="textureLibrary"]').click();await library.waitFor();
     await row('Human').click();await row('Units').click();await row('Normal').click();await row('Footman').click();await waitModel('Footman');
     const boxes=page.getByRole('listbox',{name:'Library geosets'}).getByRole('checkbox');
     const footmanGeosets=await boxes.count();assert.ok(footmanGeosets>=3,'the geoset box lists the model geosets');
     assert.equal(await page.locator('.gf-geosets .classic-geoset-count').innerText(),`${footmanGeosets} of ${footmanGeosets} selected`);
-    await page.getByRole('button',{name:'Pause',exact:true}).click();await page.waitForTimeout(1500);
+    await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 1500);
     // Highlight Geoset (on by default) works like the vertex editor: hover in the preview or in the list.
     assert.equal(await page.locator('.gf-geosets').getByLabel('Highlight Geoset',{exact:true}).isChecked(),true);
     const stageBox=await page.locator('.gf-stage canvas').first().boundingBox();
     let hoveredRow=null;
     for(const [dx,dy] of [[0,0],[0,-.08],[0,.08],[-.05,0],[.05,0],[0,-.15],[0,.15]]){
-      await page.mouse.move(stageBox.x+stageBox.width*(.5+dx),stageBox.y+stageBox.height*(.5+dy),{steps:4});await page.waitForTimeout(600);
+      await page.mouse.move(stageBox.x+stageBox.width*(.5+dx),stageBox.y+stageBox.height*(.5+dy),{steps:4});await settlePage(page, 600);
       hoveredRow=await page.locator('.gf-geosets .geoset-row.hovered').count();if(hoveredRow)break;
     }
     assert.ok(hoveredRow,'hovering the model in the preview highlights its geoset in the list');
     await shot(page,'geosets-hover-preview');
-    await page.mouse.move(5,5);await page.waitForTimeout(800);
+    await page.mouse.move(5,5);await settlePage(page, 800);
     const plain=await page.screenshot({clip});
-    await page.locator('.gf-geosets .geoset-row').nth(0).hover();await page.waitForTimeout(800);
+    await page.locator('.gf-geosets .geoset-row').nth(0).hover();await settlePage(page, 800);
     assert.ok(!plain.equals(await page.screenshot({clip})),'hovering a geoset in the list highlights it in the preview');
-    await page.mouse.move(5,5);await page.waitForTimeout(500);
+    await page.mouse.move(5,5);await settlePage(page, 500);
     checks.push('Highlight Geoset is on by default and highlights the hovered geoset in the preview and the list');
     const fullView=await page.screenshot({clip});
     await page.locator('.gf-geosets').getByRole('button',{name:'Clear',exact:true}).click();await boxes.nth(0).check();
-    await page.getByLabel('View selected only',{exact:true}).check();await page.waitForTimeout(1500);
+    await page.getByLabel('View selected only',{exact:true}).check();await settlePage(page, 1500);
     assert.ok(!fullView.equals(await page.screenshot({clip})),'View selected only hides the other geosets');
     await shot(page,'geosets-selected-only');
     await page.getByLabel('View selected only',{exact:true}).uncheck();
@@ -159,17 +162,17 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await page.waitForFunction(count=>document.querySelectorAll('[aria-label="Library geosets"] input').length>count,footmanGeosets);
     const split=await boxes.count();
     checks.push(`Geoset box: ${footmanGeosets} Footman geosets, View selected only, Seperate by Loose parts → ${split} geosets without selecting vertices`);
-    await page.locator('.gf-geosets').getByRole('button',{name:'Nuclear Seperation',exact:true}).click();await page.waitForTimeout(800);
+    await page.locator('.gf-geosets').getByRole('button',{name:'Nuclear Seperation',exact:true}).click();await settlePage(page, 800);
     await page.locator('.gf-geosets').getByRole('button',{name:'Clear',exact:true}).click();await boxes.nth(0).check();await boxes.nth(1).check({modifiers:['Control']});
     assert.equal(await page.locator('.gf-geosets .classic-geoset-count').innerText(),`2 of ${await boxes.count()} selected`);
     await page.locator('.gf-geosets').getByRole('button',{name:'Import to current',exact:true}).click();
     await page.getByText(/^Imported 2 geosets into /).waitFor({timeout:20000}).catch(async error=>{await shot(page,'import-failure');console.error('INFO:',await page.locator('.gf-info').innerText());throw error;});
     await shot(page,'geosets-imported');
     await page.locator('.gf-geosets').getByRole('button',{name:'Open in editor',exact:true}).click();
-    await library.waitFor({state:'hidden'});await page.waitForTimeout(1500);
+    await library.waitFor({state:'hidden'});await settlePage(page, 1500);
     const opened=await editorModel();assert.equal(opened.geosets,2,'Open in editor keeps only the checked geosets');
     await page.getByRole('tab',{name:'Footman.mdx',exact:true}).first().waitFor();
-    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await page.waitForTimeout(1000);
+    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await settlePage(page, 1000);
     const imported=await editorModel();
     assert.equal(before.version,800);assert.equal(imported.version,800,'the edited MDX 800 model keeps its format');assert.equal(imported.geosets,before.geosets+2,'two geosets were imported into the model being edited');assert.ok(imported.dummy>=1,'imported geosets hang on DummyBone');
     await shot(page,'geosets-after-import');
@@ -201,8 +204,8 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     // MDLXL_TEST_THEME=dark repeats the whole flow with the dark palette.
     await page.locator('[data-hotkey="textureLibrary"]').click();await library.waitFor();
     await page.getByRole('tab',{name:'Models',exact:true}).click();
-    await row('Orc').click();await row('Units').click();await row('Heroes').click();await row('Blademaster').click();await waitModel('Blademaster');await page.waitForTimeout(2000);
+    await row('Orc').click();await row('Units').click();await row('Heroes').click();await row('Blademaster').click();await waitModel('Blademaster');await settlePage(page, 2000);
     await shot(page,'theme-'+(process.env.MDLXL_TEST_THEME||'light'));await page.keyboard.press('Escape');await library.waitFor({state:'hidden'});
     console.log('PASS:\n- '+checks.join('\n- '));
-  }finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}
+  }finally{await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building; MDLXL_ELECTRON_PATH selects an isolated portable package.
 // MDLXL_TEST_CASC optionally exercises a real, read-only CASC storage.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { hash, decrypt, Mpq } = require('../electron/mpq.cjs');
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -59,7 +59,7 @@ function archive(name, bytes) {
   const packaged = !!process.env.MDLXL_ELECTRON_PATH, errors = [], result = { packaged, mpq: false, restart: false, removal: false, mouseRotation: false, casc: null };
   let app, page;
   async function launch() {
-    app = await _electron.launch({ executablePath, args: packaged ? [modelPath] : [root, modelPath], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (packaged ? [modelPath] : [root, modelPath]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(25000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
@@ -107,7 +107,7 @@ function archive(name, bytes) {
     await capture('settings.png');
     const savedSources = (await settings()).gameDataSources;
     assert.equal((await settings()).gameData, null);
-    await app.close(); app = null; await launch(); await menu('gameDataSettings');
+    await closeApp(app); app = null; await launch(); await menu('gameDataSettings');
     await page.getByRole('button', { name: 'Add MPQ files…', exact: true }).waitFor();
     assert.deepEqual((await settings()).gameDataSources, savedSources);
     assert.equal(digest(Buffer.from((await asset())[0])), digest(png)); result.restart = true;

@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run with pnpm run test:packaged default vis-mdlvis-mode (hidden desktop on Windows).
 // MDLXL_SUITE_PKG selects a disposable package; MDLXL_VIS_OUT selects evidence output.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const VIS_MENU = require('../src/vis-view-menu.json');
 const VIEW_MENU = require('../src/view-menu.json');
 const root = path.resolve(__dirname, '..');
@@ -16,11 +16,11 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
   if (process.platform === 'win32') assert.equal(process.env.MDLXL_SUITE_HIDDEN, '1', 'Run through the hidden-desktop packaged runner');
   fs.mkdirSync(out, { recursive: true });
   const fixture = path.join(out, 'VIS-test.mdx');
-  fs.copyFileSync(path.join(root, 'fixtures/demo.mdx'), fixture);
+  fs.copyFileSync(path.join(root, 'test/fixtures/demo.mdx'), fixture);
   const originalHash = digest(fs.readFileSync(fixture));
   const profile = path.join(out, 'profile'); fs.mkdirSync(profile, { recursive: true });
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
-  const app = await _electron.launch({ executablePath: path.join(pkg, 'MDLxL.exe'), args: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-gpu-vsync', '--disable-frame-rate-limit', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '' }, timeout: 60000 })).app;
   const records = [], errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -39,14 +39,10 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
       window.visProbe = () => {
         let doc, controls, runtime, sketches;
         for (const start of [document.querySelector('.classic-app'), document.querySelector('.game-preview-root,.viewport'), document.querySelector('.toolbar-modules>.ai-tool')]) {
-          for (let fiber = start?.[Object.keys(start).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
-            for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-              const value = hook.memoizedState;
-              if (value?.doc?.model) doc = value.doc;
-              if (value?.current?.controls?.object) { runtime = value.current; controls = runtime.controls; }
-              if (value && typeof value.visible === 'boolean' && Array.isArray(value.strokes) && Object.hasOwn(value, 'tool')) sketches = value;
-            }
-          }
+          { const value = findFiberState(start, value => value?.doc?.model, { last: true }); if (value?.doc?.model) doc = value.doc; }
+{ const value = findFiberState(start, value => value?.current?.controls?.object, { last: true }); if (value?.current?.controls?.object) { runtime = value.current; controls = runtime.controls; } }
+{ const value = findFiberState(start, value => value && typeof value.visible === 'boolean' && Array.isArray(value.strokes) && Object.hasOwn(value, 'tool'), { last: true }); if (value && typeof value.visible === 'boolean' && Array.isArray(value.strokes) && Object.hasOwn(value, 'tool')) sketches = value; }
+
         }
         if (!doc || !controls) throw Error('Live document or preview controls unavailable');
         const renderedSketchIds = [];
@@ -66,18 +62,19 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     for (const [width, height] of [[900, 760], [1100, 760], [1920, 1080]]) {
       await app.evaluate(({ BrowserWindow }, size) => { const win = BrowserWindow.getAllWindows()[0]; win.unmaximize(); win.setContentSize(...size); win.webContents.setBackgroundThrottling(false); }, [width, height]);
       for (const [mode, viewMode] of [['vertices', 'vertices'], ['bones', 'bones'], ['animation', 'movement'], ['animations', 'animations']]) {
-        await menu(mode); await page.waitForTimeout(250);
+        await menu(mode); await settlePage(page, 250);
         await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
         await page.waitForFunction(() => { try { return !!visProbe().camera; } catch { return false; } });
         const initial = modelState(await page.evaluate(() => visProbe()));
         for (const vis of [true, false]) {
           if (await page.locator('.classic-app').getAttribute('data-vis-ui') !== (vis ? 'true' : null)) await page.locator('.vis-toggle').click();
-          await page.waitForTimeout(150);
+          await settlePage(page, 150);
           const row = page.locator('.editor-modules');
           const data = await page.evaluate(() => {
             const visible = e => !!e.getBoundingClientRect().width && !!e.getBoundingClientRect().height;
             const q = document.querySelector('.quick-display'), bounds = document.querySelector('.editor-modules').getBoundingClientRect();
             return { size: [innerWidth, innerHeight], short: document.querySelector('.editor-modules').hasAttribute('data-short-editors'), reads: window.visWidthReads,
+              editorNames: [...document.querySelectorAll('.editor-modules>button')].filter(visible).map(e => e.getAttribute('aria-label')),
               tabs: [...document.querySelectorAll('.model-tabs-bar')].filter(visible).length, editors: [...document.querySelectorAll('.editor-modules>button')].filter(visible).length,
               aiVisible: [...document.querySelectorAll('.ai-tool,.ai-assistant')].filter(visible).length, icons: q.querySelectorAll('.look-icon').length, quick: [...q.querySelectorAll('label')].map(e => {
                 const input = e.querySelector('input'), s = getComputedStyle(input), r = e.getBoundingClientRect(), name = e.querySelector('.quick-display-name');
@@ -93,7 +90,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
             assert.equal(data.dockInEditorRow, false); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
             assert.ok(data.hint.includes({ vertices: 'Vertex editor (F1)', bones: 'Bones · Rest pose', animation: 'Movement (F3)', animations: 'Animations' }[mode]));
           } else {
-            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 6); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
+            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 7); assert.deepEqual(data.editorNames, ['Vertices', 'Bones', 'Movement', 'Animations', 'Managers', 'Paint', 'Showcase']); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
             assert.equal(data.short, await row.evaluate(e => { const short = e.hasAttribute('data-short-editors'); e.removeAttribute('data-short-editors'); const overflow = e.scrollWidth > e.clientWidth; if (short) e.setAttribute('data-short-editors', ''); return overflow; }));
           }
           // Exercise each checkbox and its existing assigned key in the wide VIS view.
@@ -110,7 +107,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
           const box = await page.locator('.game-preview-root,.viewport').first().boundingBox();
           const x = box.x + box.width * .35, y = box.y + box.height * .45;
           await page.keyboard.down('Alt'); await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 70, y + 30, { steps: 8 }); await page.mouse.up(); await page.keyboard.up('Alt');
-          await page.waitForTimeout(100);
+          await settlePage(page, 100);
           const after = await page.evaluate(() => visProbe());
           const delta = Math.hypot(...after.camera.map((value, i) => value - before.camera[i]));
           assert.ok(delta > .01, `${mode}/${width}/${vis ? 'VIS' : 'XL'} real mouse rotates the camera`);
@@ -124,7 +121,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     // An AI tool must not keep the left button or Undo when its console is hidden.
     await menu('vertices');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
-    await page.waitForTimeout(150);
+    await settlePage(page, 150);
     const originalModel = (await page.evaluate(() => visProbe())).model;
     await menu('selectAll');
     const xCoordinate = page.getByLabel('X coordinate', { exact: true });
@@ -163,7 +160,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     const travelTo = async (key, model) => {
       for (let steps = 0; steps < 8 && (await page.evaluate(() => visProbe())).model !== model; steps++) {
         await page.evaluate(() => document.activeElement?.blur());
-        await page.keyboard.press(key); await page.waitForTimeout(80);
+        await page.keyboard.press(key); await settlePage(page, 80);
         assert.equal((await page.evaluate(() => visProbe())).strokes, drawings, 'VIS Undo/Redo never steps AI drawings');
       }
       assert.equal((await page.evaluate(() => visProbe())).model, model);
@@ -192,16 +189,16 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     await page.waitForFunction(() => document.querySelector('.classic-status').textContent.includes('Saved VIS-test.mdx'));
     const saved = digest(fs.readFileSync(fixture));
     await page.locator('.vis-toggle').click();
-    await page.waitForTimeout(100);
+    await settlePage(page, 100);
     const priorWrite = fs.statSync(fixture).mtimeMs;
     await app.evaluate(() => { global.__visAiSaveActivity = true; });
     await menu('save');
-    for (const deadline = Date.now() + 20000; fs.statSync(fixture).mtimeMs <= priorWrite && Date.now() < deadline;) await page.waitForTimeout(50);
+    for (const deadline = Date.now() + 20000; fs.statSync(fixture).mtimeMs <= priorWrite && Date.now() < deadline;) await settlePage(page, 50);
     assert.ok(fs.statSync(fixture).mtimeMs > priorWrite, 'VIS save actually wrote the disposable model');
     await page.waitForFunction(() => !document.querySelector('.classic-status').textContent.includes('Saving'));
     assert.equal(digest(fs.readFileSync(fixture)), saved, 'actual XL/VIS file saves match');
     console.log('PASS actual XL/VIS file saves match');
-    for (const deadline = Date.now() + 20000; (await app.evaluate(() => global.__visAiSaveStateCalls)) < 2 && Date.now() < deadline;) await page.waitForTimeout(50);
+    for (const deadline = Date.now() + 20000; (await app.evaluate(() => global.__visAiSaveStateCalls)) < 2 && Date.now() < deadline;) await settlePage(page, 50);
     assert.equal(await app.evaluate(() => global.__visAiSaveStateCalls), 2, 'both real saves queried AI activity');
     const cleanup = page.getByRole('dialog', { name: 'Tidy up AI chats', exact: true });
     assert.equal(await cleanup.count(), 0, 'saving with AI activity in VIS does not portal the cleanup dialog');
@@ -220,7 +217,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     await page.locator('.vis-toggle').click();
     await menu('save');
     await page.waitForFunction(() => !document.querySelector('.classic-status').textContent.includes('Saving'));
-    for (const deadline = Date.now() + 20000; !(await app.evaluate(() => global.__visAiCleanupCalls)) && Date.now() < deadline;) await page.waitForTimeout(50);
+    for (const deadline = Date.now() + 20000; !(await app.evaluate(() => global.__visAiCleanupCalls)) && Date.now() < deadline;) await settlePage(page, 50);
     assert.equal(await app.evaluate(() => global.__visAiCleanupCalls), 1, 'remembered cleanup runs silently in VIS');
     assert.equal(await cleanup.count(), 0);
     console.log('PASS AI cleanup is deferred in VIS, appears in XL, and remembered cleanup stays silent');
@@ -230,6 +227,6 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
   } finally {
     // This app owns only a disposable fixture; never block failed tests on its save prompt.
     await app.evaluate(({ BrowserWindow }) => { for (const win of BrowserWindow.getAllWindows()) { win.removeAllListeners('close'); win.webContents.removeAllListeners('will-prevent-unload'); win.webContents.on('will-prevent-unload', event => event.preventDefault()); } });
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

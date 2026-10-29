@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt Electron bundle: node test/rig-node-order.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const output = path.resolve('out/rig-node-order-ui'); fs.mkdirSync(output, { recursive: true });
@@ -18,7 +18,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const fixture = path.join(output, 'rig-node-order.mdx'), original = Buffer.from(source.serialize('mdx'));
   fs.writeFileSync(fixture, original);
   const errors = [];
-  const app = await _electron.launch({ executablePath: path.resolve('node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(60000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });

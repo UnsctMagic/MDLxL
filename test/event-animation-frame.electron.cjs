@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { createDemoDocument, createNode, openDocument } = await import('../src/editor-document.js');
@@ -18,12 +18,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const file = path.join(output, 'fixture.mdx');
   fs.writeFileSync(file, fixture.serialize('mdx'));
   const original = fs.readFileSync(file);
-  const app = await _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: [root, file],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) },
-    timeout: 30000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: ([root, file]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 })).app;
   try {
     const page = await app.firstWindow();
     page.setDefaultTimeout(15000);
@@ -82,6 +77,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.writeFileSync(path.join(output,'verified.png'),Buffer.from(proof,'base64'));
     console.log('PASS animation/frame synchronization, preview label, object isolation, add/remove, undo/redo, MDX reopen');
   } finally {
-    await app.evaluate(({ app }) => app.exit(0));
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,10 +1,10 @@
 // Optional supplied-model integration test. No input file is overwritten.
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
-import { comparePoses } from './helpers/pose-compare.mjs';
-import { openDocument } from '../src/editor-document.js';
-import { sanityProposals, runOptimizeStage } from '../src/optimizexl.js';
+import { comparePoses } from '../helpers/pose-compare.mjs';
+import { openDocument } from '../../src/editor-document.js';
+import { sanityProposals, runOptimizeStage } from '../../src/optimizexl.js';
 const reports = [];
 const sanity = bytes => { return sanityTest(bytes); };
 for (const path of process.argv.slice(2)) {

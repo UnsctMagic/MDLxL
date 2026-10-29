@@ -509,7 +509,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('Control+s');
   await page.waitForFunction(() => !document.querySelector('.model-tab.active .model-tab-dirty')?.textContent, null, { timeout: 20000 });
   check("saving Second writes the owner's edit", !fs.readFileSync(secondModel).equals(fs.readFileSync(model)));
-  // An attached reference model shows as a chip in the message box and can be removed there, like a picture.
+  // References are chat-only assets; they do not become editable model tabs.
   // Saving a model the AI worked on asks how to tidy its chats.
   if (await page.locator('.ai-cleanup').waitFor({ timeout: 5000 }).then(() => true, () => false)) {
     await page.locator('.ai-cleanup-choices button', { hasText: 'Keep everything' }).click();
@@ -521,11 +521,12 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.locator('.ai-assistant input[type="file"]').setInputFiles(referenceModel);
   const referenceChip = page.locator('.ai-chip', { hasText: 'Reference.mdx' });
   await referenceChip.waitFor({ timeout: 10000 });
-  check('an attached reference model shows as a chip and opens its tab', (await page.locator('.model-tab').count()) === tabsBefore + 1);
+  check('an attached reference model shows as a chip without opening an editor tab', (await referenceChip.count()) === 1 && (await page.locator('.model-tab').count()) === tabsBefore);
+  check('attaching a reference keeps the owner active', (await page.locator('.model-tab.active [role="tab"]').getAttribute('aria-label')) === 'Second.mdx');
   await shot('09-reference-chip');
   await referenceChip.getByRole('button', { name: 'Remove reference Reference.mdx' }).click();
   await page.waitForFunction(count => document.querySelectorAll('.model-tab').length === count, tabsBefore, { timeout: 10000 });
-  check('removing the reference chip closes its tab and the chip', (await referenceChip.count()) === 0);
+  check('removing the reference removes its chip and preserves editor tabs', (await referenceChip.count()) === 0 && (await page.locator('.model-tab').count()) === tabsBefore);
   check('the model you were working on stays active', (await page.locator('.model-tab.active [role="tab"]').getAttribute('aria-label')) === 'Second.mdx');
   // Ctrl+C on text selected in the chat copies that text, not the model selection.
   await app.evaluate(({ clipboard }) => clipboard.writeText('before'));

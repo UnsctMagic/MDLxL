@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the packaged renderer with deterministic release responses and an isolated profile.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root=path.resolve(__dirname,'..');
 const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
 (async()=>{
@@ -28,7 +28,7 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
   for(const scenario of ['manual','startup','current']){
     const profile=path.join(run,scenario);fs.mkdirSync(profile,{recursive:true});
     fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{language:scenario==='startup'?'ru':'en',checkUpdatesOnStartup:scenario==='startup'}}));
-    const app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',entry],cwd:root,env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile,UPDATE_TEST_CURRENT:scenario==='current'?'1':'0'},timeout:30000});
+    const app=(await launchApp({ out: path.resolve('out'), profile: profile, entry, args: (['--disable-backgrounding-occluded-windows',entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS:'1', UPDATE_TEST_CURRENT:scenario==='current'?'1':'0' }, timeout: 30000 })).app;
     const errors=[];
     try{
       const page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
@@ -70,6 +70,6 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
         }
       }
       assert.deepEqual(errors,[]);console.log('PASS updater UI '+scenario);
-    }finally{await app.evaluate(({dialog})=>{dialog.showMessageBoxSync=()=>2;});await app.close();}
+    }finally{await app.evaluate(({dialog})=>{dialog.showMessageBoxSync=()=>2;});await closeApp(app);}
   }
 })().catch(error=>{console.error(error);process.exitCode=1;});

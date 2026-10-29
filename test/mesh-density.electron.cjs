@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Packaged UI regression. Mutations use the public controls; React reads only
 // inspect geometry, selection, camera state and UV-canvas screen coordinates.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..'), output = path.join(root, 'out', 'mesh-density-review');
 const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/triangle-subdivision-package/MDLxL-win32-x64/MDLxL.exe');
 
@@ -63,8 +63,7 @@ async function setRange(locator, value) {
     model.Geosets.push(untouched, plane);
   });
   fs.writeFileSync(fixture, doc.serialize('mdx')); const original = fs.readFileSync(fixture);
-  const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', fixture], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(output, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let uv, main; const errors = [], checks = [];
   const capture = async name => {
     const window = await app.browserWindow(uv || main);
@@ -140,7 +139,7 @@ async function setRange(locator, value) {
     await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
     await main.keyboard.press('Control+s');
     await main.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Saving'));
-    await main.waitForTimeout(700);
+    await settlePage(main, 700);
     const reopened = openDocument(fs.readFileSync(fixture), fixture);
     assert.deepEqual(reopened.model.Geosets[0].Faces, stretched.model.Geosets[0].Faces);
     assert.deepEqual(reopened.model.Geosets[0].TVertices, stretched.model.Geosets[0].TVertices);
@@ -151,5 +150,5 @@ async function setRange(locator, value) {
   } catch (error) {
     if (main && (!uv || !uv.isClosed())) { await capture('failure'); console.error((await (uv || main).locator('body').innerText()).slice(0, 2500)); }
     console.error('Renderer errors:', errors); throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

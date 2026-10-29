@@ -1,11 +1,11 @@
 // Optional supplied-model integration proof; inputs are never rewritten.
 // node test/optimizexl-footman.mjs unoptimized.mdx original.mdx [known-good.mdx ...]
-import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+import fs from 'node:fs';import {loadHiveViewer} from '../helpers/hive.mjs';import assert from 'node:assert/strict';
 import {ModelRenderer} from 'war3-model';import {Matrix4} from 'three';
-import {openDocument} from '../src/editor-document.js';import {runOptimizeStage,simpleSettings,sanityProposals} from '../src/optimizexl.js';import {allNodes,skinGeoset} from '../src/animation.js';
-import {scanCurveMotion} from '../src/motion-inspector.js';import {findIrregularities} from '../src/optimizexl.js';
-import {scanIrregularMotion} from '../src/optimizexl-motion.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
+import {openDocument} from '../../src/editor-document.js';import {runOptimizeStage,simpleSettings,sanityProposals} from '../../src/optimizexl.js';import {allNodes,skinGeoset} from '../../src/animation.js';
+import {scanCurveMotion} from '../../src/motion-inspector.js';import {findIrregularities} from '../../src/optimizexl.js';
+import {scanIrregularMotion} from '../../src/optimizexl-motion.js';
+loadHiveViewer();
 const files={'Unoptimized':process.argv[2],'Original':process.argv[3]};if(!files.Original)throw Error('Supply both Footman paths.');
 const read=name=>new Uint8Array(fs.readFileSync(files[name]));const source=read('Unoptimized'),model=openDocument(source,'a.mdx').model;
 const reports=[];

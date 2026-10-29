@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/billboard-vertex-drag.electron.cjs
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(actual - expected) <= epsilon, `${label}: ${actual} != ${expected}`);
 
@@ -26,11 +26,7 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     fixture = path.join(out, 'billboard-drag.mdx'); fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   }
   const original = fs.readFileSync(fixture), errors = [];
-  const app = await _electron.launch({
-    executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: (['--disable-backgrounding-occluded-windows', process.cwd(), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
@@ -42,10 +38,9 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
       window.dragGeosetIndex = index;
       window.viewportState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const value = hook.memoizedState?.current; if (value?.renderer && value?.entries) return value;
-        }
+        
+        { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
+
         throw Error('Viewport runtime not found');
       };
       const state = viewportState(), render = state.renderer.render;
@@ -64,7 +59,7 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
       window.authoredVertices = () => Array.from(viewportState().entries[dragGeosetIndex].geoset.Vertices);
       window.displayedCoords = () => Array.from(document.querySelectorAll('.classic-sidebar .classic-coordinates input'), input => Number(input.value));
     }, geosetIndex);
-    const idle = () => page.waitForTimeout(180);
+    const idle = () => settlePage(page, 180);
     const moveBy = async (start, dx, beforeVisual) => {
       const before = await page.evaluate(() => ({ authored: authoredVertices(), coords: displayedCoords() }));
       await page.mouse.move(start.x, start.y); await page.mouse.down(); await idle();
@@ -128,5 +123,5 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     await page.screenshot({ path: path.join(out, suppliedFixture ? 'supplied-billboard-drag-stable.png' : 'billboard-drag-stable.png') });
     assert.deepEqual(errors, []); assert.deepEqual(fs.readFileSync(fixture), original, 'fixture bytes stay unchanged');
     console.log('PASS billboard vertex drag stays under the pointer in normal and quad views');
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

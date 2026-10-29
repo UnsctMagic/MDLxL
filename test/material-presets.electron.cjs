@@ -1,10 +1,10 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async()=>{
  const input=path.resolve(process.argv[2]),original=fs.readFileSync(input),out=path.resolve('out/material-presets');fs.mkdirSync(out,{recursive:true});
- const app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',process.cwd(),input],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+ const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),input]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
  let uv,page;
  try{
   page=await app.firstWindow();page.setDefaultTimeout(20000);
@@ -59,5 +59,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   assert.ok(fs.readFileSync(input).equals(original));
   console.log('PASS: UV placement, all presets, live native renderer update, fixed blue texture resolved, tint visibility, undo/redo, manager tint selection, input file unchanged');
  }catch(error){console.error('Original failure:',error);if(uv&&!uv.isClosed()){await uv.screenshot({path:path.join(out,'failure.png')});console.error(await uv.locator('body').innerText());}else if(page)console.error(await page.locator('body').innerText());throw error;}
- finally{await app.evaluate(({app})=>app.exit(0));}
+ finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

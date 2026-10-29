@@ -1,17 +1,16 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/geoset-tabs');
   fs.mkdirSync(out, { recursive: true });
-  const fixture = path.join(root, 'fixtures/demo.mdl'), original = fs.readFileSync(fixture);
+  const fixture = path.join(root, 'test/fixtures/demo.mdl'), original = fs.readFileSync(fixture);
   const copy = path.join(out, 'fixture.mdl'); fs.writeFileSync(copy, original);
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = await _electron.launch({ executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: packaged ? ['--disable-backgrounding-occluded-windows', copy] : ['--disable-backgrounding-occluded-windows', root, copy], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, target: { executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'), args: [], packaged: true }, args: (packaged ? ['--disable-backgrounding-occluded-windows', copy] : ['--disable-backgrounding-occluded-windows', root, copy]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
@@ -155,5 +154,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.error('UI status:', await page.locator('.classic-status').innerText());
     console.error('Renderer errors:', errors);
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

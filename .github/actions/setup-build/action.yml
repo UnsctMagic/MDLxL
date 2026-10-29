@@ -1,0 +1,22 @@
+name: Setup and build
+description: Install the pinned toolchain, fetch verified FFmpeg and build MDLxL.
+inputs:
+  skip-electron-download:
+    description: Skip the Electron runtime download for source-only CI.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - run: npm install -g pnpm@10.28.0
+      shell: pwsh
+    - run: pnpm install --frozen-lockfile
+      shell: pwsh
+      env:
+        ELECTRON_SKIP_BINARY_DOWNLOAD: ${{ inputs.skip-electron-download }}
+    - run: pnpm run fetch-ffmpeg
+      shell: pwsh
+    - run: pnpm run build
+      shell: pwsh

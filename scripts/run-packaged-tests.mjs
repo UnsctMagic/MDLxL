@@ -8,8 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = (...parts) => path.join(root, 'out', ...parts);
+import { repoRoot as root, outDir as out } from './lib/paths.mjs';
 // The app under test: MDLXL_SUITE_PKG (e.g. the unzipped official release) or out/pkg. Every test gets its
 // MDLxL.exe as MDLXL_TEST_EXE, the one variable test/helpers/app.cjs reads, except DEV_ONLY below.
 const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || out('pkg/MDLxL-win32-x64')), exe = path.join(pkg, 'MDLxL.exe');

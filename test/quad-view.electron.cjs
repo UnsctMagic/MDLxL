@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/quad-view.electron.cjs
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 function sameCamera(actual, expected, message) {
   assert.equal(actual.zoom, expected.zoom, message);
   for (const key of ['position','quaternion','target']) actual[key].forEach((value,index)=>assert.ok(Math.abs(value-expected[key][index])<1e-9,message+' '+key));
@@ -20,7 +20,7 @@ function sameOrientation(actual, expected, message) {
   });
   const fixture=path.join(out,'quad-test.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   const original=fs.readFileSync(fixture), errors=[];
-  const app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',process.cwd(),fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
@@ -32,10 +32,9 @@ function sameOrientation(actual, expected, message) {
     await page.evaluate(()=>{
       window.viewportState=()=>{
         const host=document.querySelector('[aria-label="3D model viewport"]');
-        let fiber=host[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-        for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){
-          const value=hook.memoizedState?.current;if(value?.renderer&&value?.entries)return value;
-        }
+        
+        { const value = findFiberState(host, value => value?.renderer&&value?.entries); if (value?.renderer&&value?.entries) return value; }
+
         throw Error('Viewport runtime not found');
       };
       window.draws={};const state=viewportState(),render=state.renderer.render;
@@ -56,7 +55,7 @@ function sameOrientation(actual, expected, message) {
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     await page.locator('[data-hotkey="select"]').click();
     const clickVertex=async()=>{const p=await page.evaluate(()=>vertexPoint());await page.mouse.click(p.x,p.y);};
-    const idle=()=>page.waitForTimeout(150);
+    const idle=()=>settlePage(page, 150);
     await idle();await clickVertex();await idle();
     assert.deepEqual(await page.evaluate(()=>Array.from(viewportState().entries[0].selectedPoints.geometry.index.array)),[0]);
     const single=await page.evaluate(()=>cameraState());
@@ -176,9 +175,9 @@ function sameOrientation(actual, expected, message) {
       const r=await page.locator(`[data-viewport="${id}"]`).boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2;
       await page.mouse.move(cx,cy);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(cx+34,cy+23,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await idle();
       sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' Alt cannot rotate the editing plane');
-      await page.locator('[data-hotkey="camera:rotate"]').click();await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
+      await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+E');await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
       sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' camera toolbar cannot rotate the editing plane');
-      await page.locator('[data-hotkey="camera:work"]').click();await activate(id);
+      await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+Q');await activate(id);
       await page.evaluate(()=>{viewportState().setCameraAngles({x:31,y:59,z:83});viewportState().setView('orthographic');viewportState().setView('top-front-right');});await idle();
       assert.equal(await dropdown.inputValue(),view);sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' rejects arbitrary camera angles');
       assert.deepEqual(await page.evaluate(()=>coordinates()),unchanged,'navigation does not edit vertices');
@@ -300,16 +299,14 @@ function sameOrientation(actual, expected, message) {
     await dropdown.selectOption('top');await idle();
     await page.evaluate(()=>{window.previewCameraState=()=>{
       const host=document.querySelector('.game-preview-surface');
-      let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){
-        const state=hook.memoizedState?.current;
-        if(state?.native&&state?.controls){const camera=state.controls.object;return{cameraType:camera.isPerspectiveCamera?'perspective':'orthographic',position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),zoom:camera.zoom,target:state.controls.target.toArray()};}
-      }
+      
+      { const state = mdlxlProbe(host).runtime; if (state?.native&&state?.controls) {const camera=state.controls.object;return{cameraType:camera.isPerspectiveCamera?'perspective':'orthographic',position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),zoom:camera.zoom,target:state.controls.target.toArray()};} }
+
       throw Error('Preview camera not found');
     };});
     const previewCamera=()=>page.evaluate(()=>previewCameraState());
     const shiftPan=async label=>{
-      await page.locator('[data-hotkey="camera:move"]').click();
+      await page.keyboard.press('Shift+X');
       const rect=await page.locator('.game-preview-surface canvas[data-clean-model-canvas]').boundingBox(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
       const initial=await previewCamera();
       await page.mouse.move(x,y);await page.keyboard.down('Shift');await page.mouse.down();
@@ -321,14 +318,14 @@ function sameOrientation(actual, expected, message) {
       assert.ok(moved(horizontal,vertical)>.01,label+' Shift vertical camera pan works');
     };
     const shiftRotate=async label=>{
-      await page.locator('[data-hotkey="camera:rotate"]').click();
+      await page.keyboard.press('Shift+E');
       const rect=await page.locator('.game-preview-surface canvas[data-clean-model-canvas]').boundingBox(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
       const before=await previewCamera();
       await page.mouse.move(x,y);await page.keyboard.down('Shift');await page.mouse.down();
       await page.mouse.move(x+80,y+60,{steps:5});await page.mouse.up();await page.keyboard.up('Shift');await idle();
       const after=await previewCamera();
       assert.ok(Math.hypot(...before.quaternion.map((value,index)=>value-after.quaternion[index]))>.001,label+' Shift camera rotation works');
-      await page.locator('[data-hotkey="camera:work"]').click();
+      await page.keyboard.press('Shift+Q');
     };
     await page.getByRole('button',{name:'Bones',exact:true}).click();
     await page.getByLabel('Bones controller').waitFor({timeout:60000});
@@ -357,5 +354,5 @@ function sameOrientation(actual, expected, message) {
     const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')});
     console.error('Runtime',await page.evaluate(()=>({view:document.querySelector('[aria-label="3D model viewport"]')?viewportState().appliedView:null,preview:document.querySelector('.game-preview-surface')?(()=>{try{return previewCameraState()}catch{return null}})():null,pointerLog})));
     throw error;
-  } finally {await app.evaluate(({app})=>app.exit(0));}
+  } finally {await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

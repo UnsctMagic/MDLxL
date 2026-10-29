@@ -1,9 +1,9 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
 // Drives the first-launch Auto update welcome hidden: a big icon beside a blue title, Yes / No thanks.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 (async () => {
@@ -21,12 +21,7 @@ const root = path.resolve(__dirname, '..');
       globalThis.answers = [await ask(), await ask()];
     });
   `);
-  const app = await _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: [entry], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(run, 'profile') },
-    timeout: 30000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(run, 'profile'), args: ([entry]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 })).app;
   try {
     let prompt = await app.firstWindow();
     await prompt.waitForSelector('button.yes', { timeout: 15000 });
@@ -55,7 +50,7 @@ const root = path.resolve(__dirname, '..');
     assert.deepEqual(await app.evaluate(() => globalThis.answers), ['yes', 'no']);
     console.log('PASS Yes turns Auto update on and Escape answers No thanks');
   } finally {
-    await app.close().catch(() => {});
+    await closeApp(app).catch(() => {});
     fs.rmSync(run, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

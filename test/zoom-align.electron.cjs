@@ -1,8 +1,8 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Zoom align with real mouse drags on the built bundle: node test/zoom-align.electron.cjs
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const out = path.resolve('out/zoom-align'); fs.mkdirSync(out, {recursive:true});
@@ -12,7 +12,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   doc.apply('Crooked test vertices', ['Geosets'], model => { model.Geosets[0].Vertices.set([17,29,43],0); model.Geosets[0].Vertices.set([-21,-8,30],3); });
   const fixture=path.join(out,'zoom-align.mdx');fs.writeFileSync(fixture,Buffer.from(doc.serialize('mdx')));
   const errors=[];
-  const app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',process.cwd(),fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: path.join(out,'profile-'+Date.now()), args: (['--disable-backgrounding-occluded-windows',process.cwd(),fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
@@ -22,10 +22,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(()=>{
       window.viewportState=()=>{
         const host=document.querySelector('[aria-label="3D model viewport"]');
-        let fiber=host[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-        for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){
-          const value=hook.memoizedState?.current;if(value?.renderer&&value?.entries)return value;
-        }
+        
+        { const value = findFiberState(host, value => value?.renderer&&value?.entries); if (value?.renderer&&value?.entries) return value; }
+
         throw Error('Viewport runtime not found');
       };
       window.vertexPoint=index=>{
@@ -42,7 +41,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         let count=0;for(let i=0;i<data.length;i+=4)if(data[i+3]>200&&Math.abs(data[i]-r)<40&&Math.abs(data[i+1]-g)<40&&Math.abs(data[i+2]-b)<40)count++;return count;
       };
     });
-    const idle=()=>page.waitForTimeout(200);
+    const idle=()=>settlePage(page, 200);
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     await page.locator('[data-hotkey="select"]').click();await idle();
     await page.keyboard.press('Control+a');await idle();
@@ -95,5 +94,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.error(error);
     try{await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png')});}catch{}
     throw error;
-  } finally {await app.evaluate(({app})=>app.exit(0));}
+  } finally {await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

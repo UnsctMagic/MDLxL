@@ -182,6 +182,7 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
   check('AI panel is closed by default', (await page.locator('.ai-assistant').count()) === 0);
   // Exercise the native sign-in UI through real provider child processes. The
   // browser launch is intercepted, so this never opens a window on the desktop.
+  fs.writeFileSync(path.join(out, 'package.json'), '{"type":"commonjs"}');
   const authScript = path.join(out, 'auth-fixture.js'),
     authExecutable = path.join(out, 'auth-bin', 'codex.cmd'),
     authDirectory = path.join(profile, 'ai');
@@ -211,7 +212,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   fs.mkdirSync(path.dirname(authExecutable), { recursive: true });
   // Run the stand-in with this Node, not whatever program .js files open with on this PC.
-  fs.writeFileSync(authExecutable, `@"${process.execPath}" "%~dp0..\\auth-fixture.js" %*\r\n`);
+  fs.writeFileSync(authExecutable, `@"${process.execPath}" "%~dp0\\..\\auth-fixture.js" %*\r\n`);
   await page.evaluate(
     executable => window.desktop.aiConfigure({ provider: 'codex', executable }),
     authExecutable,
@@ -949,6 +950,7 @@ return {duration:end-start,loop:!model.Sequences[sequence].NonLooping,keys:anim.
       'AI-assets.mdx',
       'MDLxL_Forge',
       'auth-fixture.js',
+      'package.json',
       'auth-bin',
     ])
       fs.rmSync(path.join(out, name), { recursive: true, force: true });

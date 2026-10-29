@@ -7,18 +7,18 @@
 import fs from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { repoRoot, tempDir } from './lib/paths.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
-const target = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'electron', 'ffmpeg');
+const target = path.join(repoRoot, 'electron', 'ffmpeg');
+const { digest: sha256 } = createRequire(import.meta.url)('../electron/updater.cjs');
+const { verifyFFmpegBundle } = createRequire(import.meta.url)('../electron/ffmpeg-verification.cjs');
 const force = process.argv.includes('--force');
-const sha256 = async file => createHash('sha256').update(await fs.readFile(file)).digest('hex');
 
 const provenance = JSON.parse(await fs.readFile(path.join(target, 'PROVENANCE.json'), 'utf8'));
 const archive = provenance.binaryArchive;
@@ -37,7 +37,7 @@ if (!force && (await Promise.all(binaries.map(matches))).every(Boolean)) {
   process.exit(0);
 }
 
-const work = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'mdlxl-ffmpeg-'));
+const work = await tempDir('mdlxl-ffmpeg-');
 try {
   console.log(`Downloading ${archive.url}`);
   const response = await fetch(archive.url, { redirect: 'follow' });
@@ -53,11 +53,12 @@ try {
   await fs.mkdir(extracted);
   await run('tar', ['-xzf', path.relative(extracted, file), ...binaries], { cwd: extracted });
 
-  // Verify every file before replacing anything in the destination.
-  for (const name of binaries) {
-    const hash = await sha256(path.join(extracted, name));
-    if (hash !== provenance.files[name]) throw Error(`${name} does not match PROVENANCE.json.\n  expected ${provenance.files[name]}\n  actual   ${hash}`);
+  // The shared verifier checks licenses, pinned bytes and runtime capabilities.
+  // License/provenance files are tracked here, not taken from the download.
+  for (const name of (await fs.readdir(target)).filter(name => !/\.(?:exe|dll)$/i.test(name))) {
+    if ((await fs.stat(path.join(target, name))).isFile()) await fs.copyFile(path.join(target, name), path.join(extracted, name));
   }
+  await verifyFFmpegBundle(extracted);
   for (const name of binaries) await fs.copyFile(path.join(extracted, name), path.join(target, name));
   console.log(`FFmpeg ${provenance.version} installed and verified (${binaries.length} files): ${binaries.join(', ')}`);
 } finally {

@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'learn-menu');
@@ -16,14 +16,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   let app, page;
   const errors = [];
   const launch = async () => {
-    app = await _electron.launch({ executablePath, args: process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture], cwd: root,
-      env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+    app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setSize(1100, 760); win.showInactive(); });
     await page.locator('.classic-view canvas').first().waitFor();
   };
-  const close = async () => { if (app) { await app.close(); app = null; } };
+  const close = async () => { if (app) { await closeApp(app); app = null; } };
   const click = async locator => {
     await locator.waitFor();
     const point = await locator.evaluate(element => {
@@ -47,11 +46,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const rotateCamera = async () => {
     const camera = () => page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.renderer && state?.entries) return state.camera.quaternion.toArray();
-      }
+      
+      { const state = findFiberState(host, state => state?.renderer && state?.entries); if (state?.renderer && state?.entries) return state.camera.quaternion.toArray(); }
+
       throw Error('Viewport runtime missing');
     });
     const before = await camera(), rect = await page.locator('.classic-view canvas').first().boundingBox();
@@ -83,7 +80,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await row('Learn mode').evaluate(element => getComputedStyle(element).color), 'rgb(236, 232, 222)', 'off row is readable on dark slate');
     for (const width of [1100, 1920]) {
       await app.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setSize(width, 800), width);
-      await page.waitForTimeout(200);
+      await settlePage(page, 200);
       const [button, box] = await Promise.all([tile().boundingBox(), menu().boundingBox()]);
       assert.ok(box.y >= button.y + button.height && box.y < button.y + button.height + 10, 'anchored directly below LER');
       assert.ok(box.x >= 0 && box.x + box.width <= width, 'box fits window');

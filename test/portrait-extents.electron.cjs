@@ -1,3 +1,4 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -20,9 +21,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   });
   const original = Buffer.from(doc.serialize('mdx')); fs.writeFileSync(fixture, original);
   const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath: process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: [...(packaged ? [] : [root]), fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()), MDLVIS_HEADLESS: '1' }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile-' + Date.now()), args: ([...(packaged ? [] : [root]), fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   let page;
   const errors = [];
   const screenshot = async name => {
@@ -44,11 +43,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await page.evaluate(() => {
       window.portraitRuntime = () => {
         const el = document.querySelector('.game-preview-root');
-        let fiber = el[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState?.current;
-          if (state?.native && state.controls) return state;
-        }
+        
+        { const state = mdlxlProbe(el).runtime; if (state?.native && state.controls) return state; }
+
         throw Error('Preview runtime missing');
       };
     });
@@ -103,5 +100,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await screenshot('portrait-after.png');
     assert.deepEqual(errors, []);
   } catch (error) { if (page) await screenshot('failure.png'); throw error; }
-  finally { await app.evaluate(({ app }) => app.exit(0)); }
+  finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

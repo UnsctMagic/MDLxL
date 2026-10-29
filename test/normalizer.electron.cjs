@@ -1,6 +1,6 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against an isolated packaged build via MDLXL_TEST_EXE and MDLXL_TEST_OUT.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..'), out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/normalizer');
 const executable = process.env.MDLXL_TEST_EXE;
 if (!executable) throw Error('Set MDLXL_TEST_EXE to the isolated packaged MDLxL.exe.');
@@ -29,8 +29,7 @@ function readView() {
   const originalBytes=fs.readFileSync(fixture), profile=path.join(out,'profile');
   fs.mkdirSync(profile,{recursive:true});
   fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false}}}));
-  const app=await _electron.launch({executablePath:executable,args:['--disable-backgrounding-occluded-windows',fixture],
-    env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+  const app=(await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows',fixture]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000 })).app;
   const checks=[], errors=[]; let page;
   try {
     page=await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror',e=>errors.push(e.message));
@@ -109,5 +108,5 @@ function readView() {
     console.error(error.stack);console.error('Renderer errors:',errors);
     if(page)console.error((await page.locator('body').innerText()).slice(0,2500));
     throw error;
-  } finally {await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close();}
+  } finally {await closeApp(app).catch(()=>{});await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

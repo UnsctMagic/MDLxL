@@ -1,18 +1,12 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building dist. Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 async function launch(entry, profile, model) {
-  return _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', entry, ...(model ? [model] : [])],
-    cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile },
-    timeout: 30000,
-  });
+  return launchApp({ out: path.resolve('out'), profile: profile, entry, args: (['--disable-backgrounding-occluded-windows', entry, ...(model ? [model] : [])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows' && arg !== entry), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 }).then(({ app }) => app);
 }
 
 (async () => {
@@ -50,7 +44,7 @@ async function launch(entry, profile, model) {
     const page = await unsaved.firstWindow();
     await page.waitForFunction(() => !!document.querySelector('.classic-app'));
     await page.evaluate(() => window.desktop.close());
-    await page.waitForTimeout(100);
+    await settlePage(page, 100);
     const prompt = await unsaved.evaluate(() => modelCloseTest.prompts[0]);
     assert.deepEqual(prompt.buttons, ['Save', 'Cancel', 'Close']);
     assert.equal(prompt.cancelId, 1);

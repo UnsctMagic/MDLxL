@@ -1,3 +1,4 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real mouse acceptance against the production bundle or a disposable package.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -33,11 +34,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   const bundleDigest = crypto.createHash('sha256');
   for (const name of fs.readdirSync(assets).sort()) bundleDigest.update(name).update(fs.readFileSync(path.join(assets, name)));
   const bundleHash = bundleDigest.digest('hex');
-  const app = await _electron.launch({
-    executablePath,
-    args: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', ...(packaged ? [fixture] : [root, fixture])],
-    cwd: root, env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLVIS_HEADLESS: '1' }, timeout: 60000,
-  });
+  const app = (await launchApp({ out: path.resolve('out'), profile: path.join(out, 'profile'), args: (['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', ...(packaged ? [fixture] : [root, fixture])]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const check = (label, pass, evidence) => { checks.push({ label, pass: !!pass, ...(evidence === undefined ? {} : { evidence }) }); console.log((pass ? 'PASS ' : 'FAIL ') + label + (!pass && evidence !== undefined ? ' ' + JSON.stringify(evidence) : '')); };
   let page;
   try {
@@ -66,7 +63,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     check('fresh profile defaults to world/grid axes', await page.evaluate(() => rotationProbe().props.transformSpace === 'world'));
     check('packaged test stays hidden', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().every(win => !win.isVisible())));
     const settle = async () => {
-      await page.waitForTimeout(100);
+      await settlePage(page, 100);
       // Undo/commit rebuilds the native renderer asynchronously. Its initial
       // identity matrix at frame zero is not the evaluated tilted bone.
       await page.waitForFunction(() => {
@@ -152,7 +149,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       await page.mouse.move(x, y); await page.mouse.down();
       for (let step = 1; step <= 6; step++) {
         await page.mouse.move(x + dx * step / 6, y + dy * step / 6);
-        await page.waitForTimeout(25); samples.push(await snap());
+        await settlePage(page, 25); samples.push(await snap());
       }
       if (cancel === 'right-click') { await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' }); }
       else if (cancel) await page.keyboard.press('Escape');
@@ -324,7 +321,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     fs.writeFileSync(path.join(out, 'controls.png'), Buffer.from(screenshot, 'base64'));
   } finally {
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ packaged, executablePath, bundleHash, fixtureHash, checks, errors }, null, 2));
-    await app.evaluate(({ app }) => app.exit(0));
+    await closeApp(app);
     await new Promise(resolve => app.process().exitCode !== null ? resolve() : app.process().once('exit', resolve));
   }
   console.log('Evidence: ' + out);

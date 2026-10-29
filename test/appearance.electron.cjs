@@ -1,9 +1,9 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/appearance.electron.cjs
 // Set MDLXL_PLAYWRIGHT_MODULE when Playwright is provided outside this checkout.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
 
 (async () => {
@@ -12,9 +12,9 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
   const profile = path.join(out, 'profile-' + Date.now());
   fs.mkdirSync(profile);
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
-  const modelPath = path.join(root, 'fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
+  const modelPath = path.join(root, 'test/fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
   const bundle = buildSync({ stdin: { contents: `export { drawPreviewGeometryOverlay } from './app/preview-overlays.js'; export { drawPreviewBackground } from './app/game-preview-capture.js'; export { normalizePreferences } from './src/preferences.js'; export { exportConfiguration, importConfiguration } from './src/portable-settings.js'; export { BUILT_IN_VIEWPORT_PRESETS, backgroundImageRect } from './src/viewport-appearance.js'; export { OrthographicCamera, Vector3 } from 'three';`, resolveDir: root }, bundle: true, format: 'iife', globalName: 'appearanceAudit', write: false }).outputFiles[0].text;
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, modelPath], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const app = (await launchApp({ out: path.resolve('out'), profile: profile, args: (['--disable-backgrounding-occluded-windows', root, modelPath]).filter(arg => arg !== path.resolve(__dirname, '..') && arg !== '--disable-backgrounding-occluded-windows'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000 })).app;
   const result = { raster: null, presets: [], gaps: [] }, errors = [];
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -139,5 +139,5 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
     if (!process.argv.includes('--audit-before-fixes')) assert.deepEqual(result.gaps, []);
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
