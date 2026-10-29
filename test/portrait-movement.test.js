@@ -67,6 +67,9 @@ test('parent wireframe expansion is a real two-pixel quad under perspective', ()
   assert.deepEqual(Array.from(result.slice(12,18)),Array.from(result.slice(18,24)));
 });
 test('Portrait remains an editable Movement view with local sequences and no playback re-entry', () => {
+  const portrait = readFileSync(new URL('../app/usePortraitState.js', import.meta.url), 'utf8');
+  assert.match(portrait, /setPortraitCameraIndex\(0\); setPortraitPreviewChanged\(false\); \}, \[sessionId\]/);
+
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   const movement=readFileSync(new URL('../app/MovementControllerRecomp.jsx',import.meta.url),'utf8');

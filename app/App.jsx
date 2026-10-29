@@ -30,6 +30,7 @@ import Learn from './Learn.jsx';
 import AppDialogs, { ResourceManagerView } from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
 import usePreferences from './usePreferences.js';
+import usePortraitState from './usePortraitState.js';
 import useEditorDisplay from '../src/useEditorDisplay.js';
 import { PreferencesContext } from './PreferencesContext.jsx';
 import { Coordinate } from './EditorControls.jsx';
@@ -96,7 +97,7 @@ import { decodePaintImage } from './paint-raster.js';
 import { clearQuickDisplay, setEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
 import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot, changedPortraitFields } from './portrait-camera-edit.js';
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
-import { currentBackdropLook, findPortraitBackground, normalizeBackdropLook, refreshPortraitBackground } from './portrait-background.js';
+import { currentBackdropLook, findPortraitBackground, refreshPortraitBackground } from './portrait-background.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
 import AppToolbar, { AppViewLabel } from './AppToolbar.jsx';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
@@ -187,14 +188,8 @@ export default function App() {
   const toggleQuadView = () => setQuadView(value => !value);
   const lockedVertexPlane = mode === 'vertices' && quadView ? activeVertexPane?.workplane : null;
   const [cameraAngles, setCameraAngles] = useState({x:0,y:0,z:0}), [cameraAnglesRequest,setCameraAnglesRequest] = useState(null), [cameraGesture,setCameraGesture] = useState(false);
-  const [portraitEnabled, setPortraitEnabled] = useState(false), [portraitCameraIndex, setPortraitCameraIndex] = useState(0);
-  const [controlModelIds, setControlModelIds] = useState([]);
-  const [controlModelGroup, setControlModelGroup] = useState('all');
-  useEffect(() => { setControlModelGroup('all'); setControlModelIds([]); setMaterialVisibility(null); }, [session.id]);
-  useEffect(() => { setPortraitCameraIndex(0); setPortraitPreviewChanged(false); }, [session.id]);
-  const [portraitSnapRevision, setPortraitSnapRevision] = useState(0);
-  const [portraitSettings, setPortraitSettings] = useState({ lighting: true, dncLights: false, composition: false, thirds: false, mask: .65 });
-  const [portraitPreviewChanged, setPortraitPreviewChanged] = useState(false), [portraitLightingStatus, setPortraitLightingStatus] = useState('');
+  const { portraitEnabled, setPortraitEnabled, portraitCameraIndex, setPortraitCameraIndex, portraitSnapRevision, setPortraitSnapRevision, portraitSettings, setPortraitSettings, portraitPreviewChanged, setPortraitPreviewChanged, portraitLightingStatus, setPortraitLightingStatus, controlModelIds, setControlModelIds, controlModelGroup, setControlModelGroup, lastBackdropLook, rememberBackdropLook } = usePortraitState(session.id);
+  useEffect(() => { setMaterialVisibility(null); }, [session.id]);
   const receiveCameraAngles = useCallback(value => setCameraAngles(previous => ['x','y','z'].some(axis=>Math.abs(previous[axis]-value[axis])>.001)?value:previous), []);
   const [grabThroughByEditor, setGrabThroughByEditor] = useState({vertices:true,bones:false});
   const grabThrough = grabThroughByEditor[mode] ?? false;
@@ -528,11 +523,9 @@ export default function App() {
     if (index !== false) { setPlaying(false); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
   };
   const hasPortraitBackground = useMemo(() => findPortraitBackground(model) >= 0, [model, doc.revision]);
-  // The last look placed from Background options also shapes the next Add.
-  const lastBackdropLook = () => { try { return normalizeBackdropLook(JSON.parse(localStorage.getItem('mdlxl-portrait-background-look') || 'null')); } catch { return normalizeBackdropLook(null); } };
   const portraitBackdropLook = () => (hasPortraitBackground && currentBackdropLook(model, portraitCameraIndex, time, sequence)) || lastBackdropLook();
   const placePortraitBackground = look => {
-    if (look) try { localStorage.setItem('mdlxl-portrait-background-look', JSON.stringify(normalizeBackdropLook(look))); } catch { /* the look still applies now */ }
+    rememberBackdropLook(look);
     const label = hasPortraitBackground ? 'Refresh portrait background' : 'Add portrait background';
     // Without a chosen look, Refresh keeps the background's own size and height.
     edit(label, ['Geosets', 'GeosetAnims', 'Materials', 'Textures', 'Bones', 'Nodes', 'PivotPoints', 'BindPoses', 'Sequences', 'Cameras', 'Info'], current => refreshPortraitBackground(current, portraitCameraIndex, { frame: time, sequenceIndex: sequence, portraitFile: /_portrait\.md[lx]$/i.test(doc.name), look, fallback: lastBackdropLook() }));
