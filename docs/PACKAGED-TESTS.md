@@ -75,8 +75,8 @@ to every Electron launch.
    unzipped release. Several tests also start the development Electron, so
    `dist/` must be built either way. Run the script with `node` (as above, or
    `node scripts/run-packaged-tests.mjs ...`) in a worktree whose `node_modules`
-   is a junction: `pnpm run` first tries an install, which must never run
-   through a junction.
+   is a junction: `pnpm run` first tries an install. That reports a failure but
+   still re-points the main checkout's top-level links into the worktree.
 2. Playwright is not a project dependency. The runner finds `playwright` or
    `playwright-core` if it can be resolved from the repo; otherwise set
    `MDLXL_REAL_PLAYWRIGHT` to its folder, e.g.
