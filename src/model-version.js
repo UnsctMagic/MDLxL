@@ -31,7 +31,7 @@ function hdMaterialIssues(model) {
   return issues;
 }
 export const HD_UNSUPPORTED_MESSAGE="HD models aren't supported yet.";
-export const HD_VIEW_ONLY_MESSAGE=`${HD_UNSUPPORTED_MESSAGE} This model is open view-only; saving is disabled.`;
+export const HD_VIEW_ONLY_MESSAGE='HD models can be previewed. This model is open view-only; saving is disabled.';
 export const HD_CONVERT_NOTICE="HD content isn't supported yet, so it will be converted to SD.";
 export const HD_CONVERTED_MESSAGE="HD content isn't supported yet, so it was converted to SD.";
 export const HD_SHADER_MESSAGE="HD shaders aren't supported yet, so the shader was not applied.";

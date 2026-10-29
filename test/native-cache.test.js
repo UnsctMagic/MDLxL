@@ -38,3 +38,26 @@ test('native DDS top mip decodes BC1 colors and rejects truncated or unsupported
  const decoded=decodeDds(source);assert.equal(decoded.width,4);assert.equal(decoded.height,4);assert.deepEqual(Array.from(decoded.data.slice(0,4)),[255,0,0,255]);
  assert.throws(()=>decodeDds(source.subarray(0,135)),/truncated/);v.setUint32(84,0x30315844,true);assert.throws(()=>decodeDds(source),/Unsupported/);
 });
+
+test('native BC5 normal maps decode both endpoint modes and cross-byte indices',()=>{
+ const source=new Uint8Array(144),v=new DataView(source.buffer);
+ for(const [offset,value] of [[0,0x20534444],[4,124],[12,3],[16,3],[84,0x32495441]])v.setUint32(offset,value,true);
+ source.set([240,30],128);source.set([40,200],136);
+ // The third pixel's three-bit index straddles bytes; the seventh uses the
+ // explicit 0/255 endpoints in the green channel's six-value mode.
+ const indices=[0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7];
+ for(const start of [130,138])for(let i=0;i<16;i++) {
+   const bit=i*3,byte=bit>>>3;source[start+byte]|=indices[i]<<(bit&7);
+   if(byte<5)source[start+byte+1]|=indices[i]>>>(8-(bit&7));
+ }
+ const image=decodeDds(source);assert.deepEqual([image.width,image.height,image.data.length],[3,3,36]);
+ const red=[240,30,210,180,150,120,90,60],green=[40,200,72,104,136,168,0,255];
+ for(let y=0;y<3;y++)for(let x=0;x<3;x++) {
+   const index=indices[y*4+x],offset=(y*3+x)*4,r=red[index],g=green[index];
+   assert.deepEqual(Array.from(image.data.slice(offset,offset+2)),[r,g]);
+   assert.equal(image.data[offset+2],Math.round((Math.sqrt(Math.max(0,1-(r/127.5-1)**2-(g/127.5-1)**2))+1)*127.5));
+   assert.equal(image.data[offset+3],255);
+ }
+ assert.throws(()=>decodeDds(source.subarray(0,143)),/truncated/);
+ v.setUint32(16,0,true);assert.throws(()=>decodeDds(source),/dimensions/);
+});

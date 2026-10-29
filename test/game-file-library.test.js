@@ -91,6 +91,24 @@ test('reads use the listed content key; model textures come from the model modul
   assert.deepEqual(resolved.missing,['Missing.blp']);
 });
 
+test('HD authored TIF paths resolve DDS bytes and DE inherits missing HD textures', async () => {
+  const library=fakeLibrary(),index=await library.load(['D:\\Game']);
+  const path='Units/Human/Footman/Footman_diffuse.tif';
+  for (const variant of ['reforged','forsaken-kingdom']) {
+    const model=library.findPath(index,'Units/Human/Footman/Footman.mdx',variant);
+    const result=await library.resolve(index,model,[path,'Textures/Footman.tif','Absent.tif']);
+    assert.deepEqual(result.found.map(r=>r.name),[path,'Textures/Footman.tif']);
+    assert.equal(result.found[0].bytes[0],names.indexOf('war3.w3mod:_hd.w3mod:units\\human\\footman\\footman_diffuse.dds')+1);
+    assert.deepEqual(result.missing,['Absent.tif']);
+  }
+  const de=library.findPath(index,'Units/Human/Footman/Footman.mdx','forsaken-kingdom');
+  const override={...index.entries[6],contentKey:key(99)};
+  index.byName.set('war3.w3mod:_de.w3mod:units\\human\\footman\\footman_diffuse.dds',override);
+  assert.equal((await library.resolve(index,de,[path])).found[0].bytes[0],99,'DE override wins over HD');
+  const classic=library.findPath(index,'Units/Human/Footman/Footman.mdx','classic');
+  assert.deepEqual((await library.resolve(index,classic,[path])).missing,[path],'Classic never borrows HD');
+});
+
 test('painting and art searches find illustrations, not skins, icons or map symbols',()=>{
   for(const art of ['war3.w3mod:UI\\Glues\\Loading\\Backgrounds\\Campaigns\\Ashenvale-TopLeft.blp','war3.w3mod:webui\\loadingscreen\\campaign\\roc\\02_human\\human01_defense of strahnbrad.jpg','war3.w3mod:webui\\campaign\\campaignselect\\backgrounds\\wc3_campaign_keyart_orc.png','UI\\Glues\\MainMenu\\MainMenu3d_Beta\\Arthas_Concept03.blp','war3.w3mod:ui\\glues\\scorescreen\\scorescreen-orcvictory\\scorescreen-orcvictory.dds'])assert.equal(isArtworkPath(art),true,art);
   for(const other of ['war3.w3mod:textures\\footman.blp','war3.w3mod:ui\\glues\\scorescreen\\scorescreen-hero-arthas.dds','war3.w3mod:webui\\portraits\\p007.png','war3.w3mod:UI\\Glues\\Loading\\Backgrounds\\Campaigns\\OrcSymbol.blp','war3.w3mod:webui\\loadingscreen\\loadscreen_mapframe.png','war3.w3mod:ReplaceableTextures\\CommandButtons\\BTNFootman.blp'])assert.equal(isArtworkPath(other),false,other);
