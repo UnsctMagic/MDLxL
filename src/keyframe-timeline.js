@@ -1,6 +1,6 @@
 import { allNodes, globalSequenceId, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
-import { animationTargets, animationTrackId, assertSingleGeosetOwner, readAnimationTrack } from './animation-tracks.js';
+import { animationTargets, animationTrackId, assertSingleGeosetOwner, makeKey, readAnimationTrack } from './animation-tracks.js';
 
 const transforms = ['Translation', 'Rotation', 'Scaling'];
 const clone = value => structuredClone(value);
@@ -92,14 +92,6 @@ function checkedVector(value, property) {
   }
   return new Float32Array(values);
 }
-function makeKey(time, value, track, property) {
-  const key = { Frame: time, Vector: new Float32Array(value) };
-  if (track.LineType >= 2) {
-    key.InTan = track.LineType === 2 && property !== 'Rotation' ? new Float32Array(value.length) : new Float32Array(value);
-    key.OutTan = new Float32Array(key.InTan);
-  }
-  return key;
-}
 function visibleSource(model, target) {
   if (target.kind === 'geoset' && target.property === 'Color') {
     const owner = model.GeosetAnims?.find(item => item.GeosetId === target.id);
@@ -123,7 +115,7 @@ function editableTrack(model, target, domain, template) {
   // Default tracks stay sparse; no implicit start/end keys are inserted in this interval.
   const old = vector(source), fallback = vector(defaults(target.property));
   if (domain.kind === 'local' && old.some((value, index) => value !== fallback[index])) {
-    for (const sequence of model.Sequences || []) if (sequence.Interval && (sequence.Interval[0] < domain.start || sequence.Interval[0] > domain.end)) track.Keys.push(makeKey(sequence.Interval[0], old, track, target.property));
+    for (const sequence of model.Sequences || []) if (sequence.Interval && (sequence.Interval[0] < domain.start || sequence.Interval[0] > domain.end)) track.Keys.push(makeKey(sequence.Interval[0], old, track.LineType, target.property));
   }
   return track;
 }
@@ -202,7 +194,7 @@ export function setTimelineKeys(model, targets, time, domain, values = null) {
   const prepared = checkedTargets(model, targets, domain).map(target => {
     const track = editableTrack(model, target, domain), value = checkedVector(values?.[target.trackId] ?? timelineSample(model, target, time, domain), target.property);
     const existing = track.Keys.find(key => key.Frame === time);
-    const key = existing ? { ...existing, Vector: value } : makeKey(time, value, track, target.property);
+    const key = existing ? { ...existing, Vector: value } : makeKey(time, value, track.LineType, target.property);
     collision(track, key, 'replace'); return { target, track };
   });
   return commit(model, prepared);
@@ -212,7 +204,7 @@ export function pasteTimelinePose(model, targets, clipboard, time, domain, polic
   const entries = clipboardEntries(model, targets, clipboard, domain, 'pose');
   const prepared = entries.map(({ target, value }) => {
     const track = editableTrack(model, target, domain), old = track.Keys.find(key => key.Frame === time), next = checkedVector(value, target.property);
-    const key = old ? { ...old, Vector: next } : makeKey(time, next, track, target.property);
+    const key = old ? { ...old, Vector: next } : makeKey(time, next, track.LineType, target.property);
     return { target, track, count: collision(track, key, policy) ? 1 : 0 };
   });
   return commit(model, prepared);

@@ -101,10 +101,13 @@ export function sampleAnimationProperty(model, target, frame, sequenceIndex, glo
   }
   return sampleTrack(readAnimationTrack(model, target), frame, { interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences, fallback: fallback(target.property) });
 }
-function makeKey(Frame, Vector, lineType) {
+/** A new key with default tangents: Hermite tangents are zero derivatives,
+ * except Rotation, whose tangents are quaternions and copy the value; Bezier
+ * controls start on the value. */
+export function makeKey(Frame, Vector, lineType, property) {
   const key = { Frame, Vector: new Float32Array(Vector) };
   if (lineType >= 2) {
-    key.InTan = lineType === 2 ? new Float32Array(Vector.length) : new Float32Array(Vector);
+    key.InTan = lineType === 2 && property !== 'Rotation' ? new Float32Array(Vector.length) : new Float32Array(Vector);
     key.OutTan = new Float32Array(key.InTan);
   }
   return key;
