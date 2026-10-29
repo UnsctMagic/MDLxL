@@ -18,9 +18,21 @@ export function particleAtlasFrame(range,progress,columns,rows){
  const offset=count>0?((Math.floor(count*repeat*(Number.isFinite(progress)?progress:0))%count)+count)%count:0;
  return Math.min(Math.max(0,columns*rows-1),first+offset);
 }
-export function installParticleNativeCompatibility(native){
+/** Sequence ground speed is model units per second, along Warcraft's +X front. */
+export function particleTravelDistance(model,sequenceIndex,elapsed){
+ const speed=Number(model.Sequences?.[sequenceIndex]?.MoveSpeed);
+ return Number.isFinite(speed)&&speed>0&&Number.isFinite(elapsed)&&elapsed>0?speed*elapsed/1000:0;
+}
+export function installParticleNativeCompatibility(native,{getTravelDistance=delta=>particleTravelDistance(native.model,native.getSequence(),delta)}={}){
  if(compatibleParticleRuntimes.has(native))return;compatibleParticleRuntimes.add(native);
- const particles=native.particlesController,create=particles.createParticle,buffers=particles.updateParticleBuffers;
+ const particles=native.particlesController,create=particles.createParticle,buffers=particles.updateParticleBuffers,updateParticle=particles.updateParticle;
+ // Keep the unit centered while emitted world-space particles retain their
+ // position behind it. Model-space particles still follow their emitter.
+ particles.updateParticle=function(particle,delta){
+   const result=updateParticle.call(this,particle,delta);
+   if(particle.lifeSpan>0&&!(particle.emitter.props.Flags&524288))particle.pos[0]-=getTravelDistance(delta);
+   return result;
+ };
  const identity=new Matrix4().elements,point=new Vector3(),velocity=new Vector3(),origin=new Vector3(),matrix=new Matrix4(),positionValues=new Float32Array(3),velocityValues=new Float32Array(3);
  particles.createParticle=function(emitter,transform){return create.call(this,emitter,emitter.props.Flags&524288?identity:transform);};
  particles.updateParticleBuffers=function(particle,index,emitter){
@@ -245,7 +257,8 @@ function restoreNativeEffectState(native,state) {
 export class ParticlePreviewBudgetError extends Error {constructor(limit){super('Preview paused at the '+limit.toLocaleString('en-US')+' live-particle budget. Authored values are unchanged.');this.name='ParticlePreviewBudgetError';this.limit=limit;}}
 export class NativeParticleSimulation {
   constructor(model,sequence=0,{seed=0x4d444c58,timeline,maxLive=12000}={}) {
-    this.maxLive=maxLive;this.native=new ModelRenderer(structuredClone(model));installParticleNativeCompatibility(this.native);this.sequence=sequence;this.native.setSequence(sequence);
+    this.maxLive=maxLive;this.native=new ModelRenderer(structuredClone(model));this.poseToFxRate=1;
+    installParticleNativeCompatibility(this.native,{getTravelDistance:delta=>particleTravelDistance(this.native.model,this.sequence,delta*this.poseToFxRate)});this.sequence=sequence;this.native.setSequence(sequence);
     const start=model.Sequences[sequence].Interval[0];
     this.timeline=structuredClone(timeline||[{at:0,frame:start,global:start,fx:0,poseRate:1,fxRate:1}]);
     this.time=0;this.random=seededParticleRandom(seed);this.seed=seed;this.tracks=simulationTracks(this.native.model);this.burstStamps=new Map();this.checkpoints=[];
@@ -277,6 +290,8 @@ export class NativeParticleSimulation {
     const native=this.native,model=native.model,old=particleTimelineAt(this.timeline,from),current=particleTimelineAt(this.timeline,to);
     const delta=poseOnly?0:Math.max(0,current.fx-old.fx),epsilon=to>from?Math.min(1e-4,(to-from)/2):0;
     const sample=particleTimelineAt(this.timeline,to-epsilon),saved=[];
+    // EMTR can run animation and FX at separate speeds; travel follows the pose.
+    this.poseToFxRate=sample.fxRate>0?sample.poseRate/sample.fxRate:0;
     const prepare=(frame,global,step)=>{
       native.rendererData.animation=this.sequence;native.rendererData.animationInfo=model.Sequences[this.sequence];
       native.rendererData.frame=frame-step;
