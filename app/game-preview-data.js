@@ -24,15 +24,6 @@ export function portraitBlankDragRotatesCamera(props, event = {}) {
   return !!props?.portraitMode && (props.cameraMode ?? 'work') === 'work' && !event.altKey && !(props.selectedNodeIds?.length);
 }
 
-/** Renderer replacement is not a user camera gesture. Restore both projections
- * and the active camera before drawing the rebuilt UV preview. */
-export function restorePreviewCamera(saved, perspective, ortho, controls) {
-  perspective.copy(saved.perspective); ortho.copy(saved.ortho);
-  const camera = saved.camera === 'ortho' ? ortho : perspective;
-  controls.object = camera; controls.target.copy(saved.target); controls.update();
-  return camera;
-}
-
 const BIND_MATRIX = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
 /** Enter bind pose without rebuilding another complete native renderer. The
