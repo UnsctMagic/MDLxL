@@ -30,6 +30,17 @@ function selectedGameDataSources(result, folder) {
   return { folder: root, folders, archives };
 }
 
+// Installed CASC folders in reading order. The Settings folder (and CASC
+// folders inside it) comes first unless `customFirst` puts added CASC sources
+// ahead of it; other discovered installations always come last.
+function orderedCascFolders(result, folder, { customFirst = false } = {}) {
+  const all = result?.cascFolders || [], custom = result?.customSources?.cascFolders || [];
+  const selected = selectedGameDataSources(result, folder).folders;
+  const chosen = all.filter(candidate => selected.includes(candidate) && !custom.includes(candidate));
+  const others = all.filter(candidate => !selected.includes(candidate) && !custom.includes(candidate));
+  return unique(customFirst ? [...custom, ...chosen, ...others] : [...chosen, ...custom, ...others]);
+}
+
 function parseRegistryPaths(text) {
   const paths = [];
   for (const line of text.split(/\r?\n/)) {
@@ -168,4 +179,4 @@ class GameDataDiscovery {
   }
 }
 
-module.exports = { GameDataDiscovery, parseRegistryPaths, archiveSort, selectedGameDataSources, isInsideFolder, registryGameFolders, fixedDriveRoots };
+module.exports = { GameDataDiscovery, parseRegistryPaths, archiveSort, selectedGameDataSources, orderedCascFolders, isInsideFolder, registryGameFolders, fixedDriveRoots };

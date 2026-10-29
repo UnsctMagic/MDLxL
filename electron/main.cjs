@@ -16,7 +16,7 @@ const userRun=app.isPackaged&&!process.env.MDLXL_PROFILE&&!headless;
 const {RecoveryStore}=require('./recovery.cjs');
 const {SettingsStore}=require('./settings.cjs');
 const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
-const {GameDataDiscovery,selectedGameDataSources}=require('./game-data.cjs');
+const {GameDataDiscovery,selectedGameDataSources,orderedCascFolders}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
 const {CascTextures,CascReader}=require('./casc.cjs');
 const {Mpq}=require('./mpq.cjs');
@@ -72,11 +72,14 @@ function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIco
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
-const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),createWorker:data=>{const child=utilityProcess.fork(path.join(__dirname,'particle-library-process.cjs'),[],{serviceName:'Warcraft asset indexing'});child.once('spawn',()=>child.postMessage(data));return child;},onProgress:status=>sendToEditor('particles:progress',status)});
+// Particles index and read one installation, the first CASC folder: the
+// Settings folder first, then added CASC sources, then other installations.
+async function discoverParticleSources(){const chosen=settings.gameData,discovered=await gameDataDiscovery.discover({explicitFolder:chosen});return {...discovered,cascFolders:orderedCascFolders(discovered,chosen,{customFirst:false})};}
+const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:discoverParticleSources,createWorker:data=>{const child=utilityProcess.fork(path.join(__dirname,'particle-library-process.cjs'),[],{serviceName:'Warcraft asset indexing'});child.once('spawn',()=>child.postMessage(data));return child;},onProgress:status=>sendToEditor('particles:progress',status)});
 ipcMain.handle('particles:workingCopy',(_,payload)=>particleLibrary.workingCopy(payload));
 
-ipcMain.handle('particles:assets',(_,payload)=>resolveParticleSourceAssets(payload,{discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),casc:textureResolver.casc}));
-ipcMain.handle('particles:sourceContext',async(_,payload)=>{if(!payload||!Number.isInteger(payload.sourceIndex)||payload.sourceIndex<0)throw Error('Choose an indexed source.');const {parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(await particleLibrary.read(payload.id));return resolveParticleSourceContext(recipe.sources[payload.sourceIndex],{discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),casc:textureResolver.casc});});
+ipcMain.handle('particles:assets',(_,payload)=>resolveParticleSourceAssets(payload,{discover:discoverParticleSources,casc:textureResolver.casc}));
+ipcMain.handle('particles:sourceContext',async(_,payload)=>{if(!payload||!Number.isInteger(payload.sourceIndex)||payload.sourceIndex<0)throw Error('Choose an indexed source.');const {parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(await particleLibrary.read(payload.id));return resolveParticleSourceContext(recipe.sources[payload.sourceIndex],{discover:discoverParticleSources,casc:textureResolver.casc});});
 ipcMain.handle('particles:thumbnails',(_,ids)=>particleLibrary.thumbnails(ids));
 ipcMain.handle('particles:duplicate',(_,id)=>particleLibrary.duplicate(id));
 ipcMain.handle('particles:import',async()=>{
@@ -323,6 +326,9 @@ async function resolveTextures(payload, extensions){
   const selectedFolder=settings.gameData;
   const discovered=await gameDataDiscovery.discover({explicitFolder:selectedFolder,modelFolders:[root,...[...openedPaths].map(file=>path.dirname(file))].filter(Boolean)});
   const selected=selectedGameDataSources(discovered,selectedFolder);
+  // Model textures are looked up per file: added archives and CASC sources
+  // first (Settings promises they override installed game data), then the
+  // Settings folder, then other installations.
   const custom=discovered.customSources||{archives:[],cascFolders:[]};
   return textureResolver.resolve(payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
 }
@@ -337,11 +343,9 @@ async function textureLibraryContext(payload){
     const modelPath=typeof payload?.modelPath==='string'&&openedPaths.has(path.resolve(payload.modelPath))?path.resolve(payload.modelPath):null;
     const chosen=settings.gameData;
     const discovered=await gameDataDiscovery.discover({explicitFolder:chosen,modelFolders:modelPath?[path.dirname(modelPath)]:[]});
-    const selected=selectedGameDataSources(discovered,chosen);
-    const folders=discovered.cascFolders||[];
-    const custom=discovered.customSources?.cascFolders||[];
     const resolver=textureResolver;
-    const catalog=await textureLibrary.catalog({modelPath,cascFolders:[...custom,...folders.filter(folder=>selected.folders.includes(folder)&&!custom.includes(folder)),...folders.filter(folder=>!selected.folders.includes(folder)&&!custom.includes(folder))]});
+    // Like the Library browser: the Settings folder first, then added CASC sources.
+    const catalog=await textureLibrary.catalog({modelPath,cascFolders:orderedCascFolders(discovered,chosen,{customFirst:false})});
     texturePreviews.register(catalog.items);
     return {catalog,readAsset:async item=>({name:item.lookupName,bytes:item.source==='native'?await resolver.casc.readSnapshot(item.lookupName,item.sourceFolder,item.sourceKey):await resolver.loose(item.lookupName,modelPath?[path.dirname(modelPath)]:[])}),decode:decodeThumbnail};
 }
@@ -352,8 +356,7 @@ ipcMain.handle('texture:libraryPreview',(_,payload)=>trackTextureOperation(textu
 async function gameFileIndex(){
   const chosen=settings.gameData,library=gameFiles;
   const discovered=await gameDataDiscovery.discover({explicitFolder:chosen});
-  const selected=selectedGameDataSources(discovered,chosen),folders=discovered.cascFolders||[],custom=discovered.customSources?.cascFolders||[];
-  const folder=[...folders.filter(item=>selected.folders.includes(item)),...custom,...folders][0];
+  const folder=orderedCascFolders(discovered,chosen,{customFirst:false})[0];
   const index=await library.load(folder?[folder]:[]);
   return {library,index,folder:folder||null};
 }
