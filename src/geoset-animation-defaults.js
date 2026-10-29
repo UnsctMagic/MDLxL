@@ -16,6 +16,19 @@ export function createVisibilityGeosetAnimation(GeosetId) {
   return { GeosetId, Alpha: 1, Color: new Float32Array([1, 1, 1]), Flags: 0 };
 }
 
+/** The first geoset animation of a geoset, or undefined. */
+export const geosetAnimationOf = (model, geosetId) => (model.GeosetAnims || []).find(anim => anim.GeosetId === geosetId);
+
+/** Find a geoset's animation or append a neutral one. `refuseDuplicates`
+ * throws when the geoset already has several (a string is the message);
+ * false silently takes the first. Track edits check the same thing through
+ * animation-tracks' assertSingleGeosetOwner, with their own message. */
+export function ensureGeosetAnimation(model, geosetId, { refuseDuplicates = true } = {}) {
+  const anims = (model.GeosetAnims ||= []);
+  if (refuseDuplicates && anims.filter(anim => anim.GeosetId === geosetId).length > 1) throw new Error(typeof refuseDuplicates === 'string' ? refuseDuplicates : `Geoset ${geosetId + 1} has more than one geoset animation.`);
+  return geosetAnimationOf(model, geosetId) || anims[anims.push(createVisibilityGeosetAnimation(geosetId)) - 1];
+}
+
 /** An explicit user toggle may enable the neutral default, preserving other bits. */
 export function setGeosetTintEnabled(anim, enabled) {
   if (enabled && defaultGeosetColor(anim) && anim.Color == null) anim.Color = new Float32Array([1, 1, 1]);

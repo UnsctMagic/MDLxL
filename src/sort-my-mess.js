@@ -4,7 +4,7 @@ import { keysInInterval, sampleTrack } from './animation.js';
 import { appendGeosetGeometry, removeGeosets } from './editor-document.js';
 import { unionAnimatedExtents } from './geoset-operations.js';
 import { setAnimationSequences } from './animation-tracks.js';
-import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { visitTextureReferences } from './texture-references.js';
 import { tintTexturePath } from './material-presets.js';
 import { TEAM_COLORS } from './team-colors.js';
@@ -347,12 +347,7 @@ export function unionVisibilityOverrides(model, ids) {
 }
 
 function ensureAnim(model, id) {
-  const existing = animsFor(model, id);
-  if (existing.length > 1) throw Error(`Geoset ${n(id)} has several geoset animations. Resolve them before changing it here.`);
-  if (existing.length) return existing[0];
-  const anim = createVisibilityGeosetAnimation(id);
-  (model.GeosetAnims ||= []).push(anim);
-  return anim;
+  return ensureGeosetAnimation(model, id, { refuseDuplicates: `Geoset ${n(id)} has several geoset animations. Resolve them before changing it here.` });
 }
 function setDefault(anim, field, value) {
   if (value === undefined) { if (anim._MdxDefaults) { delete anim._MdxDefaults[field]; if (!Object.keys(anim._MdxDefaults).length) delete anim._MdxDefaults; } }

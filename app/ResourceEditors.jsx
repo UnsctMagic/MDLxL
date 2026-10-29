@@ -9,6 +9,7 @@ import { Section, SelectField, Check, TrackEditor } from './Fields.jsx';
 import { nodeHierarchyRows, visibleNodeRows, relatedResourceIndices } from '../src/node-hierarchy.js';
 import { NODE_TYPES, createNode, deleteNode, duplicateGeoset, deleteGeoset, recalculateNormals } from '../src/editor-document.js';
 import { makeCube, nodeKind } from '../src/editor-commands.js';
+import { ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { displayNumber } from '../src/display-number.js';
 import { visitTextureReferences } from '../src/texture-references.js';
 import { materialName, textureName } from '../src/resource-relations.js';
@@ -154,8 +155,7 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
       if (currentKind === 'Materials') return ensureMaterial(m);
       if (currentKind === 'GeosetAnims') {
         if (!m.Geosets[activeGeoset]) throw new Error('Choose a geoset before creating its animation.');
-        const existing = m.GeosetAnims.findIndex(anim => anim.GeosetId === activeGeoset);
-        return existing >= 0 ? existing : m.GeosetAnims.push({ GeosetId: activeGeoset, Alpha: 1, Flags: 0 }) - 1;
+        return m.GeosetAnims.indexOf(ensureGeosetAnimation(m, activeGeoset, { refuseDuplicates: false }));
       }
       if (currentKind === 'Textures') return m.Textures.push({ Image: '', ReplaceableId: 0, Flags: 0 }) - 1;
       if (currentKind === 'Geosets') { if (!m.Materials.length) ensureMaterial(m); if (!m.Bones.length) createNode(m, 'Bone'); const geoset = makeCube(m); recalculateNormals(geoset); return m.Geosets.push(geoset) - 1; }
