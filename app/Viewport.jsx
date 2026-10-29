@@ -45,7 +45,7 @@ import { composeViewportLayers } from './game-preview-capture.js';
 import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
-const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey as normalizedPath } from '../src/game-path.js';
 const selectionArray = selection => Array.from(selection || []);
 const asBuffer = bytes => bytes instanceof ArrayBuffer ? bytes : bytes?.buffer?.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);

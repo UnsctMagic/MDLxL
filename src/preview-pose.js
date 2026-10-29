@@ -1,5 +1,5 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices } from './animation.js';
+import { allNodes, inheritedParentMatrix, nodePivot, sampleNodeMatrices } from './animation.js';
 
 // Warcraft billboards face along model +X while models use +Z as up.
 // Map model X to camera depth and model Z to camera up to avoid a quarter-turn roll.
@@ -10,12 +10,6 @@ export const billboardCameraCorrection = new Quaternion().setFromRotationMatrix(
   0, 0, 0, 1,
 ));
 const aroundPivot = (q, pivot) => new Matrix4().makeTranslation(...pivot.toArray()).multiply(new Matrix4().makeRotationFromQuaternion(q)).multiply(new Matrix4().makeTranslation(...pivot.clone().negate().toArray()));
-const inherited = (matrix, flags) => {
-  if (!(flags & 7)) return matrix;
-  const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrix.decompose(p, q, s);
-  if (flags & 1) p.set(0, 0, 0); if (flags & 2) q.identity(); if (flags & 4) s.set(1, 1, 1);
-  return new Matrix4().compose(p, q, s);
-};
 
 /** Camera-facing transforms are preview state, never animation-track edits.
  * Matches the native Warcraft renderer's +X billboard convention. */
@@ -29,10 +23,10 @@ export function samplePreviewMatrices(model, frame, sequence, globalTime, camera
     const node = byId.get(id); if (!node || visiting.has(id)) return new Matrix4(); visiting.add(id);
     let matrix = base.get(id).clone(); const parent = byId.get(node.Parent);
     if (parent) {
-      const originalParent = inherited(base.get(parent.ObjectId), node.Flags);
-      matrix.premultiply(originalParent.clone().invert()).premultiply(inherited(resolve(parent.ObjectId), node.Flags));
+      const originalParent = inheritedParentMatrix(base.get(parent.ObjectId), node.Flags);
+      matrix.premultiply(originalParent.clone().invert()).premultiply(inheritedParentMatrix(resolve(parent.ObjectId), node.Flags));
     }
-    const pivot = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(matrix);
+    const pivot = new Vector3().fromArray(nodePivot(model, node, id)).applyMatrix4(matrix);
     if (node.Flags & 8) {
       if (parent) { const q = new Quaternion(); resolve(parent.ObjectId).decompose(new Vector3(), q, new Vector3()); matrix.premultiply(aroundPivot(q.invert(), pivot)); }
       matrix.premultiply(aroundPivot(cameraQ, pivot));

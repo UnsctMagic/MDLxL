@@ -53,51 +53,83 @@ export function sampleTrack(track, frame, options = {}) {
   return scalar ? result[0] : result;
 }
 
+// Every model collection that holds animated nodes. Later collections win when
+// two share an ObjectId.
+export const NODE_COLLECTION_KEYS = Object.freeze(['Nodes', 'Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'Lights', 'RibbonEmitters']);
+
 export function allNodes(model) {
   const byId = new Map();
-  for (const key of ['Nodes', 'Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'Lights', 'RibbonEmitters']) {
+  for (const key of NODE_COLLECTION_KEYS) {
     for (const node of model?.[key] || []) if (node && Number.isInteger(node.ObjectId)) byId.set(node.ObjectId, node);
   }
   return [...byId.values()].sort((a, b) => a.ObjectId - b.ObjectId);
 }
 
-export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame) {
-  const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
+// A node with no track holds these values. Shared and frozen: copy before editing.
+export const TRANSFORM_DEFAULTS = Object.freeze({ Translation: Object.freeze([0, 0, 0]), Rotation: Object.freeze([0, 0, 0, 1]), Scaling: Object.freeze([1, 1, 1]) });
+
+/** A node's Translation, Rotation or Scaling at a time in one sequence, as a new array. */
+export function sampleNodeProperty(model, node, property, frame, sequenceIndex, globalTime = frame) {
+  return Array.from(sampleTrack(node[property], frame, {
+    interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences,
+    globalTime, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation',
+  }));
+}
+
+/** Bind-pose pivot. `normalizeModel` aliases the node's own PivotPoint and
+ * model.PivotPoints, so the order only matters for raw parsed models. */
+export const nodePivot = (model, node, id = node?.ObjectId) => node?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0];
+/** Pivot moved by the node's matrix (identity when it has none). */
+export const worldPivot = (model, id, matrices, node) => new Vector3().fromArray(nodePivot(model, node, id)).applyMatrix4(matrices.get(id) || new Matrix4());
+
+/** Keys of a sorted track inside an inclusive [start, end] interval. */
+export const keysInInterval = (track, [start, end]) => track.Keys.filter(key => key.Frame >= start && key.Frame <= end);
+
+/** The parent matrix a child sees: inherit-translation/rotation/scaling flags
+ * (Flags & 1, 2, 4) drop that part of the parent. Returns `parent` itself when
+ * nothing is dropped. */
+export function inheritedParentMatrix(parent, flags) {
+  if (!(flags & 7)) return parent;
+  const p = new Vector3(), q = new Quaternion(), s = new Vector3();
+  parent.decompose(p, q, s);
+  if (flags & 1) p.set(0, 0, 0);
+  if (flags & 2) q.identity();
+  if (flags & 4) s.set(1, 1, 1);
+  return new Matrix4().compose(p, q, s);
+}
+
+/** World matrices from each node's local `{ t, r, s }` (Vector3, Quaternion,
+ * Vector3), turned about its pivot and composed down the parent chain.
+ * Parent loops resolve to identity. */
+export function composeNodeMatrices(model, ids, localTRS, byId = new Map(allNodes(model).map(n => [n.ObjectId, n]))) {
   const matrices = new Map(), visiting = new Set();
-  const interval = model.Sequences?.[sequenceIndex]?.Interval;
-  const bindPose = sequenceIndex < 0 || !interval;
-  const options = { interval, globalSequences: model.GlobalSequences, globalTime };
   function resolve(id) {
     if (matrices.has(id)) return matrices.get(id);
     const node = byId.get(id);
     if (!node || visiting.has(id)) return new Matrix4();
     visiting.add(id);
-    let matrix = new Matrix4();
-    if (!bindPose) {
-      const translation = new Vector3().fromArray(sampleTrack(node.Translation, frame, { ...options, fallback: [0, 0, 0] }));
-      const rotation = new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { ...options, fallback: [0, 0, 0, 1], quaternion: true }));
-      const scale = new Vector3().fromArray(sampleTrack(node.Scaling, frame, { ...options, fallback: [1, 1, 1] }));
-      const pivot = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
-      matrix.compose(translation, rotation, scale);
-      const rotatedPivot = pivot.clone().applyMatrix4(matrix).sub(translation);
-      matrix.setPosition(translation.add(pivot).sub(rotatedPivot));
-      if (node.Parent != null && byId.has(node.Parent)) {
-        let parent = resolve(node.Parent);
-        if (node.Flags & 7) {
-          const p = new Vector3(), q = new Quaternion(), s = new Vector3();
-          parent.decompose(p, q, s);
-          if (node.Flags & 1) p.set(0, 0, 0);
-          if (node.Flags & 2) q.identity();
-          if (node.Flags & 4) s.set(1, 1, 1);
-          parent = new Matrix4().compose(p, q, s);
-        }
-        matrix.premultiply(parent);
-      }
-    }
+    const { t, r, s } = localTRS(node);
+    const pivot = new Vector3().fromArray(nodePivot(model, node, id));
+    const matrix = new Matrix4().compose(t, r, s);
+    const rotatedPivot = pivot.clone().applyMatrix4(matrix).sub(t);
+    matrix.setPosition(t.clone().add(pivot).sub(rotatedPivot));
+    if (node.Parent != null && byId.has(node.Parent)) matrix.premultiply(inheritedParentMatrix(resolve(node.Parent), node.Flags));
     visiting.delete(id); matrices.set(id, matrix); return matrix;
   }
-  nodes.forEach(node => resolve(node.ObjectId));
+  for (const id of ids) resolve(id);
   return matrices;
+}
+
+export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame) {
+  const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
+  const interval = model.Sequences?.[sequenceIndex]?.Interval;
+  if (sequenceIndex < 0 || !interval) return new Map(nodes.map(node => [node.ObjectId, new Matrix4()]));
+  const options = { interval, globalSequences: model.GlobalSequences, globalTime };
+  return composeNodeMatrices(model, nodes.map(node => node.ObjectId), node => ({
+    t: new Vector3().fromArray(sampleTrack(node.Translation, frame, { ...options, fallback: [0, 0, 0] })),
+    r: new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { ...options, fallback: [0, 0, 0, 1], quaternion: true })),
+    s: new Vector3().fromArray(sampleTrack(node.Scaling, frame, { ...options, fallback: [1, 1, 1] })),
+  }), byId);
 }
 
 /** Applies classic equal-weight matrix groups or HD's four byte bone weights. */

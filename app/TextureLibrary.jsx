@@ -6,6 +6,7 @@ import {cachedThumbnail,saveThumbnail,peekThumbnail} from '../src/texture-librar
 import {getUVPreviewSelection,existingTextureIndex,materialsUsingTexture} from '../src/uv-preview.js';
 import './texture-library.css';
 import { translate } from '../src/localization.js';
+import { gamePathKey } from '../src/game-path.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
 const LIBRARY_TABS=[['textures','Textures','Warcraft III textures and textures beside your model'],['models','Models','Every Warcraft III model; double-click one to open it in the editor'],['sounds','Sounds','Every Warcraft III sound, voice and music file'],['all','All files','Every Warcraft III game file, organised like the game folders']];
@@ -129,7 +130,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     return()=>{active=false;};
   },[selected?.cacheKey,modelPath]);
   const tree=useMemo(()=>textureFolderTree((catalog?.items||[]).filter(item=>(variant==='all'||item.variant===variant)&&textureFormatMatches(item,format))),[catalog,variant,format]);
-  const used=useMemo(()=>new Set((model?.Textures||[]).map(t=>String(t.Image||'').replaceAll('/','\\').toLowerCase())),[model,model?.Textures?.length]);
+  const used=useMemo(()=>new Set((model?.Textures||[]).map(t=>gamePathKey(t.Image))),[model,model?.Textures?.length]);
   const checkedPreview=selectedGeosets==null?null:getUVPreviewSelection(model,selectedGeosets);
   const previewAllowed=previewEnabled&&(!checkedPreview||checkedPreview.enabled),disabledPreviewReason=previewReason||checkedPreview?.reason||'Texture preview is unavailable for this selection.';
   const act=async(callback,success,options)=>{if(!catalogFresh||!selectedAsset||!callback)return;setBusy(true);setSelectionError('');setChoice(null);try{await callback(selectedAsset,selected,options);setMessage(success);}catch(error){setSelectionError(error.message);}finally{setBusy(false);}};

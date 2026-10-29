@@ -1,5 +1,5 @@
-const slash = value => String(value || '').replaceAll('/', '\\');
-const baseName = value => slash(value).split('\\').at(-1) || '';
+import { toBackslashes } from './game-path.js';
+const baseName = value => toBackslashes(value).split('\\').at(-1) || '';
 
 function staticTextureId(layer) {
   return Number.isInteger(layer?.TextureID) && layer.TextureID >= 0 ? layer.TextureID : null;
@@ -30,7 +30,7 @@ export function enumeratePaintTargets(model) {
       const id = `texture:${textureId}`;
       let target = targets.get(id);
       if (!target) {
-        target = { id, textureId, texturePath: slash(texture.Image), label: baseName(texture.Image) || `Texture ${textureId + 1}`, flags: Number(texture.Flags) || 0, bindings: [], geosetIndices: [], materialIds: [], sharedUV: false };
+        target = { id, textureId, texturePath: toBackslashes(texture.Image), label: baseName(texture.Image) || `Texture ${textureId + 1}`, flags: Number(texture.Flags) || 0, bindings: [], geosetIndices: [], materialIds: [], sharedUV: false };
         targets.set(id, target);
       }
       target.bindings.push({ geosetIndex, materialId, layerIndex, coordId });
@@ -54,7 +54,7 @@ export function preferredPaintTarget(targets, geosetIndex, previousId = null) {
 
 export function findTextureAsset(assets, path) {
   if (!assets || !path) return null;
-  const normalize = value => slash(value).toLowerCase();
+  const normalize = value => toBackslashes(value).toLowerCase();
   const map = assets instanceof Map ? assets : new Map(Object.entries(assets));
   const full = normalize(path), name = full.split('\\').at(-1);
   return map.get(full) || map.get(name) || [...map.values()].find(asset => normalize(asset?.name) === full) || null;
@@ -66,8 +66,8 @@ export function installFreshPaintLayer(model, geosetIndex, imagePath) {
   if (!geoset) throw Error('The selected model part no longer exists.');
   const materialId = Number(geoset.MaterialID), material = model.Materials?.[materialId];
   if (!material?.Layers) throw Error('The selected model part has no editable material.');
-  const normalized = slash(imagePath);
-  let textureId = model.Textures.findIndex(texture => slash(texture.Image).toLowerCase() === normalized.toLowerCase());
+  const normalized = toBackslashes(imagePath);
+  let textureId = model.Textures.findIndex(texture => toBackslashes(texture.Image).toLowerCase() === normalized.toLowerCase());
   if (textureId < 0) textureId = model.Textures.push({ Image: normalized, ReplaceableId: 0, Flags: 0 }) - 1;
   let layerIndex = material.Layers.findIndex(layer => staticTextureId(layer) === textureId);
   if (layerIndex < 0) {

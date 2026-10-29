@@ -4,8 +4,8 @@ import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
 import { clampByte } from '../src/math.js';
 import { textureFromAsset } from './Viewport.jsx';
 import { teamGlowFactor } from './viewport-quality.js';
+import { gamePathKey } from '../src/game-path.js';
 
-const normalPath = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const decodedAssets = new WeakMap();
 
 function rgba(hex) {
@@ -53,7 +53,7 @@ function replaceablePixels(id, color, width, height) {
 /** Render the selected WC3 material into the tiled UV backdrop with the preview's team color. */
 export async function renderUVMaterialTexture(model, materialID, assets, { teamColor = '#ff0303', time = 0, sequenceIndex = -1 } = {}) {
   const map = assets instanceof Map ? assets : new Map(Object.entries(assets || {}));
-  const lookup = path => map.get(normalPath(path)) || map.get(normalPath(String(path || '').split(/[\\/]/).at(-1)));
+  const lookup = path => map.get(gamePathKey(path)) || map.get(gamePathKey(String(path || '').split(/[\\/]/).at(-1)));
   const layers = uvMaterialLayers(model, materialID, time, sequenceIndex), decoded = [], warnings = [];
   for (const entry of layers) {
     if (entry.texture?.ReplaceableId) { decoded.push({ ...entry, replaceable: entry.texture.ReplaceableId }); continue; }

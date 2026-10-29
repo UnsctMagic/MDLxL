@@ -1,5 +1,5 @@
 import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { allNodes, composeNodeMatrices, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from './animation.js';
 import { suggestPoseRig } from './pose-ik.js';
 
 // AnimXL: flavour for hand-keyed animations. The authored keys drive a target
@@ -104,7 +104,7 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
       return rebuilt.filter(chain => uses.get(chain.root) === 1 && uses.get(chain.middle) === 1);
     };
     legs = limbs('leg'); arms = limbs('arm');
-    const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    const pivot = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
     // A "Hand Ref" can make ground limbs look like arms (a bull's forelegs, a
     // crab's walking legs). On a rig without legs, a limb whose end stands at
     // the bottom of the rig is a leg.
@@ -141,7 +141,7 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
   // Your own picks win: a picked foot's leg is the foot and its two parents.
   if (Number.isInteger(overrides.bodyId) && byId.has(overrides.bodyId)) body = overrides.bodyId;
   if (overrides.footIds?.length) {
-    const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    const pivotOf = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
     legs = overrides.footIds.filter(id => byId.has(id)).map(end => { const middle = byId.get(end).Parent, root = byId.get(middle)?.Parent; return { root, middle, end }; }).filter(leg => byId.has(leg.root) && byId.has(leg.middle));
     feet = legs.map(leg => leg.end);
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivotOf(c.root).distanceTo(pivotOf(c.middle)) + pivotOf(c.middle).distanceTo(pivotOf(c.end)), 0) / legs.length : legLength;
@@ -159,7 +159,7 @@ export function animXLFootfalls(model, sequenceIndex, rig = animXLRig(model, seq
   const heights = rig.feet.map(() => []), point = new Vector3();
   for (const frame of frames) {
     const matrices = sampleNodeMatrices(model, frame, sequenceIndex);
-    rig.feet.forEach((id, k) => { point.fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(matrices.get(id)); heights[k].push(point.z); });
+    rig.feet.forEach((id, k) => { point.fromArray(nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); heights[k].push(point.z); });
   }
   const falls = [], ground = Math.min(...heights.flat());
   for (const h of heights) {
@@ -291,7 +291,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const springSettings = reactive ? { ...settings, overlap: Math.max(settings.overlap, 25), settle: Math.max(settings.settle, 6.25) } : settings;
   const params = order.map((n, i) => springParams(springSettings, kinds[i], depthOf(n)));
   const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [] };
-  const rotOpts = { ...sampleOpts, quaternion: true, fallback: [0, 0, 0, 1] }, posOpts = { ...sampleOpts, fallback: [0, 0, 0] };
+  const rotOpts = { ...sampleOpts, quaternion: true, fallback: TRANSFORM_DEFAULTS.Rotation }, posOpts = { ...sampleOpts, fallback: TRANSFORM_DEFAULTS.Translation };
   const authored = (node, t, out = new Quaternion()) => {
     const v = node.Rotation ? sampleTrack(node.Rotation, t, rotOpts) : [0, 0, 0, 1];
     return out.set(v[0], v[1], v[2], v[3]).normalize();
@@ -605,32 +605,7 @@ function closeLoop(samples, bodySamples, shaped) {
 // World matrices from local rotations, translations and scaling, with pivots,
 // matching the editor's own node sampling.
 function worldMatrices(model, byId, rotation, translation, scaling) {
-  const out = new Map(), visiting = new Set();
-  const resolve = id => {
-    if (out.has(id)) return out.get(id);
-    const node = byId.get(id);
-    if (!node || visiting.has(id)) return new Matrix4();
-    visiting.add(id);
-    const t = translation(node), r = rotation(node), sc = scaling(node);
-    const pivot = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
-    const m = new Matrix4().compose(t, r, sc), rotated = pivot.clone().applyMatrix4(m).sub(t);
-    m.setPosition(t.clone().add(pivot).sub(rotated));
-    if (node.Parent != null && byId.has(node.Parent)) {
-      let parent = resolve(node.Parent);
-      if (node.Flags & 7) {
-        const p = new Vector3(), q = new Quaternion(), s = new Vector3();
-        parent.decompose(p, q, s);
-        if (node.Flags & 1) p.set(0, 0, 0);
-        if (node.Flags & 2) q.identity();
-        if (node.Flags & 4) s.set(1, 1, 1);
-        parent = new Matrix4().compose(p, q, s);
-      }
-      m.premultiply(parent);
-    }
-    visiting.delete(id); out.set(id, m); return m;
-  };
-  for (const id of byId.keys()) resolve(id);
-  return out;
+  return composeNodeMatrices(model, byId.keys(), node => ({ t: translation(node), r: rotation(node), s: scaling(node) }), byId);
 }
 
 /** Death types: the key poses a real death passes through before the body gives way,
@@ -666,7 +641,7 @@ const FALL_MS = 900;
 function groundedLimbs(model, byId, limbs, frame, sequenceIndex) {
   if (!limbs.length) return 0;
   const M = sampleNodeMatrices(model, frame, sequenceIndex);
-  const z = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(M.get(id) || new Matrix4()).z;
+  const z = id => worldPivot(model, id, M, byId.get(id)).z;
   const ends = limbs.map(limb => z(limb.end)), lowest = Math.min(...ends), anchor = limbs[ends.indexOf(lowest)];
   const reach = Math.max(4, 0.3 * (z(anchor.root) - lowest));
   return ends.filter(e => e - lowest <= reach).length;
@@ -693,7 +668,7 @@ function deathPose({ model, byId, rig, style, standing = rig.legs.length, sample
     node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
     node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, srcFrames[k], [0, 0, 0]),
     node => sampleVec(node.Scaling, srcFrames[k], [1, 1, 1]));
-  const pivotAt = (M, id) => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(M.get(id) || new Matrix4());
+  const pivotAt = (M, id) => worldPivot(model, id, M, byId.get(id));
   const Y = new Vector3(0, 1, 0), X = new Vector3(1, 0, 0), Z = new Vector3(0, 0, 1);
   // Turn a bone about a world axis, measured in its parent's frame (so bends along a chain add up).
   const turn = (M, k, id, axis, angle) => {
@@ -753,7 +728,7 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   const amount = clamp(settings.collapse / 100, 0, 1), start = settings.fallStart ?? from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95);
   const k0 = outFrames.findIndex(f => f >= start);
   if (k0 < 0 || amount <= 0) return;
-  const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+  const pivotOf = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
   const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
   const shapedAt = k => worldMatrices(model, byId,
     node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
@@ -878,7 +853,7 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
  *    wherever the shaped weapon now is.
  * The knee or elbow stays in its current bend plane. Updates `samples` in place. */
 function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts }) {
-  const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+  const pivotOf = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
   const position = (matrices, id) => pivotOf(id).applyMatrix4(matrices.get(id));
   const descendsFrom = (id, ancestor) => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (p === ancestor) return true; return false; };
   const usable = chain => [chain.root, chain.middle, chain.end].every(id => samples.has(id));
@@ -974,7 +949,7 @@ function outsideKeys(original, from, to, flatTangents) {
 }
 /** About how thick the mesh is around each bone: the median distance of its own vertices from its pivot. */
 function boneRadii(model) {
-  const pivots = new Map([...(model.Bones || []), ...(model.Helpers || [])].map(n => [n.ObjectId, n.PivotPoint || model.PivotPoints?.[n.ObjectId] || [0, 0, 0]]));
+  const pivots = new Map([...(model.Bones || []), ...(model.Helpers || [])].map(n => [n.ObjectId, nodePivot(model, n)]));
   const distances = new Map(), add = (id, v, x, y, z) => { const p = pivots.get(id); if (!p) return; (distances.get(id) || distances.set(id, []).get(id)).push(Math.hypot(x - p[0], y - p[1], z - p[2])); };
   for (const geo of model.Geosets || []) {
     const vertices = geo.Vertices || [], count = vertices.length / 3, skin = geo.SkinWeights;
@@ -1122,7 +1097,7 @@ export function suggestAnimXLBones(model) {
   // reaching backwards along the middle of a creature that stands on legs,
   // each moving its own skin, apart from the legs and arms.
   if (rig?.legs.length >= 2) {
-    const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    const pivot = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
     const limbIds = new Set([...rig.legs, ...rig.arms].flatMap(c => [c.root, c.middle, c.end]));
     const holdsLimb = id => { const stack = [id], seen = new Set(); while (stack.length) { const at = stack.pop(); if (seen.has(at)) continue; seen.add(at); if (limbIds.has(at)) return true; stack.push(...(children.get(at) || [])); } return false; };
     const xs = nodes.map(n => pivot(n.ObjectId).x), size = Math.max(...xs) - Math.min(...xs);

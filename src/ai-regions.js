@@ -1,11 +1,12 @@
 // Job regions are declarations checked against the model, never trust supplied dependencies.
+import FORBIDDEN_KEYS from './forbidden-keys.json' with { type: 'json' };
 const nodes = ['Bones', 'Helpers', 'Attachments', 'Lights', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'RibbonEmitters', 'ParticleEmitterPopcorns'];
 const tables = ['Geosets', 'GeosetAnims', 'Materials', 'Textures', 'TextureAnims', 'Sequences', 'GlobalSequences', 'PivotPoints', 'Cameras', ...nodes];
 export const overlaps = (a, b) => a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
 const pathParts = path => {
   if (typeof path !== 'string' || !/^\/(?:[A-Za-z][A-Za-z0-9]*)(?:\/[^/]+)*$/.test(path)) throw Error('Declare canonical model paths.');
   const parts = path.slice(1).split('/');
-  if (parts.some(p => ['__proto__', 'prototype', 'constructor'].includes(p)) || parts[0] === 'Nodes') throw Error('Use canonical node collections, not /Nodes.');
+  if (parts.some(p => FORBIDDEN_KEYS.includes(p)) || parts[0] === 'Nodes') throw Error('Use canonical node collections, not /Nodes.');
   return parts;
 };
 const read = (model, path) => pathParts(path).reduce((v, k) => v?.[k], model);

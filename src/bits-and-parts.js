@@ -10,10 +10,11 @@ import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, setSequenceName } from './sequence-editor.js';
 import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 
-export const partPathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey } from './game-path.js';
+export const partPathKey = gamePathKey;
 const canonical = canonicalValue;
 const fingerprint = stableKey;
-export const partTextureKey = texture => fingerprint({ ...texture, Image: partPathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
+export const partTextureKey = texture => fingerprint({ ...texture, Image: gamePathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
 export function partMaterialKey(model, source) {
   const material = structuredClone(source);

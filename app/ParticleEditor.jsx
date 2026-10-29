@@ -33,14 +33,14 @@ import GlowStageTools from './GlowStageTools.jsx';
 import {addHeroGlow,glowLayout,hasHeroGlow,weaponChoices} from '../src/glow-up.js';
 import './resource-editors.css';
 import './particle-editor.css';
+import { gamePathKey } from '../src/game-path.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
-const pathKey=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const emptyAssets=new Map();
 const GLOW_SECTIONS=['Geosets','Materials','Textures','Bones','Nodes','PivotPoints','GeosetAnims','GlobalSequences','BindPoses','Info'];
 function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,key:'lab-'+crypto.randomUUID(),assets:new Map()};}
 /** Reads stock pictures from the game data, like every other native texture. */
-async function stockAssets(names){const records=window.desktop?.resolveTextures?await window.desktop.resolveTextures({names}):[];return new Map((records||[]).filter(record=>record.bytes).map(record=>[pathKey(record.name),record]));}
+async function stockAssets(names){const records=window.desktop?.resolveTextures?await window.desktop.resolveTextures({names}):[];return new Map((records||[]).filter(record=>record.bytes).map(record=>[gamePathKey(record.name),record]));}
 function labDraft(lab,mode){return stringifyParticleData({schema:'mdlxl-particle-draft',version:1,key:lab.key||lab.recipe.id,state:lab.doc.captureRecoveryState(),recipe:includeParticleAssets({...lab.recipe,native:lab.doc.model},lab.assets),mode});}
 async function keepLab(lab,mode,active=true){
   const data=labDraft(lab,mode);
@@ -50,8 +50,8 @@ async function keepLab(lab,mode,active=true){
 async function assetsFor(recipe){
   // Effects saved by earlier versions used generated pictures; they now use the stock ones.
   for(const [owner,field] of [...recipe.native.Textures.map(t=>[t,'Image']),...(recipe.dependencies||[]).map(d=>[d,'path'])]){const image=nativeStarterTexture(owner[field]);if(image)owner[field]=image;}
-  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!assets.has(pathKey(t.Image))).map(t=>t.Image);
-  if(names.length&&window.desktop?.resolveTextures){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});for(const record of records||[])if(record.bytes)assets.set(pathKey(record.name),record);}
+  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!assets.has(gamePathKey(t.Image))).map(t=>t.Image);
+  if(names.length&&window.desktop?.resolveTextures){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});for(const record of records||[])if(record.bytes)assets.set(gamePathKey(record.name),record);}
   return assets;
 }
 export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {
@@ -138,7 +138,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       if(apply(grid.rows*grid.columns>1?'Use sprite frames':'Use one picture',m=>{const node=m.ParticleEmitters2.find(n=>n.ObjectId===id);Object.assign(node,known||spriteGridValues(node,grid.rows,grid.columns));})!==false){setStructure(v=>v+1);setMessage(grid.rows*grid.columns>1?'Found '+grid.rows*grid.columns+' frames. They play across the particle\'s life.':'');}
     }catch{}
   };
-  const choosePicture=index=>{if(patch({TextureID:index,ReplaceableId:0})!==false){setStructure(v=>v+1);const image=model.Textures[index]?.Image;fitFrames(assets.get(pathKey(image)),image);}};
+  const choosePicture=index=>{if(patch({TextureID:index,ReplaceableId:0})!==false){setStructure(v=>v+1);const image=model.Textures[index]?.Image;fitFrames(assets.get(gamePathKey(image)),image);}};
   const removePicture=index=>{
     cancel();const result=apply('Remove particle picture',m=>removeParticlePicture(m,emitterId,index),['Nodes','Textures','Materials']);
     if(result===false)return;
@@ -152,7 +152,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       const nextAsset={...asset,name,bytes,...(asset.libraryKey&&asset.source!=='custom'?{}:{origin:'particle-custom',source:'parts'})};
       if(latest.current.activeDoc!==activeDoc||latest.current.emitterId!==emitterId)return;
       cancel();const result=apply('Choose particle picture',m=>{let index=m.Textures.findIndex(t=>t.Image===name);if(index<0)index=m.Textures.push({Image:name,ReplaceableId:0,Flags:0})-1;const emitter=m.ParticleEmitters2.find(n=>n.ObjectId===emitterId);emitter.TextureID=index;emitter.ReplaceableId=0;},['Nodes','Textures']);
-      if(result===false)return;const next=new Map(assets);if(!next.has(pathKey(name)))next.set(pathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);await fitFrames(nextAsset,name);
+      if(result===false)return;const next=new Map(assets);if(!next.has(gamePathKey(name)))next.set(gamePathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);await fitFrames(nextAsset,name);
   };
   const importPicture=async()=>{
     try{const list=await window.desktop.textures();if(list?.length)await usePicture(list[0]);}catch(error){setMessage(error.message);}
@@ -297,7 +297,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);
-  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([...stock].filter(([key])=>key===pathKey(RIBBON_TEXTURE))):assets,[assets,stock,placement?.ribbon]);
+  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([...stock].filter(([key])=>key===gamePathKey(RIBBON_TEXTURE))):assets,[assets,stock,placement?.ribbon]);
   useEffect(()=>{
     let live=true;setPreparedPlacement(null);
     if(placementRecipe)prepareParticlePlacementAssets(placementRecipe,incomingPlacementAssets,textureAssets).then(prepared=>{if(live)setPreparedPlacement({...prepared,original:placementRecipe,incoming:incomingPlacementAssets,target:textureAssets});}).catch(error=>{if(live)setPlacementError(error.message);});
@@ -305,7 +305,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   },[placementRecipe,incomingPlacementAssets,textureAssets]);
   const placementResources=preparedPlacement?.original===placementRecipe&&preparedPlacement?.incoming===incomingPlacementAssets&&preparedPlacement?.target===textureAssets?preparedPlacement:null;
   const placementAssets=useMemo(()=>new Map([...textureAssets,...(placementResources?.assets||[])]),[textureAssets,placementResources]);
-  const asset=assets.get(pathKey(working.Textures[emitter?.TextureID]?.Image));
+  const asset=assets.get(gamePathKey(working.Textures[emitter?.TextureID]?.Image));
   const movable = useMovableWindow(dialog);
   return <div className="resource-editor particle-editor" onKeyDown={event=>{
     event.stopPropagation();

@@ -51,7 +51,7 @@ import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT,
 import './portrait-view.css';
 import ShowcaseLayers from './ShowcaseLayers.jsx';
 
-const pathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey as pathKey } from '../src/game-path.js';
 let humanFramePromise;
 const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
 const portraitHasFrame = props => props.portraitMode && props.showcasePortraitFrame !== false;

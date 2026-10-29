@@ -3,6 +3,7 @@ import {generateCompatibleMdx, TEXTURE_SLOTS} from './mdx-compatibility.js';
 import { createNode, NODE_TYPES, validateModel, openDocument } from './editor-document.js';
 import { stringifyParticleData, safeParticlePath } from './particle-data.js';
 import { hdContentIssues } from './model-version.js';
+import { keysInInterval } from './animation.js';
 import { convertHDToSD } from './paste-format.js';
 
 export const EFFECT_FAMILIES = ['ParticleEmitters2', 'RibbonEmitters', 'ParticleEmitters', 'ParticleEmitterPopcorns'];
@@ -45,7 +46,7 @@ export function copyEffectGraph(target, source, ids, { parent = null, sourceInte
     } else if (value.Keys && sourceInterval && targetInterval) {
       const [a,b] = sourceInterval, [c,d] = targetInterval;
       if (!(b > a && d > c)) throw Error('Choose valid source and target intervals.');
-      const keys = value.Keys.filter(key => key.Frame >= a && key.Frame <= b);
+      const keys = keysInInterval(value, [a, b]);
       // Native sampling holds the first/last key in a clip and uses the native
       // fallback for an empty clip. Synthetic boundary keys change cubic holds
       // and can import values from an unrelated animation. Keep authored keys.
