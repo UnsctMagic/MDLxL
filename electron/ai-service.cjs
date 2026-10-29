@@ -26,6 +26,7 @@ const {
   checkAgentExecutable,
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
+const { questionCancelled } = require('./ai-user-input.cjs');
 const {
   AiSteering,
   AiRecorder,
@@ -57,6 +58,7 @@ class AiService {
     this.electron = electron;
     this.getWindow = getWindow;
     this.pending = new Map();
+    this.questions = new Map();
     this.conversations = new Map();
     this.ready = false;
     this.config = null;
@@ -668,6 +670,8 @@ class AiService {
     return value => {
       if (!['request', 'cost'].includes(value.type)) {
         recorder.event(value);
+        const parent = this.tasks.get(conversation.organiserId)?.recorder;
+        if (value.type === 'provider-notice' && parent && parent !== recorder) parent.event({ ...value, name: conversation.name });
         if (value.type === 'usage' && conversation.kind === 'worker' && !conversation.helperOnly && !conversation.toolsOff && conversation.task?.status === 'running' && !conversation.task.checkpointRequested && contextUse(conversation) >= RETIRE_AT) {
           const active = this.tasks.get(conversation.organiserId) || this.tasks.get(conversation.id);
           const worker = active?.workers?.get(conversation.id);
@@ -1058,6 +1062,7 @@ class AiService {
           settings,
           key: this.decrypt(settings.key),
           directory: this.directory,
+          askUser: (params, questionSignal) => this.askUser(conversation, recorder, params, questionSignal),
           event: this.measureUsage(conversation, recorder, conversation.kind === 'worker' ? 'bird' : organiser || conversation.toolsOff ? 'organiser' : 'direct'),
           tools,
           call,
@@ -1753,6 +1758,65 @@ class AiService {
   modelBusy(modelKey) {
     return [...this.tasks.values()].some(t => t.modelKey && t.modelKey === modelKey);
   }
+  async askUser(conversation, recorder, params, signal) {
+    const questions = params?.questions;
+    if (!Array.isArray(questions) || !questions.length || questions.some(q =>
+      !q || typeof q.id !== 'string' || !q.id || typeof q.question !== 'string' || !q.question.trim() ||
+      (q.options != null && (!Array.isArray(q.options) || q.options.some(o => typeof o?.label !== 'string' || !o.label.trim())))) ||
+      new Set(questions.map(q => q.id)).size !== questions.length)
+      throw Error('The AI must supply a question with a unique ID and readable options.');
+    signal.throwIfAborted();
+    const questionId = crypto.randomUUID();
+    const parent = this.taskOf(conversation.id)?.recorder;
+    const recorders = parent && parent !== recorder ? [recorder, parent] : [recorder];
+    const publish = value => { for (const target of recorders) target.event(value); };
+    const persist = () => Promise.all(recorders.map(target => this.persistConversation(target.conversation)));
+    let resolve, reject, answers, reason;
+    const response = new Promise((yes, no) => { resolve = yes; reject = no; });
+    response.catch(() => {});
+    const abort = () => { this.questions.delete(questionId); reject(signal.reason || questionCancelled('AI question cancelled.')); };
+    this.questions.set(questionId, { questions, resolve, reject, validate: params.validateAnswers });
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      publish({ type: 'question', questionId, questions, message: params.message || '', name: conversation.name || '', status: 'running' });
+      await persist();
+      answers = await response;
+      return { answers };
+    } catch (error) {
+      reason = error.message;
+      throw error;
+    } finally {
+      signal.removeEventListener('abort', abort);
+      this.questions.delete(questionId);
+      const shown = answers && Object.fromEntries(questions.map(q => [q.id, q.isSecret ? { answers: ['••••'] } : answers[q.id]]));
+      publish({ type: 'question-result', questionId, status: answers ? 'done' : 'stopped', answers: shown, reason });
+      await persist();
+    }
+  }
+  async openQuestionLink({ questionId, id }) {
+    const q = this.questions.get(questionId)?.questions.find(q => q.id === id);
+    if (!q?.link) throw Error('This input page is no longer waiting for you.');
+    const url = new URL(q.link);
+    if (url.protocol !== 'https:' || url.username || url.password) throw Error('Invalid input page URL.');
+    await this.electron.shell.openExternal(url.href);
+    return { opened: true };
+  }
+  answerQuestion({ questionId, answers, cancel = false }) {
+    const pending = this.questions.get(questionId);
+    if (!pending) throw Error('This question is no longer waiting for an answer.');
+    if (cancel) { this.questions.delete(questionId); pending.reject(questionCancelled('You cancelled this question.')); return { cancelled: true }; }
+    if (!answers || typeof answers !== 'object' || pending.questions.some(q => {
+      const values = answers[q.id]?.answers;
+      return !Array.isArray(values) || (!q.multiSelect && values.length > 1) || (q.required !== false && !values.length) ||
+        values.some(v => typeof v !== 'string' || !v.trim() || v.length > 20000) || new Set(values).size !== values.length ||
+        (q.allowCustom === false && values.some(v => !q.options?.some(o => o.label === v)));
+    })) throw Error('Answer each required question before sending.');
+    const result = Object.fromEntries(pending.questions.map(q => [q.id, { answers: [...answers[q.id].answers] }]));
+    pending.validate?.(result);
+    this.questions.delete(questionId);
+    pending.resolve(result);
+    return { answered: true };
+  }
   async steer({ id, text, annotations }) {
     const active = this.taskOf(id);
     if (!active?.steering) return { queued: false };
@@ -1919,6 +1983,8 @@ class AiService {
       this.closing = true;
       for (const timer of this.cleanupTimers || []) clearTimeout(timer);
       this.cancel();
+      for (const pending of this.questions.values()) pending.reject(questionCancelled('The editor closed before this question was answered.'));
+      this.questions.clear();
       for (const pending of [...this.pending.values()]) pending.cancel();
       await this.enabling?.catch(() => {});
       if (this.external) {
@@ -1960,6 +2026,8 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:send', input => service.send(input));
   handle('ai:cancel', id => service.cancel(id));
   handle('ai:steer', input => service.steer(input));
+  handle('ai:answerQuestion', input => service.answerQuestion(input));
+  handle('ai:questionLink', input => service.openQuestionLink(input));
   handle('ai:organiser', input => service.organiser(input));
   handle('ai:newOrganiser', input => service.newOrganiser(input));
   handle('ai:rekey', input => service.rekey(input));

@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| AI clarification questions and answers | Ready for review; awaiting merge approval | [Question route](ai-question-route.md) / Codex |
 | Automatic organiser checkpoints and helper birds | Ready for review; awaiting merge approval | [Organiser checkpoints](ai-organiser-checkpoints.md) / Codex |
 | Automatic job routing in bird mode | Ready for review; awaiting merge approval | [Bird job routing](ai-bird-job-routing.md) / Codex |
 | AI-only model references | Ready for review; awaiting merge approval | [AI-only references](ai-private-references.md) / Codex |
