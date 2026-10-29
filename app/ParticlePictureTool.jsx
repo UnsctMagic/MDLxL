@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {particleBlendNames,particlePictureShared} from '../src/particle-picture.js';
 import {particlePictureCanvas} from './particle-picture-canvas.js';
 import ParticleBlendComparisons from './ParticleBlendComparisons.jsx';
-const key=path=>String(path||'').replaceAll('/','\\').toLowerCase();
+import {gamePathKey as key} from '../src/game-path.js';
 function PictureTile({asset,replaceableId,teamColor,label,selected,onClick}){
  const canvas=useRef(null),[missing,setMissing]=useState(false);
  useEffect(()=>{let live=true;setMissing(false);particlePictureCanvas(asset,{replaceableId,teamColor}).then(image=>{if(live){const c=canvas.current.getContext('2d');c.clearRect(0,0,48,48);c.drawImage(image,0,0,48,48);}}).catch(()=>{if(live)setMissing(true);});return()=>{live=false;};},[asset,replaceableId,teamColor]);

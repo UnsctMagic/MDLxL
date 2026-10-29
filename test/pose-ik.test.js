@@ -188,7 +188,7 @@ test('swivelling a straight vertical leg carries its bend direction into the nex
 test('unsupported inherited-transform flags reject before mutation rather than disagreeing with the mesh renderer', () => {
   for (const flag of [1, 2, 4, 7]) {
     const m = fixture(); m.Bones[0].Translation = track([500, [4, 3, 2]]); m.Bones[0].Rotation = track([500, q([0, 0, 1], .5)]); m.Bones[0].Scaling = track([500, [2, 2, 2]]); m.Bones[1].Flags |= flag;
-    const before = structuredClone(m); assert.throws(() => solvePoseLimb(m, chain, 500, 0, [10, 1, 18]), /preview renderer/); assert.deepEqual(m, before);
+    const before = structuredClone(m); assert.throws(() => solvePoseLimb(m, chain, 500, 0, [10, 1, 18]), /joint solver does not account/); assert.deepEqual(m, before);
   }
   const m = fixture(); m.Bones[2].Flags |= 2; assert.throws(() => samplePoseChain(m, chain, 500, 0), /inherited transforms/);
 });

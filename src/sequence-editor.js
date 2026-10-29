@@ -1,5 +1,5 @@
 import { recalculateExtents } from './editor-document.js';
-import { sampleTrack } from './animation.js';
+import { keysInInterval, sampleTrack } from './animation.js';
 import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
@@ -111,7 +111,7 @@ export function createSequenceFromCurrent(model, sourceIndex) {
   visitModel(model, {
     track(track) {
       if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
-      const copies = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => {
+      const copies = keysInInterval(track, [start, end]).map(key => {
         const copy = { ...structuredClone(key), Frame: key.Frame + offset };
         if (source[ANIMATION_SPEED_KEY]) {
           const original = key[ANIMATION_SPEED_FRAME]?.frame === key.Frame ? key[ANIMATION_SPEED_FRAME].originalFrame : source[ANIMATION_SPEED_KEY].originalInterval[0] + (key.Frame - start) * animationSpeed(source) / 100;
@@ -165,7 +165,7 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
         const Vector = new Float32Array(typeof value === 'number' ? [value] : value);
         return { Frame, Vector, ...(track.LineType >= 2 ? { InTan: track.LineType === 2 ? new Float32Array(Vector.length) : new Float32Array(Vector), OutTan: track.LineType === 2 ? new Float32Array(Vector.length) : new Float32Array(Vector) } : {}) };
       };
-      const keys = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => structuredClone(key));
+      const keys = keysInInterval(track, [start, end]).map(key => structuredClone(key));
       if (!keys.some(key => key.Frame === start)) keys.unshift(sample(start));
       if (!keys.some(key => key.Frame === end)) keys.push(sample(end));
       copies.push({ track, keys, start, end });

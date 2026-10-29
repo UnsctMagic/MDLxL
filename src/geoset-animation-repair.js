@@ -2,6 +2,7 @@ import { typedJson } from './value-key.js';
 import { directlyBoundBoneIds } from './binding-inspection.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { recalculateExtents } from './editor-document.js';
+import { gamePathKey } from './game-path.js';
 
 const track = value => value && Array.isArray(value.Keys);
 const signature = typedJson;
@@ -43,7 +44,7 @@ export function classifyVisibilityGeoset(model, geosetId) {
     if (track(layer.TextureID)) throw Error(`Geoset ${geosetId + 1}: animated texture selection needs manual review. Use duplicate-only repair.`);
     const texture = model.Textures?.[layer.TextureID];
     if (!texture) throw Error(`Geoset ${geosetId + 1}: texture is missing. Use duplicate-only repair.`);
-    if (String(texture.Image || '').replaceAll('/', '\\').toLowerCase() === 'textures\\gutz.blp') return 'guts';
+    if (gamePathKey(texture.Image) === 'textures\\gutz.blp') return 'guts';
     if (texture.ReplaceableId === 2) return [3, 4].includes(layer.FilterMode) ? 'additive-glow' : 'team-glow';
     return 'body';
   });

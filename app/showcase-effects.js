@@ -1,4 +1,4 @@
-import {sampleTrack} from '../src/animation.js';
+import {keysInInterval, sampleTrack} from '../src/animation.js';
 import {parseEventName} from './event-preview-data.js';
 
 const value = v => typeof v === 'number' ? v : Number(v?.[0] || 0);
@@ -8,7 +8,7 @@ const roundUp = seconds => Math.max(.02, Math.ceil(seconds * 100 - 1e-8) / 100);
 export const SHOWCASE_DEATH_SECONDS = 10;
 const isDeath = sequence => /\bdeath\b/i.test(String(sequence?.Name || '').replace(/[^a-z]+/gi, ' '));
 const globalPeriod = (model, track) => model.GlobalSequences?.[track?.GlobalSeqId] || 0;
-const localKeys = (track, sequence) => (track?.Keys || []).filter(key => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]);
+const localKeys = (track, sequence) => track?.Keys ? keysInInterval(track, sequence.Interval) : [];
 
 // Showcase policy, inferred from Warcraft's authored sequence names/NonLooping
 // flag. Channel/locomotion take precedence over Spell or Attack in compound

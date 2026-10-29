@@ -1,8 +1,8 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { spawnAgent, stopAgent, lines, providerEnvironment } = require('./ai-process.cjs');
-const { startMcpServer, callEditorTool } = require('./ai-mcp.cjs');
+const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-process.cjs');
+const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
 
@@ -21,6 +21,15 @@ function endpoint(value) {
     throw Error('Use an HTTPS API base URL, or HTTP on localhost.');
   return url.href.replace(/\/$/, '');
 }
+// The connection's API address: its own server, or Anthropic's or OpenAI's.
+function apiBase(settings) {
+  return endpoint(
+    settings.baseUrl || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
+  );
+}
+const ANTHROPIC_HEADERS = Object.freeze({ 'anthropic-version': '2023-06-01' });
+// Worker jobs and pauses outlast the CLIs' default MCP tool timeouts.
+const MCP_TOOL_TIMEOUT_MS = 3600000;
 async function requestJson(url, body, key, signal, headers = {}) {
   const response = await fetch(url, {
     method: body ? 'POST' : 'GET',
@@ -62,13 +71,18 @@ async function* sseEvents(response) {
     }
   }
 }
+// An image ({ mimeType, data }) in the provider's own shape: 'anthropic', 'openai' or 'codex'.
+function providerImage({ mimeType, data }, kind) {
+  if (kind === 'anthropic') return { type: 'image', source: { type: 'base64', media_type: mimeType, data } };
+  const url = 'data:' + mimeType + ';base64,' + data;
+  return kind === 'codex' ? { type: 'inputImage', imageUrl: url } : { type: 'image_url', image_url: { url } };
+}
+// Attached images must be plain base64 (no whitespace), stricter than tool captures.
 function imageParts(images = [], kind = 'openai') {
   return images.map(image => {
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image);
-    if (!match) throw Error('Attach PNG, JPEG or WebP images.');
-    return kind === 'anthropic'
-      ? { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }
-      : { type: 'image_url', image_url: { url: image } };
+    const match = IMAGE_DATA_URL.exec(image);
+    if (!match || !/^[A-Za-z0-9+/=]+$/.test(match[2])) throw Error('Attach PNG, JPEG or WebP images.');
+    return providerImage({ mimeType: match[1], data: match[2] }, kind);
   });
 }
 // Short, readable form of a tool call's input for the console's activity rows.
@@ -79,6 +93,10 @@ function toolDetail(input) {
   } catch {
     return '';
   }
+}
+// The start of a tool result's text for its activity row.
+function toolSummary(text) {
+  return typeof text === 'string' ? text.slice(0, 300) : undefined;
 }
 // One prompt may take at most this many tool rounds unless the user sets a step limit.
 const API_STEP_LIMIT = 64;
@@ -159,6 +177,9 @@ function claudeCompaction(data) {
   if (data.subtype === 'status') return data.status === 'compacting';
   return null;
 }
+const CANCELLED = 'AI request cancelled.';
+// Said when a provider asks for anything beyond MDLxL's own editor tools.
+const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
 function authenticationRequired() {
   return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'), {
     code: 'AI_AUTH_REQUIRED',
@@ -180,9 +201,7 @@ async function runApi({
   web,
 }) {
   const anthropic = settings.provider === 'anthropic';
-  const base = endpoint(
-    settings.baseUrl || (anthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
-  );
+  const base = apiBase(settings);
   if (!settings.model?.trim()) throw Error('Choose a model in AI connection settings.');
   const history = conversation.messages || [];
   history.push({
@@ -203,7 +222,7 @@ async function runApi({
   let awarenessVersion = awareness?.version;
   const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
   for (let step = 0; step < steps; step++) {
-    if (signal.aborted) throw Error('AI request cancelled.');
+    if (signal.aborted) throw Error(CANCELLED);
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
       history.push({ role: 'user', content: [{ type: 'text', text: awarenessText(awareness.snapshot()) }] });
       awarenessVersion = awareness.version;
@@ -250,7 +269,7 @@ async function runApi({
           },
           key,
           signal,
-          { 'anthropic-version': '2023-06-01' },
+          ANTHROPIC_HEADERS,
         );
       } catch (error) {
         // Old reasoning refused: drop it (finished turns first, then all) and ask again.
@@ -336,18 +355,14 @@ async function runApi({
           type: 'tool_result',
           tool_use_id: block.id,
           is_error: !!result.isError,
-          content: result.content.map(c =>
-            c.type === 'image'
-              ? { type: 'image', source: { type: 'base64', media_type: c.mimeType, data: c.data } }
-              : c,
-          ),
+          content: result.content.map(c => (c.type === 'image' ? providerImage(c, 'anthropic') : c)),
         });
         event({
           type: 'tool-result',
           name: block.name,
           callId: block.id,
           error: !!result.isError,
-          summary: result.content.find(c => c.type === 'text')?.text?.slice(0, 300),
+          summary: toolSummary(result.content.find(c => c.type === 'text')?.text),
         });
       }
       history.push({ role: 'user', content: results });
@@ -449,16 +464,13 @@ async function runApi({
           content: textContent || 'Viewport image follows.',
         });
         for (const image of result.content.filter(c => c.type === 'image'))
-          imageMessages.push({
-            type: 'image_url',
-            image_url: { url: `data:${image.mimeType};base64,${image.data}` },
-          });
+          imageMessages.push(providerImage(image, 'openai'));
         event({
           type: 'tool-result',
           name: toolCall.function.name,
           callId: toolCall.id,
           error: !!result.isError,
-          summary: textContent.slice(0, 300),
+          summary: toolSummary(textContent),
         });
       }
       if (imageMessages.length)
@@ -491,9 +503,7 @@ class CodexProcess {
     await fs.mkdir(this.directory, { recursive: true });
     const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
     if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
-    const env = providerEnvironment(this.directory, 'codex');
-    await fs.mkdir(env.TEMP, { recursive: true });
-    await fs.mkdir(env.CODEX_HOME, { recursive: true });
+    const env = await prepareEnvironment(this.directory, 'codex');
     if (this.mcp) {
       env.MDLXL_AI_TOKEN = this.mcp.token;
       args.push(
@@ -504,7 +514,7 @@ class CodexProcess {
         '-c',
         'mcp_servers.mdlxl.required=true',
         '-c',
-        'mcp_servers.mdlxl.tool_timeout_sec=3600',
+        `mcp_servers.mdlxl.tool_timeout_sec=${MCP_TOOL_TIMEOUT_MS / 1000}`,
       );
       // Sending a prompt authorizes MDLxL's own editor tools, as in the Claude
       // allowlist. This is private to this child; shell/filesystem access stays restricted.
@@ -531,13 +541,13 @@ class CodexProcess {
     );
     this.child.stderr.on('data', () => {});
     this.abort = () => {
-      this.fail(Error('AI request cancelled.'));
+      this.fail(Error(CANCELLED));
       this.close();
     };
     this.signal?.addEventListener('abort', this.abort, { once: true });
     if (this.signal?.aborted) {
       this.abort();
-      throw Error('AI request cancelled.');
+      throw Error(CANCELLED);
     }
     await this.request('initialize', { clientInfo: { name: 'mdlxl', title: 'MDLxL', version: '1.0.0' } });
     this.write({ method: 'initialized', params: {} });
@@ -575,9 +585,9 @@ class CodexProcess {
       else if (method === 'item/tool/call') {
         const p = message.params || {};
         const tool = this.tools?.find(t => t.name === p.tool && (!p.namespace || p.namespace === 'mdlxl'));
-        if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, 'Terminal and filesystem access remain disabled.', 'warning');
+        if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, TOOLS_ONLY, 'warning');
         const run = tool ? callEditorTool(this.tools, this.call, p.tool, p.arguments, this.signal) : Promise.resolve({ isError: true, content: [{ type: 'text', text: 'Only registered MDLxL editor tools are available. Terminal and filesystem access are disabled.' }] });
-        run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : { type: 'inputImage', imageUrl: 'data:' + c.mimeType + ';base64,' + c.data }) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
+        run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : providerImage(c, 'codex')) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
         return;
       } else {
         const text = method === 'account/chatgptAuthTokens/refresh'
@@ -590,7 +600,7 @@ class CodexProcess {
         if (method === 'account/chatgptAuthTokens/refresh') this.event({ type: 'error', text, authRequired: true });
         return;
       }
-      this.notice('Terminal and filesystem access remain disabled. The provider request was declined.', method);
+      this.notice(TOOLS_ONLY + ' The provider request was declined.', method);
       return;
     }
     if (message.id !== undefined) {
@@ -655,7 +665,7 @@ class CodexProcess {
         name: p.item.tool,
         callId: p.item.id,
         error: p.item.status === 'failed',
-        summary: (p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text)?.slice(0, 300),
+        summary: toolSummary(p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text),
       });
     // Web research runs inside Codex; its searches show as steps.
     if (message.method === 'item/started' && p.item?.type === 'webSearch')
@@ -906,11 +916,8 @@ async function runClaude({
     if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
-    const env = providerEnvironment(directory, 'claude');
-    // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
-    env.MCP_TOOL_TIMEOUT = '3600000';
-    await fs.mkdir(env.TEMP, { recursive: true });
-    await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
+    const env = await prepareEnvironment(directory, 'claude');
+    env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_TIMEOUT_MS);
     child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
     let finalResult = null,
       streamed = false,
@@ -955,7 +962,7 @@ async function runClaude({
           } else {
             const own = tools.some(t => request.tool_name === 'mcp__mdlxl__' + t.name);
             response = { subtype: 'success', request_id: requestId, response: own ? { behavior: 'allow', updatedInput: request.input } : { behavior: 'deny', message: 'Terminal and filesystem access are disabled. Use the registered MDLxL editor tools.' } };
-            if (!own) event({ type: 'provider-notice', text: 'Claude requested an unavailable tool: ' + request.tool_name, detail: 'Terminal and filesystem access remain disabled.', severity: 'warning' });
+            if (!own) event({ type: 'provider-notice', text: 'Claude requested an unavailable tool: ' + request.tool_name, detail: TOOLS_ONLY, severity: 'warning' });
           }
         } catch (error) {
           response = error.code === 'AI_QUESTION_CANCELLED'
@@ -983,7 +990,7 @@ async function runClaude({
         child.on('error', reject);
         child.once('close', code =>
           signal.aborted
-            ? reject(Error('AI request cancelled.'))
+            ? reject(Error(CANCELLED))
             : !finalResult || finalResult.is_error || code !== 0
               ? reject(
                   Error(
@@ -1052,7 +1059,7 @@ async function runClaude({
                     name: toolNames.get(block.tool_use_id),
                     callId: block.tool_use_id,
                     error: !!block.is_error,
-                    summary: typeof text === 'string' ? text.slice(0, 300) : undefined,
+                    summary: toolSummary(text),
                   });
                 }
             if (data.type === 'result') {
@@ -1096,6 +1103,11 @@ async function runClaude({
     await fs.rm(runDirectory, { recursive: true, force: true });
   }
 }
+// One provider turn through the connection's own route: Codex, Claude Code or an API.
+function runProvider(options) {
+  const provider = options.settings.provider;
+  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
+}
 async function providerModels(settings, key, signal) {
   // Claude Code takes these aliases for the newest model of each kind.
   if (settings.provider === 'claude')
@@ -1106,16 +1118,12 @@ async function providerModels(settings, key, signal) {
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
   if (settings.provider === 'codex') return [];
-  const anthropic = settings.provider === 'anthropic',
-    base = endpoint(
-      settings.baseUrl || (anthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
-    );
   const response = await requestJson(
-    base + '/models',
+    apiBase(settings) + '/models',
     null,
     key,
     signal,
-    anthropic ? { 'anthropic-version': '2023-06-01' } : {},
+    settings.provider === 'anthropic' ? ANTHROPIC_HEADERS : {},
   );
   const data = await response.json();
   return (data.data || data.models || []).map(item => ({
@@ -1132,8 +1140,10 @@ module.exports = {
   runApi,
   runCodex,
   runClaude,
+  runProvider,
   providerModels,
   CodexProcess,
   effortFor,
   authenticationRequired,
+  CANCELLED,
 };

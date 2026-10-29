@@ -1,10 +1,10 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { gamePathKey } = require('./game-path.cjs');
 const { IMAGE_EXTENSIONS } = require('./texture-resolver.cjs');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex').slice(0,24);
-const normalized = value => String(value || '').replaceAll('/','\\').toLowerCase();
-const imageKey = value => normalized(value).replace(/\.(?:dds|blp)$/i,'');
+const imageKey = value => gamePathKey(value).replace(/\.(?:dds|blp)$/i,'');
 const title = value => value.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]/g,' ');
 function textureVariant(sourcePath) {
   const source = sourcePath.toLowerCase();
@@ -13,7 +13,7 @@ function textureVariant(sourcePath) {
   return source.startsWith('war3.w3mod:') ? 'classic' : 'unknown';
 }
 function nativeKinds(sourcePath) {
-  const logical=normalized(sourcePath).split(':').at(-1);
+  const logical=gamePathKey(sourcePath).split(':').at(-1);
   if(/^replaceabletextures\\(?:commandbuttons|commandbuttonsdisabled)\\/.test(logical))return ['icons'];
   const kind={units:'units',buildings:'buildings',doodads:'doodads',terrainart:'terrain',pathtextures:'terrain',abilities:'effects',ui:'ui'}[logical.split('\\')[0]];
   return [kind||'other'];
@@ -41,7 +41,7 @@ class TextureLibrary {
       const file = path.join(folder,entry.name);
       let info; try { info = await this.stat(file); } catch { continue; }
       if (!info.isFile() || info.size > 64 * 1024 * 1024) continue;
-      items.push({id:'custom:' + hash(normalized(file)),name:title(path.parse(entry.name).name),path:entry.name,lookupName:entry.name,sourcePath:entry.name,folder:'Model folder',source:'custom',variant:'custom',cacheKey:hash(normalized(file)+'|'+info.size+'|'+info.mtimeMs),kinds:['other'],tags:[],models:[],races:[],notes:'Custom texture beside the open model.',available:true});
+      items.push({id:'custom:' + hash(gamePathKey(file)),name:title(path.parse(entry.name).name),path:entry.name,lookupName:entry.name,sourcePath:entry.name,folder:'Model folder',source:'custom',variant:'custom',cacheKey:hash(gamePathKey(file)+'|'+info.size+'|'+info.mtimeMs),kinds:['other'],tags:[],models:[],races:[],notes:'Custom texture beside the open model.',available:true});
     }
     return items.sort((a,b)=>a.path.localeCompare(b.path));
   }
@@ -56,7 +56,7 @@ class TextureLibrary {
           if (!IMAGE_EXTENSIONS.includes(path.extname(sourcePath).slice(1).toLowerCase())) continue;
           const logical = sourcePath.replace(/^war3\.w3mod:/i,''), classic = /^war3\.w3mod:/i.test(sourcePath) && !logical.includes(':');
           const annotation = classic ? metadata.get(imageKey(logical)) : null;
-          const leaf = logical.split(/[\\:]/).at(-1), nativeId = normalized(sourcePath);
+          const leaf = logical.split(/[\\:]/).at(-1), nativeId = gamePathKey(sourcePath);
           const variant = textureVariant(sourcePath);
           native.push({...annotation,id:'native:' + hash(nativeId),name:annotation?.name || title(leaf.replace(/\.[^.]+$/,'')),path:annotation?.path || logical,lookupName:sourcePath,sourcePath,sourceKey:source.key,sourceFolder:source.folder,folder:sourcePath.slice(0,sourcePath.length-leaf.length).replace(/[\\:]$/,''),source:'native',variant,cacheKey:hash(source.key+'|'+nativeId),kinds:annotation?.kinds || nativeKinds(sourcePath),tags:annotation?.tags || [],models:annotation?.models || [],races:annotation?.races || [],available:true});
         }

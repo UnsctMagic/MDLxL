@@ -1,4 +1,5 @@
 import { clamp } from '../src/math.js';
+import { gamePathKey } from '../src/game-path.js';
 // Warcraft table fields and name conventions are documented by the upstream viewer:
 // https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/viewer/handlers/mdx/handler.ts
 // https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/viewer/handlers/mdx/eventobjectemitterobject.ts
@@ -7,7 +8,6 @@ import { parseSlk } from '../src/slk.js';
 
 export { parseSlk };
 export const EVENT_TABLE_PATHS = Object.freeze({ SPN: 'Splats\\SpawnData.slk', SPL: 'Splats\\SplatData.slk', UBR: 'Splats\\UberSplatData.slk' });
-const norm = value => String(value || '').replace(/\//g, '\\').toLowerCase();
 
 export function parseEventName(name) {
   name = String(name || '');
@@ -21,7 +21,7 @@ export function resolveEventDefinition(name, tables, { textureExtension = 'blp' 
   const event = parseEventName(name);
   if (!event) return null;
   const sources = tables instanceof Map ? [...tables.entries()] : Object.entries(tables || {});
-  let table = sources.find(([key]) => key === event.type || norm(key) === norm(event.tablePath))?.[1];
+  let table = sources.find(([key]) => key === event.type || gamePathKey(key) === gamePathKey(event.tablePath))?.[1];
   if (typeof table === 'string') table = parseSlk(table);
   const entries = table instanceof Map ? [...table.entries()] : Object.entries(table || {});
   const row = entries.find(([key]) => key.toLowerCase() === event.id.toLowerCase())?.[1];

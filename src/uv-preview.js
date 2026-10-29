@@ -2,8 +2,8 @@ import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { sampleTrack } from './animation.js';
 import { materialPreset } from './material-presets.js';
 import { partMaterialKey } from './bits-and-parts.js';
+import { gamePathKey } from './game-path.js';
 
-const normal = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 
 export function getUVPreviewSelection(model, selection) {
   const indices = typeof selection === 'number' ? [selection] : Array.from(selection || []);
@@ -115,7 +115,7 @@ export function validateUVPreviewGuard(model, drafts, beforeGeosets = null) {
 
 /** Index of an ordinary image texture already in the model, or -1. */
 export function existingTextureIndex(model, imagePath) {
-  return (model?.Textures || []).findIndex(texture => !texture.ReplaceableId && normal(texture.Image) === normal(imagePath));
+  return (model?.Textures || []).findIndex(texture => !texture.ReplaceableId && gamePathKey(texture.Image) === gamePathKey(imagePath));
 }
 
 /** Materials with any layer showing this texture, including animated texture IDs. */
@@ -134,7 +134,7 @@ const validMaterialChoice = (model, material) => material === 'new' || Number.is
 
 export function addLibraryTexture(model, asset) {
   if (!asset?.name) throw Error('The texture has no model path.');
-  const found = model.Textures.findIndex(texture => !texture.ReplaceableId && normal(texture.Image) === normal(asset.name));
+  const found = model.Textures.findIndex(texture => !texture.ReplaceableId && gamePathKey(texture.Image) === gamePathKey(asset.name));
   if (found >= 0) return found;
   model.Textures.push({ Image: asset.name.replaceAll('/', '\\'), ReplaceableId: 0, Flags: 3 });
   return model.Textures.length - 1;

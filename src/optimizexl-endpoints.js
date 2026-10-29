@@ -1,11 +1,12 @@
-import { allNodes, sampleTrack } from './animation.js';
+import { allNodes, sampleNodeProperty } from './animation.js';
 import { protectedGeosetData } from './optimizexl-exclusions.js';
+import { trackValueError } from './optimizexl-animation.js';
 
 const properties=['Translation','Rotation','Scaling'];
 const local=t=>t?.Keys&&(t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff);
-const fallback=p=>p==='Rotation'?[0,0,0,1]:p==='Scaling'?[1,1,1]:[0,0,0];
-const value=(m,n,p,sequence,frame)=>Array.from(sampleTrack(n[p],frame,{interval:m.Sequences[sequence].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:fallback(p),quaternion:p==='Rotation'}));
-const error=(a,b,p)=>a.every((v,i)=>v===b[i])||p==='Rotation'&&a.every((v,i)=>v===-b[i])?0:p==='Rotation'?2*Math.acos(Math.min(1,Math.abs(a.reduce((sum,v,i)=>sum+v*b[i],0)/(Math.hypot(...a)*Math.hypot(...b)||1))))*180/Math.PI:Math.hypot(...a.map((v,i)=>v-b[i]));
+const value=(m,n,p,sequence,frame)=>sampleNodeProperty(m,n,p,frame,sequence,0);
+// Exactly equal (or negated quaternion) poses are 0 before any arithmetic.
+const error=(a,b,p)=>a.every((v,i)=>v===b[i])||p==='Rotation'&&a.every((v,i)=>v===-b[i])?0:trackValueError(a,b,p==='Rotation');
 const name=s=>s.Name.toLowerCase().replace(/[^a-z]+/g,' ').trim();
 const eligible=s=>/^(attack|death)( |$)/.test(name(s))||/^stand ready( |$)/.test(name(s));
 

@@ -1,4 +1,5 @@
 import { parseSlk, EVENT_TABLE_PATHS, resolveEventDefinition } from './event-preview-data.js';
+import { gamePathKey } from '../src/game-path.js';
 
 export const EVENT_TYPES = { SND: 'Sound', SPL: 'Blood Splat', FPT: 'Footprint', UBR: 'Uber Splat', SPN: 'Spawn Object' };
 export const NODE_EVENT_TABLES = ['UI\\SoundInfo\\AnimLookups.slk', 'UI\\SoundInfo\\AnimSounds.slk', ...Object.values(EVENT_TABLE_PATHS)];
@@ -31,7 +32,7 @@ export function soundFolders(row) {
 }
 const NATIVE_SOUND_TABLES = ['AnimSounds', ...['Human','Orc','Undead','NightElf','Naga','Demon','Creeps'].map(race => `Dialogue${race}Base`)].map(name => `war3.w3mod:UI\\SoundInfo\\${name}.slk`);
 export function eventCatalog(records) {
-  const tables = new Map(records.map(record => [record.name.replaceAll('/', '\\').toLowerCase(), parseSlk(new TextDecoder().decode(record.bytes))]));
+  const tables = new Map(records.map(record => [gamePathKey(record.name), parseSlk(new TextDecoder().decode(record.bytes))]));
   const table = name => tables.get(name.toLowerCase()) || new Map();
   const sounds = table(NODE_EVENT_TABLES[1]);
   const catalog = { SND: [], SPL: [], FPT: [], UBR: [], SPN: [] };

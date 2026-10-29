@@ -1,5 +1,6 @@
 import { createChanges, applyChanges } from './history-store.js';
 import { ignoreHistoryAlias, MODEL_COUNT_FIELDS } from './editor-document.js';
+import FORBIDDEN_KEYS from './forbidden-keys.json' with { type: 'json' };
 
 const types = {
   Float32Array,
@@ -12,7 +13,7 @@ const types = {
   Int16Array,
   Int32Array,
 };
-const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
+const forbidden = new Set(FORBIDDEN_KEYS);
 export function encodeAiValue(value, ancestors = new Set()) {
   if (ArrayBuffer.isView(value)) return { $type: value.constructor.name, $data: Array.from(value) };
   if (value instanceof ArrayBuffer) return { $type: 'Uint8Array', $data: Array.from(new Uint8Array(value)) };
