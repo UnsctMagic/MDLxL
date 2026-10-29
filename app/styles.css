@@ -27,8 +27,6 @@
 
 /* Follow-up reference surfaces and compact rigging panel. Display scale is
    applied once by the existing panel zoom, independently of viewport pixels. */
-:root{--functional-axis-x:#ff0000;--functional-axis-y:#008000;--functional-axis-z:#0000ff}
-:root[data-theme=dark]{--functional-axis-y:#00ff00}
 :root[data-theme=light] :is(body,.classic-app,.classic-sidebar,.classic-menu,.classic-menu [role=menu],.classic-modules,.classic-modal-window,.classic-dialog,.classic-context,.overlay-toolbar,.uv-workspace,.uv-toolbar,.uv-actions,.uv-status,.classic-animation-bar){background:var(--ui-panel)}
 :root[data-theme=light] button:not(.active):not(.pressed):not([aria-pressed=true]):not(:active){background:var(--ui-panel);color:var(--ui-text)}
 :root[data-theme=light] button:disabled{color:#888}
@@ -88,7 +86,7 @@
 /* NormalsXL: transient controls inside the existing model view. */
 .normalizer-controls{position:absolute;z-index:6;top:34px;right:8px;width:268px;max-width:calc(100% - 20px);padding:8px;background:var(--ui-field,#eee);color:var(--ui-text,#111);border:1px solid var(--ui-border,#888);box-shadow:0 2px 8px #0004;font-size:12px;display:flex;flex-direction:column;gap:6px}
 .normalizer-heading{display:flex;align-items:center;gap:9px}
-.normalizer-heading span{flex:1;color:var(--ui-text-muted,#555);font-size:11px}
+.normalizer-heading span{flex:1;color:var(--ui-muted,#555);font-size:11px}
 .normalizer-heading button{padding:0 6px}
 .normalizer-strength{display:flex;align-items:center;gap:5px}
 .normalizer-strength input{flex:1;min-width:0}
@@ -107,3 +105,10 @@
 [data-alert]{color:var(--ui-danger,#a31515)}:is([role=alert],[data-alert]):not(:empty){animation:alert-flash 1.2s step-end}:is([role=alert],[data-alert]):not(:empty)::before{content:"";display:inline-block;flex:0 0 8px;width:8px;height:8px;margin-right:5px;border-radius:50%;background:#e02020;vertical-align:-1px;animation:alert-ping 1s ease-out 3}
 @keyframes alert-flash{0%{background-color:#e02020;color:#fff}}@keyframes alert-ping{0%{box-shadow:0 0 0 0 #e02020cc}100%{box-shadow:0 0 0 7px #e0202000}}
 .classic-modal-window>header>div{display:flex;align-items:center;gap:8px;white-space:nowrap}
+/* Shared utilities: visually hidden text, and absolute fill for a preview host. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+.preview-fill,.mm-stage>.game-preview-root,.pe-preview>.game-preview-root,.pe-source-stage>.game-preview-root,.pe-test-stage>.game-preview-root,.gf-stage-layer>.game-preview-root{position:absolute;inset:0;width:100%;height:100%}
+/* Sort My Mess and Attachemator share one overlay, header/footer and button look. */
+.smm-overlay,.atm-overlay{position:fixed;inset:0;z-index:2100;display:flex;align-items:center;justify-content:center;background:#0007;font:13px/1.4 system-ui,"Segoe UI",sans-serif;color:var(--ui-text)}
+.smm-window>header,.smm-window>footer,.atm-window>header,.atm-window>footer{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--ui-surface)}
+.smm-window button:hover:not(:disabled),.atm-window button:hover:not(:disabled){background:var(--ui-hover)}.smm-window button:disabled,.atm-window button:disabled{opacity:.55;cursor:default}

@@ -1,8 +1,8 @@
 /* AI console: a docked, quiet chat on the left of the viewport, styled from the theme. */
 .ai-assistant{
   --ai-accent:var(--ui-accent,#71b5f3);
-  --ai-line:color-mix(in srgb,var(--ui-border,#8b8b87) 38%,transparent);
-  --ai-soft:color-mix(in srgb,var(--ui-text,#202020) 5%,var(--ui-panel,#f0f0f0));
+  --ai-line:var(--m-line,color-mix(in srgb,var(--ui-border,#8b8b87) 38%,transparent));
+  --ai-soft:var(--m-soft,color-mix(in srgb,var(--ui-text,#202020) 5%,var(--ui-panel,#f0f0f0)));
   position:relative;order:-1;flex:0 0 var(--ai-width,400px);width:var(--ai-width,400px);min-width:300px;max-width:60vw;
   display:flex;flex-direction:column;min-height:0;overflow:hidden;box-sizing:border-box;z-index:30;
   background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border-right:1px solid var(--ai-line);
@@ -24,7 +24,7 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-assistant button:focus-visible,.ai-assistant input:focus-visible,.ai-assistant select:focus-visible{outline:2px solid var(--ai-accent);outline-offset:1px}
 .ai-assistant svg{flex-shrink:0;stroke-width:1.8}
 .ai-assistant [hidden]{display:none!important}
-.ai-hidden-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
 .ai-resize{position:absolute;right:-3px;top:0;bottom:0;width:7px;cursor:ew-resize;z-index:3;touch-action:none}
 .ai-resize:hover,.ai-resize:active{background:linear-gradient(90deg,transparent 3px,var(--ai-accent) 3px,var(--ai-accent) 4px,transparent 4px)}
 
