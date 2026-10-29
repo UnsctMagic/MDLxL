@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
+import { tempDir } from './helpers/fixtures.cjs';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../electron/ai-process.cjs', import.meta.url), 'utf8');
@@ -23,7 +24,7 @@ function processModule(platform = 'win32') {
   return { ...module.exports, spawns };
 }
 async function fixture(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-path-'));
+  const directory = tempDir('mdlxl-ai-path-');
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   async function file(relative, modified = 1000) {
     const full = path.join(directory, relative);

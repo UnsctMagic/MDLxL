@@ -12,11 +12,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
   const legacy = { enabled: false, position: 'top', size: 'large', style: 'plain', duration: 10, learnUses: 3, quietHours: 8 };
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { shredder: legacy, hotkeys: { shredder: ['Alt+J'] } } }));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
+  const executablePath = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
   let app, page;
   const errors = [];
   const launch = async () => {
-    app = await _electron.launch({ executablePath, args: process.env.MDLXL_ELECTRON_PATH ? [fixture] : [root, fixture], cwd: root,
+    app = await _electron.launch({ executablePath, args: process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture], cwd: root,
       env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));

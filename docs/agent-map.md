@@ -63,6 +63,10 @@ setup and script definitions; [CI](../.github/workflows/ci.yml) owns the merge c
   (`test/*.cjs`) unattended on a hidden Windows desktop, under GPU/no-GPU/slow-CPU/
   HiDPI variants, with each harness's env/fixtures in one table. See
   [packaged-app tests](PACKAGED-TESTS.md).
+- New or touched tests use the shared helpers in `test/helpers/` (`launchApp`,
+  `appTarget` from the one `MDLXL_TEST_EXE` variable, `fixturePath`, `tempDir`,
+  model fixtures, approximate asserts); see
+  [shared helper](PACKAGED-TESTS.md#shared-helper).
 
 For continuation, locate the matching active note in [agent tasks](agent-tasks/README.md)
 or the existing topic handoff. Only open historical notes when their evidence is needed.

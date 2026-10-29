@@ -7,6 +7,7 @@ import {createRequire} from 'node:module';
 import {prepareTextureLibrary,searchTextureLibrary,initialTextureLibraryResults,folderContains,textureFolderTree} from '../src/texture-library-search.js';
 import {russianTextureQuery} from '../src/texture-library/russian-query.mjs';
 import {parseQuery} from '../src/texture-library/phrase-search.mjs';
+import { tempDir } from './helpers/fixtures.cjs';
 const require=createRequire(import.meta.url);
 const {TextureLibrary,previewCatalog}=require('../electron/texture-library.cjs');
 const {CascTextures}=require('../electron/casc.cjs');
@@ -417,7 +418,7 @@ test('custom catalog lists only immediate texture files and never reads a model'
   assert.deepEqual(await library.custom('relative.mdx'),[]);
 });
 test('CASC native path catalog survives restart and invalidates with game build',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'mdlvis-library-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('mdlvis-library-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const install=path.join(root,'game'),cache=path.join(root,'cache');await fs.mkdir(install);await fs.writeFile(path.join(install,'.build.info'),'build1');
   let opens=0,closes=0;
   const openReader=()=>{opens++;return {list:async()=>['war3.w3mod:textures\\footman.dds'],close:()=>closes++};};
@@ -431,7 +432,7 @@ test('native enumeration failure preserves custom folder entries and reports the
   const result=await library.catalog();assert.equal(result.items.length,1);assert.equal(result.errors[0].message,'Cannot open storage');
 });
 test('module textures use persisted native content keys after restart',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'mdlvis-library-key-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('mdlvis-library-key-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const install=path.join(root,'game'),cache=path.join(root,'cache'),name='_addons\\hd.w3addon\\units.w3mod:_hd.w3mod:units\\peon.dds',key='0123456789abcdef0123456789abcdef';
   await fs.mkdir(install);await fs.writeFile(path.join(install,'.build.info'),'build1');
   let reads=0;

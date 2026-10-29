@@ -27,8 +27,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   if (fs.existsSync(path.join(path.dirname(source), 'Textures'))) fs.cpSync(path.join(path.dirname(source), 'Textures'), path.join(output, 'Textures'), { recursive: true });
   const errors = [];
-  const executablePath = process.env.MDLXL_APP ? path.resolve(process.env.MDLXL_APP) : path.resolve('node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath, args: [...(process.env.MDLXL_APP ? [] : [process.cwd()]), '--disable-backgrounding-occluded-windows', fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const executablePath = process.env.MDLXL_TEST_EXE ? path.resolve(process.env.MDLXL_TEST_EXE) : path.resolve('node_modules/electron/dist/electron.exe');
+  const app = await _electron.launch({ executablePath, args: [...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]), '--disable-backgrounding-occluded-windows', fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));

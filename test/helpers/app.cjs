@@ -1,0 +1,90 @@
+// Shared launcher for the app harnesses in test/*.electron.cjs (see docs/PACKAGED-TESTS.md#shared-helper).
+// One variable chooses the app under test: MDLXL_TEST_EXE (an MDLxL.exe), else MDLXL_SUITE_PKG (an unzipped
+// MDLxL-win32-x64 folder), else the development Electron with this repo's dist/.
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const { PROBE_SOURCE } = require('./fiber-probe.cjs');
+
+const root = path.resolve(__dirname, '../..');
+const devElectron = () => { try { return require('electron'); } catch { return path.join(root, 'node_modules/electron/dist/electron.exe'); } };
+const profiles = new WeakMap();
+
+function appTarget(env = process.env) {
+  if (env.MDLXL_TEST_EXE) return { executablePath: path.resolve(env.MDLXL_TEST_EXE), args: [], packaged: true };
+  if (env.MDLXL_SUITE_PKG) return { executablePath: path.join(path.resolve(env.MDLXL_SUITE_PKG), 'MDLxL.exe'), args: [], packaged: true };
+  return { executablePath: devElectron(), args: [root], packaged: false };
+}
+
+// The built renderer the target loads: resources/app/dist beside a packaged exe, this repo's dist/ otherwise.
+const appDist = (target = appTarget()) => target.packaged ? path.join(path.dirname(target.executablePath), 'resources/app/dist') : path.join(root, 'dist');
+
+function sha256File(file) { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }
+
+// Identifies the exact renderer bundle a run tested: index.html plus every file in assets/, by name and content.
+function bundleHashes(target = appTarget()) {
+  const dist = appDist(target), assets = path.join(dist, 'assets'), bundle = crypto.createHash('sha256');
+  for (const name of fs.readdirSync(assets).sort()) bundle.update(name).update(fs.readFileSync(path.join(assets, name)));
+  return { indexHash: sha256File(path.join(dist, 'index.html')), assetsHash: bundle.digest('hex') };
+}
+
+const loadPlaywright = () => require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+
+// Starts the app with a throwaway profile under out/, hidden off-screen, unthrottled, collecting page errors.
+// show: 'inactive' shows the window without focus (default), 'hide' keeps it hidden.
+// settings: optional settings.json written into the new profile before start.
+async function launchApp({ fixture, out, args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
+  if (!out) throw Error('launchApp needs an out folder for its profile');
+  const target = appTarget(), { _electron } = playwright || loadPlaywright();
+  const profile = path.join(path.resolve(out), `profile-${Date.now()}-${process.pid}`);
+  fs.mkdirSync(profile, { recursive: true });
+  if (settings) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
+  const app = await _electron.launch({
+    executablePath: target.executablePath,
+    args: [...target.args, ...(fixture ? [fixture] : []), '--disable-backgrounding-occluded-windows', ...args],
+    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile, ...env },
+    timeout,
+  });
+  profiles.set(app, profile);
+  const errors = [], page = await app.firstWindow();
+  page.setDefaultTimeout(pageTimeout); page.on('pageerror', error => errors.push(error.message));
+  await app.evaluate(({ BrowserWindow }, { bounds, show }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win.webContents.setBackgroundThrottling(false); win.setBounds(bounds);
+    if (show === 'hide') win.hide(); else win.showInactive();
+  }, { bounds, show });
+  await page.addInitScript(PROBE_SOURCE).catch(() => {});
+  await page.evaluate(PROBE_SOURCE).catch(() => {});
+  return { app, page, errors, profile, target };
+}
+
+// Replaces native dialogs in the main process. save: path for Save dialogs; open: path or paths for Open dialogs;
+// message: button index for message boxes. A missing value cancels that dialog.
+async function stubDialogs(app, { save, open, message } = {}) {
+  await app.evaluate(({ dialog }, { save, open, message }) => {
+    if (save !== undefined) dialog.showSaveDialog = async () => ({ canceled: !save, filePath: save || undefined });
+    if (open !== undefined) dialog.showOpenDialog = async () => ({ canceled: !open, filePaths: open ? [].concat(open) : [] });
+    if (message !== undefined) { dialog.showMessageBox = async () => ({ response: message, checkboxChecked: false }); dialog.showMessageBoxSync = () => message; }
+  }, { save, open, message });
+}
+
+// Clicks an application-menu item by id or by its label without the & mnemonic and shortcut text.
+async function clickMenu(app, id) {
+  await app.evaluate(({ Menu }, id) => {
+    const all = menu => menu.items.flatMap(item => [item, ...(item.submenu ? all(item.submenu) : [])]);
+    const item = all(Menu.getApplicationMenu()).find(item => item.id === id || item.label.replace('&', '').split('\t')[0] === id);
+    if (!item) throw Error('No menu item ' + id);
+    item.click();
+  }, id);
+}
+
+const settle = (page, ms = 150) => page.waitForTimeout(ms);
+
+// Quits the app and removes the throwaway profile launchApp created.
+async function closeApp(app) {
+  const profile = profiles.get(app), child = app.process?.();
+  try { await app.evaluate(({ app }) => app.exit(0)); } catch { /* the connection closes as the app exits */ }
+  if (child && child.exitCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 10000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
+  if (profile) fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  profiles.delete(app);
+}
+
+module.exports = { root, appTarget, appDist, bundleHashes, launchApp, stubDialogs, clickMenu, sha256File, settle, closeApp };

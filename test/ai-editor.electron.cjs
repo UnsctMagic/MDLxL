@@ -175,11 +175,11 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const profile = path.join(out, 'profile'),
-    executablePath = process.env.MDLXL_AI_TEST_EXE || require('electron');
+    executablePath = process.env.MDLXL_TEST_EXE || require('electron');
   app = await _electron.launch({
     executablePath,
     args: [
-      ...(process.env.MDLXL_AI_TEST_EXE ? [] : [process.cwd()]),
+      ...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]),
       fixture,
       '--disable-gpu-vsync',
       '--disable-frame-rate-limit',

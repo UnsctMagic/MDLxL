@@ -88,7 +88,7 @@ const check = (name, value) => { checks.push({ name, passed: !!value }); assert.
     res.end('data: ' + JSON.stringify({ choices: [typeof response === 'string' ? { delta: { content: response }, finish_reason: 'stop' } : response], usage: { prompt_tokens: cooperativeMain >= 5 && !cooperativeResume && !system.startsWith('You are a read-only') ? 80000 : 100, completion_tokens: 20 } }) + '\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  app = await _electron.launch({ executablePath: process.env.MDLXL_AI_TEST_EXE, args: [fixture], env: { ...process.env, MDLXL_PROFILE: profile, MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') }, timeout: 60000 });
+  app = await _electron.launch({ executablePath: process.env.MDLXL_TEST_EXE, args: [fixture], env: { ...process.env, MDLXL_PROFILE: profile, MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') }, timeout: 60000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.unmaximize(); w.setContentSize(1440, 900); });

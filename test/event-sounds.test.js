@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url), {CascTextures, soundCandidates} = require('../electron/casc.cjs');
 const {TextureResolver} = require('../electron/texture-resolver.cjs');
 
@@ -16,7 +17,7 @@ test('sound resolution uses exact identity, installed locale and base before HD'
 });
 
 test('cached missing filename does not block indexed CKey audio; restart reuses index', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'mdlxl-sound-')), folder = path.join(dir, 'game'), cacheDirectory = path.join(dir, 'cache');
+  const dir = tempDir('mdlxl-sound-'), folder = path.join(dir, 'game'), cacheDirectory = path.join(dir, 'cache');
   const {mkdir} = await import('node:fs/promises'); await mkdir(folder); await writeFile(path.join(folder, '.build.info'), 'enUS speech?');
   const requested = 'war3.w3mod:units\\human\\hero\\warcry1.flac', sourceName = 'war3.w3mod:_locales\\enus.w3mod:units\\human\\hero\\warcry1.ogg', key = 'ab'.repeat(16), bytes = Buffer.from('OggS data');
   let listed = 0, reads = 0;

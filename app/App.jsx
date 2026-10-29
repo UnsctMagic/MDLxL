@@ -102,6 +102,7 @@ import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
+import { exposeAppForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
 
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
@@ -387,6 +388,7 @@ export default function App() {
   const selectionState = { selectable, visibleOnly, selection, activeGeoset, uvSet, selectedNodeIds };
   useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, selection, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
   latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
+  useEffect(() => exposeAppForTests(() => latest.current), []);
   const refresh = () => setTick(value => value + 1);
   // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
   const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };

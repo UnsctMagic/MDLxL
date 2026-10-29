@@ -41,7 +41,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   return answer({content:'Finished '+jobs[i].job});
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- app=await _electron.launch({executablePath:process.env.MDLXL_AI_TEST_EXE,args:[work],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLXL_DISABLE_UPDATES:'1',TEMP:path.join(out,'temp'),TMP:path.join(out,'temp')},timeout:60000});
+ app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE,args:[work],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLXL_DISABLE_UPDATES:'1',TEMP:path.join(out,'temp'),TMP:path.join(out,'temp')},timeout:60000});
  const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.unmaximize();w.setContentSize(1440,900)});
  await page.waitForSelector('.classic-toolbar',{timeout:60000});await page.waitForTimeout(1000);

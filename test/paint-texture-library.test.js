@@ -5,10 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
+import { tempDir } from './helpers/fixtures.cjs';
 const {PaintTextureLibrary}=createRequire(import.meta.url)('../electron/paint-textures.cjs');
 
 test('bundled defaults seed all 31 exact images, preserve collisions and respect later edits and deletions',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'citadel-defaults-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('citadel-defaults-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const seeds=path.resolve('public/paint-library'),manifest=JSON.parse(await fs.readFile(path.join(seeds,'manifest.json'),'utf8'));
   assert.equal(manifest.entries.length,31);assert.equal(new Set(manifest.entries.map(e=>e.path)).size,31);
   const collision=manifest.entries[0].path;
@@ -30,7 +31,7 @@ test('bundled defaults seed all 31 exact images, preserve collisions and respect
 });
 
 test('retirement deletes only unchanged seed bytes at their exact known path',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'citadel-retirement-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('citadel-retirement-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const stock=Buffer.from('known auto-seeded PNG bytes'),hash=createHash('sha256').update(stock).digest('hex');
   await fs.mkdir(path.join(root,'Metal'));await fs.mkdir(path.join(root,'Personal'));
   await fs.writeFile(path.join(root,'Metal','Old.png'),stock);await fs.writeFile(path.join(root,'Metal','Modified.png'),'personal changes');await fs.writeFile(path.join(root,'Metal','Renamed.png'),stock);await fs.writeFile(path.join(root,'Personal','Old.png'),stock);
@@ -39,7 +40,7 @@ test('retirement deletes only unchanged seed bytes at their exact known path',as
   await fs.writeFile(path.join(root,'Metal','Old.png'),'new user file');await library.list();assert.equal(await fs.readFile(path.join(root,'Metal','Old.png'),'utf8'),'new user file');
 });
 test('texture folders mirror disk renames, include empty folders and copy without overwriting',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'citadel-textures-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('citadel-textures-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const lib=new PaintTextureLibrary(path.join(root,'Textures'));
   const a=await lib.save({folder:'Custom/Armour',name:'Steel.blp',bytes:new Uint8Array([1,2,3])});
   assert.equal(a.path,path.join(root,'Textures','Custom','Armour','Steel.blp'),'Return the actual saved path for model material assignment');
@@ -51,7 +52,7 @@ test('texture folders mirror disk renames, include empty folders and copy withou
 });
 
 test('texture shelf accepts a DDS copy and keeps its path available for model assignment',async t=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'citadel-dds-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const root=tempDir('citadel-dds-');t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const lib=new PaintTextureLibrary(path.join(root,'Textures'));
   const saved=await lib.save({name:'Painted.dds',bytes:new Uint8Array([68,68,83,32])});
   assert.equal(saved.name,'Painted.dds');assert.deepEqual([...await fs.readFile(saved.path)],[68,68,83,32]);

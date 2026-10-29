@@ -19,6 +19,7 @@ const answer = (requestChannel, replyChannel, handler, options) => subscribe(req
   catch (error) { ipcRenderer.send(replyChannel, { requestId, error: String(error?.message || error) }); }
 }, options);
 contextBridge.exposeInMainWorld('desktop', {
+  testHook: process.env.MDLXL_TEST_HOOK === '1', // read-only window.__mdlxl for test harnesses (app/test-hook.js)
   aiStatus:provider=>call('ai:status',provider),
   aiGesture:payload=>call('ai:gesture',payload),
   aiConfigure:value=>call('ai:configure',value),

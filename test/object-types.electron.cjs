@@ -1,4 +1,4 @@
-// Run against the rebuilt portable app with MDLXL_EXE; all fixtures/profiles use D:.
+// Run against the rebuilt portable app with MDLXL_TEST_EXE; all fixtures/profiles use D:.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -22,7 +22,7 @@ const { buildSync } = require('esbuild');
   const errors = [], result = { palettes: [], drags: [] };
   let app, page;
   const launch = async () => {
-    const exe = process.env.MDLXL_EXE;
+    const exe = process.env.MDLXL_TEST_EXE;
     app = await _electron.launch({ executablePath: exe || path.resolve('node_modules/electron/dist/electron.exe'), args: exe ? [fixture, '--disable-backgrounding-occluded-windows'] : [root, fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => { const w=BrowserWindow.getAllWindows()[0]; w.setSize(1600,1000); w.setPosition(-3000,0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });

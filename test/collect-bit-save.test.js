@@ -10,12 +10,13 @@ import { build } from 'esbuild';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { collectPart, commitPart } from '../src/bits-and-parts.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { BitsAndPartsLibrary } = require('../electron/bits-and-parts.cjs');
 const built = await build({ entryPoints: [fileURLToPath(new URL('../app/CollectBit.jsx', import.meta.url))], bundle: true, write: false, format: 'cjs', platform: 'node', packages: 'external', logLevel: 'silent', plugins: [{ name: 'preview-only', setup(build) { build.onResolve({ filter: /\/(Viewport|PartAnimations)\.jsx$/ }, args => ({ path: args.path, external: true })); } }] });
 
 for (const image of ['Textures\\Native.blp', 'Custom/My Skin.PNG', '_hd.w3mod:Textures\\Native.dds', 'MDLxL_Forge\\custom.tga']) test(`Collect Bit saves and reimports original path without loading texture data: ${image}`, async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-collect-handler-'));
+  const directory = tempDir('mdlxl-collect-handler-');
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const library = new BitsAndPartsLibrary(directory), doc = createStarterDocument();
   doc.model.Textures[0].Image = image;

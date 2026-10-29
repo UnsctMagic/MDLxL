@@ -57,7 +57,7 @@ async function waitFor(check, timeout = 10000) {
 }
 async function launch(fixture) {
   app = await _electron.launch({
-    executablePath: process.env.MDLXL_AI_TEST_EXE,
+    executablePath: process.env.MDLXL_TEST_EXE,
     args: [fixture],
     env: {
       ...process.env,

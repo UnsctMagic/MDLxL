@@ -9,7 +9,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'badges.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const app = await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH, args:['--disable-gpu-vsync','--disable-frame-rate-limit',fixture], cwd:root,
+  const app = await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE, args:['--disable-gpu-vsync','--disable-frame-rate-limit',fixture], cwd:root,
     env:{...process.env, MDLXL_PROFILE:profile, MDLVIS_HEADLESS:'1'}, timeout:60000});
   const errors = [];
   try {

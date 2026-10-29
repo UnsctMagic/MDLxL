@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
 const { AiRecorder } = require('../electron/ai-offload.cjs');
@@ -11,7 +12,7 @@ const { CodexProcess, runClaude } = require('../electron/ai-providers.cjs');
 const { mcpForm } = require('../electron/ai-user-input.cjs');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function setup(t) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-protocol-'));
+  const profile = tempDir('mdlxl-protocol-');
   const service = new AiService({ root: '.', profile, electron: { shell: { openExternal: async url => opened.push(url) } }, getWindow: () => null });
   await fs.mkdir(service.directory, { recursive: true });
   const events = [], sent = [], opened = [];

@@ -11,6 +11,7 @@ import { OptimizeXLSession } from '../src/optimizexl-session.js';
 import { sampleNodeMatrices } from '../src/animation.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 import { prepareNuclearReduction } from '../src/optimizexl-geometry.js';
+import { tempDir } from './helpers/fixtures.cjs';
 await prepareNuclearReduction();
 const {backupModelFile}=createRequire(import.meta.url)('../electron/optimizexl-save.cjs');
 const fixture=()=>createStarterDocument().serialize('mdx');
@@ -88,7 +89,7 @@ test('nuclear is reversible at zero; real edge collapses reduce bytes and respec
  const faces=after.Geosets[0].Faces,keys=Array.from({length:faces.length/3},(_,i)=>Array.from(faces.slice(i*3,i*3+3)).sort((a,b)=>a-b).join(':'));assert.equal(new Set(keys).size,keys.length);
 });
 test('backup copies the open file beside itself and never overwrites an existing file',async()=>{
- const dir=await fs.mkdtemp(path.join(os.tmpdir(),'optimizexl-')),bytes=fixture();try{
+ const dir=tempDir('optimizexl-'),bytes=fixture();try{
   const original=path.join(dir,'source.mdx');await fs.writeFile(original,bytes);
   const [a,b]=await Promise.all([backupModelFile(original),backupModelFile(original)]);
   assert.deepEqual([a,b].map(f=>path.basename(f)).sort(),['source_backup.mdx','source_backup_2.mdx']);
@@ -97,7 +98,7 @@ test('backup copies the open file beside itself and never overwrites an existing
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
 test('a backup that does not match the original is removed and reported',async()=>{
- const dir=await fs.mkdtemp(path.join(os.tmpdir(),'optimizexl-fail-')),bytes=fixture();try{
+ const dir=tempDir('optimizexl-fail-'),bytes=fixture();try{
   const original=path.join(dir,'source.mdl');await fs.writeFile(original,bytes);
   const io={...fs,copyFile:async(from,to,mode)=>{await fs.writeFile(to,'partial',{flag:'wx'});}};
   await assert.rejects(backupModelFile(original,io),/verification failed/);assert.deepEqual(await fs.readdir(dir),['source.mdl']);

@@ -49,6 +49,7 @@ import { scalePlaybackDelta } from '../src/playback-speed.js';
 import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout, portraitCompositionRect } from './portrait-view.js';
 import './portrait-view.css';
 import ShowcaseLayers from './ShowcaseLayers.jsx';
+import { exposePreviewForTests } from './test-hook.js';
 
 import { gamePathKey as pathKey } from '../src/game-path.js';
 let humanFramePromise;
@@ -1741,6 +1742,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, props.showGrid, props.overlays?.grid, props.preferences?.grid, props.portraitSettings?.composition]);
   useEffect(() => { runtime.current?.drawBackground(); }, [props.preferences?.visuals?.background, props.preferences?.viewportAppearance?.background]);
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
+  useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
   useEffect(() => { if (model) runtime.current?.updateUV(model); }, [model, revision, props.uvRevision]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);

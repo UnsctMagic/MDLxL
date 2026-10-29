@@ -8,7 +8,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { movementAxisHandles, pickMovementHandle } = await import('../app/movement-overlay.js');
   const { openDocument } = await import('../src/editor-document.js');
   const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-move-gizmo-layout-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-move-gizmo-spaced-package/MDLxL-win32-x64/MDLxL.exe');
+  const executablePath = path.resolve(process.env.MDLXL_TEST_EXE || 'out/pose-move-gizmo-spaced-package/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
 
   const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name)&&!/portrait/i.test(s.Name))), frame = sourceModel.Sequences[sequence].Interval[0];

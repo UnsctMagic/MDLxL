@@ -5,6 +5,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createPreviewGIF } from '../src/preview-gif.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const { savePreviewCapture } = createRequire(import.meta.url)('../electron/preview-capture.cjs');
 function frame(color, width = 8, height = 6) { const values = new Uint8Array(width * height * 4); for (let i = 0; i < values.length; i += 4) values.set([...color, 255], i); return values; }
 test('GIF records actual elapsed delays and opaque frames with fixed size', () => {
@@ -22,7 +23,7 @@ test('GIF rejects changing size and malformed frame data', () => {
   assert.throws(()=>gif.add(new Uint8Array(1),8,6,50),/Invalid/);
 });
 test('Capture writes unique preview-only filenames and validates data before writing', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(),'mdlvis-capture-'));
+  const directory = tempDir('mdlvis-capture-');
   try {
     const gif = createPreviewGIF(); gif.add(frame([20,40,80]),8,6,0); const {bytes} = gif.finish(100);
     const first = await savePreviewCapture(directory,{format:'gif',bytes,path:'../forbidden.mdx',name:'forbidden.mdx'});
@@ -36,7 +37,7 @@ test('Capture writes unique preview-only filenames and validates data before wri
 });
 
 test('screenshot batches stay under the model and keep a unique ID even for long animation names', async () => {
-  const directory=await mkdtemp(path.join(os.tmpdir(),'mdlxl-shots-'));
+  const directory=tempDir('mdlxl-shots-');
   const bytes=Uint8Array.from([137,80,78,71,13,10,26,10,0,0]);
   try{
     const payload={format:'png',bytes,modelName:'Unit.mdx',animationName:'A'.repeat(200),screenshotBatch:'a12b34cd-1234-4567-8901-123456789012',shotIndex:1};

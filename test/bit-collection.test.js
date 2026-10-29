@@ -8,6 +8,7 @@ import { openDocument, validateModel } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { collectPart, collectedPartModel, commitPart, previewPart, selectPartAnimations, serializeCollectedPart } from '../src/bits-and-parts.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const { BitsAndPartsLibrary } = createRequire(import.meta.url)('../electron/bits-and-parts.cjs');
 
 function donor(version = 800) {
@@ -130,7 +131,7 @@ test('as-is import retains out-of-sequence keys and relative timing without samp
 });
 
 test('library saves only the Bit and its original texture paths, ignoring texture payloads and collisions', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-collect-bit-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const directory = tempDir('mdlxl-collect-bit-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
   const model = collectedPartModel(collectPart(donor().model, selection), { name: 'My Bit' });
   const asset = { name: 'Textures\\My Bit\\Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]) };
