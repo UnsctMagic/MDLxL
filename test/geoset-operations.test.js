@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { gather, updateBounds } from '../src/mesh-tools.js';
+import { gatherStreams, updateBounds } from '../src/mesh-tools.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
 
 test('merging animated extents accepts omitted optional radii without losing bounds', () => {
@@ -33,12 +33,12 @@ test('delete free vertices uses checked geosets, preserves every kept stream, an
   const doc = createDemoDocument();
   doc.apply('Prepare free vertices', ['Geosets'], model => {
     const selected = model.Geosets[0], unselected = model.Geosets[1], boneId = model.Bones[0].ObjectId;
-    Object.assign(selected, gather(selected, [0, 1, 2, 3]));
+    Object.assign(selected, gatherStreams(selected, [0, 1, 2, 3]));
     selected.Faces = Uint16Array.of(0, 2, 1);
     selected.PrimitiveTypes = Uint32Array.of(4); selected.PrimitiveCounts = Uint32Array.of(3);
     selected.Tangents = Float32Array.from(Array.from({ length: 4 }, (_, index) => [index, index + 0.25, index + 0.5, 1]).flat());
     selected.SkinWeights = Uint8Array.from(Array.from({ length: 4 }, () => [boneId, 0, 0, 0, 255, 0, 0, 0]).flat());
-    Object.assign(unselected, gather(unselected, [0, 1, 2, 3]));
+    Object.assign(unselected, gatherStreams(unselected, [0, 1, 2, 3]));
     unselected.Faces = Uint16Array.of(0, 1, 2);
     unselected.PrimitiveTypes = Uint32Array.of(4); unselected.PrimitiveCounts = Uint32Array.of(3);
   });
@@ -50,8 +50,8 @@ test('delete free vertices uses checked geosets, preserves every kept stream, an
   assert.deepEqual(result.removedGeosets, []);
   assert.deepEqual(result.oldToNew, { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4 });
   assert.deepEqual(result.vertexMaps[0], { 0: 0, 1: 1, 2: 2 });
-  for (const field of ['Vertices', 'Normals', 'VertexGroup', 'Tangents', 'SkinWeights']) assert.deepEqual(doc.model.Geosets[0][field], gather(beforeSelected, [0, 1, 2])[field]);
-  assert.deepEqual(doc.model.Geosets[0].TVertices, gather(beforeSelected, [0, 1, 2]).TVertices);
+  for (const field of ['Vertices', 'Normals', 'VertexGroup', 'Tangents', 'SkinWeights']) assert.deepEqual(doc.model.Geosets[0][field], gatherStreams(beforeSelected, [0, 1, 2])[field]);
+  assert.deepEqual(doc.model.Geosets[0].TVertices, gatherStreams(beforeSelected, [0, 1, 2]).TVertices);
   assert.deepEqual(doc.model.Geosets[0].Faces, Uint16Array.of(0, 2, 1));
   assert.deepEqual(doc.model.Geosets[1], beforeUnselected);
   assert.equal(deleteFreeVertices(doc.model, new Set([0])), false);
@@ -66,7 +66,7 @@ test('delete free vertices removes an all-free checked geoset and preserves refe
   const doc = createDemoDocument();
   const freeIndex = doc.apply('Prepare free geoset', ['Geosets', 'GeosetAnims', 'Gliders', 'Info'], model => {
     const source = model.Geosets[0], free = structuredClone(source);
-    Object.assign(free, gather(source, [0]));
+    Object.assign(free, gatherStreams(source, [0]));
     free.Faces = new Uint16Array(); free.PrimitiveTypes = new Uint32Array(); free.PrimitiveCounts = new Uint32Array();
     const index = model.Geosets.push(free) - 1;
     model.GeosetAnims.push({ ...structuredClone(model.GeosetAnims[0]), GeosetId: index });
@@ -94,7 +94,7 @@ test('nuclear separation only acts on selected vertices and retains every stream
   const doc = createDemoDocument();
   doc.apply('Prepare loose parts', ['Geosets'], model => {
     const g = model.Geosets[0];
-    Object.assign(g, gather(g, [0, 1, 2, 3, 4, 5, 6]));
+    Object.assign(g, gatherStreams(g, [0, 1, 2, 3, 4, 5, 6]));
     g.Faces = Uint16Array.of(0, 1, 2, 3, 4, 5);
     g.PrimitiveTypes = Uint32Array.of(4);
     g.PrimitiveCounts = Uint32Array.of(6);
@@ -106,10 +106,10 @@ test('nuclear separation only acts on selected vertices and retains every stream
   assert.equal(doc.model.Geosets.length, 7);
   const left = doc.model.Geosets[0], right = doc.model.Geosets[5], loose = doc.model.Geosets[6];
   for (const [piece, indices] of [[left, [0, 1, 2]], [right, [3, 4, 5]], [loose, [6]]]) {
-    assert.deepEqual(piece.Vertices, gather(before, indices).Vertices);
-    assert.deepEqual(piece.Normals, gather(before, indices).Normals);
-    assert.deepEqual(piece.TVertices, gather(before, indices).TVertices);
-    assert.deepEqual(piece.VertexGroup, gather(before, indices).VertexGroup);
+    assert.deepEqual(piece.Vertices, gatherStreams(before, indices).Vertices);
+    assert.deepEqual(piece.Normals, gatherStreams(before, indices).Normals);
+    assert.deepEqual(piece.TVertices, gatherStreams(before, indices).TVertices);
+    assert.deepEqual(piece.VertexGroup, gatherStreams(before, indices).VertexGroup);
     assert.deepEqual(Array.from(piece.Faces), indices.length === 1 ? [] : [0, 1, 2]);
     assert.deepEqual(piece.Groups, before.Groups);
   }
@@ -129,7 +129,7 @@ test('refined separation joins unwelded edges, keeps intersecting objects distin
     const doc = createDemoDocument();
     doc.apply('Prepare stitched geometry', ['Geosets'], model => {
       const g = model.Geosets[0];
-      Object.assign(g, gather(g, Array.from({ length: 9 }, (_, index) => index)));
+      Object.assign(g, gatherStreams(g, Array.from({ length: 9 }, (_, index) => index)));
       g.Vertices.set([
         0, 0, 0, 2, 0, 0, 2, 2, 0,
         0, 0, 0, 2, 2, 0, 0, 2, 0,
@@ -190,7 +190,7 @@ test('half of a loose part selects the whole part, while less than half leaves i
     const doc = createDemoDocument();
     doc.apply('Prepare two loose parts', ['Geosets'], model => {
       const g = model.Geosets[0];
-      Object.assign(g, gather(g, Array.from({ length: 9 }, (_, index) => index)));
+      Object.assign(g, gatherStreams(g, Array.from({ length: 9 }, (_, index) => index)));
       g.Vertices.set([0, 0, 0, 2, 0, 0, 2, 2, 0, 0, 0, 0, 2, 2, 0, 0, 2, 0, 10, 0, 0, 11, 0, 0, 10, 1, 0]);
       g.Faces = Uint16Array.from(Array.from({ length: 9 }, (_, index) => index));
       g.PrimitiveTypes = Uint32Array.of(4); g.PrimitiveCounts = Uint32Array.of(9);

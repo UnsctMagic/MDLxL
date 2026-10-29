@@ -7,46 +7,69 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const normalized = (a) => { const length = Math.hypot(...a); return length > 1e-12 ? a.map((v) => v / length) : [1, 0, 0]; };
 const position = (g, i) => Array.from(g.Vertices.subarray(i * 3, i * 3 + 3));
 
-function validate(g, indices) {
-  if (!g || !ArrayBuffer.isView(g.Vertices) || g.Vertices.length % 3) throw new Error('The geoset has invalid vertex data.');
-  const count = g.Vertices.length / 3;
-  if (!count || count > LIMIT) throw new Error('The geoset must contain 1–65536 vertices.');
-  const arrays = [['Vertices', 3], ['Normals', 3], ['VertexGroup', 1]];
-  if (g.Tangents != null) arrays.push(['Tangents', 4]);
-  if (g.SkinWeights != null) arrays.push(['SkinWeights', 8]);
-  for (const [name, stride] of arrays) {
-    if (!ArrayBuffer.isView(g[name]) || g[name].length !== count * stride) throw new Error(`${name} does not match the vertex count.`);
-    if (g[name].some((v) => !Number.isFinite(v))) throw new Error(`${name} contains non-finite values.`);
+// Each command family keeps its own wording. Mesh commands (weld, detach,
+// extrude) use requireFaces: triangles must exist and any Tangents or
+// SkinWeights array must be complete. Classic commands skip empty ones.
+const SELECTION_CHECKS = {
+  mesh: {
+    vertices: 'The geoset has invalid vertex data.', noVertices: 'The geoset must contain 1–65536 vertices.', limit: 'The geoset must contain 1–65536 vertices.',
+    size: name => `${name} does not match the vertex count.`, finite: name => `${name} contains non-finite values.`,
+    uvSets: 'The geoset has invalid UV sets.', uv: 'A UV set does not match the vertices or contains invalid values.',
+    faces: 'The geoset contains invalid triangle references.', groups: 'The geoset contains invalid matrix-group references.',
+  },
+  classic: {
+    vertices: 'The geoset needs complete vertex coordinates.', noVertices: 'The geoset needs complete vertex coordinates.', limit: 'The geoset exceeds the 65536-vertex file-format limit.',
+    size: name => `${name} does not match the vertices or contains invalid values.`, finite: name => `${name} does not match the vertices or contains invalid values.`,
+    uvSets: 'Texture coordinates do not match the vertices.', uv: 'Texture coordinates do not match the vertices.',
+    faces: 'The geoset contains invalid triangles.', groups: 'The geoset contains invalid vertex-group references.',
+  },
+};
+const VERTEX_STREAMS = [['Vertices', 3], ['Normals', 3], ['VertexGroup', 1], ['Tangents', 4], ['SkinWeights', 8]];
+
+/** Check a vertex selection and the geoset it belongs to; returns the vertex
+ * count and the unique selected indices. streams: false checks the selection
+ * only; message replaces both selection messages. */
+export function checkedVertexSelection(g, indices, { requireFaces = false, allowEmpty = false, streams = true, message } = {}) {
+  let count = (g?.Vertices?.length || 0) / 3;
+  if (streams) {
+    const check = SELECTION_CHECKS[requireFaces ? 'mesh' : 'classic'];
+    if (!g || !ArrayBuffer.isView(g.Vertices) || g.Vertices.length % 3) throw new Error(check.vertices);
+    if (!count) throw new Error(check.noVertices);
+    if (count > LIMIT) throw new Error(check.limit);
+    for (const [name, stride] of VERTEX_STREAMS) {
+      const data = g[name];
+      if (stride > 3 && (requireFaces ? data == null : !data?.length)) continue;
+      if (!ArrayBuffer.isView(data) || data.length !== count * stride) throw new Error(check.size(name));
+      if (data.some((v) => !Number.isFinite(v))) throw new Error(check.finite(name));
+    }
+    if (!Array.isArray(g.TVertices)) throw new Error(check.uvSets);
+    if (g.TVertices.some((uv) => !ArrayBuffer.isView(uv) || uv.length !== count * 2 || uv.some((v) => !Number.isFinite(v)))) throw new Error(check.uv);
+    if (!ArrayBuffer.isView(g.Faces) || requireFaces && !g.Faces.length || g.Faces.length % 3 || g.Faces.some((v) => !Number.isInteger(v) || v < 0 || v >= count)) throw new Error(check.faces);
+    if (!Array.isArray(g.Groups) || g.VertexGroup.some((v) => !Number.isInteger(v) || !g.Groups[v])) throw new Error(check.groups);
   }
-  if (!Array.isArray(g.TVertices)) throw new Error('The geoset has invalid UV sets.');
-  for (const uv of g.TVertices) if (!ArrayBuffer.isView(uv) || uv.length !== count * 2 || uv.some((v) => !Number.isFinite(v))) throw new Error('A UV set does not match the vertices or contains invalid values.');
-  if (!ArrayBuffer.isView(g.Faces) || !g.Faces.length || g.Faces.length % 3 || g.Faces.some((v) => !Number.isInteger(v) || v < 0 || v >= count)) throw new Error('The geoset contains invalid triangle references.');
-  if (!Array.isArray(g.Groups) || g.VertexGroup.some((v) => !Number.isInteger(v) || !g.Groups[v])) throw new Error('The geoset contains invalid matrix-group references.');
-  if (!indices || typeof indices[Symbol.iterator] !== 'function') throw new Error('Select vertices first.');
-  const selected = [...new Set(indices)];
-  if (!selected.length) throw new Error('Select vertices first.');
-  if (selected.some((i) => !Number.isInteger(i) || i < 0 || i >= count)) throw new Error('Vertex selection is out of range.');
+  if (indices != null && typeof indices[Symbol.iterator] !== 'function') throw new Error(message || 'Select vertices first.');
+  const selected = [...new Set(indices ?? [])];
+  if (!selected.length && !allowEmpty) throw new Error(message || 'Select vertices first.');
+  if (selected.some((i) => !Number.isInteger(i) || i < 0 || i >= count)) throw new Error(message || 'Vertex selection is out of range.');
   return { count, selected };
 }
+const validate = (g, indices) => checkedVertexSelection(g, indices, { requireFaces: true });
 
 export function updateBounds(g) {
   Object.assign(g, geosetBounds(g.Vertices));
 }
 
-/** Copy every standard SD/HD vertex stream, retaining each typed array type. */
-export function gather(g, sourceIndices) {
-  const take = (array, stride) => {
-    const out = new array.constructor(sourceIndices.length * stride);
-    sourceIndices.forEach((old, i) => out.set(array.subarray(old * stride, old * stride + stride), i * stride));
+/** Copy the vertex streams a geoset has (UVs, positions, normals, groups,
+ * tangents, skin weights) for these vertices, keeping each typed array type. */
+export function gatherStreams(g, indices) {
+  const take = (data, stride) => {
+    const out = new data.constructor(indices.length * stride);
+    for (let i = 0; i < indices.length; i++) out.set(data.subarray(indices[i] * stride, indices[i] * stride + stride), i * stride);
     return out;
   };
-  const data = {
-    Vertices: take(g.Vertices, 3), Normals: take(g.Normals, 3), VertexGroup: take(g.VertexGroup, 1),
-    TVertices: g.TVertices.map((uv) => take(uv, 2)),
-  };
-  if (g.Tangents != null) data.Tangents = take(g.Tangents, 4);
-  if (g.SkinWeights != null) data.SkinWeights = take(g.SkinWeights, 8);
-  return data;
+  const result = { TVertices: g.TVertices.map((uv) => take(uv, 2)) };
+  for (const [name, stride] of VERTEX_STREAMS) if (g[name]?.length) result[name] = take(g[name], stride);
+  return result;
 }
 
 function completeFaces(g, selected) {
@@ -104,7 +127,7 @@ export function weldVertices(geoset, indices, epsilon = 1e-5) {
     if (new Set(face).size === 3) faces.push(...face);
   }
   if (!faces.length) throw new Error('This weld would remove every triangle from the geoset.');
-  const streams = gather(geoset, kept);
+  const streams = gatherStreams(geoset, kept);
   Object.assign(geoset, streams, { Faces: new Uint16Array(faces) }); updateBounds(geoset);
   return { merged: removed.size, selection: [...new Set(selected.map((old) => remap.get(representatives.get(old) ?? old)))] };
 }
@@ -120,9 +143,9 @@ export function detachFaces(model, geosetIndex, indices) {
   const kept = Array.from({ length: count }, (_, i) => i).filter((i) => !movedSet.has(i) || remainingUsed.has(i));
   const remapSource = new Map(kept.map((old, i) => [old, i]));
   const remapDetached = new Map(used.map((old, i) => [old, i]));
-  const detached = Object.assign(structuredClone(geoset), gather(geoset, used), { Faces: new Uint16Array(chosen.flatMap((face) => face.map((i) => remapDetached.get(i)))) });
+  const detached = Object.assign(structuredClone(geoset), gatherStreams(geoset, used), { Faces: new Uint16Array(chosen.flatMap((face) => face.map((i) => remapDetached.get(i)))) });
   if (own(detached, 'Name')) detached.Name = `${(detached.Name || 'Geoset').slice(0, 70)} detached`;
-  const remaining = { ...gather(geoset, kept), Faces: new Uint16Array(rest.flatMap((face) => face.map((i) => remapSource.get(i)))) };
+  const remaining = { ...gatherStreams(geoset, kept), Faces: new Uint16Array(rest.flatMap((face) => face.map((i) => remapSource.get(i)))) };
   updateBounds(detached); updateBounds(remaining);
   const newIndex = model.Geosets.length;
   const animations = (model.GeosetAnims || []).filter((a) => a.GeosetId === geosetIndex).map((a) => ({ ...structuredClone(a), GeosetId: newIndex }));
@@ -182,7 +205,7 @@ export function extrudeFaces(geoset, indices, delta = [0, 0, 10]) {
     return { a, b, normal, tangent, uvs };
   });
   const sourceIndices = [...kept, ...used, ...walls.flatMap(({ a, b }) => [a, b, b, a])];
-  const data = gather(geoset, sourceIndices);
+  const data = gatherStreams(geoset, sourceIndices);
   const topMap = new Map(used.map((old, i) => [old, kept.length + i]));
   const keptMap = new Map(kept.map((old, i) => [old, i]));
   for (const index of topMap.values()) for (let axis = 0; axis < 3; axis++) data.Vertices[index * 3 + axis] += delta[axis];

@@ -1,7 +1,7 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
 import { appendGeosetGeometry, deleteGeoset, removeGeosets } from './editor-document.js';
-import { gather, updateBounds } from './mesh-tools.js';
+import { gatherStreams, updateBounds } from './mesh-tools.js';
 
 const textureSlots = TEXTURE_SLOTS;
 const geometryFields = new Set(['Vertices', 'Normals', 'Faces', 'TVertices', 'VertexGroup', 'Groups', 'TotalGroupsCount', 'Tangents', 'SkinWeights', 'PrimitiveTypes', 'PrimitiveCounts', 'MinimumExtent', 'MaximumExtent', 'BoundsRadius', 'Anims', 'MaterialID', 'Name']);
@@ -292,7 +292,7 @@ function groupSmallDetails(parts) {
 function piece(g, component) {
   const remap = new Map(component.vertices.map((old, index) => [old, index]));
   const result = structuredClone(g);
-  Object.assign(result, gather(g, component.vertices));
+  Object.assign(result, gatherStreams(g, component.vertices));
   result.Faces = new g.Faces.constructor(component.faces.map(index => remap.get(index)));
   result.PrimitiveTypes = result.Faces.length ? Uint32Array.of(4) : new Uint32Array();
   result.PrimitiveCounts = result.Faces.length ? Uint32Array.of(result.Faces.length) : new Uint32Array();
@@ -365,7 +365,7 @@ export function deleteFreeVertices(model, geosetIndices) {
     if (!plan.kept.length) { removedGeosets.push(plan.index); continue; }
     const geoset = geosets[plan.index], remap = new Map(plan.kept.map((old, next) => [old, next]));
     vertexMaps[plan.index] = Object.fromEntries(remap);
-    Object.assign(geoset, gather(geoset, plan.kept));
+    Object.assign(geoset, gatherStreams(geoset, plan.kept));
     geoset.Faces = new geoset.Faces.constructor(Array.from(geoset.Faces, vertex => remap.get(vertex)));
     updateBounds(geoset);
   }

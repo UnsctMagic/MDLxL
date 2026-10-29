@@ -1,7 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { weldVertices, detachFaces, extrudeFaces, updateBounds } from '../src/mesh-tools.js';
+import { weldVertices, detachFaces, extrudeFaces, updateBounds, checkedVertexSelection, gatherStreams } from '../src/mesh-tools.js';
 import { createDemoDocument, openDocument, geosetBounds } from '../src/editor-document.js';
+
+test('checkedVertexSelection keeps each command family\'s rules and wording', () => {
+  const g = () => ({ Vertices: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), Normals: new Float32Array(9), VertexGroup: new Uint8Array(3), Groups: [[0]], TVertices: [new Float32Array(6)], Faces: new Uint16Array([0, 1, 2]) });
+  assert.deepEqual(checkedVertexSelection(g(), [2, 0, 2]), { count: 3, selected: [2, 0] });
+  // Mesh commands need triangles and complete optional streams; classic ones skip empty streams.
+  const faceless = Object.assign(g(), { Faces: new Uint16Array() }), noTangents = Object.assign(g(), { Tangents: new Float32Array() });
+  assert.throws(() => checkedVertexSelection(faceless, [0], { requireFaces: true }), /^Error: The geoset contains invalid triangle references\.$/);
+  assert.deepEqual(checkedVertexSelection(faceless, [0]).selected, [0]);
+  assert.throws(() => checkedVertexSelection(noTangents, [0], { requireFaces: true }), /^Error: Tangents does not match the vertex count\.$/);
+  assert.deepEqual(checkedVertexSelection(noTangents, [0]).selected, [0]);
+  const badNormals = Object.assign(g(), { Normals: new Float32Array([NaN, 0, 0, 0, 0, 0, 0, 0, 0]) });
+  assert.throws(() => checkedVertexSelection(badNormals, [0], { requireFaces: true }), /^Error: Normals contains non-finite values\.$/);
+  assert.throws(() => checkedVertexSelection(badNormals, [0]), /^Error: Normals does not match the vertices or contains invalid values\.$/);
+  assert.throws(() => checkedVertexSelection({ Vertices: new Float32Array() }, [0], { requireFaces: true }), /1–65536 vertices/);
+  assert.throws(() => checkedVertexSelection({ Vertices: new Float32Array() }, [0]), /complete vertex coordinates/);
+  // Selection only, as the vertex and bone commands use it.
+  assert.throws(() => checkedVertexSelection(g(), []), /^Error: Select vertices first\.$/);
+  assert.throws(() => checkedVertexSelection(g(), [3]), /^Error: Vertex selection is out of range\.$/);
+  assert.deepEqual(checkedVertexSelection({ Vertices: [] }, undefined, { streams: false, allowEmpty: true }), { count: 0, selected: [] });
+  assert.throws(() => checkedVertexSelection(g(), [9], { streams: false, message: 'Select valid vertices first.' }), /^Error: Select valid vertices first\.$/);
+});
+
+test('gatherStreams copies only the streams a geoset has', () => {
+  const g = { Vertices: new Float32Array([0, 1, 2, 3, 4, 5]), Normals: new Float32Array(), VertexGroup: new Uint8Array([4, 5]), TVertices: [new Float32Array([0, 1, 2, 3])], Tangents: new Float32Array(), SkinWeights: new Uint8Array(16).fill(7) };
+  assert.deepEqual(gatherStreams(g, [1]), { TVertices: [new Float32Array([2, 3])], Vertices: new Float32Array([3, 4, 5]), VertexGroup: new Uint8Array([5]), SkinWeights: new Uint8Array(8).fill(7) });
+});
 
 test('updateBounds uses the shared geoset bounds: an empty geoset gets zero extents', () => {
   const g = { Vertices: new Float32Array([0, 0, 0, 2, 4, 4]) };

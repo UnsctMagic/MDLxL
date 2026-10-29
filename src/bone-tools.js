@@ -1,5 +1,6 @@
 import { createNode, deleteNode } from './editor-document.js';
 import { bindVertices } from './editor-commands.js';
+import { checkedVertexSelection } from './mesh-tools.js';
 
 const IDENTITY_BIND_POSE = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
 
@@ -70,9 +71,7 @@ export function detachFromBone(model, childId) {
 }
 
 function selectedIndices(geoset, indices) {
-  const count = (geoset?.Vertices?.length || 0) / 3;
-  const ids = [...new Set(indices || [])];
-  if (!ids.length || ids.some(id => !Number.isInteger(id) || id < 0 || id >= count)) throw new Error('Select valid vertices first.');
+  const { count, selected: ids } = checkedVertexSelection(geoset, indices, { streams: false, message: 'Select valid vertices first.' });
   if (geoset.VertexGroup?.length !== count) throw new Error('Vertex groups do not match the vertex count.');
   if (geoset.SkinWeights?.length && geoset.SkinWeights.length !== count * 8) throw new Error('Skin weights do not match the vertex count.');
   return ids;
