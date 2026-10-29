@@ -5,7 +5,7 @@ export default function GlowUpControls({glow,choices,existing,error,onChange,onC
  // EMTR's own slider: range plus number, Escape restores the value from before the gesture.
  const before=useRef(null),brightness=field=>({begin:()=>{before.current=glow[field];},change:value=>set({[field]:Math.min(1,Math.max(.1,value/100))}),finish:()=>{before.current=null;},cancel:()=>{if(before.current!=null)set({[field]:before.current});before.current=null;}});
  const slider=(field,label)=><ParticleSlider label={label} field={field} value={Math.round(glow[field]*100)} min={10} max={100} step={1} {...brightness(field)}/>;
- return <div className="pe-placement pe-glow">
+ return <div className="pe-placement pe-glow" role="dialog" aria-modal="false" data-hotkey-prefix="glow-up" data-hotkey-scope="glow-up" aria-label="Glow Up">
   <strong>Glow Up</strong>
   {existing&&<small>This model already has hero glow; Glow Up adds another.</small>}
   <label className="pe-glow-toggle" title="The pulsing team-coloured glow on the ground under a hero. Three flat planes at the model's origin, like Blizzard's heroes."><input type="checkbox" checked={glow.origin} onChange={e=>set({origin:e.target.checked})}/>Origin glow</label>
@@ -16,6 +16,6 @@ export default function GlowUpControls({glow,choices,existing,error,onChange,onC
   {(glow.origin||glow.weapon)&&<small>Drag the handles in the preview, as with emitters: Move and the edge for the ground glow; the two ends (anywhere: onto a hammer's head, past the tip) and the corners for the weapon glow.</small>}
   <button disabled={!!error||(!glow.origin&&!glow.weapon)} onClick={onCreate}>Create</button>
   {error&&<small role="status">{error}</small>}
-  <button onClick={onCancel}>Cancel</button>
+  <button data-hotkey="close" onClick={onCancel}>Cancel</button>
  </div>;
 }

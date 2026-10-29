@@ -5,7 +5,7 @@ import { APPLICATION_THEMES } from '../src/preferences.js';
 import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
-import { useHotkeys } from './Hotkeys.jsx';
+import { useHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { Check, useDraftNumber } from './Fields.jsx';
 import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
 import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
@@ -320,8 +320,11 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     commit({ viewportPreset: 'custom', viewportPresets: prefs.viewportPresets.filter(preset => preset.id !== prefs.viewportPreset) });
     setMessage(`${removed?.name || 'Custom preset'} deleted. Current appearance was kept.`);
   };
+  useWindowKeyClaim(({event,localWindow}) => {
+    if (localWindow !== panel.current || event.key !== 'Escape' || !recording || event.target.closest('[data-hotkey-recording]')) return false;
+    setRecording(null); return true;
+  }, 20);
   const trapFocus = event => {
-    if (event.key === 'Escape' && !event.target.closest('[data-hotkey-recording]')) { event.preventDefault(); event.stopPropagation(); if (recording) setRecording(null); else onClose(); return; }
     if (event.key !== 'Tab' || event.target.closest('[data-hotkey-recording]')) return;
     const focusable = [...panel.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex="0"]')].filter(element => element.getClientRects().length);
     const first = focusable[0], last = focusable.at(-1);

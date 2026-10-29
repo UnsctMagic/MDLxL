@@ -16,7 +16,6 @@ export default function UpdatePrompt({ status, onInstall, onClose, disableSounds
   const release = status?.release, busy = ['downloading', 'ready'].includes(status?.state);
   useEffect(()=>{const previous=document.activeElement;document.querySelector('[data-hotkey="update:later"]')?.focus();return ()=>{if(previous?.isConnected)previous.focus();};},[]);
   const trapFocus = event => {
-    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!busy)onClose();}
     if(event.key!=='Tab')return;
     const controls=[...event.currentTarget.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(node=>node.getClientRects().length),first=controls[0],last=controls.at(-1);
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}

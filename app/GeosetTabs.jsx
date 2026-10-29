@@ -51,7 +51,7 @@ export default function GeosetTabs({ model, active, onActive, selected, edit, di
     <GeosetListBox overlay={current && <button className="geoset-tab-eye" aria-label={`Show tab ${current.name}`} aria-pressed={current.visible} disabled={disabled} title={current.visible ? `Hide ${current.name}` : `Show ${current.name}`} onClick={() => change('Set geoset tab visibility', currentModel => { currentModel[GEOSET_TABS_KEY].find(tab => tab.id === current.id).visible = !current.visible; })}>{current.visible ? <Eye size={12}/> : <EyeOff size={12}/>}</button>}>
       {children}
     </GeosetListBox>
-    {action && <div onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setAction(null); }} onContextMenu={event => event.stopPropagation()}>
+    {action && <div onKeyDown={event => { event.stopPropagation(); }} onContextMenu={event => event.stopPropagation()}>
       <Dialog title={title} onClose={() => setAction(null)} footer={<><button onClick={() => setAction(null)}>Cancel</button><button type="submit" form="geoset-tab-form" disabled={disabled || (action === 'move' ? !selected.size : !name.trim())}>{button}</button></>}>
         <form id="geoset-tab-form" onSubmit={submit}>
           {action === 'move' ? <select autoFocus aria-label="Move checked geosets to tab" value={targetId} onChange={event => setTarget(event.target.value)} disabled={disabled}><option value="">Ungrouped</option>{tabs.map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select> : <input autoFocus aria-label={action === 'create' ? 'New geoset tab name' : 'Geoset tab name'} placeholder="Tab name" value={name} onChange={event => setName(event.target.value)} disabled={disabled}/>}

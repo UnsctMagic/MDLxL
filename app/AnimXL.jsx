@@ -1,3 +1,5 @@
+import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { windowCommandActions } from '../src/commands.js';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
@@ -511,15 +513,17 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const selectedEffect = EFFECTS.find(e => e.id === selected);
   const status = outcome.error ? outcome.error : sectionDone ? 'Section committed. Drag over the next part of the timeline to shape it.' : target === 'selected' && !selection.length ? 'Click bones or POSE handles in the preview to choose what to shape.' : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Switch an effect on to shape the animation.';
 
-  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" ownEscape windowRef={dialog} onClose={onClose} onKeyDown={event => {
-    event.stopPropagation();
-    if (event.key === 'Escape') { event.preventDefault(); if (picking) setPicking(null); else onClose(); }
-    if (event.key === ' ' && !isTypingTarget(event.target)) { event.preventDefault(); setPlaying(v => !v); }
-    if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) { event.preventDefault(); undoSettings(event.key.toLowerCase() === 'y' || event.shiftKey); }
-  }}>
+  useWindowHotkeys('animxl', windowCommandActions('animxl', 'AnimXL', {undo: () => undoSettings(false), redo: () => undoSettings(true), play: () => setPlaying(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
+  useWindowKeyClaim(({event, localWindow}) => {
+    if (localWindow !== dialog.current || event.key !== 'Escape') return false;
+    if (naming != null && event.target.closest('[aria-label="Preset name"]')) { setNaming(null); return true; }
+    if (picking) { setPicking(null); return true; }
+    return false;
+  });
+  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" windowRef={dialog} onClose={onClose} sectionProps={{'data-hotkey-prefix':'animxl', 'data-hotkey-scope':'animxl'}}>
       <div className="ax-toolbar">
         <label title="The animation to shape">Animation <select aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
-        <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
+        <button data-hotkey="animxl:play" data-hotkey-absolute onClick={() => setPlaying(v => !v)} title="Play or pause the preview">{playing ? 'Pause' : 'Play'}</button>
         {/* The preview's speed is a percentage: 100 plays in real time. */}
         {[100, 50, 25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value}%</button>)}
         <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
@@ -651,13 +655,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <div className="ax-also">{sequences.map((s, i) => i === seq ? null : <label key={i} title={`Shape ${s.Name || 'this animation'} too when you commit`}><input type="checkbox" checked={also.includes(i)} onChange={event => setAlso(list => event.target.checked ? [...list, i] : list.filter(x => x !== i))}/> {s.Name || `Animation ${i + 1}`}</label>)}</div>
             {naming === null
               ? <button title="Remember the current settings as your own preset button, for any model" onClick={() => setNaming('')}>Save as preset…</button>
-              : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); if (event.key === 'Escape') { event.stopPropagation(); setNaming(null); } }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
+              : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
           </Section>
         </div>
       </div>
       <footer className="ax-footer">
         <span className="ax-status" role="status">{status}</span>
-        <button onClick={() => undoSettings(false)} title="Undo the last slider change (Ctrl+Z). Ctrl+Y redoes it.">Undo</button>
+        <button data-hotkey="animxl:undo" data-hotkey-absolute onClick={() => undoSettings(false)} title="Undo the last slider change">Undo</button>
         <button onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
         <button disabled={!result?.tracks.length || doc.readOnly} onClick={commitAsNew} title={`Keep ${sequences[seq]?.Name || 'this animation'} as it is and add the shaped version as a new animation named "${sequences[seq]?.Name || 'Animation'} (AnimXL)". Rename it in Animations if you want the game to use it.`}>Commit as new</button>
         <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{sectionOn ? 'Commit section' : also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>

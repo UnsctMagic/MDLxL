@@ -1,3 +1,4 @@
+import {useWindowKeyClaim,useHotkeys,controlActionId} from './Hotkeys.jsx';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {shapeSelection,magicSelection,combineSelection,featherSelection,extractPaintCutout} from '../src/paint-selection.js';
 import {flattenPaintRasterAlpha} from '../src/paint-raster.js';
@@ -7,7 +8,7 @@ import {paintMessage as msg} from '../src/paint-messages.js';
 
 /** Selection tools operate on a copyable mask. Closing never changes the source asset. */
 export default function PaintCutoutEditor({source,onClose,onUse,onSave,onMask,initialMask}) {
-  const {name}=source,raster=useMemo(()=>source.nativeSource?flattenPaintRasterAlpha(source.raster):source.raster,[source]),canvas=useRef(),maskCanvas=useRef(),drag=useRef(null),scroll=useRef(),image=useRef();
+  const {name}=source,raster=useMemo(()=>source.nativeSource?flattenPaintRasterAlpha(source.raster):source.raster,[source]),dialog=useRef(),canvas=useRef(),maskCanvas=useRef(),drag=useRef(null),scroll=useRef(),image=useRef();
   const [tool,setTool]=useState('crop'),[cropShape,setCropShape]=useState('rectangle'),[operation,setOperation]=useState('replace'),[tolerance,setTolerance]=useState(32),[contiguous,setContiguous]=useState(true),[feather,setFeather]=useState(0),[zoom,setZoom]=useState(()=>[8,4,2,1,.5,.25].find(v=>raster.width*v<window.innerWidth-160&&raster.height*v<window.innerHeight-300)||.25);
   const [mask,setMask]=useState(()=>initialMask?new Uint8ClampedArray(initialMask):new Uint8ClampedArray(raster.width*raster.height).fill(255)),[points,setPoints]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const navigation=usePaintImageNavigation(scroll,image,zoom,setZoom);
@@ -78,7 +79,13 @@ export default function PaintCutoutEditor({source,onClose,onUse,onSave,onMask,in
     setCropShape(shape);if(!crop)return;const bounds=cropBounds(crop),side=Math.min(bounds.width,bounds.height),end=shape==='square'||shape==='circle'?{x:bounds.left+side,y:bounds.top+side}:{x:bounds.right,y:bounds.bottom},next={...crop,shape,start:{x:bounds.left,y:bounds.top},end};remember(mask);setCrop(next);setMask(cropMask(next));
   }
   const a=points[0],b=points.at(-1);
-  const keyHint=keys=><kbd className="paint-key" aria-hidden="true">{keys}</kbd>;
+  const {shortcuts}=useHotkeys();
+  const closeButton=dialog.current?.querySelector('[data-hotkey="close"]'),closeKeys=closeButton?shortcuts[controlActionId(closeButton)]:undefined;
+  const keyHint=keys=><kbd className="paint-key" aria-hidden="true">{keys==='Esc' ? closeKeys?.join(' / ')||keys : keys}</kbd>;
+  useWindowKeyClaim(({event,localWindow})=>{
+    if(localWindow!==dialog.current||event.key!=='Escape'||!(drag.current||points.length))return false;
+    cancelDrag();return true;
+  });
   function keydown(event){
     event.stopPropagation();if(event.key!=='Escape'&&(event.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName)))return;
     const key=/^Key[A-Z]$/.test(event.code)?event.code.slice(3).toLowerCase():event.key.toLowerCase(),ctrl=event.ctrlKey||event.metaKey;let action;
@@ -92,8 +99,8 @@ export default function PaintCutoutEditor({source,onClose,onUse,onSave,onMask,in
   }
 
   return <div className="paint-modal-shade" tabIndex={-1} onKeyDown={keydown}>
-    <section className="paint-cutout-dialog" role="dialog" aria-modal="true" aria-label={onMask?'Paint region':msg('paint.cutout')}>
-      <header><strong>{onMask?'Paint region · Destination':msg('paint.cutout')} · {name}</strong><button autoFocus disabled={busy} onClick={onClose}>{msg('paint.close')}{keyHint('Esc')}</button></header>
+    <section ref={dialog} data-hotkey-prefix="cutout" className="paint-cutout-dialog" role="dialog" aria-modal="true" aria-label={onMask?'Paint region':msg('paint.cutout')}>
+      <header><strong>{onMask?'Paint region · Destination':msg('paint.cutout')} · {name}</strong><button data-hotkey="close" data-hotkey-badges="false" autoFocus disabled={busy} onClick={onClose}>{msg('paint.close')}{keyHint('Esc')}</button></header>
       <div className="paint-cutout-toolbar">{['crop','lasso','polygon','wand'].map(id=><button key={id} aria-pressed={tool===id} onClick={()=>changeTool(id)}>{msg('paint.select.'+id)}{keyHint(({crop:'R',lasso:'L',polygon:'P',wand:'W'})[id])}</button>)}
         {keyHint('O')}<select aria-label={msg('paint.selectionMode')} value={operation} onChange={e=>setOperation(e.target.value)}>{['replace','add','subtract','intersect'].map(id=><option key={id} value={id}>{msg('paint.select.'+id)}</option>)}</select>
         <button onClick={()=>commit(new Uint8ClampedArray(mask.length).fill(255))}>{msg('paint.select.all')}{keyHint('A')}</button><button onClick={()=>commit(new Uint8ClampedArray(mask.length))}>{msg('paint.select.none')}{keyHint('N')}</button><button onClick={()=>commit(Uint8ClampedArray.from(mask,v=>255-v))}>{msg('paint.select.invert')}{keyHint('I')}</button>

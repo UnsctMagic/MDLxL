@@ -1,3 +1,4 @@
+import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { useEffect, useRef } from 'react';
 
 const elementOf = item => typeof item === 'function' ? item() : item?.current;
@@ -10,8 +11,14 @@ const elementOf = item => typeof item === 'function' ? item() : item?.current;
  * Options: `escape` / `outside` choose the triggers, `capture` the listening phase,
  * `stopEscape` keeps the Escape that closed the popover from reaching anything else.
  */
-export default function useDismiss(open, refs, onClose, { escape = true, outside = true, capture = true, stopEscape = true } = {}) {
+export default function useDismiss(open, refs, onClose, { escape = true, outside = true, capture = true, stopEscape = true, claimEscape = false, escapePriority = 0 } = {}) {
   const latest = useRef(); latest.current = { refs, onClose };
+  useWindowKeyClaim(({event}) => {
+    if (!open || !escape || !claimEscape || event.key !== 'Escape') return false;
+    const elements = latest.current.refs.map(elementOf).filter(Boolean);
+    if (elements[0]?.ownerDocument !== event.target?.ownerDocument) return false;
+    latest.current.onClose(event); return true;
+  }, escapePriority);
   useEffect(() => {
     if (!open) return;
     const elements = () => latest.current.refs.map(elementOf).filter(Boolean);
@@ -24,7 +31,7 @@ export default function useDismiss(open, refs, onClose, { escape = true, outside
       latest.current.onClose(event);
     };
     if (outside) doc.addEventListener('pointerdown', press, capture);
-    if (escape) doc.addEventListener('keydown', key, capture);
+    if (escape && !claimEscape) doc.addEventListener('keydown', key, capture);
     return () => { doc.removeEventListener('pointerdown', press, capture); doc.removeEventListener('keydown', key, capture); };
-  }, [open, escape, outside, capture, stopEscape]);
+  }, [open, escape, outside, capture, stopEscape, claimEscape]);
 }

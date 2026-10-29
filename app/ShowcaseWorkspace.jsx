@@ -11,7 +11,8 @@ import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
 import { SHOWCASE_PRESETS, builtinSetup, listShowcasePresets, saveShowcasePreset, snapshotShowcase, hydrateShowcase } from './showcase-presets.js';
 import { ShowcaseHistory } from './showcase-history.js';
-import { chordFromEvent } from '../src/preferences.js';
+import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { windowCommandActions } from '../src/commands.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { loopEffectTiming, timeShowcasePlaylist, showcaseEmitters } from './showcase-effects.js';
@@ -50,26 +51,20 @@ function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
   return <RangeField className="showcase-slider" label={label} min={min} max={max} value={value} output={`${value}%`} onChange={onChange}/>;
 }
-// The shared Dialog with an OK/Cancel form. Escape in a field cancels too, as the old native dialog did;
-// elsewhere the window's close button takes Escape.
 function Dialog(props) {
-  return <SharedDialog {...props} className="showcase-dialog" onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}/>;
+  return <SharedDialog {...props} className="showcase-dialog"/>;
 }
 function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemove, onClose }) {
   const duration=(row,loops=row.durationLoops??1)=>loopEffectTiming(model,row.sequence,loops,row.speed>0?row.speed:1,0,definitions,row.disabledEmitters).seconds;
   const [draft,setDraft]=useState(()=>({...initial,durationLoops:initial.durationLoops??1,extraTime:Number(initial.extraTime)||0})),[error,setError]=useState('');
   const history=useRef(new ShowcaseHistory()),draftRef=useRef(draft);draftRef.current=draft;
   useLayoutEffect(()=>{history.current.observe({draft});},[draft]);
-  useEffect(()=>{
-    const key=event=>{const input=event.detail;if(!(input.ctrlKey||input.metaKey)||input.altKey)return;const name=chordFromEvent(input).split('+').at(-1).toLowerCase();if(name!=='z'&&name!=='y')return;
-      event.preventDefault();input.preventDefault();input.stopImmediatePropagation();history.current.observe({draft:draftRef.current});
-      const saved=history.current.travel(name==='y'||input.shiftKey);if(saved)setDraft(saved.draft);};
-    window.addEventListener('mdlxl-showcase-key',key);return()=>window.removeEventListener('mdlxl-showcase-key',key);
-  },[]);
+  const travel = redo => { history.current.observe({draft:draftRef.current}); const saved=history.current.travel(redo); if(saved)setDraft(saved.draft); };
+  useWindowHotkeys('showcase-animation', windowCommandActions('showcase-animation', 'Showcase', {undo: () => travel(false), redo: () => travel(true)}, {allowInInput:true}));
   const sequence=model.Sequences[draft.sequence],base=duration(draft),emitters=showcaseEmitters(model),disabled=new Set(draft.disabledEmitters || []);
   const naturalSeconds=Math.max(0,(sequence?.Interval?.[1]||0)-(sequence?.Interval?.[0]||0))/1000;
   const change=patch=>setDraft(row=>({...row,...patch}));
-  return <Dialog title={initial.editing ? 'Edit animation' : 'Add animation'} onPointerDown={event=>{history.current.end();history.current.begin(event.target);}} onPointerUp={()=>setTimeout(()=>history.current.end(),0)} onClose={onClose} onSubmit={() => {
+  return <Dialog scope="showcase-animation" title={initial.editing ? 'Edit animation' : 'Add animation'} onPointerDown={event=>{history.current.end();history.current.begin(event.target);}} onPointerUp={()=>setTimeout(()=>history.current.end(),0)} onClose={onClose} onSubmit={() => {
     const durationLoops=Number(draft.durationLoops);
     if(!Number.isSafeInteger(durationLoops)||durationLoops<1){setError('Enter a whole number of loops, at least 1.');return;}
     const extraTime=Number(draft.extraTime)||0,seconds=Math.max(.02,Math.round((base+extraTime)*100)/100);
@@ -469,14 +464,16 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     }
   }
   historyActions.current={travel:travelHistory,active,busy,setupBusy,animationDialog,presetDialog};
+  useWindowHotkeys('showcase', windowCommandActions('showcase', 'Showcase', {undo: () => travelHistory(false), redo: () => travelHistory(true), play: toggleAnimationPreview}, {accepts:event=>!event.target?.closest('[data-showcase-native-undo]')}).map(action=>({...action,allowInInput:action.bindingCommand!=='play'})), active && !animationDialog && !presetDialog);
+  useWindowKeyClaim(({scope,event}, claim) => {
+    // Explicit native text editors keep browser Undo/Redo and text keys.
+    if(scope !== 'showcase' || !event.target?.closest('[data-showcase-native-undo]'))return false;
+    claim.detail.native = true; return true;
+  });
   useEffect(()=>{
-    const key=event=>{const input=event.detail,state=historyActions.current;if(!state.active||state.animationDialog||state.presetDialog||!(input.ctrlKey||input.metaKey)||input.altKey)return;
-      const modal=document.querySelector('dialog[open],[aria-modal="true"],.classic-modal');if(modal&&!modal.closest('.showcase-workspace'))return;
-      if(input.target?.closest('[data-showcase-native-undo]'))return;
-      const name=chordFromEvent(input).split('+').at(-1).toLowerCase();if(name!=='z'&&name!=='y')return;event.preventDefault();input.preventDefault();input.stopImmediatePropagation();state.travel(name==='y'||input.shiftKey);};
     const command=event=>{if(historyActions.current.active)historyActions.current.travel(event.detail==='redo');};
-    window.addEventListener('mdlxl-showcase-key',key);window.addEventListener('mdlxl-showcase-command',command);
-    return()=>{clearTimeout(wheelEnd.current);window.removeEventListener('mdlxl-showcase-key',key);window.removeEventListener('mdlxl-showcase-command',command);};
+    window.addEventListener('mdlxl-showcase-command',command);
+    return()=>{clearTimeout(wheelEnd.current);window.removeEventListener('mdlxl-showcase-command',command);};
   },[]);
   const viewChanged=useCallback(()=>{if(!historyRestoring.current&&!current.current.playing&&!current.current.previewOrbit)setViewRevision(value=>value+1);},[]);
   function beginHistoryGesture(event){
@@ -487,7 +484,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   function historyWheel(){
     history.current.begin('wheel');clearTimeout(wheelEnd.current);wheelEnd.current=setTimeout(endHistoryGesture,250);
   }
-  return <div className="showcase-workspace" onPointerDownCapture={beginHistoryGesture} onPointerUpCapture={()=>setTimeout(endHistoryGesture,0)} onPointerCancelCapture={()=>setTimeout(endHistoryGesture,0)} onFocusCapture={event=>{if(event.target.matches('textarea,input:not([type=checkbox]):not([type=file]):not([type=radio])'))history.current.begin(event.target);}} onBlurCapture={event=>{if(history.current.group?.id===event.target)endHistoryGesture();}} onWheelCapture={historyWheel}>
+  return <div className="showcase-workspace" data-hotkey-scope="showcase" data-hotkey-prefix="showcase" onPointerDownCapture={beginHistoryGesture} onPointerUpCapture={()=>setTimeout(endHistoryGesture,0)} onPointerCancelCapture={()=>setTimeout(endHistoryGesture,0)} onFocusCapture={event=>{if(event.target.matches('textarea,input:not([type=checkbox]):not([type=file]):not([type=radio])'))history.current.begin(event.target);}} onBlurCapture={event=>{if(history.current.group?.id===event.target)endHistoryGesture();}} onWheelCapture={historyWheel}>
     <aside className="showcase-sidebar" aria-label="Showcase controls">
       <AnimationPreviewTools gifLevel={gifLevel} mainPicture={mainPicture} cropAspect={framedPortrait?undefined:mainPicture?612/490:SHOWCASE_CROP_PRESETS[cropPreset]} active={active} sessionId={inputSessionId} modelName={modelName} captureAPI={api} preferences={localPreferences} loop length={length} crop={framedPortrait?null:selectedCrop} locked={setupBusy||!!editingRecording} recordingList={recordingPlan} prepareTake={take=>applySetup(take.setup)} onTakeComplete={removeRecording} beforeBatch={async()=>{batchRestore.current=await captureSetup(true);}} afterBatch={async()=>{const saved=batchRestore.current;batchRestore.current=null;if(saved)await applySetup(saved);}} disabled={setupBusy || !recordReady} onStatus={onStatus} onBusy={value=>{setBusy(value);if(value)stopPreview();}}/>
       <fieldset disabled={busy||setupBusy} className="showcase-fields">
@@ -506,7 +503,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
             <span translate="no">{index+1}. {model.Sequences[row.sequence]?.Name}</span><small>{row.seconds+'s'+(portrait?'':' / '+Math.round(row.speed*100)+'%')}</small>
           </li>)}</ol>
           {portrait&&cameraIndex<0&&<div className="showcase-error" role="alert">This model has no portrait camera.</div>}
-          <div className="showcase-list-actions"><button className="showcase-sequence-preview" disabled={!api || !playlist.length} aria-pressed={playing} onClick={toggleAnimationPreview}>{playing?'Stop animation':'Preview animation'}</button><button disabled={selected<=0 || !playlist[selected]} aria-label="Move animation up" onClick={()=>{const rows=[...playlist];[rows[selected-1],rows[selected]]=[rows[selected],rows[selected-1]];updatePlaylist(rows);setSelected(selected-1);}}>↑</button><button disabled={selected>=playlist.length-1 || !playlist[selected]} aria-label="Move animation down" onClick={()=>{const rows=[...playlist];[rows[selected+1],rows[selected]]=[rows[selected],rows[selected+1]];updatePlaylist(rows);setSelected(selected+1);}}>↓</button></div>
+          <div className="showcase-list-actions"><button data-hotkey="showcase:play" data-hotkey-absolute className="showcase-sequence-preview" disabled={!api || !playlist.length} aria-pressed={playing} onClick={toggleAnimationPreview}>{playing?'Stop animation':'Preview animation'}</button><button disabled={selected<=0 || !playlist[selected]} aria-label="Move animation up" onClick={()=>{const rows=[...playlist];[rows[selected-1],rows[selected]]=[rows[selected],rows[selected-1]];updatePlaylist(rows);setSelected(selected-1);}}>↑</button><button disabled={selected>=playlist.length-1 || !playlist[selected]} aria-label="Move animation down" onClick={()=>{const rows=[...playlist];[rows[selected+1],rows[selected]]=[rows[selected],rows[selected+1]];updatePlaylist(rows);setSelected(selected+1);}}>↓</button></div>
           <ExtraTimeField value={portrait?portraitExtraTime:sequenceExtraTime} base={portrait?portraitBase:sequenceBase} onChange={portrait?setPortraitExtraTime:setSequenceExtraTime}/>
         </section>
         <section className={sectionClass('output')} aria-label="Output">

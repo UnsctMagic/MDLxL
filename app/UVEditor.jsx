@@ -277,7 +277,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const contextMenu = event => event.preventDefault();
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
     const nudgeKey = event => {
-      const key = event.detail, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      const key = event.detail.event, p = current.current, workspace = container.closest('.uv-workspace') || container;
       // The focused UV workspace owns the number pad, even when nothing can move: its keys never
       // reach the app's digit shortcuts from here.
       if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
@@ -300,7 +300,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     });
     element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
     ownerDocument.addEventListener('visibilitychange', draw);
-    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-uv-key', nudgeKey);
+    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-window-key', nudgeKey);
     return () => {
       observer.disconnect(); unbindScroll(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);

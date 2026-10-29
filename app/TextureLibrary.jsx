@@ -1,3 +1,4 @@
+import { useWindowKeyClaim } from './Hotkeys.jsx';
 import React,{Suspense,lazy,useEffect,useMemo,useRef,useState} from 'react';
 import {backgroundThumbnail} from './asset-preload-client.js';
 import {createTextureAssetCache,createTextureLibrarySessions,createThumbnailQueue,createThumbnailLookup,warmTextureLibrarySession} from '../src/texture-library-session.js';
@@ -144,13 +145,16 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
   const changeVariant=value=>{setVariant(value);setFolder('');};
+  useWindowKeyClaim(({event, localWindow}) => {
+    if (localWindow !== dialog.current || event.key !== 'Escape' || !choice) return false;
+    if (!busy) setChoice(null); return true;
+  });
   const keys=event=>{
     event.stopPropagation();
-    if(event.key==='Escape'){event.preventDefault();if(!busy)choice?setChoice(null):onClose();}
     trapTab(event,choicePopup.current||dialog.current);
   };
-  return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
-    <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>Material &amp; Texture Library</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
+  return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} data-hotkey-prefix="texture-library" className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
+    <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>Material &amp; Texture Library</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" data-hotkey="close" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
     {fullLibrary&&<div className="tl-tabs" role="tablist" aria-label="Library sections">{LIBRARY_TABS.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>chooseTab(value)}>{label}</button>)}</div>}
     {tab!=='textures'?<Suspense fallback={<p className="tl-empty">Loading game files…</p>}><GameFileBrowser key={tab} preset={tab} preferences={preferences} onOpenGameModel={onOpenGameModel} onImportGameGeosets={onImportGameGeosets} importTargetName={importTargetName} onClose={onClose}/></Suspense>:<>
     <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={vibe?'Try rusty chain mail, painting, high resolution, or 512':'Search names, paths, high resolution, or 256'} onChange={event=>setQuery(event.target.value)} aria-label="Search textures"/>

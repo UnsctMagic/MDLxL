@@ -63,7 +63,7 @@ export default function MovementController({ vanilla = false, objectDisplay, onO
     addEventListener('keydown', keys, true); addEventListener('keyup', keys, true); addEventListener('blur', reset);
     return () => { removeEventListener('keydown', keys, true); removeEventListener('keyup', keys, true); removeEventListener('blur', reset); };
   }, []);
-  useDismiss(createOpen, [createAnchor], () => onCreateOpen?.(false));
+  useDismiss(createOpen, [createAnchor], () => onCreateOpen?.(false), {claimEscape:true, escapePriority:-10});
   const frame = Math.round(time), globalDomain = !restPose && Number.isInteger(globalSeqId) && globalSeqId >= 0;
   const editSequenceIndex = restPose || globalDomain ? -1 : sequenceIndex >= 0 ? sequenceIndex : (model.Sequences || []).findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
   // A global sequence is measured as the preview shows it: other animation frozen.

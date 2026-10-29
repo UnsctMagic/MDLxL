@@ -248,7 +248,7 @@ export function effectiveBindings(catalog = [], overrides = {}) {
   const result = {};
   for (const action of catalog) {
     if (!action?.id) continue;
-    const keys = own(overrides, action.id) ? overrides[action.id] : action.defaultKeys || action.keys || [];
+    const keys = own(overrides, action.id) ? overrides[action.id] : action.bindingCommand && own(overrides, action.bindingCommand) ? overrides[action.bindingCommand] : action.defaultKeys || action.keys || [];
     result[action.id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
   }
   for (const [id, keys] of Object.entries(record(overrides))) if (!own(result, id)) result[id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
@@ -261,6 +261,7 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   const action = catalog.find(action => action.id === actionId);
   // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
+    if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
     if ([action, other].some(item => item?.scope === 'global' || item?.allowInModal === true)) return true;
     const mine = hotkeyContext(action), theirs = hotkeyContext(other);
     if (mine === theirs) return true;
@@ -313,7 +314,7 @@ export function canHandleHotkeyEvent(event, action = {}) {
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
   // Space means playback: a clicked checkbox, button, slider or list keeps focus
   // but must not take Space from play. Only typing fields keep their space.
-  if (chord === 'Space' && action.id === 'play' && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
+  if (chord === 'Space' && (action.id === 'play' || action.bindingCommand === 'play') && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
   if (isNativeControlKey(event, chord)) return false;
   if (isTextEditingTarget(event.target) && !action.allowInInput) return false;

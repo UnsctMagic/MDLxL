@@ -10,8 +10,8 @@ export default function PaintSceneOptions({selectedLampId,onSelectedLamp,value,o
   const radius=onCamera?.()?.radius||100;
   function add(){const pose=initialPaintLamp(onCamera?.()),id=crypto.randomUUID();setSelected(value.lamps.length);onChange({...value,lighting:value.lighting==='flat'?'lamps':value.lighting,showLamps:true,lamps:[...value.lamps,{id,type:0,color:'#ffffff',...pose,enabled:true}]});onSelectedLamp?.(id);}
 
-  return <div className="paint-modal-shade" onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}><section className="paint-scene-dialog" role="dialog" aria-modal="true" aria-label={msg('paint.scene')}>
-    <header><strong>{msg('paint.scene')}</strong><button autoFocus onClick={onClose}>{msg('paint.close')}</button></header>
+  return <div className="paint-modal-shade"><section data-hotkey-prefix="scene" className="paint-scene-dialog" role="dialog" aria-modal="true" aria-label={msg('paint.scene')}>
+    <header><strong>{msg('paint.scene')}</strong><button data-hotkey="close" autoFocus onClick={onClose}>{msg('paint.close')}</button></header>
     <div className="paint-scene-columns"><section><h3>{msg('paint.background')}</h3>
       <select aria-label={msg('paint.background')} value={value.background} onChange={e=>onChange({...value,background:e.target.value,customBackground:''})}><option value="">{msg('paint.solidBackground')}</option>{backgrounds.items.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select>
       <label className="paint-color">{msg('paint.backgroundColor')}<input type="color" value={value.backgroundColor} onChange={e=>set('backgroundColor',e.target.value)}/></label>

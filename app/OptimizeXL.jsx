@@ -1,3 +1,5 @@
+import {useWindowHotkeys} from './Hotkeys.jsx';
+import {windowCommandActions} from '../src/commands.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
 import OptimizeXLGeosets from './OptimizeXLGeosets.jsx';
@@ -6,7 +8,7 @@ import OptimizeXLHelp from './OptimizeXLHelp.jsx';
 import OptimizeXLFixSelection from './OptimizeXLFixSelection.jsx';
 import { previewPlaybackStep } from './game-preview-capture.js';
 import { GEOSET_REDUCTION_STAGES } from '../src/optimizexl-exclusions.js';
-import { isTypingTarget, viewportAppearanceOptions } from '../src/preferences.js';
+import { viewportAppearanceOptions } from '../src/preferences.js';
 import { portraitSequenceIndices } from '../src/sequence-editor.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { openDocument } from '../src/editor-document.js';
@@ -131,8 +133,9 @@ export default function OptimizeXL({doc,filePath,textureAssets,preferences,teamC
   const previewProps={pixelAligned:true,textureAssets,preferences:previewPreferences,teamColor,presentation:'preview',interactivePreview:showGeosets,hoveredGeoset,highlightSelection:showGeosets&&highlight&&highlightAppearance.viaView,onHoverGeoset:showGeosets?setViewHovered:undefined,overlays:{grid:false,axes:false,boneLines:false},showGrid:false,showAxes:false,showParticles:true,portraitMode:portraitSequenceIndices(before).includes(sequence),portraitCameraIndex:0,portraitSnapRevision:sequence,playing:false,syncPlayback:true,playbackRunning:playing,playbackGlobalTime:globalTime,seekId,sequenceIndex:sequence,time,compareCamera:camera.current,preserveCameraView:true,cameraMode:'rotate',showCollisionSpheres:stage==='spheres'&&!finished,loop};
   const previewFrame=model=>time+(model.Sequences[sequence]?.Interval[0]||0)-interval[0];
   const updateSphere=(i,j,value)=>adjust('spheres',(settings.spheres||[]).map((s,k)=>k===i?s.map((v,l)=>l===j?value:v):s));
-  return <div className="ox-root" ref={root} onKeyDown={event=>{event.stopPropagation();if(event.code==='Space'&&!isTypingTarget(event.target)){event.preventDefault();setPlaying(v=>!v);}}}>
-    <header><h1>OptimizeXL</h1><div className="ox-mode" role="group" aria-label="Controls"><button aria-pressed={!advanced} onClick={()=>setAdvanced(false)}>Simple</button><button aria-pressed={advanced} onClick={()=>setAdvanced(true)}>Advanced</button></div><span className="ox-file">{doc.name}</span><button disabled={saving||!unsaved} title={unsaved?'Apply the approved changes to the open model and return to the editor. The file is not saved.':'Approve a change first.'} onClick={commit}>Commit</button><button disabled={saving||!unsaved} title={unsaved?'Save the approved changes into this model file.':'Approve a change first.'} onClick={()=>requestSave()}>{saving?'Saving…':'Save'}</button><button disabled={saving} onClick={requestClose}>Close</button></header>
+  useWindowHotkeys('optimizexl',windowCommandActions('optimizexl','OptimizeXL',{play:()=>setPlaying(v=>!v)}));
+  return <div className="ox-root" ref={root} data-hotkey-window data-hotkey-scope="optimizexl" data-hotkey-prefix="optimizexl" aria-label="OptimizeXL">
+    <header><h1>OptimizeXL</h1><div className="ox-mode" role="group" aria-label="Controls"><button aria-pressed={!advanced} onClick={()=>setAdvanced(false)}>Simple</button><button aria-pressed={advanced} onClick={()=>setAdvanced(true)}>Advanced</button></div><span className="ox-file">{doc.name}</span><button disabled={saving||!unsaved} title={unsaved?'Apply the approved changes to the open model and return to the editor. The file is not saved.':'Approve a change first.'} onClick={commit}>Commit</button><button disabled={saving||!unsaved} title={unsaved?'Save the approved changes into this model file.':'Approve a change first.'} onClick={()=>requestSave()}>{saving?'Saving…':'Save'}</button><button data-hotkey="close" disabled={saving} onClick={requestClose}>Close</button></header>
     <nav aria-label="Optimization stages" aria-busy={checkingStages}>{STAGES.map(s=>{const pending=session.needsReview(s.id,GEOSET_REDUCTION_STAGES.has(s.id)?exclusionsKey:''),check=session.availability.get(s.id),checkError=check?.before===session.accepted&&check.error;return <button key={s.id} disabled={saving} aria-current={stage===s.id&&!finished?'step':undefined} onClick={()=>enter(s.id)} title={checkError?`Check unavailable: ${checkError}`:pending?'Changes available to review':'Approved or no changes found'}>{pending&&<span className="ox-stage-star" aria-hidden="true">★</span>}{s.name}</button>;})}</nav>
     <main>
       <section className="ox-preview" aria-label="Before preview"><h2>Before <small>Original · {kb(session.before.length)}</small></h2><GamePreview {...previewProps} model={original} time={previewFrame(original)} revision={0}/></section>
@@ -140,7 +143,7 @@ export default function OptimizeXL({doc,filePath,textureAssets,preferences,teamC
       <section className="ox-controls" aria-label="Optimization controls">
         <h2>{finished?'Ready to save':STAGES.find(s=>s.id===stage).name}</h2>
         <label>Animation<select aria-label="Animation" value={sequence} onChange={e=>{const i=Number(e.target.value);setSequence(i);seek(before.Sequences[i].Interval[0]);}}>{before.Sequences.map((s,i)=><option value={i} key={i}>{s.Name}</option>)}</select></label>
-        <div className="ox-play"><button aria-label={playing?'Pause':'Play'} disabled={!before.Sequences.length} onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><button onClick={()=>{setPlaying(false);seek(interval[0]);}}>Start</button><button onClick={()=>{setPlaying(false);seek(interval[1]);}}>End</button></div>
+        <div className="ox-play"><button data-hotkey="optimizexl:play" data-hotkey-absolute aria-label={playing?'Pause':'Play'} disabled={!before.Sequences.length} onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><button onClick={()=>{setPlaying(false);seek(interval[0]);}}>Start</button><button onClick={()=>{setPlaying(false);seek(interval[1]);}}>End</button></div>
         <input type="range" aria-label="Animation frame" min={interval[0]} max={interval[1]} step="1" value={time} onChange={e=>{setPlaying(false);seek(Number(e.target.value));}}/><output className="ox-frame">{Math.round(time)} / {interval[1]}</output>
         <div className="ox-play"><label className="ox-speed">Speed (%)<input aria-label="Playback speed (%)" type="number" min="0" max="200" step="1" value={speed} onChange={e=>setSpeed(Math.max(0,Math.min(200,Number(e.target.value)||0)))}/></label><label><input type="checkbox" checked={loop} onChange={e=>setLoop(e.target.checked)}/>Loop</label></div>
         <hr/>

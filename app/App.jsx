@@ -423,14 +423,6 @@ export default function App() {
     normalizerKeepRef.current = null;
     if (!keep) setNormalizer(null);
   }, [session.id, doc.revision, mode, selection, selectable, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
-  useEffect(() => {
-    if (!normalizer) return;
-    const cancel = event => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setNormalizer(null); }
-    };
-    window.addEventListener('keydown', cancel, true);
-    return () => window.removeEventListener('keydown', cancel, true);
-  }, [!!normalizer]);
   const editable = !doc.readOnly && mode !== 'animation' && mode !== 'paint' && mode !== 'showcase' && !saving;
   const edit = (label, sections, operation, options = {}) => {
     if (savingRef.current) return false;
@@ -1712,7 +1704,7 @@ export default function App() {
     transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
-  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
+  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       activateSession, animationPanel, changePreferences, clearDisplay, commandEnabled, commands,

@@ -54,10 +54,11 @@ export const EDITOR_RESERVED = Object.freeze(['H', 'K', 'Ctrl+X', 'Ctrl+B', 'Ctr
  * command key; other windows only avoid commands that also work there. Generated
  * Ctrl+Alt+Space codes are no longer handed out; codes the user typed in still work.
  */
-export function contextualHotkeyDefaults(actions, reservedKeys = []) {
+export function contextualHotkeyDefaults(actions, reservedKeys = [], overrides = {}) {
   const commands = actions.filter(action => !action.contextual), direct = key => typeof key === 'string' && key && !hotkeyCode(key);
   const commandKeys = commands.flatMap(action => action.defaultKeys || []).filter(direct);
   const everywhere = commands.filter(action => action.scope === 'global' || action.allowInModal).flatMap(action => action.defaultKeys || []).filter(direct);
+  const bindings = Object.fromEntries(commands.map(action => [action.id, Object.hasOwn(overrides, action.id) ? overrides[action.id] : action.defaultKeys || []]));
   const custom = reservedKeys.filter(direct), groups = new Map(), assigned = new Map(), keysOf = new Map();
   for (const action of actions) if (action.contextual && typeof action.group === 'string' && action.group) (groups.get(action.group) || groups.set(action.group, []).get(action.group)).push(action);
   // The editor first, then each window, then the pages inside a window (which also avoid their window's keys).
@@ -67,15 +68,15 @@ export function contextualHotkeyDefaults(actions, reservedKeys = []) {
     const parent = members.find(action => action.parentGroup)?.parentGroup;
     const taken = new Set([...custom, ...everywhere, ...(editor || embedsEditor ? [...commandKeys, ...EDITOR_RESERVED] : []), ...(embedsEditor ? keysOf.get('editor') || [] : []), ...(parent ? keysOf.get(parent) || [] : [])]), fresh = [];
     for (const action of members) {
-      if (direct(action.defaultKey) && !taken.has(action.defaultKey)) { taken.add(action.defaultKey); assigned.set(action.id, action.defaultKey); } else fresh.push(action);
+      if (!action.bindingCommand && !action.keys && direct(action.defaultKey) && !taken.has(action.defaultKey)) { taken.add(action.defaultKey); assigned.set(action.id, action.defaultKey); } else fresh.push(action);
     }
-    for (const [id, key] of allocateGroup(fresh, taken, { editor, wide: editor || embedsEditor })) assigned.set(id, key);
-    keysOf.set(group, members.map(action => assigned.get(action.id)).filter(Boolean));
+    for (const [id, key] of allocateGroup(fresh, taken, { editor, wide: editor || embedsEditor, bindings })) assigned.set(id, key);
+    keysOf.set(group, members.flatMap(action => assigned.get(action.id) || []).filter(Boolean));
   }
   return actions.map(action => {
     if (!action.contextual) return action;
     const key = assigned.get(action.id) || '';
-    return { ...action, defaultCode: undefined, defaultKey: key, defaultKeys: key ? [key] : [] };
+    return { ...action, defaultCode: undefined, defaultKey: key, defaultKeys: Array.isArray(key) ? key : key ? [key] : [] };
   });
 }
 
