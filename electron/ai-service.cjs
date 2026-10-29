@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
-const { READ_TOOLS, helperSpec, helperCanCall, acceptanceChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { helperSpec, acceptanceChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
@@ -785,6 +785,8 @@ class AiService {
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
       aiToolEditsModel,
+      AI_HELPER_TOOLS,
+      aiHelperCanCall,
       sdBrainInstructions,
       sdReviewProblem,
     } = contract;
@@ -938,7 +940,7 @@ class AiService {
         workerImages = [];
         return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
       }
-      if ((conversation.helperOnly || context.region?.readOnly) && !helperCanCall(name, args)) throw Error('This helper is read-only; the editor bird owns changes, saves and UI actions.');
+      if ((conversation.helperOnly || context.region?.readOnly) && !aiHelperCanCall(name, args)) throw Error('This helper is read-only; the editor bird owns changes, saves and UI actions.');
       if (name === 'mdlxl_job_checkpoint') {
         if (!['candidate', 'verify'].includes(args.phase) || typeof args.evidence !== 'string' || !args.evidence.trim() || args.evidence.length > 4000 || !Array.isArray(args.remaining) || args.remaining.length > 20 || args.remaining.some(v => typeof v !== 'string' || v.length > 500)) throw Error('A checkpoint needs a phase, concise evidence and specific remaining work.');
         if (callsInFlight !== 1) throw Error('Wait for the other tool operations before recording a phase checkpoint.');
@@ -1108,7 +1110,7 @@ class AiService {
         ]
       : conversation.toolsOff
         ? []
-        : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => READ_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
+        : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => AI_HELPER_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
     // The organiser only routes, so web research goes to the AI that does the work.
     const web = sd.web === true && !organiser;
     const system =
