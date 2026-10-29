@@ -61,3 +61,16 @@ test('native BC5 normal maps decode both endpoint modes and cross-byte indices',
  assert.throws(()=>decodeDds(source.subarray(0,143)),/truncated/);
  v.setUint32(16,0,true);assert.throws(()=>decodeDds(source),/dimensions/);
 });
+test('sound, file and texture listings share one disk cache rule and keep only the newest indexes per kind',async t=>{
+ const base=await scratch(t),cacheDirectory=path.join(base,'cache'),games=[];
+ for(let i=0;i<6;i++){const game=path.join(base,'game'+i);await fs.mkdir(game);await fs.writeFile(path.join(game,'.build.info'),'build'+i+'\nenUS speech?\ndeDE text?');games.push(game);}
+ const listed=[];const openReader=()=>({list:async kind=>{listed.push(kind);return kind==='files'?{names:['a.txt'],keys:{},sizes:[1]}:{names:['Units\\Peon.blp'],keys:{}};},read:async()=>null,close(){}});
+ const casc=new CascTextures({cacheDirectory,openReader});
+ for(const game of games){await casc.readSound('Sound\\Missing.wav',[game]);await casc.listFiles([game]);await casc.list([game]);}
+ const names=await fs.readdir(cacheDirectory),count=suffix=>names.filter(name=>name.endsWith(suffix)).length;
+ assert.equal(count('.sounds.json'),4,'sound indexes are pruned like file indexes');assert.equal(count('.files.json'),4);assert.equal(count('.textures.json'),6);
+ const files=await casc.listFiles([games[5]]);assert.equal(files.sources[0].fromCache,true);assert.deepEqual(files.sources[0].locales,['enus','dede']);
+ assert.equal((await casc.list([games[5]])).sources[0].fromCache,true);
+ const before=listed.length;await fs.writeFile(path.join(cacheDirectory,files.sources[0].key+'.files.json'),'{"version":1,"names":["x"],"sizes":[]}');
+ assert.equal((await casc.listFiles([games[5]])).sources[0].fromCache,false,'a malformed listing is rebuilt');assert.equal(listed.length,before+1);await casc.close();
+});
