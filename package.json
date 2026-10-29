@@ -32,7 +32,7 @@
     "@electron/packager": "19.0.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "productName": "MDLxL"
 }

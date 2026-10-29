@@ -1,6 +1,6 @@
 # AI-only model references
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #371 (0635d566)
 Owner: Codex / AI-only model references
 Updated: 2026-10-29
 

@@ -1,6 +1,6 @@
 # Automatic organiser checkpoints and helper birds
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #376 (6d211c88)
 Owner: Codex
 Updated: 2026-10-29
 Branch: codex/ai-organiser-checkpoints

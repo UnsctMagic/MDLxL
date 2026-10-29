@@ -1,6 +1,6 @@
 # AI chat attachment isolation
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #370 (8a36f2a1)
 Owner / consolidator: Codex / Separate AI chat attachments
 Updated: 2026-10-29
 
@@ -14,7 +14,6 @@ No version bump, release, merge, installed application or real profile changes.
 ## Revision and owners
 
 - Branch: `codex/chat-attachment-isolation`, based on `4a96bf98`.
-- PR: https://github.com/UnsctMagic/MDLxL/pull/370 (open; awaiting merge approval).
 - `app/App.jsx`: mark reference tabs with their owner document and organiser.
 - `app/ai-editor.js`: capture that scope with task targets; filter document lists,
   reads and script references; preserve scope for background document/library opens.
@@ -40,3 +39,7 @@ No version bump, release, merge, installed application or real profile changes.
   full native-sign-in workflow. Local fixture-provider tests use no real account.
 - Work and small evidence: `D:\Codex\mdlxl-chat-attachments-20261029`.
 - Next: review the attached PR; merge only with explicit owner approval.
+
+## History
+
+- PR: https://github.com/UnsctMagic/MDLxL/pull/370 (open; awaiting merge approval).

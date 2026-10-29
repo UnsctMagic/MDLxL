@@ -1,6 +1,6 @@
 # AI credit fixes (audit #1–#4)
 
-Status: ready for review
+Status: completed — merged in #385 (10491fea)
 Owner / consolidator: Claude Code (`local_cec22511-34ed-43a0-b4f7-23afdf4f168e`)
 Updated: 2026-10-29
 

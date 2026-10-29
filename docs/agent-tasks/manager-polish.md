@@ -1,6 +1,6 @@
 # Manager workspace and visual model editing
 
-Status: implementation completed and accepted; owner authorized PR #363 merge
+Status: completed — merged in #363 (9d988af2)
 Owner: Codex, Manager polish chat
 Updated: 2026-10-28
 

@@ -5,9 +5,11 @@
 - Branches use the `claude/` prefix.
 - When the owner says "merge", merge right away. Run the merge as its own
   command, exactly `gh api repos/UnsctMagic/MDLxL/pulls/<n>/merge -X PUT -f merge_method=merge`;
-  that form is pre-approved in `.claude/settings.json`.
+  that form is pre-approved in `.claude/settings.json`. After merging, mark the
+  task note completed with the merge revision and remove its README row in the
+  same or the next PR.
 - The PR `Session:` line uses the session id from `get_session` with `"self"`.
-  At release, match PRs to sessions with `list_sessions` (it shows each
+  After the release is published (see [AUTO_UPDATES step 2](docs/AUTO_UPDATES.md#after-publishing-archive-finished-sessions)), match PRs to sessions with `list_sessions` (it shows each
   session's branch and PR) and archive each with `archive_session` without
   asking first; the owner wants this automatic. The app itself still refuses
   sessions that are working, pinned or open on screen.

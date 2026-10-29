@@ -1,7 +1,10 @@
 # Packaged-app tests
 
-`test/*.cjs` drive the real MDLxL app with Playwright: mostly the packaged
-`MDLxL.exe`, some the development Electron with `dist/`. One command runs all of
+`test/*.cjs` drive the real MDLxL app with Playwright. Today only about 65 of the
+164 runnable harnesses use the packaged `MDLxL.exe`; about 99 still start the
+development Electron with `dist/` because each reads its own exe variable (19
+different names). One shared exe variable is planned (WP-1.7 of the codebase
+audit). One command runs all of
 them unattended and records the results:
 
 ```

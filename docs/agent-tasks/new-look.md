@@ -1,6 +1,6 @@
 # New MDLxL look
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in #296 (4af766e9)
 Owner / consolidator: Claude Code (side session of the mockup session)
 Updated: 2026-10-24 (complete pass)
 
