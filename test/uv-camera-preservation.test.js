@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PerspectiveCamera, OrthographicCamera, Vector3 } from 'three';
-import { restorePreviewCamera } from '../app/game-preview-data.js';
+import { snapshotPreviewCamera, restorePreviewCamera } from '../app/viewport-math.js';
 
 test('UV renderer rebuild preserves perspective and orthographic orbit, pan, zoom and projection',()=>{
   for(const type of ['perspective','ortho']) {
@@ -10,7 +10,7 @@ test('UV renderer rebuild preserves perspective and orthographic orbit, pan, zoo
     for(const camera of [perspective,ortho]){
       camera.position.set(250,-120,87);camera.up.set(0,0,1);camera.lookAt(19,27,31);camera.zoom=2.75;camera.updateProjectionMatrix();camera.updateMatrixWorld();
     }
-    const saved={camera:type,view:'isometric-ne',perspective:perspective.clone(),ortho:ortho.clone(),target:new Vector3(19,27,31)};
+    const saved={...snapshotPreviewCamera(type==='ortho'?ortho:perspective,perspective,ortho,{target:new Vector3(19,27,31)}),view:'isometric-ne'};
     const freshPerspective=new PerspectiveCamera(),freshOrtho=new OrthographicCamera(),controls={target:new Vector3(),object:null,update(){}};
     for(let i=0;i<3;i++){
       const restored=restorePreviewCamera(saved,freshPerspective,freshOrtho,controls);
@@ -30,7 +30,7 @@ test('UV opts into restoring its user view before fit, without replaying old pro
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(uv,/<GamePreview[^>]*preserveCameraView=\{true\}/);
   assert.match(preview,/if \(saved && \(latest\.current\.preserveCameraView \|\| latest\.current\.cameraHandoff\?\.current === saved\)\) \{\s*camera = restorePreviewCamera/);
-  assert.match(preview,/camera:camera === ortho \? 'ortho' : 'perspective'/);
+  assert.match(preview,/snapshotPreviewCamera\(camera, perspective, ortho, controls\)/);
   assert.match(preview,/\[props.cameraPresetRequest\?\.revision\]/);
   assert.match(uv,/<GamePreview[^>]*revision=\{previewWrappingRevision\}[^>]*preserveCameraView=\{true\}/,'UV-only commits keep the renderer; texture sampling changes rebuild with the saved camera');
 });

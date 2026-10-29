@@ -37,6 +37,7 @@ const VARIANTS = {
 const SPECIAL = {
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
+  'smooth-edges': { needs: [footman] },
   attachemator: { env: { MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { argv: [footman], needs: [footman] },
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
@@ -60,7 +61,7 @@ SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
 SPECIAL['ai-parallel'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
 // packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
-export const DEV_ONLY = ['close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];
+export const DEV_ONLY = ['welcome-prompt', 'close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];
 // Never run: manual tools, or private models and archives that are not generally available.
 export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',

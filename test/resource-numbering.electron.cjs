@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  const root = process.cwd(), fixture = path.join(root, 'fixtures', 'demo.mdx');
+  const root = process.cwd(), fixture = path.join(root, 'test/fixtures', 'demo.mdx');
   const { app, page } = await launchApp({ out: path.dirname(path.join(root, 'out', 'resource-numbering-profile')), profile: path.join(root, 'out', 'resource-numbering-profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Euler, Vector3 } from 'three';
-import { createScrollSensitivity, createRenderScheduler, gridRotation, pointerDragPoint, sensitivityIndicatorText, wheelPixels } from '../app/viewport-performance.js';
+import { createScrollSensitivity, createRenderScheduler, gridRotation, pointerDragPoint, sensitivityIndicatorText, wheelPixels, wheelZoomFactor } from '../app/viewport-performance.js';
 import { gridSegments } from '../app/viewport-grid.js';
 
 function wheel(deltaY, extra = {}) {
@@ -237,4 +237,12 @@ test('paused playback redraws a settled resize and returns to idle, preserving f
   suspended = false; scheduler.sync(); timer.step(1000); timer.step(1034);
   assert.equal(frames.length, 5); assert.equal(frames[3][1], 0); assert.equal(timer.pending, 0);
   scheduler.resize(); scheduler.dispose(); assert.equal(timer.pending, 0);
+});
+
+test('wheel zoom factor preserves the UV step for pixels, lines, pages and sensitivities', () => {
+  for (const deltaY of [-100, 0, 100]) for (const sensitivity of [.1, 1, 2.5, 10]) {
+    assert.equal(wheelZoomFactor(wheel(deltaY), sensitivity), Math.exp(-deltaY * .0015 * sensitivity));
+    assert.equal(wheelZoomFactor(wheel(deltaY / 16, {deltaMode: 1}), sensitivity), wheelZoomFactor(wheel(deltaY), sensitivity));
+    assert.equal(wheelZoomFactor(wheel(deltaY / 800, {deltaMode: 2}), sensitivity), wheelZoomFactor(wheel(deltaY), sensitivity));
+  }
 });

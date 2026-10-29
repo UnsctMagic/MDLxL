@@ -12,7 +12,7 @@ import { comparePoses, maxNodeMatrixDifference } from './helpers/pose-compare.mj
 import { createDemoDocument } from '../src/editor-document.js';
 
 const require = createRequire(import.meta.url);
-const { root, appTarget, appDist, sha256File, launchApp, closeApp } = require('./helpers/app.cjs');
+const { root, appTarget, appDist, sha256File, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 const { fixturePath, tempDir } = require('./helpers/fixtures.cjs');
 const { PROBE_SOURCE } = require('./helpers/fiber-probe.cjs');
 
@@ -195,4 +195,17 @@ test('owner props probe reads the committed host rather than its stale DOM fiber
   assert.equal(window.findFiberProps(element, props => !!props.value), currentProps);
   assert.equal(window.findFiberProps('.owner', props => !!props.missing), null);
   assert.equal(window.findFiberProps('.missing', () => true), null);
+});
+
+
+test('native prompt bounds can be preserved while shared window setup stays hidden', async () => {
+  const bounds = [], events = [];
+  const win = { webContents: { setBackgroundThrottling(value) { events.push(['throttle', value]); } }, setBounds(value) { bounds.push(value); }, hide() { events.push(['hide']); }, showInactive() { events.push(['inactive']); } };
+  const app = { async evaluate(fn, args) { return fn({ BrowserWindow: { getAllWindows: () => [win] } }, args); } };
+  const page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
+  await prepareWindow(app, page, { bounds: null, show: 'hide' });
+  assert.deepEqual(bounds, []);
+  assert.deepEqual(events, [['throttle', false], ['hide']]);
+  await prepareWindow(app, page);
+  assert.deepEqual(bounds, [{ x: -3000, y: 0, width: 1280, height: 920 }]);
 });

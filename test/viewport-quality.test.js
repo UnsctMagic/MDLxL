@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DataTexture, LinearFilter, LinearMipmapLinearFilter, PerspectiveCamera, OrthographicCamera, Vector3 } from 'three';
 import { EditorCameraControls, MAX_BACK_AWAY, zoomEditorCamera } from '../app/editor-camera-controls.js';
-import { configureEditorTexture, cameraLeftLight, captureDimensions, improveNativeTexture } from '../app/viewport-quality.js';
+import { configureEditorTexture, cameraLeftLight, captureDimensions, improveNativeTexture, viewportPixelRatio } from '../app/viewport-quality.js';
 import { modelCameraGizmos } from '../app/model-camera-overlay.js';
 import { applyReplaceableTextureColor, patchWarcraftMeshVertexShader, patchWarcraftMeshFragmentShader } from '../app/warcraft-preview-adapter.js';
 
@@ -155,4 +155,13 @@ test('path-backed team colours still use the live preview team colour', () => {
     ['uniform1f', 'replaceableType', 1],
   ]);
   assert.equal(applyReplaceableTextureColor(native, gl, 1), false);
+});
+
+
+test('Smooth and Classic retain identical native HiDPI pixels; reduced resolution and low power stay explicit', () => {
+  for (const antialias of [false, true]) for (const device of [1, 1.25, 1.5, 2, 3]) {
+    assert.equal(viewportPixelRatio({ antialias, pixelRatio: 1.5 }, device), device);
+    assert.equal(viewportPixelRatio({ antialias, pixelRatio: .5 }, device), .5);
+    assert.equal(viewportPixelRatio({ antialias, pixelRatio: 2 }, device, true), 1);
+  }
 });

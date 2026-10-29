@@ -11,7 +11,7 @@ function fixture() {
     ELEMENT_ARRAY_BUFFER: 1, ONE: 2, SRC_COLOR: 3, SAMPLE_ALPHA_TO_COVERAGE: 4,
     shaderSource() {}, useProgram() {}, bindBuffer(target, buffer) { bound = buffer; },
     drawElements() { calls.push(['mesh', buffers.indexOf(bound)]); },
-    getUniformLocation: (_, name) => name, getContextAttributes: () => ({ antialias: false }),
+    getUniformLocation: (_, name) => name, getContextAttributes: () => ({ antialias: false }), getParameter: () => 0,
     uniform1i() {}, uniform2fv() {}, uniform1f() {}, uniform3fv() {}, uniform4fv() {}, enable() {}, disable() {}, depthMask() {}, blendFuncSeparate() {},
     blendFunc(src, dst) { calls.push(['blend', src, dst]); },
   };
@@ -95,7 +95,7 @@ test('weighted Classic materials keep HD skinning and render every authored laye
     CLAMP_TO_EDGE: 18, RGBA: 19, UNSIGNED_BYTE: 20,
     shaderSource() {}, useProgram() {}, bindBuffer(target, buffer) { bound = buffer; },
     drawElements() { calls.push(['mesh', buffers.indexOf(bound), activeTexture]); },
-    getUniformLocation: (_, name) => name, getContextAttributes: () => ({ antialias: false }),
+    getUniformLocation: (_, name) => name, getContextAttributes: () => ({ antialias: false }), getParameter: () => 0,
     uniform1f() {}, uniform1i() {}, uniform3fv() {}, uniform4fv() {}, enable() {}, disable() {}, depthMask() {}, blendFuncSeparate() {},
     blendFunc(src, dst) { calls.push(['blend', src, dst]); },
     createTexture() { created++; return { created }; }, deleteTexture() { deleted++; },
@@ -127,4 +127,18 @@ test('only explicitly HD materials bypass the weighted Classic adapter', () => {
   assert.equal(isExplicitHdMaterial({ Shader: 'Shader_HD_DefaultUnit', Layers: [{ TextureID: 0 }] }), true);
   assert.equal(isExplicitHdMaterial({ Layers: [{ ShaderTypeId: 1, TextureID: 0 }] }), true);
   assert.equal(isExplicitHdMaterial({ Layers: [{ ShaderTypeId: 0, TextureID: 0 }] }), false);
+});
+
+
+test('cutout coverage follows model-framebuffer samples while the editor canvas stays Classic', () => {
+  for (const samples of [0, 4]) {
+    const { gl, native, model, clock } = fixture(), enabled = [];
+    gl.SAMPLES = 99; gl.getParameter = key => { assert.equal(key, gl.SAMPLES); return samples; };
+    gl.enable = value => enabled.push(value);
+    const adapter = installWarcraftPreviewAdapter(gl, model, () => clock); adapter.ready(native);
+    native.render([], [], {});
+    assert.equal(gl.getContextAttributes().antialias, false, 'editor canvas remains non-multisampled');
+    assert.equal(enabled.includes(gl.SAMPLE_ALPHA_TO_COVERAGE), samples > 0);
+    adapter.dispose();
+  }
 });

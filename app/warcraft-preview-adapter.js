@@ -296,7 +296,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           if (lightUniforms.Power) this.uniform1f(lightUniforms.Power, lighting.power);
           if (lightUniforms.Legacy) this.uniform1f(lightUniforms.Legacy, lighting.preset === 'legacy' ? 1 : 0);
           if (lightUniforms.ViewDirection) this.uniform3fv(lightUniforms.ViewDirection, getClock().viewDirection || [0, 0, 1]);
-          const coverage = !influence && activeLayer?.FilterMode === 1 && !!gl.getContextAttributes()?.antialias;
+          const coverage = !influence && activeLayer?.FilterMode === 1 && gl.getParameter(gl.SAMPLES) > 0;
           if (coverageLocation) this.uniform1f(coverageLocation, coverage ? 1 : 0);
           if (coverage) this.enable(this.SAMPLE_ALPHA_TO_COVERAGE);
           else this.disable(this.SAMPLE_ALPHA_TO_COVERAGE);

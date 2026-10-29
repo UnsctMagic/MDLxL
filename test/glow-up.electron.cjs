@@ -126,6 +126,16 @@ throw Error('No document');});
   await emtr.getByRole('button',{name:'Undo',exact:true}).click();await sleep(300);
   assert.deepEqual((await read()).model.Geosets,original.Geosets);checks.push('Undo removes the glow');
 
+  // First Escape rolls back the handle; the next Escape dismisses Glow Up, keeping EMTR open.
+  await glowButton.click();await panel.waitFor();await stage.waitFor();await sleep(1000);
+  before=(await preview()).model;
+  await drag('Move origin glow',25,12,true);
+  assert.equal(await panel.isVisible(),true,'Escape during a drag leaves Glow Up open');
+  assert.deepEqual(middle((await preview()).model),middle(before),'Escape restores the origin position');
+  await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
+  assert.equal(await emtr.isVisible(),true,'the second Escape dismisses Glow Up without closing EMTR');
+  checks.push('First Escape cancels an active drag; second Escape dismisses Glow Up');
+
   await emtr.getByRole('button',{name:'Close',exact:true}).last().click();await emtr.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Forge',exact:true}).click();const forge=page.getByRole('dialog',{name:'Forge',exact:true});await forge.waitFor();
   assert.equal(await forge.getByRole('tab',{name:'Glow Up',exact:true}).count(),0);await forge.getByRole('button',{name:'Close Forge',exact:true}).click();await forge.waitFor({state:'hidden'});

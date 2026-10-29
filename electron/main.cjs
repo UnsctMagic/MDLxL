@@ -32,7 +32,7 @@ const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
 const {showClosePrompt}=require('./close-prompt.cjs');
-const {showWelcomePrompt}=require('./welcome-prompt.cjs');
+const {showWelcomePrompt,welcomePreferences,modelLookStrings}=require('./welcome-prompt.cjs');
 const {backupModelFile}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
@@ -465,11 +465,12 @@ ipcMain.handle('updates:check',event=>{editorOnly(event,'Update checks require t
 async function offerStartupUpdates(){
   const t=text=>translateText(text,settings.preferences.language);
   const icon=nativeImage.createFromPath(path.join(__dirname,'../dist/branding/MDLxL.png')).resize({width:192,height:192,quality:'best'}).toDataURL();
-  const answer=await showWelcomePrompt(win,{title:'MDLxL',heading:t('Welcome to MDLxL'),question:t('Would you like to enable auto updating?'),detail:t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'),note:t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'),labels:{yes:t('Yes, enable it'),no:t('No thanks')},icon,theme:settings.preferences.theme,disableSounds:settings.preferences.disableSounds});
-  const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer==='yes'};
-  await updateSettings({preferences});
-  // The editor keeps its own copy of preferences and would save the old answer back.
-  sendToEditor('settings:preferences',preferences);
+  const answer=await showWelcomePrompt(win,{title:'MDLxL',heading:t('Welcome to MDLxL'),modelLook:settings.preferences.modelLookAnswered?null:modelLookStrings(t),question:t('Would you like to enable auto updating?'),detail:t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'),note:t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'),labels:{yes:t('Yes, enable it'),no:t('No thanks')},icon,theme:settings.preferences.theme,disableSounds:settings.preferences.disableSounds});
+  const preferences=welcomePreferences(answer);
+  const updated=await updateSettings({preferences});
+  // Send the merged graphics record too: the editor's shallow preference patch
+  // must retain softwareLow, frame rate and resolution when accepting Smooth.
+  sendToEditor('settings:preferences',updated.preferences);
 }
 ipcMain.on('updates:startup',async event=>{
   if(!editorOnly(event)||startupUpdateChecked)return;

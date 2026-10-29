@@ -1,56 +1,54 @@
+// Hidden first-run prompt: native style, four languages, real choices and persisted preferences.
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
-// Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
-// Drives the first-launch Auto update welcome hidden: a big icon beside a blue title, Yes / No thanks.
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const root = path.resolve(__dirname, '..');
-
 (async () => {
-  const output = path.join(root, 'out/welcome-prompt');
-  fs.mkdirSync(output, { recursive: true });
-  const run = fs.mkdtempSync(path.join(output, 'regression-'));
-  const entry = path.join(run, 'main.cjs');
-  fs.writeFileSync(entry, `
-    const { app, nativeImage } = require('electron');
-    const { showWelcomePrompt } = require(${JSON.stringify(path.join(root, 'electron/welcome-prompt.cjs'))});
-    app.on('window-all-closed', () => {});
-    app.whenReady().then(async () => {
-      const icon = nativeImage.createFromPath(${JSON.stringify(path.join(root, 'public/branding/MDLxL.png'))}).resize({ width: 192, height: 192 }).toDataURL();
-      const ask = () => showWelcomePrompt(null, { title: 'MDLxL', heading: 'Welcome to MDLxL', question: 'Would you like to enable auto updating?', detail: 'Detail', note: 'Note', labels: { yes: 'Yes, enable it', no: 'No thanks' }, icon, theme: 'light' });
-      globalThis.answers = [await ask(), await ask()];
-    });
-  `);
-  const { app, page: prompt } = await launchApp({ out: run, profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 });
-  try {
-
-    await prompt.waitForSelector('button.yes', { timeout: 15000 });
-    const layout = await prompt.evaluate(() => {
-      const img = document.querySelector('img').getBoundingClientRect(), h1 = document.querySelector('h1');
-      return { iconWidth: img.width, iconRight: img.right, headingLeft: h1.getBoundingClientRect().left, headingColor: getComputedStyle(h1).color, buttons: [...document.querySelectorAll('button')].map(b => b.textContent) };
-    });
-    assert.ok(layout.iconWidth >= 90, 'the MDLxL icon is big');
-    assert.ok(layout.iconRight <= layout.headingLeft, 'the icon sits beside the text');
-    assert.equal(layout.headingColor, 'rgb(23, 74, 161)', 'the welcome title is blue');
-    assert.deepEqual(layout.buttons, ['Yes, enable it', 'No thanks']);
-    const frame = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds().height === BrowserWindow.getAllWindows()[0].getContentBounds().height);
-    assert.ok(frame, 'the welcome has no title bar');
-    await prompt.getByRole('button', { name: 'Yes, enable it' }).click();
-    console.log('PASS big icon beside a blue title, no title bar');
-
-    for (const started = Date.now(); ; await new Promise(r => setTimeout(r, 50))) {
-      prompt = app.windows().find(page => !page.isClosed());
-      if (prompt) break;
-      if (Date.now() - started > 15000) throw new Error('the second welcome did not open');
+  const output = path.join(root, 'out/welcome-prompt'), shots = path.join(root, 'out/wp-3-10-shots');
+  fs.mkdirSync(output, { recursive: true }); fs.mkdirSync(shots, { recursive: true });
+  for (const [language, choice] of [['old', 'yes'], ['old', 'escape'], ['en', 'smooth'], ['ru', 'classic']]) {
+    const run = fs.mkdtempSync(path.join(output, 'regression-')), entry = path.join(run, 'main.cjs'), result = path.join(run, 'answer.json');
+    fs.writeFileSync(entry, `
+      const { app, nativeImage } = require('electron');
+      app.setPath('userData', process.env.MDLXL_PROFILE);
+      const fs = require('node:fs');
+      const { showWelcomePrompt, welcomePreferences, modelLookStrings } = require(${JSON.stringify(path.join(root, 'electron/welcome-prompt.cjs'))});
+      app.on('window-all-closed', () => {});
+      app.whenReady().then(async () => {
+        const { normalizePreferences } = await import(${JSON.stringify(pathToFileURL(path.join(root, 'src/preferences.js')).href)});
+        const { translate } = await import(${JSON.stringify(pathToFileURL(path.join(root, 'src/localization.js')).href)});
+        const { SettingsStore } = require(${JSON.stringify(path.join(root, 'electron/settings.cjs'))});
+        const t = text => translate(text, ${JSON.stringify(language)});
+        const icon = nativeImage.createFromPath(${JSON.stringify(path.join(root, 'public/branding/MDLxL.png'))}).resize({ width: 192, height: 192 }).toDataURL();
+        const answer = await showWelcomePrompt(null, { title: 'MDLxL', heading: t('Welcome to MDLxL'), question: t('Would you like to enable auto updating?'), detail: t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'), note: t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'), labels: { yes: t('Yes, enable it'), no: t('No thanks') }, modelLook: ${language === 'old' ? 'null' : 'modelLookStrings(t)'}, icon, theme: 'light', disableSounds: true });
+        const store = new SettingsStore(${JSON.stringify(result)}, normalizePreferences);
+        await store.configure({ preferences: welcomePreferences(answer) });
+        fs.writeFileSync(${JSON.stringify(path.join(run, 'done.txt'))}, answer);
+      }).catch(error => { fs.writeFileSync(${JSON.stringify(path.join(run, 'error.txt'))}, error.stack); });
+    `);
+    const { app, page: prompt } = await launchApp({ out: run, profile: path.join(run, 'profile'), entry, env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, pageTimeout: 10000, show: 'hide', bounds: null });
+    try {
+      await prompt.waitForSelector('[data-action="yes"]');
+      const layout = await prompt.evaluate(() => ({ width: document.querySelector('img').getBoundingClientRect().width, color: getComputedStyle(document.querySelector('h1')).color }));
+      assert.ok(layout.width >= 90); assert.equal(layout.color, 'rgb(23, 74, 161)');
+      if (language !== 'old') {
+        assert.equal(await prompt.locator('[data-look="smooth"]').getAttribute('aria-pressed'), 'true');
+        const capture = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
+        fs.writeFileSync(path.join(shots, 'welcome-' + language + '.png'), Buffer.from(capture, 'base64'));
+        if (choice === 'classic') await prompt.locator('[data-look="classic"]').click();
+      }
+      if (choice === 'escape') await prompt.keyboard.press('Escape').catch(error => { if (!/closed/.test(error.message)) throw error; });
+      else await prompt.locator('[data-action="yes"]').click();
+      for (const start = Date.now(); !fs.existsSync(path.join(run, 'done.txt')); await new Promise(r => setTimeout(r, 30))) {
+        if (fs.existsSync(path.join(run, 'error.txt'))) throw Error(fs.readFileSync(path.join(run, 'error.txt'), 'utf8'));
+        if (Date.now() - start > 10000) throw Error('welcome answer did not persist');
+      }
+      const saved = JSON.parse(fs.readFileSync(result, 'utf8')).preferences;
+      assert.equal(saved.checkUpdatesOnStartup, choice !== 'escape');
+      if (language !== 'old') { assert.equal(saved.graphics.antialias, choice === 'smooth'); assert.equal(saved.modelLookAnswered, true); }
+      console.log('PASS ' + language + '/' + choice + ': native welcome layout and persisted choice');
+    } finally {
+      await closeApp(app); fs.rmSync(run, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
-    await prompt.waitForSelector('button.yes', { timeout: 15000 });
-    await prompt.keyboard.down('Escape');
-    for (const started = Date.now(); !(await app.evaluate(() => Array.isArray(globalThis.answers))); await new Promise(r => setTimeout(r, 50)))
-      if (Date.now() - started > 15000) throw new Error('the welcome did not answer');
-    assert.deepEqual(await app.evaluate(() => globalThis.answers), ['yes', 'no']);
-    console.log('PASS Yes turns Auto update on and Escape answers No thanks');
-  } finally {
-    await closeApp(app).catch(() => {});
-    fs.rmSync(run, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

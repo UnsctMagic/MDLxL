@@ -1,3 +1,5 @@
+import { backgroundImageRect } from '../src/viewport-appearance.js';
+
 const clamp = value => Math.max(0, Math.min(1, Number(value) || 0));
 
 /** A single normalized rectangle is shared by the visible frame and GIF pixels. */
@@ -28,8 +30,7 @@ export function cropPresetRect(width, height, aspect) {
 
 // Fit uniformly. A changed viewport or subpixel crop rounding must never stretch a model.
 export function containRect(sourceWidth,sourceHeight,width,height){
-  const scale=Math.min(width/sourceWidth,height/sourceHeight);
-  return {x:(width-sourceWidth*scale)/2,y:(height-sourceHeight*scale)/2,width:sourceWidth*scale,height:sourceHeight*scale};
+  return backgroundImageRect(sourceWidth, sourceHeight, width, height, 'fit');
 }
 export function recordingDimensions(width,height,crop,maxDimension,aspect){
   const selection=cropPixels(width,height,crop),ratio=aspect||selection.width/selection.height;

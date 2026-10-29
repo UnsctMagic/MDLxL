@@ -57,7 +57,7 @@ async function prepareWindow(app, page, { bounds = { x: -3000, y: 0, width: 1280
   page.setDefaultTimeout(pageTimeout); page.on('pageerror', error => errors.push(error.message));
   await app.evaluate(({ BrowserWindow }, { bounds, show }) => {
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.setBackgroundThrottling(false); win.setBounds(bounds);
+      win.webContents.setBackgroundThrottling(false); if (bounds) win.setBounds(bounds);
       if (show === 'hide') win.hide(); else win.showInactive();
     }
   }, { bounds, show });

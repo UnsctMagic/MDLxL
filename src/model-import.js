@@ -1,4 +1,4 @@
-import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { visitTextureReferences } from './texture-references.js';
 import { stableKey } from './value-key.js';
 import { gamePathKey } from './game-path.js';
 
@@ -77,15 +77,6 @@ export function createResourceImporter(source, target, {
     }
     return maps.textureAnims.get(old);
   }
-  const remapSlot = (layer, slot) => {
-    if (typeof layer[slot] === 'number') layer[slot] = textureRef(layer[slot]);
-    else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) {
-      key[field] = keyArrayType === 'int32' ? new Int32Array(Array.from(key[field], textureRef)) : key[field].map(textureRef);
-    }
-  };
-  const remapDefault = (layer, slot) => {
-    if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = textureRef(layer._MdxDefaults[slot]);
-  };
   function materialRef(old) {
     if (materialSentinels && (old == null || old === -1)) return old;
     if (!source.Materials?.[old]) fail('material', old);
@@ -94,8 +85,7 @@ export function createResourceImporter(source, target, {
       if (existing >= 0) { maps.materials.set(old, existing); return existing; }
       const material = clone(source.Materials[old]);
       for (const layer of requireLayers ? material.Layers : material.Layers || []) {
-        for (const slot of TEXTURE_SLOTS) { remapSlot(layer, slot); if (!defaultsAfterSlots) remapDefault(layer, slot); }
-        if (defaultsAfterSlots) for (const slot of TEXTURE_SLOTS) remapDefault(layer, slot);
+        visitTextureReferences({ Materials: [{ Layers: [layer] }] }, (id, set) => set(textureRef(id)), { arrayType: keyArrayType === 'int32' ? Int32Array : undefined, defaultsAfterSlots });
         if (isTextureAnimRef(layer.TVertexAnimId)) layer.TVertexAnimId = textureAnimRef(layer.TVertexAnimId);
       }
       globalRef(material);

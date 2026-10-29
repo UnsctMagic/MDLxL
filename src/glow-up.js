@@ -1,3 +1,4 @@
+import { isTeamGlowLayer } from './texture-references.js';
 import { isWeaponName, nameSide, nameTokens } from './rig-names.js';
 import { clamp } from './math.js';
 import { createRigNode } from './bone-tools.js';
@@ -28,14 +29,14 @@ const ORIGIN_LAYERS = [
   { width: .745, height: 25.5 / 254, keys: PULSE_SLOW, period: 2666 },
 ];
 
-const isTeamGlowGeoset = (model, g) => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => model.Textures?.[l.TextureID]?.ReplaceableId === 2);
+const isTeamGlowGeoset = (model, g) => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => isTeamGlowLayer(model, l));
 // Only a bone carrying at least half an HD vertex counts as holding it.
 const bindingsOf = (g, id) => vertexBones(g, id, { minWeight: 128 });
 const point = (g, id) => [g.Vertices[id * 3], g.Vertices[id * 3 + 1], g.Vertices[id * 3 + 2]];
 
 /** Does the model already carry visible team glow geometry? */
 export function hasHeroGlow(model) {
-  return (model.Geosets || []).some(g => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => model.Textures?.[l.TextureID]?.ReplaceableId === 2 && l.FilterMode >= 3));
+  return (model.Geosets || []).some(g => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => isTeamGlowLayer(model, l) && l.FilterMode >= 3));
 }
 
 /**

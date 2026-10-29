@@ -18,7 +18,7 @@ export function teamColorPixels(id, rgb, size) {
 }
 // Below 1 the viewport draws fewer pixels than the screen and is scaled up;
 // software rendering cost follows the pixel count.
-export const viewportPixelRatio = (graphics, device = 1, lowPower = false) => graphics.pixelRatio < 1 ? graphics.pixelRatio : lowPower ? 1 : graphics.antialias ? Math.min(device || 1, graphics.pixelRatio) : device || 1;
+export const viewportPixelRatio = (graphics, device = 1, lowPower = false) => graphics.pixelRatio < 1 ? graphics.pixelRatio : lowPower ? 1 : device || 1;
 
 export function configureEditorTexture(texture, anisotropy = 1) {
   // DataTexture defaults to nearest filtering and no generated mipmaps.
