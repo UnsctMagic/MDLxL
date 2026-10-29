@@ -1,11 +1,11 @@
 import { openDocument, validateModel, createNode, NODE_TYPES } from './editor-document.js';
 import { resources, assertRoundTripFields } from './model-optimizer.js';
-import { allNodes, sampleTrack } from './animation.js';
+import { allNodes, nodePivot, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { mergeDuplicateVertices, removeUnusedVertices, reducePolygons } from './optimizexl-geometry.js';
 import { protectedGeosetData } from './optimizexl-exclusions.js';
 import { commonEndpointProposals, applyCommonEndpointPose } from './optimizexl-endpoints.js';
 import { optimizationReview } from './optimizexl-review.js';
-import { reduceAnimationTrack } from './optimizexl-animation.js';
+import { reduceAnimationTrack, trackValueError } from './optimizexl-animation.js';
 import { boundsProposals, repairBounds } from './optimizexl-bounds.js';
 import { repairMotionIrregularity, scanIrregularMotion } from './optimizexl-motion.js';
 import { repairSuspiciousSnap, scanSuspiciousSnaps } from './optimizexl-snaps.js';
@@ -76,14 +76,13 @@ function unusedResources(m,stats,skipped,changes){
  beforeTextures.forEach((item,i)=>{if(!textures.has(item))changes.push({label:`Texture ${i+1}${item.Image?`: ${item.Image.split(/[\\/]/).pop()}`:''}`});});
 }
 function tracks(m){const result=[];function walk(x,p=[]){if(!x||typeof x!=='object'||ArrayBuffer.isView(x))return;if(x.Keys){result.push({track:x,path:p});return;}for(const[k,v]of Object.entries(x))if(k!=='Nodes')walk(v,[...p,k]);}walk(m);return result;}
-const defaultValue=p=>p==='Rotation'?[0,0,0,1]:p==='Scaling'?[1,1,1]:p==='Translation'?[0,0,0]:1;
+const defaultValue=p=>Object.hasOwn(TRANSFORM_DEFAULTS,p)?[...TRANSFORM_DEFAULTS[p]]:1;
 const sample=(m,t,p,si,frame)=>sampleTrack(t,frame,{interval:m.Sequences[si].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:defaultValue(p),quaternion:p==='Rotation'});
-function trackError(a,b,rotation){if(rotation){const norm=v=>Math.hypot(...v);const dot=Math.abs(a.reduce((s,v,i)=>s+v*b[i],0)/(norm(a)*norm(b)||1));return 2*Math.acos(Math.min(1,dot))*180/Math.PI;}return Math.hypot(...a.map((v,i)=>v-b[i]));}
 /** Farthest bind-pose distance from each node's pivot to the vertices and
  * child pivots it carries: a turn there moves geometry by reach × angle. */
 function nodeReach(m){
  const nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n])),reach=new Map();
- const pivot=n=>n.PivotPoint||m.PivotPoints?.[n.ObjectId]||[0,0,0];
+ const pivot=n=>nodePivot(m,n);
  const carry=(id,point)=>{for(let n=byId.get(id),seen=new Set();n&&!seen.has(n.ObjectId);n=byId.get(n.Parent)){seen.add(n.ObjectId);const p=pivot(n);reach.set(n.ObjectId,Math.max(reach.get(n.ObjectId)||0,Math.hypot(point[0]-p[0],point[1]-p[1],point[2]-p[2])));}};
  for(const g of m.Geosets)for(let i=0;i<g.Vertices.length/3;i++)for(const id of g.Groups[g.VertexGroup[i]]||[])carry(id,g.Vertices.subarray(i*3,i*3+3));
  for(const n of nodes)if(n.Parent!=null)carry(n.Parent,pivot(n));
@@ -111,13 +110,13 @@ export function findIrregularities(m){const findings=[],seq=m.Sequences,live=seq
   if(live.length>=3&&visible.length>0&&visible.length<=Math.max(1,Math.floor(live.length/4))){const portrait=portraits.some(({i})=>allVisible(m,gi,i)),corpse=bone>=0&&allVisible(m,gi,bone);if(portrait||corpse)for(const {i,s}of visible)findings.push({id:`visibility:${gi}:${i}`,kind:'hide',geoset:gi,sequence:i,frame:s.Interval[0],label:`Geoset ${gi+1} appears in ${s.Name}`,detail:`Visible in only ${visible.length} of ${live.length} living animations and also in ${corpse?'Decay Bone':'Portrait'}. Review whether it belongs here.`});}
   if(bone>=0&&flesh>=0&&allVisible(m,gi,bone)&&alpha(m,gi,flesh,seq[flesh].Interval[1])<.001&&visible.length>=Math.max(2,live.length/2))findings.push({id:`decay:${gi}`,kind:'hide',geoset:gi,sequence:bone,frame:seq[bone].Interval[0],label:`Geoset ${gi+1} reappears in Decay Bone`,detail:'A living body part disappears by the end of Decay Flesh, then becomes visible again.'});
  }
- const addPose=(from,to,fromFrame,toFrame,label)=>{const diffs=[];for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const a=sample(m,t,p,from,fromFrame),b=sample(m,t,p,to,toFrame);if(trackError(a,b,p==='Rotation')>(p==='Rotation'?.5:.05))diffs.push({node:n.ObjectId,property:p});}if(diffs.length)findings.push({id:`pose:${from}:${fromFrame}:${to}:${toFrame}`,kind:'pose',from,sequence:to,fromFrame,frame:toFrame,label,detail:`${diffs.length} transform channels differ. Copy the reference pose to this endpoint after reviewing the preview.`,channels:diffs});};
+ const addPose=(from,to,fromFrame,toFrame,label)=>{const diffs=[];for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const a=sample(m,t,p,from,fromFrame),b=sample(m,t,p,to,toFrame);if(trackValueError(a,b,p==='Rotation')>(p==='Rotation'?.5:.05))diffs.push({node:n.ObjectId,property:p});}if(diffs.length)findings.push({id:`pose:${from}:${fromFrame}:${to}:${toFrame}`,kind:'pose',from,sequence:to,fromFrame,frame:toFrame,label,detail:`${diffs.length} transform channels differ. Copy the reference pose to this endpoint after reviewing the preview.`,channels:diffs});};
  if(death>=0&&flesh>=0)addPose(death,flesh,seq[death].Interval[1],seq[flesh].Interval[0],'Death → Decay Flesh pose mismatch');
  const common=commonEndpointProposals(m);findings.push(...common);
  for(let si=0;si<seq.length;si++)if(!common.some(f=>f.sequence===si)&&!seq[si].NonLooping&&/^(stand|walk|portrait)( |$)/.test(seqName(seq[si])))addPose(si,si,seq[si].Interval[0],seq[si].Interval[1],`${seq[si].Name}: loop endpoints differ`);
  // Dissipate is inferred only when most animated roots travel substantially
  // while a small, separately rooted visible component remains stationary.
- const dissipate=seq.findIndex(s=>seqName(s)==='dissipate');if(dissipate>=0){const [lo,hi]=seq[dissipate].Interval,nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n]));const root=id=>{let n=byId.get(id),seen=new Set();while(n?.Parent!=null&&!seen.has(n.Parent)){seen.add(n.Parent);n=byId.get(n.Parent);}return n;};const motion=gi=>Math.max(0,...m.Geosets[gi].Groups.flat().map(id=>{const n=root(id);return n?trackError(sample(m,n.Translation,'Translation',dissipate,lo),sample(m,n.Translation,'Translation',dissipate,hi),false):0;}));const vis=m.Geosets.map((_,gi)=>gi).filter(gi=>allVisible(m,gi,dissipate)),moving=vis.filter(gi=>motion(gi)>dimensions(m)*.15);if(moving.length>vis.length*.75)for(const gi of vis)if(motion(gi)<.01)findings.push({id:`dissipate:${gi}`,kind:'hide',geoset:gi,sequence:dissipate,frame:hi,label:`Geoset ${gi+1} remains behind during Dissipate`,detail:'Most visible geometry travels away, but this separately rooted component stays still. Proposed correction hides this component in Dissipate.'});}
+ const dissipate=seq.findIndex(s=>seqName(s)==='dissipate');if(dissipate>=0){const [lo,hi]=seq[dissipate].Interval,nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n]));const root=id=>{let n=byId.get(id),seen=new Set();while(n?.Parent!=null&&!seen.has(n.Parent)){seen.add(n.Parent);n=byId.get(n.Parent);}return n;};const motion=gi=>Math.max(0,...m.Geosets[gi].Groups.flat().map(id=>{const n=root(id);return n?trackValueError(sample(m,n.Translation,'Translation',dissipate,lo),sample(m,n.Translation,'Translation',dissipate,hi),false):0;}));const vis=m.Geosets.map((_,gi)=>gi).filter(gi=>allVisible(m,gi,dissipate)),moving=vis.filter(gi=>motion(gi)>dimensions(m)*.15);if(moving.length>vis.length*.75)for(const gi of vis)if(motion(gi)<.01)findings.push({id:`dissipate:${gi}`,kind:'hide',geoset:gi,sequence:dissipate,frame:hi,label:`Geoset ${gi+1} remains behind during Dissipate`,detail:'Most visible geometry travels away, but this separately rooted component stays still. Proposed correction hides this component in Dissipate.'});}
  findings.push(...scanSuspiciousSnaps(m,findings.filter(f=>f.kind==='motion')));
  const context=scanModelMotionContext(m,findings.filter(f=>f.kind==='motion'||f.kind==='snap'));
  return [...findings.map(f=>context.review.has(f.id)?{...f,motionContext:context.review.get(f.id)}:f),...context.findings,...effectVisibilityProposals(m)];

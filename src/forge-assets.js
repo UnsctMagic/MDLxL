@@ -1,19 +1,19 @@
 import { crc32 } from './crc32.js';
-const assetKey=name=>String(name||'').replaceAll('/','\\').toLowerCase();
+import { gamePathKey } from './game-path.js';
 export const isForgeAssetPath=name=>/^MDLxL_(?:Forge|Parts|Citadel)\/[a-z0-9][a-z0-9_.-]{0,200}\.(blp|dds|tga)$/i.test(String(name||'').replaceAll('\\','/'));
-export function forgeTexturePaths(model){return [...new Map((model.Textures||[]).filter(t=>isForgeAssetPath(t.Image)).map(t=>[assetKey(t.Image),t.Image])).values()];}
+export function forgeTexturePaths(model){return [...new Map((model.Textures||[]).filter(t=>isForgeAssetPath(t.Image)).map(t=>[gamePathKey(t.Image),t.Image])).values()];}
 /** The reserved relative path survives reopening, rescans and recovery. Source
  * tags alone are transient: native lookup also reads textures beside a model. */
 export function retainedForgeAssets(assets,model=null){
- const result=new Map(),add=(name,asset)=>{if(asset?.bytes?.byteLength)result.set(assetKey(name),{name,bytes:asset.bytes,...(asset.source==='parts'?{source:'parts'}:{})});};
+ const result=new Map(),add=(name,asset)=>{if(asset?.bytes?.byteLength)result.set(gamePathKey(name),{name,bytes:asset.bytes,...(asset.source==='parts'?{source:'parts'}:{})});};
  if(model){
-  for(const texture of model.Textures||[]){const name=texture.Image,key=assetKey(name),asset=assets.get(key)||assets.get(key.split('\\').at(-1))||[...assets.values()].find(a=>assetKey(a.name)===key);if(isForgeAssetPath(name)||asset?.source==='parts')add(name,asset);}
+  for(const texture of model.Textures||[]){const name=texture.Image,key=gamePathKey(name),asset=assets.get(key)||assets.get(key.split('\\').at(-1))||[...assets.values()].find(a=>gamePathKey(a.name)===key);if(isForgeAssetPath(name)||asset?.source==='parts')add(name,asset);}
  }else{
   for(const asset of assets.values())if(asset.source==='forge'||asset.source==='parts'||isForgeAssetPath(asset.name))add(asset.name,asset);
  }
  return [...result.values()];
 }
-export function missingForgeAssetPaths(assets,model){const available=new Set(retainedForgeAssets(assets,model).map(a=>assetKey(a.name)));return forgeTexturePaths(model).filter(name=>!available.has(assetKey(name)));}
+export function missingForgeAssetPaths(assets,model){const available=new Set(retainedForgeAssets(assets,model).map(a=>gamePathKey(a.name)));return forgeTexturePaths(model).filter(name=>!available.has(gamePathKey(name)));}
 /** A deterministic stored ZIP keeps portable editor artifacts byte-exact. */
 export function storedZipArchive(files){
  const parts=[],central=[];let offset=0;

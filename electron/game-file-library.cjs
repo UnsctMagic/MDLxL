@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { gamePathKey } = require('./game-path.cjs');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex').slice(0,24);
 
 // File families shown by the Library's game-file browser. Anything else is "other".
@@ -131,7 +132,7 @@ class GameFileLibrary {
   }
   /** Every word must appear in the game path. Exact and leading file-name matches rank first. */
   search(index, {query = '', folder = '', variant = 'classic', type = 'all', offset = 0, limit = PAGE} = {}) {
-    const q = String(query).toLowerCase().replaceAll('/','\\').trim(), words = q.split(/\s+/).filter(Boolean), scope = String(folder || '').toLowerCase();
+    const q = gamePathKey(query).trim(), words = q.split(/\s+/).filter(Boolean), scope = String(folder || '').toLowerCase();
     if (!words.length) return this.browse(index,{folder,variant,type,offset,limit});
     const rank = entry => { const stem = entry.leaf.replace(/\.[^.]+$/,''); return stem === q || entry.leaf === q ? 0 : stem.startsWith(words[0]) ? 1 : words.every(word => entry.leaf.includes(word)) ? 2 : 3; };
     const found = [];
@@ -157,7 +158,7 @@ class GameFileLibrary {
   }
   /** A game path (as the World Editor tables write it) in the chosen version, falling back to the base game. */
   findPath(index, logicalPath, variant = 'classic') {
-    const logical = String(logicalPath || '').replaceAll('/','\\').toLowerCase().replace(/^\\+/,'');
+    const logical = gamePathKey(logicalPath).replace(/^\\+/,'');
     if (!logical || logical.includes(':')) return null;
     const modules = variant === 'reforged' ? ['war3.w3mod:_hd.w3mod:','war3.w3mod:'] : variant === 'forsaken-kingdom' ? ['war3.w3mod:_de.w3mod:','war3.w3mod:_hd.w3mod:','war3.w3mod:'] : ['war3.w3mod:'];
     const alternates = new Set([logical,logical.replace(/\.mdl$/,'.mdx'),logical.replace(/\.blp$/,'.dds'),logical.replace(/\.dds$/,'.blp'),logical.replace(/\.blp$/,'.tga')]);
@@ -188,7 +189,7 @@ class GameFileLibrary {
     const found = [], missing = [];
     for (const name of [...new Set(names)].slice(0,1024)) {
       if (typeof name !== 'string' || !name || name.includes('\0') || name.includes(':')) continue;
-      const logical = name.replaceAll('/','\\').toLowerCase(), alternates = [logical,logical.replace(/\.(?:blp|tiff?)$/,'.dds'),logical.replace(/\.(?:dds|tiff?)$/,'.blp')];
+      const logical = gamePathKey(name), alternates = [logical,logical.replace(/\.(?:blp|tiff?)$/,'.dds'),logical.replace(/\.(?:dds|tiff?)$/,'.blp')];
       let match = null;
       for (const prefix of new Set(prefixes)) {
         for (const candidate of new Set(alternates)) {

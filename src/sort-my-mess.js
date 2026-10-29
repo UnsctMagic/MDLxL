@@ -1,6 +1,6 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
-import { sampleTrack } from './animation.js';
+import { keysInInterval, sampleTrack } from './animation.js';
 import { appendGeosetGeometry } from './editor-document.js';
 import { unionAnimatedExtents } from './geoset-operations.js';
 import { setAnimationSequences } from './animation-tracks.js';
@@ -127,7 +127,7 @@ function alphaAt(model, track, frame, interval) {
 function sequenceFrames(tracks, sequence) {
   const [start, end] = sequence.Interval, frames = new Set([start, end]);
   for (const track of tracks) if (isTrack(track) && !isGlobal(track)) {
-    const keys = track.Keys.filter(key => key.Frame >= start && key.Frame <= end);
+    const keys = keysInInterval(track, [start, end]);
     keys.forEach((key, i) => { frames.add(key.Frame); if (track.LineType && keys[i + 1]) frames.add((key.Frame + keys[i + 1].Frame) / 2); });
   }
   return [...frames].sort((a, b) => a - b);
@@ -136,7 +136,7 @@ const stateName = value => value >= .999 ? 'shown' : value <= .001 ? 'hidden' : 
 /** Exact visibility in one animation: a first state plus timed changes. */
 function describeSequence(model, track, sequence) {
   if (isGlobal(track)) return { state: 'global', first: 'global loop', steps: [] };
-  const [start, end] = sequence.Interval, keys = isTrack(track) ? track.Keys.filter(key => key.Frame >= start && key.Frame <= end) : [];
+  const [start, end] = sequence.Interval, keys = isTrack(track) ? keysInInterval(track, [start, end]) : [];
   const first = stateName(round(alphaAt(model, track, start, sequence.Interval))), steps = [];
   let current = first;
   for (const key of keys) {
@@ -385,7 +385,7 @@ function applyOverrides(model, target, overrides, sourceAnim) {
     if (!Number.isInteger(value?.from)) continue;
     const source = sourceAnim(value.from)?.Alpha, interval = model.Sequences[index].Interval, [start, end] = interval;
     if (isGlobal(source)) throw Error(`Geoset ${n(value.from)}'s visibility runs on a global loop and cannot be copied into one animation.`);
-    const keys = isTrack(source) ? source.Keys.filter(key => key.Frame >= start && key.Frame <= end) : [];
+    const keys = isTrack(source) ? keysInInterval(source, [start, end]) : [];
     if (!keys.length) { setAnimationSequences(model, target_, round(typeof source === 'number' ? source : 1), [Number(index)]); continue; }
     setAnimationSequences(model, target_, round(alphaAt(model, source, start, interval)), [Number(index)]);
     const track = anim.Alpha, cubic = track.LineType > 1;

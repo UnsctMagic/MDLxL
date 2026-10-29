@@ -51,7 +51,7 @@ import './portrait-view.css';
 import ShowcaseLayers from './ShowcaseLayers.jsx';
 import { exposePreviewForTests } from './test-hook.js';
 
-const pathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey as pathKey } from '../src/game-path.js';
 let humanFramePromise;
 const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
 const portraitHasFrame = props => props.portraitMode && props.showcasePortraitFrame !== false;

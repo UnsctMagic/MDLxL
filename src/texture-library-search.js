@@ -1,6 +1,7 @@
 import {prepare, searchDetailed, norm} from './texture-library/phrase-search.mjs';
 import {russianTextureQuery} from './texture-library/russian-query.mjs';
 import {isArtworkPath,artworkQuery} from './texture-library-art.js';
+import { gamePathKey } from './game-path.js';
 
 // These are kitbash suggestions, never claims that Warcraft contains another franchise's assets.
 const inspirations = [
@@ -28,14 +29,13 @@ const inspirations = [
   {name:'Warhammer fantasy',words:['warhammer fantasy','warhammer','age of sigmar'],tags:['plate','metal','leather','blades','emblem','bone'],traits:['ornate','worn','spiked','rune'],subjects:/chaos|knight|paladin|orc|dwarf|skeleton/},
   {name:'Middle-earth',words:['lord of the rings','middle earth','tolkien','lotr','the hobbit'],tags:['plate','chain','leather','wood','elf-body','orc-body','dwarf-body'],traits:['worn','carved','ornate'],subjects:/knight|rider|orc|dwarf|elf|ranger|bandit/},
 ];
-const normalizedPath = value => String(value || '').replaceAll('/','\\').toLowerCase();
 const textureFormat = item => String(item?.path || '').split(/[\\/]/).at(-1).split('.').at(-1).toLowerCase();
 export function textureFormatMatches(item,format='all') {
   return format === 'all' || format === textureFormat(item);
 }
 export function folderContains(sourcePath,folder) {
   if (!folder) return true;
-  const full = normalizedPath(sourcePath), parent = normalizedPath(folder).replace(/[\\:]$/,'');
+  const full = gamePathKey(sourcePath), parent = gamePathKey(folder).replace(/[\\:]$/,'');
   return full === parent || full.startsWith(parent+'\\') || full.startsWith(parent+':');
 }
 export function textureFolderTree(items) {

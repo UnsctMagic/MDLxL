@@ -6,8 +6,8 @@ import { parseEventRenderModel } from './event-render-model.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 import { billboardCameraCorrection } from './preview-pose.js';
 import { particleTravelDistance } from './particle-preview-adapter.js';
+import { gamePathKey } from '../src/game-path.js';
 
-const pathKey = path => String(path || '').replaceAll('/', '\\').toLowerCase();
 const readText = bytes => new TextDecoder().decode(bytes);
 
 function destroyRenderer(native) {
@@ -80,13 +80,13 @@ void main(){color=texture(image,uv)*tint; if(color.a<.001)discard;}`);
 export function createEventPreview({ gl, model, modelPath, textureAssets, textureFromAsset, invalidate, onWarnings, desktop = window.desktop }) {
   let disposed = false, loaded = false, decals;
   const definitions = new Map(), resources = new Map(), instances = new Map(), textures = new Set(), warnings = [], tests = new Map();
-  const assets = new Map([...(textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {})))].map(([name, asset]) => [pathKey(name), asset]));
+  const assets = new Map([...(textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {})))].map(([name, asset]) => [gamePathKey(name), asset]));
   const warn = message => { warnings.push(message); if (!disposed) onWarnings?.([...warnings]); };
   async function resolve(names) {
     const unique = [...new Set(names.filter(Boolean))], found = new Map();
-    for (const name of unique) if (assets.has(pathKey(name))) found.set(pathKey(name), assets.get(pathKey(name)));
-    const missing = unique.filter(name => !found.has(pathKey(name)));
-    if (missing.length && desktop?.resolveEventResources) for (const record of await desktop.resolveEventResources({ names: missing, path: modelPath })) if (record.bytes) found.set(pathKey(record.name), record);
+    for (const name of unique) if (assets.has(gamePathKey(name))) found.set(gamePathKey(name), assets.get(gamePathKey(name)));
+    const missing = unique.filter(name => !found.has(gamePathKey(name)));
+    if (missing.length && desktop?.resolveEventResources) for (const record of await desktop.resolveEventResources({ names: missing, path: modelPath })) if (record.bytes) found.set(gamePathKey(record.name), record);
     return found;
   }
   async function decode(asset, info) {
@@ -111,7 +111,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
       const records = await resolve([...definitions.values()].map(definition => definition.resourcePath));
       for (const definition of definitions.values()) {
         if (disposed) break;
-        const key = pathKey(definition.resourcePath); if (resources.has(key)) { if (definition.type === 'SPN') definition.lifeSpanMs = resources.get(key).lifeSpanMs; continue; }
+        const key = gamePathKey(definition.resourcePath); if (resources.has(key)) { if (definition.type === 'SPN') definition.lifeSpanMs = resources.get(key).lifeSpanMs; continue; }
         const asset = records.get(key);
         if (!asset) { warn(`Event resource unavailable: ${definition.resourcePath}`); continue; }
         try {
@@ -124,7 +124,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
             definition.lifeSpanMs = Math.max(1, end - start);
             const images = new Map(), imageRecords = await resolve((source.Textures || []).map(info => info.Image));
             for (const info of source.Textures || []) if (info.Image && !info.ReplaceableId) {
-              const imageAsset = imageRecords.get(pathKey(info.Image));
+              const imageAsset = imageRecords.get(gamePathKey(info.Image));
               if (imageAsset) images.set(info.Image, await decode(imageAsset, info));
               else warn(`Event texture unavailable: ${info.Image}`);
             }
@@ -194,7 +194,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
       const keys = new Set(active.map(item => item.key));
       for (const [key, state] of instances) if (!keys.has(key)) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); instances.delete(key); }
       for (const item of active) {
-        const resource = resources.get(pathKey(item.definition.resourcePath)); if (!resource) continue;
+        const resource = resources.get(gamePathKey(item.definition.resourcePath)); if (!resource) continue;
         let state = instances.get(item.key);
         if (!state) {
           state = { world:worldAtTrigger(item,item.manual ? item.poseFrame+item.ageMs : frame,item.manual ? item.sequenceIndex : sequenceIndex,item.manual ? item.globalTime+item.ageMs : globalTime), age:-1 }; instances.set(item.key,state);

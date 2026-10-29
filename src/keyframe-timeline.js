@@ -1,4 +1,4 @@
-import { allNodes, sampleTrack } from './animation.js';
+import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { animationTargets, animationTrackId, assertSingleGeosetOwner, readAnimationTrack } from './animation-tracks.js';
 
@@ -7,7 +7,8 @@ const clone = value => structuredClone(value);
 const isTrack = value => value && Array.isArray(value.Keys);
 const globalId = track => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : null;
 const vector = value => typeof value === 'number' ? [value] : Array.from(value || []);
-const defaults = property => ({ Translation: [0, 0, 0], Rotation: [0, 0, 0, 1], Scaling: [1, 1, 1], Color: [1, 1, 1], AmbColor: [1, 1, 1] })[property] || 1;
+// A fresh copy each call: callers may keep and edit the default they receive.
+const defaults = property => { const value = { ...TRANSFORM_DEFAULTS, Color: [1, 1, 1], AmbColor: [1, 1, 1] }[property]; return value ? [...value] : 1; };
 const labels = { Translation: 'Translation', Rotation: 'Rotation', Scaling: 'Scaling', Color: 'RGB', AmbColor: 'Ambient RGB', Alpha: 'Alpha', Visibility: 'Visibility' };
 export const timelineSections = ['Nodes', 'GeosetAnims', 'Materials', 'Info'];
 export const timelineKeyId = (track, frame) => `${typeof track === 'string' ? track : animationTrackId(track)}@${frame}`;

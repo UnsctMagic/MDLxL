@@ -1,5 +1,5 @@
 import { Matrix4, Vector3 } from 'three';
-import { sampleNodeMatrices, sampleGeosetAnimation, skinGeoset } from './animation.js';
+import { nodePivot, sampleNodeMatrices, sampleGeosetAnimation, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { createRigNode } from './bone-tools.js';
 
@@ -50,7 +50,7 @@ export function attachematorStandSequence(model) {
   return sequences.findIndex(sequence => !/portrait|death|decay|dissipate/i.test(sequence.Name || ''));
 }
 
-function pivotOf(model, node) { return new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]); }
+function pivotOf(model, node) { return new Vector3().fromArray(nodePivot(model, node)); }
 
 /** The standing unit: posed vertices, bones per vertex, and the rig as POSE reads it. */
 function measureUnit(model) {

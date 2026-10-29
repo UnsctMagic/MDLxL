@@ -1,6 +1,6 @@
 import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
@@ -19,7 +19,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
   const lightIds = new Set((model.Lights || []).map(node => node.ObjectId));
   const categories = movementNodeCategories(model,vanilla);
   return allNodes(model).map(node => {
-    const world = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]);
+    const world = new Vector3().fromArray(nodePivot(model, node));
     const matrix = matrices.get(node.ObjectId); if (matrix) world.applyMatrix4(matrix);
     const screen = world.clone().project(camera);
     const rotation = new Quaternion(); matrix?.decompose(new Vector3(), rotation, new Vector3());

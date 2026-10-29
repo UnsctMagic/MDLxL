@@ -1,6 +1,7 @@
 const http = require('node:http');
 const crypto = require('node:crypto');
 const { CONTEXT_URI, awarenessText } = require('./ai-awareness.cjs');
+const FORBIDDEN_KEYS = require('../src/forbidden-keys.json');
 
 function validateArguments(schema, value, path = 'arguments') {
   if (schema.enum && !schema.enum.includes(value)) throw Error(path + ' has an unsupported value.');
@@ -28,7 +29,7 @@ function validateArguments(schema, value, path = 'arguments') {
     for (const key of schema.required || [])
       if (!Object.hasOwn(value, key)) throw Error(path + '.' + key + ' is required.');
     for (const [key, child] of Object.entries(value)) {
-      if (['__proto__', 'constructor', 'prototype'].includes(key)) throw Error('Unsafe argument name.');
+      if (FORBIDDEN_KEYS.includes(key)) throw Error('Unsafe argument name.');
       const sub = schema.properties?.[key];
       if (sub) validateArguments(sub, child, path + '.' + key);
       else if (schema.additionalProperties === false) throw Error('Unknown argument: ' + key);
@@ -37,6 +38,8 @@ function validateArguments(schema, value, path = 'arguments') {
     }
   }
 }
+// A PNG, JPEG or WebP data URL: [1] is the MIME type, [2] the base64 data.
+const IMAGE_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s;
 function toolContent(value) {
   if (value?.images) {
     if (!Array.isArray(value.images) || !value.images.length || value.images.length > 16)
@@ -51,7 +54,7 @@ function toolContent(value) {
     ];
   }
   if (value?.image) {
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(value.image);
+    const match = IMAGE_DATA_URL.exec(value.image);
     if (!match) throw Error('Invalid viewport capture.');
     const { image, ...metadata } = value;
     return [
@@ -289,4 +292,4 @@ async function startMcpServer({
     },
   };
 }
-module.exports = { startMcpServer, callEditorTool, toolContent, validateArguments };
+module.exports = { startMcpServer, callEditorTool, toolContent, validateArguments, IMAGE_DATA_URL };
