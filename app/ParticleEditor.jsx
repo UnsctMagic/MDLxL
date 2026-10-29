@@ -169,7 +169,6 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }).catch(error=>setMessage(error.message)).finally(()=>{if(live)setRecoveryReady(true);});
     return()=>{live=false;};
   },[]);
-  useEffect(()=>{localStorage.setItem('mdlxl-particle-mode',mode);},[mode]);
   useEffect(()=>{
     if(!recoveryReady)return;
     const timer=setTimeout(()=>{keepLab(lab,mode).catch(error=>setMessage(error.message));},800);

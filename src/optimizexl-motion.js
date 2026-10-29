@@ -1,10 +1,10 @@
 import { Quaternion } from 'three';
 import { allNodes } from './animation.js';
 import { scanCurveMotion } from './motion-inspector.js';
+import { quantile } from './math.js';
 
 const properties = ['Translation', 'Rotation', 'Scaling'];
 const local = track => track?.Keys?.length && track.LineType !== 0 && !(Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0);
-const quantile = (values, q) => values.length ? [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) * q)] : 0;
 const angle = (a, b) => new Quaternion().fromArray(a).normalize().angleTo(new Quaternion().fromArray(b).normalize()) * 180 / Math.PI;
 const value = (key, axis) => axis === null ? Array.from(key.Vector) : key.Vector[axis];
 const distance = (a, b, axis) => axis === null ? angle(a, b) : Math.abs(a - b);

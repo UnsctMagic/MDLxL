@@ -1,4 +1,5 @@
-import { Euler, Quaternion } from 'three';
+import { Quaternion } from 'three';
+import { quaternionToDegrees, degreesToQuaternion } from './rotation-math.js';
 import { sampleTrack } from './animation.js';
 import { setKey } from './editor-commands.js';
 const descriptions = {
@@ -39,7 +40,7 @@ export const primaryParticleFields = ['ParticleScaling','EmissionRate','Latitude
 const clone = value => structuredClone(value);
 export function particleAimAngles(emitter,options={}) {
   const value=sampleTrack(emitter.Rotation,options.frame||0,{...options,globalTime:options.globalTime??options.frame??0,fallback:[0,0,0,1],quaternion:true});
-  return new Euler().setFromQuaternion(new Quaternion().fromArray(value).normalize(),'XYZ').toArray().slice(0,3).map(v=>v*180/Math.PI);
+  return quaternionToDegrees(value);
 }
 export function particleValue(emitter, field, options={}) {
   const {frame=0,interval,globalSequences=[],stage,axis=1}=options;
@@ -84,10 +85,10 @@ export function beginParticleParameter(emitter, field, options = {}) {
       }
       if(field==='Rotation'){
         const nextAngles=components.length===3?components:angles.map((v,i)=>i===(options.axis??1)?value:v);
-        const quaternion=new Quaternion().setFromEuler(new Euler(...nextAngles.map(v=>v*Math.PI/180),'XYZ')).normalize();
+        const quaternion=degreesToQuaternion(nextAngles).normalize();
         const result={Rotation:clone(track)};
         if(options.scope==='track'&&track){
-          const base=new Quaternion().setFromEuler(new Euler(...angles.map(v=>v*Math.PI/180),'XYZ'));
+          const base=degreesToQuaternion(angles);
           const delta=quaternion.clone().multiply(base.invert());
           for(const point of result.Rotation.Keys)if(!interval||point.Frame>=interval[0]&&point.Frame<=interval[1])
             for(const property of ['Vector','InTan','OutTan'])if(point[property])point[property]=new Float32Array(delta.clone().multiply(new Quaternion().fromArray(point[property])).normalize().toArray());

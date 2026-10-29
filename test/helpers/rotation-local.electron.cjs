@@ -1,8 +1,8 @@
 // Runs inside rotation-interaction's hidden production package and isolated profile.
 module.exports = async function rotationLocal({ app, page, check, settle, snap, menu, waitMatrix }) {
   const { ObjectLoader, Quaternion, Vector3, Matrix4 } = await import('three');
-  const { projectMovementNodes, movementAxisHandles } = await import('../app/movement-overlay.js');
-  const { projectPoseHandles } = await import('../app/pose-overlay.js');
+  const { projectMovementNodes, movementAxisHandles } = await import('../../app/movement-overlay.js');
+  const { projectPoseHandles } = await import('../../app/pose-overlay.js');
   await page.evaluate(() => {
     window.rotationController = () => {
       const el = document.querySelector('.movement-controller');

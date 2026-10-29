@@ -1,4 +1,5 @@
-const json = value => JSON.stringify(value, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
+import { typedJson } from './value-key.js';
+const json = typedJson;
 const resolve = (model, path) => path.reduce((value, key) => value?.[key], model);
 const local = track => track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
 

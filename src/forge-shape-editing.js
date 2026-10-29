@@ -1,12 +1,7 @@
 import { Vector2, ShapeUtils } from 'three';
 import { TRIANGLE_ICON_UV } from './forge-primitives.js';
 
-const add = (a, b) => a.map((v, i) => v + b[i]);
-const sub = (a, b) => a.map((v, i) => v - b[i]);
-const mul = (a, n) => a.map(v => v * n);
-const dot = (a, b) => a.reduce((sum, v, i) => sum + v * b[i], 0);
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = a => mul(a, 1 / (Math.hypot(...a) || 1));
+import { add, sub, scale as mul, dot, cross, unit } from './vec.js';
 export const forgeEdgeKey = (a, b) => a < b ? `${a}:${b}` : `${b}:${a}`;
 const triangleNormal = (shape, ids) => cross(sub(shape.vertices[ids[1]], shape.vertices[ids[0]]), sub(shape.vertices[ids[2]], shape.vertices[ids[0]]));
 export const forgeFaceNormal = (shape, face) => unit(face.triangles.reduce((n, t) => add(n, triangleNormal(shape, t.vertices)), [0, 0, 0]));

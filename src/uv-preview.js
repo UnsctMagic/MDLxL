@@ -1,3 +1,4 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { sampleTrack } from './animation.js';
 import { materialPreset } from './material-presets.js';
 import { partMaterialKey } from './bits-and-parts.js';
@@ -139,7 +140,6 @@ export function addLibraryTexture(model, asset) {
   return model.Textures.length - 1;
 }
 
-const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 const materialOwners = model => [...model.Geosets, ...(model.RibbonEmitters || [])];
 
 function remapTextureRefs(model, remap) {

@@ -1,3 +1,4 @@
+import { clamp } from './math.js';
 import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
 import { allNodes } from './animation.js';
@@ -161,7 +162,6 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   if (Math.hypot(...side) < .1) side = [1, 0, 0].map((v, a) => v - along[0] * along[a]);
   side = side.map(v => v / Math.hypot(...side));
   const other = [along[1] * side[2] - along[2] * side[1], along[2] * side[0] - along[0] * side[2], along[0] * side[1] - along[1] * side[0]];
-  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
   const end = (value, fallback) => {
     const [t, u = 0, w = 0] = Array.isArray(value) ? value : [value ?? fallback];
     return [clamp(Number.isFinite(t) ? t : fallback, -.5, 1.5), clamp(Number.isFinite(u) ? u : 0, -1, 1), clamp(Number.isFinite(w) ? w : 0, -1, 1)];

@@ -13,7 +13,7 @@ import LanguageSwitch from './LanguageSwitch.jsx';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
 
 const teamColors = TEAM_COLORS.map(row => [row.index === null ? row.name : `${row.index} · ${row.name}`, row.rgbHex]);
-export function neutralTextColor(hex) {
+function neutralTextColor(hex) {
   const rgb = [1, 3, 5].map(offset => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
   const luminance = rgb.map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
   return luminance > .36 ? '#111111' : '#ffffff';

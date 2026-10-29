@@ -1,6 +1,7 @@
+import { typedJson } from './value-key.js';
 import { sampleTrack } from './animation.js';
 
-const json = value => JSON.stringify(value, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
+const json = typedJson;
 const local = track => !track?.Keys || track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
 const alpha = (model, gi) => model.GeosetAnims.find(a => a.GeosetId === gi)?.Alpha;
 const layers = (model, gi) => model.Materials[model.Geosets[gi].MaterialID]?.Layers || [];

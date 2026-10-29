@@ -45,7 +45,6 @@ import { createEventPreview } from './event-preview-runtime.js';
 import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
 import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
-import { decodeDds } from '../src/dds.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
 import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout, portraitCompositionRect } from './portrait-view.js';
 import './portrait-view.css';
@@ -1170,19 +1169,11 @@ export default function GamePreview(inputProps) {
       let texture;
       try {
         texture = await textureFromAsset(asset, info); if (disposed) return;
-        if (texture.isCompressedTexture) {
-          const ext = gl.getExtension('WEBGL_compressed_texture_s3tc');
-          if (!ext) throw new Error('DDS compression is unavailable on this graphics device');
-          const formats = new Map([[THREE.RGB_S3TC_DXT1_Format, ext.COMPRESSED_RGB_S3TC_DXT1_EXT], [THREE.RGBA_S3TC_DXT1_Format, ext.COMPRESSED_RGBA_S3TC_DXT1_EXT], [THREE.RGBA_S3TC_DXT3_Format, ext.COMPRESSED_RGBA_S3TC_DXT3_EXT], [THREE.RGBA_S3TC_DXT5_Format, ext.COMPRESSED_RGBA_S3TC_DXT5_EXT]]);
-          const format = formats.get(texture.format); if (!format) throw new Error('This DDS compression format is unsupported');
-          // Use the top mip: the upstream API then sets a complete texture.
-          const mip = texture.mipmaps[0], bytes = new Uint8Array(mip.data);
-          native.setTextureCompressedImage(info.Image, format, bytes.buffer, { images: [{ offset: 0, length: bytes.length, shape: { width: mip.width, height: mip.height } }] });
-        } else if (texture.image?.data) {
+        if (texture.image?.data) {
           const image = texture.image; native.setTextureImageData(info.Image, [new ImageData(new Uint8ClampedArray(image.data), image.width, image.height)]);
         } else native.setTextureImage(info.Image, texture.image);
-        if(latest.current.particleAuthoring||latest.current.onParticlePick)rememberParticlePicture(native,textureId,texture,info.Flags,texture.isCompressedTexture?decodeDds(asset.bytes):undefined);
-        if (!texture.isCompressedTexture) improveNativeTexture(gl, native, info.Image, graphics);
+        if(latest.current.particleAuthoring||latest.current.onParticlePick)rememberParticlePicture(native,textureId,texture,info.Flags);
+        improveNativeTexture(gl, native, info.Image, graphics);
       } catch (cause) { failures.push(`${info.Image}: ${cause.message}`); }
       finally { texture?.dispose(); if (!disposed) invalidate(); }
     });

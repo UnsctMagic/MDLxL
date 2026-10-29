@@ -1,8 +1,8 @@
 /** Mesh edits are explicit commands. Run them inside EditorDocument.apply for undo. */
+import { cross } from './vec.js';
 const LIMIT = 65536;
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalized = (a) => { const length = Math.hypot(...a); return length > 1e-12 ? a.map((v) => v / length) : [1, 0, 0]; };
 const position = (g, i) => Array.from(g.Vertices.subarray(i * 3, i * 3 + 3));
 

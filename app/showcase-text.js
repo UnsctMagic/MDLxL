@@ -1,3 +1,4 @@
+import { smoothstep01 } from '../src/math.js';
 import { styledTextRuns } from './showcase-rich-text.js';
 import { customFontFamily } from './showcase-custom-fonts.js';
 export const SHOWCASE_FONTS = [
@@ -26,7 +27,7 @@ export const TEXT_EFFECTS = [
 export const textFont = layer => SHOWCASE_FONTS.find(font=>font.id===layer.font)?.family || customFontFamily(layer.font) || SHOWCASE_FONTS[0].family;
 export const textFonts = layer => [...new Set(styledTextRuns(layer).map(run=>(run.italic?'italic ':'')+(run.bold?'700 ':'400 ')+'48px "'+textFont(run)+'"'))];
 const clamp = (value,min=0,max=1) => Math.max(min,Math.min(max,value));
-const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};
+const smooth = smoothstep01;
 const rgb = color => [1,3,5].map(index=>parseInt(color.slice(index,index+2),16)||0);
 const mix = (a,b,t) => '#'+rgb(a).map((value,index)=>Math.round(value+(rgb(b)[index]-value)*t).toString(16).padStart(2,'0')).join('');
 const emissive = (color,fallback) => {const channels=rgb(color),peak=Math.max(...channels);return peak<32?fallback:'#'+channels.map(value=>Math.min(255,Math.round(value*Math.max(1,210/peak))).toString(16).padStart(2,'0')).join('');};

@@ -316,7 +316,7 @@ These checks do not establish Warcraft runtime acceptance, user visual acceptanc
 Reproduce with `node --test test/optimizexl-spline-tracks.test.js`, `node test/optimizexl-spline-models.mjs <private-model>` and `node test/optimizexl-spline.electron.cjs` with `MDLXL_SPLINE_MODEL`, `MDLXL_OPTIMIZEXL_EXE` and `MDLXL_PLAYWRIGHT_MODULE`. For the historical Flail03 exception, set `MDLXL_FLAIL_MOUNTED_REFERENCE` to the exact pre-canonical mounted-sphere output; its SHA-256 must match the unchanged baseline before semantic comparison is allowed.
 
 ```powershell
-node --test test/optimizexl-review.test.js test/optimizexl-exclusions.test.js test/optimizexl-validation.test.js test/optimizexl-nuclear.test.js test/optimizexl.test.js test/model-optimizer.test.js test/preview-presentation.test.js test/preview-blend-order.test.js test/game-preview-capture.test.js test/global-sequence-preview.test.js test/viewport-performance.test.js tests/*.test.js
+node --test test/optimizexl-review.test.js test/optimizexl-exclusions.test.js test/optimizexl-nuclear.test.js test/optimizexl.test.js test/model-optimizer.test.js test/preview-presentation.test.js test/preview-blend-order.test.js test/game-preview-capture.test.js test/global-sequence-preview.test.js test/viewport-performance.test.js tests/*.test.js
 node test/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
 node node_modules/vite/bin/vite.js build
 node scripts/package.mjs --out out/optimizexl-save-review

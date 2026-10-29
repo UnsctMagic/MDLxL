@@ -1,7 +1,7 @@
 import {createNode} from './editor-document.js';
 import {Vector3} from 'three';
 import {allNodes} from './animation.js';
-import {samplePreviewMatrices} from '../app/preview-pose.js';
+import {samplePreviewMatrices} from './preview-pose.js';
 const vector=value=>new Float32Array([value]);
 /** Inspection samples use the same project pose evaluator as movement handles. */
 export function particleSweepPath(model,id,sequence,range,camera,count=65) {

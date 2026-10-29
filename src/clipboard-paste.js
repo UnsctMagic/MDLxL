@@ -1,3 +1,4 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { createNode, importGeosets } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes } from './node-id-order.js';
@@ -73,7 +74,7 @@ function repairDependencies(model, repairs, indices, nodeIds) {
     repairs.add('Replace missing texture records with a blank texture.');
     return blankTexture();
   };
-  const slots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+  const slots = TEXTURE_SLOTS;
   const materials = new Set(), objects = nodeIds.map(id => model.Nodes?.[id]).filter(Boolean);
   const material = id => {
     if (model.Materials[id]) return id;

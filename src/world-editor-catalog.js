@@ -1,4 +1,4 @@
-import { parseSlk } from '../app/event-preview-data.js';
+import { parseSlk } from './slk.js';
 
 // The Library's "World Editor Style" tree: units, buildings and spells by race,
 // items by class and doodads/destructibles by tileset and category, read from

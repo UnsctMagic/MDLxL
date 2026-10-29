@@ -1,10 +1,11 @@
+import { typedJson } from './value-key.js';
 import { directlyBoundBoneIds } from './binding-inspection.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { recalculateExtents } from './editor-document.js';
 import { gamePathKey } from './game-path.js';
 
 const track = value => value && Array.isArray(value.Keys);
-const signature = value => JSON.stringify(value, (_, item) => ArrayBuffer.isView(item) ? Array.from(item) : item);
+const signature = typedJson;
 const alphaCount = animation => track(animation.Alpha) ? animation.Alpha.Keys.length : 0;
 const constantOne = value => !track(value) && (value == null || Number(value) === 1);
 const hasTint = animation => !!(animation.Flags & 2) && animation.Color != null;

@@ -1,4 +1,4 @@
-import { Euler, Quaternion } from 'three';
+import { quaternionToDegrees, degreesToQuaternion } from './rotation-math.js';
 import { sampleTrack } from './animation.js';
 import { setKey } from './editor-commands.js';
 
@@ -8,7 +8,7 @@ export const particleFlags = [['Unshaded', 32768], ['Unfogged', 262144], ['Line 
 
 export function particleRotationDegrees(model, emitter, frame, sequenceIndex) {
   const values = sampleTrack(emitter?.Rotation, frame, { interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences, globalTime: frame, fallback: [0, 0, 0, 1], quaternion: true });
-  return new Euler().setFromQuaternion(new Quaternion().fromArray(values).normalize(), 'XYZ').toArray().slice(0, 3).map(value => value * 180 / Math.PI);
+  return quaternionToDegrees(values);
 }
 
 /** Absolute local XYZ angles at the playhead; other frames/channels survive. */
@@ -21,7 +21,7 @@ export function setParticleRotationDegrees(model, id, frame, sequenceIndex, angl
   if (duration > 0) time = ((time % duration) + duration) % duration;
   else if (model.Sequences?.[sequenceIndex]) { const [start, end] = model.Sequences[sequenceIndex].Interval; time = Math.max(start, Math.min(end, time)); }
   const prior = emitter.Rotation?.Keys?.find(key => key.Frame === time);
-  const quaternion = new Quaternion().setFromEuler(new Euler(...angles.map(value => value * Math.PI / 180), 'XYZ')).normalize().toArray();
+  const quaternion = degreesToQuaternion(angles).normalize().toArray();
   setKey(emitter, 'Rotation', time, quaternion, prior ? { inTan: prior.InTan, outTan: prior.OutTan } : {});
   return time;
 }

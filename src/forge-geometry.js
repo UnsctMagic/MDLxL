@@ -2,13 +2,13 @@
  * Coordinates stay in source-image space until the final mesh conversion. */
 import ClipperLib from 'clipper-lib';
 import { ShapeUtils, Vector2 } from 'three';
+import { forgeEdgeKey } from './forge-shape-editing.js';
 
 export const signedArea = loop => loop.reduce((sum, p, i) => { const q = loop[(i + 1) % loop.length]; return sum + p[0] * q[1] - p[1] * q[0]; }, 0) / 2;
 export const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 export function pointInside(p, loop) { let yes = false; for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) { const a = loop[i], b = loop[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) yes = !yes; } return yes; }
-const edgeKey = (a, b) => a < b ? `${a}:${b}` : `${b}:${a}`;
 const length = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-const segmentDistance = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+export const segmentDistance = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
 
 export function booleanContours(subject, clip, operation, dimension) {
   const scale = 1048576 / dimension, paths = loops => loops.map(loop => loop.map(([x, y]) => ({ X: Math.round(x * scale), Y: Math.round(y * scale) })));
@@ -63,7 +63,7 @@ function improveDiagonals(points, triangles) {
     const edges = new Map(), touched = new Set(); let changed = false;
     for (let i = 0; i < triangles.length; i++) for (let k = 0; k < 3; k++) {
       if (touched.has(i)) break;
-      const t = triangles[i], a = t[k], b = t[(k + 1) % 3], key = edgeKey(a, b);
+      const t = triangles[i], a = t[k], b = t[(k + 1) % 3], key = forgeEdgeKey(a, b);
       if (!edges.has(key)) { edges.set(key, { i, a, b, c: t[(k + 2) % 3] }); continue; }
       const old = edges.get(key), c = old.c, d = t[(k + 2) % 3];
       if (old.i === i || touched.has(old.i) || !triangles[old.i].includes(a) || !triangles[old.i].includes(b)) continue;

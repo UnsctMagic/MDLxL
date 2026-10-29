@@ -1,7 +1,8 @@
 import { MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Euler, MOUSE, Quaternion, Vector3 } from 'three';
+import { Euler, MOUSE, Vector3 } from 'three';
+import { degreesToQuaternion } from '../src/rotation-math.js';
 
 /** OrbitControls swaps pan and rotate when Shift is held. Preselect the
  * opposite action so Shift only changes fine sensitivity in single views. */
@@ -19,7 +20,7 @@ export function editorCameraAngles(camera) {
 export function setEditorCameraAngles(camera, target, values) {
   if (!['x', 'y', 'z'].every(axis => Number.isFinite(Number(values?.[axis])))) return false;
   const distance = Math.max(.001, camera.position.distanceTo(target));
-  const q = new Quaternion().setFromEuler(new Euler(...['x', 'y', 'z'].map(axis => Number(values[axis]) * Math.PI / 180), 'XYZ'));
+  const q = degreesToQuaternion(['x', 'y', 'z'].map(axis => Number(values[axis])));
   camera.quaternion.copy(q);
   camera.position.copy(target).add(new Vector3(0, 0, distance).applyQuaternion(q));
   camera.up.copy(new Vector3(0, 1, 0).applyQuaternion(q));

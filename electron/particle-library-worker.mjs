@@ -1,16 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { parentPort, workerData } from 'node:worker_threads';
 import { createRequire } from 'node:module';
 import { openDocument, effectNodes, extractParticleRecipe, validateParticleRecipe, activeParticleSample } from '../dist/particle-runtime.mjs';
 import { stringifyParticleData, parseParticleData } from '../src/particle-data.js';
 const require = createRequire(import.meta.url);
-const { CascReader } = require('./casc.cjs');
+const { CascReader, installKey } = require('./casc.cjs');
 const { reviewFor } = require('./particle-review.cjs');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-let cancelled = false;
-parentPort?.on('message', message => { if (message === 'cancel') cancelled = true; });
 export const atomic = async (file, content) => {
   await fs.writeFile(file + '.tmp', content);
   for(let attempt=0;;attempt++){
@@ -35,10 +32,10 @@ export function particleDependencyCandidates(logical,source){
  if(logical.includes(':'))return [logical];const parts=source.split(':');parts.pop();const result=[];
  while(parts.length){result.push(parts.join(':')+':'+logical);parts.pop();}return result.length?result:['war3.w3mod:'+logical];
 }
-export async function scanParticleLibrary({ folder, directory, maxAssets = Infinity, onProgress = () => {}, shouldCancel = () => cancelled }) {
+export async function scanParticleLibrary({ folder, directory, maxAssets = Infinity, onProgress = () => {}, shouldCancel = () => false }) {
   await fs.mkdir(directory, {recursive:true});
   const build = await fs.readFile(path.join(folder,'.build.info'),'utf8');
-  const sourceKey = hash(path.resolve(folder).toLowerCase() + '|' + hash(build));
+  const sourceKey = installKey(folder, build);
   const cache = path.join(directory, sourceKey); await fs.mkdir(cache,{recursive:true});
   const reader = new CascReader(folder, cache);
   const startedAt = new Date().toISOString();
@@ -140,4 +137,3 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
     return { manifest, entries, directory:cache };
   } finally { reader.close(); }
 }
-if (workerData) scanParticleLibrary({...workerData,onProgress:status=>parentPort.postMessage({type:'progress',status})}).then(result=>{parentPort.postMessage({type:'done',summary:{...result.manifest,assets:undefined,processed:undefined}});parentPort.close();},error=>{parentPort.postMessage({type:'error',message:error.message});parentPort.close();});

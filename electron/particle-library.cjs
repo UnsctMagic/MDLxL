@@ -1,7 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { Worker } = require('node:worker_threads');
 const THUMBNAIL_VERSION = 'native-4.0.1-authoring-5';
 const {particleSourceState}=require('./particle-source.cjs');
 const {reviewFor:sourceReview}=require('./particle-review.cjs');
@@ -13,7 +12,7 @@ const atomic = async(file,data) => {
   await fs.writeFile(file+'.tmp',data); await fs.rename(file+'.tmp',file);
 };
 class ParticleLibrary {
-  constructor({directory,discover,onProgress=()=>{},createWorker=data=>new Worker(path.join(__dirname,'particle-library-worker.mjs'),{workerData:data})}) { Object.assign(this,{directory,discover,onProgress,createWorker});this.worker=null;this.status={running:false};this.queue=Promise.resolve(); }
+  constructor({directory,discover,onProgress=()=>{},createWorker}) { Object.assign(this,{directory,discover,onProgress,createWorker});this.worker=null;this.status={running:false};this.queue=Promise.resolve(); }
   async current() {
     try { const data=JSON.parse(await fs.readFile(path.join(this.directory,'current.json'),'utf8'));if(!/^[a-f0-9]{64}$/.test(data.sourceKey))throw Error('Invalid library source.');return data; }
     catch(error){if(error.code==='ENOENT')return null;throw error;}

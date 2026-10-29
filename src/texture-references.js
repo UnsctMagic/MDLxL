@@ -1,4 +1,5 @@
-const textureSlots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+const textureSlots = TEXTURE_SLOTS;
 
 export function visitTextureReferences(model, visit) {
   const field = (owner, key) => {

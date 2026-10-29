@@ -1,11 +1,11 @@
 import { sampleTrack } from '../src/animation.js';
 import { uvMaterialLayers } from '../src/uv-tools.js';
 import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
+import { clampByte } from '../src/math.js';
 import { textureFromAsset } from './Viewport.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const decodedAssets = new WeakMap();
-const clampByte = value => Math.max(0, Math.min(255, Math.round(value)));
 
 function rgba(hex) {
   const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : 'ff0303';

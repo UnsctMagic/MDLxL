@@ -16,6 +16,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   retime: {}, bodyId: null, footIds: [], stiffIds: [], range: null, only: null,
 });
 
+const rotationOf = (matrices, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrices.get(id)?.decompose(p, q, s); return q; };
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, u) => a + (b - a) * u;
@@ -692,7 +693,6 @@ function deathPose({ model, byId, rig, style, standing = rig.legs.length, sample
     node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
     node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, srcFrames[k], [0, 0, 0]),
     node => sampleVec(node.Scaling, srcFrames[k], [1, 1, 1]));
-  const rotationOf = (M, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); M.get(id)?.decompose(p, q, s); return q; };
   const pivotAt = (M, id) => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(M.get(id) || new Matrix4());
   const Y = new Vector3(0, 1, 0), X = new Vector3(1, 0, 0), Z = new Vector3(0, 0, 1);
   // Turn a bone about a world axis, measured in its parent's frame (so bends along a chain add up).
@@ -755,7 +755,6 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   if (k0 < 0 || amount <= 0) return;
   const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
   const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
-  const rotationOf = (matrices, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrices.get(id)?.decompose(p, q, s); return q; };
   const shapedAt = k => worldMatrices(model, byId,
     node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
     node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, srcFrames[k], [0, 0, 0]),
@@ -881,7 +880,6 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
 function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts }) {
   const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
   const position = (matrices, id) => pivotOf(id).applyMatrix4(matrices.get(id));
-  const rotationOf = (matrices, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrices.get(id)?.decompose(p, q, s); return q; };
   const descendsFrom = (id, ancestor) => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (p === ancestor) return true; return false; };
   const usable = chain => [chain.root, chain.middle, chain.end].every(id => samples.has(id));
   const authored = srcFrames.map(src => sampleNodeMatrices(model, Math.round(src), sequenceIndex));
