@@ -2,6 +2,8 @@
 
 State: ready for review; awaiting merge approval. PR #375, codex/ai-question-route.
 Original base: 188be9cb. Original question route: dbe1d07f.
+Refreshed with main 6d211c88; both organiser checkpoints and notice forwarding
+are preserved in the shared event handler.
 
 ## Request
 
@@ -36,7 +38,7 @@ No merge, release or installed-profile change is authorised by this task.
 
 ## Verification
 
-- Final source suite: 2,133 passed, 22 skipped, zero failures (2,155 total).
+- Final source suite: 2,142 passed, 22 skipped, zero failures (2,164 total).
 - Compatibility: all 57 passed. Production build and package passed.
 - Hidden packaged check: all 21 assertions passed across Codex and Claude paths,
   including pending/answered chat restoration, nonblocking questions, owner and

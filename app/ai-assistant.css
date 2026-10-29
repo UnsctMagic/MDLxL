@@ -218,3 +218,5 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-assistant .ai-provider-notice button{padding:0;min-height:20px;width:20px;border:0;background:transparent!important}
 .ai-provider-notice pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0;font:inherit}
 .ai-question input[type=number]{width:100%;padding:5px 7px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field)}
+
+.ai-provider-notice[open]>summary>svg{transform:rotate(90deg)}

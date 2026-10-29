@@ -348,7 +348,7 @@ function ProviderNotice({ part }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return <details className={'ai-provider-notice ai-provider-' + part.severity}>
-    <summary><span translate="no">{part.name ? part.name + ': ' : ''}{part.text}</span>
+    <summary title="Provider notice: click to show or hide details."><ChevronRight size={12} aria-hidden="true" /><span translate="no">{part.name ? part.name + ': ' : ''}{part.text}</span>
       <button type="button" aria-label="Dismiss provider notice" title="Hide this notice." onClick={event => { event.preventDefault(); setDismissed(true); }}><X size={12} /></button>
     </summary>
     {part.detail && <pre translate="no">{part.detail}</pre>}
