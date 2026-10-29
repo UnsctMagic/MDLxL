@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { allNodes } from '../src/animation.js';
+import useDismiss from './useDismiss.js';
 import { poseChainBetween, poseChainIds, poseRole, samplePoseChain, suggestPickedPoseChain, separatePoseChains, suggestPoseRig } from '../src/pose-ik.js';
 import { poseSymbols } from './pose-overlay.js';
 import useMovableWindow from './useMovableWindow.js';
@@ -26,13 +27,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   useEffect(() => () => { const { config, onChange } = latest.current; if (config.picking) onChange({ ...config, picking: null, inspectIds: [] }); }, []);
   const back = () => { setEditor(null); setError(''); onChange({ ...config, picking: null, inspectIds: [] }); };
   const close = () => { setOpen(false); back(); };
-  useEffect(() => {
-    if (!open) return;
-    const document = anchor.current?.ownerDocument;
-    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } };
-    document?.addEventListener('keydown', escape, true);
-    return () => document?.removeEventListener('keydown', escape, true);
-  }, [open, config]);
+  useDismiss(open, [anchor], close, { outside: false });
   const pick = id => setEditor(previous => {
     if (!previous || id == null) return previous;
     const next = { ...previous, [slot]: id, excluded: [], replacements: undefined, manualRoot: previous.manualRoot || slot === 'root' };

@@ -1,4 +1,5 @@
 import PoseControls from './PoseControls.jsx';
+import useDismiss from './useDismiss.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { translate } from '../src/localization.js';
@@ -72,15 +73,7 @@ export default function MovementController({ vanilla = false, objectDisplay, onO
     addEventListener('keydown', keys, true); addEventListener('keyup', keys, true); addEventListener('blur', reset);
     return () => { removeEventListener('keydown', keys, true); removeEventListener('keyup', keys, true); removeEventListener('blur', reset); };
   }, []);
-  useEffect(() => {
-    if (!createOpen) return;
-    const doc = createAnchor.current?.ownerDocument;
-    const outside = event => { if (!createAnchor.current?.contains(event.target)) onCreateOpen?.(false); };
-    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); onCreateOpen?.(false); } };
-    doc?.addEventListener('pointerdown', outside, true);
-    doc?.addEventListener('keydown', escape, true);
-    return () => { doc?.removeEventListener('pointerdown', outside, true); doc?.removeEventListener('keydown', escape, true); };
-  }, [createOpen, onCreateOpen]);
+  useDismiss(createOpen, [createAnchor], () => onCreateOpen?.(false));
   const frame = Math.round(time), globalDomain = !restPose && Number.isInteger(globalSeqId) && globalSeqId >= 0;
   const editSequenceIndex = restPose || globalDomain ? -1 : sequenceIndex >= 0 ? sequenceIndex : (model.Sequences || []).findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
   // A global sequence is measured as the preview shows it: other animation frozen.

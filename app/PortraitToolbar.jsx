@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import useDismiss from './useDismiss.js';
 import { evaluateModelCamera, portraitPreviewSequences, MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { CAMERA_NAME_LIMIT } from './portrait-camera-edit.js';
 import { BACKDROP_LOOK, BACKDROP_HEIGHT_RANGE, BACKDROP_SIZE_RANGE, normalizeBackdropLook } from './portrait-background.js';
@@ -65,12 +66,7 @@ export default function PortraitToolbar({ model, active, cameraIndex, disabled, 
   const [open, setOpen] = useState(false), container = useRef(null), [look, setLook] = useState(BACKDROP_LOOK);
   const openBackground = () => { if (open === 'background') { setOpen(false); return; } setLook(normalizeBackdropLook(backgroundLook?.())); setOpen('background'); };
   const placeLabel = hasBackground ? 'Refresh Background' : 'Add Background';
-  useEffect(() => {
-    if (!open) return;
-    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !container.current?.contains(event.target)) setOpen(false); };
-    document.addEventListener('pointerdown',close); document.addEventListener('keydown',close);
-    return () => { document.removeEventListener('pointerdown',close); document.removeEventListener('keydown',close); };
-  },[open]);
+  useDismiss(open, [container], () => setOpen(false), { capture: false, stopEscape: false });
   return <div className="portrait-toolbar" aria-label="Animation view" ref={container}>
     <div className="portrait-view-buttons">
       <button onClick={onToggle}>{active ? 'Full Model View' : 'Portrait Frame View'}</button>

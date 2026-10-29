@@ -1,4 +1,5 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useRef,useState} from 'react';
+import useDismiss from './useDismiss.js';
 import {emitterSpans,ribbonSizeKeys,addSpan} from '../src/emitter-timing.js';
 
 const names={Visibility:'Visible',HeightAbove:'Upper end',HeightBelow:'Lower end',Alpha:'Intensity',Color:'Color',EmissionRate:'Amount',Translation:'Move',Rotation:'Turn',Scaling:'Scale'};
@@ -21,12 +22,8 @@ const left=(frame,start,span)=>`calc(6px + (100% - 12px) * ${(frame-start)/span}
  */
 export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,start,end,frame,disabled,onScrub,onSpans,onSmoothSize,onRemoveSizeKey}){
  const box=useRef(null),drag=useRef(null),[draft,setDraft]=useState(null),[menu,setMenu]=useState(null),span=Math.max(1,end-start);
- useEffect(()=>{
-  if(!menu)return;
-  const close=event=>{if(event.type==='keydown'?event.key==='Escape':!event.target.closest?.('.pe-key-menu'))setMenu(null);};
-  window.addEventListener('pointerdown',close,true);window.addEventListener('keydown',close,true);
-  return()=>{window.removeEventListener('pointerdown',close,true);window.removeEventListener('keydown',close,true);};
- },[menu]);
+ const menuBox=useRef(null);
+ useDismiss(menu,[menuBox],()=>setMenu(null),{stopEscape:false});
  const range=<input aria-label="Particle preview playhead" type="range" min={start} max={end} step="1" value={frame} onChange={e=>onScrub(Number(e.target.value))}/>;
  const timing=timed&&model.Sequences[sequence]?emitterSpans(model,emitter.ObjectId,sequence):null;
  if(!timing||timing.global)return <div className="pe-key-track">{range}
@@ -57,7 +54,7 @@ export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,st
    onKeyDown={event=>{if(disabled||!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const next=spans.map(part=>[...part]),[low,high]=limits(next,index,side);next[index][side]=Math.max(low,Math.min(high,at+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?10:1)));onSpans(next);onScrub(next[index][side]);}}/>))}
   {sizeKeys.map(at=><div key={'k'+at} role="button" tabIndex={0} aria-label={'Size key at frame '+at} className="pe-key-size" style={{left:left(at,start,span)}} title={'Size key at frame '+at+'. Right-click for Smooth Size.'}
    onPointerDown={event=>{event.stopPropagation();onScrub(at);}} onContextMenu={event=>context(event,{frame:at,sizeKey:true})}/>)}
-  {menu&&<div className="pe-key-menu" role="menu" style={{left:menu.x,top:menu.y}}>
+  {menu&&<div ref={menuBox} className="pe-key-menu" role="menu" style={{left:menu.x,top:menu.y}}>
    {ribbon&&<button role="menuitem" autoFocus onClick={()=>{setMenu(null);onSmoothSize(menu.frame);}}>Smooth Size at frame {menu.frame}</button>}
    {menu.sizeKey&&<button role="menuitem" onClick={()=>{setMenu(null);onRemoveSizeKey(menu.frame);}}>Remove size key</button>}
    {menu.part!=null&&<button role="menuitem" onClick={()=>{setMenu(null);onSpans(spans.filter((_,i)=>i!==menu.part));}}>Remove this pair</button>}

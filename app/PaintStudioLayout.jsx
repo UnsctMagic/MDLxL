@@ -1,5 +1,6 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
+import useDismiss from './useDismiss.js';
 import {Brush,Stamp,Eraser,FingerprintPattern,Undo2,Redo2,Scissors,BookmarkPlus,Focus,Pipette} from 'lucide-react';
 import {PAINT_BRUSH_SHAPES} from '../src/paint-brush-shapes.js';
 import {paintRampColor} from '../src/paint-palette.js';
@@ -17,7 +18,7 @@ const shortcuts=[['B / T / E / N','Paint / Stamp / Erase / Smudge'],['D / I','Bl
 /** Recent strokes, newest first; each can be undone or restored on its own. */
 function StrokeHistory({strokes,disabled,onToggle,open,setOpen}){
   const root=useRef(),list=useRef();
-  useEffect(()=>{if(!open)return;const close=e=>{if(!root.current?.contains(e.target)&&!list.current?.contains(e.target))setOpen(null);};window.addEventListener('pointerdown',close,true);return()=>window.removeEventListener('pointerdown',close,true);},[open]);
+  useDismiss(open,[root,list],()=>setOpen(null),{escape:false});
   const recent=strokes.slice(-40).reverse();
   return <span className="studio-strokes" ref={root}><button aria-label="Strokes" title="Stroke history: undo or restore single strokes; everything else stays (Shift+Z undoes the last stroke)" aria-expanded={!!open} disabled={disabled} onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setOpen(v=>v?null:{left:r.left,bottom:window.innerHeight-r.top+6});}}>Strokes<PaintKey>Shift+Z</PaintKey></button>
     {/* Portal: the footer's stacking context would put the list under the views. */}

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import useDismiss from './useDismiss.js';
 
 const explanations={
  'Position tolerance':'The farthest apart two vertices may be and still merge, in model units. A near match merges only when its gap is under 2% of the edges around it, so small holes, slits and stacked layers stay. Zero requires identical positions.',
@@ -35,7 +36,7 @@ export default function OptimizeXLHelp({label,children}){
  const anchor=useRef(null),tip=useRef(null),[open,setOpen]=useState(false),[pinned,setPinned]=useState(false),[position,setPosition]=useState({});
  const text=explanation(label);
  function show(){const r=anchor.current.getBoundingClientRect(),w=anchor.current.ownerDocument.defaultView;setPosition({left:Math.max(8,Math.min(w.innerWidth-258,r.left)),top:Math.max(8,Math.min(w.innerHeight-150,r.bottom+6))});setOpen(true);}
- useEffect(()=>{if(!open)return;const doc=anchor.current.ownerDocument;const close=e=>{if(e.type==='keydown'&&e.key!=='Escape')return;if(e.type==='pointerdown'&&(anchor.current.contains(e.target)||tip.current?.contains(e.target)))return;setOpen(false);setPinned(false);};doc.addEventListener('pointerdown',close);doc.addEventListener('keydown',close,true);return()=>{doc.removeEventListener('pointerdown',close);doc.removeEventListener('keydown',close,true);};},[open]);
+ useDismiss(open,[anchor,tip],()=>{setOpen(false);setPinned(false);},{stopEscape:false});
  if(!text)return children||label;
  return <span ref={anchor} className="ox-help" onMouseEnter={show} onMouseLeave={()=>{if(!pinned)setOpen(false);}} onFocus={show} onBlur={e=>{if(!pinned&&!e.currentTarget.contains(e.relatedTarget))setOpen(false);}}>
   {children||label}<button type="button" className="ox-help-info" aria-label={`About ${label}`} onClick={e=>{e.preventDefault();e.stopPropagation();setPinned(!pinned);if(pinned)setOpen(false);else show();}}>i</button>
