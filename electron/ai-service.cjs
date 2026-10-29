@@ -46,6 +46,18 @@ const DAY = 24 * 60 * 60 * 1000;
 function cleanupDaysOf(config) {
   return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
 }
+// Chat ids, and chat files (with their temporary copies) in the AI folder.
+const CHAT_ID_PATTERN = '[a-zA-Z0-9_-]{1,80}';
+const CHAT_ID = new RegExp('^' + CHAT_ID_PATTERN + '$');
+const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$');
+// Model lists are kept per provider and server.
+function catalogKey(settings) {
+  return settings.provider + ':' + (settings.baseUrl || '');
+}
+// The bird a message is addressed to by name: "Crow: …", "Crow, …" or "ask Crow to …".
+function addressedBird(workers, text) {
+  return workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+}
 // The editor snapshot goes in full once per conversation (and again when its
 // provider history starts over); later prompts carry the target, where the user
 // is, and only the fields that changed. mdlxl_context returns everything,
@@ -265,7 +277,7 @@ class AiService {
     return this.status();
   }
   lighterChoices(settings) {
-    const models = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
+    const models = this.modelCatalog?.[catalogKey(settings)] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
     return lighterModels(models, settings.model);
   }
   async settings() {
@@ -367,7 +379,7 @@ class AiService {
     return this.status();
   }
   async conversation(id, provider) {
-    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    if (!CHAT_ID.test(id || '')) throw Error('Invalid conversation ID.');
     // A chat belongs to the connection it started on, also while it is still loaded.
     if (this.conversations.has(id)) {
       const loaded = this.conversations.get(id);
@@ -378,7 +390,7 @@ class AiService {
     try {
       // Loaded from disk means nothing of it is running in this app session.
       value = settleConversation(
-        JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')),
+        JSON.parse(await fs.readFile(this.chatFile(id), 'utf8')),
       );
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
@@ -388,8 +400,11 @@ class AiService {
     this.conversations.set(id, value);
     return value;
   }
+  chatFile(id) {
+    return path.join(this.directory, 'chat-' + id + '.json');
+  }
   persistConversation(conversation) {
-    const file = path.join(this.directory, 'chat-' + conversation.id + '.json'),
+    const file = this.chatFile(conversation.id),
       text = JSON.stringify(conversation);
     const write = (this.writes.get(conversation.id) || Promise.resolve()).then(async () => {
       await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
@@ -450,7 +465,7 @@ class AiService {
       const entry = await this.registry.model(conversation.modelKey);
       if (noteOwnerReply(entry, text)) await this.registry.save();
     }
-    if (settings.allowLighter && !this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] && settings.provider !== 'claude') await this.models();
+    if (settings.allowLighter && !this.modelCatalog?.[catalogKey(settings)] && settings.provider !== 'claude') await this.models();
     const choices = this.lighterChoices(settings);
     const light = choices.find(m => m.id === settings.lightModel) || choices[0];
     const currentBird = conversation.workers?.find(w => w.status !== 'retired' && (worker ? (w.id === worker || w.name === worker) : (!route || route === 'continue') && w.id === conversation.currentWorker));
@@ -539,7 +554,7 @@ class AiService {
     const config = await this.configuration();
     const workers = (conversation.workers || []).filter(w => w.status !== 'retired' && !w.helperOnly);
     const current = workers.find(w => w.id === conversation.currentWorker) || workers.at(-1);
-    const named = workers.find(w => worker === w.id || worker === w.name || new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+    const named = workers.find(w => worker === w.id || worker === w.name || addressedBird([w], text));
     route ||= config.routing === 'automatic' ? 'auto' : 'continue';
     if (!['continue', 'new', 'tiny', 'auto'].includes(route)) throw Error('Choose a job destination.');
     if (worker && !named) throw Error('That bird is no longer available. Choose a current bird.');
@@ -1621,7 +1636,7 @@ class AiService {
     for (const id of ids) {
       this.conversations.delete(id);
       await this.writes.get(id)?.catch(() => {});
-      await fs.rm(path.join(this.directory, 'chat-' + id + '.json'), { force: true });
+      await fs.rm(this.chatFile(id), { force: true });
     }
     return { ids, providerFiles: await deleteProviderSessions(this.directory, threads) };
   }
@@ -1648,7 +1663,7 @@ class AiService {
     const newest = async ids => {
       let time = 0;
       for (const id of ids) {
-        const stat = await fs.stat(path.join(this.directory, 'chat-' + id + '.json')).catch(() => null);
+        const stat = await fs.stat(this.chatFile(id)).catch(() => null);
         if (stat) time = Math.max(time, stat.mtimeMs);
       }
       return time;
@@ -1674,7 +1689,7 @@ class AiService {
     const old = async full => ((await fs.stat(full).catch(() => null))?.mtimeMs ?? now) <= cutoff;
     for (const name of await fs.readdir(this.directory).catch(() => [])) {
       const full = path.join(this.directory, name),
-        chat = /^chat-([a-zA-Z0-9_-]{1,80})\.json(\.tmp)?$/.exec(name);
+        chat = CHAT_FILE.exec(name);
       if (chat ? kept.has(chat[1]) || this.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
       if (!(await old(full))) continue;
       await fs.rm(full, { recursive: true, force: true });
@@ -1745,7 +1760,7 @@ class AiService {
   async readConversation(id) {
     if (this.conversations.has(id)) return this.conversations.get(id);
     try {
-      return settleConversation(JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')));
+      return settleConversation(JSON.parse(await fs.readFile(this.chatFile(id), 'utf8')));
     } catch {
       return null;
     }
@@ -1839,7 +1854,7 @@ class AiService {
     if (active.parallel && active.workers?.size) {
       const conversation = await this.readConversation(active.id);
       const workers = (conversation.workers || []).filter(w => active.workers.has(w.id));
-      const named = workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+      const named = addressedBird(workers, text);
       const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), signal: active.controller.signal });
       const selected = workers.find(w => w.name === choice.worker);
       const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
@@ -1881,14 +1896,14 @@ class AiService {
             id: m.model || m.id,
             name: m.displayName || m.model || m.id,
           }));
-          (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+          (this.modelCatalog ||= {})[catalogKey(settings)] = models;
           return models;
         } finally {
           await client.close();
         }
       }
       const models = await providerModels(settings, this.decrypt(settings.key), signal);
-      (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+      (this.modelCatalog ||= {})[catalogKey(settings)] = models;
       return models;
     } finally {
       if (this.active === active) this.active = null;
@@ -2040,7 +2055,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {
-    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    if (!CHAT_ID.test(id || '')) throw Error('Invalid conversation ID.');
     return (await service.readConversation(id))?.transcript || [];
   });
   handle('ai:script', payload => {

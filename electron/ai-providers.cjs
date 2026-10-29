@@ -21,6 +21,15 @@ function endpoint(value) {
     throw Error('Use an HTTPS API base URL, or HTTP on localhost.');
   return url.href.replace(/\/$/, '');
 }
+// The connection's API address: its own server, or Anthropic's or OpenAI's.
+function apiBase(settings) {
+  return endpoint(
+    settings.baseUrl || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
+  );
+}
+const ANTHROPIC_HEADERS = Object.freeze({ 'anthropic-version': '2023-06-01' });
+// Worker jobs and pauses outlast the CLIs' default MCP tool timeouts.
+const MCP_TOOL_TIMEOUT_MS = 3600000;
 async function requestJson(url, body, key, signal, headers = {}) {
   const response = await fetch(url, {
     method: body ? 'POST' : 'GET',
@@ -189,9 +198,7 @@ async function runApi({
   web,
 }) {
   const anthropic = settings.provider === 'anthropic';
-  const base = endpoint(
-    settings.baseUrl || (anthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
-  );
+  const base = apiBase(settings);
   if (!settings.model?.trim()) throw Error('Choose a model in AI connection settings.');
   const history = conversation.messages || [];
   history.push({
@@ -259,7 +266,7 @@ async function runApi({
           },
           key,
           signal,
-          { 'anthropic-version': '2023-06-01' },
+          ANTHROPIC_HEADERS,
         );
       } catch (error) {
         // Old reasoning refused: drop it (finished turns first, then all) and ask again.
@@ -504,7 +511,7 @@ class CodexProcess {
         '-c',
         'mcp_servers.mdlxl.required=true',
         '-c',
-        'mcp_servers.mdlxl.tool_timeout_sec=3600',
+        `mcp_servers.mdlxl.tool_timeout_sec=${MCP_TOOL_TIMEOUT_MS / 1000}`,
       );
       // Sending a prompt authorizes MDLxL's own editor tools, as in the Claude
       // allowlist. This is private to this child; shell/filesystem access stays restricted.
@@ -907,8 +914,7 @@ async function runClaude({
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = await prepareEnvironment(directory, 'claude');
-    // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
-    env.MCP_TOOL_TIMEOUT = '3600000';
+    env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_TIMEOUT_MS);
     child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
     let finalResult = null,
       streamed = false,
@@ -1109,16 +1115,12 @@ async function providerModels(settings, key, signal) {
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
   if (settings.provider === 'codex') return [];
-  const anthropic = settings.provider === 'anthropic',
-    base = endpoint(
-      settings.baseUrl || (anthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
-    );
   const response = await requestJson(
-    base + '/models',
+    apiBase(settings) + '/models',
     null,
     key,
     signal,
-    anthropic ? { 'anthropic-version': '2023-06-01' } : {},
+    settings.provider === 'anthropic' ? ANTHROPIC_HEADERS : {},
   );
   const data = await response.json();
   return (data.data || data.models || []).map(item => ({
