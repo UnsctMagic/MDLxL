@@ -3,6 +3,7 @@ import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // Hero glow as Blizzard and Gluma build it (docs/GLOW_UP.md): team glow
 // (ReplaceableId 2), Additive, Unshaded, alpha 0.75.
@@ -77,9 +78,9 @@ function principalAxis(points) {
 
 /** The hand-side reference: the nearest "hand" ancestor's pivot, else the bone's own pivot. */
 function gripOf(model, id) {
-  const nodes = model.Nodes || [];
-  for (let node = nodes[id], guard = 0; node && guard++ < 64; node = nodes[node.Parent]) if (/hand/i.test(node.Name || '')) return Array.from(node.PivotPoint || [0, 0, 0]);
-  return Array.from(nodes[id]?.PivotPoint || [0, 0, 0]);
+  const { byId, ancestors } = nodeIndex(model);
+  const hand = ancestors(id, true).map(at => byId.get(at)).find(node => /hand/i.test(node.Name || ''));
+  return Array.from((hand || byId.get(id))?.PivotPoint || [0, 0, 0]);
 }
 
 function weaponPoints(model, id) {
@@ -97,14 +98,13 @@ function weaponPoints(model, id) {
 
 /** Bones with geometry, likeliest weapon first: a weapon name, held in a hand, long and thin. */
 export function weaponCandidates(model) {
-  const nodes = model.Nodes || [], found = [], body = bodyHeight(model) ?? 100;
+  const tree = nodeIndex(model), found = [], body = bodyHeight(model) ?? 100;
   for (const bone of model.Bones || []) {
     const points = weaponPoints(model, bone.ObjectId);
     if (points.length < 4) continue;
     const fit = principalAxis(points), length = fit.max - fit.min;
     if (!(length > 4)) continue;
-    let held = false;
-    for (let node = nodes[bone.Parent], guard = 0; node && guard++ < 4; node = nodes[node.Parent]) if (/hand/i.test(node.Name || '')) held = true;
+    const held = tree.ancestors(bone.ObjectId).slice(0, 4).some(id => /hand/i.test(tree.byId.get(id).Name || ''));
     const named = WEAPON_NAME.test(bone.Name || ''), slender = length / fit.thickness;
     // An unnamed sword held in a hand (the Footman's Cone11) is long and thin: 2 + 1 + 1.
     const score = (named ? 4 : 0) + (held ? 2 : 0) + (slender > 3 ? 1 : 0) + (length > .35 * body ? 1 : 0) - (/hand(?!le)|arm|leg|foot|head|chest|root|spine|neck|tail|wing/i.test(bone.Name || '') ? 5 : 0);
