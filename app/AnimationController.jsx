@@ -8,6 +8,7 @@ import { globalSequenceId, setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
+import { parseDraftNumber, RangeField, useDraftNumber } from './Fields.jsx';
 import {
   createGlobalSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
   setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
@@ -31,40 +32,35 @@ const enterBlurs = event => { if (event.key === 'Enter') event.currentTarget.blu
 
 const clampSpeed = value => Math.max(1, Math.min(300, Math.round(value)));
 
+const speedPercent = text => { const number = parseDraftNumber(text); return number === undefined ? undefined : clampSpeed(number); };
+
 /** Retiming rewrites every keyframe and records one undo step, so dragging only
  * moves a local draft. The edit is committed once, when the slider is released
  * (or per arrow key press) or when a typed percent is confirmed. */
 function SpeedControl({ label, value, disabled, onCommit }) {
-  const [draft, setDraft] = useState(null), [text, setText] = useState(String(value)), [busy, setBusy] = useState(false);
-  const slider = useRef(null), latest = useRef(null), writing = useRef(false), current = useRef({ value, onCommit });
+  const [draft, setDraft] = useState(null), [dragging, setDragging] = useState(null), [busy, setBusy] = useState(false);
+  const writing = useRef(false), current = useRef({ value, onCommit });
   current.current = { value, onCommit };
-  useEffect(() => { setDraft(null); setText(String(value)); }, [value]);
-  function commit(raw) {
-    if (writing.current) return;
-    if (String(raw).trim() === '' || !Number.isFinite(Number(raw))) { setDraft(null); setText(String(value)); return; }
-    const percent = clampSpeed(Number(raw));
-    setText(String(percent));
-    if (percent === value) { setDraft(null); return; }
+  useEffect(() => { setDraft(null); }, [value]);
+  // Resolves false when the edit was refused, so the typed percent goes back.
+  function write(percent) {
+    if (writing.current) return false;
+    if (percent === current.current.value) { setDraft(null); return true; }
     // Retiming blocks the renderer. Paint the progress bar first; its
     // transform animation keeps running on the compositor during the write.
     writing.current = true; setDraft(percent); setBusy(true);
     const started = performance.now();
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (current.current.onCommit(percent) === false) setText(String(current.current.value));
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const accepted = current.current.onCommit(percent) !== false;
       setDraft(null); writing.current = false;
       setTimeout(() => setBusy(false), Math.max(0, 300 - (performance.now() - started)));
-    }));
+      resolve(accepted);
+    })));
   }
-  latest.current = commit;
-  // The native change event fires once on release; React's onChange fires on every move.
-  useEffect(() => {
-    const input = slider.current, release = event => latest.current(event.target.value);
-    input?.addEventListener('change', release);
-    return () => input?.removeEventListener('change', release);
-  }, []);
+  const number = useDraftNumber({ value, format: String, parse: speedPercent, onCommit: write, disabled });
   return <div className={`ac-actual-speed${busy ? ' ac-speed-busy' : ''}`} aria-busy={busy} title="Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.">
-    <span>{label}<span className="ac-speed-number"><input aria-label={`${label} percent`} type="number" min="1" max="300" step="1" value={draft === null ? text : String(draft)} disabled={disabled} onChange={event => setText(event.target.value)} onBlur={event => commit(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') commit(event.currentTarget.value); }}/>%</span></span>
-    <input ref={slider} aria-label={label} type="range" min="1" max="300" step="1" value={draft ?? value} disabled={disabled} onChange={event => { if (!writing.current) setDraft(Number(event.target.value)); }}/>
+    <span>{label}<span className="ac-speed-number"><input aria-label={`${label} percent`} type="number" min="1" max="300" step="1" disabled={disabled} {...number} value={String(dragging ?? draft ?? number.value)}/>%</span></span>
+    <RangeField aria-label={label} min="1" max="300" step="1" value={draft ?? value} disabled={disabled} onDraft={setDragging} onCommit={write}/>
     {busy && <div className="ac-speed-progress" role="progressbar" aria-label={`Applying ${label}`}/>}
   </div>;
 }

@@ -5,7 +5,7 @@ import useStoredState from './useStoredState.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
-import { MousePointer2, Hand, RotateCw, Maximize2, FlipHorizontal2, FlipVertical2, Unlink2, FoldHorizontal } from 'lucide-react';
+import { Tool as EditorTool } from './EditorControls.jsx';
 import { uvToolState } from '../src/uv-tool-state.js';
 import { hiddenUVPreviewGeosets, normalizeUVPreviewDisplay, previewMeshDomain, uvPreviewOverlay } from '../src/uv-preview-display.js';
 import { renderUVMaterialTexture } from './uv-material-preview.js';
@@ -29,10 +29,9 @@ const ANGLED_PROJECTIONS = [
 ];
 const gridSpacingLabel = value => value < 0.01 ? value.toFixed(4) : value < 1 ? value.toFixed(3) : value.toFixed(2);
 
-const UV_ICONS = { select: MousePointer2, move: Hand, rotate: RotateCw, scale: Maximize2, mirrorX: FlipHorizontal2, mirrorY: FlipVertical2, uncouple: Unlink2, fold: FoldHorizontal };
+// The main toolbar's tool button; the UV icons are in ModernIcon's table.
 function Tool({ action, icon, label, active, disabled, onClick }) {
-  const Icon = UV_ICONS[icon];
-  return <button type="button" data-hotkey={action} data-hotkey-category="UV" className={`uv-tool${active ? ' active' : ''}`} aria-label={label} title={label} aria-pressed={active === undefined ? undefined : active} disabled={disabled} onClick={onClick}>{Icon ? <Icon size={20} strokeWidth={1.9} aria-hidden="true"/> : label}</button>;
+  return <EditorTool action={action} icon={`uv_${icon}`} title={label} active={active} disabled={disabled} onClick={onClick} className="uv-tool" data-hotkey-category="UV">{label}</EditorTool>;
 }
 
 function UVGridControls({ value, onChange, children }) {

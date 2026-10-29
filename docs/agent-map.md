@@ -15,7 +15,13 @@ the current branch before using them. Historical evidence is not a fresh test re
 [AppPanels.jsx](../app/AppPanels.jsx) and [AppDialogs.jsx](../app/AppDialogs.jsx).
 Search the relevant component or dialog type before reading all of App.
 Shared shell pieces: the classic window and `LoadingWindow` in
-[Dialog.jsx](../app/Dialog.jsx), Tab trapping in [focus-trap.js](../app/focus-trap.js),
+[Dialog.jsx](../app/Dialog.jsx) (`onSubmit` gives an OK/Cancel form), the tool-window
+shell in [ToolWindow.jsx](../app/ToolWindow.jsx) (resource editors, AnimXL, Particle
+Editor, Sort My Mess, Attachemator, Auto Corpse; both emit `.mdlxl-overlay`/`.mdlxl-window`,
+which `new-look.css` styles, and the backdrops use `--z-modal`/`--z-tool-window`/`--z-workspace-modal`
+from `theme.css`), the shared fields in [Fields.jsx](../app/Fields.jsx) (`useDraftNumber`
+for every typed number, `useRangeCommit` and `RangeField` for every slider and its one look
+in `styles.css` `.range-field`, `Section`, `Check`), Tab trapping in [focus-trap.js](../app/focus-trap.js),
 popover outside-click/Escape in [useDismiss.js](../app/useDismiss.js), and small
 remembered choices in [local-store.js](../src/local-store.js) /
 [useStoredState.js](../app/useStoredState.js) (never rename a stored key).

@@ -42,7 +42,6 @@
 .ac-actual-speed>span{display:flex;justify-content:space-between;gap:6px;font-size:11px}
 .ac-speed-number{display:inline-flex;align-items:center;gap:1px;font-size:11px;white-space:nowrap}
 .ac-speed-number input[type=number]{box-sizing:border-box;width:46px;height:20px;padding:1px 3px;font:11px Tahoma,Arial,sans-serif;font-variant-numeric:tabular-nums;text-align:right}
-.ac-actual-speed input[type=range]{width:100%;min-width:0;margin:0;height:18px;padding:0}
 .ac-actual-speed{position:relative}
 .ac-speed-busy input[type=range]{opacity:.55}
 .ac-speed-progress{position:absolute;left:0;right:0;bottom:-2px;height:3px;overflow:hidden;border-radius:2px;background:#b7cbe4;pointer-events:none}

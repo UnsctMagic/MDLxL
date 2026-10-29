@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bone, Box, ClipboardPaste, Copy, Crosshair, FilePlus2, FlipHorizontal2, FolderOpen, Link2, Maximize2, Move, MousePointer2, Orbit, Play, Redo2, RefreshCw, RotateCw, Save, Search, Sparkles, Square, Triangle, Undo2, Unlink2, X } from 'lucide-react';
+import { Bone, Box, ClipboardPaste, Copy, Crosshair, FilePlus2, FlipHorizontal2, FlipVertical2, FoldHorizontal, FolderOpen, Hand, Link2, Maximize2, Move, MousePointer2, Orbit, Play, Redo2, RefreshCw, RotateCw, Save, Search, Sparkles, Square, Triangle, Undo2, Unlink2, X } from 'lucide-react';
 
 const icons = Object.freeze({
   'new-document': FilePlus2, sb_open: FolderOpen, sb_save: Save, sb_select: MousePointer2,
@@ -11,6 +11,9 @@ const icons = Object.freeze({
   sb_bonerot: RotateCw, sb_bonescale: Maximize2, sb_play: Play, sb_stop: Square,
   sb_begattach: Link2, sb_vattach: Link2, sb_endattach: Unlink2, sb_vdetach: Unlink2,
   sb_animcopy: Copy, sb_animpaste: ClipboardPaste,
+  // The UV Wrapper tool row.
+  uv_select: MousePointer2, uv_move: Hand, uv_rotate: RotateCw, uv_scale: Maximize2,
+  uv_mirrorX: FlipHorizontal2, uv_mirrorY: FlipVertical2, uv_uncouple: Unlink2, uv_fold: FoldHorizontal,
 });
 
 export function hasModernIcon(name) { return !!icons[name]; }

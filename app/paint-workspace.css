@@ -81,7 +81,7 @@
 .paint-cutout-preview{display:flex;gap:8px;align-items:center;cursor:grab;overflow:hidden;border:1px solid var(--ui-border);padding:5px}
 .paint-cutout-preview img{width:58px;height:58px;object-fit:contain;background:repeating-conic-gradient(#ddd 0 25%,#999 0 50%) 0 0/12px 12px}
 .paint-placement{border-bottom:1px solid var(--ui-border);padding-bottom:9px}
-.paint-modal-shade{position:fixed;inset:0;background:#0007;z-index:16000;display:grid;place-items:center;padding:10px;box-sizing:border-box}
+.paint-modal-shade{position:fixed;inset:0;background:#0007;z-index:var(--z-workspace-modal,16000);display:grid;place-items:center;padding:10px;box-sizing:border-box}
 .paint-modal-shade>section{background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-border);min-height:0;max-height:calc(100vh - 20px);box-sizing:border-box;overflow:auto}
 .paint-modal-shade header,.paint-modal-shade footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--ui-border)}
 .paint-modal-shade footer{border-top:1px solid var(--ui-border);border-bottom:0}

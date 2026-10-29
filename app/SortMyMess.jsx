@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
-import { trapTab } from './focus-trap.js';
+import ToolWindow from './ToolWindow.jsx';
 import { previewPlaybackStep } from './game-preview-capture.js';
 import { sortMyMessInventory, applySortMyMess, decisionChanges, describeSortMyMessChanges, verifySortMyMess, visibilityFacts, unionVisibilityOverrides, canMergeMembers } from '../src/sort-my-mess.js';
 import { displayNumber as n } from '../src/display-number.js';
@@ -156,7 +156,6 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
   const keys = event => {
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (open) setOpen(null); else onClose(); }
-    trapTab(event, root.current);
   };
 
   const statusOf = item => { const decision = decisionOf(item); return decision?.leave ? 'leave' : decisionChanges(decision) ? 'selected' : ''; };
@@ -243,9 +242,8 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
   const mergedInto = new Map();
   for (const [id, target] of applied?.report.merged || []) mergedInto.set(target, [...(mergedInto.get(target) || [target]), id]);
   const common = { textureAssets, modelPath, preferences: previewPreferences, teamColor, presentation: 'preview', sequenceIndex: sequence, time, seekId, playing: false, syncPlayback: true, playbackRunning: playing, playbackGlobalTime: globalTime, cameraMode: 'rotate', compareCamera: camera.current, preserveCameraView: true, showGrid: false, showAxes: false, showParticles: false };
-  return <div className="smm-overlay" onKeyDown={keys}>
-    <section className="smm-window" role="dialog" aria-modal="true" aria-label="Sort My Mess" data-hotkey-scope="sort-my-mess" tabIndex={-1} ref={root}>
-      <header><strong>Sort My Mess</strong><span className="smm-muted">{`${inventory.counts.geosets} geosets · ${inventory.counts.materials} materials · ${inventory.counts.textures} textures · ${groups.length} texture groups`}</span><button aria-label="Close Sort My Mess" onClick={onClose}>×</button></header>
+  return <ToolWindow title="Sort My Mess" overlayClass="smm-overlay" className="smm-window" ownEscape windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'sort-my-mess' }}
+    caption={<><strong>Sort My Mess</strong><span className="smm-muted">{`${inventory.counts.geosets} geosets · ${inventory.counts.materials} materials · ${inventory.counts.textures} textures · ${groups.length} texture groups`}</span></>}>
       <div className="smm-body">
         <div className="smm-left">
           {applied && <div className="smm-applied" role="status">
@@ -287,6 +285,5 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
         <button className={`smm-accept${selected.length && !draft.error ? ' active' : ''}`} disabled={!selected.length || !!draft.error || doc.readOnly} title="Apply every selected choice as one undoable edit, then refresh the list with the new numbers" onClick={apply}>{selected.length ? `Apply ${selected.length} selected` : 'Apply selected'}</button>
         <button onClick={onClose}>Close</button>
       </footer>
-    </section>
-  </div>;
+  </ToolWindow>;
 }

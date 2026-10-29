@@ -4,6 +4,8 @@ import AnimationPreviewTools from './AnimationPreviewTools.jsx';
 import { cropBetween, cropPresetRect, SHOWCASE_CROP_PRESETS } from './showcase-crop.js';
 import { createShowcaseDirector, overflowEntries, SHOWCASE_QUALITY } from './showcase-director.js';
 import ShowcaseLayerTools from './ShowcaseLayerTools.jsx';
+import { RangeField, useDraftNumber } from './Fields.jsx';
+import SharedDialog from './Dialog.jsx';
 import './showcase.css';
 import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
@@ -35,8 +37,10 @@ function readSavedColors() {
   return readStored(SAVED_COLORS_KEY, [], values => Array.isArray(values) ? values.slice(0, 3).map(value => /^#[0-9a-f]{6}$/i.test(value) ? value : null) : []);
 }
 const CLEAN = Object.fromEntries(['bones','nodes','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
+// Commits on Enter or on leaving the box, like every other number field.
 function NumberField({ label, value, onChange, min, max, step = 1, ...rest }) {
-  return <label>{label}<input aria-label={label} type="number" value={value} min={min} max={max} step={step} onChange={event => onChange(event.target.value === '' ? '' : Number(event.target.value))} {...rest}/></label>;
+  const field = useDraftNumber({ value, onCommit: onChange });
+  return <label>{label}<input aria-label={label} type="number" min={min} max={max} step={step} {...field} {...rest}/></label>;
 }
 // Negative extra time cuts the end off; the total never drops below one frame.
 function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
@@ -44,18 +48,12 @@ function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
   return <label className="showcase-extra-time" title="Seconds added at the end. A negative number cuts the end off.">Extra Time<input aria-label={label} type="number" step={.01} value={value} onChange={event=>onChange(event.target.value===''?'':Number(event.target.value)||0)}/><output title={`Sequence: ${base}s, including effects. Total: ${total}s.`}>{total}s</output></label>;
 }
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
-  return <label className="showcase-slider">{label}<input aria-label={label} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))}/><output>{value}%</output></label>;
+  return <RangeField className="showcase-slider" label={label} min={min} max={max} value={value} output={`${value}%`} onChange={onChange}/>;
 }
-function Dialog({ title, children, onClose, onSubmit, footer, onPointerDown, onPointerUp }) {
-  const element = useRef(null);
-  useEffect(() => { element.current.showModal(); }, []);
-  return <dialog className="classic-modal-window showcase-dialog" ref={element} aria-label={title} onPointerDownCapture={onPointerDown} onPointerUpCapture={onPointerUp} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <header>{title}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
-    <form onSubmit={event => { event.preventDefault(); onSubmit?.(); }}>
-      <div className="classic-modal-body">{children}</div>
-      <footer>{footer}<button type="button" onClick={onClose}>Cancel</button><button type="submit">OK</button></footer>
-    </form>
-  </dialog>;
+// The shared Dialog with an OK/Cancel form. Escape in a field cancels too, as the old native dialog did;
+// elsewhere the window's close button takes Escape.
+function Dialog(props) {
+  return <SharedDialog {...props} className="showcase-dialog" onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}/>;
 }
 function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemove, onClose }) {
   const duration=(row,loops=row.durationLoops??1)=>loopEffectTiming(model,row.sequence,loops,row.speed>0?row.speed:1,0,definitions,row.disabledEmitters).seconds;
