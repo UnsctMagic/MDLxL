@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { createInterface } = require('node:readline');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
+/** Identifies one Warcraft installation and build; caches and particle presets are keyed by it. */
+const installKey = (folder, buildBytes) => digest(path.resolve(folder).toLowerCase() + '|' + digest(buildBytes));
 const soundStem = name => name.replaceAll('/', '\\').toLowerCase().split(':').at(-1).replace(/\.(wav|mp3|ogg|flac)$/, '');
 
 function soundCandidates(name, names, locales) {
@@ -70,7 +72,7 @@ class CascTextures {
       if (direct) return {bytes:direct, sourceName:name};
       for (const folder of folders || []) {
         let build; try { build = await fs.readFile(path.join(folder, '.build.info')); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-        const install = digest(path.resolve(folder).toLowerCase() + '|' + digest(build));
+        const install = installKey(folder, build);
         let index = this.soundIndexes.get(install);
         if (!index) {
           const file = this.directory && path.join(this.directory, install + '.sounds.json');
@@ -122,7 +124,7 @@ class CascTextures {
       for (const folder of [...new Set(folders || [])]) {
         try {
           const build = await fs.readFile(path.join(folder,'.build.info'));
-          const install = digest(path.resolve(folder).toLowerCase() + '|' + digest(build));
+          const install = installKey(folder, build);
           const file = this.directory && path.join(this.directory,install + '.files.json');
           let listing = null, fromCache = false;
           if (file) try {
@@ -159,7 +161,7 @@ class CascTextures {
     for (const folder of [...new Set(folders || [])]) {
       try {
         const build = await fs.readFile(path.join(folder,'.build.info'));
-        const install = digest(path.resolve(folder).toLowerCase() + '|' + digest(build));
+        const install = installKey(folder, build);
         const file = this.directory && path.join(this.directory,install + '.textures.json');
         let names = null, keys = {}, fromCache = false;
         if (file) try {
@@ -189,7 +191,7 @@ class CascTextures {
     for (const folder of folders || []) {
       let install=snapshots?.get(folder);
       if(!install){let build; try { build = await fs.readFile(path.join(folder,'.build.info')); } catch { continue; }
-        install = digest(path.resolve(folder).toLowerCase() + '|' + digest(build));}
+        install = installKey(folder, build);}
       const namedModule=name.includes(':');
       const key = digest(install + '|' + name.toLowerCase()+(namedModule?'|content-key-v1':'')), file = this.directory && path.join(this.directory,key + '.bin');
       if (file) try { const cached = await fs.readFile(file); if (!cached.length) continue; if (cached.length <= 64 * 1024 * 1024) return cached; } catch {}
@@ -235,4 +237,4 @@ class CascTextures {
   }
   async close() { await this.queue.catch(() => {}); for (const {reader,timer} of this.readers.values()) { clearTimeout(timer); reader.close(); } this.readers.clear(); }
 }
-module.exports = { CascReader, CascTextures, soundCandidates };
+module.exports = { CascReader, CascTextures, soundCandidates, installKey };
