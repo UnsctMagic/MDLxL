@@ -194,10 +194,20 @@ test('the settings store and the editor share one preference rule', async t => {
   assert.throws(() => store.configure({ preferences: 'scroll' }), /Invalid preferences/);
 });
 
-test('desktop runs keep preferences only in settings.json; browser runs use localStorage', async () => {
+test('desktop keeps preferences in settings.json with localStorage only as a first-paint cache', async () => {
   const app = await fs.readFile(new URL('../app/App.jsx', import.meta.url), 'utf8');
   const writes = app.match(/localStorage\.setItem\('mdlvis-preferences'/g) || [], reads = app.match(/localStorage\.getItem\('mdlvis-preferences'\)/g) || [];
-  assert.equal(writes.length, 1); assert.equal(reads.length, 1);
+  // One browser store write, one paint-cache writer, one read for the first render.
+  assert.equal(writes.length, 2); assert.equal(reads.length, 1);
   assert.match(app, /if\(!window\.desktop\)\{ try \{ localStorage\.setItem\('mdlvis-preferences'/);
-  assert.match(app, /useState\(\(\) => \{ if \(window\.desktop\) return normalizePreferences\(\{\}\); try \{ return normalizePreferences\(JSON\.parse\(localStorage\.getItem\('mdlvis-preferences'\)/);
+  assert.match(app, /first-paint cache there, not a store/);
+  assert.match(app, /function writePaintCache\(encoded\) \{ try \{ localStorage\.setItem\('mdlvis-preferences', encoded\); \} catch \{\} \}/);
+  assert.match(app, /useState\(\(\) => \{ try \{ return normalizePreferences\(JSON\.parse\(localStorage\.getItem\('mdlvis-preferences'\)/);
+  // initial() replaces the cache from settings.json.
+  assert.match(app, /savedPreferences\.current=JSON\.stringify\(persisted\); writePaintCache\(savedPreferences\.current\);/);
+  // The cache follows only a configure() that resolved, so a failed disk write never updates it.
+  const calls = app.match(/writePaintCache\(/g) || [];
+  assert.equal(calls.length, 4);
+  assert.match(app, /window\.desktop\.configure\(\{preferences\}\)\.then\(result => \{settings\.current=result; savedPreferences\.current=encoded; writePaintCache\(encoded\);\}\)\.catch\(error=>say\('Settings could not be saved: '/);
+  assert.match(app, /\{await window\.desktop\.configure\(\{preferences:current\}\);savedPreferences\.current=encoded;writePaintCache\(encoded\);\}/);
 });

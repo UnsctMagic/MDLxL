@@ -133,11 +133,18 @@ function browserRecovery(operation, value) {
   });
 }
 
+// On desktop, settings.json is the only preference store. `mdlvis-preferences`
+// in localStorage is only a first-paint cache there, not a store: it lets the very
+// first frame use the saved theme and language, it is rewritten only after
+// settings.json accepted a write (configure() resolved) or initial() answered, and
+// initial() always replaces whatever it held.
+function writePaintCache(encoded) { try { localStorage.setItem('mdlvis-preferences', encoded); } catch {} }
+
 export default function App() {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
-  // Browser runs keep preferences in localStorage. The desktop app keeps them
-  // only in settings.json and replaces these defaults when initial() answers.
-  const [preferences, setPreferences] = useState(() => { if (window.desktop) return normalizePreferences({}); try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
+  // Browser runs keep preferences in localStorage. On desktop the same key is the
+  // first-paint cache (see writePaintCache); initial() replaces it from settings.json.
+  const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
   setLanguage(preferences.language);
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
   const [settingsTab, setSettingsTab] = useState(null), [preferencesReady, setPreferencesReady] = useState(!window.desktop);
@@ -1517,7 +1524,7 @@ export default function App() {
   useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,uvEnabled:commandEnabled('uv')});},[doc.readOnly,saving,displayMode,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
-  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); savedPreferences.current=JSON.stringify(persisted); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
+  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); savedPreferences.current=JSON.stringify(persisted); writePaintCache(savedPreferences.current); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
   const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
   const hasAnyUnsavedWork=sessions.some(sessionDirty);
@@ -1548,10 +1555,10 @@ export default function App() {
     const encoded=JSON.stringify(preferences);
     if(!window.desktop){ try { localStorage.setItem('mdlvis-preferences',encoded); } catch(error) { say('Settings could not be stored in this browser: '+error.message,true); } return; }
     if(savedPreferences.current===encoded)return;
-    const timer=preferencesTimer.current=setTimeout(() => { window.desktop.configure({preferences}).then(result => {settings.current=result; savedPreferences.current=encoded;}).catch(error=>say('Settings could not be saved: '+error.message,true)); },200);
+    const timer=preferencesTimer.current=setTimeout(() => { window.desktop.configure({preferences}).then(result => {settings.current=result; savedPreferences.current=encoded; writePaintCache(encoded);}).catch(error=>say('Settings could not be saved: '+error.message,true)); },200);
     return () => clearTimeout(timer);
   },[preferences,preferencesReady]);
-  useEffect(() => window.desktop?.onBeforeClose?.(async () => { const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); clearTimeout(preferencesTimer.current); if(!latest.current.preferencesReady)return; const current=preferencesRef.current, encoded=JSON.stringify(current); if(savedPreferences.current!==encoded) {await window.desktop.configure({preferences:current});savedPreferences.current=encoded;} }),[]);
+  useEffect(() => window.desktop?.onBeforeClose?.(async () => { const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); clearTimeout(preferencesTimer.current); if(!latest.current.preferencesReady)return; const current=preferencesRef.current, encoded=JSON.stringify(current); if(savedPreferences.current!==encoded) {await window.desktop.configure({preferences:current});savedPreferences.current=encoded;writePaintCache(encoded);} }),[]);
   useEffect(() => window.desktop?.onSaveBeforeClose?.(() => saveBeforeCloseRef.current()),[]);
   useEffect(() => { if(preferencesReady) resolveTextures(); },[preferencesReady, JSON.stringify(model.Textures.map(texture => texture.Image))]);
 
