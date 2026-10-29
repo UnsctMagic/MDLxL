@@ -131,6 +131,10 @@ const path = require('node:path');
     await settings();
     await page.locator('input[data-hotkey="hotkeys:search"]').click(); await page.keyboard.type('mmmm');
     await closeSettings();
+    // Closing Settings now teaches Escape. Dismiss that earlier control's reminder
+    // before proving a learned Move click creates no new reminder.
+    await popup.waitFor(); assert.deepEqual(await caps(), ['Escape']);
+    await clickPopup(); await gone();
     assert.equal(await uses(), 2, 'typing in a field does not count');
     for (let press = 0; press < 3; press++) await pressInView('m');
     await move.click(); await settlePage(page, 400);

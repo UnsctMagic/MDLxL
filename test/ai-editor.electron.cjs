@@ -22,6 +22,7 @@ const check = (name, condition, detail) => {
 const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n');
 (async () => {
   fs.mkdirSync(out, { recursive: true });
+  fs.rmSync(path.join(out, 'AI-export.mdx'), { force: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
   const doc = createStarterDocument();
   doc.apply('AI fixture', ['Geosets', 'Sequences', 'Bones'], model => {
@@ -67,11 +68,14 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
       sse(res, { choices: [{ delta: { content: JSON.stringify({ verdict: 'good', confidence: 0.9, problems: [], strengths: ['Selected faces mirrored; protected geometry preserved'] }) }, finish_reason: 'stop' }] });
       res.end(); return;
     }
-    const user = [...data.messages].reverse().find(message => message.role === 'user');
-    const captured = [...data.messages].reverse().find(message =>
-      message.role === 'user' && Array.isArray(message.content) && message.content[0]?.text?.includes('MDLxL context captured'));
-    const text = Array.isArray(user.content) ? user.content[0].text : user.content;
-    const context = JSON.parse(captured.content[0].text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1]);
+    // Only owner prompts carry the captured editor context. Image evidence and
+    // awareness updates are also user-role messages in the provider protocol.
+    const promptText = message => Array.isArray(message.content) ? message.content[0]?.text : message.content;
+    const user = [...data.messages].reverse().find(message => message.role === 'user' &&
+      /MDLxL context (?:captured when this prompt was sent|for this prompt:)/.test(promptText(message) || ''));
+    const text = promptText(user);
+    // Later turns send a context delta; target is always included (ai-service.cjs).
+    const context = JSON.parse(text.slice(text.lastIndexOf('\n') + 1));
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const turnMessages = data.messages.slice(data.messages.lastIndexOf(user) + 1);
     const previousCall = turnMessages
@@ -96,7 +100,6 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
     };
     // The current agent protocol requires inspection and a recorded plan before edits.
     const called = turnMessages.flatMap(message => message.tool_calls || []).map(call => call.function.name);
-    fs.writeFileSync(path.join(out, 'provider-protocol.json'), JSON.stringify({ text, called, previousCall, previousResult, users: data.messages.filter(message => message.role === 'user').map(message => message.content) }, null, 2));
     if (!called.includes('mdlxl_context')) return emitTool('mdlxl_context', {});
     if (!called.includes('mdlxl_plan')) return emitTool('mdlxl_plan', {
       cause: text.startsWith('slow') ? 'The first vertex needs the timed +5 X test edit.' : 'The selected faces need their mirrored counterpart across X=0.',
@@ -612,12 +615,14 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     },
     true,
   );
+  // Each of three phases now has both its original and edited picture.
   const reviewReport = JSON.parse(reviewImages[0].text).review;
   check(
     'animation verification samples intermediate poses and returns before/after images',
     reviewReport.passed &&
       reviewReport.poses.length === 1 &&
-      reviewImages.filter(x => x.type === 'image').length === 5,
+      reviewImages.filter(x => x.type === 'image').length === 6,
+    { report: reviewReport, imageCount: reviewImages.filter(x => x.type === 'image').length },
   );
   check(
     'animation verification restores the playhead',
@@ -631,7 +636,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   check(
     'the review can show the result from the front, back, left and right',
-    turned.filter(x => x.type === 'image').length === 9 &&
+    turned.filter(x => x.type === 'image').length === 10 &&
       ['front', 'back', 'left', 'right'].every(side => turned.some(x => x.type === 'text' && x.text.includes(`${side} view`))),
     turned.filter(x => x.type === 'text').map(x => x.text.slice(0, 60)),
   );
@@ -857,8 +862,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   const generated = await tool('mdlxl_assets', {
     target: context.target,
     source: 'model',
-    query: 'Particle_SoftDisc',
+    query: 'AI_Disc_Test',
   });
+  check('the compound script registers its generated Forge texture', generated.items.length === 1 && generated.items[0].Image.includes('AI_Disc_Test'));
   const textureImage = await tool('mdlxl_assets', {
     target: context.target,
     source: 'model',

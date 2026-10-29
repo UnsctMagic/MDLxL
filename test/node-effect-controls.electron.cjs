@@ -39,7 +39,7 @@ const { createHash } = require('node:crypto');
   const blp=Buffer.alloc(148+16*16*4);blp.write('BLP2');blp.writeUInt32LE(1,4);blp[8]=3;blp[9]=8;blp.writeUInt32LE(16,12);blp.writeUInt32LE(16,16);blp.writeUInt32LE(148,20);blp.writeUInt32LE(1024,84);for(let i=148;i<blp.length;i+=4){blp[i]=blp[i+1]=blp[i+2]=255;blp[i+3]=200;}await write('ReplaceableTextures\\Splats\\NodePreviewTest.blp',blp);
   await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false,maxFps:30,pauseWhenHidden:false},emitterMarker:'pentagram'}}));
   const executablePath=appTarget().executablePath,packaged=appTarget().packaged;
-  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--mute-audio'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), show: 'hide', profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--mute-audio'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
 
   const grab=clip=>app.evaluate(async({BrowserWindow},clip)=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(clip||undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'),clip);
   const screenshot=async name=>fs.writeFile(path.join(out,name),Buffer.from(await grab(),'base64'));

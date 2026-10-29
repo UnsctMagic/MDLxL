@@ -16,7 +16,7 @@ const root = path.resolve(__dirname, '..');
   });
   const fixture = path.join(run, 'dense.mdx'), original = Buffer.from(doc.serialize('mdx'));
   fs.writeFileSync(fixture, original);
-  const app = (await launchApp({ out: run, profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
+  const app = (await launchApp({ out: run, show: 'hide', profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
   try {
     const page = await app.firstWindow(), errors = [];
     page.on('pageerror', error => errors.push(error.message));

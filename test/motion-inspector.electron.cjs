@@ -53,7 +53,7 @@ const assert = require('node:assert/strict');
       await page.waitForFunction(count => window.motionScanEvents.length > count, count);
     }
     // Selections are undoable since 70a053e8 ('Change selection' steps carry no model sections); count only model edits.
-    const modelUndoSteps = () => page.evaluate(() => { const element = document.querySelector('.classic-app'); { const doc = findFiberState(element, doc => doc?.model); if (doc?.model) return doc._historyStore.undoEntries.filter(entry => entry.sections.length || entry.changes.length).length; }
+    const modelUndoSteps = () => page.evaluate(() => { const element = document.querySelector('.classic-app'); { const doc = mdlxlProbe().session?.doc; if (doc?.model) return doc._historyStore.undoEntries.filter(entry => entry.sections.length || entry.changes.length).length; }
  throw Error('Editor document not found'); });
     async function showDesired() { await menu(); await page.getByRole('menuitemcheckbox', { name: 'Show Desired' }).click(); }
     await page.locator('[data-hotkey="animations"]').click();

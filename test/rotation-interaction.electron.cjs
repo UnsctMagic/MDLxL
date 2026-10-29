@@ -7,7 +7,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 
 (async () => {
   const { ObjectLoader, Quaternion, Vector3, Matrix4 } = await import('three');
@@ -37,7 +36,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   const bundleDigest = crypto.createHash('sha256');
   for (const name of fs.readdirSync(assets).sort()) bundleDigest.update(name).update(fs.readFileSync(path.join(assets, name)));
   const bundleHash = bundleDigest.digest('hex');
-  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile'), args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 900 } });
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile'), args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 900 }, show: 'hide' });
   const check = (label, pass, evidence) => { checks.push({ label, pass: !!pass, ...(evidence === undefined ? {} : { evidence }) }); console.log((pass ? 'PASS ' : 'FAIL ') + label + (!pass && evidence !== undefined ? ' ' + JSON.stringify(evidence) : '')); };
 
   try {
@@ -314,7 +313,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   } finally {
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ packaged, executablePath, bundleHash, fixtureHash, checks, errors }, null, 2));
     await closeApp(app);
-    await new Promise(resolve => app.process().exitCode !== null ? resolve() : app.process().once('exit', resolve));
   }
   console.log('Evidence: ' + out);
   if (!recordOnly) assert.equal(checks.filter(check => !check.pass).length, 0, 'All rotation acceptance checks must pass');

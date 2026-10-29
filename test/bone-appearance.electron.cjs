@@ -74,7 +74,7 @@ const path = require('node:path');
     await page.waitForFunction(before => previewRuntime().controls.object.position.toArray().some((value, index) => Math.abs(value - before[index]) > .01), before);
     result.rotation = { before, after: await page.evaluate(() => previewRuntime().controls.object.position.toArray()) };
     assert.equal(await page.evaluate(() => JSON.stringify(previewProps().model)), modelBefore, 'appearance and camera must not mutate model');
-    await closeApp(app); app = null;
+    await closeApp(app, { keepProfile: true }); app = null;
     page = await launch();
     await settings(page);
     result.persisted = { style: await page.getByLabel('Bone style', { exact: true }).inputValue(), connector: await page.getByLabel('Skeleton style', { exact: true }).inputValue() };

@@ -4,7 +4,6 @@ const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs')
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out/portrait-extents/ui');

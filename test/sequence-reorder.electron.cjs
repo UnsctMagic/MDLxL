@@ -92,7 +92,7 @@ const path = require('node:path');
     // its options to that disabled labelled input.
     await choose.press('Home'); await choose.press('ArrowDown');
     assert.equal(await choose.inputValue(), '0');
-    await stubDialogs(app, { save: (out) + '/saved.' + options.filters[0].extensions[0] });
+    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
     for (const format of ['mdx', 'mdl']) {
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'saveAs'));
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();

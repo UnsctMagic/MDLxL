@@ -44,7 +44,7 @@ const { buildSync } = require('esbuild');
     });
     await page.waitForFunction(() => { try { return !!rigState().runtime.captureApi?.isReady; } catch { return false; } });
   };
-  const close = async () => { if(app){ await closeApp(app).catch(()=>{}); await closeApp(app).catch(()=>{}); app=null; } };
+  const close = async (keepProfile = false) => { if(app){ await closeApp(app, { keepProfile }); app=null; } };
   const idle = () => settlePage(page, 220);
   const checks = () => page.locator('.movement-object-filters input').evaluateAll(es=>es.map(e=>e.checked));
   const menu = command => app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
@@ -148,7 +148,7 @@ const { buildSync } = require('esbuild');
     await page.locator('.quick-display').getByRole('button',{name:'Clear',exact:true}).click(); await idle();
     vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.helpers,vis.attachments],[true,true,true],'VIS keeps all three enabled');
     await page.locator('.vis-toggle').click(); await idle(); assert.deepEqual(await checks(),[false,true,true],'XL choices survive VIS switch');
-    await close(); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
+    await close(true); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
     const restored=await page.evaluate(()=>objectColors()); assert.equal(restored.find(c=>c.id===helper.ObjectId).color,'#b940ff'); assert.equal(restored.find(c=>c.id===ref.ObjectId).color,'#ff22aa');
     assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#1b6837','#7123ad','#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
     // After Clear, the top row's Bones chip turns bones back on (the side filter follows).

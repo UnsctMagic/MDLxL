@@ -31,7 +31,7 @@ async function heroFixture(file){
  const read=()=>page.evaluate(()=>{const el=document.querySelector('.classic-app');{ const v = findFiberState(el, v => v?.doc?.model&&v.assets); if (v?.doc?.model&&v.assets) return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps}; }
 throw Error('No document');});
  // The model the EMTR preview is drawing, and its camera.
- const preview=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');if(!el)throw Error('No preview');const props=findFiberState(el,p=>p?.presentation==='preview'&&p.model,{props:true});const runtime=findFiberState(el,s=>(s?.camera||s?.controls?.object)?.position);return {model:props?JSON.parse(JSON.stringify(props.model)):null,camera:runtime?(runtime.camera||runtime.controls.object).position.toArray():null};});
+ const preview=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');if(!el)throw Error('No preview');const props=findFiberProps(el,p=>p?.presentation==='preview'&&p.model);const runtime=findFiberState(el,s=>(s?.camera||s?.controls?.object)?.position);return {model:props?JSON.parse(JSON.stringify(props.model)):null,camera:runtime?(runtime.camera||runtime.controls.object).position.toArray():null};});
  try{
 
   await page.getByLabel('3D model viewport',{exact:true}).waitFor();
@@ -70,12 +70,14 @@ throw Error('No document');});
   const [ox,oy]=await centerOf('Move origin glow'),[ex,ey]=await centerOf('Resize origin glow'),reach=Math.hypot(ex-ox,ey-oy),away=[(ex-ox)/reach*50,(ey-oy)/reach*50];
   let before=(await preview()).model;await drag('Resize origin glow',...away);let now=(await preview()).model;
   assert.ok(width(now)>width(before)*1.05,'dragging the edge outward widens the ground glow');
-  await drag('Resize origin glow',-away[0],-away[1],true);assert.ok(Math.abs(width((await preview()).model)-width(now))<1e-3,'Escape cancels the drag');
+  await drag('Resize origin glow',-away[0],-away[1],true);const cancelled=(await preview()).model;
+  assert.equal(cancelled.Geosets.length,now.Geosets.length,'Escape cancels only the resize and keeps the Glow Up draft');
+  assert.ok(Math.abs(width(cancelled)-width(now))<1e-3,'Escape cancels the drag');
   before=now;await drag('Move origin glow',40,25);now=(await preview()).model;
   assert.ok(Math.hypot(...middle(now).map((v,i)=>v-middle(before)[i]))>2,'Move shifts the ground glow');
   assert.ok(same((await preview()).camera,kept),'origin handle drags keep the camera');
   // A near miss still grabs (animation moves the dots), and the animation holds still during the drag.
-  const playingNow=()=>page.evaluate(()=>findFiberState(document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas'),p=>p?.presentation==='preview'&&'playing' in p,{props:true})?.playing);
+  const playingNow=()=>page.evaluate(()=>findFiberProps(document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas'),p=>p?.presentation==='preview'&&'playing' in p)?.playing);
   assert.equal(await playingNow(),true);
   {const [mx,my]=await centerOf('Move origin glow');before=(await preview()).model;await page.mouse.move(mx+13,my+9);await page.mouse.down();await page.mouse.move(mx+43,my+29,{steps:6});await sleep(500);
    assert.equal(await playingNow(),false,'the animation pauses while a handle is dragged');

@@ -89,7 +89,7 @@ const hash = sha256File;
     assert.equal((await uvw.locator('.uv-side-panel').boundingBox()).width, sidebar.width);
     const bytes = await main.evaluate(() => {
       const element = document.querySelector('.classic-app');
-      { const doc = findFiberState(element, doc => typeof doc?.serialize === 'function'); if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx')); }
+      { const doc = mdlxlProbe().session?.doc; if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx')); }
 
       throw Error('Missing document');
     });

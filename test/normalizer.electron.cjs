@@ -95,5 +95,5 @@ function readView(){const el=document.querySelector('.classic-view [aria-label="
     console.error(error.stack);console.error('Renderer errors:',errors);
     if(page)console.error((await page.locator('body').innerText()).slice(0,2500));
     throw error;
-  } finally {await closeApp(app).catch(()=>{});await closeApp(app);}
+  } finally {await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

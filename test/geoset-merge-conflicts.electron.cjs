@@ -73,7 +73,7 @@ const path = require('node:path');
     await screenshot('popup.png');
     await popup.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
-    await openMerge(); await popup.waitFor(); await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
+    await openMerge(); await popup.waitFor(); await popup.getByRole('button', { name: 'Cancel', exact: true }).focus(); await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
     await openMerge(); await popup.waitFor();
     await popup.getByRole('combobox', { name: 'RGB resolution for geosets 5, 28', exact: true }).selectOption('27');

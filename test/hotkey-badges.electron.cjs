@@ -9,7 +9,7 @@ const path = require('node:path');
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'badges.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1100, height: 800 }, show: 'inactive' });
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: 0, y: 0, width: 1100, height: 800 }, show: 'inactive' });
 
   try {
 

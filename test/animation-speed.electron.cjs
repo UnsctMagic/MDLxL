@@ -47,7 +47,7 @@ const path = require('node:path');
     assert.equal(await page.getByRole('dialog').count(), 0);
     const placement = await slider.evaluate(el => ({ afterRarity: el.closest('.ac-actual-speed').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('.ac-actual-speed').nextElementSibling.textContent }));
     assert.equal(placement.afterRarity, true); assert.equal(placement.nextButton, 'Adjust All Speed');
-    await stubDialogs(app, { save: (out) + '/unused.' + options.filters[0].extensions[0] });
+    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/unused.' + options.filters[0].extensions[0] }); }, out);
     await page.keyboard.press('F12');
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
@@ -118,7 +118,7 @@ const path = require('node:path');
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), width);
     // Speed changes are saved as native timing only; no editor data is added.
     const adjusted = await readRuntime();
-    await stubDialogs(app, { save: (out) + '/saved.' + options.filters[0].extensions[0] });
+    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
     for (const format of ['mdx', 'mdl']) {
       await page.keyboard.press('F12');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();

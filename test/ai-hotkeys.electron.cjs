@@ -115,6 +115,10 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     assert.equal(await local('color').getAttribute('aria-label'), 'Color: ' + colorName);
     // A modal must own its keys even when focus is still in the AI console.
     await ai.focus(); await page.keyboard.press('Control+Comma'); await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor();
+    // HOTKEYS.md: cancel the active drawing tool before dismissing a window.
+    await page.keyboard.press('Escape');
+    assert.equal(await local('tool:marker').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).isVisible(), true);
     await page.keyboard.press('Escape'); await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor({ state: 'detached' });
     await ai.focus(); await page.keyboard.press('Escape'); await ai.waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);

@@ -78,5 +78,5 @@ throw Error('No preview runtime');};});
     console.log('PASS saved backdrop, Portrait-only');
     assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged,before,after,errors},null,2));
-  } finally { await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{}); }
+  } finally { await closeApp(app).catch(()=>{}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

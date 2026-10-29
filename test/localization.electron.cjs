@@ -79,9 +79,9 @@ const path = require('node:path');
         await dialog.getByLabel(translate('Particle context', locale), { exact: true }).selectOption('On model');
         assert.ok((await dialog.getByLabel(translate('Effect ingredient', locale), { exact: true }).locator('option').allTextContents()).some(text => text.includes('Materials')), 'user emitter names stay literal');
         const transport = dialog.locator('.pe-transport button').first();
-        assert.equal(await transport.textContent(), translate('Pause', locale));
+        assert.equal(await transport.evaluate(button => [...button.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('')), translate('Pause', locale));
         await transport.click();
-        assert.equal(await transport.textContent(), translate('Play', locale));
+        assert.equal(await transport.evaluate(button => [...button.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('')), translate('Play', locale));
         // The reworked Emitter Editor: Look tab, life table and Adjust Manually.
         const ingredient = dialog.getByLabel(translate('Effect ingredient', locale), { exact: true });
         await ingredient.selectOption({ index: await ingredient.evaluate(select => [...select.options].findIndex(option => option.textContent.includes('Materials'))) });

@@ -10,7 +10,7 @@ const checks = [];
   fs.mkdirSync(path.join(out, 'profile'), { recursive: true });
   fs.writeFileSync(path.join(out, 'profile/settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
   const executablePath = appTarget().executablePath;
-  const app = (await launchApp({ out: out, profile: path.join(out, 'profile'), env: { MDLVIS_HEADLESS: '1', MDLVIS_GAME_DATA: process.env.MDLVIS_GAME_DATA || (await gameFolder()) }, timeout: 90000 })).app;
+  const app = (await launchApp({ out: out, show: 'hide', profile: path.join(out, 'profile'), env: { MDLVIS_HEADLESS: '1', MDLVIS_GAME_DATA: process.env.MDLVIS_GAME_DATA || (await gameFolder()) }, timeout: 90000 })).app;
   try {
     const page = await app.firstWindow(), errors = []; page.setDefaultTimeout(30000);
     page.on('pageerror', error => errors.push(error.message));
@@ -72,5 +72,5 @@ const checks = [];
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ checks, errors, hidden: true }, null, 2));
     console.log(JSON.stringify({ checks, errors, hidden: true }, null, 2));
-  } finally { await closeApp(app).catch(() => {}); await closeApp(app).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

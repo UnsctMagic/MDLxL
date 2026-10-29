@@ -48,7 +48,7 @@ const root=path.resolve(__dirname,'..');
   assert.deepEqual(errors,[]);
   console.log('PASS packaged manager: sphere/box-only sliders, disappearing-handle cancellation, no stale commit, normal mouse rotation');
  }finally{
-  if(app){await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{});}
+  if(app){await closeApp(app).catch(()=>{});}
   if(path.dirname(run)!==output)throw Error('Unexpected test directory');fs.rmSync(run,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

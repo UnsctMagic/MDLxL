@@ -64,8 +64,12 @@ const root = path.resolve(__dirname, '..');
 
     prompt = await openPrompt();
     const exited = app.waitForEvent('close');
-    await prompt.getByRole('button', { name: 'Close', exact: true }).dispatchEvent('click');
-    await exited;
+    // The native process can exit before Playwright acknowledges this click.
+    // Require both the expected disconnect (if any) and the app close event.
+    const click = prompt.getByRole('button', { name: 'Close', exact: true }).click().catch(error => {
+      assert.match(error.message, /Target page, context or browser has been closed/);
+    });
+    await exited; await click;
     assert.equal(['.mdl', '.mdx'].some(extension => fs.existsSync(saveDestination + extension)), false, 'Close discards without saving');
     console.log('PASS the red Close closes without saving');
   } finally {

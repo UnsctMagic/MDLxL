@@ -85,7 +85,6 @@ const path = require('node:path');
     process.exitCode = 1;
   } finally {
     await closeApp(app).catch(() => {});
-    await closeApp(app).catch(() => {});
     await fs.rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

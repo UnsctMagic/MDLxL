@@ -2,7 +2,6 @@ const { sha256File } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run the rebuilt test app; input models are never saved or overwritten.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const{_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const hash = sha256File;
 (async()=>{
  const{createStarterDocument}=await import('../src/starter-model.js'),{createNode,openDocument}=await import('../src/editor-document.js');

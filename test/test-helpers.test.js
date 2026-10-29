@@ -104,7 +104,8 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
   fs.symlinkSync(library, path.join(profile, 'particles'), process.platform === 'win32' ? 'junction' : 'dir');
   fs.writeFileSync(path.join(profile, 'draft.json'), 'draft');
   const launches = [], errors = [], page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
-  const app = { async firstWindow() { return page; }, async evaluate() {} };
+  let connected = true;
+  const app = { process() { assert.equal(connected, true, 'capture the process before disconnect'); return { exitCode: 0 }; }, async firstWindow() { return page; }, async evaluate() {} };
   const playwright = { _electron: { async launch(options) { launches.push(options); return app; } } };
   const saved = { exe: process.env.MDLXL_TEST_EXE, pkg: process.env.MDLXL_SUITE_PKG };
   delete process.env.MDLXL_TEST_EXE; delete process.env.MDLXL_SUITE_PKG;
@@ -113,13 +114,16 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
     const launched = await launchApp({ out, profile, entry, fixture: 'fixture.mdx', errors, playwright });
     assert.equal(launched.errors, errors); assert.equal(launches[0].args[0], entry);
     assert.equal(launches[0].args[1], 'fixture.mdx'); assert.equal(launches[0].env.MDLXL_PROFILE, profile);
+    connected = false;
     await closeApp(app, { keepProfile: true });
     assert.equal(fs.readFileSync(path.join(profile, 'draft.json'), 'utf8'), 'draft');
+    connected = true;
     const target = { executablePath: path.join(out, 'installed', 'MDLxL.exe'), args: [], packaged: true };
     await launchApp({ out, profile, target, cwd: out, playwright });
     assert.equal(launches[1].executablePath, target.executablePath);
     assert.equal(launches[1].cwd, out);
     assert.equal(launches[1].args[0], '--disable-backgrounding-occluded-windows');
+    connected = false;
     await closeApp(app);
     assert.equal(fs.existsSync(profile), false);
     assert.equal(fs.readFileSync(path.join(library, 'source.json'), 'utf8'), 'source');

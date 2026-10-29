@@ -74,7 +74,7 @@ const root = path.resolve(__dirname, '..');
     await welcome(true);
     console.log('PASS packaged static update fallback, editor stays mounted, welcome fits with no WebGL and with failed effects bundle');
   } finally {
-    if(app) { await closeApp(app).catch(()=>{}); await closeApp(app).catch(()=>{}); }
+    if(app) { await closeApp(app).catch(()=>{}); }
     if(path.dirname(run)!==output) throw Error('Unexpected test directory');
     await fs.rm(run,{recursive:true,force:true});
   }

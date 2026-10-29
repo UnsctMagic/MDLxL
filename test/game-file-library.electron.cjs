@@ -2,9 +2,8 @@ const { appTarget } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // The Library button browses every installed game file; texture pickers stay texture-only.
-// Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, default D:\Warcraft III).
+// Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, else gameFolder()).
 // MDLXL_PACKAGED_EXE runs a packaged MDLxL.exe instead of the source checkout.
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||process.env.MDLXL_REAL_PLAYWRIGHT||'playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-library'),checks=[];
 const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
@@ -17,7 +16,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   const fixture=path.join(out,'demo.mdx');fs.writeFileSync(fixture,document.serialize('mdx'));
   fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile','settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},...(process.env.MDLXL_TEST_THEME?{theme:process.env.MDLXL_TEST_THEME}:{})}}));
   const packaged=appTarget().packaged,flags=['--disable-gpu-vsync','--disable-frame-rate-limit'];
-  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile'), args: [...flags], env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:\\Warcraft III' }, timeout: 90000, fixture: fixture , pageTimeout: 45000, bounds: { x: -3000, y: 0, width: 1440, height: 980 }, show: 'inactive' });
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile'), args: [...flags], env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||await gameFolder() }, timeout: 90000, fixture: fixture , pageTimeout: 45000, bounds: { x: -3000, y: 0, width: 1440, height: 980 }, show: 'inactive' });
   try{
 
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).waitFor();
@@ -206,5 +205,5 @@ return null;});
     await row('Orc').click();await row('Units').click();await row('Heroes').click();await row('Blademaster').click();await waitModel('Blademaster');await settlePage(page, 2000);
     await shot(page,'theme-'+(process.env.MDLXL_TEST_THEME||'light'));await page.keyboard.press('Escape');await library.waitFor({state:'hidden'});
     console.log('PASS:\n- '+checks.join('\n- '));
-  }finally{await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{});}
+  }finally{await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

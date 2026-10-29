@@ -1,3 +1,4 @@
+const { gameFolder } = require('./helpers/fixtures.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real production bundle, hidden window, isolated profile. No desktop input.
@@ -6,8 +7,8 @@ const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.joi
 if(!fixture)throw Error('Set MDLXL_CORPSE_FIXTURE to a model with Death.');
 function runtime(scope){const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');if(!el)throw Error('Missing viewport');let p;const s=findFiberState(el,(s,props)=>{if(props?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){p=props;return true;}return false;},{tree:!scope});if(!s)throw Error('Missing viewport runtime');const c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}
 (async()=>{
-  fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(out,'profile-'));fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({gameData:'D:\\Warcraft III',preferences:{language:'en'}}));
-  const original=fs.readFileSync(fixture),app=(await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture })).app;
+  fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(out,'profile-'));fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({gameData:await gameFolder(),preferences:{language:'en'}}));
+  const original=fs.readFileSync(fixture),app=(await launchApp({ out: path.dirname(profile), profile: profile, show: 'hide', args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture })).app;
   const appPid=await app.evaluate(()=>process.pid),errors=[],checks=[];
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(25000);page.on('pageerror',e=>errors.push(e.message));

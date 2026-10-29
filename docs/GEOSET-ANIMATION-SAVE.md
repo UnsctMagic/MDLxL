@@ -71,7 +71,7 @@ build. It requires Playwright; set `MDLXL_PLAYWRIGHT_MODULE` to an available
 Playwright module directory when it is not installed locally. Outputs, screenshots
 and the isolated profiles are written under `out/geoset-save`.
 After that run, the independent check uses the installed RMS runtime:
-`java -Djava.awt.headless=true -cp "<RMS>/lib/*" org.openjdk.nashorn.tools.Shell test/geoset-save.retera.js`.
+`java -Djava.awt.headless=true -cp "<RMS>/lib/*" org.openjdk.nashorn.tools.Shell test/manual/geoset-save.retera.js`.
 
 ### Measured save stages
 

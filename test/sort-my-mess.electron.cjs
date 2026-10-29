@@ -131,9 +131,6 @@ function png(rgba) {
     console.log(JSON.stringify({ packagedExecutable: exe, groups: ['smm-other', 'smm-skin'], geosets: '5 -> 2', mapping: '2→1 3→1 4→deleted 5→2', choicesPersist: true, cameraSynchronized: true, playbackMsPerMs: +(previews[0].frame / elapsed).toFixed(2), saveReopen: true, undoRedo: true, sourceUnchanged: true, screenshots: output }));
   } catch (cause) { if (page) await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {}); throw cause; }
   finally {
-    await closeApp(app).catch(() => {});
-    // A packaged close can hang; never leave the test build running.
-    await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 8000))]);
-    try { app.process().kill(); } catch {}
+    await closeApp(app);
   }
 })().catch(cause => { console.error(cause); process.exitCode = 1; });

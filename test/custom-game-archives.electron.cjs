@@ -108,7 +108,7 @@ function archive(name, bytes) {
     await capture('settings.png');
     const savedSources = (await settings()).gameDataSources;
     assert.equal((await settings()).gameData, null);
-    await closeApp(app); app = null; await launch(); await menu('gameDataSettings');
+    await closeApp(app, { keepProfile: true }); app = null; await launch(); await menu('gameDataSettings');
     await page.getByRole('button', { name: 'Add MPQ files…', exact: true }).waitFor();
     assert.deepEqual((await settings()).gameDataSources, savedSources);
     assert.equal(digest(Buffer.from((await asset())[0])), digest(png)); result.restart = true;

@@ -129,5 +129,5 @@ throw Error('No preview runtime');};});
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged,sidebarWidth,lightingLoaded:lighting.includes('Game portrait lights loaded'),errors},null,2));
   } catch(error) {
     if(page){await snap('failure.png');fs.writeFileSync(path.join(out,'failure.txt'),await page.locator('body').innerText());}throw error;
-  } finally { await closeApp(app).catch(()=>{});await closeApp(app).catch(()=>{}); }
+  } finally { await closeApp(app).catch(()=>{}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});
