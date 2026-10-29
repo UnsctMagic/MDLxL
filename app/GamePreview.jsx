@@ -1379,7 +1379,7 @@ export default function GamePreview(inputProps) {
           native.particlesController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
           native.ribbonsController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
         }
-        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled });
+        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
         if (!captureOnly && !p.portraitMode) presentation.draw(camera, p.preferences, p.workplane, false, center, radius, bounds.min.z, { platformOnly: true });
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
       if (!captureOnly) {

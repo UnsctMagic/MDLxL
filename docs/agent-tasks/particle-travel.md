@@ -6,7 +6,7 @@ Updated: 2026-10-29
 
 ## Scope
 
-Make emitted particles trail behind forward-moving animation previews while the
+Make emitted particles and authored foot/hoofprint decals trail behind forward-moving animation previews while the
 unit stays centered. No treadmill, ground marker, UI control, authored animation
 change, installed-app update, or release is included.
 
@@ -24,6 +24,10 @@ change, installed-app update, or release is included.
   Library, Movement, Animations and other consumers share this renderer.
 - EMTR's deterministic simulation accounts for independent animation/FX rates.
   Its existing checkpoints retain displaced particle positions.
+- `event-preview-runtime.js` also offsets automatic `FPT` ground decals by
+  authored movement speed and their animation age. Manual event tests, unrelated
+  blood/spawn effects, original event timing/fade and loop lifetime behavior are
+  preserved. Pausing or redrawing does not accumulate decal displacement.
 
 ## Verification
 
@@ -39,6 +43,12 @@ change, installed-app update, or release is included.
   timing assertion failed under concurrent packaging load. Its 26-test file
   passed in isolation. Final bounded-concurrency source run: 2120 passed,
   22 skipped, zero failures.
+- Hoofprint follow-up: build plus 14 focused event/particle tests passed.
+  `footprint-travel.electron.cjs` verified all four real Chaos Knight hoofprint
+  GPU transforms against their contact positions and authored speed, repeated
+  paused draws, unchanged model data, normal Alt-drag rotation and no page errors.
+  The source-built test window was left open for owner review; the installed app
+  and model original were not changed.
 
 This is a preview change, not native Warcraft III gameplay validation. Ribbons
 and external-model/Popcorn emitters are outside this particle-only change.

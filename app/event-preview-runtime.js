@@ -5,6 +5,7 @@ import { EVENT_TABLE_PATHS, parseEventName, parseSlk, resolveEventDefinition, ac
 import { parseEventRenderModel } from './event-render-model.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 import { billboardCameraCorrection } from './preview-pose.js';
+import { particleTravelDistance } from './particle-preview-adapter.js';
 
 const pathKey = path => String(path || '').replaceAll('/', '\\').toLowerCase();
 const readText = bytes => new TextDecoder().decode(bytes);
@@ -172,7 +173,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
     // Expiration must render one final clean frame, even at a low frame cap.
     get active() { return [...tests.values()].some(test => !test.completed); },
     cancelTests() { tests.clear(); invalidate?.(); },
-    render({ frame, sequenceIndex, globalTime, playback, camera, teamColor, bloodSteps = true, spawn = true }) {
+    render({ frame, sequenceIndex, globalTime, playback, camera, teamColor, bloodSteps = true, spawn = true, travel = true }) {
       if (disposed || !loaded) return;
       // A frozen event key must not recreate the decal just tested. Release it
       // when the timeline moves so normal playback and scrubbing stay intact.
@@ -210,7 +211,15 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
           }
         }
         if (state.failed) continue;
-        if (resource.texture) { if (item.ageMs < state.age) state.world = worldAtTrigger(item,frame,sequenceIndex,globalTime); state.age = item.ageMs; decals ||= createDecalRenderer(gl); decals.render(resource.texture,item,state.world,camera); continue; }
+        if (resource.texture) {
+          if (item.ageMs < state.age) state.world = worldAtTrigger(item,frame,sequenceIndex,globalTime);
+          state.age = item.ageMs;
+          const world = state.world.clone();
+          // Hoof/footprints stay at their ground contact while the centered unit travels.
+          // Derive the offset from age so pauses, repeated draws and scrubs do not drift.
+          if (travel && !item.manual && /^FPT/i.test(item.event.Name)) world.elements[12] -= particleTravelDistance(model,sequenceIndex,item.ageMs * (playback?.speed ?? 1));
+          decals ||= createDecalRenderer(gl); decals.render(resource.texture,item,world,camera); continue;
+        }
         const native = state.native, start = resource.source.Sequences[0].Interval[0];
         if (item.ageMs < state.age || state.age < 0) { resetPreviewEffects(native); native.setFrame(start); state.age = 0; state.world = worldAtTrigger(item,frame,sequenceIndex,globalTime); }
         let remaining = item.ageMs - state.age;
