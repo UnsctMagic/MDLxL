@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
-import { RangeField } from './Fields.jsx';
+import { RangeField, Section } from './Fields.jsx';
 import { isTypingTarget } from '../src/preferences.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
@@ -67,13 +67,6 @@ function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <RangeField className="ax-slider" title={tip} label={label} output={Math.round(value)} ends={[low, high]} min="0" max="100" step="1" value={value} disabled={disabled} inputProps={{ title: tip }} onChange={next => onChange(id, next)}/>;
 }
 
-// A collapsible group: the title (and a short summary while closed) stays visible.
-function Section({ title, note, open = false, children }) {
-  return <details className="ax-section" open={open}>
-    <summary title={`Show or hide ${title}`}>{title}{note ? <small> · {note}</small> : null}</summary>
-    <div className="ax-section-body">{children}</div>
-  </details>;
-}
 
 // One effect: its picture, name and what it does. Clicking it opens its controls (and
 // switches it on); the corner switch turns it off and on again.
@@ -641,7 +634,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
                 </>}
               </div>
             : <p className="ax-note ax-hint">Click a card to switch an effect on and tune it. Point at a card to light up the bones it moves.</p>}
-          <Section title="Fine-tune" note={[movedPoses && `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved`, settings.stiffIds.length && `${settings.stiffIds.length} stiff`, also.length && `${also.length} more animations`].filter(Boolean).join(', ')}>
+          <Section className="ax-section" defaultOpen={false} title="Fine-tune" note={[movedPoses && `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved`, settings.stiffIds.length && `${settings.stiffIds.length} stiff`, also.length && `${also.length} more animations`].filter(Boolean).join(', ')}>
             <Slider id="poses" label="Stick to my poses" low="Loose" high="Exact" tip="How closely the result lands on your key poses. Exact keeps every pose; Loose lets follow-through and wobble carry through them." value={settings.poses} onChange={change}/>
             <small className="ax-note">Timing: drag a diamond on the timeline to change when that pose happens; double-click it to put it back.</small>
             <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>

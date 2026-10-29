@@ -6,7 +6,7 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
-import { useDraftNumber } from './Fields.jsx';
+import { Check, useDraftNumber } from './Fields.jsx';
 import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
 import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
@@ -72,8 +72,9 @@ function AppearanceColors({ colors, value, prefix, onChange }) {
   return <div className="settings-color-grid">{colors.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={`${prefix} ${label}`} value={value[key]} onChange={event => onChange({ [key]: event.target.value })}/><code>{value[key]}</code></label>)}</div>;
 }
 
-function Toggle({ id, label, checked, onChange, description }) {
-  return <label className="settings-toggle"><input data-hotkey={id} data-hotkey-label={label} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)}/><span>{label}{description && <small>{description}</small>}</span></label>;
+// The shared checkbox in the Settings look; a toggle without an id has no key.
+function Toggle({ id = null, checked, ...props }) {
+  return <Check className="settings-toggle" id={id} value={checked} {...props}/>;
 }
 // Commits on Enter or on leaving the box, like every other number field.
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {

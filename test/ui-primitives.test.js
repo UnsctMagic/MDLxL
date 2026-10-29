@@ -168,3 +168,19 @@ test('every slider wrapper draws the one shared slider look', () => {
   assert.match(source('styles.css'), /\.range-field\.range-field\{/);
   assert.match(source('theme.css'), /input\[type=range\]\.range-input\{accent-color:var\(--ui-accent\)\}/);
 });
+test('Section takes a note and a starting state; Check takes a description and its own key id', () => {
+  const { Section, Check } = load(fieldsSource);
+  const closed = renderToStaticMarkup(React.createElement(Section, { className: 'ax-section', defaultOpen: false, title: 'Fine-tune', note: '1 stiff' }, 'body'));
+  assert.match(closed, /^<details data-hotkey-prefix="Fine-tune" class="ax-section"><summary data-hotkey="expand"/);
+  assert.match(closed, /Fine-tune<small> · 1 stiff<\/small>/);
+  assert.match(renderToStaticMarkup(React.createElement(Section, { title: 'Geoset' }, 'body')), /class="inspector-section" open=""/);
+  const plain = renderToStaticMarkup(React.createElement(Check, { label: 'Loop', value: true, onChange() {} }));
+  assert.match(plain, /^<label class="check"><input data-hotkey="toggle:Loop" data-hotkey-label="Toggle Loop" aria-label="Loop" type="checkbox" checked=""/);
+  const setting = renderToStaticMarkup(React.createElement(Check, { className: 'settings-toggle', id: 'graphics:antialias', label: 'Smooth edges', description: 'Turn off to reduce rendering cost.', value: false, onChange() {} }));
+  assert.equal(setting, '<label class="settings-toggle"><input data-hotkey="graphics:antialias" data-hotkey-label="Smooth edges" type="checkbox"/><span>Smooth edges<small>Turn off to reduce rendering cost.</small></span></label>');
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Check, { className: 'settings-toggle', id: null, label: 'Symbols', value: false, onChange() {} })), /data-hotkey=/, 'a Settings toggle without an id has no key');
+  const settings = readFileSync(new URL('../app/Settings.jsx', import.meta.url), 'utf8'), animxl = readFileSync(new URL('../app/AnimXL.jsx', import.meta.url), 'utf8');
+  assert.match(settings, /function Toggle\(\{ id = null, checked, \.\.\.props \}\) \{\r?\n  return <Check className="settings-toggle"/);
+  assert.doesNotMatch(animxl, /function Section\(/);
+  assert.match(animxl, /<Section className="ax-section" defaultOpen=\{false\}/);
+});

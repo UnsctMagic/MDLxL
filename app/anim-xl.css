@@ -37,7 +37,7 @@
 .resource-editor .ax-section{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
 .resource-editor .ax-section>summary{cursor:pointer;font-weight:bold;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .resource-editor .ax-section>summary small{font-weight:normal;color:var(--ui-muted,#555)}
-.resource-editor .ax-section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}
+.resource-editor .ax-section>.section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}.resource-editor .ax-section>summary>:is(svg,.spacer){display:none}
 .resource-editor .ax-dense{margin:0;padding:4px 6px;background:var(--ui-field,#ffffe1);border:1px solid var(--ui-border,#a0a0a0)}
 .resource-editor .ax-check{display:flex;gap:4px;align-items:center}
 .resource-editor .ax-key{cursor:ew-resize}
