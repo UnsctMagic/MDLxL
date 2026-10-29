@@ -821,11 +821,12 @@ export function createNode(model, type = 'Bone') {
   }
   (model[collection] ||= []).push(node);
   (model.Nodes ||= [])[id] = node; (model.PivotPoints ||= [])[id] = pivot;
+  // Object IDs remain stable. Extend each bind-pose array up to the new ID,
+  // before the camera matrices, leaving every existing matrix in its slot.
   for (const pose of model.BindPoses || []) {
-    const cameraStart = pose.Matrices.length - (model.Cameras?.length || 0);
-    const matrices = Array.from({ length: Math.max(0, id - cameraStart + 1) }, () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]));
-    pose.Matrices.splice(cameraStart, 0, ...matrices);
-    pose.Matrices[id] = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+    const cameras = pose.Matrices.splice(pose.Matrices.length - (model.Cameras?.length || 0));
+    while (pose.Matrices.length <= id) pose.Matrices.push(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]));
+    pose.Matrices.push(...cameras);
   }
   updateCounts(model);
   return node;

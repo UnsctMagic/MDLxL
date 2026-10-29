@@ -27,18 +27,7 @@ export function createRigNode(model, type, selection = {}) {
     while (used.has(`bone_new${index}`)) index++;
     return `bone_new${index}`;
   })() : 'New Ref';
-  // Object IDs remain stable. Extend each bind-pose array at the new ID while
-  // leaving every existing inverse matrix in its original slot.
-  const bindPoses = model.BindPoses;
-  if (bindPoses?.length) model.BindPoses = [];
-  let node;
-  try { node = createNode(model, type); }
-  finally { if (bindPoses?.length) model.BindPoses = bindPoses; }
-  for (const pose of bindPoses || []) {
-    const cameras = pose.Matrices.splice(pose.Matrices.length - (model.Cameras?.length || 0));
-    while (pose.Matrices.length <= node.ObjectId) pose.Matrices.push(new Float32Array(IDENTITY_BIND_POSE));
-    pose.Matrices.push(...cameras);
-  }
+  const node = createNode(model, type);
   node.Name = name;
   node.PivotPoint = new Float32Array(selectedVertexCenter(model, selection));
   model.PivotPoints[node.ObjectId] = node.PivotPoint;
