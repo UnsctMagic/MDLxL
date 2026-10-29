@@ -23,6 +23,7 @@ import { openOptimizeXLWindow } from './detached-window.js';
 import UVWindow from './UVWindow.jsx';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
+import { hasDesktop, resolveGameFiles } from './desktop.js';
 import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
 import Learn from './Learn.jsx';
@@ -777,14 +778,14 @@ export default function App() {
     target.assets = assets; releaseUnusedTextureUrls(); if (latest.current.session.id === target.id || latest.current.showcaseSession?.id === target.id) refresh(); return count;
   }
   async function resolveTextures(target = session) {
-    if (!window.desktop?.resolveTextures) return;
+    if (!hasDesktop('resolveTextures')) return;
     const generation = nextTextureResolution(target);
     try {
       // Keep referenced assets ready for final-model previews even when the
       // work viewport has texture display disabled. This is not library preload.
       const names = target.doc.model.Textures.map(texture => texture.Image).filter(Boolean);
       if (!names.length) return;
-      const records = await window.desktop.resolveTextures({ path: target.path, names });
+      const records = await resolveGameFiles(names, target.path);
       if (textureResolutions.current.get(target) !== generation) return;
       await loadTextures(records, target, { resolutionGeneration: generation, source: 'gameData' });
     } catch (error) { say(error.message, true); }
@@ -935,8 +936,8 @@ export default function App() {
       // Save As must bring reopened Forge textures along, even before preview
       // resolution completes or when texture rendering is disabled.
       const missing = missingForgeAssetPaths(target.assets, staged.model);
-      if (missing.length && window.desktop?.resolveTextures) {
-        const records = await window.desktop.resolveTextures({ path: target.path, names: missing });
+      if (missing.length && hasDesktop('resolveTextures')) {
+        const records = await resolveGameFiles(missing, target.path);
         await loadTextures(records, target, { source: 'forge' });
       }
       if (missingForgeAssetPaths(target.assets, staged.model).length) throw Error('A Forge texture is missing. Load the model beside its MDLxL_Forge folder, or import the missing texture before saving.');
