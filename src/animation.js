@@ -1,5 +1,15 @@
 import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 
+// A track loops on a global sequence when its id is a whole number >= 0. Given
+// the durations (a model's GlobalSequences), the id must also name one longer
+// than zero; otherwise the track plays in the model's sequences, as playback does.
+const loopId = (id, durations) => Number.isInteger(id) && id >= 0 && (!durations || durations[id] > 0) ? id : null;
+
+/** The global sequence a track loops on, or null. Pass the model to apply the
+ * playback rule (the id exists and its duration is above zero). */
+export const globalSequenceId = (track, model) => loopId(track?.GlobalSeqId, model && (model.GlobalSequences || []));
+export const isGlobalTrack = (track, model) => globalSequenceId(track, model) !== null;
+
 // WC3 timestamps are milliseconds. Keys outside the active sequence must never
 // leak into it. Quaternion cubic tracks use squad, as in war3-model's renderer.
 export function sampleTrack(track, frame, options = {}) {
@@ -7,8 +17,8 @@ export function sampleTrack(track, frame, options = {}) {
   if (track == null) return fallback;
   if (typeof track === 'number' || Array.isArray(track) || ArrayBuffer.isView(track)) return track;
   let from = interval?.[0] ?? -Infinity, to = interval?.[1] ?? Infinity;
-  const globalId = track.GlobalSeqId;
-  if (Number.isInteger(globalId) && globalId >= 0 && globalSequences[globalId] > 0) {
+  const globalId = loopId(track.GlobalSeqId, globalSequences);
+  if (globalId !== null) {
     to = globalSequences[globalId]; from = 0;
     frame = ((globalTime % to) + to) % to;
   }
@@ -84,6 +94,28 @@ export const worldPivot = (model, id, matrices, node) => new Vector3().fromArray
 
 /** Keys of a sorted track inside an inclusive [start, end] interval. */
 export const keysInInterval = (track, [start, end]) => track.Keys.filter(key => key.Frame >= start && key.Frame <= end);
+
+/** Visit every track (an object with a Keys array) in a model once, depth first
+ * in property order, without entering the track or typed arrays. Objects reached
+ * twice, such as nodes listed in both Nodes and Bones, are walked once. `path` is
+ * the keys from the model, array positions as numbers. `skip` names keys never
+ * entered; `event` sees each record with an EventTrack array, and is walked on. */
+export function visitTracks(model, visit, { skip = [], event } = {}) {
+  const seen = new Set(), skipped = new Set(skip), path = [];
+  function walk(value, owner, property) {
+    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value.Keys)) { visit(value, { owner, property, path: [...path] }); return; }
+    if (event && (ArrayBuffer.isView(value.EventTrack) || Array.isArray(value.EventTrack))) event(value, { owner, property, path: [...path] });
+    const list = Array.isArray(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (skipped.has(key)) continue;
+      const step = list ? Number(key) : key;
+      path.push(step); walk(child, value, step); path.pop();
+    }
+  }
+  walk(model, null, null);
+}
 
 /** The parent matrix a child sees: inherit-translation/rotation/scaling flags
  * (Flags & 1, 2, 4) drop that part of the parent. Returns `parent` itself when

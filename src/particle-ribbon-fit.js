@@ -1,5 +1,6 @@
 import {Vector3,Quaternion} from 'three';
 import {createStarterRecipe} from './particle-starters.js';
+import {vertexBones} from './part-bones.js';
 
 /** Only complete marked polygons contribute; unrelated selected vertices do not. */
 export function ribbonPolygonSelection(model,selection={}){
@@ -10,8 +11,7 @@ export function ribbonPolygonSelection(model,selection={}){
   for(let i=0;i<geo.Faces.length;i+=3){const face=Array.from(geo.Faces.slice(i,i+3));if(face.length===3&&face.every(id=>selected.has(id))){polygons++;face.forEach(id=>used.add(id));}}
   for(const id of used){
    points.push(Array.from(geo.Vertices.slice(id*3,id*3+3)));
-   const skin=geo.SkinWeights,group=skin?.length>=(id+1)*8?Array.from(skin.slice(id*8,id*8+4)).filter((_,i)=>skin[id*8+4+i]>0):Array.from(geo.Groups?.[geo.VertexGroup?.[id]]||[]);
-   bindings.push([...new Set(group)]);
+   bindings.push([...new Set(vertexBones(geo,id))]);
   }
  }
  const first=bindings[0]||[],rigid=bindings.length>0&&first.length<=1&&bindings.every(group=>group.length===first.length&&group[0]===first[0]);

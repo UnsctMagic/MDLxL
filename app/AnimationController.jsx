@@ -4,7 +4,7 @@ import {
   animationTargets, createGeosetAnimations, sampleAnimationProperty,
   readAnimationTrack, setAnimationInlineValues, setAnimationKey, bakeGeosetAnimationSettings,
 } from '../src/animation-tracks.js';
-import { setSequenceOptions } from '../src/animation.js';
+import { globalSequenceId, setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
@@ -96,7 +96,7 @@ export default function AnimationController({
     if (!nodeSelection) return;
     const clocks = new Set(alphaTargets.map(target => {
       const track = readAnimationTrack(model, target);
-      return Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : null;
+      return globalSequenceId(track);
     }));
     if (clocks.size !== 1) return;
     const clock = [...clocks][0];
@@ -251,7 +251,7 @@ export default function AnimationController({
   function writeVisibility(current, value) {
     if (nodeSelection) for (const target of alphaTargets) {
       const track = readAnimationTrack(current, target);
-      const clock = Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : null;
+      const clock = globalSequenceId(track);
       if (track?.Keys && clock !== (globalDomain ? globalSeqId : null)) throw new Error(clock === null ? 'Visibility uses model sequences.' : `Visibility uses Global sequence ${clock + 1}.`);
     }
     return setAnimationKey(current, alphaTargets, frame, value, sequenceIndex, globalDomain ? globalSeqId : null);

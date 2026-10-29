@@ -1,7 +1,10 @@
 // Format repairs with exact local playback preservation. Sequence indices and
 // durations stay authored; only absolute local timestamps are relocated.
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
-const local=t=>t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff;
+// OptimizeXL's local-track rule mirrors the pinned checker: no id, -1 or the MDX
+// "none" value 0xffffffff. Every OptimizeXL file shares this one copy; it is
+// deliberately not animation.js's isGlobalTrack, which differs on invalid ids.
+export const optimizexlLocalTrack=t=>t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff;
 const at=(m,path)=>path.reduce((v,k)=>v[k],m);
 const validFrame=f=>Number.isInteger(f)&&f>=0&&f<=0x7fffffff;
 
@@ -9,7 +12,7 @@ export function visibilityInterpolationProposals(model,entries){
   const out=[];
   for(const {track,path}of entries){
     if(path.at(-1)!=='Visibility'||track.LineType!==1||!track.Keys.length)continue;
-    const global=!local(track),duration=model.GlobalSequences[track.GlobalSeqId];
+    const global=!optimizexlLocalTrack(track),duration=model.GlobalSequences[track.GlobalSeqId];
     const domains=global?(duration>0?[[0,duration]]:[]):model.Sequences.map(s=>Array.from(s.Interval));
     // No keys or one key in a domain is also constant. Different animations
     // may use different values; a real fade within one domain is unsupported.
@@ -39,8 +42,8 @@ export function sequenceTimelineProposals(model,entries){
   if(moved.some(([,hi])=>!validFrame(hi)))return [];
   const domain=frame=>intervals.findIndex(([lo,hi])=>frame>=lo&&frame<=hi);
   const maps=frame=>{const i=domain(frame);return i<0?frame:frame+moved[i][0]-intervals[i][0];};
-  const lists=[...entries.filter(e=>local(e.track)).map(e=>e.track.Keys.map(k=>k.Frame)),
-    ...model.EventObjects.filter(local).map(e=>Array.from(e.EventTrack||[]))];
+  const lists=[...entries.filter(e=>optimizexlLocalTrack(e.track)).map(e=>e.track.Keys.map(k=>k.Frame)),
+    ...model.EventObjects.filter(optimizexlLocalTrack).map(e=>Array.from(e.EventTrack||[]))];
   for(const frames of lists){
     if(frames.some((f,i)=>!validFrame(f)||i&&f<=frames[i-1]))return [];
     // A formerly unused/setup record must not enter a relocated animation.
@@ -60,11 +63,11 @@ export function applyFormatRepair(model,fix,entries,evidenceModel){
   const intervals=evidenceModel.Sequences.map(s=>Array.from(s.Interval));
   const map=frame=>{const i=intervals.findIndex(([lo,hi])=>frame>=lo&&frame<=hi);
     return i<0?frame:frame+fix.intervals[i][0]-intervals[i][0];};
-  for(const {track}of entries)if(local(track)){
+  for(const {track}of entries)if(optimizexlLocalTrack(track)){
     for(const key of track.Keys)key.Frame=map(key.Frame);
     track.Keys.sort((a,b)=>a.Frame-b.Frame);
   }
-  for(const event of model.EventObjects)if(local(event)){
+  for(const event of model.EventObjects)if(optimizexlLocalTrack(event)){
     const frames=Array.from(event.EventTrack||[],map).sort((a,b)=>a-b);
     event.EventTrack=ArrayBuffer.isView(event.EventTrack)?new event.EventTrack.constructor(frames):frames;
   }
