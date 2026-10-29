@@ -75,6 +75,6 @@ Updated: 2026-10-27
   - the look-first paragraph treats patterns as evidence.
 - Not done:
   - `mdlxl_review inspect` still draws whole-model before/after pictures. Isolated before pictures would need a render of the saved version.
-  - The ~23 KB captured context is still repeated with every message.
+  - ~~The ~23 KB captured context is still repeated with every message.~~ Fixed in [AI credit fixes](ai-credit-fixes.md): full once per bird, then deltas.
 - Next: the owner hand-tests with a real provider. Merge in order on approval.
 - On completion: mark this note completed, remove its table row and fold durable rules into `docs/AI-HOOK.md`.

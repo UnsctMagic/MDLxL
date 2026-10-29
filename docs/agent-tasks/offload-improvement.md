@@ -48,7 +48,7 @@ Done when:
   to offset the overhead.
 - Already good and to keep: opening a bird's own chat and sending there goes
   straight to that bird (`send` with the worker id, no organiser); handover at
-  `RETIRE_AT` 0.5; the registry, cleanup and naming code in `electron/ai-offload.cjs`.
+  `RETIRE_AT` (since [AI credit fixes](ai-credit-fixes.md): 200K tokens or half a smaller window); the registry, cleanup and naming code in `electron/ai-offload.cjs`.
 
 ## Design (Codex may improve it; keep the owner's two rules)
 
@@ -187,12 +187,12 @@ for far less.
 ## Relevant owners
 
 - `electron/ai-service.cjs`: `send`, `runTask` (organiser branch, `mdlxl_worker`
-  call), `organiserBriefing`, `pendingBird`, `runWorker`, `handover`,
+  call), `organiserBriefing`, `pendingBird`, `runWorker`, `sizeHandover`,
   `retireWorker`, `memoryNote`/cleanup, `setOffload`.
 - `electron/ai-offload.cjs`: `AiSteering` (forwarding), `AiRecorder` (worker rows,
   `report()`), `OrganiserRegistry`, `nextBird`, `RETIRE_AT`, `contextUse`.
 - `src/ai-tools.js`: `AI_WORKER_TOOL`, `AI_ORGANISER_PROMPT`, `AI_WORKER_NOTE`,
-  `AI_HANDOVER_PROMPT`, `AI_MEMORY_PROMPT`.
+  `AI_MEMORY_PROMPT` (`AI_HANDOVER_PROMPT` removed in [AI credit fixes](ai-credit-fixes.md)).
 - `app/AiAssistant.jsx`: organiser and bird views, worker rows, composer.
 - Docs: `docs/AI-HOOK.md` (Offload Mode section). Tests: `test/ai-offload.test.js`,
   `test/ai-workflow.test.js`, packaged `test/ai-console.electron.cjs`.

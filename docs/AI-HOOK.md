@@ -117,6 +117,11 @@ into compacting.
 
 - Your message reaches the worker exactly as you wrote it, together with your
   selection and drawings. Only the working bird receives images and captured context.
+  A bird's first message (and its first after a resume or handover) carries the full
+  editor snapshot without the editor command list; later messages and verification
+  nudges carry the target, document, revision, selection, frame, sequence, drawings,
+  region and only the fields that changed. The AI calls `mdlxl_context` for the full
+  lists and commands.
 - **Job routing** in Connection settings offers Manual (default), Automatic, or Both.
   Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
   uses the shared bird for quick tasks. Automatic asks the organiser on the chosen
@@ -133,12 +138,14 @@ into compacting.
   through their plan. Helpers have separate chats, cannot edit/save/operate UI,
   and pass a compact evidence report back; the editor must incorporate it before
   committing. Simple jobs keep the direct path without extra helper calls.
-- Birds record a candidate/verification phase checkpoint. When context is half
-  full, the next such checkpoint hands remaining work to a fresh bird, preserving
-  the original baseline, applied steps, plan, helper findings and saved routines.
-  It does not interrupt a pending tool operation or replay an edit. Between jobs,
-  the existing half-context handover still applies. Cumulative token spend is not
-  the context-fullness measure.
+- Birds record a candidate/verification phase checkpoint. When a bird's context
+  reaches its handover size (200,000 tokens, or half of a smaller window;
+  `HANDOVER_TOKENS` in `electron/ai-offload.cjs`), the next such checkpoint hands
+  remaining work to a fresh bird, preserving the original baseline, applied steps,
+  plan, helper findings and saved routines. It does not interrupt a pending tool
+  operation or replay an edit. Between jobs the same size retires a bird: MDLxL
+  writes its handover note from the saved task state and its last report, with no
+  AI call. Cumulative token spend is not the context-fullness measure.
 - Automatic routing can split a multi-part job into declared regions. Independent
   birds work at once; overlapping dependencies and structural edits wait. Each
   actual commit stays inside its region and adds a separate bird-labelled Undo
@@ -208,7 +215,8 @@ the chat you are looking at. Connection settings and sign-in stay unavailable
 while any job runs, since all chats share one connection.
 
 After you save a model the AI worked on, MDLxL asks how to tidy its chats:
-**Keep everything**, **Keep a summary** (the organiser writes a memory note, then
+**Keep everything**, **Keep a summary** (the AI writes a memory note from the
+birds' reports and the decision diary, then
 all chats, screenshots and the copies Codex or Claude keep are deleted; the next
 organiser for this model starts with the note) or **Wipe it all**. **Remember for
 this model** skips the question next time; **After saving** in the connection
@@ -542,7 +550,8 @@ Recent files or the model MDLxL reopens at startup.
 
 Start with context. Keep its `target` for the operation; never replace a stale
 target to force an edit onto a changed selection. Each embedded prompt already
-contains this captured context. IDs are zero-based.
+contains this captured context: in full the first time in a conversation, then
+the target and what changed. IDs are zero-based.
 
 Scripts receive `model`, `selection`, `context`, `references`, `api`, `assets` and `log`.
 They run on detached copies in a disposable sandboxed renderer. They cannot access
