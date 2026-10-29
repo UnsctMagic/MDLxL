@@ -29,6 +29,7 @@ const {
   RETIRE_AT,
   nextBird,
   contextUse,
+  removeFiles,
   deleteProviderSessions,
   settleConversation,
 } = require('./ai-offload.cjs');
@@ -1709,21 +1710,10 @@ class AiService {
       files++;
     }
     // Only session logs and temporary files: sign-in and provider settings stay.
-    const sweep = async (folder, unwanted, depth = 0) => {
-      for (const item of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) {
-        const full = path.join(folder, item.name);
-        if (item.isDirectory()) {
-          if (depth < 6) await sweep(full, unwanted, depth + 1);
-        } else if (unwanted(item.name) && (await old(full))) {
-          await fs.rm(full, { force: true });
-          files++;
-        }
-      }
-    };
+    const sweep = (folder, unwanted) => removeFiles(path.join(this.directory, folder), async (name, full) => unwanted(name) && (await old(full)));
     const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
-    await sweep(path.join(this.directory, 'temp'), () => true);
-    for (const folder of PROVIDERS.flatMap(p => p.logFolders))
-      await sweep(path.join(this.directory, folder), orphanLog);
+    files += await sweep('temp', () => true);
+    for (const folder of PROVIDERS.flatMap(p => p.logFolders)) files += await sweep(folder, orphanLog);
     return { models, files };
   }
   // Checks a minute after start and then every few hours while MDLxL is open.

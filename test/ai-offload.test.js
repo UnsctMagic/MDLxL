@@ -946,3 +946,18 @@ test('an organiser task that is running stays running when the console asks abou
   service.tasks.delete('organiser');
   assert.equal((await service.taskInfo('organiser')).status, 'interrupted');
 });
+
+test('removeFiles deletes what it is asked to, six folders deep at most', async t => {
+  const { removeFiles } = require('../electron/ai-offload.cjs');
+  const directory = tempDir('mdlxl-ai-remove-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const deep = n => path.join(directory, ...Array.from({ length: n }, (_, i) => 'd' + i));
+  await fs.mkdir(deep(7), { recursive: true });
+  for (const n of [0, 6, 7]) for (const name of ['old.log', 'keep.txt']) await fs.writeFile(path.join(deep(n), name), '');
+  const asked = [];
+  assert.equal(await removeFiles(directory, async (name, full) => (asked.push(full), name.endsWith('.log'))), 2);
+  assert.equal(asked.length, 4);
+  assert.deepEqual(await fs.readdir(deep(6)), ['d6', 'keep.txt']);
+  assert.deepEqual((await fs.readdir(deep(7))).sort(), ['keep.txt', 'old.log']);
+  assert.equal(await removeFiles(path.join(directory, 'missing'), () => true), 0);
+});

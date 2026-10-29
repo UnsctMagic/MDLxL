@@ -186,30 +186,29 @@ class OrganiserRegistry {
   }
 }
 
+// Deletes the files under `folder`, at most `depth` folders down, that
+// `wanted(name, fullPath)` picks. Returns how many were deleted.
+async function removeFiles(folder, wanted, depth = 6) {
+  let removed = 0;
+  for (const entry of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) {
+    const full = path.join(folder, entry.name);
+    if (entry.isDirectory()) {
+      if (depth > 0) removed += await removeFiles(full, wanted, depth - 1);
+    } else if (await wanted(entry.name, full)) {
+      await fs.rm(full, { force: true });
+      removed++;
+    }
+  }
+  return removed;
+}
 // Provider-side copies of a conversation (Codex rollouts, Claude Code sessions)
 // are named after their thread or session id.
 async function deleteProviderSessions(directory, ids) {
   const wanted = ids.filter(id => typeof id === 'string' && /^[a-zA-Z0-9-]{8,}$/.test(id));
   if (!wanted.length) return 0;
   let removed = 0;
-  const walk = async (folder, depth) => {
-    let entries;
-    try {
-      entries = await fs.readdir(folder, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const full = path.join(folder, entry.name);
-      if (entry.isDirectory()) {
-        if (depth < 6) await walk(full, depth + 1);
-      } else if (/\.jsonl?$/i.test(entry.name) && wanted.some(id => entry.name.includes(id))) {
-        await fs.rm(full, { force: true });
-        removed++;
-      }
-    }
-  };
-  for (const provider of PROVIDERS.filter(p => p.native)) await walk(path.join(directory, provider.id), 0);
+  for (const provider of PROVIDERS.filter(p => p.native))
+    removed += await removeFiles(path.join(directory, provider.id), name => /\.jsonl?$/i.test(name) && wanted.some(id => name.includes(id)));
   return removed;
 }
 
@@ -224,5 +223,6 @@ module.exports = {
   AiRecorder,
   contextUse,
   OrganiserRegistry,
+  removeFiles,
   deleteProviderSessions,
 };
