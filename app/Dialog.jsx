@@ -2,6 +2,11 @@ import React, { useRef } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { trapTab } from './focus-trap.js';
 
+/** Shown while a window's code loads. `title` is the whole line, e.g. "Loading Forge…", so it translates as one text. */
+export function LoadingWindow({ title }) {
+  return <div className="classic-modal"><section className="classic-modal-window" aria-busy="true"><div className="classic-modal-body" role="status">{title}</div></section></div>;
+}
+
 /** The classic movable modal window shared by the editor's dialogs. */
 export default function Dialog({ title, children, footer, onClose, onHotkeys, overlayClass = '', onKeyDown }) {
   const windowRef = useRef(null), movable = useMovableWindow(windowRef);
