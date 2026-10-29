@@ -7,11 +7,12 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import { AI_SD_RULES, AI_SD_BRAIN } from '../src/ai-sd-rules.js';
 import { AI_EDITING_HANDBOOK, AI_WEB_RESEARCH } from '../src/ai-tools.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const { AiService } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'model.mdx', selection: { 0: [1, 2] } };
 async function setup(t, respond) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-workflow-'));
+  const profile = tempDir('mdlxl-ai-workflow-');
   t.after(() => fs.rm(profile, { recursive: true, force: true }));
   let requests = 0,
     edits = 0,

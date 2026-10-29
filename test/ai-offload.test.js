@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
 const { nextBird, AiSteering, deleteProviderSessions, BIRDS, CORVIDS, contextUse, RETIRE_AT, HANDOVER_TOKENS } = require('../electron/ai-offload.cjs');
@@ -15,7 +16,7 @@ const modelKey = 'D:/Models/Footman.mdx';
 // A fake OpenAI-compatible provider: `organiser` answers the organiser's requests,
 // `worker` answers every worker request. Both get the request body.
 async function setup(t, { organiser, worker, models = [] }) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-offload-'));
+  const profile = tempDir('mdlxl-ai-offload-');
   t.after(() => fs.rm(profile, { recursive: true, force: true }));
   const requests = [];
   const server = http.createServer(async (req, res) => {
@@ -270,7 +271,7 @@ test('bird names are everyday birds and never reused; steering follows the runni
 });
 
 test('only provider files named after the cleared threads are deleted', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-clean-'));
+  const directory = tempDir('mdlxl-ai-clean-');
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   await fs.mkdir(path.join(directory, 'claude', 'projects', 'x'), { recursive: true });
   await fs.writeFile(path.join(directory, 'claude', 'projects', 'x', 'aaaa-bbbb-1111.jsonl'), '');

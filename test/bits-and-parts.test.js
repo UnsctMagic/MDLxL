@@ -8,6 +8,7 @@ import { createDemoDocument, deleteNode, openDocument, validateModel } from '../
 import { buildForgeMesh, commitForge } from '../src/forge.js';
 import { commitPart, partTextureIndices, partTextureKey, previewPart } from '../src/bits-and-parts.js';
 import { retainedForgeAssets } from '../src/forge-assets.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url), { BitsAndPartsLibrary } = require('../electron/bits-and-parts.cjs'), { saveForgeAssets } = require('../electron/forge-assets.cjs');
 
 const sword = () => structuredClone(createDemoDocument().model);
@@ -48,7 +49,7 @@ test('texture animations and global references remap without changing the source
   assert.ok(partTextureIndices(source).length);
 });
 test('library shows only MDL/MDX content in its original folders, filters asset-only folders, and prevents escaping', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-parts-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const directory = tempDir('mdlxl-parts-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
   assert.deepEqual((await library.list()).children, []);
   await fs.mkdir(path.join(library.directory, 'helms', 'horns'), { recursive: true });
@@ -70,7 +71,7 @@ test('library shows only MDL/MDX content in its original folders, filters asset-
   assert.equal((await library.list()).children.length, 3);
 });
 test('original part textures participate in existing save and recovery retention without changing names or bytes', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-parts-save-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const directory = tempDir('mdlxl-parts-save-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const asset = { name: 'Textures/My Bit/Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]), source: 'parts' }, model = { Textures: [{ Image: asset.name }] };
   const assets = new Map([[asset.name.toLowerCase().replaceAll('/', '\\'), asset]]);
   assert.deepEqual(retainedForgeAssets(assets, model), [asset]);

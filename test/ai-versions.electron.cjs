@@ -55,7 +55,7 @@ async function raise(by, label) {
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   app = await _electron.launch({
-    executablePath: process.env.MDLXL_AI_TEST_EXE,
+    executablePath: process.env.MDLXL_TEST_EXE,
     args: [fixture],
     env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile'), MDLXL_DISABLE_UPDATES: '1', TEMP: path.join(out, 'temp'), TMP: path.join(out, 'temp') },
     timeout: 60000,

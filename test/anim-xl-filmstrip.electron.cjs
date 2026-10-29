@@ -1,7 +1,7 @@
 // Contact sheet of one animation in AnimXL: rows for Original and presets, columns over time.
-// MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl-filmstrip.electron.cjs <model.mdx> <animation name> [presets...]
+// MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_TEST_EXE=<MDLxL.exe> node test/anim-xl-filmstrip.electron.cjs <model.mdx> <animation name> [presets...]
 // A preset can carry a fall direction and a death type: Fall:left, Fall:auto:back
-// MDLXL_ANIMXL_APP=<app folder> runs an unpackaged build through MDLXL_ANIMXL_EXE=<electron.exe>.
+// MDLXL_ANIMXL_APP=<app folder> runs an unpackaged build through MDLXL_TEST_EXE=<electron.exe>.
 const fs = require('node:fs'), path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
@@ -9,7 +9,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const [model, sequence = 'Attack - 1', ...presets] = process.argv.slice(2);
   const rows = ['Original', ...(presets.length ? presets : ['Default', 'Heavy'])];
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-filmstrip'), frames = 9;
-  const executablePath = path.resolve(process.env.MDLXL_ANIMXL_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
+  const executablePath = path.resolve(process.env.MDLXL_TEST_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
   const app = await _electron.launch({ executablePath, args: [...(process.env.MDLXL_ANIMXL_APP ? [path.resolve(process.env.MDLXL_ANIMXL_APP)] : []), path.resolve(model), '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
   const shots = [];

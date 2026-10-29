@@ -27,7 +27,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   });
   const input = path.join(out, 'TwoPassGlow.mdx'); fs.writeFileSync(input, doc.serialize('mdx'));
   const beforeHash = hash(input), textureHash = hash(texture), original = doc.model.Materials[0];
-  const exe = path.resolve(process.argv[2]);
+  const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE);
   const app = await _electron.launch({ executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000 });
   let main, uv;

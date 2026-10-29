@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { AI_TOOLS } from '../src/ai-tools.js';
+import { tempDir } from './helpers/fixtures.cjs';
 const { runCodex, runClaude, CodexProcess } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
 const { AiService } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const { AiAwareness } = createRequire(import.meta.url)('../electron/ai-awareness.cjs');
@@ -63,7 +64,7 @@ if(codex){
 }
 `;
 async function executable(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-native-'));
+  const directory = tempDir('mdlxl-ai-native-');
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const script = path.join(directory, 'agent.js');
   await fs.writeFile(script, fixture);

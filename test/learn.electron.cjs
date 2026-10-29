@@ -14,9 +14,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'learn.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
+  const executablePath = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
   const app = await _electron.launch({ executablePath,
-    args: process.env.MDLXL_ELECTRON_PATH ? [fixture] : [root, fixture], cwd: root,
+    args: process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture], cwd: root,
     env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
   const errors = [], checks = [];
   const check = message => { checks.push(message); console.log('✓ ' + message); };

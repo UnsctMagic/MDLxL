@@ -1,6 +1,7 @@
 // Isolated packaged acceptance for pose clipboard and limb-led body movement.
-const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const { appTarget, bundleHashes, launchApp, closeApp, sha256File } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
 (async () => {
   const { ObjectLoader, Vector3 } = await import('three');
@@ -9,18 +10,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { sampleMovement } = await import('../src/movement.js');
   const { poseChainIds, samplePoseChain } = await import('../src/pose-ik.js');
   const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-copy-ui');
-  const fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-copy-package/MDLxL-win32-x64/MDLxL.exe');
+  const fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || fixturePath('footman'));
+  const { executablePath } = appTarget();
   fs.mkdirSync(out, { recursive: true });
-  const profile = path.join(out, 'profile-' + Date.now());
-  fs.mkdirSync(profile, { recursive: true });
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-  const fixtureHash = digest(fixture), errors = [], result = { fixture, fixtureHash, executablePath, checks: [], measurements: [] };
-  const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const digest = sha256File;
+  const fixtureHash = digest(fixture), result = { fixture, fixtureHash, executablePath, checks: [], measurements: [] };
+  const { app, page, errors } = await launchApp({ fixture, out, args: ['--disable-renderer-backgrounding'], show: 'hide', settings: { preferences: { graphics: { pauseWhenHidden: false } } } });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.hide(); });
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
     const time = page.getByLabel('Current animation frame');
@@ -28,13 +24,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await seek(500); await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {
       window.poseProbe = () => {
-        const root = document.querySelector('.game-preview-root'); let runtime, props, session;
-        for (let fiber = root?.[Object.keys(root).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState, ref = state?.current;
-          if (ref?.native && ref?.controls) runtime = ref;
-          if (ref?.model && ref?.onPoseCommit) props = ref;
-          if (state?.doc?.model && state?.assets) session = state;
-        }
+        const { runtime, props, session } = mdlxlProbe(); // test/helpers/fiber-probe.cjs
         if (!runtime || !props || !session) throw Error('Packaged owners not ready');
         return { runtime, props, session };
       };
@@ -129,5 +119,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
     result.errors = errors; result.failure = error.stack; fs.writeFileSync(path.join(out, 'failure.json'), JSON.stringify(result, null, 2)); throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

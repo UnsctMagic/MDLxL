@@ -4,12 +4,13 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
 const { AiRecorder, settleConversation } = require('../electron/ai-offload.cjs');
 const { runCodex, CodexProcess } = require('../electron/ai-providers.cjs');
 async function setup(t) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-questions-'));
+  const profile = tempDir('mdlxl-questions-');
   const service = new AiService({ root: '.', profile, electron: {}, getWindow: () => null });
   await fs.mkdir(service.directory, { recursive: true });
   t.after(async () => { await service.close(); await fs.rm(profile, { recursive: true, force: true }); });

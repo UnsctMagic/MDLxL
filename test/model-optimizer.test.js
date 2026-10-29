@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
 import { analyzeOptimization, applyOptimization, verifyOptimization, verifyTransformReduction } from '../src/model-optimizer.js';
+import { tempDir } from './helpers/fixtures.cjs';
 
 const track = (frames, vector = [1, 2, 3], extra = {}) => ({ LineType: 1, GlobalSeqId: null, Keys: frames.map(Frame => ({ Frame, Vector: new Float32Array(vector) })), ...extra });
 function fixture(mutator) {
@@ -32,7 +33,7 @@ test('unused/exact duplicate records compact all streams; Apply is one undo step
   const saved = doc.serialize('mdx'), reopened = openDocument(saved, 'optimized.mdx');
   assert.equal(saved.byteLength, result.after); assert.equal(analyzeOptimization(reopened).saved, 0);
   assert.deepEqual(reopened.serialize('mdx'), saved);
-  const folder = await mkdtemp(path.join(tmpdir(), 'mdlxl-optimize-'));
+  const folder = tempDir('mdlxl-optimize-');
   try { const file = path.join(folder, 'optimized.mdx'); await writeFile(file, saved); assert.equal((await stat(file)).size, result.after); assert.deepEqual(new Uint8Array(await readFile(file)), saved); }
   finally { await rm(folder, { recursive: true, force: true }); }
   doc.undo(); assert.deepEqual(doc.serialize('mdx'), original);

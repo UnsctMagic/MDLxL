@@ -1,5 +1,5 @@
 // Disposable packaged AnimXL check with real mouse input. Never opens or replaces a user profile.
-// MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs
+// MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_TEST_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
@@ -59,7 +59,7 @@ async function closeTestApp(app) {
 (async () => {
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-ui');
   const fixture = path.resolve(process.env.MDLXL_ANIMXL_FIXTURE || 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_ANIMXL_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
+  const executablePath = path.resolve(process.env.MDLXL_TEST_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
   const model = path.join(out, path.basename(fixture)); fs.copyFileSync(fixture, model);
   const errors = [], checks = [];

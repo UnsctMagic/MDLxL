@@ -1,10 +1,10 @@
 # Packaged-app tests
 
-`test/*.cjs` drive the real MDLxL app with Playwright. Today only about 65 of the
-164 runnable harnesses use the packaged `MDLxL.exe`; about 99 still start the
-development Electron with `dist/` because each reads its own exe variable (19
-different names). One shared exe variable is planned (WP-1.7 of the codebase
-audit). One command runs all of
+`test/*.cjs` drive the real MDLxL app with Playwright. The runner tells every
+test which app to use through one variable, `MDLXL_TEST_EXE` (see
+[Which app is tested](#which-app-is-tested)). About 65 harnesses use it or the
+package folder today; the rest still start the development Electron with `dist/`
+until they move to the [shared helper](#shared-helper). One command runs all of
 them unattended and records the results:
 
 ```
@@ -73,7 +73,10 @@ to every Electron launch.
    ```
    Or point `MDLXL_SUITE_PKG` at another `MDLxL-win32-x64` folder, e.g. an
    unzipped release. Several tests also start the development Electron, so
-   `dist/` must be built either way.
+   `dist/` must be built either way. Run the script with `node` (as above, or
+   `node scripts/run-packaged-tests.mjs ...`) in a worktree whose `node_modules`
+   is a junction: `pnpm run` first tries an install, which must never run
+   through a junction.
 2. Playwright is not a project dependency. The runner finds `playwright` or
    `playwright-core` if it can be resolved from the repo; otherwise set
    `MDLXL_REAL_PLAYWRIGHT` to its folder, e.g.
@@ -107,12 +110,76 @@ updater release gate, and tests that need private models or old builds.
   pass.
 - `SUITE_TIMEOUT_MS` sets the per-test timeout (default 15 minutes). A test that
   times out is stopped with its whole process tree.
-- `TEMP` and `TMP` point at `out/tmp/<variant>` so temporary files stay in the
+- `TEMP`, `TMP` and `MDLXL_TEMP` point at `out/tmp/<variant>` so temporary files stay in the
   repo's `out/` folder.
 
-Per-test environment variables and arguments (which exe, which fixture) are in
-the `SPECIAL` table at the top of the script. Add new tests there when they need
-more than the shared environment.
+Per-test environment variables and arguments (fixtures, the package folder for
+updater tests) are in the `SPECIAL` table at the top of the script. Add new tests
+there when they need more than the shared environment.
+
+## Which app is tested
+
+The runner picks one target, `MDLXL_SUITE_PKG` or `out/pkg/MDLxL-win32-x64`, and
+gives every test its `MDLxL.exe` as `MDLXL_TEST_EXE`. A harness asks
+`appTarget()` in `test/helpers/app.cjs`, which returns `{ executablePath, args }`:
+
+1. `MDLXL_TEST_EXE`: that exe, no extra arguments.
+2. else `MDLXL_SUITE_PKG`: `MDLxL.exe` in that unzipped release folder.
+3. else the development Electron (`node_modules/electron`) with the repo root as
+   its app, which loads `dist/`. This is what a harness started by hand without
+   either variable gets.
+
+So `release` variants with `MDLXL_SUITE_PKG=<unzipped release>` really test the
+release for every harness that reads the variable.
+
+Exceptions:
+
+- `DEV_ONLY` in the script lists harnesses that replace `electron/main.cjs` with
+  a stubbed wrapper entry (startup, showcase, close prompts, updater UI). A
+  packaged exe cannot load such an entry, so they get an empty `MDLXL_TEST_EXE`
+  and always use the development Electron.
+- `showcase-actions`, `update-shredder`, `updater-packaged`, `updater-processes`,
+  `geoset-merge-conflicts` and `geoset-tabs` copy or patch the whole package and
+  get its folder as `MDLXL_TEST_PACKAGE`, from the same target.
+- Harnesses not yet on the helper still read their own variable (for example
+  `MDLXL_ELECTRON_PATH` or `MDLXL_OPTIMIZEXL_EXE`) which the runner does not set,
+  so they run on the development Electron. Move them family by family, with a
+  `default` run before and after.
+
+## Shared helper
+
+New and migrated harnesses use `test/helpers/` instead of copying boilerplate:
+
+- `app.cjs`: `appTarget()`, `appDist()` (the `dist/` the target loads),
+  `bundleHashes()`, `launchApp({ fixture, out, args, env, settings, show })`
+  (throwaway profile under `out/`, `MDLVIS_HEADLESS`, the test hook switched on,
+  window off-screen and unthrottled, page errors collected, Playwright loaded
+  through `MDLXL_PLAYWRIGHT_MODULE` so variants apply), `stubDialogs(app,
+  { save, open, message })`, `clickMenu(app, label)`, `sha256File(path)`,
+  `settle(page, ms)` and `closeApp(app)`, which also deletes the profile.
+- `fiber-probe.cjs`: page functions `launchApp` installs. `mdlxlProbe()` returns
+  `{ session, runtime, props }` for the main preview; `findFiberState(selector,
+  predicate)` is the generic React-fiber walk for anything else.
+- `fixtures.cjs`: `fixturePath('footman')` and the other fixtures in the table
+  above (the runner reads the same table), `gameFolder()` (`MDLXL_GAME_FOLDER`,
+  else discovery, else `D:/Warcraft III`) and `tempDir(prefix)`, a new folder
+  under `MDLXL_TEMP` or `out/tmp` instead of the system temp folder.
+- For source tests: `model-fixtures.js` (`key`, `track`, `bone`, `sequence`,
+  `minimalModel`), `assert-near.js` (`assertNear`, `assertVecNear`, always with
+  an explicit tolerance), `hive.mjs` (`loadHiveViewer`, `sanityTest`) and
+  `pose-compare.mjs` (`comparePoses`, `maxNodeMatrixDifference`).
+
+The pose family (`test/pose-*.electron.cjs`) is the first one on the helper.
+
+## Test hook
+
+When the app starts with `MDLXL_TEST_HOOK=1` (`launchApp` sets it), the preload
+reports it and `app/test-hook.js` adds a frozen, read-only `window.__mdlxl`:
+`session()`, `document()`, `model()`, `selection()` and `preview(element)` (the
+`{ runtime, props }` of the preview drawn in that element, by default the main
+editor preview). Without the variable, in normal use and in the browser build,
+nothing is added. `mdlxlProbe()` uses the hook and falls back to walking React
+fibers, so the same harness also runs against releases made before the hook.
 
 After each test the runner stops what that test left running: processes started
 by it, or started from this repo's `out/` folder, and only ones created after the

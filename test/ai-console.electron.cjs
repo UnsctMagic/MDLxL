@@ -148,7 +148,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const executablePath =
-    process.env.MDLXL_AI_TEST_EXE || path.resolve('out/pkg-ai/MDLxL-win32-x64/MDLxL.exe');
+    process.env.MDLXL_TEST_EXE || path.resolve('out/pkg-ai/MDLxL-win32-x64/MDLxL.exe');
   app = await _electron.launch({
     executablePath,
     args: [workModel, '--disable-gpu-vsync', '--disable-frame-rate-limit'],

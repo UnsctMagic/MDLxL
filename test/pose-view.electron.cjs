@@ -1,38 +1,29 @@
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
 (async () => {
   const { ObjectLoader, Vector3 } = await import('three');
   const { projectPoseHandles } = await import('../app/pose-overlay.js');
   const { movementAxisHandles, pickMovementHandle } = await import('../app/movement-overlay.js');
   const { openDocument } = await import('../src/editor-document.js');
-  const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-fixed-view-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'D:/MDLxL-Tests/pose-fixed-squares-view/MDLxL-win32-x64/MDLxL.exe');
+  const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-fixed-view-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || fixturePath('footman'));
+  const { executablePath } = appTarget();
   fs.mkdirSync(out, { recursive: true });
 
   const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name)&&!/portrait/i.test(s.Name))), frame = sourceModel.Sequences[sequence].Interval[0];
-  const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements: [] };
-  const dist = path.join(path.dirname(executablePath), 'resources/app/dist'), bundle = crypto.createHash('sha256');
-  for (const name of fs.readdirSync(path.join(dist, 'assets')).sort()) bundle.update(name).update(fs.readFileSync(path.join(dist, 'assets', name)));
-  results.bundle = { indexHash: hash(path.join(dist, 'index.html')), assetsHash: bundle.digest('hex') };
+  const fixtureHash = hash(fixture), results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements: [] };
+  results.bundle = bundleHashes();
   results.textureHashes = Object.fromEntries((fs.existsSync(path.join(out, 'Textures')) ? fs.readdirSync(path.join(out, 'Textures')) : []).map(name => [name, hash(path.join(out, 'Textures', name))]));
-  const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const { app, page, errors } = await launchApp({ fixture, out });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.showInactive(); });
     await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(String(sequence));
     const time = page.getByLabel('Current animation frame'); await time.fill(String(frame)); await time.press('Enter');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {
       window.poseProbe = () => {
-        const root = document.querySelector('.game-preview-root'); let runtime, props, session;
-        for (let fiber = root?.[Object.keys(root).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState, ref = state?.current;
-          if (ref?.native && ref?.controls) runtime = ref;
-          if (ref?.model && ref?.onPoseCommit) props = ref;
-          if (state?.doc?.model && state?.assets) session = state;
-        }
+        const { runtime, props, session } = mdlxlProbe(); // test/helpers/fiber-probe.cjs
         if (!runtime || !props || !session) throw Error('Packaged Movement owners not ready');
         return { runtime, props, session };
       };
@@ -121,6 +112,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await settle();assert.equal(await page.locator('.classic-sidebar').evaluate(el=>el.getBoundingClientRect().width),sidebarWidth);assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),0);
     assert.equal((await snap()).model,stateBefore.model);assert.equal((await snap()).undo,stateBefore.undo);
     assert.equal((await snap()).model,stateBefore.model);assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({checks:results.checks,errors}));
-  } catch(error){console.error(error);const data=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(data,'base64'));throw error;} finally{await app.evaluate(({app})=>app.exit(0));}
+  } catch(error){console.error(error);const data=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(data,'base64'));throw error;} finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});
-function hash(file){return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');}

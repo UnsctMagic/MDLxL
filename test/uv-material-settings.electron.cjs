@@ -33,7 +33,7 @@ async function fixture() {
 
 (async () => {
   const input = await fixture(), before = hash(input);
-  const exe = path.resolve(process.argv[2] || path.join(root, 'out/uv-material-settings-package/MDLxL-win32-x64/MDLxL.exe'));
+  const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE || path.join(root, 'out/uv-material-settings-package/MDLxL-win32-x64/MDLxL.exe'));
   const app = await _electron.launch({
     executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000,

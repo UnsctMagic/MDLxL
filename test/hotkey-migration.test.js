@@ -9,6 +9,7 @@ import { effectiveBindings, normalizePreferences } from '../src/preferences.js';
 import { contextualHotkeyDefaults, migrateHotkeyBindings, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { loadAddons, validateAddon } from '../src/addons.js';
+import { tempDir } from './helpers/fixtures.cjs';
 
 const require = createRequire(import.meta.url);
 const { SettingsStore } = require('../electron/settings.cjs');
@@ -79,7 +80,7 @@ test('a 0.24.0 configuration export still imports and re-exports under the new I
 });
 
 test('a 0.24.0 desktop settings file keeps its custom hotkeys and the next save writes only the new IDs', async t => {
-  const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-hotkey-migration-'));
+  const folder = tempDir('mdlxl-hotkey-migration-');
   t.after(() => fs.rm(folder, { recursive: true, force: true }));
   const file = path.join(folder, 'settings.json');
   await fs.writeFile(file, JSON.stringify({ historyMaxSteps: 12000, preferences: { ...normalizePreferences(), scrollSensitivity: 3.2, hotkeys: legacyHotkeys } }));

@@ -18,7 +18,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
  createNode(m,'EventObject').EventTrack=new Uint32Array([]);
  const file=path.join(out,'Broken.mdx'),source=Buffer.from(generateCompatibleMdx(m));fs.writeFileSync(file,source);
  const before=hive(source);assert.ok(before.severe>0&&before.errors>0,'the fixture fails the checker');
- const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
+ const exe=process.env.MDLXL_TEST_EXE,errors=[];
  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),file],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
  try{
   const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});

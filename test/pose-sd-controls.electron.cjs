@@ -1,7 +1,7 @@
 // Packaged mouse acceptance, with a hidden window and a disposable profile.
-const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
-const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
 (async () => {
   const { ObjectLoader } = await import('three');
@@ -10,17 +10,13 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   const { openDocument } = await import('../src/editor-document.js');
   const { assertModelEquivalent } = await import('../src/save-equivalence.js');
   const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-sd-ui');
-  const fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-sd-package/MDLxL-win32-x64/MDLxL.exe');
-  const profile = path.join(out, 'profile-' + Date.now());
-  fs.mkdirSync(profile, { recursive: true });
+  const fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || fixturePath('footman'));
+  const { executablePath } = appTarget();
+  fs.mkdirSync(out, { recursive: true });
   fs.cpSync(path.join(path.dirname(fixture), 'Textures'), path.join(out, 'Textures'), { recursive: true });
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const results = { fixture, sourceHash: hash(fixture), executablePath, indexHash: hash(path.join(path.dirname(executablePath), 'resources/app/dist/index.html')), checks: [], measurements: [] }, errors = [];
-  const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const results = { fixture, sourceHash: hash(fixture), executablePath, indexHash: bundleHashes().indexHash, checks: [], measurements: [] };
+  const { app, page, errors } = await launchApp({ fixture, out, args: ['--disable-renderer-backgrounding'], show: 'hide', settings: { preferences: { graphics: { pauseWhenHidden: false } } }, pageTimeout: 15000 });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.hide(); });
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
     const time = page.getByLabel('Current animation frame'); await time.fill('500'); await time.press('Enter');
@@ -28,13 +24,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured');
     await page.evaluate(() => {
       window.poseProbe = () => {
-        const element = document.querySelector('.game-preview-root'); let runtime, props, session;
-        for (let fiber = element?.[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const state = hook.memoizedState, ref = state?.current;
-          if (ref?.native && ref?.controls) runtime = ref;
-          if (ref?.model && ref?.onPoseCommit) props = ref;
-          if (state?.doc?.model && state?.assets) session = state;
-        }
+        const { runtime, props, session } = mdlxlProbe(); // test/helpers/fiber-probe.cjs
         if (!runtime || !props || !session) throw Error('Movement is not ready');
         return { runtime, props, session };
       };
@@ -250,5 +240,5 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   } catch (error) {
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
     fs.writeFileSync(path.join(out, 'failure.png'), Buffer.from(png, 'base64')); throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

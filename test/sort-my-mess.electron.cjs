@@ -27,7 +27,7 @@ function png(rgba) {
     model.GeosetAnims = model.Geosets.map((_, GeosetId) => ({ GeosetId, Alpha: GeosetId === 2 ? steps([2100, 0]) : 1, Flags: GeosetId === 2 ? 2 : 0, Color: new Float32Array(GeosetId === 2 ? [1, 0, 0] : [1, 1, 1]) }));
   });
   const modelFile = path.join(output, 'sort-fixture.mdx'); fs.writeFileSync(modelFile, doc.serialize('mdx')); const source = fs.readFileSync(modelFile);
-  const exe = process.env.MDLXL_SORT_EXE || path.join(root, 'out/sort-my-mess-native/MDLxL-win32-x64/MDLxL.exe');
+  const exe = process.env.MDLXL_TEST_EXE || path.join(root, 'out/sort-my-mess-native/MDLxL-win32-x64/MDLxL.exe');
   // Without a display the compositor runs at about 1 fps; these flags restore real playback timing.
   const app = await _electron.launch({ executablePath: exe, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', modelFile], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 90000 });
   const errors = []; let page;

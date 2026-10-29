@@ -5,8 +5,8 @@ const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TRAVEL_OUT||path.j
 (async()=>{
 fs.mkdirSync(path.join(out,'profile'),{recursive:true});
 fs.writeFileSync(path.join(out,'profile/settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},theme:'dark'}}));
-const exe=process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe');
-const app=await _electron.launch({executablePath:exe,args:[...(process.env.MDLXL_ELECTRON_PATH?[]:[root]),'--disable-renderer-backgrounding','--disable-background-timer-throttling'],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
+const exe=process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe');
+const app=await _electron.launch({executablePath:exe,args:[...(process.env.MDLXL_TEST_EXE?[]:[root]),'--disable-renderer-backgrounding','--disable-background-timer-throttling'],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
 const checks=[];
 try{
 const page=await app.firstWindow();page.setDefaultTimeout(25000);const errors=[];page.on('pageerror',e=>errors.push(e.message));

@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
   const file=process.env.MDLXL_TEST_MODEL;if(!file)throw Error('MDLXL_TEST_MODEL must name a real model with hoofprint events.');
   fs.mkdirSync(path.join(out,'profile'),{recursive:true});
   fs.writeFileSync(path.join(out,'profile/settings.json'),JSON.stringify({preferences:{theme:'dark',graphics:{pauseWhenHidden:false}}}));
-  const app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(process.env.MDLXL_ELECTRON_PATH?[]:[root]),file],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
+  const app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE||path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(process.env.MDLXL_TEST_EXE?[]:[root]),file],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLVIS_HEADLESS:'1',MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||'D:/Warcraft III'},timeout:60000});
   try{
     const page=await app.firstWindow(),errors=[];page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1360,900);w.webContents.setBackgroundThrottling(false);});

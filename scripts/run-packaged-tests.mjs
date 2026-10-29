@@ -10,14 +10,14 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = (...parts) => path.join(root, 'out', ...parts);
-// MDLXL_SUITE_PKG points the tests at another build, e.g. the unzipped official release.
+// The app under test: MDLXL_SUITE_PKG (e.g. the unzipped official release) or out/pkg. Every test gets its
+// MDLxL.exe as MDLXL_TEST_EXE, the one variable test/helpers/app.cjs reads, except DEV_ONLY below.
 const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || out('pkg/MDLxL-win32-x64')), exe = path.join(pkg, 'MDLxL.exe');
-// Fixtures. The defaults live in the untracked out/ folder; docs/PACKAGED-TESTS.md says how to prepare them.
-const footman = path.resolve(process.env.MDLXL_SUITE_FOOTMAN || out('pose/Footman.mdx'));
-const citadelFootman = path.resolve(process.env.MDLXL_SUITE_CITADEL_FOOTMAN || out('citadel-fixture/Footman.mdx'));
-const particleIndex = path.resolve(process.env.MDLXL_PARTICLE_INDEX || out('particle-index/particles'));
-const reviewModel = path.resolve(process.env.MDLXL_OPTIMIZEXL_REVIEW_MODEL || out('optimizexl-review/WH_WOC_KnightKhorneFlail03.mdx'));
-const archer = process.env.MDLXL_SUITE_ARCHER, effectModel = process.env.MDLXL_EFFECT_MODEL, hoofprintModel = process.env.MDLXL_SUITE_HOOFPRINT;
+// Fixtures: test/helpers/fixtures.cjs owns the names, variables and out/ defaults; docs/PACKAGED-TESTS.md says
+// how to prepare them.
+const { fixturePath } = createRequire(import.meta.url)('../test/helpers/fixtures.cjs');
+const footman = fixturePath('footman'), citadelFootman = fixturePath('citadel-footman'), particleIndex = fixturePath('particle-index'), reviewModel = fixturePath('optimizexl-review');
+const archer = fixturePath('archer'), effectModel = fixturePath('effect'), hoofprintModel = fixturePath('hoofprint');
 const chrome = process.env.MDLXL_CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
 const VARIANTS = {
@@ -34,40 +34,30 @@ const VARIANTS = {
   'release-no-gpu': { MDLXL_VARIANT_ARGS: '--use-angle=d3d11-warp' },
 };
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
-// Anything not listed runs with the shared env only.
+// Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
-  'hotkey-badges': { env: { MDLXL_ELECTRON_PATH: exe } },
-  learn: { env: { MDLXL_ELECTRON_PATH: exe, LEARN_NO_SHOTS: '1' } },
-  'learn-menu': { env: { MDLXL_ELECTRON_PATH: exe } },
-  'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
-  'auto-corpse': { env: { MDLXL_TEST_EXE: exe, MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
-  attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
-  'anim-xl-filmstrip': { env: { MDLXL_ANIMXL_EXE: exe }, argv: [footman], needs: [footman] },
-  'appearance-contrast': { env: { MDLXL_TEST_EXE: exe } },
-  'bit-collection': { env: { MDLXL_TEST_EXE: exe } },
-  'bit-replacement': { env: { MDLXL_TEST_EXE: exe } },
+  learn: { env: { LEARN_NO_SHOTS: '1' } },
+  'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
+  attachemator: { env: { MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
+  'anim-xl-filmstrip': { argv: [footman], needs: [footman] },
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
-  'glow-material-filters': { argv: [exe] },
-  'object-types': { env: { MDLXL_EXE: exe } },
-  'uv-material-settings': { argv: [exe] },
-  'uv-preview-steady': { argv: [exe] },
-  'material-presets': { argv: [archer], needs: [archer && path.resolve(archer)], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
+  'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
-  'sort-my-mess': { env: { MDLXL_SORT_EXE: exe } },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },
   'particle-lifecycle': { env: { MDLXL_PARTICLE_INDEX: particleIndex }, needs: [particleIndex] },
-  'optimizexl-workflow': { env: { MDLXL_OPTIMIZEXL_EXE: exe } },
-  'particle-travel': { env: { MDLXL_ELECTRON_PATH: exe } },
-  'footprint-travel': { env: { MDLXL_ELECTRON_PATH: exe, MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel && path.resolve(hoofprintModel)], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
-  'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel && path.resolve(effectModel)], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
+  'footprint-travel': { env: { MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
+  'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
 };
-for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
+// These copy or patch the whole package folder (updater, recovery), so they get the folder of the same target.
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
-for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-parallel', 'ai-questions', 'ai-routing', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_EXE: exe, MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
+for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-parallel', 'ai-questions', 'ai-routing', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
-for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_EXE: exe, MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
+for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+// Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
+// packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
+export const DEV_ONLY = ['close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];
 // Never run: manual tools, or private models and archives that are not generally available.
 export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',
@@ -145,7 +135,7 @@ async function runSuite() {
       : !playwright ? { status: 'fail', reason: 'Playwright not found: set MDLXL_REAL_PLAYWRIGHT' } : null;
     if (notRun) { summary.results[name] = notRun; save(); console.log(`${name}: ${notRun.status} (${notRun.reason})`); continue; }
     const log = path.join(outDir, name + '.log');
-    const env = { ...process.env, TEMP: tmp, TMP: tmp, MDLVIS_HEADLESS: '1', MDLXL_PLAYWRIGHT_MODULE: path.join(root, 'scripts/playwright-variant.cjs'), MDLXL_REAL_PLAYWRIGHT: playwright, MDLXL_VARIANT_ARGS: '', MDLXL_VARIANT_CPU: '', ...VARIANTS[variant], ...(special.env || {}) };
+    const env = { ...process.env, TEMP: tmp, TMP: tmp, MDLXL_TEMP: tmp, MDLVIS_HEADLESS: '1', MDLXL_PLAYWRIGHT_MODULE: path.join(root, 'scripts/playwright-variant.cjs'), MDLXL_REAL_PLAYWRIGHT: playwright, MDLXL_VARIANT_ARGS: '', MDLXL_VARIANT_CPU: '', MDLXL_TEST_EXE: DEV_ONLY.includes(name) ? '' : exe, ...VARIANTS[variant], ...(special.env || {}) };
     const timeout = special.timeout || TIMEOUT, started = Date.now(), stream = fs.openSync(log, 'w');
     let testPid = 0;
     const code = await new Promise(resolve => {
