@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   animationTargets, readAnimationTrack, setAnimationKey, setAnimationSequences, deleteAnimationKey,
   parseAnimationTrackText, formatAnimationTrackText, bakeAnimationTracks, collectAnimationKeyframes,
-  sampleAnimationProperty, updateAnimationKey,
+  sampleAnimationProperty, updateAnimationKey, makeKey,
 } from '../src/animation-tracks.js';
 import { createDemoDocument, createNode, openDocument } from '../src/editor-document.js';
 
@@ -266,4 +266,25 @@ test('direct RGB key editing survives undo, redo, and MDL/MDX reopen', () => {
     assert.ok(!track.Keys.some(key => key.Frame === start));
     close(track.Keys.find(key => key.Frame === destination).Vector, [0.8, 0.1, 0.3]);
   }
+});
+
+test('new keys keep their default tangents; only Rotation copies its Hermite value', () => {
+  const tangents = key => [Array.from(key.InTan || []), Array.from(key.OutTan || [])];
+  // Alpha and Color, the channels this editor writes, are unchanged by the property argument.
+  for (const [property, value] of [['Alpha', [0.4]], ['Color', [0.1, 0.2, 0.3]], [undefined, [0.5]]]) {
+    assert.deepEqual(makeKey(10, value, 0, property), { Frame: 10, Vector: new Float32Array(value) });
+    assert.deepEqual(tangents(makeKey(10, value, 2, property)), [value.map(() => 0), value.map(() => 0)]);
+    assert.deepEqual(tangents(makeKey(10, value, 3, property)).map(t => t.map(v => Math.fround(v))), [value.map(Math.fround), value.map(Math.fround)]);
+  }
+  assert.deepEqual(tangents(makeKey(0, [0, 0, 0, 1], 2, 'Rotation')), [[0, 0, 0, 1], [0, 0, 0, 1]]);
+  const key = makeKey(0, [1, 2, 3], 2, 'Translation');
+  assert.notEqual(key.InTan, key.OutTan);
+
+  // The text editor fills missing Hermite Alpha and Color tangents with zeros, as before.
+  const alpha = parseAnimationTrackText('100: 1\n200: 0', { property: 'Alpha', lineType: 2 });
+  assert.deepEqual(alpha.Keys.map(tangents), [[[0], [0]], [[0], [0]]]);
+  const color = parseAnimationTrackText('100: 1, 0.5, 0', { property: 'Color', lineType: 2 });
+  assert.deepEqual(color.Keys.map(tangents), [[[0, 0, 0], [0, 0, 0]]]);
+  const bezier = parseAnimationTrackText('100: 1, 0.5, 0', { property: 'Color', lineType: 3 });
+  assert.deepEqual(bezier.Keys.map(tangents), [[[1, 0.5, 0], [1, 0.5, 0]]]);
 });

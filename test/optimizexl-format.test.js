@@ -6,6 +6,8 @@ import { ModelRenderer } from 'war3-model';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { sanityProposals, runOptimizeStage } from '../src/optimizexl.js';
+import { optimizexlLocalTrack } from '../src/optimizexl-format.js';
+import { isGlobalTrack } from '../src/animation.js';
 import { classifyHiveFindings } from '../src/optimizexl-diagnostics.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
@@ -127,4 +129,14 @@ test('small genuine extrema survive mdx-m3-viewer cleanup and spline resampling 
     turn[0]=base[0];t.Keys[1].Vector=new Float32Array(turn);t.LineType=1;
     assert.ok(sanityProposals(d.model).some(f=>f.path?.join('.')===`Bones.0.${property}`&&f.kind==='redundantTracks'&&!f.inspectionOnly));
   }
+});
+
+test('OptimizeXL keeps its checker local-track rule, separate from the editor rule', () => {
+  for (const GlobalSeqId of [undefined, null, -1, 0, 3, 0xffffffff, -2, 1.5])
+    assert.equal(optimizexlLocalTrack({ GlobalSeqId }), GlobalSeqId == null || GlobalSeqId === -1 || GlobalSeqId === 0xffffffff);
+  // The two rules differ only on ids a parsed file never holds; they stay apart on purpose.
+  assert.equal(optimizexlLocalTrack({ GlobalSeqId: 0xffffffff }), true);
+  assert.equal(isGlobalTrack({ GlobalSeqId: 0xffffffff }), true);
+  assert.equal(optimizexlLocalTrack({ GlobalSeqId: -2 }), false);
+  assert.equal(isGlobalTrack({ GlobalSeqId: -2 }), false);
 });
