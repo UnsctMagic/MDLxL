@@ -114,6 +114,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       planCalls = 1;
       return callTool('mdlxl_plan', {
         cause: 'The marked vertex sits in the wrong place.',
+        checks: ['Marked vertices reach the requested position', 'Other model data remains unchanged'],
         reach: 'Only that vertex of geoset 0.',
         keep: ['every other vertex'],
         options: [

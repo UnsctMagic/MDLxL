@@ -80,10 +80,12 @@ async function launch(fixture) {
 }
 async function close() {
   if (app) {
-    await app.evaluate(({ BrowserWindow }) => {
-      for (const win of BrowserWindow.getAllWindows()) win.destroy();
-    });
-    await app.close();
+    // Exit through Electron so its renderer/utility children release the profile.
+    // Schedule after this evaluation reply, then wait before reopening the fixture.
+    const closing = app;
+    const exited = closing.waitForEvent('close');
+    await closing.evaluate(({ app }) => { setTimeout(() => app.exit(0), 100); });
+    await exited;
     app = null;
   }
 }
@@ -163,6 +165,7 @@ async function close() {
     if (mode === 'interrupt' && !previous)
       return call('mdlxl_plan', {
         cause: 'The two marked top-edge vertices are five units too low.',
+        checks: ['Marked vertices reach the requested position', 'Other model data remains unchanged'],
         reach: 'Only those two vertices of geoset 0.',
         keep: ['every unmarked coordinate'],
         options: [
