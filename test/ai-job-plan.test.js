@@ -15,7 +15,7 @@ test('passing a long-named check clears its truncated failure key',()=>{
  const task={}, name='Contact '.repeat(50);
  recordFailures(task,[{name,passed:false}],'before');
  assert.equal(Object.keys(task.checkFailures).length,1);
- recordFailures(task,[{name,passed:true}],'after');
+ recordFailures(task,[{name,passed:true},{passed:true}],'after');
  assert.deepEqual(task.checkFailures,{});
  recordFailures(task,[{name,passed:false}],'third');
  assert.equal(task.checkFailures[name.slice(0,200)].count,1);

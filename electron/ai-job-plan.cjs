@@ -41,7 +41,7 @@ function recordFailures(task, checks, fingerprint) {
     const previous = Object.hasOwn(failures,key) ? failures[key] : null;
     Object.defineProperty(failures, key, { value: { count: (previous?.count || 0) + (previous && previous.fingerprint === fingerprint ? 0 : 1), fingerprint }, enumerable: true, configurable: true, writable: true });
   }
-  for (const check of checks || []) if (check.passed === true) delete failures[check.name.slice(0, 200)];
+  for (const check of checks || []) if (check.passed === true && typeof check.name === 'string') delete failures[check.name.slice(0, 200)];
   const repeated = Object.entries(failures).filter(([,v]) => v.count >= 2).map(([name]) => name);
   if (repeated.length) task.replanRequired = repeated.join('; ');
   return task.replanRequired;

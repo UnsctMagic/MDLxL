@@ -93,3 +93,16 @@ test('missing WebGL leaves the static helmet usable without unmounting the app',
     detach(); detach();
   } finally { effects.close(); env.restore(); }
 });
+
+
+test('failed renderer initialization releases the partially acquired WebGL context once', async t => {
+  t.mock.method(console,'warn',()=>{});
+  const env=environment(), effects=new UpdatePopupEffects();let released=0;
+  const gl={getExtension:name=>name==='WEBGL_lose_context'?{loseContext:()=>released++}:null};
+  const element={dataset:{},querySelector:()=>({getContext:type=>type==='2d'?{}:gl})};
+  try{
+    const detach=effects.attach(element);await effects.ready;
+    assert.equal(effects.view,null);assert.equal(released,1);
+    detach();assert.equal(released,1,'cleanup is idempotent after failed initialization');
+  }finally{effects.close();env.restore();}
+});

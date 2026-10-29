@@ -240,3 +240,6 @@ code and may be removed.
   catalog counts now include Loading chat and MDX-comment notice; the existing
   MDL demo-save test must expect that omission notice. Both focused suites
   passed after updating those exact expectations; CI failure baseline unchanged.
+- Extra source checks: partial WebGL initialization releases its context once;
+  nameless passing measurements retain prior harmless behavior while long names
+  use the corrected failure key. Focused popup/checkpoint tests passed.
