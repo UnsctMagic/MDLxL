@@ -1,7 +1,7 @@
 import { collisionStageSnapshot } from './collision-stage.js';
 import { rotationOptions } from '../src/rotation-drag.js';
 import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
-import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
+import { particlePreviewBounds, particleTravelDistance, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
@@ -337,7 +337,14 @@ export default function GamePreview(inputProps) {
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
       viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
-      native = new ModelRenderer(ownedModel); installParticleNativeCompatibility(native); native.initGL(gl); previewAdapter.ready(native);
+      native = new ModelRenderer(ownedModel);
+      installParticleNativeCompatibility(native, { getTravelDistance: delta => {
+        const p = latest.current;
+        if (p.restPose || globalPreviewId !== null || !p.showcase && !p.playing) return 0;
+        const sequence = p.sequenceIndex >= 0 ? p.sequenceIndex : localSequenceAtFrame(p.model, native.getFrame());
+        return particleTravelDistance(p.model, sequence, delta);
+      } });
+      native.initGL(gl); previewAdapter.ready(native);
       // Layered WC3 materials redraw the same triangles at identical depth.
       // WebGL's default LESS would discard diffuse layers over team color.
       gl.depthFunc(gl.LEQUAL);
@@ -1178,6 +1185,7 @@ export default function GamePreview(inputProps) {
     const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved Â· load the model's texture files`] : []), ...failures]); });
     let reportAt = performance.now(), activeSequence = -99, externalFrame, reportedFrame, lastPlaying = false, globalClock = 0, playbackStopped = false;
     let showcaseSample, recordingSink = null;
+    let footprintTime = 0, footprintSegment = 0, footprintRangeKey = '';
     const color = new THREE.Color(), cameraQuaternion = new THREE.Quaternion();
     function setPreviewFrame(frame) {
       native.setFrame(frame);
@@ -1306,6 +1314,14 @@ export default function GamePreview(inputProps) {
           updateNative(0);
         } else if (!p.showcase && Math.abs(native.getFrame() - playback.frame) > 1e-5) { setPreviewFrame(playback.frame); updateNative(0); }
         poseSequence = useAuthoredSequenceInterval(native.getFrame());
+        const footprintInterval = poseSequence === selected ? [start,end] : ownedModel.Sequences[poseSequence]?.Interval;
+        const footprintKey = `${poseSequence}:${footprintInterval?.join(':')}:${!!p.restPose}:${globalPreviewId}`;
+        if (sequenceChanged || userSeek || playback.finished || nodeGesture || footprintKey !== footprintRangeKey) {
+          footprintTime = Math.max(0,native.getFrame() - (footprintInterval?.[0] ?? 0)); footprintSegment++; footprintRangeKey = footprintKey;
+        } else footprintTime += dt;
+        // Keep an unwrapped animation clock: a loop creates new prints while old
+        // prints continue aging. Pauses retain this clock; deliberate seeks reset it.
+        const footprintPlayback = p.showcase ? undefined : {motionSeconds:footprintTime/1000,clipTime:footprintTime,speed:1,segment:footprintSegment,interval:footprintInterval,loop:p.loop !== false};
         if (poseSequence !== selected) updateNative(0);
         applyRestPoseMatrices(native.rendererData, p.restPose);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
@@ -1372,7 +1388,7 @@ export default function GamePreview(inputProps) {
           native.particlesController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
           native.ribbonsController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
         }
-        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled });
+        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, footprintPlayback, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
         if (!captureOnly && !p.portraitMode) presentation.draw(camera, p.preferences, p.workplane, false, center, radius, bounds.min.z, { platformOnly: true });
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
       if (!captureOnly) {

@@ -87,10 +87,12 @@ export function resolveEventDefinition(name, tables, { textureExtension = 'blp' 
 }
 
 /** Stateless event instances: rewinding/repeating a frame returns the same keys. */
-export function activeEventInstances(model, definitions, { sequenceIndex = -1, frame = 0, globalTime = frame, playback, maxInstances = 128 } = {}) {
-  const result = [], interval = model.Sequences?.[sequenceIndex]?.Interval;
+export function activeEventInstances(model, definitions, { sequenceIndex = -1, frame = 0, globalTime = frame, playback, footprintPlayback, maxInstances = 128 } = {}) {
+  const result = [];
   const limit = Number.isFinite(maxInstances) ? clamp(Math.floor(maxInstances), 0, 512) : 128;
   for (const [eventIndex, event] of (model.EventObjects || []).entries()) {
+    const eventPlayback = /^FPT/i.test(event.Name) ? footprintPlayback ?? playback : playback;
+    const interval = eventPlayback?.interval || model.Sequences?.[sequenceIndex]?.Interval;
     if (playback?.disabledEmitters?.includes(event.ObjectId)) continue;
     const definition = definitions instanceof Map ? definitions.get(event.Name) : definitions?.[event.Name];
     if (!definition || !(definition.lifeSpanMs > 0) || !Number.isFinite(definition.lifeSpanMs) || !limit) continue;
@@ -110,17 +112,17 @@ export function activeEventInstances(model, definitions, { sequenceIndex = -1, f
           if (ageMs >= definition.lifeSpanMs) break;
           if (ageMs >= 0) { result.push({ key: `${eventIndex}:g${globalId}:${cycle}:${triggerFrame}`, event, eventIndex, definition, triggerFrame, ageMs }); count++; }
         }
-      } else if (playback?.motionSeconds != null && triggerFrame >= interval[0] && triggerFrame <= interval[1]) {
-        if (!(playback.speed > 0)) continue;
-        const speed = playback.speed, span = interval[1] - interval[0];
-        const period = playback.finishEffects ? playback.cycleSeconds * 1000 : span / speed;
+      } else if (eventPlayback?.motionSeconds != null && triggerFrame >= interval[0] && triggerFrame <= interval[1]) {
+        if (!(eventPlayback.speed > 0)) continue;
+        const speed = eventPlayback.speed, span = interval[1] - interval[0];
+        const period = eventPlayback.finishEffects ? eventPlayback.cycleSeconds * 1000 : span / speed;
         if (!(period > 0)) continue;
         const trigger = (triggerFrame - interval[0]) / speed;
-        const latest = Math.min(playback.finishEffects ? (playback.durationLoops || 1) - 1 : Infinity, Math.floor((playback.clipTime - trigger) / period));
+        const latest = Math.min(eventPlayback.loop === false ? 0 : eventPlayback.finishEffects ? (eventPlayback.durationLoops || 1) - 1 : Infinity, Math.floor((eventPlayback.clipTime - trigger) / period));
         for (let cycle = latest; cycle >= 0 && count < limit; cycle--) {
-          const ageMs = playback.clipTime - cycle * period - trigger;
+          const ageMs = eventPlayback.clipTime - cycle * period - trigger;
           if (ageMs >= definition.lifeSpanMs) break;
-          if (ageMs >= 0) { result.push({key: `${eventIndex}:s${sequenceIndex}:${playback.segment}:${cycle}:${triggerFrame}`, event, eventIndex, definition, triggerFrame, ageMs}); count++; }
+          if (ageMs >= 0) { result.push({key: `${eventIndex}:s${sequenceIndex}:${eventPlayback.segment}:${cycle}:${triggerFrame}`, event, eventIndex, definition, triggerFrame, ageMs}); count++; }
         }
       } else if (triggerFrame >= interval[0] && triggerFrame <= interval[1] && triggerFrame <= now && now - triggerFrame < definition.lifeSpanMs) {
         result.push({ key: `${eventIndex}:s${sequenceIndex}:${triggerFrame}`, event, eventIndex, definition, triggerFrame, ageMs: now - triggerFrame }); count++;
