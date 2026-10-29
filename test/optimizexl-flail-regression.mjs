@@ -12,6 +12,28 @@ const baselinePath = new URL('./fixtures/optimizexl-flail-baseline.json', import
 const capture = process.argv.includes('--capture');
 const baseline = capture ? null : JSON.parse(fs.readFileSync(baselinePath));
 const motionEvidence = JSON.parse(fs.readFileSync(new URL('./fixtures/optimizexl-flail-retained-frames.json', import.meta.url)));
+const approvedUpdates = JSON.parse(fs.readFileSync(new URL('./fixtures/optimizexl-flail-approved-updates.json', import.meta.url)));
+// The owner-approved welding rule: every output corner is its own source
+// corner or one saved twice within 2% of that corner's shortest source edge.
+// Triangles keep their order; nothing else in the geometry may move.
+function assertSamePointWelds(sourceModel, outputModel, settings) {
+  assert.equal(outputModel.Geosets.length, sourceModel.Geosets.length);
+  sourceModel.Geosets.forEach((g, gi) => {
+    const out = outputModel.Geosets[gi], point = (a, i) => Array.from(a.slice(i * 3, i * 3 + 3));
+    assert.equal(out.Faces.length, g.Faces.length, 'Welding keeps every triangle');
+    const edge = new Array(g.Vertices.length / 3).fill(Infinity);
+    for (let f = 0; f < g.Faces.length; f += 3) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (i !== j) {
+      const a = g.Faces[f + i], b = g.Faces[f + j];
+      edge[a] = Math.min(edge[a], Math.hypot(...point(g.Vertices, a).map((v, k) => v - g.Vertices[b * 3 + k])));
+    }
+    for (let c = 0; c < g.Faces.length; c++) {
+      const from = g.Faces[c], to = out.Faces[c];
+      const moved = Math.hypot(...point(g.Vertices, from).map((v, k) => v - out.Vertices[to * 3 + k]));
+      assert.ok(moved <= Math.min(settings.position, .02 * edge[from]) + 1e-5, `Geoset ${gi + 1} corner moved ${moved}, more than a same-point weld`);
+      assert.deepEqual(sourceModel.Geosets[gi].Groups[g.VertexGroup[from]], out.Groups[out.VertexGroup[to]]);
+    }
+  });
+}
 const paths = process.argv.slice(2).filter(p => p !== '--capture');
 if (!paths.length) throw Error('Supply the reviewed Flail model paths.');
 const reports = [];
@@ -20,10 +42,20 @@ for (const path of paths) {
   const expected = baseline?.models.find(m => m.source === hash(source));
   if (!capture) assert.ok(expected, 'Supply the unchanged accepted Flail fixture');
   const additionalRepairs = [];
-  const results = {}, comparison = {}, preservedMotion = [];
-  const put = (name, bytes) => {
+  const results = {}, comparison = {}, preservedMotion = [], approvedChanges = [];
+  const put = (name, bytes, weld) => {
     results[name] = comparison[name] = { bytes: bytes.length, sha256: hash(bytes) };
     if (capture || results[name].sha256 === expected.results[name]?.sha256) return;
+    const approved = approvedUpdates.models.find(m => m.source === hash(source))?.cases[name];
+    if (approved && weld) {
+      // The original golden hash stays in the baseline. This owner-approved
+      // output must match exactly and satisfy the welding rule against source.
+      assert.deepEqual(results[name], approved, 'Approved same-point welding output');
+      assertSamePointWelds(model, openDocument(bytes, 'welded.mdx').model, weld);
+      comparison[name] = expected.results[name];
+      approvedChanges.push(name);
+      return;
+    }
     if(name==='mounted-spheres'&&process.env.MDLXL_FLAIL_MOUNTED_REFERENCE){
       // Keep the original golden hash. A historical reference must reproduce
       // it exactly before allowing the serializer's atomic ID permutation.
@@ -58,8 +90,9 @@ for (const path of paths) {
   };
   for (const stage of ['duplicates', 'animation', 'unused', 'nuclear']) for (const strength of [0, 40, 100]) {
     const settings = simpleSettings(stage, strength, model);
-    put(`${stage}:${strength}`, runOptimizeStage(source, stage, settings).bytes);
-    if (strength === 100) put(`${stage}:excluded`, runOptimizeStage(source, stage, { ...settings, excludedGeosets: [0, 1] }).bytes);
+    const weld = stage === 'duplicates' ? settings : null;
+    put(`${stage}:${strength}`, runOptimizeStage(source, stage, settings).bytes, weld);
+    if (strength === 100) put(`${stage}:excluded`, runOptimizeStage(source, stage, { ...settings, excludedGeosets: [0, 1] }).bytes, weld && { ...weld, excludedGeosets: [0, 1] });
   }
   for (const stage of ['sanity', 'irregularities']) {
     const available = stage === 'sanity' ? sanityProposals(model) : findIrregularities(model);
@@ -92,11 +125,11 @@ for (const path of paths) {
   for (const strength of [0, 40, 100]) {
     let bytes = source;
     for (const stage of ['duplicates', 'animation', 'unused']) bytes = runOptimizeStage(bytes, stage, simpleSettings(stage, strength, openDocument(bytes, 'current.mdx').model)).bytes;
-    put(`pipeline:${strength}`, bytes);
+    put(`pipeline:${strength}`, bytes, simpleSettings('duplicates', strength, model));
   }
   put('mounted-spheres', runOptimizeStage(source, 'spheres', { preset: 4, size: 1 }).bytes);
   assert.deepEqual(new Uint8Array(fs.readFileSync(path)), source);
-  reports.push({ model: path.split(/[\\/]/).at(-1), source: hash(source), results, comparison, additionalRepairs, preservedMotion });
+  reports.push({ model: path.split(/[\\/]/).at(-1), source: hash(source), results, comparison, additionalRepairs, preservedMotion, approvedChanges });
 }
 if (capture) {
   if (fs.existsSync(baselinePath)) throw Error('The accepted baseline already exists; do not replace it.');
@@ -108,4 +141,4 @@ if (capture) {
     assert.deepEqual(report.comparison, expected.results, report.model + ': preserve all accepted bytes except explicitly verified authored-key retention');
   }
 }
-console.log(JSON.stringify({ captured: capture, models: reports.map(m => ({ model: m.model, checkedResults: Object.keys(m.results).length, unchangedExceptAuthoredKeyRetention: true, preservedMotion: m.preservedMotion, additionalRepairs: m.additionalRepairs })) }));
+console.log(JSON.stringify({ captured: capture, models: reports.map(m => ({ model: m.model, checkedResults: Object.keys(m.results).length, unchangedExceptAuthoredKeyRetention: true, preservedMotion: m.preservedMotion, approvedChanges: m.approvedChanges, additionalRepairs: m.additionalRepairs })) }));

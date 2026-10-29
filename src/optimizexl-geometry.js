@@ -23,19 +23,32 @@ export function compactVertices(g, representatives, faces) {
   g.Faces = new g.Faces.constructor(Array.from(faces, i => remap.get(i)));
 }
 
+// A near match is the same point saved twice only when its gap is tiny next
+// to the edges around it. Breathing holes, visor slits and stacked shells have
+// gaps about as wide as their own edges and must stay open.
+const SAME_POINT_GAP = .02;
+
 export function mergeDuplicateVertices(model, settings, onChange) {
-  let removed = 0, groups = 0;
+  let removed = 0, groups = 0, triangles = 0;
+  const gap = settings.samePointGap ?? SAME_POINT_GAP;
   const excluded = excludedGeosets(model, settings);
   for (const [index, g] of model.Geosets.entries()) {
     if (excluded.has(index)) continue;
     const count = g.Vertices.length / 3, map = [], kept = [], adjacent = Array.from({ length: count }, () => new Set());
+    // Corners identical in every attribute, whatever the merge tolerance.
+    const exact = new Map(), corner = Array.from({ length: count }, (_, i) => {
+      const key = JSON.stringify([point(g.Vertices, i, 3), point(g.Normals, i, 3), g.TVertices.map(uv => point(uv, i, 2)), binding(g, i)]);
+      if (!exact.has(key)) exact.set(key, exact.size);
+      return exact.get(key);
+    });
     for (let f = 0; f < g.Faces.length; f += 3) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) adjacent[g.Faces[f + i]].add(g.Faces[f + j]);
+    const edge = Array.from({ length: count }, (_, i) => Math.min(...[...adjacent[i]].filter(k => k !== i).map(k => distance(point(g.Vertices, i, 3), point(g.Vertices, k, 3)))));
     const members = new Map();
     for (let i = 0; i < count; i++) {
       const p = point(g.Vertices, i, 3), n = point(g.Normals, i, 3);
       const found = kept.find(j => same(binding(g, i), binding(g, j)) &&
         !members.get(j).some(k => adjacent[i].has(k)) &&
-        (settings.position > 0 ? distance(p, point(g.Vertices, j, 3)) <= settings.position : same(p, point(g.Vertices, j, 3))) &&
+        (settings.position > 0 ? distance(p, point(g.Vertices, j, 3)) <= Math.min(settings.position, gap * Math.min(edge[i], edge[j])) : same(p, point(g.Vertices, j, 3))) &&
         (settings.normal > 0 ? normalAngle(n, point(g.Normals, j, 3)) <= settings.normal : same(n, point(g.Normals, j, 3))) &&
         g.TVertices.every(uv => settings.uv > 0 ? distance(point(uv, i, 2), point(uv, j, 2)) <= settings.uv : same(point(uv, i, 2), point(uv, j, 2))));
       const target = found ?? i; map[i] = target;
@@ -43,15 +56,33 @@ export function mergeDuplicateVertices(model, settings, onChange) {
       members.get(target).push(i);
     }
     removed += count - kept.length;
-    compactVertices(g, kept, Array.from(g.Faces, i => map[i]));
+    // On a solid or cut-out material a triangle over identical corners with
+    // the same winding draws nothing new. Blended, additive and modulated
+    // layers draw it twice, so a repeat there can be a deliberate effect.
+    // Opposite winding is a separate two-sided face and stays. Faces that
+    // only coincide after a tolerance merge are left to that merge's review.
+    // A fade (layer alpha or the geoset's own) blends too, even on solid
+    // layers. Switching fully on and off with stepped keys never blends.
+    const layers = model.Materials?.[g.MaterialID]?.Layers;
+    const opaque = a => a == null || a === 1 || a.LineType === 0 && a.Keys?.every(k => [0, 1].includes(k.Vector[0]));
+    const solid = layers?.length > 0 && layers.every(l => [0, 1].includes(l.FilterMode ?? 0) && opaque(l.Alpha)) &&
+      opaque(model.GeosetAnims?.find(a => a.GeosetId === index)?.Alpha);
+    const faces = [], seen = new Set();
+    for (let f = 0; f < g.Faces.length; f += 3) {
+      const t = [g.Faces[f], g.Faces[f + 1], g.Faces[f + 2]].map(i => corner[i]), r = t.indexOf(Math.min(...t)), key = `${t[r]},${t[(r + 1) % 3]},${t[(r + 2) % 3]}`;
+      if (!solid || !seen.has(key)) { seen.add(key); faces.push(g.Faces[f], g.Faces[f + 1], g.Faces[f + 2]); }
+    }
+    const duplicateFaces = (g.Faces.length - faces.length) / 3;
+    triangles += duplicateFaces;
+    compactVertices(g, kept, faces.map(i => map[i]));
     const unique = [], groupMap = [];
     for (const group of g.Groups) { let i = unique.findIndex(other => same(group, other)); if (i < 0) { i = unique.length; unique.push(group); } groupMap.push(i); }
     groups += g.Groups.length - unique.length;
-    if(count!==kept.length||g.Groups.length!==unique.length)onChange?.({geoset:index,vertices:count-kept.length,groups:g.Groups.length-unique.length});
+    if(count!==kept.length||g.Groups.length!==unique.length||duplicateFaces)onChange?.({geoset:index,vertices:count-kept.length,groups:g.Groups.length-unique.length,triangles:duplicateFaces});
     g.VertexGroup = new g.VertexGroup.constructor(Array.from(g.VertexGroup, i => groupMap[i]));
     g.Groups = unique; g.TotalGroupsCount = unique.reduce((n, group) => n + group.length, 0);
   }
-  return { duplicateVertices: removed, duplicateGroups: groups };
+  return { duplicateVertices: removed, duplicateGroups: groups, duplicateTriangles: triangles };
 }
 
 export function removeUnusedVertices(model, settings = {}, onChange) {

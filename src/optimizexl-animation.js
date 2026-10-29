@@ -19,14 +19,16 @@ function constantSegment(t,a,b,rotation){
 // small blink/talking cycle cannot disappear beside a larger movement.
 // This protects authored motion; deciding whether it is jitter belongs to the
 // separately approved irregularity repairs, never to file-size reduction.
-function motionBudgets(probes,rotation){
+// A turn or scale change moves the part's farthest point by about reach times
+// its error, so a long weapon chain gets a tighter limit than a short joint.
+function motionBudgets(probes,rotation,worldLimit=Infinity){
  if(!probes.length)return;
  const values=probes.map(p=>rotation?[error(probes[0].value,p.value,true)]:p.value);
  const width=values[0].length,limits=[],roundoff=[];
  for(let axis=0;axis<width;axis++){
   let lo=Infinity,hi=-Infinity,magnitude=0;
   for(const v of values){lo=Math.min(lo,v[axis]);hi=Math.max(hi,v[axis]);magnitude=Math.max(magnitude,Math.abs(v[axis]));}
-  limits.push((hi-lo)*.1);
+  limits.push(Math.min((hi-lo)*.1,worldLimit));
   roundoff.push(rotation?1e-5:Math.max(magnitude,hi-lo,Number.MIN_VALUE)*Number.EPSILON*32);
  }
  for(const p of probes){p.motionLimits=[...limits];p.roundoff=roundoff;}
@@ -48,36 +50,50 @@ function motionBudgets(probes,rotation){
  }
 }
 
-function preserveMotion(track,original,probes,sample,rotation){
- motionBudgets(probes,rotation);
- const kept=track.Keys.filter(k=>k.Frame>=original[0].Frame&&k.Frame<=original.at(-1).Frame);
- const restore=new Set();let segment=0;
- for(const p of probes){
-  while(segment<kept.length-2&&p.frame>kept[segment+1].Frame)segment++;
-  const actual=sample(track,p.frame),valid=rotation
-   ?error(p.value,actual,true)<=p.motionLimits[0]*.95+p.roundoff[0]
-   :p.value.every((v,axis)=>Math.abs(v-actual[axis])<=p.motionLimits[axis]*.95+p.roundoff[axis]);
-  if(!valid)restore.add(segment);
+function preserveMotion(track,original,probes,sample,rotation,worldLimit){
+ motionBudgets(probes,rotation,worldLimit);
+ // Excess over budget; above 1 means the probe needs an authored key back.
+ const ratio=(e,p,axis)=>e?e/(p.motionLimits[axis]*.95+p.roundoff[axis]):0;
+ const excess=p=>{
+  const actual=sample(track,p.frame);
+  if(rotation)return ratio(error(p.value,actual,true),p,0);
+  return Math.max(...p.value.map((v,axis)=>ratio(Math.abs(v-actual[axis]),p,axis)));
+ };
+ const present=new Set(track.Keys.map(k=>k.Frame)),missing=original.filter(k=>!present.has(k.Frame));
+ let over=probes.map(excess);
+ // Return authored keys one at a time at the worst offending point, as a
+ // tolerance-driven exporter reinserts keys, until every probe fits its
+ // budget. Restoring a whole span brought back keys the motion did not need.
+ // Keys the reducer retained stay; returned keys keep authored values and
+ // controls, so a fully restored span is exactly the original curve.
+ for(;;){
+  let worst=-1;
+  over.forEach((r,i)=>{if(r>1&&(worst<0||r>over[worst]))worst=i;});
+  if(worst<0)break;
+  const frame=probes[worst].frame;
+  const before=track.Keys.findLast(k=>k.Frame<=frame)?.Frame??-Infinity,after=track.Keys.find(k=>k.Frame>frame)?.Frame??Infinity;
+  let best=-1;
+  missing.forEach((k,i)=>{if(k.Frame>before&&k.Frame<after&&(best<0||Math.abs(k.Frame-frame)<Math.abs(missing[best].Frame-frame)))best=i;});
+  if(best<0){over[worst]=0;continue;}
+  const [key]=missing.splice(best,1);
+  track.Keys.push(key);track.Keys.sort((a,b)=>a.Frame-b.Frame);
+  // Only the span around the returned key changed.
+  probes.forEach((p,i)=>{if(p.frame>before&&p.frame<after)over[i]=excess(p);});
  }
- // Restore only offending spans, using the authored values and controls.
- // Keeping every key that the original reducer retained makes this an
- // additive preservation pass, independent of greedy deletion order.
- for(const segment of restore){
-  const a=kept[segment].Frame,b=kept[segment+1].Frame;
-  track.Keys.push(...original.filter(k=>k.Frame>a&&k.Frame<b));
- }
- if(restore.size)track.Keys.sort((a,b)=>a.Frame-b.Frame);
 }
 
 /** Reduce within each sequence, retaining its first/last authored keys and
  * spline controls. Positive tolerances are checked against the original curve,
- * including the interior of every original segment, never just its key values. */
-export function reduceAnimationTrack(model,track,property,tolerance,onRemove){
+ * including the interior of every original segment, never just its key values.
+ * `reach` is the farthest model distance this node moves; with a positive
+ * `position` it limits turns and scaling to that distance at the far end. */
+export function reduceAnimationTrack(model,track,property,tolerance,onRemove,{reach=0,position=0}={}){
  if(track.GlobalSeqId!=null&&track.GlobalSeqId!==-1&&track.GlobalSeqId!==0xffffffff)return 0;
  if(![0,1,2,3].includes(track.LineType)||track.Keys.some((k,i,a)=>!Number.isInteger(k.Frame)||i&&k.Frame<=a[i-1].Frame))return 0;
  const rotation=property==='Rotation',transform=['Translation','Rotation','Scaling'].includes(property),width=rotation?4:transform?3:track.Keys[0]?.Vector?.length;
  if(![1,3,4].includes(width))return 0;
  if(track.Keys.some(k=>k.Vector?.length!==width||Array.from(k.Vector).some(v=>!Number.isFinite(v))||track.LineType>=2&&['InTan','OutTan'].some(p=>k[p]?.length!==width||Array.from(k[p]).some(v=>!Number.isFinite(v)))))return 0;
+ const worldLimit=property!=='Translation'&&transform&&reach>0&&position>0?position/reach*(rotation?180/Math.PI:1):Infinity;
  const baseline=structuredClone(track),fallback=rotation?[0,0,0,1]:property==='Scaling'?[1,1,1]:new Array(width).fill(0);
  // Non-unit quaternion interpolation differs between renderers. Exact constant
  // removal remains valid; approximate reduction requires normalized controls.
@@ -105,7 +121,7 @@ export function reduceAnimationTrack(model,track,property,tolerance,onRemove){
    if(valid)removals.push({sequence,frame:k.Frame,from:a.Frame,to:b.Frame});
    else{track.Keys.splice(i,0,k);i++;}
   }
-  if(removals.length&&canApproximate)preserveMotion(track,original,probes,sample,rotation);
+  if(removals.length&&canApproximate)preserveMotion(track,original,probes,sample,rotation,worldLimit);
   const kept=new Set(track.Keys.map(k=>k.Frame));
   for(const removal of removals)if(!kept.has(removal.frame)){removed++;onRemove(removal);}
  }

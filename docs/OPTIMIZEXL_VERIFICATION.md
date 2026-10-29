@@ -345,3 +345,34 @@ Rule: `src/optimizexl-skin-collapse.js`, joined to the Sanity catalog as an insp
 Tests: `node --test test/optimizexl-skin-collapse.test.js` covers the positive case, inherited parent collapse, blink/partial/whole-part counterexamples, the apply refusal and stage availability. Set `MDLXL_SKIN_COLLAPSE_BROKEN` and `MDLXL_SKIN_COLLAPSE_REBUILT` to the private pair to assert one finding on the broken file (2 vertices, repeated `Chest_Attack2`) and none on the rebuilt one. The full sweep flagged no Blizzard-style blink (gnome, bat) or other model. `node test/optimizexl-flail-regression.mjs <flail03> <flail01>` reports the same `animation` hash drift on unmodified `main` (`3920de51…` against the recorded `084d34e0…`); this change does not alter it.
 
 Not established: Warcraft III runtime behavior for each variant of the structure (duplicate entry alone, zero scale alone, enlarged partner).
+
+## Reach-limited motion preservation and exact duplicate triangles
+
+Teaching input: an external four-pass optimization report on an MDLxL-edited Nurgle flail warrior (Flail08 Polished, 249,969 bytes). Its general findings: a turn's visible error is its angle times the distance it carries (a small flail-root turn swings the head far); restoring a whole span is wasteful when one key fixes it; exact same-winding duplicate triangles are free to remove; and posed corpse copies of the body were the largest bloat. Runtime rules use only the model under review.
+
+Measured before the change on the polished file: Simple animation 40 saved 23,556 bytes with up to 0.70 units of skinned-vertex movement; animation 100 saved less (20,204) and moved the Death flail by 7.06 units, because preservation restored entire spans while ignoring reach.
+
+The existing preservation pass now also bounds turns and scaling by reach (farthest bind-pose skinned vertex or child pivot from the node's pivot) against the position tolerance, and returns authored keys one at a time at the worst probe. Greedy deletion and its tolerances are unchanged. Duplicate data removes a triangle only when its corners are identical in every attribute to an earlier triangle with the same winding, and only on solid or cut-out surfaces that do not fade; faces that coincide only after a tolerance merge remain.
+
+| Model, Simple strength | Before: saved / max movement | After: saved / max movement |
+| --- | --- | --- |
+| Nurgle Polished, animation 40 | 23,556 / 0.70 | 20,012 / 0.35 |
+| Nurgle Polished, animation 100 | 20,204 / 7.06 | 29,512 / 2.60 |
+| Khorne Flail03, animation 100 | 224 / 4.03 | 328 / 0.26 |
+| Khorne Flail01, animation 100 | 212 / 2.31 | 336 / 0.44 |
+
+Max movement is skinned vertex distance in model units against the input, sampled every 5 ms (50 ms in decay-length sequences). Duplicate data at zero removes 48 exact duplicate triangles from the polished file (288 bytes). Errors from several nodes on one chain still add up (Death 2.6 at 100); splitting the budget along the chain was measured and cost far more saving than it removed error, so it was not adopted.
+
+Checks: the flail regression reproduces every accepted Flail03/Flail01 output (returned keys are input-identical and removing them restores the original hashes); only the pre-existing `mounted-spheres` serializer permutation differs, identically on unmodified `main`. The restored Flail07 jaw reference stays byte-identical at animation 0/40/80/100. New unit tests cover reach-limited turns, short joints still reducing, single-key restoration, exact versus tolerance-made duplicate faces and opposite-winding faces. The packaged app was not run for this change.
+
+### Same-point welding (owner-reported helmet damage)
+
+The owner reported Duplicate data at maximum destroying helmet breathing holes and layered details. Reproduced with untextured before/after renders: Khorne Berserker 03 lost its diamond face-plate holes (152 welds in one geoset, each moving a vertex up to 0.91 units where its nearest edge was up to 111 times shorter) and Nurgle Knight Heavy 06 lost its visor slits. The old rule welded any two non-adjacent vertices within the position tolerance (0.5% of model size at maximum) regardless of the detail around them. Separate geosets were never compared, so layered geoset copies were already safe.
+
+Near matches now merge only when the gap is also under 2% of the shortest edge touching either vertex. Both helmets keep their holes and slits; the Berserker still merges 40 points, the Heavy 21, and the Khorne flails' glow quads (gaps about 1% of their edges) still merge. Repeated triangles inside one geoset stay on blended, additive, modulated or fading surfaces, where drawing twice is visible; stepped on/off visibility does not count as fading, so the polished flail's 48 opaque repeats still go.
+
+The owner approved replacing the affected accepted outputs. Duplicate data 40/100/excluded and pipeline 40/100 differ on both Khorne flails; Duplicate data 0 and pipeline 0 are unchanged. Re-running the old weld on the new output does not reproduce the old bytes (different survivors reorder two geosets), so the original hashes stay in `optimizexl-flail-baseline.json` and the new outputs are pinned in `test/fixtures/optimizexl-flail-approved-updates.json`. For those cases the regression requires the exact approved bytes and checks every output corner against its source corner: same triangles in the same order, same bone group, moved no more than the position tolerance or 2% of its shortest source edge.
+
+Not reproduced: the reported Nurgle Knight Champion axe and Knight Heavy mace damage. Duplicate data at maximum changes no weapon geoset in Champion, 02, 06, Unit07, Hero01, Heavy02 or Heavy06 (the mace's rust/poison is two layers of one material, which this stage does not touch). The owner attributes it to an older build; not pursued.
+
+Not adopted here, each needing owner approval because it changes accepted outputs or another feature: folding never-moving bones into their parent (Flail03 has 34), removing never-visible geosets (Flail03 geoset 46), refitting surviving key values instead of deletion only, and reusing the living body in Decay Flesh instead of Auto Corpse's posed copies (the report's 72 KB saving).

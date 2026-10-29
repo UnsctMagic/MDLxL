@@ -79,12 +79,23 @@ function tracks(m){const result=[];function walk(x,p=[]){if(!x||typeof x!=='obje
 const defaultValue=p=>p==='Rotation'?[0,0,0,1]:p==='Scaling'?[1,1,1]:p==='Translation'?[0,0,0]:1;
 const sample=(m,t,p,si,frame)=>sampleTrack(t,frame,{interval:m.Sequences[si].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:defaultValue(p),quaternion:p==='Rotation'});
 function trackError(a,b,rotation){if(rotation){const norm=v=>Math.hypot(...v);const dot=Math.abs(a.reduce((s,v,i)=>s+v*b[i],0)/(norm(a)*norm(b)||1));return 2*Math.acos(Math.min(1,dot))*180/Math.PI;}return Math.hypot(...a.map((v,i)=>v-b[i]));}
-function animationReduction(m,settings,changes){const protectedData=protectedGeosetData(m,settings);let removed=0;for(const {track:t,path}of tracks(m)){
+/** Farthest bind-pose distance from each node's pivot to the vertices and
+ * child pivots it carries: a turn there moves geometry by reach × angle. */
+function nodeReach(m){
+ const nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n])),reach=new Map();
+ const pivot=n=>n.PivotPoint||m.PivotPoints?.[n.ObjectId]||[0,0,0];
+ const carry=(id,point)=>{for(let n=byId.get(id),seen=new Set();n&&!seen.has(n.ObjectId);n=byId.get(n.Parent)){seen.add(n.ObjectId);const p=pivot(n);reach.set(n.ObjectId,Math.max(reach.get(n.ObjectId)||0,Math.hypot(point[0]-p[0],point[1]-p[1],point[2]-p[2])));}};
+ for(const g of m.Geosets)for(let i=0;i<g.Vertices.length/3;i++)for(const id of g.Groups[g.VertexGroup[i]]||[])carry(id,g.Vertices.subarray(i*3,i*3+3));
+ for(const n of nodes)if(n.Parent!=null)carry(n.Parent,pivot(n));
+ return reach;
+}
+function animationReduction(m,settings,changes){const protectedData=protectedGeosetData(m,settings),reach=nodeReach(m);let removed=0;for(const {track:t,path}of tracks(m)){
  const [collection,index]=path;
  if(collections.includes(collection)&&protectedData.nodes.has(m[collection][index].ObjectId)||collection==='GeosetAnims'&&protectedData.geosets.has(m.GeosetAnims[index].GeosetId)||collection==='Materials'&&protectedData.materials.has(Number(index))||collection==='TextureAnims'&&protectedData.textureAnims.has(Number(index)))continue;
  const p=path.at(-1),transform=['Translation','Rotation','Scaling'].includes(p);
  const tolerance=transform?settings[p==='Translation'?'position':p==='Rotation'?'rotation':'scale']||0:0;
- removed+=reduceAnimationTrack(m,t,p,tolerance,change=>changes.push({path,...change}));
+ const node=collections.includes(collection)?m[collection][index]:null;
+ removed+=reduceAnimationTrack(m,t,p,tolerance,change=>changes.push({path,...change}),{reach:node?reach.get(node.ObjectId)||0:0,position:settings.position||0});
  }return removed;}
 function setKey(t,frame,value){const i=t.Keys.findIndex(k=>k.Frame===frame),key={Frame:frame,Vector:new Float32Array(Array.isArray(value)||ArrayBuffer.isView(value)?value:[value])};if(i>=0)t.Keys[i]=key;else t.Keys.push(key);t.Keys.sort((a,b)=>a.Frame-b.Frame);}
 function hideGeoset(m,gi,si){let a=m.GeosetAnims.find(a=>a.GeosetId===gi);if(!a){a={GeosetId:gi,Flags:0,Alpha:1,Color:new Float32Array([1,1,1])};m.GeosetAnims.push(a);}const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
