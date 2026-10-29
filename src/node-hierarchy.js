@@ -1,5 +1,38 @@
 import { allNodes } from './animation.js';
 
+/** One lookup for parent walks. A `null`, `-1`, self or missing parent (or one
+ * outside `nodes`) means none; every walk stops where a cycle closes. `children`
+ * maps a parent id, or `null` for top nodes, to its child nodes in list order. */
+export function nodeIndex(model, nodes = allNodes(model)) {
+  const byId = new Map(nodes.map(node => [node.ObjectId, node])), children = new Map();
+  const parentOf = id => { const parent = byId.get(id)?.Parent; return parent !== id && byId.has(parent) ? parent : null; };
+  for (const node of nodes) {
+    const parent = node.Parent !== node.ObjectId && byId.has(node.Parent) ? node.Parent : null;
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(node);
+  }
+  const lineage = id => {
+    const ids = [], seen = new Set();
+    for (let at = byId.has(id) ? id : null; at != null && !seen.has(at); at = parentOf(at)) { seen.add(at); ids.push(at); }
+    return ids;
+  };
+  return {
+    byId, children, parentOf,
+    /** Parent ids from nearest up; `includeSelf` puts `id` first. */
+    ancestors: (id, includeSelf = false) => lineage(id).slice(includeSelf ? 0 : 1),
+    depth: id => Math.max(0, lineage(id).length - 1),
+    /** The top node, or on a cycle the node where the walk meets itself. */
+    root: id => {
+      if (!byId.has(id)) return undefined;
+      const seen = new Set();
+      while (parentOf(id) != null && !seen.has(id)) { seen.add(id); id = parentOf(id); }
+      return id;
+    },
+    /** True when `ancestorId` is `id` itself or above it. */
+    isAncestor: (id, ancestorId) => lineage(id).includes(ancestorId),
+  };
+}
+
 /** Stable rows include hidden descendants so collapse never changes selection. */
 export function nodeHierarchyRows(model, tree = true) {
   const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));

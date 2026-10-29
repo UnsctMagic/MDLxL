@@ -5,6 +5,7 @@ import { updateBounds } from './mesh-tools.js';
 import { booleanContours, polygonGroups, signedArea } from './forge-geometry.js';
 import { lerp as mix } from './vec.js';
 import { quantile } from './math.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 const mean = points => points.length ? points.reduce((sum,p) => sum.map((v,i) => v+p[i]/points.length), [0,0,0]) : null;
 const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -75,11 +76,11 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // disappearance frame, not a body-sized pose from which to make a corpse.
   if(!(span>1e-5)||Math.hypot(...hi.map((v,i)=>v-lo[i]))<Math.hypot(...restHi.map((v,i)=>v-restLo[i]))*.005) throw Error('The last Death frame collapses the body to a point. A corpse needs a visible final pose.');
   const ground=span*.012, top=surface(meshes,span), bodyHeight=Math.min(Math.max(hi[2],span*.15),span*.6);
-  const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),clouds=new Map();
+  const nodes=allNodes(model),tree=nodeIndex(model,nodes),byId=tree.byId,clouds=new Map();
   for(const {g,vertices} of meshes) for(let i=0;i<g.Vertices.length/3;i++) for(const id of influences(g,i)) {
     const cloud=clouds.get(id)||[];cloud.push(Array.from(vertices.slice(i*3,i*3+3)));clouds.set(id,cloud);
   }
-  const ancestors=id=>{const result=[],seen=new Set();while(byId.has(id)&&!seen.has(id)){seen.add(id);result.push(id);id=byId.get(id).Parent;}return result;};
+  const ancestors=id=>tree.ancestors(id,true);
   const hasSkin=id=>[...clouds.keys()].some(key=>ancestors(key).includes(id));
   const at=id=>new Vector3().fromArray(nodePivot(model,byId.get(id),id)).applyMatrix4(matrices.get(id)).toArray();
   const rig=suggestPoseRig(model,frame,deathIndex),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));

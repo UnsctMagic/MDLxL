@@ -2,6 +2,7 @@ import { Matrix4, Vector3 } from 'three';
 import { nodePivot, sampleNodeMatrices, sampleGeosetAnimation, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
 import { createRigNode } from './bone-tools.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // Attachemator places Warcraft III's standard attachment points the way the
 // game's own SD unit models do. The rules below were measured on the 417 SD
@@ -61,9 +62,7 @@ function measureUnit(model) {
   // otherwise vouch for their own placement.
   const bare = { ...model, Attachments: [], Nodes: (model.Nodes || []).map(node => node && !attachmentIds.has(node.ObjectId) ? node : undefined) };
   const transforms = [...(model.Bones || []), ...(model.Helpers || [])];
-  const byId = new Map(transforms.map(node => [node.ObjectId, node]));
-  const children = new Map();
-  for (const node of transforms) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
+  const tree = nodeIndex(model, transforms), { byId, children } = tree;
   const vertices = [];
   const geosets = (model.Geosets || []).map((geoset, index) => ({ geoset, index })).filter(({ geoset }) => geoset.Vertices?.length);
   let shown = geosets.filter(({ index }) => sequence < 0 || sampleGeosetAnimation(model, index, frame, sequence, frame).alpha > .01);
@@ -83,13 +82,7 @@ function measureUnit(model) {
   let rig = null;
   try { rig = suggestPoseRig(bare, frame, sequence); } catch { rig = null; }
   const world = id => byId.has(id) ? pivotOf(model, byId.get(id)).applyMatrix4(matrices.get(id) || new Matrix4()) : new Vector3();
-  return { sequence, frame, matrices, byId, children, transforms, vertices, low, high, height: Math.max(high.z - low.z, 1), rig, world };
-}
-
-function descendantOf(byId, id, ancestor) {
-  const seen = new Set();
-  for (let node = byId.get(id); node && !seen.has(node.ObjectId); node = byId.get(node.Parent)) { if (node.ObjectId === ancestor) return true; seen.add(node.ObjectId); }
-  return false;
+  return { sequence, frame, matrices, byId, children, tree, transforms, vertices, low, high, height: Math.max(high.z - low.z, 1), rig, world };
 }
 
 /** Bones that move a part's own mesh: the node and its children, stopping at
@@ -106,7 +99,7 @@ function ownMesh(unit, id, claimed) {
 const centroid = points => points.reduce((sum, point) => sum.add(point), new Vector3()).divideScalar(Math.max(points.length, 1));
 
 function chooseParts(unit) {
-  const { rig, byId, world, height } = unit;
+  const { rig, byId, tree, world, height } = unit, descendantOf = tree.isAncestor;
   const chains = (rig?.chains || []).filter(chain => byId.has(chain.end));
   const claimed = new Set([...chains.flatMap(poseChainIds), ...Object.keys(rig?.roles || {}).map(Number), ...(rig?.nodes || []), rig?.body].filter(id => id != null));
   const weapons = unit.transforms.filter(node => WEAPON.test(node.Name || '') && !NOT_A_WEAPON.test(node.Name || '') && !claimed.has(node.ObjectId));
@@ -130,7 +123,7 @@ function chooseParts(unit) {
   const side = chain => world(chain.end).y >= 0 ? 'left' : 'right';
   // A wrist band can end the POSE chain while the real hand hangs beside it.
   for (const chain of arms) if (/wrist/i.test(byId.get(chain.end)?.Name || '')) {
-    const hand = unit.transforms.find(node => /hand/i.test(node.Name || '') && named(node.ObjectId, 'Hand') && descendantOf(byId, node.ObjectId, chain.middle) && !claimed.has(node.ObjectId));
+    const hand = unit.transforms.find(node => /hand/i.test(node.Name || '') && named(node.ObjectId, 'Hand') && descendantOf(node.ObjectId, chain.middle) && !claimed.has(node.ObjectId));
     if (hand) Object.assign(chain, { end: hand.ObjectId, joints: [...poseChainIds(chain).slice(0, -1), hand.ObjectId] });
   }
   const handScore = chain => (named(chain.end, 'Hand') ? 4 : 0) + (chain.label === 'Wing' ? -2 : 0) + (meshOf(chain.end).length ? 1 : 0);
@@ -186,13 +179,13 @@ function chooseParts(unit) {
   const handActor = actorOf(hands.left) ?? actorOf(hands.right);
   const role = name => unit.transforms.filter(node => (rig?.roles?.[node.ObjectId] || poseNodeRole(node)) === name && !/death|portrait/i.test(node.Name || ''))
     .sort((a, b) => Number(/alternate/i.test(a.Name || '')) - Number(/alternate/i.test(b.Name || '')));
-  const nearActor = list => list.filter(node => handActor != null && (descendantOf(byId, handActor, node.ObjectId) || descendantOf(byId, node.ObjectId, handActor) || commonRoot(byId, node.ObjectId, handActor)));
+  const nearActor = list => list.filter(node => handActor != null && (descendantOf(handActor, node.ObjectId) || descendantOf(node.ObjectId, handActor) || tree.root(node.ObjectId) === tree.root(handActor)));
   const highest = list => list.slice().sort((a, b) => world(b.ObjectId).z - world(a.ObjectId).z || meshOf(b.ObjectId).length - meshOf(a.ObjectId).length)[0];
   const plain = list => list.some(node => !/alternate/i.test(node.Name || '')) ? list.filter(node => !/alternate/i.test(node.Name || '')) : list;
-  const heads = plain(role('Head')).filter(node => role('Head').every(other => other === node || !descendantOf(byId, node.ObjectId, other.ObjectId)));
+  const heads = plain(role('Head')).filter(node => role('Head').every(other => other === node || !descendantOf(node.ObjectId, other.ObjectId)));
   const head = marker('bone_head') || highest(nearActor(heads)) || highest(heads);
   const chests = plain(role('Chest'));
-  const chest = marker('bone_chest') || (handActor != null && chests.find(node => [hands.left, hands.right].some(chain => chain && descendantOf(byId, chain.root, node.ObjectId)))) || highest(nearActor(chests)) || highest(chests) || (rig?.body != null && byId.get(rig.body)) || null;
+  const chest = marker('bone_chest') || (handActor != null && chests.find(node => [hands.left, hands.right].some(chain => chain && descendantOf(chain.root, node.ObjectId)))) || highest(nearActor(chests)) || highest(chests) || (rig?.body != null && byId.get(rig.body)) || null;
   const realHand = chain => !!chain && (named(chain.end, 'Hand') || !!chain.forearm);
   // Most weapons are plain meshes (Cylinder02, Mesh33) parented under a hand.
   // A hand's child whose mesh reaches well past the hand is what it holds.
@@ -229,10 +222,6 @@ function namedSides(pair, byId) {
   if (!pair.left || !pair.right) return pair;
   const vote = chain => { let score = 0; for (const id of poseChainIds(chain)) { const side = nameSide(byId.get(id)?.Name); score += side === 'left' ? 1 : side === 'right' ? -1 : 0; } return score; };
   return vote(pair.left) < 0 && vote(pair.right) > 0 ? { ...pair, left: pair.right, right: pair.left } : pair;
-}
-function commonRoot(byId, a, b) {
-  const root = id => { const seen = new Set(); let node = byId.get(id); while (node && byId.has(node.Parent) && !seen.has(node.ObjectId)) { seen.add(node.ObjectId); node = byId.get(node.Parent); } return node?.ObjectId; };
-  return root(a) === root(b);
 }
 
 /** Where every standard point belongs: parent and world position in the Stand pose. */
@@ -281,7 +270,7 @@ function proposePoints(unit) {
   // Weapon: the longest weapon mesh held in a hand, then a hand, then the jaws.
   const handsHeld = [parts.hands.right, parts.hands.left].filter(Boolean);
   const held = parts.weapons.map(node => {
-    const own = meshOf(node.ObjectId), hand = handsHeld.find(chain => descendantOf(unit.byId, node.ObjectId, chain.end));
+    const own = meshOf(node.ObjectId), hand = handsHeld.find(chain => unit.tree.isAncestor(node.ObjectId, chain.end));
     if (!own.length) return null;
     const grip = hand ? world(hand.end) : world(node.ObjectId), reach = Math.max(...own.map(point => point.distanceTo(grip)));
     return { node, own, grip, reach, hand };

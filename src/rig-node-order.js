@@ -1,4 +1,5 @@
 import { allNodes } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const HELPER_LIST_COLOR = '#8a2be2';
 
@@ -129,19 +130,14 @@ function sideRegion(region, side) {
 }
 
 function analyze(model) {
-  const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node])), children = new Map();
-  for (const node of nodes) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
+  const nodes = allNodes(model), tree = nodeIndex(model, nodes), { byId, children } = tree;
   const layout = layoutEvidence([...(model.Bones || []), ...(model.Helpers || [])]), direct = directInfluences(model), evidence = new Map();
   const branchInfluence = (id, visiting = new Set()) => {
     if (visiting.has(id)) return direct.get(id) || 0;
     const next = new Set(visiting).add(id);
     return (direct.get(id) || 0) + (children.get(id) || []).reduce((sum, child) => sum + branchInfluence(child.ObjectId, next), 0);
   };
-  const hierarchyDepth = node => {
-    let depth = 0, current = node, seen = new Set([node.ObjectId]);
-    while ((current = byId.get(current.Parent)) && !seen.has(current.ObjectId)) { seen.add(current.ObjectId); depth++; }
-    return depth;
-  };
+  const hierarchyDepth = node => tree.depth(node.ObjectId);
   for (const node of nodes) {
     const regionScores = { chest: 0, arm: 0, leg: 0, head: 0, pelvis: 0, other: 0 }, sideScores = { right: 0, left: 0 }, segments = [];
     let current = node;
