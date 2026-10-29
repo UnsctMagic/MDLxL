@@ -1,8 +1,8 @@
 import { editorCameraSnapshot } from '../app/portrait-view.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PerspectiveCamera } from 'three';
-import { EditorCameraControls } from '../app/editor-camera-controls.js';
+import { PerspectiveCamera, MOUSE, Vector3 } from 'three';
+import { EditorCameraControls, createEditorCameras, applyCameraButtons, orbitMouseAction } from '../app/editor-camera-controls.js';
 
 const pointer = (type, values = {}) => Object.assign(new Event(type), {
   pointerType: 'mouse', pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100, ...values,
@@ -148,4 +148,33 @@ test('Shift+wheel reported as horizontal scroll (deltaX only) still zooms, in po
       assert.equal(camera.zoom,unshifted,'plain horizontal scroll stays ignored');
     } finally { controls.dispose(); }
   }
+});
+
+
+test('shared cameras retain per-preview targets, projections and default buttons', () => {
+  const { document } = scene(), surface = new Surface(document);
+  const target = new Vector3(4, 8, 45);
+  const { perspective, ortho, controls } = createEditorCameras(surface, { target, leftButton: MOUSE.ROTATE });
+  try {
+    assert.deepEqual(perspective.up.toArray(), [0, 0, 1]); assert.deepEqual(ortho.up.toArray(), [0, 0, 1]);
+    assert.equal(perspective.fov, 42); assert.equal(controls.object, perspective);
+    assert.deepEqual(controls.target, target); assert.notEqual(controls.target, target);
+    assert.deepEqual(controls.mouseButtons, { LEFT: MOUSE.ROTATE, MIDDLE: null, RIGHT: MOUSE.PAN });
+    assert.equal(controls.enableDamping, false);
+  } finally { controls.dispose(); }
+});
+
+test('shared button setup preserves single-view, Quad and Showcase Shift decisions', () => {
+  const controls = { mouseButtons: {} }, preferences = { cameraBindings: { right: 'pan', middle: 'zoom' }, pointerSensitivity: 2, fineSensitivity: .1 };
+  applyCameraButtons(controls, { shiftKey: true }, preferences, { left: 'rotate' });
+  assert.deepEqual(controls.mouseButtons, { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE });
+  assert.equal(controls.rotateSpeed, .2); assert.equal(controls.panSpeed, .2);
+  applyCameraButtons(controls, { shiftKey: true }, preferences, { left: 'rotate', rotateAsPan: true, preserveShift: false });
+  assert.equal(controls.mouseButtons.LEFT, MOUSE.PAN); assert.equal(controls.mouseButtons.RIGHT, MOUSE.PAN);
+  applyCameraButtons(controls, { shiftKey: true }, preferences, { left: 'rotate', preserveShift: false });
+  assert.equal(controls.mouseButtons.LEFT, MOUSE.ROTATE, 'Quad perspective retains the native Shift swap');
+  applyCameraButtons(controls, { shiftKey: true, ctrlKey: true }, preferences, { left: 'rotate', fine: false });
+  assert.equal(controls.mouseButtons.LEFT, MOUSE.ROTATE); assert.equal(controls.rotateSpeed, 2, 'Showcase does not apply Shift fine sensitivity');
+  applyCameraButtons(controls, {}, preferences, { left: 'work' }); assert.equal(controls.mouseButtons.LEFT, null);
+  assert.equal(orbitMouseAction('toggle'), null);
 });

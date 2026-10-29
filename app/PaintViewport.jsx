@@ -1,9 +1,11 @@
+import { drawPreviewBackground } from './game-preview-capture.js';
+import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import {createPaintLampObject,paintLampDrag} from './paint-lamps.js';
 import {paintRowRanges,acknowledgePaintUpload} from '../src/paint-preview.js';
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
-import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
+import { createEditorCameras, applyCameraButtons, editorCameraAngles, setEditorCameraAngles } from './editor-camera-controls.js';
+import { previewLighting, createEditorLights, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
@@ -14,25 +16,20 @@ import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js
 import { configureEditorTexture, configurePaintTexture, cameraLeftLight, viewportPixelRatio } from './viewport-quality.js';
 import { createRigMarkersGL } from './rig-markers-gl.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
-import { TGALoader } from 'three/addons/loaders/TGALoader.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { needsSolidDepthPrepass } from './preview-depth.js';
-import { decodeBLP, getBLPImageData } from 'war3-model';
+import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { decodePaintBlp } from '../src/paint-blp.js';
 import { advanceSequence, allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
-import { decodeDds } from '../src/dds.js';
-import { decodeBlp2 } from '../src/blp2.js';
 import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
-import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
+import { watchContextLoss, bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 
-import { applyViewPreset, applyModelCamera, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation } from './viewport-math.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, orthographicHalfHeight, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
-import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
 import { paintOutlinePositions } from '../src/paint-view.js';
 import {paintRegionFaces,paintRegionEntries,paintConnectedPieces} from '../src/paint-region.js';
@@ -41,101 +38,7 @@ import { createPaintLightUniforms, updatePaintLights, applyPaintLightShader } fr
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 import { gamePathKey as normalizedPath } from '../src/game-path.js';
 const selectionArray = selection => Array.from(selection || []);
-const asBuffer = bytes => bytes instanceof ArrayBuffer ? bytes : bytes?.buffer?.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-// Decoding BLP/TGA/DDS and browser images dominates repeated preview startup.
-// Assets are immutable within a session, so retain CPU pixels/images while
-// each viewport still creates and owns its own disposable GPU texture.
-const decodedRasterCache = new WeakMap(), decodedImageCache = new WeakMap();
-
-export async function textureFromAsset(asset, textureInfo = {}) {
-  const buffer = asBuffer(asset?.bytes);
-  let name = String(asset?.name || textureInfo.Image || '').toLowerCase();
-  if (buffer && buffer.byteLength >= 4 && new DataView(buffer).getUint32(0,true) === 0x20534444) name = name.replace(/\.[^.]+$/, '.dds');
-  let texture;
-  if (buffer && name.endsWith('.blp')) {
-    let pixels = decodedRasterCache.get(asset);
-    if (!pixels) {try{const bytes=new Uint8Array(buffer);pixels=bytes[3]===50?decodeBlp2(buffer):getBLPImageData(decodeBLP(buffer),0);}catch{pixels=await decodePaintBlp(buffer);}decodedRasterCache.set(asset,pixels);}
-    texture = new THREE.DataTexture(new Uint8Array(pixels.data), pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else if (buffer && name.endsWith('.tga')) {
-    let pixels = decodedRasterCache.get(asset); if (!pixels) { pixels = new TGALoader().parse(buffer); decodedRasterCache.set(asset, pixels); }
-    texture = new THREE.DataTexture(pixels.data, pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else if (buffer && name.endsWith('.dds')) {
-    let pixels = decodedRasterCache.get(asset); if (!pixels) { pixels = decodeDds(buffer); decodedRasterCache.set(asset, pixels); }
-    texture = new THREE.DataTexture(new Uint8Array(pixels.data), pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else {
-    let promise = asset && decodedImageCache.get(asset);
-    if (!promise) {
-      let url = asset?.url, temporary = false;
-      if (!url && buffer) { url = URL.createObjectURL(new Blob([buffer])); temporary = true; }
-      if (!url) throw new Error('Texture has no image data');
-      promise = new THREE.TextureLoader().loadAsync(url).then(loaded => { const image = loaded.image; loaded.dispose(); return image; }).finally(() => { if (temporary) URL.revokeObjectURL(url); });
-      if (asset) decodedImageCache.set(asset, promise);
-    }
-    try { texture = new THREE.Texture(await promise); texture.needsUpdate = true; }
-    catch (cause) { if (asset) decodedImageCache.delete(asset); throw cause; }
-  }
-  // Warcraft UV origin is at the top of the image. Keep its V coordinates intact.
-  texture.flipY = false;
-  // Match the classic Warcraft sampler: filter encoded texels, then decode
-  // exactly once in the mesh shader. This is independent of silhouette AA.
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.wrapS = textureInfo.Flags & 1 ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-  texture.wrapT = textureInfo.Flags & 2 ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-  return configureEditorTexture(texture);
-}
-
-function layerMaterial(layer, shaded = true, paintUniforms = null) {
-  const shading = layer.Shading || 0, filter = layer.FilterMode || 0;
-  const material = paintUniforms || !shaded || shading & 1 ? new THREE.MeshBasicMaterial() : new THREE.MeshPhongMaterial({ shininess: 9, specular: 0x1c242d });
-  material.userData.geosetTint = { value: new THREE.Vector3(1, 1, 1) };
-  material.onBeforeCompile = shader => {
-    shader.uniforms.uMdlxlGeosetTint = material.userData.geosetTint;
-    // Warcraft GeosetRGB multiplies the encoded final color. Applying it to
-    // Three's linear material color makes intermediate authored RGB too bright.
-    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', '#include <colorspace_fragment>\ngl_FragColor.rgb *= uMdlxlGeosetTint;');
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\nvec4 sampledDiffuseColor = sRGBTransferEOTF(texture2D(map, vMapUv));\ndiffuseColor *= sampledDiffuseColor;\n#endif');
-    // Opposing shared faces can have a zero interpolated normal. Use the face
-    // derivative only for this undefined case; never rewrite authored normals.
-    if (material.isMeshPhongMaterial) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nif (!(dot(normal, normal) > 1.e-12)) normal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));');
-    if(paintUniforms)applyPaintLightShader(shader,paintUniforms,!!(shading&1));
-  };
-  material.customProgramCacheKey=()=>paintUniforms?'citadel-vertex-light-'+(shading&1):'mdlxl-layer';
-  material.side = shading & 16 ? THREE.DoubleSide : THREE.FrontSide;
-  material.depthTest = !(shading & 64);
-  material.depthWrite = !(shading & 128) && filter < 2;
-  material.transparent = filter >= 2;
-  material.alphaTest = filter === 1 ? 0.75 : 0;
-  if (filter === 3) {
-    material.blending = THREE.CustomBlending; material.blendSrc = THREE.OneFactor; material.blendDst = THREE.OneFactor;
-  } else if (filter === 4) material.blending = THREE.AdditiveBlending;
-  else if (filter === 5 || filter === 6) {
-    material.blending = THREE.CustomBlending; material.blendSrc = THREE.DstColorFactor; material.blendDst = filter === 6 ? THREE.SrcColorFactor : THREE.ZeroFactor;
-  }
-  material.userData.layerBlending = material.blending;
-  return material;
-}
-
-function updateWideWireGeometry(entry) {
-  if (!entry?.wireGeometry || !entry.edgeIndices) return;
-  const source = entry.geometry.attributes.position.array, positions = new Float32Array(entry.edgeIndices.length * 3);
-  for (let edge = 0; edge < entry.edgeIndices.length; edge++) {
-    const vertex = entry.edgeIndices[edge], target = edge * 3, from = vertex * 3;
-    positions[target] = source[from]; positions[target + 1] = source[from + 1]; positions[target + 2] = source[from + 2];
-  }
-  entry.wireGeometry.setPositions(positions); entry.wire.computeLineDistances();
-}
-
-function configureWideLine(material, appearance, width, height, hiddenOpacity = 1) {
-  material.color.set(appearance.color); material.linewidth = appearance.thickness;
-  material.opacity = appearance.opacity * hiddenOpacity; material.resolution.set(Math.max(1, width), Math.max(1, height));
-  const dashed = appearance.style !== 'solid'; if (material.dashed !== dashed) { material.dashed = dashed; material.needsUpdate = true; }
-  material.dashScale = 1; material.dashSize = appearance.style === 'dotted' ? .6 : 4; material.gapSize = appearance.style === 'dotted' ? 2.2 : 2.5;
-}
-
-export default function Viewport(inputProps) {
+export default function PaintViewport(inputProps) {
   const props = previewPresentationProps(inputProps);
   const { model, revision = 0, selectedGeoset = 0, selectedVertices = [], hiddenGeosets, mode = 'vertices', shaded = true, showSkeleton = false, showGrid = true, view = 'front', cameraMode = 'work', workplane = 'xy', transformMode = 'select', sequenceIndex = -1, time = 0, playing = false, teamColor = '#ff0000', textureAssets } = props;
   const host = useRef(null), runtime = useRef(null), latest = useRef(props);
@@ -161,19 +64,10 @@ export default function Viewport(inputProps) {
     host.current.appendChild(renderer.domElement);
     const scene = new THREE.Scene(), modelGroup = new THREE.Group();
     scene.add(modelGroup);
-    const perspective = new THREE.PerspectiveCamera(42, 1, .2, 1000);
-    perspective.up.set(0, 0, 1); perspective.position.set(180, -260, 170);
-    const ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, .2, 1000);
-    ortho.up.set(0, 0, 1);
+    const { perspective, ortho, controls } = createEditorCameras(renderer.domElement, { target: [0, 0, 45] });
+    perspective.position.set(180, -260, 170); controls.update();
     let camera = perspective;
-    const controls = new EditorCameraControls(camera, renderer.domElement);
-    controls.enableDamping = false;
-    controls.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: THREE.MOUSE.PAN };
-    controls.target.set(0, 0, 45); controls.update();
-    const ambient = new THREE.HemisphereLight(0xd4e7ff, 0x52514a, 2.2);
-    ambient.position.set(0, 0, 300); scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
-    scene.add(key.target);
+    const { ambient, key } = createEditorLights(scene);
     let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, rotating = false;
     const grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
@@ -214,33 +108,28 @@ export default function Viewport(inputProps) {
       const key = `${width}|${height}|${config.color}|${config.display}|${config.opacity}`;
       if (background.drawKey !== key) {
         background.canvas.width = width; background.canvas.height = height;
-        const context = background.canvas.getContext('2d'); context.globalAlpha = 1; context.fillStyle = config.color; context.fillRect(0, 0, width, height);
-        const rect = backgroundImageRect(background.image.naturalWidth || background.image.width, background.image.naturalHeight || background.image.height, width, height, config.display);
-        if (rect) { context.globalAlpha = config.opacity; context.drawImage(background.image, rect.x, rect.y, rect.width, rect.height); context.globalAlpha = 1; }
+        drawPreviewBackground(background.canvas.getContext('2d'), width, height, background.image, config.color, config);
         background.texture.needsUpdate = true; background.drawKey = key;
       }
       scene.background = background.texture;
     }
     state.refreshCursor = () => { const p=latest.current;renderer.domElement.style.cursor=p.paintMode&&!p.paintSelectOnly&&!p.paintDisabled&&p.cameraMode==='work'&&!rotating?'none':viewportCursor(p.cameraMode,p.rotationNormals?'rotateNormals':p.transformMode,rotating); };
+    state.restoreCamera = saved => { camera = restorePreviewCamera(saved, perspective, ortho, controls); state.camera = camera; };
     state.setCameraAngles = values => { if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); invalidate(); } };
     const cameraChanged=()=>{latest.current.onPaintCameraChange?.();invalidate();};
     controls.addEventListener('change', cameraChanged);
-    const unbindScroll = bindScrollSensitivity(renderer.domElement, {
-      getPreferences: () => latest.current.preferences,
-      onChange: value => latest.current.onSensitivityChange?.(value), onIndicator: setAdjustingSensitivity,
-      onPointerChange: value => latest.current.onPointerSensitivityChange?.(value),
-      onWheelModeChange: value => latest.current.onWheelModeChange?.(value),
+    const unbindScroll = bindScrollSensitivity(renderer.domElement, scrollSensitivityCallbacks(latest, {
+      onIndicator: setAdjustingSensitivity,
       // A Wisp left-button wheel gesture is a settings gesture, never a select or transform.
       onPointerAdjustment: () => cancelGesture(),
-      onCameraModeToggle: () => latest.current.onCameraModeToggle?.(),
       onWheel: (_event, sensitivity) => { controls.zoomSpeed = sensitivity; },
-    });
+    }));
 
     function resize() {
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       renderer.setPixelRatio(viewportPixelRatio(graphicsOptions(latest.current.preferences), window.devicePixelRatio,latest.current.paintWorkspace));
       renderer.setSize(width, height, false); perspective.aspect = width / height; perspective.updateProjectionMatrix();
-      const half = state.radius * 1.3; ortho.left = -half * width / height; ortho.right = half * width / height; ortho.top = half; ortho.bottom = -half; ortho.updateProjectionMatrix();
+      const half = orthographicHalfHeight(state.radius, width / height); ortho.left = -half * width / height; ortho.right = half * width / height; ortho.top = half; ortho.bottom = -half; ortho.updateProjectionMatrix();
       invalidate();
     }
     state.resize = resize;
@@ -360,11 +249,7 @@ export default function Viewport(inputProps) {
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       state.refreshCursor();
       controls.enabled = true;
-      controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(latest.current.preferences?.pointerSensitivity);
-      const binding = cameraBindings(latest.current.preferences), mouseAction = value => value === 'pan' ? THREE.MOUSE.PAN : value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
-      controls.mouseButtons.RIGHT = preserveShiftCameraAction(mouseAction(binding.right), event); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(mouseAction(binding.middle), event);
-      controls.mouseButtons.LEFT = preserveShiftCameraAction(mouseAction(action === 'move' ? 'pan' : action), event);
-      if (event.shiftKey && action !== 'work') controls.rotateSpeed = controls.panSpeed *= latest.current.preferences?.fineSensitivity ?? .2;
+      applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work' });
       if (action === 'move' || action === 'rotate') return;
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
@@ -499,6 +384,8 @@ export default function Viewport(inputProps) {
       // Source N15/N16 only change rendering: Work still selects vertices in every view.
       if (p.vertexSelection !== false) {
         const editable = editableGeosets(p), previousSelection = selections(p), found = {}, screen = new THREE.Vector3(), marqueeRadius = Math.max(3, visualOptions(p.preferences).vertexSize / 2); let closest = 5, nearest = null;
+        const visibleOnly = p.mode === 'textured' && p.grabThrough === false;
+        const selectionDepth = visibleOnly ? createOverlayDepth(projectPreviewGeosets(state.entries.flatMap((entry, index) => entry?.group.visible ? [{ index, faces: entry.geometry.index.array, vertices: entry.geometry.attributes.position.array }] : []), camera, end.width, end.height), end.width, end.height) : null;
         for (const geosetIndex of editable) {
           const entry = state.entries[geosetIndex], hidden = new Set(p.hiddenVertices?.[geosetIndex] || []); if (!entry?.group.visible) continue;
           const position = entry.geometry.attributes.position; found[geosetIndex] = [];
@@ -506,6 +393,7 @@ export default function Viewport(inputProps) {
             if (hidden.has(i)) continue;
             screen.fromBufferAttribute(position, i).project(camera); if (screen.z < -1 || screen.z > 1) continue;
             const x = (screen.x + 1) * end.width / 2, y = (1 - screen.y) * end.height / 2;
+            if (selectionDepth?.isOccludedForSelection({ x, y, z: screen.z })) continue;
             if (distance > 5) { if (marqueeContainsPoint([x, y], start, end, marqueeRadius)) found[geosetIndex].push(i); }
             else { const d = Math.abs(x - end.x) + Math.abs(y - end.y); if (d < closest) { closest = d; nearest = [geosetIndex, i]; } }
           }
@@ -573,8 +461,7 @@ export default function Viewport(inputProps) {
     renderer.domElement.addEventListener('contextmenu', contextMenu);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey);
     const lampKeyHost=host.current;lampKeyHost.addEventListener('keydown',lampKey);
-    const contextLost = event => { event.preventDefault(); state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); };
-    renderer.domElement.addEventListener('webglcontextlost', contextLost);
+    const unwatchContext = watchContextLoss(renderer.domElement, () => { state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); });
 
     let callbackTime = performance.now();
     function render(now, delta) {
@@ -823,13 +710,13 @@ export default function Viewport(inputProps) {
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
     return () => {
-      cameraMemory.current = { view: state.appliedView, perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), center: state.center.clone(), radius: state.radius };
+      cameraMemory.current = { view: state.appliedView, ...snapshotPreviewCamera(camera, perspective, ortho, controls), center: state.center.clone(), radius: state.radius };
       state.paintOutline?.geometry.dispose(); state.paintOutline?.material.dispose();
       state.paintRegion?.geometry.dispose();state.paintRegion?.material.dispose();state.partColors?.geometry.dispose();state.partColors?.material.dispose();
       if(state.lampMarkers)clearGroup(state.lampMarkers);
       renderer.domElement.removeEventListener('dragover',paintDragOver);renderer.domElement.removeEventListener('drop',paintDrop);renderer.domElement.removeEventListener('pointerleave',paintLeave);
       state.disposed = true; state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); unbindScroll(); resizeObserver.disconnect(); controls.removeEventListener('change', cameraChanged); controls.dispose();
-      renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove); renderer.domElement.removeEventListener('pointerup', pointerUp); renderer.domElement.removeEventListener('webglcontextlost', contextLost);
+      renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove); renderer.domElement.removeEventListener('pointerup', pointerUp); unwatchContext();
       renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey);
       lampKeyHost.removeEventListener('keydown',lampKey);
@@ -855,7 +742,7 @@ export default function Viewport(inputProps) {
         if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); layerGeometry.setIndex(geometry.index); }
         const uv = geoset.TVertices?.[layer.CoordId || 0] || geoset.TVertices?.[0];
         layerGeometry.setAttribute('uv', new THREE.BufferAttribute(uv?.length ? new Float32Array(uv) : new Float32Array(geoset.Vertices.length / 3 * 2), 2));
-        const material = layerMaterial(layer, shaded && graphics.lighting,state.paintUniforms); material.polygonOffset = false; material.alphaToCoverage = graphics.antialias;
+        const material = layerMaterial(layer, shaded && graphics.lighting && !state.paintUniforms, { extendShader: state.paintUniforms ? shader => applyPaintLightShader(shader, state.paintUniforms, !!(layer.Shading & 1)) : undefined, cacheKey: state.paintUniforms ? 'citadel-vertex-light-' + (layer.Shading & 1) : 'mdlxl-layer' }); material.polygonOffset = false; material.alphaToCoverage = layer.FilterMode === 1 && !!state.renderer.getContext().getContextAttributes()?.antialias;
         const mesh = new THREE.Mesh(layerGeometry, material); mesh.userData.geosetIndex = index; mesh.userData.materialId = geoset.MaterialID; mesh.userData.layerIndex = layerIndex; mesh.userData.textureId = Number.isInteger(layer.TextureID) ? layer.TextureID : null; mesh.userData.coordId = layer.CoordId || 0; mesh.userData.baseUV = new Float32Array(layerGeometry.attributes.uv.array); mesh.renderOrder = index * 16 + layerIndex; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh);
       }
       const depth = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })); depth.renderOrder = -1; depth.frustumCulled = false; group.add(depth);
@@ -871,7 +758,7 @@ export default function Viewport(inputProps) {
       const hiddenPoints = new THREE.Points(hiddenPointGeometry, pointMaterial({ depthFunc: THREE.GreaterDepth })); hiddenPoints.frustumCulled = false; hiddenPoints.renderOrder = 10999; group.add(hiddenPoints);
       const selectedPoints = new THREE.Points(selectedPointGeometry, pointMaterial()); selectedPoints.frustumCulled = false; selectedPoints.renderOrder = 11001; selectedPoints.userData.overlay = 'vertices'; group.add(selectedPoints);
       const hiddenSelectedPoints = new THREE.Points(hiddenSelectedPointGeometry, pointMaterial({ depthFunc: THREE.GreaterDepth })); hiddenSelectedPoints.frustumCulled = false; hiddenSelectedPoints.renderOrder = 11000; group.add(hiddenSelectedPoints);
-      const hoverWire = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x39ff14, wireframe: true, depthTest: false, depthWrite: false, transparent: true }));
+      const hoverWire = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x39ff14, wireframe: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true }));
       hoverWire.renderOrder = 13000; hoverWire.frustumCulled = false; hoverWire.visible = false; group.add(hoverWire);
       const hoverGeometry = new THREE.BufferGeometry(); hoverGeometry.setAttribute('position', geometry.attributes.position);
       const hoverPoints = new THREE.Points(hoverGeometry, new THREE.PointsMaterial({ color: 0x39ff14, size: 6, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true }));
@@ -883,7 +770,7 @@ export default function Viewport(inputProps) {
     if (state.loadedSignature === null) {
       state.loadedSignature = signature; state.fit();
       const saved = cameraMemory.current;
-      if (saved && saved.view === latest.current.view) { state.perspective.copy(saved.perspective); state.ortho.copy(saved.ortho); state.controls.target.copy(saved.target); state.center.copy(saved.center); state.radius=saved.radius; state.resize(); state.controls.update(); }
+      if (saved && saved.view === latest.current.view) { state.restoreCamera(saved); state.center.copy(saved.center); state.radius=saved.radius; state.resize(); state.controls.update(); }
     }
   }, [model, revision, shaded, graphics.lighting, graphics.antialias]);
 
@@ -925,7 +812,7 @@ export default function Viewport(inputProps) {
       }
       if (!asset || texture.ReplaceableId) { state.scheduler?.invalidate(); return; }
       try {
-        const loaded = await textureFromAsset(asset, texture);
+        const loaded = await textureFromAsset(asset, texture, { fallbackDecoder: decodePaintBlp });
         if (state.disposed || state.textureSources.get(index) !== source) loaded.dispose();
         else { configureEditorTexture(loaded, state.renderer.capabilities.getMaxAnisotropy()); state.textures.set(index, loaded); state.scheduler?.invalidate(); }
       }
@@ -946,7 +833,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.presentation, props.previewMode, props.previewOverlay, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, props.paintTextureRevision, props.paintRegion, props.paintColorfy, props.paintPartOutlines, props.paintLights, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
-    {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
+    <SensitivityIndicator value={adjustingSensitivity} />
     {textureMessage && <div role="status" style={{ position: 'absolute', bottom: 4, left: 5, color: '#fff0cb', fontSize: 11, pointerEvents: 'none' }}>{textureMessage}</div>}
     {backgroundMessage && <div role="status" style={{ position: 'absolute', top: 4, left: 5, color: '#5b2500', background: '#fff4d6dd', padding: '2px 5px', fontSize: 11, pointerEvents: 'none' }}>{backgroundMessage}</div>}
     {box && <div style={{ position: 'absolute', ...box, border: '1px dotted white', pointerEvents: 'none' }} />}

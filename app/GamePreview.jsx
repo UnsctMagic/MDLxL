@@ -4,7 +4,7 @@ import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js
 import { particlePreviewBounds, particleTravelDistance, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
+import { createEditorCameras, applyCameraButtons, editorCameraAngles, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
 import { projectPreviewGeosets, pickPreviewGeoset, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
@@ -30,7 +30,7 @@ import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationNormal, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
-import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
+import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
 import { createGLPreviewBackground } from './game-preview-background-gl.js';
@@ -40,10 +40,10 @@ import { drawPreviewGeometryOverlay, drawPresentationOverlay, previewOverlayOpti
 import { installNodeEffectControls } from './node-effect-controls.js';
 import { createEventSoundPreview } from './event-sound-preview.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
-import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
+import { watchContextLoss, bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
 import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
@@ -359,16 +359,13 @@ export default function GamePreview(inputProps) {
     const presentation = createPreviewSceneGL(gl, invalidate);
     const rigMarkers = createRigMarkersGL(gl);
     setError(''); setWarnings([]);
-    const perspective = new THREE.PerspectiveCamera(42, 1, .2, 1000); perspective.up.set(0, 0, 1);
-    const ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, .2, 1000); ortho.up.set(0, 0, 1);
+    const { perspective, ortho, controls } = createEditorCameras(canvas, { leftButton: THREE.MOUSE.ROTATE });
     let camera = perspective;
-    const controls = new EditorCameraControls(camera, canvas);
     controls.portraitDolly = () => !!latest.current.portraitMode && !latest.current.showcase;
     // Showcase framing fits its crop with the lens itself, so it keeps lens zoom.
     controls.wideLensZoom = () => !!latest.current.showcase;
     controls.keepWorldUp=()=>!!latest.current.showcase&&!latest.current.portraitMode;
-    controls.lockScreenAxis=!!latest.current.showcase; controls.enableDamping = false;
-    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: null, RIGHT: THREE.MOUSE.PAN };
+    controls.lockScreenAxis=!!latest.current.showcase;
     let projectionKey = '';
     const reportProjectionView = () => {
       camera.updateMatrixWorld(); camera.updateProjectionMatrix();
@@ -377,7 +374,7 @@ export default function GamePreview(inputProps) {
       if (key !== projectionKey) { projectionKey = key; latest.current.onProjectionViewChange?.({ viewMatrix, projectionMatrix }); }
     };
     let syncingCamera = false, compareRegistered = false, collisionCanvas = null, externalSeek;
-    const snapshotCamera = () => ({ camera: camera === ortho ? 'ortho' : 'perspective', perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), portraitActive: state.portraitActive, portraitDetached: !!latest.current.portraitMode && state.cameraDetached });
+    const snapshotCamera = () => ({ ...snapshotPreviewCamera(camera, perspective, ortho, controls), portraitActive: state.portraitActive, portraitDetached: !!latest.current.portraitMode && state.cameraDetached });
     const receiveCamera = saved => {
       // Each pane owns its pre-portrait backup. Do not replace that view while
       // its partner is already entering or leaving the portrait projection.
@@ -416,15 +413,11 @@ export default function GamePreview(inputProps) {
       if (event.button !== 0 || leftGesture?.id !== event.pointerId) return;
       leftGesture = null;
     };
-    const unbindScroll = bindScrollSensitivity(canvas, {
-      getPreferences: () => latest.current.preferences,
-      onChange: value => latest.current.onSensitivityChange?.(value), onIndicator: value => { setAdjustingSensitivity(value); latest.current.onSensitivityIndicator?.(value); },
-      onPointerChange: value => latest.current.onPointerSensitivityChange?.(value),
-      onWheelModeChange: value => latest.current.onWheelModeChange?.(value),
+    const unbindScroll = bindScrollSensitivity(canvas, scrollSensitivityCallbacks(latest, {
+      onIndicator: value => { setAdjustingSensitivity(value); latest.current.onSensitivityIndicator?.(value); },
       onPointerAdjustment: cancelPreviewGesture,
-      onCameraModeToggle: () => latest.current.onCameraModeToggle?.(),
       onWheel: (_event, sensitivity) => { controls.zoomSpeed = sensitivity; },
-    });
+    }));
     const movementSequence = (p, frame) => {
       if (p.restPose) return -1;
       if (Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0) return -1;
@@ -654,8 +647,7 @@ export default function GamePreview(inputProps) {
       }
       if (event.button === 0) leftGesture = { id: event.pointerId, x: event.clientX, y: event.clientY, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, alt: event.altKey,
         position: camera.position.clone(), quaternion: camera.quaternion.clone(), target: controls.target.clone(), zoom: camera.zoom, adjusted: false };
-      const binding = cameraBindings(p.preferences), mouseAction = value => value === 'pan' ? THREE.MOUSE.PAN : value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
-      controls.mouseButtons.RIGHT = preserveShiftCameraAction(mouseAction(binding.right), event); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(mouseAction(binding.middle), event);
+      const binding = cameraBindings(p.preferences);
       // Tool windows that edit points (Attachemator) still spin the camera
       // when a drag starts on empty space.
       const action = event.altKey || portraitCameraDrag || event.button === 0 && work && p.emptyDragRotates ? 'rotate' : p.cameraMode ?? 'rotate';
@@ -663,8 +655,7 @@ export default function GamePreview(inputProps) {
       rotating = p.showcase ? controls.enabled && controls.enableRotate && ((event.ctrlKey||event.metaKey)?buttonAction==='pan':buttonAction==='rotate')
         : event.button === 0 ? action === 'rotate' : event.button === 1 ? binding.middle === 'rotate' : binding.right === 'rotate';
       p.onCameraGestureChange?.(rotating); canvas.style.cursor = cursorFor(p);
-      controls.mouseButtons.LEFT = preserveShiftCameraAction(mouseAction(action === 'move' ? 'pan' : action), event);
-      controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(p.preferences?.pointerSensitivity) * (event.shiftKey && !p.showcase ? p.preferences?.fineSensitivity ?? .2 : 1);
+      applyCameraButtons(controls, event, p.preferences, { left: action === 'move' ? 'pan' : action, fine: !p.showcase });
     };
     function restoreGestureTracks(gesture) {
       if (gesture.restPose) ownedModel.PivotPoints = structuredClone(gesture.pivotPoints);
@@ -1059,7 +1050,7 @@ export default function GamePreview(inputProps) {
       controls.object = camera; controls.enableRotate = true; controls.update(); reportProjectionView(); invalidate();
     };
     function enterPortrait(evaluated) {
-      if (!portraitBackup) portraitBackup = { perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), camera: camera === ortho ? 'ortho' : 'perspective', appliedView: state.appliedView, minPolarAngle: controls.minPolarAngle, maxPolarAngle: controls.maxPolarAngle };
+      if (!portraitBackup) portraitBackup = { ...snapshotPreviewCamera(camera, perspective, ortho, controls), appliedView: state.appliedView, minPolarAngle: controls.minPolarAngle, maxPolarAngle: controls.maxPolarAngle };
       state.portraitActive = true; state.cameraDetached = false; latest.current.onPortraitPreviewChange?.(false); state.appliedView = 'perspective'; camera = perspective; controls.object = camera; controls.enableRotate = true;
       controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
       if (evaluated) applyEvaluatedModelCamera(camera, controls, evaluated, PORTRAIT_ASPECT);
@@ -1067,8 +1058,7 @@ export default function GamePreview(inputProps) {
     }
     function exitPortrait() {
       if (!portraitBackup) { state.portraitActive = false; resize(); return; }
-      perspective.copy(portraitBackup.perspective); ortho.copy(portraitBackup.ortho); controls.target.copy(portraitBackup.target);
-      camera = portraitBackup.camera === 'ortho' ? ortho : perspective; controls.object = camera; state.appliedView = portraitBackup.appliedView;
+      camera = restorePreviewCamera(portraitBackup, perspective, ortho, controls); state.appliedView = portraitBackup.appliedView;
       controls.minPolarAngle = portraitBackup.minPolarAngle; controls.maxPolarAngle = portraitBackup.maxPolarAngle;
       portraitBackup = null; state.portraitActive = false; controls.update(); resize(); reportProjectionView(); invalidate();
     }
@@ -1559,7 +1549,7 @@ export default function GamePreview(inputProps) {
       layerAPI.current?.draw(showcaseSample?.globalTime || 0, {time:showcaseSample?.presentationTime || 0,enabled:!!p.showcase?.recording || !!p.showcasePlaying});
       if (!captureOnly && recordingSink) recordingSink(showcaseSample?.presentationTime || 0);
     }
-    const contextLost = event => { event.preventDefault(); scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); };
+    const unwatchContext = watchContextLoss(canvas, () => { scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); });
     scheduler = state.scheduler = createRenderScheduler({ render,
       continuous: () => {
         return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || latest.current.playing && !latest.current.restPose && !playbackStopped;
@@ -1703,16 +1693,16 @@ export default function GamePreview(inputProps) {
     latest.current.onCaptureReady?.(state.captureApi);
     ownerDocument.addEventListener('visibilitychange', scheduler.sync);
     window.addEventListener('mdlvis-frame', fit);
-    canvas.addEventListener('webglcontextlost', contextLost); scheduler.invalidate();
+    scheduler.invalidate();
     return () => {
       cameraMemory.current = portraitBackup
-        ? { camera:portraitBackup.camera, view:portraitBackup.appliedView, perspective:portraitBackup.perspective.clone(), ortho:portraitBackup.ortho.clone(), target:portraitBackup.target.clone() }
-        : { camera:camera === ortho ? 'ortho' : 'perspective', view:state.appliedView, perspective:perspective.clone(), ortho:ortho.clone(), target:controls.target.clone() };
+        ? { ...snapshotPreviewCamera(portraitBackup.camera === 'ortho' ? portraitBackup.ortho : portraitBackup.perspective, portraitBackup.perspective, portraitBackup.ortho, { target: portraitBackup.target }), view: portraitBackup.appliedView }
+        : { ...snapshotPreviewCamera(camera, perspective, ortho, controls), view: state.appliedView };
       if (latest.current.cameraHandoff) latest.current.cameraHandoff.current = cameraMemory.current;
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
-      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
@@ -1761,7 +1751,7 @@ export default function GamePreview(inputProps) {
       {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status" data-alert="">{frame.error}</div>}
     </div>
-    {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
+    <SensitivityIndicator value={adjustingSensitivity} />
     {gestureLabel && <div role="status" style={{ position:'absolute', top:8, left:8, padding:'4px 7px', background:'#182638', color:'#fff', fontSize:12 }}>{gestureLabel}</div>}
     {warnings.length>0&&<div role="status" style={{position:'absolute',bottom:3,left:4,fontSize:11,color:'#500'}}>{warnings.join(' ')}</div>}
     {eventWarnings.length > 0 && <div role="status" style={{position:'absolute',bottom:20,left:4,fontSize:11,color:'#753d12',maxWidth:'95%'}}>{eventWarnings.join(' ')}</div>}

@@ -150,3 +150,16 @@ export function screenPlaneTranslation(camera, pivot, width, height, dx, dy, con
   const screen = pivot.clone().project(camera);
   return new Vector3(screen.x + dx * 2 / width, screen.y - dy * 2 / height, screen.z).unproject(camera).sub(pivot);
 }
+
+export function snapshotPreviewCamera(camera, perspective, ortho, controls) {
+  return { camera: camera === ortho ? 'ortho' : 'perspective', perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone() };
+}
+
+/** Renderer replacement is not a user camera gesture. Restore both projections
+ * and the active camera before drawing the rebuilt UV preview. */
+export function restorePreviewCamera(saved, perspective, ortho, controls) {
+  perspective.copy(saved.perspective); ortho.copy(saved.ortho);
+  const camera = saved.camera === 'ortho' ? ortho : perspective;
+  controls.object = camera; controls.target.copy(saved.target); controls.update();
+  return camera;
+}
