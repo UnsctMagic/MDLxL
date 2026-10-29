@@ -1,4 +1,4 @@
-import React,{useState,useEffect,useRef} from 'react';
+import React,{useState,useEffect,useRef,useCallback} from 'react';
 import {Plus,Trash2,Diamond,ChevronDown} from 'lucide-react';
 import {setKey} from '../src/editor-commands.js';
 import {displayNumber} from '../src/display-number.js';
@@ -58,6 +58,43 @@ export function TextField({label,value,onChange,type='text',min,max,step='any',d
   return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} {...field}/></label>;
 }
 export function NumberField(props){return <TextField type="number" {...props}/>;}
+/**
+ * One edit per slider drag: the slider moves a draft and commits once on release
+ * (the native change event, also sent per arrow-key step) or on leaving the slider.
+ * Escape drops the draft. onDraft(value or null) lets a caller preview the drag.
+ * Returns the range input's props, including ref and the shown value.
+ */
+export function useRangeCommit({value,onCommit,onDraft}){
+  const [draft,setDraftState]=useState(null),pending=useRef(null),latest=useRef(null),element=useRef(null);
+  latest.current={value,onCommit,onDraft};
+  const setDraft=next=>{pending.current=next;setDraftState(next);latest.current.onDraft?.(next);};
+  const finish=useRef(()=>{const next=pending.current;if(next===null)return;setDraft(null);if(!Object.is(next,latest.current.value))latest.current.onCommit(next);}).current;
+  // React's onChange is the input event; the native change event is the release.
+  const ref=useCallback(node=>{element.current?.removeEventListener('change',finish);element.current=node;node?.addEventListener('change',finish);},[finish]);
+  return {
+    ref,value:draft??value,
+    onChange:event=>setDraft(Number(event.target.value)),
+    onBlur:finish,
+    onKeyDown:event=>{if(event.key==='Escape'&&pending.current!==null){event.preventDefault();event.stopPropagation();setDraft(null);}},
+  };
+}
+/**
+ * A slider in the one shared look: label and value above, the slider below, optional
+ * words under its two ends. onChange makes it live; onCommit makes one edit per drag
+ * (onDraft previews the drag). output may be a function of the shown value. children
+ * sit beside the value (for example a number box). Without label or output there is no
+ * top row. inputProps go to the range input.
+ */
+export function RangeField({label,value,min,max,step,output,ends,className='',title,onChange,onCommit,onDraft,disabled,children,inputProps,'aria-label':ariaLabel}){
+  const committed=useRangeCommit({value,onCommit:next=>onCommit?.(next),onDraft});
+  const range=onCommit?committed:{value,onChange:event=>onChange?.(Number(event.target.value))};
+  const shown=onCommit?committed.value:value,head=label!=null||output!==undefined||children;
+  return <label className={`range-field${className?' '+className:''}`} title={title}>
+    {head&&<span className="range-field-head"><span>{label}</span>{output!==undefined&&<output>{typeof output==='function'?output(shown):output}</output>}{children}</span>}
+    <input className="range-input" type="range" min={min} max={max} step={step} disabled={disabled} aria-label={ariaLabel??(typeof label==='string'?label:undefined)} {...inputProps} {...range}/>
+    {ends&&<span className="range-field-ends"><span>{ends[0]}</span><span>{ends[1]}</span></span>}
+  </label>;
+}
 export function SelectField({label,value,onChange,options,disabled=false}){return <label className="field"><span>{label}</span><select data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} value={value??''} onChange={e=>onChange(e.target.value)}>{options.map(o=>typeof o==='string'?<option key={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}
 export function Check({label,value,onChange}){return <label className="check"><input data-hotkey={`toggle:${label}`} data-hotkey-label={`Toggle ${label}`} aria-label={label} type="checkbox" checked={!!value} onChange={e=>onChange(e.target.checked)}/><span>{label}</span></label>;}
 export function VectorField({label,value,onChange,size=3,min,max,step='any'}){return <div data-hotkey-prefix={label} className="vector-field"><span>{label}</span><div>{Array.from({length:size},(_,i)=><NumberField key={i} label={['X','Y','Z','W'][i]} value={value?.[i]??0} min={min} max={max} step={step} onChange={v=>{const a=Array.from(value||new Float32Array(size));a[i]=v;onChange(a);}}/>)}</div></div>;}

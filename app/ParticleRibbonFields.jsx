@@ -1,16 +1,13 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ribbonQuickValues,setRibbonQuick} from '../src/ribbon-quick.js';
-import {useDraftNumber} from './Fields.jsx';
+import {RangeField,useDraftNumber} from './Fields.jsx';
 
 const hex=color=>'#'+Array.from(color,v=>Math.round(Math.min(1,Math.max(0,v))*255).toString(16).padStart(2,'0')).join('');
 const round=value=>Math.round(value*100)/100;
 
-/** A range that edits a draft while dragging and commits one undo step on release. */
+/** A ribbon slider: one undo step per drag, in the shared slider look. */
 function Slider({label,title,value,min,max,step,format=round,onCommit}){
- const [draft,setDraft]=useState(null),shown=draft??value;
- const commit=()=>{if(draft!=null&&draft!==value)onCommit(draft);setDraft(null);};
- return <label className="ribbon-box-row" title={title}><span>{label}</span><input aria-label={'Ribbon '+label.toLowerCase()} type="range" min={min} max={Math.max(max,value)} step={step} value={shown}
-  onChange={e=>setDraft(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} onBlur={commit}/><output>{format(shown)}</output></label>;
+ return <RangeField title={title} label={label} aria-label={'Ribbon '+label.toLowerCase()} min={min} max={Math.max(max,value)} step={step} value={value} output={format} onCommit={onCommit}/>;
 }
 
 function NumberRow({label,title,value,min,step='any',onCommit}){

@@ -3,7 +3,7 @@ import AnimationPreviewTools from './AnimationPreviewTools.jsx';
 import { cropBetween, cropPresetRect, SHOWCASE_CROP_PRESETS } from './showcase-crop.js';
 import { createShowcaseDirector, overflowEntries, SHOWCASE_QUALITY } from './showcase-director.js';
 import ShowcaseLayerTools from './ShowcaseLayerTools.jsx';
-import { useDraftNumber } from './Fields.jsx';
+import { RangeField, useDraftNumber } from './Fields.jsx';
 import './showcase.css';
 import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
@@ -47,7 +47,7 @@ function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
   return <label className="showcase-extra-time" title="Seconds added at the end. A negative number cuts the end off.">Extra Time<input aria-label={label} type="number" step={.01} value={value} onChange={event=>onChange(event.target.value===''?'':Number(event.target.value)||0)}/><output title={`Sequence: ${base}s, including effects. Total: ${total}s.`}>{total}s</output></label>;
 }
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
-  return <label className="showcase-slider">{label}<input aria-label={label} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))}/><output>{value}%</output></label>;
+  return <RangeField className="showcase-slider" label={label} min={min} max={max} value={value} output={`${value}%`} onChange={onChange}/>;
 }
 function Dialog({ title, children, onClose, onSubmit, footer, onPointerDown, onPointerUp }) {
   const element = useRef(null);

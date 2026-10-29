@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
 
 // The shared field hooks run against a tiny hook runner: each render() calls the
 // hook again with the kept state, then runs the effects whose inputs changed.
@@ -25,6 +27,7 @@ function hookRunner() {
     useEffect: (run, deps) => { const index = effect++, old = effects[index]; if (!old || !deps || deps.some((value, i) => !Object.is(value, old[i]))) queued.push(run); effects[index] = deps; },
   };
   react.useLayoutEffect = react.useEffect;
+  react.useCallback = run => run;
   return { react, render(hook, props) { state = ref = effect = 0; queued = []; const result = hook(props); queued.forEach(run => run()); return result; } };
 }
 const fieldsSource = await bundle('Fields.jsx');
@@ -100,4 +103,68 @@ test('disabled fields never commit', () => {
   box.type('2'); box.key('Enter');
   assert.deepEqual(commits, []);
   assert.equal(box.field.value, 1);
+});
+
+function rangeField(props) {
+  const runner = hookRunner(), { useRangeCommit } = load(fieldsSource, runner.react);
+  let current = props, range = runner.render(useRangeCommit, current);
+  const listeners = {}, node = { addEventListener: (name, run) => { listeners[name] = run; }, removeEventListener: name => { delete listeners[name]; } };
+  range.ref(node);
+  return {
+    get range() { return runner.render(useRangeCommit, current); },
+    rerender(next) { current = { ...current, ...next }; range = runner.render(useRangeCommit, current); },
+    move(value) { range.onChange({ target: { value: String(value) } }); },
+    release() { listeners.change?.(); },
+    key(key) { const event = { key, prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } }; range.onKeyDown(event); return event; },
+    blur() { range.onBlur(); },
+  };
+}
+
+test('a slider drag moves a draft and commits once on release', () => {
+  const commits = [], drafts = [], slider = rangeField({ value: 10, onCommit: value => commits.push(value), onDraft: value => drafts.push(value) });
+  slider.move(20); slider.move(35);
+  assert.equal(slider.range.value, 35);
+  assert.deepEqual(commits, []);
+  slider.release();
+  assert.deepEqual(commits, [35]);
+  assert.deepEqual(drafts, [20, 35, null]);
+  slider.release(); slider.blur();
+  assert.deepEqual(commits, [35]);
+});
+
+test('Escape drops a slider draft without committing and keeps the key from closing the window', () => {
+  const commits = [], slider = rangeField({ value: 10, onCommit: value => commits.push(value) });
+  slider.move(50);
+  const escape = slider.key('Escape');
+  assert.equal(escape.stopped, true);
+  assert.equal(slider.range.value, 10);
+  slider.release();
+  assert.deepEqual(commits, []);
+  assert.equal(slider.key('Escape').stopped, false, 'without a drag Escape still reaches the window');
+});
+
+test('a slider released at its old value commits nothing; leaving it commits the drag', () => {
+  const commits = [], slider = rangeField({ value: 10, onCommit: value => commits.push(value) });
+  slider.move(10); slider.release();
+  assert.deepEqual(commits, []);
+  slider.move(12); slider.blur();
+  assert.deepEqual(commits, [12]);
+});
+test('every slider wrapper draws the one shared slider look', () => {
+  const { RangeField } = load(fieldsSource);
+  const html = renderToStaticMarkup(React.createElement(RangeField, { className: 'ax-slider', label: 'Weight', output: 40, ends: ['Light', 'Heavy'], min: 0, max: 100, value: 40, onChange() {} }));
+  assert.match(html, /^<label class="range-field ax-slider"><span class="range-field-head"><span>Weight<\/span><output>40<\/output><\/span><input class="range-input" type="range"[^>]*aria-label="Weight"/);
+  assert.match(html, /<span class="range-field-ends"><span>Light<\/span><span>Heavy<\/span><\/span><\/label>$/);
+  const bare = renderToStaticMarkup(React.createElement(RangeField, { 'aria-label': 'Speed', min: 1, max: 300, value: 100, onCommit() {} }));
+  assert.doesNotMatch(bare, /range-field-head/, 'a slider without label or value has no top row');
+  const source = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
+  for (const file of ['AnimXL.jsx', 'AutoCorpse.jsx', 'ShowcaseWorkspace.jsx', 'PaintStudioLayout.jsx', 'ParticleRibbonFields.jsx', 'AnimationController.jsx']) assert.match(source(file), /<RangeField /, file + ' uses the shared slider');
+  for (const file of ['ParticleCluelessControls.jsx', 'MeshDensitySlider.jsx']) assert.match(source(file), /className="range-input" [^>]*type="range"/, file + ' adopts the shared look');
+  // The wrappers no longer style their own slider.
+  assert.doesNotMatch(source('anim-xl.css') + source('auto-corpse.css'), /\.ax-slider|\.ax-ends/);
+  assert.doesNotMatch(source('showcase.css'), /\.showcase-slider (input|output)|\.showcase-dialog input\[type=range\]/);
+  assert.doesNotMatch(source('paint-studio.css'), /\.studio-slider\{|\.studio-slider input\[type=range\]/);
+  assert.doesNotMatch(source('mesh-density.css') + source('particle-editor.css') + source('AnimationController.css'), /accent-color:#dfa94c|ribbon-box-row input\[type=range\]|ac-actual-speed input\[type=range\]/);
+  assert.match(source('styles.css'), /\.range-field\.range-field\{/);
+  assert.match(source('theme.css'), /input\[type=range\]\.range-input\{accent-color:var\(--ui-accent\)\}/);
 });

@@ -9,6 +9,7 @@ import { loadEventCatalog } from './node-event-data.js';
 import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
+import { RangeField } from './Fields.jsx';
 
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
@@ -22,13 +23,9 @@ const ADD = {
   hand: { label: 'Hand', length: .08, half: .03, rect: [.315, .75, .625, .5] },
 };
 
-// Same slider look as AnimXL: label and value above, plain-language ends below.
+// The shared slider look: label and value above, plain-language ends below.
 function Slider({ label, low, high, tip, value, onChange, onStart }) {
-  return <label className="ax-slider" title={tip}>
-    <span className="ax-slider-row"><span>{label}</span><output>{value}%</output></span>
-    <input type="range" min="25" max="200" step="5" value={value} aria-label={label} title={tip} onPointerDown={onStart} onKeyDown={onStart} onChange={event => onChange(Number(event.target.value))}/>
-    <span className="ax-ends"><span>{low}</span><span>{high}</span></span>
-  </label>;
+  return <RangeField className="ax-slider" title={tip} label={label} output={`${value}%`} ends={[low, high]} min="25" max="200" step="5" value={value} inputProps={{ title: tip, onPointerDown: onStart, onKeyDown: onStart }} onChange={onChange}/>;
 }
 
 /** A chalk line around the dead body on the ground, for the preview only: the

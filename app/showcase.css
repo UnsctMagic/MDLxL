@@ -42,8 +42,6 @@ button.showcase-wide { margin-top:4px; }
 .showcase-list-actions button { min-height:19px; padding:0 5px; }
 .showcase-camera-actions button { flex:1; }
 .showcase-camera-list { min-height:60px; max-height:100px; }
-.showcase-slider input[type=range] { width:85px; min-width:25px; margin-left:auto; }
-.showcase-slider output { width:31px; text-align:right; }
 .showcase-orbit-prompt,.showcase-orbit-summary { padding:5px; line-height:1.5; border:1px inset #aaa; margin-top:4px; }
 .showcase-orbit-prompt button,.showcase-orbit-summary button { margin:3px 3px 0 0; }
 .showcase-sidebar .capture-error,.showcase-error { color:#b4151b; margin:3px 0; }
@@ -53,7 +51,6 @@ button.showcase-wide { margin-top:4px; }
 .showcase-dialog::backdrop { background:#0003; }
 .showcase-dialog form > footer { padding:6px; display:flex; justify-content:flex-end; gap:5px; }
 .showcase-dialog input[type=number] { width:80px; }
-.showcase-dialog input[type=range] { flex:1; }
 .showcase-dialog select { max-width:195px; }
 
 .showcase-crop-controls { display:flex; gap:4px; margin-top:4px; }

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
+import { RangeField } from './Fields.jsx';
 import { isTypingTarget } from '../src/preferences.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
@@ -63,11 +64,7 @@ const USER_PRESETS = 'mdlxl.animxl.presets';
 const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind', 'collapse', 'collapseAt', 'collapseDir', 'collapseStyle', 'bounce'];
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
-  return <label className="ax-slider" title={tip}>
-    <span className="ax-slider-row"><span>{label}</span><output>{Math.round(value)}</output></span>
-    <input type="range" min="0" max="100" step="1" value={value} aria-label={label} title={tip} disabled={disabled} onChange={event => onChange(id, Number(event.target.value))}/>
-    <span className="ax-ends"><span>{low}</span><span>{high}</span></span>
-  </label>;
+  return <RangeField className="ax-slider" title={tip} label={label} output={Math.round(value)} ends={[low, high]} min="0" max="100" step="1" value={value} disabled={disabled} inputProps={{ title: tip }} onChange={next => onChange(id, next)}/>;
 }
 
 // A collapsible group: the title (and a short summary while closed) stays visible.

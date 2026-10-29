@@ -62,6 +62,8 @@
 
 :root[data-theme=dark][data-palette=warm]{--ui-panel:#302e2b;--ui-surface:#3b3834;--ui-field:#262421;--ui-trim:#49413a;--ui-text:#eee8df;--ui-muted:#bcb2a5;--ui-border:#655d52;--ui-hover:#494239}
 :root[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range]){accent-color:var(--ui-accent)}
+/* The shared slider look (styles.css .range-field) takes the theme's accent and muted text. */
+:root[data-theme] input[type=range].range-input{accent-color:var(--ui-accent)}:root[data-theme] .range-field-ends{color:var(--ui-muted)}
 :root[data-theme] :is(button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible){outline-color:var(--ui-accent)}
 :root[data-theme] :is(button.active,button[aria-pressed=true],.settings-tabs button[aria-selected=true],.re-list button.re-selected,.geoset-row.selected){border-color:var(--ui-accent);box-shadow:inset 3px 0 var(--ui-accent)}
 /* Every editor's right-hand panel shares one width; its left edge drags (SidebarResizer). */
