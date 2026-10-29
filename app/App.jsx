@@ -1711,7 +1711,7 @@ export default function App() {
       placeCorpse: async () => {
         setPlaying(false);
         const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, autoCorpse);
-        if (result) { await selectAnimationPanel('animations'); selectSequence(result.corpses[0].flesh); }
+        if (result) { await selectAnimationPanel('animations'); selectSequence(result.corpses[0].bone); }
       }
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
