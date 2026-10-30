@@ -1,4 +1,4 @@
-import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
+import { rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
 import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator, wheelZoomFactor } from './viewport-performance.js';
@@ -154,13 +154,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // A positive UV angle turns clockwise on screen: the axis points away from the viewer.
-      // The map is flat, so the 3D ring rule (direction depends on the grab point)
-      // becomes a plain drag: right/up turns clockwise, left/down back.
-      if (type === 'rotate') {
-        const options = rotationOptions(p.preferences, 'uv');
-        s.drag.rotationDrag = beginRotationDrag({ ...options, behavior: options.behavior === 'ring' ? 'linear' : options.behavior, x, y, pivot: { x: s.drag.pivotScreen[0], y: s.drag.pivotScreen[1] }, axis: [0, 0, -1] });
-      }
+      if (type === 'rotate') s.drag.rotationSensitivity = rotationOptions(p.preferences, 'uv').sensitivity;
       draw();
     }
     function pointerMove(event) {
@@ -171,7 +165,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const angle = drag.type === 'rotate' ? rotationDragDegrees(drag.rotationDrag, rawEnd.x - drag.x, rawEnd.y - drag.y, drag.pointerSensitivity) * Math.PI / 180 : 0;
+        // Flat 2D turn: only left/right counts, one degree per pixel, no pivot.
+        const angle = drag.type === 'rotate' ? -(rawEnd.x - drag.x) * drag.rotationSensitivity * drag.pointerSensitivity * Math.PI / 180 : 0;
         const factor = Math.max(0, 1 + dx / 100);
         // An axis lock squashes a turn into a skew, so rotation ignores it.
         const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
