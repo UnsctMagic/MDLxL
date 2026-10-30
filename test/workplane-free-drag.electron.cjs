@@ -182,7 +182,7 @@ const assert = require('node:assert/strict');
     });
     const previewReady = () => page.waitForFunction(() => { try { return !!previewRuntime().captureApi?.isReady; } catch { return false; } });
     // Bones is on by default and shared by Bones/Movement/Animations (PR #238), so switch it on rather than toggling it.
-    const showBones = async () => { const bones = page.getByRole('checkbox',{name:'Bones',exact:true}); if (!await bones.isChecked()) await bones.check(); assert.equal(await bones.isChecked(), true, 'Bones display on'); };
+    const showBones = async () => { const bones = page.getByRole('group',{name:'Quick display',exact:true}).getByRole('checkbox',{name:'Bones',exact:true}); if (!await bones.isChecked()) await bones.check(); assert.equal(await bones.isChecked(), true, 'Bones display on'); };
     const rotatePreview = async () => {
       await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); await page.getByRole('button', { name: 'Fit', exact: true }).click(); await idle();
       const canvas = await page.locator('[data-clean-model-canvas]').boundingBox(), before = await page.evaluate(() => previewFacing());

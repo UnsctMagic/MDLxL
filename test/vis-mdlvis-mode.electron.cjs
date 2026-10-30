@@ -89,7 +89,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
             assert.equal(data.dockInEditorRow, false); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
             assert.ok(data.hint.includes({ vertices: 'Vertex editor (F1)', bones: 'Bones · Rest pose', animation: 'Movement (F3)', animations: 'Animations' }[mode]));
           } else {
-            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 7); assert.deepEqual(data.editorNames, ['Vertices', 'Bones', 'Movement', 'Animations', 'Managers', 'Paint', 'Showcase']); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
+            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 7); assert.deepEqual(data.editorNames, ['Vertices', 'Bones', 'Movement', 'Animations', 'Managers', 'Citadel Paint', 'Showcase']); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
             assert.equal(data.short, await row.evaluate(e => { const short = e.hasAttribute('data-short-editors'); e.removeAttribute('data-short-editors'); const overflow = e.scrollWidth > e.clientWidth; if (short) e.setAttribute('data-short-editors', ''); return overflow; }));
           }
           // Exercise each checkbox and its existing assigned key in the wide VIS view.

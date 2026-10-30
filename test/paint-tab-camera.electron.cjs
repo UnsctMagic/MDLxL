@@ -8,14 +8,19 @@ if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman
 fs.mkdirSync(out,{recursive:true});const first=path.join(out,'FirstFootman.mdx'),second=path.join(out,'SecondFootman.mdx');fs.copyFileSync(fixture,first);fs.copyFileSync(fixture,second);
 const result={checks:[],errors:[]};let app,page;
 const settle=()=>settlePage(page, 250),shot=name=>page.screenshot({path:path.join(out,name+'.png')});
-const camera=()=>page.evaluate(()=>{
-  const host=document.querySelector('.viewport');
-  { const s = findFiberState(host, s => s?.renderer&&s?.perspective&&s?.controls); if (s?.renderer&&s?.perspective&&s?.controls) {const r=v=>v.toArray().map(x=>Math.round(x*1000)/1000);return {position:r(s.perspective.position),target:r(s.controls.target),zoom:s.perspective.zoom};} }
-
-  throw Error('Viewport camera not found.');
+// Paint owns a Three viewport; the ordinary editor now uses GamePreview's native canvas.
+const viewCanvas=()=>page.locator('.paint-model-view .viewport canvas:visible, .classic-view [data-clean-model-canvas]:visible, .classic-view .viewport canvas:visible');
+const camera=()=>viewCanvas().evaluate(canvas=>{
+  const native=canvas.closest('.game-preview-root');
+  const state=native?mdlxlProbe(native).runtime:findFiberState(canvas.closest('.viewport'),s=>s?.renderer&&s?.controls);
+  if(!state?.controls?.object)throw Error('Active viewport camera not found.');
+  const active=state.controls.object,r=v=>v.toArray().map(x=>Math.round(x*1000)/1000);
+  return {position:r(active.position),target:r(state.controls.target),zoom:active.zoom};
 });
 async function orbit(dx,dy,zoom){
-  const box=await page.locator('.viewport canvas').first().boundingBox(),x=box.x+box.width*.5,y=box.y+box.height*.5;
+  await viewCanvas().waitFor();assert.equal(await viewCanvas().count(),1,'one active model canvas');
+  const box=await viewCanvas().boundingBox();assert.ok(box,'active model canvas has bounds');
+  const x=box.x+box.width*.5,y=box.y+box.height*.5;
   await page.mouse.move(x,y);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');
   await page.mouse.move(x,y);await page.mouse.wheel(0,zoom);await settle();await page.mouse.move(box.x+4,box.y+4);await settle();
 }
