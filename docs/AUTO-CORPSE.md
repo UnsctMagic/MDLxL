@@ -50,6 +50,10 @@ the Death animation; decay continues from it.
 - The body goes down and disappears exactly as Blizzard's own units do: the
   same body geosets stay visible and the bones are keyed to hold that pose and
   sink. No copies or extra parts are made for the body.
+- The remains follow the owner's anatomy: two arms and two legs on ordinary
+  humanoids, distinct rider/mount bodies, four legs on centaurs and turtles,
+  and each creature's actual heads and appendages. Clothing, equipment and
+  helper controls are not additional limbs.
 - CORP creates **only the corpse**: the body parts left behind for decay
   (gutz). The corpse is sized to the unit, easy to adjust, and parts are easy to
   delete and add.
@@ -63,53 +67,69 @@ removes the old copies.
 ## What owns the result
 
 - `src/corpse-geometry.js` samples the literal last frame of each Death variant
-  using the existing animation evaluator and POSE recognition. It fits native
-  gutz skull, rib/pelvis, limb and extremity regions to the posed body. Landmark
-  lengths retain the joints' positions; widths come from the skin, including
-  skin on Mesh/Box children of the controlling joints. Width is not capped by
-  bone length. A wide body with the same joint layout therefore gets wider ribs
-  and limbs. Heads sharing one torso use a shared central rib cage.
-  Connected body components distinguish a hand/head from equipment sharing its
-  binding.
-  Forearms continue into the atlas's hand region; legs continue to the foot's
-  skin tip in the native long-bone regions, never stretched hand texture.
-  The pieces follow the native gutz standard measured on the 58 study
-  models that have one (`NATIVE` in `corpse-geometry.js`). Every limb gets
-  one long-bone rectangle for its upper and one for its lower half (a longer
-  joint chain is split once near half its length; a limb starts where it
-  leaves the trunk, so a thigh above a three-joint leg belongs to the leg);
-  each arm gets one palm rectangle; feet, neck and short trunk links get
-  none. Rectangles keep the native width/length (bones 0.47, hands 0.62, ribs
-  0.57; a broad body widens them up to 0.8, never further, since a wider
-  rectangle squashes the bone picture into strings). Sizes come from the
-  unit's typical limb bone (joint to joint), which predicted the native sizes
-  most steadily: ribs 2.57 and skull 1.27 limb bones long, a hand 1.62 of its
-  forearm, and each bone reaching 1.6x its own joints. Heights are shares of
-  the dead body's height: legs, arms, hands and ribs on fixed levels from
-  12% up in 4% steps. The skull follows its own length instead: every native
-  skull is one mesh scaled evenly (87 SD units with a gutz skull), 0.72 of its
-  length wide and 0.42 tall, resting 0.22 of its length above the ground. A
-  crown tied to the body's height floated 6 units too high and came out flat
-  (re-measured 30 Oct 2026; per unit the skull now matches the native one in
-  length 1.00x, width 0.92x and crown 1.03x, medians); overlapping pieces of one
-  kind are lifted a quarter level apart and no overlapping pair shares a
-  height. Measured against the native corpses on the same models, piece
-  lengths, widths and heights match within about 10% (medians), and ours
-  covers a median 78% of the native corpse's ground area. Pieces are not cut
-  to the body outline. One rib cage per unit: a separate leg-only rig gets
-  none of its own.
-  Whatever hangs below a hand is held equipment (a weapon, its head or
-  chain, a carried object) and never becomes a skull, limb or branch,
-  whatever its bones are called.
-  A body whose head is not recognized still gets a trunk: the skin of the
-  joints its limbs hang from, along that skin's long axis.
-  A joint that fans out to several pieces is linked to them only where the
-  body actually lies along the link; spokes to scattered pieces are skipped.
-  A single continuing link, such as a tail tip, is kept.
+  with the shared animation evaluator and POSE recognition. Skull, ribs/pelvis,
+  leg bones and hands are fitted to the posed skin of their own body parts.
+  Shared body surfaces retain all disconnected skin patches (including belly
+  panels and boots); keeping only the patch nearest a joint produced tiny parts.
+  Hands keep the closest palm component so a club or shield sharing the binding
+  cannot set their size. A hand reference without skin uses its lower-arm skin.
+  Following the owner's correction, a normal articulated arm gets an upper-arm
+  bone plus the native hand picture over its forearm (reach 1.62 forearms).
+  A chain with no separate upper-arm segment keeps its hand piece. Each leg
+  gets two long bones, with its lower part including the foot skin. No copied
+  body is made. Recognized tail joints own their skin even when POSE exposes
+  only the terminal tail handle; tail skin cannot lengthen the rib cage.
+  Named robe/skirt/dress/flap/cape/cloth/cloak panels do not supply anatomical
+  fitting samples, including vertices blended with an anatomical bone. A
+  backpack is equipment, never a long bone.
+  Sided hip/knee/foot controls omitted from IK suggestions still locate static
+  remains, including independently animated feet; no hierarchy is rewritten.
+  When hips identify the pelvis, torso skin is limited to the neck/pelvis region
+  with 20% end reach; the shoulder/hip span limits rib width to 1.25 times that
+  span. Costume geometry bound directly to the chest cannot widen the rib cage
+  indefinitely. Clothing extending toward the feet is not a longer rib cage.
+  A single-headed, two-armed humanoid without mapped legs can use its authored,
+  detached left/right foot references: carry them with the final body transform,
+  split each hip-to-foot segment at its midpoint, and fit native long-bone pieces.
+  No new rig joints are created; this does not apply a human skeleton to animals
+  or mounted models. Knee placement in this rigid-skirt case is inferred.
+  Quadruped torso fitting uses the front and hind leg groups of the same body,
+  rather than treating the front-leg junction nearest the head as its pelvis.
+  A centaur's upright and four-legged trunks retain separate skin regions and
+  rib pieces. A tail starts at the tail itself; its connection back to the waist
+  is not a bone across the trunk. A one-control tail uses its own skin extent.
+
+  The automatic fit measures the union of the projected corpse meshes and targets
+  0.826 of the anatomical surface area: the median measured on 206 Blizzard SD units
+  with a visible gutz corpse. Named garment triangles are excluded from this
+  sizing target while remaining in the chalk outline. Thus a robed model may
+  cover less of its dressed outline; increasing its robe must not increase its
+  bones. The fit retains each part's length and location,
+  adjusting widths to reach that area; the native skull scales uniformly about
+  its head centre, preserving width/length 0.724, crown/length 0.42 and base/length
+  0.218. The owner explicitly chose native overall size with small overhangs over
+  strict containment (30 Oct 2026). This is mesh footprint area, including the
+  transparent padding of the gutz rectangles, not an alpha-pixel measurement.
+  Targeting the median does not reproduce every species' native corpse ratio.
+  Owner review of the captures remains the acceptance gate.
+
+  The chalk outline stays the equipment-filtered final body footprint. Default
+  fitting can grow or shrink; it no longer repeatedly shrinks every piece whose
+  rectangular corners cross the outline. User-edited pieces bypass automatic
+  fitting, and the existing Size/Height controls retain their behavior.
+  Held skeletons remain excluded. A separate Death chest with a POSE-recognized
+  anatomical root still supplies its head, as on the owner's dismembered Ratling;
+  a separate named flail root does not. Heads sharing a torso share one rib cage.
+  Headless bodies retain the existing skin-based trunk and rigid-remnant rules.
+  Height layering keeps overlapping parts apart; Decay behavior stays in its
+  existing owner below.
 - `src/auto-corpse.js` applies the edit through `EditorDocument`. It reuses
   matching Decay Flesh/Bone intervals, promotes matching generic Decay to Decay
   Flesh, or appends 60-second non-looping clips. Alternate Death variants have
   separate matching decay clips and terminal poses.
+- `app/AutoCorpse.jsx` resolves the draft's native gutz texture with the existing
+  game-data loader when the original model did not use it. Supplied model
+  textures retain precedence.
 - `app/App.jsx` owns the normal edit/Undo/selection path; `AppToolbar.jsx` owns
   only the compact temporary button. The normal camera controls remain active.
 
@@ -175,6 +195,22 @@ The corpus verifier checks the exact terminal body pose, original geometry,
 transform keys outside the decay clips, burial before each final-frame hide, MDX/MDL reopen,
 Undo/Redo and repeat-click behavior. A source MDL export limitation is reported
 separately only if the untouched input reproduces the exact same error.
+
+`test/corpse-size.electron.cjs` clicks CORP/Create, saves through the native MDX
+Save As dialog, measures the saved footprint against the fixture's original
+native corpse, and checks normal mouse rotation plus drag/Escape/Delete/Ctrl+Z.
+It uses no forced focus, synthetic DOM events or state mutation. Capture mode
+accepts `MDLXL_SHOT_FIXTURES` (semicolon-separated Windows model paths) and
+`MDLXL_SHOT_OUT`; it records both the corpse and Show body at the same camera,
+including explicit errors. It waits for the draft gutz asset to resolve before
+recording the preview; Krell reproduces the old missing-texture failure.
+Run via the existing hidden packaged runner.
+Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
+`MDLXL_CORPSE_FLAIL` (the owner's Fx model), `MDLXL_CORPSE_DETACHED` (Ratling),
+`MDLXL_CORPSE_TAILED` (Skink), `out/pose/Necromancer.mdx`, and
+`MDLXL_CORPSE_ROBED` (owner Lahmian), and `out/pose/Medivh.mdx`, `Guldan.mdx`,
+`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`. The robe regressions check actual leg
+segments, ribs ending at the pelvis, and invariance when garment vertices extend.
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
 an isolated profile. Set `MDLXL_CORPSE_FIXTURE`, `MDLXL_TEST_OUT`, and optionally
