@@ -326,6 +326,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check('help leaves out the SD guides while SD Brain is parked', !(await tool('mdlxl_help')).topics.some(topic => topic.includes('AI-SD-')));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
+  const recipe = /```js\n([^]*?)\n```/.exec(fs.readFileSync(path.join(__dirname, '../docs/WC3-EDITING-OPTIMIZATION.md'), 'utf8'))[1];
+  const optimized = await tool('mdlxl_script', { target: context.target, code: recipe + '\n', timeoutMs: 120000 });
+  check('sandbox can serialize and call unchanged OptimizeXL without an adapter', optimized.applied === false && optimized.value.report.afterBytes > 0 && optimized.value.candidate.Geosets.length === 2);
   await tool('mdlxl_select', { target: context.target, geosetIds: [0], activeGeoset: 0 });
   await page
     .locator('.classic-view canvas')

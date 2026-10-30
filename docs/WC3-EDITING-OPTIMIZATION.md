@@ -50,3 +50,35 @@
 Versions last until MDLxL closes. After restarting, reopen the accepted saved file
 to establish the reference again. The owner judges the result; neither a native
 percentile nor a small measured distance proves acceptance in Warcraft III.
+
+## Run an existing OptimizeXL stage from a script
+
+The sandbox already exposes the document serializer and `runOptimizeStage`.
+Use this read-only recipe to return a detached candidate and its unchanged
+OptimizeXL report; inspect the stage/settings signatures first. The example
+uses animation strength zero for exact cleanup; adjustable reduction is a
+separate measured candidate. The document owner handles colour conversion,
+node order, validation and reopening. No raw writer or second reducer is needed.
+
+```js
+const { openDocument } = await api.module('editor-document');
+const { runOptimizeStage, simpleSettings } = await api.module('optimizexl');
+const doc = openDocument('Version { FormatVersion ' + model.Version +
+  ', }\nModel "AI working copy" { BlendTime 150, }', 'working.mdl');
+const sections = Object.keys(model).filter(key => key !== 'Nodes');
+doc.apply('Working model snapshot', sections, working => {
+  Object.assign(working, structuredClone(model));
+});
+const source = doc.serialize('mdx');
+const report = runOptimizeStage(source, 'animation', simpleSettings('animation', 0, doc.model));
+const candidate = openDocument(report.bytes, 'candidate.mdx').model;
+return { candidate, report };
+```
+
+Measure `candidate` against `references["version:ACCEPTED"].model` using
+`ai-motion-compare` before choosing it. To commit a chosen candidate, run the
+recipe in `mdlxl_script` with `edit:true`, a plain label and the canonical
+sections actually changed in `scope`; replace its final return with
+`Object.assign(model, candidate); return report;`. The existing script owner
+validates and applies this as one Undo step. Returning a candidate from a
+read-only script never applies it, and this recipe changes no OptimizeXL rule.
