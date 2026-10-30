@@ -34,7 +34,7 @@ Per part: **Keep**, **Delete**, or **Merge into N** (a kept, compatible part of 
 
 Per group: **Make opaque** (bottom layer becomes Opaque; upper layers such as team colour stay), **Make two-sided** (every layer), **Share identical records**, **Use proposed fix**, **Leave as is** and **Clear**. A material shared with anything outside the choice (another part or a ribbon) is copied before it changes.
 
-Choices are kept per group while other groups are refined. The After preview and the **What changes** list show the result of every selected choice before it is applied; **Check** chips jump the synchronized previews to the animations whose visibility changes. Both previews rotate together with the mouse.
+Choices are kept per group while other groups are refined. The After preview and the **What changes** list show the result of every selected choice before it is applied; **Check** chips jump the synchronized previews to the animations whose visibility changes. Both previews rotate together with the mouse. Opening a group frames its parts once; choices, Check chips and animation changes keep the user's camera (`frameKey` in `GamePreview`).
 
 ## Apply
 

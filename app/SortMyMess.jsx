@@ -243,7 +243,7 @@ export default function SortMyMess({ doc, modelPath, textureAssets, preferences,
   const changedNumbers = applied ? applied.report.oldToNew.map((next, old) => ({ old, next })).filter(entry => entry.next !== entry.old) : [];
   const mergedInto = new Map();
   for (const [id, target] of applied?.report.merged || []) mergedInto.set(target, [...(mergedInto.get(target) || [target]), id]);
-  const common = { textureAssets, modelPath, preferences: previewPreferences, teamColor, presentation: 'preview', sequenceIndex: sequence, time, seekId, playing: false, syncPlayback: true, playbackRunning: playing, playbackGlobalTime: globalTime, cameraMode: 'rotate', compareCamera: camera.current, preserveCameraView: true, showGrid: false, showAxes: false, showParticles: false };
+  const common = { textureAssets, modelPath, preferences: previewPreferences, teamColor, presentation: 'preview', sequenceIndex: sequence, time, seekId, playing: false, syncPlayback: true, playbackRunning: playing, playbackGlobalTime: globalTime, cameraMode: 'rotate', compareCamera: camera.current, preserveCameraView: true, frameKey: group?.key, showGrid: false, showAxes: false, showParticles: false };
   return <ToolWindow title="Sort My Mess" overlayClass="smm-overlay" className="smm-window" windowRef={root} onClose={onClose} sectionProps={{ 'data-hotkey-scope': 'sort-my-mess' }}
     caption={<><strong>Sort My Mess</strong><span className="smm-muted">{`${inventory.counts.geosets} geosets · ${inventory.counts.materials} materials · ${inventory.counts.textures} textures · ${groups.length} texture groups`}</span></>}>
       <div className="smm-body">
