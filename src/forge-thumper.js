@@ -1,15 +1,8 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from 'three';
 
+// Plate colours of the gallery thumbnail. U picks one of eight columns; the
+// model itself gets no texture and shows as clay until the user assigns one.
 export const THUMPER_COLORS = ['#0c0e12', '#202329', '#393d44', '#5b6067', '#7f848b', '#c20c14', '#ff1a20', '#e6e8eb'];
-export const THUMPER_TEXTURE = 'MDLxL_Forge\\thumperxl-v1.tga';
-export function thumperImage() {
-  const width = 128, height = 16, data = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-    const hex = THUMPER_COLORS[Math.floor(x / 16)];
-    data.set([1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).concat(255), (y * width + x) * 4);
-  }
-  return { width, height, data };
-}
 
 /** Front contours and plate boundaries traced from public/branding/MDLxL.png.
  * Mirror its wireframe half into a complete helmet, retaining the horns,

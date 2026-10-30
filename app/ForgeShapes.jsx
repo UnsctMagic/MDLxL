@@ -4,9 +4,9 @@ import { createPortal } from 'react-dom';
 import { ArrowUpFromLine, Scissors, PackagePlus, FlipHorizontal2, Combine } from 'lucide-react';
 import { Tool } from './EditorControls.jsx';
 import { transformVertices, setVertexPositions } from '../src/editor-commands.js';
-import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_DEFAULTS, PRIMITIVE_TEXTURE } from '../src/forge-primitives.js';
-import { thumperImage, THUMPER_TEXTURE, THUMPER_COLORS } from '../src/forge-thumper.js';
-import { encodeForgeTga } from '../src/forge.js';
+import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_DEFAULTS } from '../src/forge-primitives.js';
+import { THUMPER_COLORS } from '../src/forge-thumper.js';
+import { NO_MATERIAL } from '../src/forge-clay.js';
 import ForgeEditor from './ForgeEditor.jsx';
 import { ForgeMoldTools, ForgeMoldControls } from './ForgeMoldTools.jsx';
 import { forgeMoldState, prepareForgeMold, previewForgeMold, clamp } from '../src/forge-molding.js';
@@ -20,7 +20,6 @@ import { forgePartsFromVertices, forgeVertexSelection, pickForgeParts, pickForge
 import { createForgeShape, forgeShapeMesh, forgeSelectionVertices, forgeSelectionCenter, forgeSelectionNormal, extrudeForgeFaces, insetForgeFaces, forgeCutFrame, cutForgeShape } from '../src/forge-shape-editing.js';
 import { blendForgeFaces, forgeDetailFaces, forgeDetailPreview, forgeRepeatDefaults, repeatForgeDetail, snapForgeCut, snapForgeExtrusion } from '../src/forge-detail-editing.js';
 import {magnetizeForgeDetail,moveMagnetizedDetail,refitMagnetizedDetail,closeForgeDetail} from '../src/forge-detail-magnet.js';
-import { resolveGameFiles } from './desktop.js';
 
 // Small, static previews use the same geometry as the shape being added.
 function ShapeThumbnail({ shape }) {
@@ -51,7 +50,7 @@ function ShapeThumbnail({ shape }) {
 
 export default function ForgeShapes({ modelPath, preferences, editorState, onClose, onCommit, onBusyChange }) {
   const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [palette, setPalette] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [stock, setStock] = useState(null), [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' });
+  const [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' });
   const [historySize, setHistorySize] = useState([0, 0]), [frame, setFrame] = useState(0), [toolRequest, requestTool] = useState(null);
   const history = useRef([]), future = useRef([]), clipboard = useRef([]), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] });
   const [extrudeReady, setExtrudeReady] = useState(false), [preview, setPreview] = useState(null);
@@ -99,16 +98,6 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const handles = useMemo(() => mold ? forgeMoldHandles(mold) : null, [mold]);
   const displayGhost=useMemo(()=>repeatResult?.ghost && repeat?.magnet ? closeForgeDetail(repeatResult.ghost) : repeatResult?.ghost,[repeatResult,!!repeat?.magnet]);
   const shown = displayGhost ? {...draft,shapes:[...draft.shapes,displayGhost],mode:'Faces',selection:{[displayGhost.id]:displayGhost.faces.map(f=>f.id)}} : moldResult?.draft || cutPreview?.draft || preview || draft;
-  const helmet = useMemo(thumperImage, []);
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const records = await resolveGameFiles([PRIMITIVE_TEXTURE], modelPath);
-      const asset = records?.find(record => record.bytes);
-      if (asset && active) setStock(asset);
-    })().catch(e => { if (active) setError(e.message); });
-    return () => { active = false; };
-  }, [modelPath]);
   const record = before => { history.current.push(before); if (history.current.length > 80) history.current.shift(); future.current = []; setHistorySize([history.current.length, 0]); };
   const change = next => { record(draft); setDraft(next); setError(''); };
   const undo = redo => { const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop(); if (!previous) return; to.push(draft); setDraft(previous); setError(''); setHistorySize([history.current.length, future.current.length]); };
@@ -117,8 +106,9 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const cutEntries = useMemo(() => cut?.base.shapes.map(shape => ({ shape, mesh: forgeShapeMesh(shape) })) || [], [cut?.base]);
   const surfaceColors = useMemo(() => entries.map(({shape}, i) => shape.id==='repeat-preview'?0xffae38:SURFACE_COLORS[i % SURFACE_COLORS.length]), [entries]);
   const modelingOverlay = useMemo(() => entries.map(({ shape, mesh }) => ({...forgeModelingOverlay(shape, mesh, shown.selection[shape.id], shown.mode),...(shape.id==='repeat-preview'&&{preview:true})})), [entries, shown.selection, shown.mode]);
-  const model = useMemo(() => ({ Version: 800, Info: { Name: 'Forge' }, Nodes: [], Bones: [], PivotPoints: [], Sequences: [], GlobalSequences: [], GeosetAnims: [], TextureAnims: [], Textures: [{ Image: PRIMITIVE_TEXTURE }, { Image: THUMPER_TEXTURE }], Materials: [0, 1].map(TextureID => ({ Layers: [{ TextureID, Alpha: 1, Shading: 16 }] })), Geosets: entries.map(({shape, mesh}) => ({ ...mesh.geosets[0], MaterialID: shape.texturePath === THUMPER_TEXTURE ? 1 : 0 })) }), [entries]);
-  const textureAssets = useMemo(() => new Map([[PRIMITIVE_TEXTURE, stock], [THUMPER_TEXTURE, { name: THUMPER_TEXTURE, bytes: encodeForgeTga(helmet) }]]), [stock, helmet]);
+  const model = useMemo(() => ({ Version: 800, Info: { Name: 'Forge' }, Nodes: [], Bones: [], PivotPoints: [], Sequences: [], GlobalSequences: [], GeosetAnims: [], TextureAnims: [], Textures: [], Materials: [], Geosets: entries.map(({mesh}) => ({ ...mesh.geosets[0], MaterialID: NO_MATERIAL })) }), [entries]);
+  // Shapes carry no texture: each one previews in its own clay colour.
+  const textureAssets = useMemo(() => new Map(), []);
   const selection = useMemo(() => forgeVertexSelection(entries, shown.selection, shown.mode), [entries, shown.selection, shown.mode]);
   const selected = draft.shapes.filter(s => draft.selection[s.id]?.length), count = Object.values(draft.selection).reduce((n, ids) => n + ids.length, 0);
   const selectedFaces = shape => {
@@ -188,7 +178,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   };
   const addShape = name => {
     try {
-      let shape = createForgeShape(buildForgePrimitive({ ...settings, shape: name, zUp: true }), { id: nextId.current++, name, texturePath: name === 'ThumperXL' ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE });
+      let shape = createForgeShape(buildForgePrimitive({ ...settings, shape: name, zUp: true }), { id: nextId.current++, name });
       if (draft.shapes.length) { const delta = besideOffset(shape.vertices); shape = { ...shape, vertices: shape.vertices.map(p => p.map((n, a) => n + delta[a])) }; }
       const floor = Math.min(...shape.vertices.map(p => p[2]));
       shape = { ...shape, vertices: shape.vertices.map(([x, y, z]) => [x, y, z - floor]) };
@@ -372,7 +362,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const addToModel = async () => {
     setBusy(true); onBusyChange(true); setError('');
     try {
-      const items = draft.shapes.map(shape => ({ mesh: forgeShapeMesh(shape), texturePath: shape.texturePath, asset: shape.texturePath === THUMPER_TEXTURE ? { name: THUMPER_TEXTURE, source: 'forge', bytes: encodeForgeTga(helmet) } : stock }));
+      const items = draft.shapes.map(shape => ({ mesh: forgeShapeMesh(shape), name: shape.name }));
       if (await onCommit({ items }) !== false) onClose();
     } catch (e) { setError(e.message); } finally { setBusy(false); onBusyChange(false); }
   };
