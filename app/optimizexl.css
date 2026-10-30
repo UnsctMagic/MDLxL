@@ -11,3 +11,5 @@
 
 .ox-root{position:relative}.ox-confirm-backdrop{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#0006}.ox-confirm{width:min(380px,90%);padding:14px;display:flex;flex-direction:column;gap:9px;background:var(--ui-panel,#eee);color:var(--ui-text,#222);border:1px solid var(--ui-border,#888);box-shadow:0 4px 18px #0005}.ox-confirm p{margin:0;font-size:13px;line-height:1.4}.ox-confirm .ox-actions{margin-top:4px}
 .ox-root .ox-fix-all{font-weight:600}.ox-root .ox-fix-all[aria-pressed=true]{background:var(--ui-accent,#365f81);color:white}
+/* Longer translations (Russian, Spanish) wrap the playback buttons instead of widening the panel. */
+.ox-play{flex-wrap:wrap}
