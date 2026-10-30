@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations } from '../app/ai-review.js';
 import { createChanges } from '../src/history-store.js';
 import { encodeAiValue } from '../src/ai-model.js';
+import { createVersionStore } from '../src/ai-versions.js';
 const { choosePictures } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 
 // One bone and one triangle; Portrait Talk 0–100, Walk 200–400 (the flail swings in Walk).
@@ -32,6 +33,7 @@ function editor({ sequence = 0, frame = 50 } = {}) {
   const drawn = [];
   const bridge = {
     targets: new Map([['t', target]]),
+    versionStore: createVersionStore(),
     requireTarget: () => target,
     state: () => ({ sessions: [sessions[0]] }),
     referenceSessions: () => sessions.slice(1),
@@ -166,6 +168,29 @@ test('review returns app-owned motion for touched animations only and reuses it 
   sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
   assert.equal((await inspect(bridge)).review.motion.sequences[0].distance.distance, 35);
   assert.notEqual(target.review.motionCache.value, cached);
+});
+
+test('an accepted baseline replaces checks before, pictures and motion in a follow-up from a rejected candidate', async () => {
+  const { bridge, target, sessions, edit, drawn } = editor();
+  bridge.versionStore.save('target', 'accepted', unit(), 'Owner accepted this motion');
+  await edit(); // a rejected 30-unit swing becomes the next job's starting state
+  delete target.review; await beginAiReview(bridge, 't');
+  sessions[0].doc.model.Bones[0].Translation.Keys[2].Vector[0] = 40;
+  sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
+  let checked;
+  window.desktop.aiScript = async payload => {
+    checked = payload;
+    payload.references['version:accepted'].model.Bones[0].Translation.Keys[2].Vector[0] = -100;
+    return { value: [{ name: 'accepted motion', passed: true }], model: payload.model, before: payload.before };
+  };
+  const result = await inspect(bridge, { baseline: 'accepted' });
+  assert.equal(checked.before.Bones[0].Translation.Keys[2].Vector[0], 5);
+  assert.equal(drawn[0].model.Bones[0].Translation.Keys[2].Vector[0], 5);
+  assert.equal(result.review.motion.sequences[0].distance.distance, 35);
+  assert.equal(result.review.baseline, 'accepted'); assert.match(result.images[0].label, /version "accepted"/);
+  assert.equal(bridge.versionStore.get('target', 'accepted').Bones[0].Translation.Keys[2].Vector[0], 5, 'checks receive detached references');
+  assert.equal(target.review.before.Bones[0].Translation.Keys[2].Vector[0], 30, 'job baseline remains available');
+  await assert.rejects(inspect(bridge, { baseline: 'missing' }), /no version/);
 });
 
 

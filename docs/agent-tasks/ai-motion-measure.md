@@ -32,6 +32,7 @@ Updated: 2026-10-30
 ## Changes and verification
 
 - Item 1: read-only comparison module and review/outside-check integration; generated regressions cover local visibility, colour, geometry, cubic rotation, topology and phase/global matching.
+- Item 2: optional accepted-version baseline for checks, pictures and motion; detached version references and exact research prompt rule. Follow-up regression starts from a rejected candidate and verifies the accepted reference remains intact.
 - Checks: untouched base build and compatibility pass. Full source: 2,421 pass, 23 skip, 6 fail (five missing FFmpeg assets and the existing temp-path test under explicit MDLXL_TEMP). Item 1 AI suite: 284 pass, 1 skip, no failures.
 - Remaining: items 2–8, full verification, private replay, hidden packaged checks and PR.
 

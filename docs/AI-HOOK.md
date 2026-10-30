@@ -375,6 +375,14 @@ Undo step, so you can undo it too. This means "go back to the good version" work
 ask for it by name or by job. Versions are kept until MDLxL closes; they are not
 saved into the model file.
 
+`mdlxl_review inspect` optionally accepts `baseline: "version name"`: its
+`before`, pictures and motion table then use that saved version. Without it,
+the job's starting state remains the reference. Read-only checks can also read
+detached version models as `references["version:NAME"].model`. Measure complaints
+and candidates against the last accepted version, ask before changing motion
+already present there, and save accepted results with `mdlxl_versions`.
+After MDLxL closes, reopen the saved file to establish the reference again.
+
 **Motion measurements.** Animation reviews include MDLxL's own before/after
 measurement for each touched animation, cached until the model revision changes.
 `ai-motion-compare.compareMotion` imports the preview's sampler and skinning;

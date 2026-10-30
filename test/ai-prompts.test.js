@@ -23,38 +23,41 @@ const BEFORE_RULE = {
 const CONTEXT_BEFORE = "Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts have the target, selection, frame and only the fields that changed, so call mdlxl_context when you need the full lists or editor commands.";
 const CONTEXT_AFTER = "Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts carry the target and only changed fields, including selection, view and sequence. Omitted fields keep their last value. The full snapshot returns after a reset, compaction or model replacement. Call mdlxl_context when you need the full lists or editor commands.";
 const EXAMPLE_RULE = "When the user points to an example they made, first read or sample the referenced area with mdlxl_read or mdlxl_sample and inspect its structure before planning edits. Copy that example's pattern and apply it across the full requested scope, including less visible regions; do not substitute your own picks. \"Keep the look\" means preserve the geometry silhouette and texture appearance, including UV mapping and material/texture assignments; reducing polygons does not authorize changing them.";
+// Research §6.2: compare complaints/candidates with the accepted version and
+// retain accepted results, without changing any existing editing instructions.
+const ACCEPTED_RULE = 'When the user reports a problem in a result, first measure the same thing in the version the user last accepted (or the original). If that version already has it, tell the user with the numbers and ask whether the accepted motion should change before editing. Measure every candidate against the accepted version, not only against an earlier candidate. After the user accepts a result, save it with mdlxl_versions.';
 const EXPECTED = {
   "editing plain": [
-    "420a606e958051b0656265cab9f966d21825a7217b9556e4e69aaede96505dc0",
-    7476
+    "6e21fdb9b489d380814ce265616d82918d005514caa2ec1bf4eb56784af62b7f",
+    7891
   ],
   "worker plain": [
-    "edb0c23446e842b54bbd74dafa4ee13dda1c74693f0053f4cb99a2cd90c6c81d",
-    8632
+    "5c6351f7eb1096b1a8ecb63214413aeb413839c860fd76b9db31e5a3957f599f",
+    9047
   ],
   "editing plain+web": [
-    "d236dbcd9515205babfd96e751bacc83d63d044e5bb495f693a30ba7b9960222",
-    7978
+    "b4e8e004f85e59666548ba15d7ea0ebcbcd7a9322d80b8fc77045cf42fa2a02f",
+    8393
   ],
   "worker plain+web": [
-    "978f02fb7f0f4c08bc9581a302c718b2f0d3c2bfaf3d695805e94dfe691b2039",
-    9134
+    "558b899a8a11f0af1de42a472c2a5ad905372468667d841f2bfe7672e5248a09",
+    9549
   ],
   "editing handbook": [
-    "ee3b3ba9a3d11794edd501a2f513665a8eae571ef0cdbdd0081430fb328b58f1",
-    10483
+    "c5044f776c4b8cb97640eb105d8fa91c72201dee73996ec59424b62e25356d2a",
+    10898
   ],
   "worker handbook": [
-    "bb4e8d3b44c06d8c82604232d26f21b07dceef1ac67c80cb1b6eba7ec977520f",
-    11639
+    "b0db631a0111c389a00aeb31ebfe23ad037e59e98c9cba847e777fb18fa83711",
+    12054
   ],
   "editing handbook+web": [
-    "30a3132a1b22ef1ac20a92786426c6d487406e88292da9f7d42f71d20b6fb94b",
-    10985
+    "312f78bd39758a6bab12ad9d47fdf9c5755c4714e59235b0c1585425a24b608b",
+    11400
   ],
   "worker handbook+web": [
-    "62b4ee8e48219ad830fca8e02a96bd27b9214e295fbc03d336656f97252bce6b",
-    12141
+    "82ab969f22078dbfa22d3fc8e9516b84d49f14dddcaee5d77e6f523d97b248d3",
+    12556
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -67,15 +70,15 @@ test('outside check deliberately adds motion measurements alongside still pictur
   assert.match(contract.AI_OUTSIDE_CHECK, /Missing baseline.*notes only/);
 });
 
-test('router is unchanged; editing and worker prompts change only the example and incremental-context rules', () => {
+test('router is unchanged; editing and worker prompts change only the documented rules', () => {
   assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT), BEFORE_RULE.router);
   for (const handbook of [false, true])
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false }).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false }).replace('\n' + ACCEPTED_RULE, '').replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true })), EXPECTED['worker ' + key], 'worker ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true }).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
+      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true }).replace('\n' + ACCEPTED_RULE, '').replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));

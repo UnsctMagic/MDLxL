@@ -275,7 +275,7 @@ async function comparisonPictures(bridge, id, review, before, args) {
     if (original)
       images.push({
         role: 'original', group,
-        label: `Original target before the task; ${animationName(before, original)}; ${when}${originalFrame}`,
+        label: `Original target ${args.baseline ? `version "${args.baseline}"` : 'before the task'}; ${animationName(before, original)}; ${when}${originalFrame}`,
         image: (await bridge.picture(id, { ...sample(original), frame: originalFrame }, { model: before, focus })).image,
       });
     images.push({
@@ -325,7 +325,8 @@ export async function reviewAiModel(bridge, args, options) {
   const env = bridge.env(target),
     revision = env.doc.revision,
     state = env.state;
-  const before = target.region ? regionBefore(state.model, review.before, target.region) : review.before;
+  const baseline = args.baseline !== undefined ? bridge.versionStore.get(target.documentId, args.baseline) : review.before;
+  const before = target.region ? regionBefore(state.model, baseline, target.region) : baseline;
   const inspectedRegion = target.region && regionSignature(state.model, target.region);
   const tested = await window.desktop.aiScript({
     requestId: options.requestId,
@@ -334,7 +335,8 @@ export async function reviewAiModel(bridge, args, options) {
     before: structuredClone(before),
     selection: structuredClone(target.selection),
     context: bridge.contextFor(args.target),
-    references: {},
+    references: Object.fromEntries((bridge.versionStore?.names(target.documentId) || [])
+      .map(name => ['version:' + name, { name: 'Version ' + name, model: structuredClone(bridge.versionStore.get(target.documentId, name)) }])),
   });
   bridge.requireTarget(args.target);
   if (
@@ -359,7 +361,8 @@ export async function reviewAiModel(bridge, args, options) {
   );
   const poses = [];
   if (review.animation) {
-    const sequences = [...(review.sequences || []), ...(review.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+    const touched = args.baseline !== undefined ? touchedAnimations(createChanges(before, state.model, { ignore: ignoreHistoryAlias }), before, state.model) : review;
+    const sequences = [...(touched.sequences || []), ...(touched.globalSequences || []).map(globalSequence => ({ globalSequence }))];
     const key = JSON.stringify(sequences);
     if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
       review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
@@ -408,6 +411,7 @@ export async function reviewAiModel(bridge, args, options) {
       checks,
       validation,
       poses,
+      ...(args.baseline !== undefined ? { baseline: args.baseline } : {}),
       ...(review.animation ? { motion: motionTable(review.motionCache.value) } : {}),
       compared: comparison.compared,
       ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
