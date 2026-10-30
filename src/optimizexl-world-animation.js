@@ -7,6 +7,13 @@ import { animationMotionGuard, constantSegment } from './optimizexl-animation.js
 const properties=['Translation','Rotation','Scaling'];
 const same=(a,b)=>a?.length===b?.length&&Array.from(a).every((v,i)=>v===b[i]);
 const keysIn=(track,interval)=>track.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);
+// The whole-millisecond frames strictly between from and to, each once,
+// in breadth-first midpoint order (the middle, then the quarters, ...).
+function* bisectedFrames(from,to){
+ const first=Math.floor(from)+1,last=Math.ceil(to)-1;if(first>last)return;
+ const queue=[[first,last]];
+ for(let i=0;i<queue.length;i++){const [a,b]=queue[i],m=(a+b)>>1;yield m;if(a<m)queue.push([a,m-1]);if(m<b)queue.push([m+1,b]);}
+}
 const supported=(track,property)=>!!track?.Keys&&optimizexlLocalTrack(track)&&[0,1,2,3].includes(track.LineType)&&track.Keys.length>0&&track.Keys.every((k,i,a)=>
  Number.isInteger(k.Frame)&&(!i||k.Frame>a[i-1].Frame)&&['Vector',...(track.LineType>=2?['InTan','OutTan']:[])].every(p=>
  k[p]?.length===(property==='Rotation'?4:3)&&Array.from(k[p]).every(Number.isFinite)&&(property!=='Rotation'||Math.abs(Math.hypot(...k[p])-1)<1e-5)));
@@ -278,7 +285,9 @@ export function reduceWorldAnimation(model,settings,{protectedNodes=new Set(),si
   };
   if(!check(from)||!check(to))return false;
   if(!originalMoving[sequence]&&!hasMotion(model,sequence,skinIds))return true;
-  for(let frame=Math.ceil(from);frame<to;frame++)if(frame>from&&!check(frame))return false;
+  // Every interior millisecond is checked; midpoints first, so an excursion
+  // that rejects the deletion is usually found after a few frames.
+  for(const frame of bisectedFrames(from,to))if(!check(frame))return false;
   // Integer timestamps can still contain a visible cubic excursion in 1 ms.
   if(to-from<=1)for(const fraction of [.25,.5,.75])if(!check(from+(to-from)*fraction))return false;
   return true;
