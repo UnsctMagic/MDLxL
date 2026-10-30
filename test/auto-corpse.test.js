@@ -267,3 +267,50 @@ test('like native corpses, arms get only the hand and each leg two long bones',{
     assert.ok(count('leg')>=4&&count('leg')%2===0,'two long bones per leg');
   }
 });
+
+// The owner's rejected result covered roughly 40% of the dead-body outline;
+// Blizzard's 206-unit median mesh area is 83%, with small native overhangs.
+test('real corpses occupy a Blizzard-sized footprint instead of thin joint strips',{skip:!footmanModel()&&!flailModel()&&'prepare the SD Footman or set MDLXL_CORPSE_FLAIL'},async()=>{
+  const {booleanContours,signedArea}=await import('../src/forge-geometry.js');
+  const {openDocument}=await import('../src/editor-document.js');
+  const files=[footmanModel(),flailModel()].filter(Boolean);
+  const area=loops=>Math.abs(loops.reduce((sum,loop)=>sum+signedArea(loop),0));
+  for(const file of files){
+    const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx');
+    const r=apply(d).corpses[0],g=d.model.Geosets[r.corpseGeoset],triangles=[];
+    for(let f=0;f<g.Faces.length;f+=3){const tri=Array.from(g.Faces.slice(f,f+3),i=>[g.Vertices[i*3],g.Vertices[i*3+1]]);if(signedArea(tri)<0)tri.reverse();triangles.push(tri);}
+    const footprint=booleanContours(triangles,[],'add',r.span),bodyArea=area(r.outline);
+    const ratio=area(footprint)/bodyArea,coverage=area(booleanContours(footprint,r.outline,'keep',r.span))/bodyArea;
+    assert.ok(ratio>=.65&&ratio<=1.1,`${file}: corpse/body area ${ratio.toFixed(3)} must be 0.65–1.10 (Blizzard central range)`);
+    assert.ok(coverage>=.55,`${file}: only ${(coverage*100).toFixed(1)}% of the dead body is covered`);
+  }
+});
+
+test('a detached Death chest with a POSE head keeps its skull, while the separate flail stays excluded',{skip:!process.env.MDLXL_CORPSE_DETACHED&&'set MDLXL_CORPSE_DETACHED to the owner ratling fixture'},async()=>{
+  const file=process.env.MDLXL_CORPSE_DETACHED;
+  assert.ok(file&&existsSync(file),'prepare the owner ratling fixture');
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes}=await import('../src/animation.js');
+  const d=openDocument(new Uint8Array(readFileSync(file)),'ratling.mdx'),byId=new Map(allNodes(d.model).map(n=>[n.ObjectId,n]));
+  const r=apply(d).corpses[0],skulls=r.pieces.filter(p=>p.kind==='skull');
+  assert.equal(skulls.length,1,'the visible detached Death head needs a skull');
+  assert.equal(byId.get(skulls[0].ids[0]).Name,'gore_head','the skull belongs to the final Death head, not the hidden living head');
+});
+
+test('native hand pieces retain forearm-scale reach instead of shrinking to palm vertices',{skip:!flailModel()&&'set MDLXL_CORPSE_FLAIL to the owner flail fixture'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {suggestPoseRig,poseChainIds}=await import('../src/pose-ik.js');
+  const {allNodes,nodePivot}=await import('../src/animation.js');
+  const {Vector3}=await import('three');
+  for(const file of [flailModel(),new URL('../out/pose/Ogre.mdx',import.meta.url)]){
+  const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
+  const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
+  for(const hand of r.pieces.filter(p=>p.kind==='hand')){
+    const chain=rig.chains.find(c=>c.kind==='arm'&&hand.ids.includes(c.end));assert.ok(chain);
+    const ids=poseChainIds(chain),at=id=>new Vector3().fromArray(nodePivot(m,nodes.get(id),id)).applyMatrix4(M.get(id)),a=at(ids.at(-2)),b=at(ids.at(-1));
+    const forearm=Math.hypot(b.x-a.x,b.y-a.y),length=Math.hypot(hand.end[0]-hand.start[0],hand.end[1]-hand.start[1]);
+    assert.ok(length>=forearm,`hand length ${length.toFixed(2)} must cover its ${forearm.toFixed(2)} forearm (native hands reach 1.62x)`);
+    assert.ok(length<=forearm*2.1,`hand length ${length.toFixed(2)} must not include held equipment beyond its ${forearm.toFixed(2)} forearm`);
+  }
+  }
+});

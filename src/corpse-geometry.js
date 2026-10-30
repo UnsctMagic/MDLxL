@@ -117,15 +117,18 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
       }
     }
   }
-  // Equipment can share its hand/head's skin binding. Prefer the connected
-  // body surface closest to the joint, not a shield, blade or tall helmet.
-  for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);regions.set(owner,list[0].points);}
+  // A joint's body skin can have many disconnected patches (kneecaps, boots,
+  // belly panels). Keep all patches of the shared body surface. Only isolated
+  // rigid pieces need the nearest-component equipment disambiguation.
+  for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);const body=list.filter(part=>part.bodySurface);regions.set(owner,(body.length?body:[list[0]]).flatMap(part=>part.points));}
   const cloud=id=>regions.get(id)||clouds.get(id)||[];
   // A head belongs to a body, whatever it is called: it must be on a skeleton
   // that carries limbs. A separate weapon skeleton (a flail and its head) is
-  // equipment, never a skull. Without limbs anywhere, any skeleton qualifies.
+  // equipment, never a skull. A detached Death chest/pelvis is still anatomy
+  // when POSE recognizes its root; a named weapon root never qualifies.
+  // Without limbs anywhere, any skeleton qualifies.
   const limbSkeletons=new Set(chains.map(c=>ancestors(c.root).at(-1)));
-  const onBody=id=>!limbSkeletons.size||limbSkeletons.has(ancestors(id).at(-1));
+  const onBody=id=>{const root=ancestors(id).at(-1);return !limbSkeletons.size||limbSkeletons.has(root)||['Body','Chest','Pelvis','Spine'].includes(role(root))&&!accessory(byId.get(root)?.Name||'');};
   const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&onBody(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
   const vertices=[],uv=[],faces=[],parts=[],pieces=[],used=new Set();
   // Wanted positions; heights are settled once every piece is known.
@@ -294,45 +297,70 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     const tri=ids.map(id=>[v[id*3],v[id*3+1]]);if(signedArea(tri)<0)tri.reverse();if(signedArea(tri)>span*span*1e-12)projected.push(tri);
   }
   const footprint=booleanContours(projected,[],'add',span),outline=polygonGroups(footprint).flatMap(({outer,holes})=>[outer,...holes]);
-  const insideOutline=([x,y])=>{let inside=false;for(const ring of outline)for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)inside=!inside;}return inside;};
-  // Owner rule (30 Oct 2026): POSE finds the body parts and the outline is
-  // the dead body, so every piece lies on its own part of that body. Bones,
-  // hands and ribs stay on POSE's joint lines and take their width from the
-  // skin right along that line; the skull is centred on the head's own skin
-  // and as long as the head. Then each piece shrinks until it lies inside the
-  // outline.
+  // Fit in the final posed skin, not in the rest-pose joint spacing. POSE
+  // attachment references can end an arm without owning vertices; its lower
+  // arm then supplies the hand surface around that reference.
   const partSkin=piece=>{
-    const own=piece.kind==='torso'?(piece.ids||[]).filter(id=>!limbJoints.has(id)&&!heads.some(h=>h.ObjectId===id)):piece.kind==='hand'||piece.kind==='skull'?piece.ids||[]:(piece.ids||[]).slice(0,-1);
-    // The skull fills the whole head: all skin the head and its Mesh/Box
-    // children move, not just the patch nearest the neck joint.
+    let own=piece.kind==='torso'?[...new Set([...(piece.ids||[]),...nodes.filter(n=>(piece.ids||[]).some(id=>ancestors(id).at(-1)===ancestors(n.ObjectId).at(-1))&&['Body','Pelvis','Chest','Spine'].includes(role(n.ObjectId))).map(n=>n.ObjectId)])].filter(id=>!limbJoints.has(id)&&!heads.some(h=>h.ObjectId===id)):piece.kind==='hand'||piece.kind==='skull'?piece.ids||[]:(piece.ids||[]).slice(0,-1);
+    if(piece.kind==='leg'&&['Foot','Hoof'].includes(role(piece.ids.at(-1))))own=piece.ids;
     if(piece.kind==='skull')return nodes.filter(n=>own.some(id=>ancestors(n.ObjectId).includes(id))&&!headAccessory.test(n.Name)).flatMap(n=>clouds.get(n.ObjectId)||[]);
-    return own.flatMap(cloud);
+    // Hands may bind a disconnected club or shield in the same body geoset.
+    // Keep the palm nearest the wrist; native reach supplies its full size.
+    const skinAt=piece.kind==='hand'?id=>candidates.get(id)?.[0]?.points||cloud(id):cloud;
+    let skin=own.flatMap(skinAt);
+    if(piece.kind==='hand'&&skin.length<6){
+      const limb=limbs.find(limb=>limb.chain.kind==='arm'&&own.includes(limb.chain.end));
+      if(limb)skin=limb.ids.slice(limb.segments.at(-1)[0]).flatMap(skinAt);
+    }
+    return skin;
   };
   const fitToPart=piece=>{
-    if(!['leg','arm','branch','hand','torso','skull'].includes(piece.kind))return;
+    const skin=partSkin(piece);if(skin.length<3)return;
     const len=distance(piece.start,piece.end);if(len<span*1e-4)return;
-    const axis=[(piece.end[0]-piece.start[0])/len,(piece.end[1]-piece.start[1])/len],side=[axis[1],-axis[0]];
-    const skin=partSkin(piece).map(q=>[(q[0]-piece.start[0])*axis[0]+(q[1]-piece.start[1])*axis[1],(q[0]-piece.start[0])*side[0]+(q[1]-piece.start[1])*side[1]]);
-    if(piece.kind==='skull') {
-      // The native skull is one evenly scaled mesh, whatever skin is found.
-      piece.half=len*NATIVE.skullHalf;
-      if(skin.length<6)return;
-      const a=quantile(skin.map(q=>q[0]),.05),b=quantile(skin.map(q=>q[0]),.95),mid=quantile(skin.map(q=>q[1]),.5);
-      if(!(b-a>span*.005))return;
-      const point=t=>[piece.start[0]+axis[0]*t+side[0]*mid,piece.start[1]+axis[1]*t+side[1]*mid,ground];
-      [piece.start,piece.end]=[point(a),point(b)];piece.half=(b-a)*NATIVE.skullHalf;return;
+    const axis=[(piece.end[0]-piece.start[0])/len,(piece.end[1]-piece.start[1])/len],side=[axis[1],-axis[0]],origin=piece.start.slice();
+    const projected=skin.map(q=>[(q[0]-origin[0])*axis[0]+(q[1]-origin[1])*axis[1],(q[0]-origin[0])*side[0]+(q[1]-origin[1])*side[1]]);
+    let a=quantile(projected.map(q=>q[0]),.02),b=quantile(projected.map(q=>q[0]),.98);
+    const left=quantile(projected.map(q=>q[1]),.02),right=quantile(projected.map(q=>q[1]),.98),mid=(left+right)/2;
+    if(b-a<span*.005)return;
+    const point=(along,across=mid)=>[origin[0]+axis[0]*along+side[0]*across,origin[1]+axis[1]*along+side[1]*across,ground];
+    if(piece.kind==='hand'){
+      // Native hands cover the wrist and end of the forearm (1.62 forearms
+      // long); the few vertices of a closed palm must not shorten them.
+      const length=Math.max(b-a,len),center=len*.3-length*.1;
+      piece.start=point(center-length/2);piece.end=point(center+length/2);
+      piece.half=Math.max((right-left)/2,length*NATIVE.hand/2);
+    }else if(piece.kind==='skull'){
+      // One uniformly scaled native mesh: width and crown grow with length.
+      const length=Math.max(b-a,(right-left)/(2*NATIVE.skullHalf)),center=(a+b)/2;
+      piece.start=point(center-length/2);piece.end=point(center+length/2);piece.half=length*NATIVE.skullHalf;
+    }else{
+      // The complete part supplies both dimensions, including flesh around
+      // short joints. No length-based width cap and no whole-piece shrink.
+      [piece.start,piece.end]=[point(a),point(b)];
+      piece.half=Math.max((right-left)/2,span*.004);
     }
-    const near=skin.filter(([along,across])=>along>=0&&along<=len&&Math.abs(across)<len*.6).map(q=>Math.abs(q[1]));
-    if(near.length<6)return;
-    const ratio=piece.kind==='hand'?NATIVE.hand:piece.kind==='torso'?NATIVE.ribs:NATIVE.bone;
-    // Native proportions stay: never thinner than the native picture, never wider than 70-80% of the length.
-    piece.half=Math.min(Math.max(quantile(near,.8),len*ratio/2*.6),len*(piece.kind==='torso'?.35:.4));
   };
-  const corners=piece=>{const len=distance(piece.start,piece.end)||1,n=[(piece.end[1]-piece.start[1])/len*piece.half,-(piece.end[0]-piece.start[0])/len*piece.half];return [piece.start,piece.end].flatMap(q=>[[q[0]+n[0],q[1]+n[1]],[q[0]-n[0],q[1]-n[1]]]);};
-  const keepInside=piece=>{
-    for(let k=0;k<12&&!corners(piece).every(insideOutline);k++){const c=mix(piece.start,piece.end,.5);piece.start=mix(c,piece.start,.92);piece.end=mix(c,piece.end,.92);piece.half*=.92;}
-  };
-  if(!edited&&outline.length)for(const piece of pieces){fitToPart(piece);keepInside(piece);}
+  if(!edited&&outline.length){
+    for(const piece of pieces)fitToPart(piece);
+    // Native mesh footprint / dead-body outline: median 0.826 on 206 SD
+    // units. Keep the fitted chest/pelvis and limb reach; adjust flesh width.
+    // The native skull scales uniformly about its own head centre.
+    const area=loops=>Math.abs(loops.reduce((sum,loop)=>sum+signedArea(loop),0));
+    const scaled=(piece,scale)=>{const center=mix(piece.start,piece.end,.5);return {...piece,start:piece.kind==='skull'?mix(center,piece.start,scale):piece.start,end:piece.kind==='skull'?mix(center,piece.end,scale):piece.end,half:piece.half*scale};};
+    const footprintAt=scale=>{
+      const shapes=pieces.map(piece=>{
+        const p=scaled(piece,scale),len=distance(p.start,p.end)||1,axis=[(p.end[0]-p.start[0])/len,(p.end[1]-p.start[1])/len],side=[axis[1],-axis[0]];
+        const shape=p.kind==='skull'?[[0,.079],[.234,.730],[.489,1],[.787,.737],[1,-.091],[.915,-.841],[.489,-1],[.234,-.755]]:[[0,-1],[1,-1],[1,1],[0,1]];
+        const ring=shape.map(([along,across])=>[p.start[0]+axis[0]*len*along+side[0]*p.half*across,p.start[1]+axis[1]*len*along+side[1]*p.half*across]);
+        return signedArea(ring)<0?ring.reverse():ring;
+      });
+      return booleanContours(shapes,[],'add',span);
+    };
+    const target=area(footprint)*.826;
+    let low=.1,high=2;
+    for(let i=0;i<16;i++){const mid=(low+high)/2;if(area(footprintAt(mid))<target)low=mid;else high=mid;}
+    for(let i=0;i<pieces.length;i++)pieces[i]=scaled(pieces[i],(low+high)/2);
+  }
   const plan=edited?structuredClone(edited):pieces;
   plan.forEach((piece,index)=>piece.kind==='skull'?emitSkull(piece,index):emitStrip(piece,index));
   if(!faces.length)throw Error('The last Death pose has no measurable ground footprint.');

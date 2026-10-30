@@ -6,6 +6,8 @@ import { createVisibilityGeosetAnimation } from '../src/geoset-animation-default
 import { updateBounds } from '../src/mesh-tools.js';
 import { BLOOD_KINDS, BLOOD_RACES, deathBlood, isBloodSpray, parseSplat, splatCode, sprayKind } from '../src/corpse-blood.js';
 import { loadEventCatalog } from './node-event-data.js';
+import { resolveGameFiles } from './desktop.js';
+import { gamePathKey } from '../src/game-path.js';
 import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
@@ -59,6 +61,19 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   const current = useMemo(() => structuredClone(doc.model), [doc.revision]);
   const [size, setSize] = useState(100), [height, setHeight] = useState(100), [rgb, setRgb] = useState([255, 255, 255]);
   const [pieces, setPieces] = useState(null), [selected, setSelected] = useState(null), [outline, setOutline] = useState(true), [withBody, setWithBody] = useState(false), [error, setError] = useState(''), [snapshot, setSnapshot] = useState(null);
+  const [corpseAssets, setCorpseAssets] = useState(new Map());
+  const previewAssets = useMemo(() => new Map([...corpseAssets, ...(textureAssets instanceof Map ? textureAssets : Object.entries(textureAssets || {}))]), [corpseAssets, textureAssets]);
+  // The draft can introduce gutz even when the source model never used it.
+  // Resolve it through the same game-data loader as the other native previews.
+  useEffect(() => {
+    const assets = textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {}));
+    if ([...assets.keys()].some(name => gamePathKey(name).split('\\').at(-1) === 'gutz.blp')) return;
+    let active = true;
+    resolveGameFiles(['Textures\\gutz.blp'], modelPath).then(records => {
+      if (active) setCorpseAssets(new Map(records.filter(record => record.bytes).map(record => [gamePathKey(record.logicalName || record.texturePath || record.name), record])));
+    }).catch(cause => { if (active) setError(cause.message); });
+    return () => { active = false; };
+  }, [modelPath, textureAssets]);
   // Blood tab: null means the Death animation's own blood is left untouched.
   const deathIndex = useMemo(() => current.Sequences.findIndex(seq => /(?:^|\s)death(?:\s|$)/i.test(seq.Name)), [current]);
   const ownBlood = useMemo(() => deathIndex >= 0 ? deathBlood(current, deathIndex) : [], [current, deathIndex]);
@@ -227,7 +242,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           <button disabled={!changed} title="Back to the fitted corpse" onClick={reset}>Reset</button>
         </div>}
         <section className="atm-preview acp-preview" aria-label="Auto Corpse preview" onDoubleClick={pick}>
-          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor}
+          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={previewAssets} modelPath={modelPath} teamColor={teamColor}
             sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
           {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>

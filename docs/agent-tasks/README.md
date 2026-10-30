@@ -8,7 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Handed to Codex; unfinished, owner rejected current sizes | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
+| CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Candidate in owner capture review; no PR yet | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
 | OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
 | AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |

@@ -1,77 +1,80 @@
-# CORP: a body-sized corpse on the POSE body parts
+# CORP: body-sized corpse on the POSE body parts
 
-Status: handed to Codex (owner, 30 Oct 2026). Unfinished; owner rejected the current result.
-Owner: Codex (from Claude Code session `local_afb1755f-542b-4e0a-aac5-87414a9b03f4`)
+Status: local candidate; owner per-model capture approval pending. No PR opened.
+Owner: Codex, chat `01a18c85-4bcf-74f2-9520-9aff51b2a0c9`
 Updated: 2026-10-30
-Branch: `claude/corp-long-bones` (from `claude/release-0.36.1` at `6049624e`); PR into `claude/release-0.36.1`, not `main`. Release 0.37.0 waits for this.
+Branch: `claude/corp-long-bones`, continued from handover `48bf08d5` in
+`D:\Codex\mdlxl-corp-body-20261030\repo`. The original Claude checkout was clean
+and is untouched. Base of this lane is release `6049624e`; eventual PR targets
+`claude/release-0.36.1`, not main. Do not merge or release.
 
-## Goal (owner's words, condensed)
+## Owner decisions and gate
 
-Press CORP: the corpse is made from the **last Death frame**, using **POSE** to know
-the body parts, and is **sized like Blizzard's corpses relative to the body**. The
-white chalk outline matches the dead body exactly, so the corpse should fill it the
-way a Blizzard corpse fills its body. Current corpses are far too small for the outline
-on nearly every model ("tiny corpses"). Skull must sit on the head, bones on the limbs.
-Easy to adjust; parts easy to add and delete (existing Corpse Editor, unchanged).
+CORP must use the last Death pose and POSE body parts, producing native-sized
+remains rather than tiny strips. The owner explicitly chose **Blizzard overall
+size, allowing small native overhangs**, when measurements showed that strict
+containment conflicts with Blizzard's meshes. Preserve body reuse, sinking in
+Decay Flesh, static/fading Decay Bone, the native skull shape, weapon exclusion,
+and the existing editing controls. Owner judges the 20 listed models pass/fail
+before any PR. Release 0.37.0 still waits for this gate.
 
-## Already right — keep (merged in claude/release-0.36.1)
+## Current implementation
 
-- No copied body: the body itself holds the last Death pose and sinks in Decay Flesh (PR #451).
-- Decay Bone: corpse lies still and fades out over the last 1667 ms; skull is the native
-  evenly scaled mesh (0.72 wide, 0.42 tall, 0.22 above ground) (PR #453).
-- Flail on its own skeleton never becomes a skull; Delete / Ctrl+Z / Escape work in the window.
+`src/corpse-geometry.js` keeps disconnected
+body-skin patches instead of fitting an entire part from its nearest tiny patch;
+fits projected part extents; includes foot skin in lower-leg pieces; resolves
+skinless hand references; preserves native forearm-sized hands without treating
+held equipment as palm skin; recognizes detached anatomical Death chests without
+recognizing flail roots as anatomy. It measures the actual union of corpse
+footprints and adjusts widths toward the Blizzard 0.826 corpse/body area median.
+Skulls scale uniformly. Part placement/length and manual edits are preserved.
+`app/AutoCorpse.jsx` resolves the draft's gutz texture through the existing game-data
+loader, so models without an original gutz reference no longer show grey
+placeholders. No control/layout changes. No edits to `auto-corpse.js`, installed
+apps, real profiles, model originals, versions or imported libraries.
 
-## Uncommitted-then-committed WIP on this branch (`src/corpse-geometry.js`)
+The exact fitting contract and measurement limitations are in
+[AUTO-CORPSE.md](../AUTO-CORPSE.md). Metrics measure XY triangle unions, not texture
+alpha pixels. Matching the median is not per-species artistic acceptance. Dragonspawn remains
+a weak corpus fit (43% coverage versus native 69%); Murlocs are about 50%
+versus 62%. These are exposed in the table, not counted as visual passes.
 
-- Arms get no long bone, only the hand (Blizzard: 59% of 386 arms on 206 SD units have
-  no long bone; 23% have one, the upper arm). Legs keep 2 bones each, reach 1.34× the
-  joints (`NATIVE.legReach`, Blizzard median; CORP had 1.6×).
-- A new pass `fitToPart` + `keepInside` before `plan`: each piece stays on POSE's joint
-  line, takes its width from skin near that line, the skull from all head skin; then any
-  piece crossing the outline is **shrunk** until it fits. The chalk outline is now
-  computed before the pieces (same code, moved up).
-- Branch loop skips nodes off the body skeleton and POSE role `'Object'` (agreed with the
-  POSE head-fix session `local_f650339f…`, which changes only `src/pose-ik.js`).
-- Bug fixed: skull end was computed from its already-moved start.
-- Tests: `test/auto-corpse.test.js` 22/22 pass (new: arms only hands, two bones per leg,
-  on SD Footman + owner flail; headless-body test now uses legs).
+## Evidence
 
-## Why it fails (diagnosis)
+Artifacts: `D:\Codex\mdlxl-corp-body-20261030\reports`.
+- `baseline.json` and `after.json`: per-unit data for all 206 SD gutz corpses.
+- `owners-before.json` / `owners-after.json`: all 20 requested owner models.
+- `source-before.log`: three new regressions fail on handover code; 22 pass,
+  3 fail, zero skips. `source-final.log`: 25 pass, zero failures/skips.
+- Separate regression caught a held Ogre club enlarging its hand before the
+  corrected hand-component selection; see `source-held-before.log`.
+- `corpus-preservation.json`: supplied corpus checks for body reuse, posed/sunk
+  body, living animation, saved size and Undo; 362 pass, zero failures. The 36
+  unsupported inputs are enumerated, not counted as successes.
+- `packaged-size.log`: hidden real-app Create/Save As, size, camera and keyboard
+  check. Baseline failed: saved Footman corpse area 1795.4 versus native 3067.9.
+- `texture-before.log`: the new preview texture assertion fails on the old app
+  on Krell; the final app resolves and renders the native texture.
+- `review.html`: 20 numbered model entries; 19 corpse/body pairs and the existing
+  Khorne Flail Knight error. `review-page-1.png` through `review-page-5.png`
+  provide contact sheets. `blizzard-206-table.html` lists every unit.
+- Median area/body: Blizzard 82.6%, old CORP 40.2%, candidate 82.6%.
+  Median coverage inside the outline: Blizzard 64.8%, old 36.9%, candidate 68.0%.
 
-1. Pieces only ever **shrink** (keepInside); nothing grows a piece to fill its part.
-2. Widths come from skin right along the bone line, capped at 40% of length → thin strips.
-3. The one number the owner asked for was never measured or matched: **Blizzard corpse
-   size vs body size** (corpse area / body outline area, and how far it reaches across it).
+## Remaining work
 
-## Next action
+1. Obtain owner pass/fail per model from the delivered table/captures; correct
+   only identified mismatches. The Khorne Flail Knight Hero has a pre-existing
+   global-effect visibility refusal, shown in the gallery. Do not alter its globals.
+2. After acceptance, push this named branch and open a PR into
+   `claude/release-0.36.1`. No merge authorization. Claude owns independent QA and
+   the release gate under [TESTING-RULES.md](../TESTING-RULES.md).
 
-1. On the 206 SD units with Decay Bone (`out/corpus-sd` in the release worktree), measure
-   native corpse footprint area ÷ dead-body outline area, and coverage of the outline
-   (per part if possible). Same for CORP. Report the per-unit ratio table.
-2. Size CORP so its ratio matches Blizzard's distribution (scale pieces up to fill their
-   part, not only down), keeping pieces on POSE parts and inside the outline.
-3. Owner judges by screenshots: rerun the 20-model capture, send pages, get pass/fail.
-
-## Evidence and tools (outside the repo)
-
-`D:\Claude\MDLxL-TestBuilds\corp-handover\`
-- `screenshots/corpse-page-1..5.png` — the 20 models the owner rejected (left: corpse +
-  outline, right: with body). Krell: corpse beside body; Jaina/Krell corpse grey (gutz
-  texture not loading in that preview — unexplained).
-- `maps/*.png` — top views: body, POSE joints, outline, pieces, native corpse (cyan).
-- `tools/` — measurement scripts. They import `src/` by absolute path of the Claude
-  worktree `D:\Claude\MDLxL\.claude\worktrees\corp-reuse-body-067486\src\`; change `R=`.
-  `map-dump.mjs <srcDir> <model> <out.json>` + `map-draw.py <json> <png> <title>`;
-  `corpse-window-shot.electron.cjs` (copy into `test/`, run via
-  `node scripts/run-packaged-tests.mjs default corpse-window-shot` with
-  `MDLXL_SHOT_OUT`, `MDLXL_SHOT_FIXTURES` = `;`-separated **Windows** paths, see
-  `shot-list.txt`; it waits 4 s so textures and Show body load).
-- Model list: owner's Desktop/Downloads (Fx_v4_clipfix_1, Nurgle Heavy/Flail08/Champion,
-  Krell, Lahmian (2), Demonette3, Necromancer, Jaina) + LowPolyWorks local copy
-  `D:\Claude\LowPolyWorks-eyes-pages\models` (Empire_Captain, Greenskin_Orc1, Minotaur,
-  skink_chief_hero, Bretonnian_Swordsman, Aspiring15, Oldblood_hero, ratling_hero,
-  Dark_Elf_Witch_Unit_opt, gor_flail_NOglow, KnightKhorneFlailHero01 — mounted, errored once).
-
-Rules: `docs/TESTING-RULES.md` (real-use tests, fail first on old code). Never
-`pnpm run/test/install` through the linked node_modules; use `npx vite build`,
-`node scripts/package.mjs --out out/pkg --overwrite`, `node --test test/<file>`.
+Use existing linked dependencies. No pnpm run/test/install. Commands:
+`npx vite build`, `node scripts/package.mjs --out out/pkg --overwrite`,
+`node --test test/auto-corpse.test.js`, and the hidden packaged runner.
+Set TEMP/TMP/MDLXL_TEMP/npm cache to this D: task directory. Playwright is
+`D:\Claude\tools\node_modules\playwright-core`; game is `D:\Warcraft III`.
+Never take over the user's desktop. Remove disposable packages/profiles and
+unused task processes after checks. Preserve this unfinished source until the
+owner accepts it; no PR/worktree cleanup gate has been reached yet.
