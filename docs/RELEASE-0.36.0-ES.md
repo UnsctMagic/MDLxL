@@ -16,6 +16,7 @@
 - Citadel Paint mantiene limpios los bordes recortados con suavizado, muestra el modelo completo en paneles ortográficos altos y respeta **Selección a través**. Sus vistas de textura y recorte y la máscara de Forge siguen **Ajustes > Ratón** para zoom y desplazamiento. El zoom se mantiene bajo el puntero.
 - **Recalcular normales** del Inspector usa el resultado SD de NormalsXL. **Añadir sequence** rellena las extensiones de cada geoset; el Inspector comprueba nombres e intervalos de fotogramas enteros como la lista de Animaciones. El encuadre del retrato se actualiza tras editar el rig; los geosets vacíos guardan límites de tamaño cero.
 - Glow Up y Attachemator ya no confunden Elbow o Balance con armas. Las herramientas eligen el mismo **Stand**. Los nombres de huesos nuevos evitan otros tipos de nodo. **Reemplazar pieza** de Bitz ajusta tamaño y posición de la pieza entrante a la selección.
+- Bitz: las piezas sin animaciones (por ejemplo, una pieza guardada) ahora muestran todas sus partes en la vista previa y siguen visibles al colocarlas.
 - **Ayuda > Comprobación del modelo** comprueba los cambios sin guardar sin modificar el modelo. El formato clásico usa mdx-m3-viewer de GhostWolf y colaboradores; los formatos modernos tienen cobertura parcial. Los comentarios MDL se conservan y guardar MDX explica su omisión. Los controles de colisión cancelan el arrastre si desaparece la forma.
 - **Listo para probar:** recalcula normales, añade una secuencia o abre la comprobación antes de guardar.
 
@@ -27,10 +28,10 @@
 
 **Showcase**
 - **Tiempo extra** admite negativos para la toma y cada animación. Las colas de efectos de Death se cortan a los 10 segundos; se conserva el movimiento más largo y no se alargan muertes cortas. Añade tiempo extra para conservar más.
-- **Salida** ofrece **Baja** (hasta 480 px / 2 MB), **Media** (640 px / 5 MB, predeterminado), **Alta** (864 px / 20 MB) y **Máxima** (1280 px / 50 MB). Cada nivel fija colores, suavizado y FPS; las tomas largas se reducen para caber. **Imagen principal** (612 × 490) funciona con todos. Los ajustes antiguos Low Size pasan a Medium y Standard a High. La elección Classic se respeta.
+- **Salida** ofrece **Baja** (hasta 480 px / 2 MB), **Media** (640 px / 5 MB, predeterminado), **Alta** (864 px / 20 MB) y **Máxima** (1280 px / 50 MB). Cada nivel fija colores, suavizado y FPS; las tomas largas se reducen para caber. **Imagen principal** (612 × 490) funciona con todos. Los ajustes antiguos Low Size pasan a Media y Standard a Alta. La elección Classic se respeta.
 - La barra sigue el orden de trabajo: **Ajustes predefinidos**, **Lista de grabación**, **Modelo y animación**, **Salida**, **Fondo** o **Retrato**, **Cámara**, **Texto** y **Firma**. RECORD sigue visible al desplazar; los controles menos evidentes se explican al pasar el puntero.
 - **Texto > Fuente > Cargar fuente…** añade fuentes TTF, OTF, WOFF o WOFF2 para vista previa y exportación. Permanecen en la lista; el botón derecho elimina una.
-- **Listo para probar:** elige Medium, recorta un final con tiempo negativo y carga una fuente para el título.
+- **Listo para probar:** elige Media, recorta un final con tiempo negativo y carga una fuente para el título.
 
 **Biblioteca, guardado e IA**
 - Las vistas de Reforged y Forsaken Kingdom conservan piel y texturas. Los personajes de campaña usan sus nombres y el selector de animación no corta el texto. Las bibliotecas de texturas y partículas leen primero la carpeta de Warcraft elegida en Ajustes; las texturas personalizadas del modelo siguen teniendo prioridad.
@@ -38,6 +39,7 @@
 - Las preguntas y avisos de IA siguen legibles en el chat. Los errores aparecen en directo; el inicio de sesión se comprueba una vez por sesión y los planes largos se leen bien. Cada chat conserva adjuntos y borradores propios; las referencias no abren pestañas del editor.
 - La revisión compara poses equivalentes del original, editado y donante, incluso al reanudar. Una revisión fallida sigue sin verificar, en lugar de aprobarse. Los pájaros distribuyen trabajos, guardan avances, usan ayudantes de solo lectura y repiten menos contexto. Los chats sin usar se limpian tras 3 días; **Modelo importante** los conserva y dejar vacío el ajuste desactiva la limpieza.
 - La revisión de IA ahora ve tus imágenes de referencia y capturas de antes/después; si falta alguna, lo indica sin bloquear. Di «deliver anyway» para aceptar el resultado; las observaciones de la revisión siguen en la respuesta. Un paso de visualización atascado ya no detiene todo el trabajo. Los mensajes siguientes ya no se rechazan por un falso «el modelo o la selección cambiaron» tras las propias ediciones de la IA. Si señalas un ejemplo que hiciste, la IA aplica ese mismo tratamiento a toda el área solicitada, conservando forma y texturas.
+- La IA recibe la vista completa del editor una vez y después solo los cambios; tus palabras más recientes van primero para no perder las instrucciones cortas.
 - La auditoría sustituye muchas copias por código compartido. La detección de rig de POSE fue unas 12 veces más rápida en el rig grande medido. Las pruebas empaquetadas ahora seleccionan la aplicación empaquetada, con excepciones de desarrollo documentadas.
 
 **Actualizar** Abre Ajustes > Apariencia > Buscar actualizaciones > Actualizar y reiniciar, o descarga el ZIP portátil completo desde la página de MDLxL.

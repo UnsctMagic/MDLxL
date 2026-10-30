@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { launchApp, closeApp, settle, stubDialogs } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpers/app.cjs');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
@@ -83,9 +83,9 @@ const { launchApp, closeApp, settle, stubDialogs } = require('./helpers/app.cjs'
     const reversed = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.notDeepEqual(reversed.Geosets[0].Faces, before.Geosets[0].Faces);
     assert.notDeepEqual(reversed.Geosets[0].Normals, before.Geosets[0].Normals);
-    await main.locator('[data-hotkey="undo"]').click();
+    await clickMenu(app,'Undo');
     await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(before));
-    await main.locator('[data-hotkey="redo"]').click();
+    await clickMenu(app,'Redo');
     await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(reversed));
     // Select one complete triangle through the viewport's normal selection path.
     await main.evaluate(() => { const p = ownerProps('[aria-label="3D model viewport"]', 'onSelectionChange'); p.onSelectionChange({ 0: Array.from(p.model.Geosets[0].Faces.slice(0, 3)) }); });
@@ -103,9 +103,9 @@ const { launchApp, closeApp, settle, stubDialogs } = require('./helpers/app.cjs'
     await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Weld');
     const welded = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(welded.Geosets[0].Vertices).length < Object.keys(created.Geosets[0].Vertices).length);
-    await main.locator('[data-hotkey="undo"]').click();
+    await clickMenu(app,'Undo');
     await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(created));
-    await main.locator('[data-hotkey="redo"]').click();
+    await clickMenu(app,'Redo');
     await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(welded));
     await main.locator('[data-hotkey="Uncouple"]').click();
     await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Uncouple');

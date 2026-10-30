@@ -28,13 +28,23 @@ const {execFileSync}=require('node:child_process');
     assert.ok(controls.x>=preview.x+preview.width-1&&controls.width<=251,'Compact controls must occupy the right side');
     assert.equal(await page.locator('.showcase-preview [data-geometry-overlay],.showcase-preview [data-node-overlay]').count(),0);
     const canvas=page.locator('.showcase-preview [data-clean-model-canvas]');
-    const sampling=()=>canvas.evaluate(c=>({aa:c.getContext('webgl2').getContextAttributes().antialias,ratio:c.width/c.clientWidth}));
+    const sampling=async()=>{
+      await page.evaluate(()=>{
+        const state=mdlxlProbe('.showcase-preview .game-preview-root').runtime,gl=state.controls.domElement.getContext('webgl2'),render=state.native.render;
+        window.showcaseModelSamples=null;
+        state.native.render=function(...args){window.showcaseModelSamples=gl.getParameter(gl.SAMPLES);return render.apply(this,args);};
+        window.restoreShowcaseSampling=()=>{state.native.render=render;};state.redraw();
+      });
+      await page.waitForFunction(()=>window.showcaseModelSamples!==null);
+      const value=await canvas.evaluate(c=>({aa:c.getContext('webgl2').getContextAttributes().antialias,ratio:c.width/c.clientWidth,modelSamples:window.showcaseModelSamples}));
+      await page.evaluate(()=>window.restoreShowcaseSampling());return value;
+    };
     await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'High',exact:true}).click();await settle(page, 700);
-    let high=await sampling();assert.equal(high.aa,true);assert.ok(high.ratio>1.95);
+    let high=await sampling();assert.equal(high.aa,false);assert.equal(high.modelSamples,4);assert.ok(high.ratio>1.95);
     await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Low',exact:true}).click();await settle(page, 700);
-    const low=await sampling();assert.equal(low.aa,false);assert.ok(low.ratio<1.05);
+    const low=await sampling();assert.equal(low.aa,false);assert.equal(low.modelSamples,0);assert.ok(low.ratio<1.05);
     await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'Medium',exact:true}).click();await settle(page, 700);
-    const medium=await sampling();assert.equal(medium.aa,true);assert.ok(medium.ratio>1.45&&medium.ratio<1.55);
+    const medium=await sampling();assert.equal(medium.aa,false);assert.equal(medium.modelSamples,4);assert.ok(medium.ratio>1.45&&medium.ratio<1.55);
     await page.screenshot({path:path.join(out,'compact-menu.png')});
     assert.equal(await record.evaluate(b=>getComputedStyle(b).backgroundColor),'rgb(186, 32, 40)');console.log('LAYOUT AND PRESET SAMPLING',JSON.stringify({controls,preview,low,medium,high}));
     // Since ecc30f3d/2582431d the Showcase opens on a color background, sizes sequences automatically (plus Extra Time)
