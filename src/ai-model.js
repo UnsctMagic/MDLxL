@@ -268,7 +268,7 @@ export function aiSelectionSignature(state) {
     state.uvSet,
     state.sequence,
     state.globalSeqId,
-    state.keyframes,
+    state.keyframes?.range || state.keyframes?.keys?.length ? state.keyframes : null,
     state.mode,
     state.workplane,
     state.session?.paintWorkingRevision,

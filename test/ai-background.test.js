@@ -7,6 +7,7 @@ import { register } from 'node:module';
 import { createStarterDocument } from '../src/starter-model.js';
 import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
 import { sketchStore } from '../src/ai-sketch.js';
+import turns from './fixtures/ai-chat-loop-turns.json' with { type: 'json' };
 
 // app/ modules are Vite modules: stand in for their build-time file lists.
 register(
@@ -445,4 +446,21 @@ test('background display-only commands report a tool error instead of waiting fo
   const outcome = await Promise.race([pending.then(() => 'resolved', e => e.message), new Promise(resolve => setTimeout(() => resolve('hung'), 250))]);
   assert.match(outcome, /display.*capture|capture.*display/i);
   assert.equal(bridge.waiters.size, 0);
+});
+
+
+test('a follow-up captured before the AI commit advances only over that AI own edit', async () => {
+  const { a, bridge } = editor();
+  const first = bridge.context(), followup = bridge.context();
+  bridge.targets.get(followup.target).frame = 42;
+  await bridge.call('mdlxl_patch', move(first.target, 11, 'First AI edit'));
+  assert.equal((await bridge.call('mdlxl_patch', move(followup.target, 12, turns.turns['7'].text))).applied, true);
+  assert.equal(a.doc.model.Geosets[0].Vertices[0], 12);
+  assert.equal(bridge.targets.get(followup.target).frame, 42, 'a captured frame stays with its prompt');
+  a.viewState.selection = { 0: [2] };
+  assert.throws(() => bridge.requireTarget(followup.target), /selection changed/);
+  a.viewState.selection = { 0: [0, 1] };
+  const afterAI = bridge.context();
+  a.doc.apply('Owner edit', ['Geosets'], m => { m.Geosets[0].Vertices[0] = 20; });
+  assert.throws(() => bridge.requireTarget(afterAI.target), /model or selection changed/);
 });

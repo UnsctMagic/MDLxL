@@ -324,6 +324,17 @@ export class AiEditorBridge {
   advance(id, viewChanged = false) {
     const target = this.targets.get(id),
       s = this.state();
+    // A prompt may already be captured while this AI operation is committing.
+    // Advance only tokens for the same chat and exact pre-operation state.
+    const peers = [...this.targets.values()].filter(other => other !== target && !other.region &&
+      other.documentId === target.documentId && other.chatId === target.chatId &&
+      other.revision === target.revision && other.selectionSignature === target.selectionSignature);
+    const advancePeers = () => {
+      for (const other of peers) {
+        for (const key of ['revision', 'selectionSignature', 'selection', 'offscreen']) other[key] = structuredClone(target[key]);
+        for (const key of ['selection', 'selectedNodeIds', 'checkedGeosets', 'activeGeoset', 'uvSet']) other.restore[key] = structuredClone(target.restore[key]);
+      }
+    };
     if (target.region) {
       const env = this.env(target); target.revision = env.doc.revision; target.regionKey = regionSignature(env.model, target.region);
       return;
@@ -332,6 +343,7 @@ export class AiEditorBridge {
       const session = s.sessions.find(x => x.id === target.documentId);
       if (session) target.revision = session.doc.revision;
       target.offscreen = true;
+      advancePeers();
       return;
     }
     target.offscreen = false;
@@ -348,6 +360,7 @@ export class AiEditorBridge {
         workplane: s.workplane,
         view: s.view,
       });
+    advancePeers();
   }
   async regions(args, options) {
     this.batches ||= new Map();

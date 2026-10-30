@@ -232,3 +232,12 @@ test('AI edits may change numeric values but not the numeric array type', () => 
     1,
   );
 });
+
+
+test('an empty timeline mounting or changing controller is not a changed selection', () => {
+  const state = { session: { id: 'one' }, doc: { revision: 308 }, selection: { 5: [0, 1, 2] }, selectable: new Set([5]), activeGeoset: 5 };
+  const target = { documentId: 'one', revision: 308, selectionSignature: aiSelectionSignature(state) };
+  for (const controller of ['rotate', 'move']) checkAiTarget(target, { ...state, keyframes: { controller, range: null, keys: [] } });
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: [0, 100], keys: [] } }), /changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: null, keys: [{ frame: 50, trackId: 'node:0:Translation' }] } }), /changed/);
+});
