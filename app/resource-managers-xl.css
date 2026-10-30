@@ -80,7 +80,8 @@
 :root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor .inspector-section>summary{padding:4px 0;background:transparent}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor fieldset.inspector-fields{border:0;border-radius:0;padding:0;background:transparent}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor .re-list{border-color:var(--m-line,var(--ui-border));background:var(--ui-field)}
-:root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor .re-node-window .re-list{background:var(--tree-background);border-color:var(--tree-border)}
+/* Every manager list (not only Nodes) follows the Tree colours in the new look. */
+:root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor :is(.re-node-window,.re-xl) .re-list,:root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor.re-xl .re-list{background:var(--tree-background);border-color:var(--tree-border)}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .resource-editor .re-checker{border-color:var(--m-line,var(--ui-border));border-radius:4px;background:repeating-conic-gradient(var(--ui-panel) 0 25%,var(--ui-surface) 0 50%) 50%/16px 16px}
 
 /* The editor tab owns the workspace; menu-launched managers remain movable windows. */
