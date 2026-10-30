@@ -36,6 +36,7 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
+  'ai-real-use': { env: { MDLVIS_HEADLESS: '' }, timeout: Number(process.env.MDLXL_AI_REAL_USE_REPEATS || 3) * (10 + 6 * Number(process.env.MDLXL_AI_REAL_USE_RESUMES || 2)) * (Number(process.env.MDLXL_AI_REAL_USE_TURN_MS || 240000) + 30000) + 120000 },
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
   'smooth-edges': { needs: [footman] },
@@ -66,6 +67,7 @@ export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',
   'updater-bootstrap': 'needs the official 0.20.1 ZIP',
   'ai-live': 'opt-in check against a real signed-in AI account (MDLXL_AI_LIVE_PROFILE)',
+  'ai-real-use': 'opt-in: MDLXL_AI_REAL_USE=1 and explicit ai-real-use selection (never all/core)',
   'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
@@ -84,7 +86,7 @@ const nameOf = file => file.replace(/\.electron\.cjs$/, '').replace(/\.cjs$/, ''
 const fileOf = name => files.find(file => file === name + '.electron.cjs' || file === name + '.cjs');
 const variant = process.argv[2] || 'default', selection = process.argv[3] || 'all';
 if (!VARIANTS[variant]) fail(`Unknown variant "${variant}". Variants: ${Object.keys(VARIANTS).join(', ')}`);
-const names = selection === 'all' ? files.map(nameOf) : selection === 'core' ? CORE : selection.split(',').map(name => name.trim()).filter(Boolean);
+const names = selection === 'all' ? files.map(nameOf).filter(name => name !== 'ai-real-use') : selection === 'core' ? CORE : selection.split(',').map(name => name.trim()).filter(Boolean);
 const outDir = out('suite', variant), summaryFile = path.join(outDir, 'summary.json'), doneFile = path.join(outDir, 'done.txt');
 const TIMEOUT = Number(process.env.SUITE_TIMEOUT_MS || 15 * 60 * 1000);
 
@@ -132,7 +134,8 @@ async function runSuite() {
     if (summary.results[name]?.status === 'pass') continue;
     const special = SPECIAL[name] || {}, file = fileOf(name);
     const missing = (special.needs || []).some(need => !need || !fs.existsSync(need));
-    const notRun = SKIP[name] ? { status: 'skip', reason: SKIP[name] }
+    const optedIn = name === 'ai-real-use' && process.env.MDLXL_AI_REAL_USE === '1' && selection !== 'all' && selection !== 'core';
+    const notRun = SKIP[name] && !optedIn ? { status: 'skip', reason: SKIP[name] }
       : !file ? { status: 'missing', reason: `no test/${name}.electron.cjs or test/${name}.cjs` }
       : missing ? { status: 'skip', reason: 'missing fixture: ' + (special.hint || special.needs.join(', ')) }
       : !playwright ? { status: 'fail', reason: 'Playwright not found: set MDLXL_REAL_PLAYWRIGHT' } : null;

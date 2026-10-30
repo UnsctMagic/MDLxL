@@ -1,0 +1,66 @@
+[
+  {
+    "id": "thicken-band",
+    "kind": "thicken",
+    "meshIndex": 5,
+    "keepLook": false,
+    "turns": [
+      "Please make the selected band thicker so it sticks out by a few pixels, like a plated ring around the helm. Keep the band height, existing texture wrap and the rest of the helmet unchanged. Apply it."
+    ]
+  },
+  {
+    "id": "reference-studs",
+    "kind": "studs",
+    "meshIndex": 5,
+    "addStuds": 4,
+    "keepLook": false,
+    "image": "stud-reference.jpg",
+    "turns": [
+      "Using this reference photo, add four small rounded low-poly studs along the selected plated band, matching the rivets in the picture. Keep the existing helmet, textures and existing studs unchanged. Apply it."
+    ]
+  },
+  {
+    "id": "reduce-studs",
+    "kind": "reduce",
+    "meshIndex": 6,
+    "trianglesPerStud": 6,
+    "keepLook": false,
+    "turns": [
+      "Make the selected studs a bit less high poly. Keep their placement, size and texture.",
+      "No, reduce each stud to 6 triangles. Keep their placement, size and texture. Apply it now."
+    ]
+  },
+  {
+    "id": "keep-the-look",
+    "kind": "simplify",
+    "meshIndex": 0,
+    "keepLook": true,
+    "split": true,
+    "turns": [
+      "Simplify the whole helmet while keeping the appearance. Some needless points can be joined without changing how things look. Keep the same shape, silhouette, materials, textures and UV wrap. I want at least 99% the same look, with less geometry. Apply it."
+    ]
+  },
+  {
+    "id": "follow-example",
+    "kind": "example",
+    "meshIndex": 0,
+    "keepLook": true,
+    "split": true,
+    "demo": true,
+    "turns": [
+      "Look at the lower right side of Geoset 1. I welded the bottom right part myself; visually it looks the same. Weld like I did on that lower right area, across the whole helmet in Geoset 1. Keep the shape, texture wrap and all other parts unchanged. Apply it."
+    ]
+  },
+  {
+    "id": "just-deliver",
+    "kind": "example",
+    "meshIndex": 0,
+    "keepLook": true,
+    "split": true,
+    "demo": true,
+    "turns": [
+      "Weld the whole helmet in Geoset 1 like the lower right example I made. Keep the same shape and texture wrap. Check it from six angles before finishing.",
+      "The check is getting in the way and this still is not delivered. Just deliver it. I do not care about the pictures. Finish welding the whole part like my example and keep the look."
+    ]
+  }
+]

@@ -47,6 +47,69 @@ and should be compared relatively.
 Set `MDLXL_SUITE_VISIBLE=1` to run on the current desktop instead (for watching
 a single test). Other platforms always run on the current display.
 
+## Opt-in real-use AI measurements
+
+`ai-real-use` sends the six owner-style scenario sequences through the packaged
+AI console with Codex `gpt-6-luna` and low reasoning effort. It is excluded from
+`all`, `core` and CI, even when its opt-in environment variable is set. It runs
+only when named explicitly **and** `MDLXL_AI_REAL_USE=1`. Use a D: worktree.
+No product limits or product code are changed.
+
+```powershell
+$env:TEMP = 'D:\Codex\mdlxl-ai-real-use\out\task-tmp'
+$env:TMP = $env:TEMP
+$env:npm_config_cache = 'D:\Codex\mdlxl-ai-real-use\out\npm-cache'
+New-Item -ItemType Directory -Force $env:TEMP | Out-Null
+npx vite build
+node scripts/package.mjs --out out/pkg
+$env:MDLXL_AI_REAL_USE = '1'
+$env:MDLXL_AI_LIVE_PROFILE = 'D:\path\to\signed-in-app\resources\app\profile'
+$env:MDLXL_AI_REAL_USE_REPEATS = '3'
+node scripts/run-packaged-tests.mjs default ai-real-use
+```
+
+The runner uses `hidden-run.ps1` and the separate `MDLxLTests` desktop. The harness
+refuses a visible Windows run. It never starts a sign-in flow or opens a browser.
+Only `ai/codex/auth.json` is copied from the named profile to disposable scratch;
+no owner settings or chats are copied or written. Scratch gets a fresh
+`ai/codex/config.toml` with `model = "gpt-6-luna"` and
+`model_reasoning_effort = "low"`. Offload and the outside check stay enabled,
+with manual routing and lighter-model switching disabled, so all requests use
+the selected cheap model. A missing or signed-out login triggers one dry-run
+repetition using an explicitly inert local stand-in. A provider auth error while
+sending stops further live calls and starts one fresh dry-run repetition with
+the stand-in. No interactive reauthentication is attempted.
+
+Each invocation writes `out/ai-real-use/<UTC timestamp>/report.json` and
+`report.md`, plus per-scenario transcript, before/after geometry and demonstration
+evidence. Reports show separate workflow/edit scores, mean/min/max distributions,
+completion/resume-loop/cutoff/false-refusal rates, geometry/UV/texture deltas,
+example coverage, per-stud triangle counts, elapsed seconds and transcript tokens.
+Unavailable cost stays `null`/unknown, especially for subscription-backed Codex.
+Reports never collapse the measurements to a single pass/fail. A zero runner exit
+means it produced measurements; it does not approve the AI edits. Unexpected
+harness errors still exit nonzero. Harness timeouts are marked separately from
+provider-initiated stops.
+
+The fixture is a neutral copy of the authorized helmet; provenance is in
+[test/fixtures/ai-real-use/README.md](../test/fixtures/ai-real-use/README.md).
+Textures are read from local CASC into disposable scratch, not committed.
+Weld scenarios introduce compatible redundant points without changing the look;
+the harness performs the example with MDLxL's actual Weld command first.
+Surface and interpolated-UV comparisons tolerate reindexing and coplanar
+retriangulation. Three rasterized orthographic silhouettes provide shape evidence,
+not artistic judgment. Photo resemblance and small details still require review;
+Warcraft III itself is not exercised. Evidence may contain provider text: review
+it before sharing; never publish a disposable profile or credentials.
+
+Optional controls: `MDLXL_AI_LIVE_FROM=1` starts at a numbered scenario;
+`MDLXL_AI_REAL_USE_REPEATS` defaults to 3; `MDLXL_AI_REAL_USE_GAME` defaults to
+`D:\Warcraft III`; `MDLXL_AI_REAL_USE_TURN_MS` defaults to 240000 per turn;
+`MDLXL_AI_REAL_USE_RESUMES` defaults to 2 resume attempts per scenario;
+`MDLXL_AI_REAL_USE_DRY_RUN=1` exercises the console/report path without live calls.
+The existing `MDLXL_SUITE_PKG` and `MDLXL_REAL_PLAYWRIGHT` select the package and
+Playwright as usual. All test profiles, textures and scratch are removed on exit.
+
 ## Variants
 
 | Variant | Imitates | How |
