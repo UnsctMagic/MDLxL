@@ -90,7 +90,7 @@ const root = path.resolve(__dirname, '..');
       await page.waitForFunction(() => !!document.querySelector('[aria-label="Select geoset 0"]'));
       const restored = await page.evaluate(() => {
         const element = document.querySelector('.classic-app');
-        { const doc = findFiberState(element, doc => doc?.model); if (doc?.model) return { geosets: doc.model.Geosets.length, vertex: doc.model.Geosets[0].Vertices[0], undo: doc.historyStats.undoSteps }; }
+        { const doc = mdlxlProbe().session?.doc; if (doc?.model) return { geosets: doc.model.Geosets.length, vertex: doc.model.Geosets[0].Vertices[0], undo: doc.historyStats.undoSteps }; }
 
         throw Error('Editor session not found');
       });
