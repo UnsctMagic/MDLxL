@@ -79,8 +79,8 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     await page.keyboard.press('Control+z');await idle();
   }
   await configure('vertices','',1);
-  // The UV map is flat: Rotate is a plain left/right turn, the same wherever
-  // the drag starts (test/uv-rotate-steady.electron.cjs measures it fully).
+  // The UV map is flat: the selection follows the mouse around its centre
+  // whatever the 3D rule setting (test/uv-rotate-steady.electron.cjs measures it fully).
   await menu('uv');const uv=page.locator('.uv-tab-window');await uv.waitFor();
   await uv.getByRole('button',{name:'Rotate',exact:true}).click();await idle();
   await page.evaluate(()=>{window.rotationUV=()=>{const el=document.querySelector('.uv-editor'),state=findFiberState(el,v=>v?.uv&&v?.draw,{last:true}),props=findFiberState(el,v=>v?.geoset&&v?.onSelectVertices,{last:true});if(!state||!props)throw Error('UV runtime missing');return {state,props};};});
@@ -89,10 +89,6 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   const uvBefore=await uvSnap();await dragMouse({x:uvBox.x+uvBox.width*.65,y:uvBox.y+uvBox.height*.45},30,0);const uvAfter=await uvSnap();
   check('UV straight drag turns the selection',uvBefore.selected.length>0&&uvAfter.uv.some((v,i)=>Math.abs(v-uvBefore.uv[i])>1e-4));
   await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();check('UV one-step Undo',JSON.stringify((await uvSnap()).uv)===JSON.stringify(uvBefore.uv));
-  await configure('uv','',.5);
-  await dragMouse({x:uvBox.x+uvBox.width*.35,y:uvBox.y+uvBox.height*.4},60,0);const uvSlower=await uvSnap();
-  check('UV editor sensitivity override halves the angle',uvSlower.uv.every((v,i)=>Math.abs(v-uvAfter.uv[i])<.0001));
-  await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
   const previewCamera=()=>page.evaluate(()=>{const runtime=mdlxlProbe('.uv-tab-window .game-preview-root').runtime;if(!runtime)throw Error('UV camera missing');return runtime.controls.object.quaternion.toArray();});
   const cameraBefore=await previewCamera(),previewBox=await uv.locator('[data-clean-model-canvas]').boundingBox();
   await dragMouse({x:previewBox.x+previewBox.width*.4,y:previewBox.y+previewBox.height*.5},40,20);
