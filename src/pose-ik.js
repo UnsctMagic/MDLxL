@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
-import { allNodes, NODE_COLLECTION_KEYS, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
@@ -263,10 +264,28 @@ export function suggestPoseRig(model, frame, sequence) {
       trunk.add(id);
     }
     const parts = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail','Wing'].includes(roleOf(node)));
+    // A detached piece can stand in for the body's own part: a Death that
+    // swaps the living head for a severed one. The two swap visibility: one
+    // clip ends with the part hidden and the piece shown, another with the
+    // part shown and the piece hidden. It stays that part, in every clip.
+    // Equipment that is always shown (a flail) never swaps.
+    const bones = (model.Geosets || []).map(geoset => new Set(Array.from({ length: (geoset.Vertices?.length || 0) / 3 }, (_, i) => vertexBones(geoset, i)).flat()));
+    const skin = id => bones.flatMap((set, i) => [...set].some(bone => tree.isAncestor(bone, id)) ? [i] : []);
+    const shown = (geosets, s) => geosets.some(i => sampleGeosetAnimation(model, i, model.Sequences[s].Interval[1], s).alpha > .01);
+    const standsIn = (node, living) => {
+      const own = skin(node.ObjectId), theirs = living.map(other => skin(other.ObjectId)).filter(list => list.length), clips = (model.Sequences || []).map((sequence, s) => s).filter(s => model.Sequences[s].Interval);
+      const swapped = (piece, part) => clips.some(s => shown(piece, s) && part.every(list => !shown(list, s)));
+      return own.length && theirs.length && swapped(own, theirs) && swapped(theirs.flat(), [own]);
+    };
+    const rejected = [];
     for (const node of parts) {
       const lineage = tree.ancestors(node.ObjectId, true), hand = lineage.findIndex((id, i) => i && hands.has(id));
       const held = hand > 0 && roleOf(node) !== 'Wing' && lineage.slice(0, hand).some(id => !evidence.moving(byId.get(id)));
-      if (!lineage.some(id => trunk.has(id)) || held) roles[node.ObjectId] = 'Object';
+      if (held) roles[node.ObjectId] = 'Object'; else if (!lineage.some(id => trunk.has(id))) rejected.push(node);
+    }
+    for (const node of rejected) {
+      const living = parts.filter(other => roleOf(other) === roleOf(node) && !rejected.includes(other) && tree.ancestors(other.ObjectId, true).some(id => trunk.has(id)));
+      if (!standsIn(node, living)) roles[node.ObjectId] = 'Object';
     }
   }
   const structuralRoots = transforms.filter(node => !byId.has(node.Parent) && evidence.supported(node) && evidence.articulated(node)).sort((a,b) => evidence.descendants(b.ObjectId).filter(evidence.supported).length - evidence.descendants(a.ObjectId).filter(evidence.supported).length);

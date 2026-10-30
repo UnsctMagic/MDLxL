@@ -213,9 +213,13 @@ Bodies come first, names second. The bodies are found from their limbs; a bone
 named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
 only when it hangs from a found body, or from a joint that body rides on and
 that moves or carries skin (a mount under its rider, a beast's root above its
-legs). A static, skinless container root, a separate skeleton (a flail, loose
-birth/death debris, an effect dummy) and a rigid prop in a found hand (a
-wrench) become `Object`, the same role as **Object** in setup. A wing may grow
+legs). A static, skinless container root, a separate skeleton (a flail, an
+effect dummy) and a rigid prop in a found hand (a wrench) become `Object`, the
+same role as **Object** in setup. A separate piece that swaps visibility with
+the body's own part of that kind keeps the role: one clip ends with the part
+hidden and the piece shown (a Death's severed head, a crumbled rock pelvis),
+another with the part shown and the piece hidden. Always-shown equipment never
+swaps. A wing may grow
 from a hand. Pieces inside a head (meshes, flaps, eyelids, a beak) still belong
 to the head but get no head handle of their own. So a body has one head unless
 its structure carries more: two-headed ogres, the hydra, the chimaera, a rider
