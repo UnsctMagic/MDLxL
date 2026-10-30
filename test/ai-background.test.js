@@ -236,7 +236,7 @@ test('the same tab still blocks: an edit by the user on the task model stops the
   a.doc.apply('Owner edit', ['Geosets'], m => {
     m.Geosets[0].Vertices[1] += 3;
   });
-  await assert.rejects(bridge.call('mdlxl_patch', move(target, 7)), /changed since this prompt/);
+  await assert.rejects(bridge.call('mdlxl_patch', move(target, 7)), /no longer current/);
   assert.equal(a.doc.model.Geosets[0].Vertices[0], 6);
 });
 
@@ -434,7 +434,7 @@ test('a cancelled display tool releases its queue and cannot advance a target wh
   a.doc.apply('User change', ['Geosets'], m => { m.Geosets[0].Vertices[0] += 1; });
   release();
   await new Promise(resolve => setTimeout(resolve, 90));
-  assert.throws(() => bridge.requireTarget(target), /model or selection changed/, 'late display reply must not adopt a user change');
+  assert.throws(() => bridge.requireTarget(target), /no longer current/, 'late display reply must not adopt a user change');
 });
 
 test('background display-only commands report a tool error instead of waiting for the user tab', async t => {
@@ -458,9 +458,9 @@ test('a follow-up captured before the AI commit advances only over that AI own e
   assert.equal(a.doc.model.Geosets[0].Vertices[0], 12);
   assert.equal(bridge.targets.get(followup.target).frame, 42, 'a captured frame stays with its prompt');
   a.viewState.selection = { 0: [2] };
-  assert.throws(() => bridge.requireTarget(followup.target), /selection changed/);
+  assert.throws(() => bridge.requireTarget(followup.target), /no longer current/);
   a.viewState.selection = { 0: [0, 1] };
   const afterAI = bridge.context();
   a.doc.apply('Owner edit', ['Geosets'], m => { m.Geosets[0].Vertices[0] = 20; });
-  assert.throws(() => bridge.requireTarget(afterAI.target), /model or selection changed/);
+  assert.throws(() => bridge.requireTarget(afterAI.target), /no longer current/);
 });

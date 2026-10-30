@@ -8,6 +8,7 @@ import Addons from './Addons.jsx';
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
 import AiOffscreenRender from './AiOffscreenRender.jsx';
+import AiCopyView from './AiCopyView.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
@@ -1441,6 +1442,14 @@ export default function App() {
       refresh();
     },
     selectIn: (id, value) => selectTab(aiHost.current.sessionOf(id), value),
+    // "Save as a new file": the AI's copy opens in a tab of its own, never saved over the user's file.
+    openCopy: async ({ doc: copy, assets, added }) => {
+      copy.name = copy.name.replace(/(\.[^.]*)?$/, ' (AI)$1');
+      const next = newSession(copy, null, new Map(assets));
+      install(next);
+      if (added.length) await loadTextures(added, next, { source: 'forge' });
+      resolveTextures(next);
+    },
     assetsIn: id => { const target = aiHost.current.sessionOf(id); return retainedForgeAssets(target.assets, target.doc.model); },
     addAssetsIn: (id, records) => loadTextures(records, aiHost.current.sessionOf(id), { source: 'forge' }),
     render: async spec => {
@@ -1785,5 +1794,6 @@ export default function App() {
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Learn settings={preferences.learn}/>
     <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
+    <AiCopyView bridge={aiBridge} preferences={preferences} teamColor={teamColor}/>
   </div></HotkeysProvider></PreferencesContext.Provider>;
 }

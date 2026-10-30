@@ -220,3 +220,28 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-question input[type=number]{width:100%;padding:5px 7px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field)}
 
 .ai-provider-notice[open]>summary>svg{transform:rotate(90deg)}
+
+/* Own copy: a friendly green question or note from MDLxL (never red), the Peek
+   toggle beside Stop, and the Peek/Compare window with OptimizeXL's preview look. */
+.ai-assistant,.ai-copy-view{--ai-good:#2f9e44}
+.ai-good{color:color-mix(in srgb,var(--ai-good) 62%,var(--ui-text,#16191e));background:color-mix(in srgb,var(--ai-good) 10%,var(--ui-field,#fff));border:1px solid color-mix(in srgb,var(--ai-good) 32%,transparent)}
+:root[data-theme=dark] .ai-good{color:color-mix(in srgb,#8ce99a 75%,var(--ui-text,#eee))}
+.ai-account.ai-good>button{margin-left:auto}
+.ai-copy-question{flex-wrap:wrap}
+.ai-copy-choices{display:flex;flex-wrap:wrap;gap:6px}
+.ai-assistant button.ai-peek{width:30px;min-width:30px;height:30px;padding:0;border-radius:50%}
+.ai-assistant button.ai-peek[aria-pressed=true],.ai-copy-question button[aria-pressed=true]{background:color-mix(in srgb,var(--ai-good) 20%,var(--ui-surface))!important}
+.ai-copy-view{position:fixed;z-index:1500;left:424px;bottom:24px;width:min(560px,calc(100vw - 48px));height:min(420px,70vh);display:flex;flex-direction:column;overflow:hidden;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87);border-radius:8px;box-shadow:0 8px 30px #0005;font:12px/1.5 'Segoe UI',Tahoma,sans-serif}
+.ai-copy-view:has(.ai-copy-pair){width:min(960px,calc(100vw - 48px));height:min(520px,80vh)}
+@media (max-width:1100px){.ai-copy-view{left:24px}}
+.ai-copy-view>header{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--ui-border,#8b8b87)}
+.ai-copy-view>header span{flex:1;min-width:0;color:var(--ui-muted,#555);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-copy-view>main{flex:1;min-height:0;display:flex}
+.ai-copy-preview{flex:1;min-width:0;display:flex;flex-direction:column;background:#20242a;isolation:isolate}
+.ai-copy-pair>.ai-copy-preview+.ai-copy-preview{border-left:1px solid #000}
+.ai-copy-preview>h3{margin:0;padding:5px 10px;font-size:13px;font-weight:600;color:#f1f1f1;background:#2a3037}
+.ai-copy-preview>.game-preview-root{flex:1;min-height:0;position:relative}
+.ai-copy-view>footer{display:flex;gap:8px;justify-content:flex-end;padding:8px 10px;border-top:1px solid var(--ui-border,#8b8b87)}
+.ai-copy-view button{display:inline-flex;align-items:center;gap:6px;font:inherit;padding:4px 10px;border:1px solid var(--ui-border,#8b8b87);border-radius:6px;background:var(--ui-surface,#f0f0f0);color:var(--ui-text,#16191e);cursor:pointer}
+.ai-copy-view button.ai-good-button{border-color:color-mix(in srgb,var(--ai-good) 45%,transparent);background:color-mix(in srgb,var(--ai-good) 14%,var(--ui-surface,#f0f0f0))}
+.ai-message-notice{margin:6px 0 0;padding:5px 8px;border-radius:6px;font-size:12px}

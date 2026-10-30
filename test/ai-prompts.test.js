@@ -32,39 +32,43 @@ const REJECTION_RULE = 'When the user rejects a result that your measurements sh
 // AGENTS.md "Reuse, never create unasked": the model's own data, then native game
 // files; new textures, materials or geosets only when the user asks for new.
 const REUSE_RULE = "Reuse before creating: for textures, materials and geosets use what the model already has first, then Blizzard's native game files (mdlxl_assets source textures or game). Create a new texture, material or geoset only when the user's request explicitly asks for something new; if nothing existing fits, say what you checked and ask first.";
+// docs/agent-tasks/ai-own-copy.md: a chat job works on its own copy, so a stale
+// target is no conflict to explain; the AI stops with one sentence.
+const STALE_BEFORE = 'Use the target supplied with this turn. If it becomes stale, stop and explain the conflict; do not take a fresh target and silently retarget the work.';
+const STALE_AFTER = "Use the target supplied with this turn. A chat job works on its own copy of the model taken when the prompt was sent, so the user's clicks and edits meanwhile never invalidate it; MDLxL merges your changes when you finish. If a tool says the job was stopped or its target is no longer current, stop at once with one short sentence: do not guess why, do not ask the user to resend, and do not take a fresh target.";
 const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text);
 const EXPECTED = {
   "editing plain": [
-    "6fe5691ae601f02e805f267cdc2ece134450f5c00afa32da2d03640a7db8583c",
-    8815
+    "6f20ea6b32365db91cd41d37a8b376794af4633b7ca2271b7216998b0fd67552",
+    9077
   ],
   "worker plain": [
-    "468fb1f61de0cee18a8b72ef9eb3c0e7c4d2953c033c899bc41f96b75c4aa078",
-    9971
+    "6b873f4ab2c491317f296dd8ae317697343b73bc89e924bed2280f54cc710049",
+    10233
   ],
   "editing plain+web": [
-    "79ca23e64faf9faf0bc2a1b0b6fb731751f1bd5ac71d81ffc8c624172853c6bf",
-    9317
+    "e0c6a72b59ee258b2aec46f820101f1f36b7388462e1284f18b4cfba4d3c5959",
+    9579
   ],
   "worker plain+web": [
-    "4fd4f79c64b61b338c211a69c714cfd9b77ef76ac0902e8ada204350e7278ac8",
-    10473
+    "182556ce9141400ca6e7e8e66c4e60f512340f3b8c6fcb2b7dfa2b5e07d4ee50",
+    10735
   ],
   "editing handbook": [
-    "a1bcd6388631ee3049919be467f5c6bb8ad06132c4f03b1ec94159de4aef2b2d",
-    11822
+    "714c9c4e4927e29f750e2963cfe97e0136fc78d3ba8b335efe77c3c6d28a45c3",
+    12084
   ],
   "worker handbook": [
-    "2ff5ec382fe2f8bbfe61397f4b3228292cce17af80ceda0b8b71eedddc346b6d",
-    12978
+    "def6006fd62132062ffc4c9f5fa3971e6ae96f32ff75638a16640acefed6d48f",
+    13240
   ],
   "editing handbook+web": [
-    "87782c5014f329adaf66e67fa9b1088b06fab280c36a6705f053984963548447",
-    12324
+    "bba09b4fe0d319016508f15512ec75a7c663dc40bde7f45c2dd4b21ee25bd141",
+    12586
   ],
   "worker handbook+web": [
-    "f3e39054878111260460aac018a154fcd483dd7455822d05d4c348d4f82deda9",
-    13480
+    "22669f04487d2f75c2b3f38f018f0ca5159e333b8868075e84339496345d8f1c",
+    13742
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -83,9 +87,9 @@ test('router is unchanged; editing and worker prompts change only the documented
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: false })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: false })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE).replace(STALE_AFTER, STALE_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true })), EXPECTED['worker ' + key], 'worker ' + key);
-      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: true })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: true })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE).replace(STALE_AFTER, STALE_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));

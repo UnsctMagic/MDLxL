@@ -1,4 +1,6 @@
-import { AI_TOOLS, AI_DISPLAY_COMMANDS, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
+import { AI_TOOLS, AI_DISPLAY_COMMANDS, AI_TAB_CLOSED, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
+import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
+import { copyDocument, mergePlan, applyMerge, mergeLabel } from '../src/ai-own-copy.js';
 import {
   aiSelectionSignature,
   checkAiTarget,
@@ -41,6 +43,40 @@ const viewSnapshot = state => ({
   keyframes: structuredClone(state.keyframes ?? null),
 });
 const LEFT_TAB = "The user left this model's tab before this step could run. Try it again; it waits until they return.";
+const OWN_COPY =
+  "You work on your own copy of this model, and MDLxL's buttons, windows, timeline keys and editor commands act on the user's model, so they are not available. Do this step with mdlxl_script or mdlxl_patch (api.describe lists the editing modules); Undo/Redo, selection, views and pictures work on your copy.";
+// A target keeps its own copy as a reference: structuredClone would detach the copy's document.
+const cloneTarget = target => ({ ...structuredClone({ ...target, copy: undefined }), copy: target.copy });
+// The AI's own copy of a model tab, as a hidden editor session: its own document
+// (no Undo history yet), the selection and view sent with the prompt, and the model
+// as it was then, to tell the AI's changes from the user's when the job ends.
+function ownCopy(session, state) {
+  const doc = copyDocument(state.doc);
+  doc.history = [];
+  return {
+    id: 'ai-copy:' + crypto.randomUUID(),
+    aiCopy: true,
+    originId: session.id,
+    doc,
+    path: session.path,
+    assets: session.assets,
+    uvPreviews: {},
+    animationDrafts: {},
+    paintProject: null,
+    viewState: {
+      mode: state.mode,
+      animationPanel: state.animationPanel,
+      selectable: new Set(state.selectable),
+      visibleOnly: new Set(),
+      selection: structuredClone(state.selection || {}),
+      activeGeoset: state.activeGeoset,
+      uvSet: state.uvSet,
+      selectedNodeIds: [...(state.selectedNodeIds || [])],
+    },
+    base: structuredClone(state.doc.model),
+    added: [],
+  };
+}
 // Steps that need MDLxL's own buttons, windows or timeline on screen.
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
@@ -92,6 +128,8 @@ export class AiEditorBridge {
     this.waiters = new Set();
     // Versions the AI keeps side by side, per model tab, until MDLxL closes.
     this.versionStore = createVersionStore();
+    // Chat jobs on their own copy, by target: working, then merged or waiting for the user's choice.
+    this.copyJobs = new Map();
     // The open console listens here instead of redrawing with every editor render.
     this.listeners = new Set();
     this.subscribe = listener => {
@@ -132,25 +170,29 @@ export class AiEditorBridge {
     const { session, model } = this.state();
     return sketchContext(sketchStore.strokes(session.id), model);
   }
-  // The model tab a task works on, as that task sees it. On screen it is the live
-  // editor; otherwise the tab's own document with the selection and view the task
-  // captured when its prompt was sent (and changed since through its own tools).
+  // The model tab a task works on, as that task sees it. A chat job works on its
+  // own copy of the tab's model. Otherwise, on screen it is the live editor; off
+  // screen the tab's own document. Off screen and on a copy, the task has the
+  // selection and view it captured when its prompt was sent (and changed since
+  // through its own tools).
   env(target) {
     const s = this.state(),
       session = target && s.sessions.find(x => x.id === target.documentId);
-    if (!session) throw Error('The model this task works on was closed.');
-    if (session === s.session && !target.region) return { live: true, session, doc: s.doc, model: s.model, state: s };
-    const view = target.restore;
+    if (!session) throw Error(target?.copy ? AI_TAB_CLOSED : 'The model this task works on was closed.');
+    if (session === s.session && !target.region && !target.copy) return { live: true, session, doc: s.doc, model: s.model, state: s };
+    const view = target.restore,
+      own = target.copy || session;
     return {
       live: false,
-      session,
-      doc: session.doc,
-      model: session.doc.model,
+      copy: !!target.copy,
+      session: own,
+      doc: own.doc,
+      model: own.doc.model,
       state: {
         ...s,
-        session,
-        doc: session.doc,
-        model: session.doc.model,
+        session: own,
+        doc: own.doc,
+        model: own.doc.model,
         selection: target.selection,
         selectedNodeIds: view.selectedNodeIds,
         selectable: new Set(view.checkedGeosets),
@@ -173,12 +215,15 @@ export class AiEditorBridge {
       },
     };
   }
-  context(existing, chatId) {
+  // ownCopy: a prompt sent from the chat works on its own copy of the model on
+  // screen (an editable one), so the user can keep clicking and editing meanwhile.
+  context(existing, chatId, { ownCopy: copy = false } = {}) {
     if (existing) this.requireTarget(existing);
     const id = existing || crypto.randomUUID();
     if (!existing) {
       const state = this.state();
       this.targets.set(id, {
+        ...(copy && !state.doc.readOnly ? { copy: ownCopy(state.session, state) } : {}),
         ...this.referenceScope(),
         revision: state.doc.revision,
         selectionSignature: aiSelectionSignature(state),
@@ -199,8 +244,9 @@ export class AiEditorBridge {
         restore: viewSnapshot(state),
       });
     }
+    if (this.targets.get(id).copy && !existing) this.copyJobs.set(id, { target: id, documentId: this.targets.get(id).documentId, status: 'working' });
     if (this.targets.size > 100) {
-      const unused = [...this.targets].find(([, t]) => !t.region && !t.review);
+      const unused = [...this.targets].find(([, t]) => !t.region && !t.review && !t.copy);
       if (unused && unused[0] !== id) this.targets.delete(unused[0]);
     }
     if (chatId !== undefined) this.targets.get(id).chatId = chatId;
@@ -210,14 +256,19 @@ export class AiEditorBridge {
       selected = structuredClone(env.live ? state.selection || {} : captured.selection);
     return {
       target: id,
-      documentId: session.id,
+      documentId: captured.documentId,
       onScreen: env.live,
       ...(env.live
         ? {}
-        : {
-            background:
-              "This model's tab is not showing: the user works on another tab. Edits, selection, views, pictures, Undo/Redo, reading, sampling and export work on this model directly. Editor commands and program controls wait until the user returns to this tab.",
-          }),
+        : env.copy
+          ? {
+              ownCopy:
+                "You work on your own copy of this model, taken with the selection and view when the prompt was sent. The user may keep clicking and editing their model meanwhile; that never stops you or changes your copy, selection, view or pictures. Edits, selection, views, pictures, Undo/Redo, reading, sampling and export work on your copy. Editor commands and program controls act on the user's model, so use scripts and patches instead. When you finish, MDLxL puts your changes into the user's model, or asks the user if you both changed the same parts.",
+            }
+          : {
+              background:
+                "This model's tab is not showing: the user works on another tab. Edits, selection, views, pictures, Undo/Redo, reading, sampling and export work on this model directly. Editor commands and program controls wait until the user returns to this tab.",
+            }),
       name: doc.name,
       path: session.path,
       revision: doc.revision,
@@ -280,18 +331,20 @@ export class AiEditorBridge {
       name: x.doc.name,
       path: x.path,
       active: x === s.session,
-      revision: x.doc.revision,
+      revision: x.id === documentId && target?.copy ? target.copy.doc.revision : x.doc.revision,
     }));
   }
   requireTarget(id) {
     const target = this.targets.get(id),
       s = this.state(),
       session = target && s.sessions.find(x => x.id === target.documentId);
-    if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
+    if (target && !session) throw Error(target.copy ? AI_TAB_CLOSED : 'The model this task works on was closed. Nothing was applied.');
     if (target?.region && session) {
-      if (regionSignature(session.doc.model, target.region) !== target.regionKey) throw Error("This bird's region or one of its dependencies changed. Nothing was applied.");
+      if (regionSignature((target.copy || session).doc.model, target.region) !== target.regionKey) throw Error("This bird's region or one of its dependencies changed. Nothing was applied.");
       return target;
     }
+    // Only the AI edits its own copy: the user's clicks and edits never stop the job.
+    if (target?.copy) return target;
     if (session && session !== s.session) {
       // A tab that is not showing has no one else editing it; only a change to its
       // model (the user came back, edited and left again) stops the task.
@@ -321,12 +374,130 @@ export class AiEditorBridge {
       uvSet: view.uvSet,
     });
   }
+  // Edits, Undo and selection of a task that is not on the live editor: its own copy,
+  // or the tab that is not showing. Neither writes to the tab on screen.
+  editOwn(target, ...change) {
+    if (target.copy) return editTab(target.copy, ...change);
+    return this.host().editIn(target.documentId, ...change);
+  }
+  undoOwn(target, redo) {
+    if (!target.copy) return this.host().undoIn(target.documentId, redo);
+    if (!undoTab(target.copy, redo)) throw Error(redo ? 'Nothing to redo on this model.' : 'Nothing to undo on this model.');
+  }
+  selectOwn(target, value) {
+    if (target.copy) selectTab(target.copy, value);
+    else this.host().selectIn(target.documentId, value);
+  }
+  /** The chat job on its own copy for this model tab: the one working, or the one
+   *  waiting for the user's choice. The console shows Peek and the question from it. */
+  copyJob(documentId) {
+    const jobs = [...this.copyJobs.values()].filter(job => job.documentId === documentId);
+    return jobs.find(job => job.status === 'clash') || jobs.find(job => job.status === 'working') || null;
+  }
+  /** What Peek and Compare show: the AI's copy and, to compare, the user's model. */
+  copyModels(id) {
+    const target = this.targets.get(id),
+      session = target && this.state().sessions.find(x => x.id === target.documentId);
+    if (!target?.copy) return null;
+    return { ai: target.copy.doc, live: session?.doc || null, path: target.copy.path, assets: target.copy.assets };
+  }
+  setCopyView(id, view) {
+    const job = this.copyJobs.get(id);
+    if (!job) return;
+    job.view = job.view === view ? null : view;
+    this.editorChanged();
+  }
+  // The AI's changes go into the user's tab as one Undo step (on screen or not).
+  mergeCopy(target, plan, options) {
+    const copy = target.copy,
+      host = this.host();
+    const result = host.editIn(target.documentId, mergeLabel(copy.doc), plan.sections, model => applyMerge(model, plan, copy.doc.model, options), { rethrow: true });
+    if (result === false) throw Error('The editor could not take the AI changes now.');
+    if (copy.added.length) host.addAssetsIn(target.documentId, copy.added);
+  }
+  closeCopy(id) {
+    this.copyJobs.delete(id);
+    this.targets.delete(id);
+    this.editorChanged();
+  }
+  /** The chat's job ended (done, stopped or failed). What the AI applied to its
+   *  copy goes into the user's model: at once when no part was changed by both,
+   *  otherwise the user is asked. Returns the outcome for the console. */
+  async finishCopy(id) {
+    const target = this.targets.get(id),
+      job = this.copyJobs.get(id);
+    if (!target?.copy || job?.status !== 'working') return null;
+    // Steps still running finish on the copy first.
+    await (this.queues.get(target.documentId) || Promise.resolve());
+    const session = this.state().sessions.find(x => x.id === target.documentId);
+    if (!session) {
+      this.closeCopy(id);
+      return { status: 'closed', message: AI_TAB_CLOSED };
+    }
+    const plan = mergePlan(target.copy.base, session.doc.model, target.copy.doc.model);
+    if (!plan.changed) {
+      this.closeCopy(id);
+      return { status: 'unchanged' };
+    }
+    if (!plan.clashes.length)
+      try {
+        this.mergeCopy(target, plan);
+        this.closeCopy(id);
+        return { status: 'merged' };
+      } catch (error) {
+        plan.problem = error.message;
+      }
+    Object.assign(job, { status: 'clash', clashes: plan.clashes, problem: plan.problem || null, view: null });
+    this.editorChanged();
+    return { status: 'clash', clashes: plan.clashes };
+  }
+  /** The user's answer to the clash question.
+   *  new: the AI's result opens in its own tab; the user's model stays as it is.
+   *  adapt: the AI's result is kept as a version and the returned prompt asks the
+   *    AI to fit its changes onto the user's current model (a new job).
+   *  ai / yours: picked after comparing; ai keeps the AI's version of the parts both
+   *    changed and the user's other edits, as one Undo step; yours drops the AI's. */
+  async resolveCopy(id, choice) {
+    const target = this.targets.get(id),
+      job = this.copyJobs.get(id);
+    if (!target?.copy || job?.status !== 'clash') return null;
+    const copy = target.copy;
+    if (choice === 'new') {
+      await this.host().openCopy({ doc: copy.doc, assets: copy.assets, added: copy.added });
+      this.closeCopy(id);
+      return { status: 'opened' };
+    }
+    if (choice === 'adapt') {
+      this.versionStore.save(target.documentId, 'AI result', copy.doc.model, 'The AI result that clashed with your changes.');
+      const parts = job.clashes.join(', ');
+      this.closeCopy(id);
+      return {
+        status: 'adapt',
+        prompt: `Adapt to my changes: I changed the same parts meanwhile (${parts}), so your last result was not put into my model. Fit YOUR changes onto my current model and keep my changes; do not redo the job from scratch. Your finished result is saved as version "AI result" (references["version:AI result"] in scripts; mdlxl_versions compare shows what differs).`,
+      };
+    }
+    if (choice === 'ai') {
+      const session = this.state().sessions.find(x => x.id === target.documentId);
+      if (!session) {
+        this.closeCopy(id);
+        return { status: 'closed', message: AI_TAB_CLOSED };
+      }
+      this.mergeCopy(target, mergePlan(copy.base, session.doc.model, copy.doc.model), { aiWins: true });
+      this.closeCopy(id);
+      return { status: 'merged' };
+    }
+    if (choice === 'yours') {
+      this.closeCopy(id);
+      return { status: 'kept' };
+    }
+    throw Error('Choose new, adapt, ai or yours.');
+  }
   advance(id, viewChanged = false) {
     const target = this.targets.get(id),
       s = this.state();
     // A prompt may already be captured while this AI operation is committing.
     // Advance only tokens for the same chat and exact pre-operation state.
-    const peers = [...this.targets.values()].filter(other => other !== target && !other.region &&
+    const peers = [...this.targets.values()].filter(other => other !== target && !other.region && other.copy === target.copy &&
       other.documentId === target.documentId && other.chatId === target.chatId &&
       other.revision === target.revision && other.selectionSignature === target.selectionSignature);
     const advancePeers = () => {
@@ -337,6 +508,11 @@ export class AiEditorBridge {
     };
     if (target.region) {
       const env = this.env(target); target.revision = env.doc.revision; target.regionKey = regionSignature(env.model, target.region);
+      return;
+    }
+    if (target.copy) {
+      target.revision = target.copy.doc.revision;
+      advancePeers();
       return;
     }
     if (s.session.id !== target.documentId) {
@@ -369,7 +545,7 @@ export class AiEditorBridge {
     if (args.action === 'target') {
       const base = this.requireTarget(args.target), env = this.env(base), region = declareRegion(env.model, args.region);
       const id = crypto.randomUUID();
-      this.targets.set(id, { ...structuredClone(base), revision: env.doc.revision, region, regionKey: regionSignature(env.model, region), birdName: args.name });
+      this.targets.set(id, { ...cloneTarget(base), revision: env.doc.revision, region, regionKey: regionSignature(env.model, region), birdName: args.name });
       return this.context(id);
     }
     if (args.action === 'declare') {
@@ -377,7 +553,7 @@ export class AiEditorBridge {
       if (!Array.isArray(args.jobs) || !args.jobs.length) throw Error('Declare at least one job.');
       const jobs = args.jobs.map(job => ({ ...job, region: declareRegion(env.model, job) }));
       const id = crypto.randomUUID();
-      this.batches.set(id, { base: structuredClone(base), before: structuredClone(env.model), jobs, targets: [] });
+      this.batches.set(id, { base: cloneTarget(base), before: structuredClone(env.model), jobs, targets: [] });
       return { batch: id, jobs };
     }
     if (args.action === 'close') { for (const id of this.batches.get(args.batch)?.targets || []) this.targets.delete(id); this.batches.delete(args.batch); return { closed: true }; }
@@ -389,7 +565,7 @@ export class AiEditorBridge {
       const env = this.env(batch.base);
       if (structureSignature(env.model) !== structureSignature(batch.before)) throw Error('The model structure changed. Capture it again before assigning the remaining parts.');
       const region = declareRegion(env.model, spec);
-      const id = crypto.randomUUID(), target = { ...structuredClone(batch.base), revision: env.doc.revision, region, batch: args.batch, birdName: args.name, regionKey: regionSignature(env.model, region) };
+      const id = crypto.randomUUID(), target = { ...cloneTarget(batch.base), revision: env.doc.revision, region, batch: args.batch, birdName: args.name, regionKey: regionSignature(env.model, region) };
       delete target.review;
       this.targets.set(id, target); batch.targets.push(id);
       return this.context(id);
@@ -410,7 +586,10 @@ export class AiEditorBridge {
       const display = (name === 'mdlxl_command' && AI_DISPLAY_COMMANDS.has(args.id)) || (name === 'mdlxl_view' && !args.mode);
       if (display && name === 'mdlxl_command' && this.env(this.targets.get(args.target)).live === false)
         throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
-      if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
+      if (needsScreen(name, args)) {
+        if (this.targets.get(args.target)?.copy) throw Error(OWN_COPY);
+        await this.waitForTarget(args.target, options);
+      }
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
         current = () => {
@@ -508,7 +687,7 @@ export class AiEditorBridge {
       const s = this.state(),
         target = args.target ? this.requireTarget(args.target) : undefined,
         own = target ? this.env(target).session : s.session,
-        document = args.documentId && args.documentId !== own.id ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
+        document = args.documentId && args.documentId !== own.id && args.documentId !== target?.documentId ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
       if (!document) throw Error('Reference model is no longer open.');
       return readAiModel(document.doc.model, args);
     }
@@ -606,7 +785,7 @@ export class AiEditorBridge {
         });
       else {
         // Its own document and Undo history; the tab on screen is not touched.
-        host.editIn(target.documentId, label, prepared.sections, apply, {
+        this.editOwn(target, label, prepared.sections, apply, {
           ...options,
           selection: { vertices: result.selection || target.selection },
         });
@@ -622,7 +801,7 @@ export class AiEditorBridge {
       } catch (error) {
         if (now.live) await host.command('undo');
         else {
-          host.undoIn(target.documentId, false);
+          this.undoOwn(target, false);
           this.adoptTab(target);
         }
         this.advance(args.target);
@@ -632,7 +811,11 @@ export class AiEditorBridge {
       }
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
-      if (assets.length) await host.addAssetsIn(target.documentId, assets);
+      if (assets.length) {
+        // A copy's textures join the user's tab when its changes do.
+        if (target.copy) target.copy.added.push(...assets);
+        else await host.addAssetsIn(target.documentId, assets);
+      }
       return {
         applied: true,
         target: args.target,
@@ -648,8 +831,8 @@ export class AiEditorBridge {
     if (name === 'mdlxl_select') {
       this.validateSelection(args, env);
       if (!env.live) {
-        if (args.keyframes) throw Error(LEFT_TAB);
-        host.selectIn(target.documentId, args);
+        if (args.keyframes) throw Error(target.copy ? OWN_COPY : LEFT_TAB);
+        this.selectOwn(target, args);
         this.adoptTab(target);
         this.advance(args.target);
         return this.contextFor(args.target);
@@ -665,8 +848,8 @@ export class AiEditorBridge {
     if (name === 'mdlxl_command') {
       if (!env.live) {
         // Undo and Redo work on the task's own model; other commands need its tab.
-        if (!['undo', 'redo'].includes(args.id)) throw Error(LEFT_TAB);
-        host.undoIn(target.documentId, args.id === 'redo');
+        if (!['undo', 'redo'].includes(args.id)) throw Error(target.copy ? OWN_COPY : LEFT_TAB);
+        this.undoOwn(target, args.id === 'redo');
         this.adoptTab(target);
         this.advance(args.target);
         return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
@@ -947,7 +1130,8 @@ export class AiEditorBridge {
       : null;
     const image = await this.host().render({
       documentId: target.documentId,
-      ...(source.model ? { model: structuredClone(source.model) } : {}),
+      // A copy's pictures show the copy, with its tab's textures.
+      ...(source.model || target.copy ? { model: structuredClone(model) } : {}),
       view,
       sequence,
       globalSequence,

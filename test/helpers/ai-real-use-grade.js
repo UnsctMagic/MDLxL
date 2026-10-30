@@ -135,7 +135,7 @@ export function gradeWorkflow({ transcript=[], task, turns=[], externalChanges=0
   const text=assistants.map(m=>[m.text,m.error,...(m.parts||[]).filter(p=>p.type==='tool'?p.status==='error':p.type==='provider-notice').map(p=>p.summary||p.detail||p.text||'')].join('\n')).join('\n');
   const observedErrors=[...new Set([...assistants.map(m=>m.error),...turns.map(t=>t.consoleError)].filter(Boolean))];
   const resumes=turns.filter(t=>t.resume || /^Resume task\s*$/i.test(t.prompt||'')).length;
-  const refusals=(text.match(/(?:the )?model or selection (?:has )?changed/gi)||[]).length;
+  const refusals=(text.match(/(?:the )?model or selection (?:has )?changed|target is no longer current/gi)||[]).length;
   const stoppedObserved=assistants.some(m=>/\bStopped\./.test(m.text||''));
   const timedOut=turns.some(t=>t.timedOut);
   const stoppedCutoff=stoppedObserved&&(!timedOut||turns.some(t=>t.stoppedBeforeCancel));
