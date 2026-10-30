@@ -45,6 +45,43 @@ test('a weapon skeleton, a held prop and head pieces are no second head or body;
   assert.ok(!rig.nodes.map(name).some(n => /^Flail/.test(n)), 'no flail handle');
 });
 
+// A Death that swaps the living head for a severed one on its own skeleton:
+// the piece stands in for the head; the flail beside it stays Object.
+function deathSwap(swap) {
+  const model = fixture(), bones = model.Bones, id = name => bones.find(b => b.Name === name).ObjectId;
+  model.Sequences.push({ Name: 'Death', Interval: [200, 300], MoveSpeed: 0, NonLooping: true, Rarity: 0 });
+  for (const [Name, Parent, PivotPoint] of [['Loose Chest', null, [40, 0, 5]], ['Loose Head', 'Loose Chest', [50, 0, 5]]]) bones.push({ ObjectId: bones.length, Name, Parent: Parent && id(Parent), PivotPoint, Flags: 256, Rotation: swing(.3) });
+  model.PivotPoints = bones.map(b => b.PivotPoint);
+  const alpha = keys => ({ LineType: 0, GlobalSeqId: null, Keys: keys.map(([Frame, a]) => ({ Frame, Vector: new Float32Array([a]) })) });
+  const shown = [[0, 1], [100, 1], [200, 1], [300, 1]], living = swap ? [[0, 1], [100, 1], [200, 1], [300, 0]] : shown, severed = swap ? [[0, 0], [100, 0], [200, 0], [300, 1]] : shown;
+  for (const [bone, keys] of [['Bone_Head', living], ['Loose Head', severed], ['Flail_Head', shown]]) {
+    const at = bones[id(bone)].PivotPoint;
+    model.Geosets.push({ Vertices: new Float32Array([...at, at[0] + 1, at[1], at[2], at[0], at[1] + 1, at[2]]), Normals: new Float32Array(9), VertexGroup: new Uint8Array(3), Groups: [[id(bone)]], Faces: new Uint16Array([0, 1, 2]), MaterialID: 0 });
+    (model.GeosetAnims ||= []).push({ GeosetId: model.Geosets.length - 1, Alpha: alpha(keys), Flags: 0 });
+  }
+  return model;
+}
+
+test('a severed head shown while the living head is hidden stands in for it; a flail does not', () => {
+  for (const [swap, expected] of [[true, 'Head'], [false, 'Object']]) {
+    const model = deathSwap(swap);
+    for (const [frame, sequence] of [[0, 0], [300, 1]]) {
+      const rig = suggestPoseRig(model, frame, sequence), role = named(model, rig);
+      assert.equal(role('Bone_Head'), 'Head');
+      assert.equal(role('Loose Head'), expected, `swap=${swap}, clip ${sequence}`);
+      assert.equal(role('Flail_Head'), 'Object');
+    }
+  }
+});
+
+const ratlings = ['ratling_unit.mdx', 'ratling_hero.mdx'].map(name => path.join(process.env.MDLXL_RATLING_DIR || 'D:/Claude/LowPolyWorks/dist/models/gluma/313020', name)).filter(file => fs.existsSync(file));
+test('the owner\'s ratlings keep their Death head and chest', { skip: !ratlings.length && 'ratling models not present' }, () => {
+  for (const file of ratlings) {
+    const model = openDocument(fs.readFileSync(file)).model, death = model.Sequences.findIndex(s => /^death/i.test(s.Name)), rig = suggestPoseRig(model, model.Sequences[death].Interval[1], death), role = named(model, rig);
+    assert.equal(role('gore_head'), 'Head', path.basename(file)); assert.equal(role('gore_chest1'), 'Chest', path.basename(file)); assert.equal(role('K_head'), 'Head', path.basename(file));
+  }
+});
+
 test('a static container root is no trunk: a weapon branch beside the body has no head', () => {
   const model = fixture(), bones = model.Bones, mount = bones.find(b => b.Name === 'Mount Root');
   // Remove the mount's motion and skin evidence: it only groups a body and a weapon.
