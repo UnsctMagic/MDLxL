@@ -144,6 +144,12 @@ test('saved RGB palettes retain all tracks; selecting Red or Blue imports the co
   }
 });
 
+test('a part without animations keeps geosets whose animated alpha has a hidden zero base visible', () => {
+  const source = createStarterDocument(800).model;
+  source.GeosetAnims = [{ GeosetId: 0, Flags: 0, Alpha: { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: Float32Array.of(1) }] }, Color: Float32Array.of(1, 1, 1), _MdxDefaults: { Alpha: 0 } }];
+  assert.equal(partRgbSnapshot(source, -1).GeosetAnims[0].Alpha, 1);
+});
+
 const bounds = (model, selection = all(model)) => {
   const points = Object.entries(selection).flatMap(([index, ids]) => ids.map(id => Array.from(model.Geosets[index].Vertices.slice(id * 3, id * 3 + 3))));
   return [0, 1, 2].map(axis => [Math.min(...points.map(point => point[axis])), Math.max(...points.map(point => point[axis]))]);
