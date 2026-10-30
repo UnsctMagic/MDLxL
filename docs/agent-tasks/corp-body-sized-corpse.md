@@ -1,6 +1,6 @@
 # CORP: body-sized corpse on the POSE body parts
 
-Status: anatomy correction ready for owner visual review; no PR opened.
+Status: owner requested branch push; per-model visual review remains pending. No PR opened.
 Owner: Codex, chat `01a18c85-4bcf-74f2-9520-9aff51b2a0c9`
 Updated: 2026-10-30
 Branch: `claude/corp-long-bones`; worktree:
@@ -125,4 +125,4 @@ Set TEMP/TMP/MDLXL_TEMP/npm cache under this D: task directory. Playwright is
 `D:\Claude\tools\node_modules\playwright-core`; game is `D:\Warcraft III`.
 Never take over the user's desktop. Disposable build, staged test fixtures,
 profiles, runtime and caches are removed after checks. Keep the unfinished
-source and review evidence; no push/worktree-removal gate has been reached.
+source and review evidence while owner testing continues. The owner requested a visible test build, then explicitly requested the branch push. The build under `out/pkg/MDLxL-win32-x64` is still open for that testing with the separate `D:\Codex\mdlxl-corp-body-20261030\owner-test-profile-b9c9f465` profile; preserve both while in use. This push request does not record per-model visual acceptance or authorize a merge.
