@@ -170,7 +170,8 @@ to every Electron launch.
 | Classic MDX800 Footman | `out/citadel-fixture/Footman.mdx` | `MDLXL_SUITE_CITADEL_FOOTMAN` | Citadel paint |
 | Particle index (`node scripts/index-particles.mjs --output out/particle-index/particles`; rebuild after game patches) | `out/particle-index/particles` | `MDLXL_PARTICLE_INDEX` | particle-lifecycle |
 | OptimizeXL review model `WH_WOC_KnightKhorneFlail03.mdx` | `out/optimizexl-review/` | `MDLXL_OPTIMIZEXL_REVIEW_MODEL` | optimizexl-review, optimizexl-playback |
-| An archer `.mdx` | none | `MDLXL_SUITE_ARCHER` | material-presets |
+| An archer `.mdx` (for example LowPolyWorks `Bretonnian_Archer.mdx`) | none | `MDLXL_SUITE_ARCHER` | material-presets |
+| `WH_VC_Graveguard03.mdx` from LowPolyWorks `dist/models` | `out/graveguard/` | `MDLXL_TEST_MODEL` per test | event-sound-scroll, manager-simplification, tree-appearance |
 | `WH_WOC_KnightKhorneFlail03.mdx` | none | `MDLXL_EFFECT_MODEL` | showcase-effects |
 | SD Chaos Knight (with hoofprint events) from the Warcraft III CASC install | none | `MDLXL_SUITE_HOOFPRINT` | footprint-travel |
 | Google Chrome | `C:/Program Files/Google/Chrome/Application/chrome.exe` | `MDLXL_CHROMIUM_PATH` | module-button-labels.browser |

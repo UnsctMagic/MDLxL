@@ -16,7 +16,7 @@ const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || out('pkg/MDLxL-win32-x64
 // how to prepare them.
 const { fixturePath } = createRequire(import.meta.url)('../test/helpers/fixtures.cjs');
 const footman = fixturePath('footman'), citadelFootman = fixturePath('citadel-footman'), particleIndex = fixturePath('particle-index'), reviewModel = fixturePath('optimizexl-review');
-const archer = fixturePath('archer'), effectModel = fixturePath('effect'), hoofprintModel = fixturePath('hoofprint');
+const graveguard = out('graveguard/WH_VC_Graveguard03.mdx'), archer = fixturePath('archer'), effectModel = fixturePath('effect'), hoofprintModel = fixturePath('hoofprint');
 const chrome = process.env.MDLXL_CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
 const VARIANTS = {
@@ -42,6 +42,10 @@ const SPECIAL = {
   attachemator: { env: { MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { argv: [footman], needs: [footman] },
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
+  // The owner's Graveguard from LowPolyWorks (dist/models), copied by the release fixture step to out/graveguard.
+  'event-sound-scroll': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'manager-simplification': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
   // About 18 minutes of real mouse drags across every editing Rotate tool.
