@@ -1,4 +1,4 @@
-const { appDist } = require('./helpers/app.cjs');
+const { bundleHashes } = require('./helpers/app.cjs');
 const { sha256File } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
@@ -6,7 +6,6 @@ const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs')
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 
 (async () => {
   const { ObjectLoader, Quaternion, Vector3, Matrix4 } = await import('three');
@@ -32,10 +31,7 @@ const crypto = require('node:crypto');
   const fixtureHash = hash(fixture), checks = [], errors = [];
   const packaged = appTarget().packaged;
   const executablePath = appTarget().executablePath;
-  const assets = path.join(packaged ? appDist() : path.join(root, 'dist'), 'assets');
-  const bundleDigest = crypto.createHash('sha256');
-  for (const name of fs.readdirSync(assets).sort()) bundleDigest.update(name).update(fs.readFileSync(path.join(assets, name)));
-  const bundleHash = bundleDigest.digest('hex');
+  const bundleHash = bundleHashes().assetsHash;
   const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile'), args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 900 }, show: 'hide' });
   const check = (label, pass, evidence) => { checks.push({ label, pass: !!pass, ...(evidence === undefined ? {} : { evidence }) }); console.log((pass ? 'PASS ' : 'FAIL ') + label + (!pass && evidence !== undefined ? ' ' + JSON.stringify(evidence) : '')); };
 

@@ -35,11 +35,7 @@ throw Error('Vertex runtime not ready');});
     await page.locator('[data-clean-model-canvas]').waitFor({timeout:60000});
     await page.evaluate(()=>{
       window.movementProbe=()=>{
-        const root=document.querySelector('.game-preview-root');let runtime,props,session;
-        { const ref = findFiberState(root, ref => ref?.native&&ref?.controls, { last: true }); if (ref?.native&&ref?.controls) runtime=ref; }
-{ const ref = findFiberState(root, ref => ref?.model&&Object.hasOwn(ref,'onNodeTransform'), { last: true }); if (ref?.model&&Object.hasOwn(ref,'onNodeTransform')) props=ref; }
-{ const value = findFiberState(root, value => value?.doc?.model&&value?.assets, { last: true }); if (value?.doc?.model&&value?.assets) session=value; }
-
+        const {runtime,props,session}=mdlxlProbe();
         if(!runtime||!props||!session)throw Error('Movement owners not ready');return{runtime,props,session};
       };
       window.movementSample=()=>{

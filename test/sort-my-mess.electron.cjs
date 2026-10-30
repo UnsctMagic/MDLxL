@@ -43,10 +43,7 @@ function png(rgba) {
     await page.getByRole('button', { name: 'Sort My Mess', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Sort My Mess' }); await dialog.waitFor();
     await page.evaluate(() => { window.sortPreview = () => [...document.querySelectorAll('.smm-previews .game-preview-root')].map(root => {
-      let props, runtime;
-      { const value = findFiberState(root, value => value?.native && value?.controls, { last: true }); if (value?.native && value?.controls) runtime = value; }
-{ const value = findFiberState(root, value => value?.model?.Geosets && value?.compareCamera, { last: true }); if (value?.model?.Geosets && value?.compareCamera) props = value; }
-
+      const {props,runtime}=mdlxlProbe(root);
       if (!runtime || !props) return null;
       return { ids: props.isolatedGeosets || null, geosets: props.model.Geosets.length, position: runtime.controls.object.position.toArray(), frame: runtime.native.getFrame() };
     }); });

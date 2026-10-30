@@ -3,6 +3,7 @@
 // MDLxL-win32-x64 folder), else the development Electron with this repo's dist/.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { PROBE_SOURCE } = require('./fiber-probe.cjs');
+const childProcess = require('node:child_process');
 
 const root = path.resolve(__dirname, '../..');
 const devElectron = () => { try { return require('electron'); } catch { return path.join(root, 'node_modules/electron/dist/electron.exe'); } };
@@ -92,7 +93,21 @@ const settle = (page, ms = 150) => page.waitForTimeout(ms);
 async function closeApp(app, { keepProfile = false } = {}) {
   const { profile, child } = profiles.get(app);
   try { await app.evaluate(({ app }) => app.exit(0)); } catch { /* the connection closes as the app exits */ }
-  if (child && child.exitCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 10000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
+  const exited = () => !child || child.exitCode !== null || !!child.signalCode;
+  const waitForExit = () => exited() ? Promise.resolve(true) : new Promise(resolve => {
+    const done = () => { clearTimeout(timer); child.removeListener('exit', done); resolve(true); };
+    const timer = setTimeout(() => { child.removeListener('exit', done); resolve(false); }, 10000);
+    child.once('exit', done);
+  });
+  if (!await waitForExit()) {
+    // Playwright's Windows child is a cmd wrapper. Stop its whole owned tree
+    // before removing a profile that Chromium can still have open.
+    console.warn('Test app did not exit; stopping its launched process tree.');
+    let failure;
+    if (process.platform === 'win32') failure = await new Promise(resolve => childProcess.execFile('taskkill', ['/T', '/F', '/PID', String(child.pid)], { windowsHide: true }, error => resolve(error)));
+    else child.kill('SIGKILL');
+    if (!await waitForExit()) throw failure || Error('Test app process did not exit.');
+  }
   if (profile && !keepProfile) {
     // Particle fixtures can contain junctions to read-only source libraries. Remove links before the tree.
     const unlink = directory => {

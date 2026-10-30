@@ -1,10 +1,10 @@
 const { fixturePath } = require('./helpers/fixtures.cjs');
-const { appDist } = require('./helpers/app.cjs');
+const { bundleHashes } = require('./helpers/app.cjs');
 const { sha256File } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
-const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), crypto = require('node:crypto');
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 
 (async () => {
   const { ObjectLoader, Vector3, Matrix4 } = await import('three');
@@ -18,9 +18,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 
   const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name)&&!/portrait/i.test(s.Name))), frame = sourceModel.Sequences[sequence].Interval[0];
   const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements: [] };
-  const dist = appDist(), bundle = crypto.createHash('sha256');
-  for (const name of fs.readdirSync(path.join(dist, 'assets')).sort()) bundle.update(name).update(fs.readFileSync(path.join(dist, 'assets', name)));
-  results.bundle = { indexHash: hash(path.join(dist, 'index.html')), assetsHash: bundle.digest('hex') };
+  results.bundle = bundleHashes();
   results.textureHashes = Object.fromEntries((fs.existsSync(path.join(out, 'Textures')) ? fs.readdirSync(path.join(out, 'Textures')) : []).map(name => [name, hash(path.join(out, 'Textures', name))]));
   const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
@@ -30,11 +28,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {
       window.poseProbe = () => {
-        const root = document.querySelector('.game-preview-root'); let runtime, props, session;
-        { const ref = findFiberState(root, ref => ref?.native && ref?.controls, { last: true }); if (ref?.native && ref?.controls) runtime = ref; }
-{ const ref = findFiberState(root, ref => ref?.model && ref?.onPoseCommit, { last: true }); if (ref?.model && ref?.onPoseCommit) props = ref; }
-{ const state = findFiberState(root, state => state?.doc?.model && state?.assets, { last: true }); if (state?.doc?.model && state?.assets) session = state; }
-
+        const { runtime, props, session } = mdlxlProbe();
         if (!runtime || !props || !session) throw Error('Packaged Movement owners not ready');
         return { runtime, props, session };
       };

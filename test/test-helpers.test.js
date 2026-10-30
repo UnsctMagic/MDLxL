@@ -134,6 +134,26 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
   }
 });
 
+test('closeApp stops only its captured process tree before deleting a locked profile', async t => {
+  const out = tempDir('launcher-shutdown-'), profile = path.join(out, 'profile');
+  t.after(() => fs.rmSync(out, { recursive: true, force: true }));
+  const { EventEmitter } = require('node:events'), child = new EventEmitter();
+  child.pid = 43210; child.exitCode = null; child.signalCode = null;
+  const page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
+  const app = { process: () => child, async firstWindow() { return page; }, async evaluate() {} };
+  const playwright = { _electron: { async launch() { return app; } } };
+  let stopped = false;
+  const stop = () => { assert.equal(fs.existsSync(profile), true, 'profile is kept until the process stops'); stopped = true; child.exitCode = 0; child.emit('exit', 0); };
+  if (process.platform === 'win32') t.mock.method(require('node:child_process'), 'execFile', (command, args, options, callback) => {
+    assert.equal(command, 'taskkill'); assert.deepEqual(args, ['/T', '/F', '/PID', '43210']); assert.equal(options.windowsHide, true); stop(); callback(null);
+  });
+  else child.kill = signal => { assert.equal(signal, 'SIGKILL'); stop(); return true; };
+  await launchApp({ out, profile, playwright, target: { executablePath: 'fixture', args: [], packaged: false } });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const closing = closeApp(app); await Promise.resolve(); t.mock.timers.tick(10000); await closing;
+  assert.equal(stopped, true); assert.equal(fs.existsSync(profile), false);
+});
+
 test('Forge detail probes can retain the last matching preview after the canonical draft', () => {
   const draft = { shapes: ['draft'], mode: 'Faces' }, preview = { shapes: ['extrusion preview'], mode: 'Faces' };
   const element = { __reactFiber$test: { memoizedState: { memoizedState: draft, next: { memoizedState: preview, next: null } }, return: null } };
