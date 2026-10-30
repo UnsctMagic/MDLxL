@@ -111,7 +111,7 @@ function CompactionPart({ part }) {
   );
 }
 // The AI's plan as plain lines instead of the data it sent.
-function readablePlan(detail) {
+function readablePlan(detail, line) {
   try {
     const plan = JSON.parse(detail);
     return [
@@ -119,11 +119,11 @@ function readablePlan(detail) {
       'Reaches: ' + plan.reach,
       'Keeps: ' + (plan.keep || []).join('; '),
       'Options:',
-      ...(plan.options || []).map((option, index) => `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← chosen' : ''}`),
+      ...(plan.options || []).map((option, index) => typeof option === 'string' ? '  ' + option : `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← chosen' : ''}`),
       'Why: ' + plan.why,
     ].join('\n');
   } catch {
-    return detail;
+    return line || 'plan too long to show';
   }
 }
 function ToolPart({ part }) {
@@ -157,7 +157,7 @@ function ToolPart({ part }) {
       </button>
       {open && (
         <pre className="ai-step-body" translate="no">
-          {name === 'mdlxl_plan' ? readablePlan(part.detail) : name}
+          {name === 'mdlxl_plan' ? readablePlan(part.detail, line) : name}
           {part.detail && name !== 'mdlxl_plan' ? '\n' + part.detail : ''}
           {part.summary ? '\n\n→ ' + part.summary : ''}
         </pre>
