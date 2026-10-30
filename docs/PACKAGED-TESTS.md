@@ -180,6 +180,20 @@ to every Electron launch.
 | The owner's `WH_VC_NecrarchLord3.mdx` (private, from Downloads) | `out/pose-complex-fixtures/` | `MDLXL_POSE_FIXTURE` | pose-complex, pose-performance |
 | The owner's flail model `Fx_original.mdx` (private; `D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/`) | `out/pose-flail/` | `MDLXL_FLAIL_MODEL` | pose-one-head |
 | Two Khorne knights with an `Attack - 1` animation (the owner's `WH_WOC_KnightKhorneFlail03.mdx` and `WH_WOC_KnightKhorneAxe03.mdx` from Downloads), plus `profile/game-data-discovery.json` | `out/showcase-queue/` | `MDLXL_QUEUE_MODEL_A`, `MDLXL_QUEUE_MODEL_B` | showcase-queue |
+| LowPolyWorks `WH_WOC_WarriorKhorneGW02.mdx`: only checker unused notices, all repaired by the Insanity FIxer (25) | `out/optimizexl-diagnostics/` | `MDLXL_DIAGNOSTICS_MODEL` | optimizexl-diagnostics |
+| LowPolyWorks herrdave `Spanish_Halberdier.mdx`: one severe missing opening key (Jaw, Portrait Talk), 409 notices that one select-all pass clears | `out/optimizexl-opening/` | `MDLXL_OPENING_MODEL` | optimizexl-opening, optimizexl-cleanup |
+| The owner's `WH_WOC_WarriorNurgle_Flail11_Optimized.mdx` (Downloads): a bounds repair on sequence extents is its only proposal | `out/optimizexl-bounds/` | `MDLXL_BOUNDS_MODEL` | optimizexl-bounds |
+| LowPolyWorks herrdave `KnightOfTheBlazingSun.mdx`: a non-None visibility interpolation and a Portrait | `out/optimizexl-format/` | `MDLXL_FORMAT_MODEL` | optimizexl-format |
+| LowPolyWorks gluma `Warp_Lightning_CannonB.mdx`: spline tracks with notices only resampling clears | `out/optimizexl-spline/` | `MDLXL_SPLINE_MODEL` | optimizexl-spline |
+| SD Footman MDX800 (`out/corpus-sd800/human__footman.mdx`, with `Textures/` from `out/pose`): 13 animations, invalid bounds | `out/optimizexl-footman/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-footman |
+| The owner's `WH_WOC_WarriorNurgle_Flail12_Optimized.mdx` (Downloads): repairable irregular movement, bounds-only Insanity FIxer, Standard spheres | `out/optimizexl-motion/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-motion |
+| SD Muradin MDX800 (`out/corpus-sd800/human__muradin.mdx`): orange motion pair in one animation, context inspections, invalid bounds | `out/optimizexl-selection/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-selection |
+| LowPolyWorks `WH_VC_VonCarsteinLord07.mdx` with its game textures (`out/fixtures.sh` reads them from CASC): four-joint left arm 13-14-15-16 | `out/pose-setup-fixture/` | `MDLXL_POSE_FIXTURE` | pose-setup |
+
+Each of the last nine rows was chosen for the feature its test exercises, measured with MDLxL's own code by the scripts in
+`out/fixture-scan/` (`scan.mjs`, `sim.mjs`, `one-fix.mjs`, `motion.mjs`, `pose-rig.mjs`); the test comments give the numbers.
+Checks no available model can exercise (an effect glow left without its geometry, a sequence-timeline quirk, portrait
+particles beside a format quirk, a red whole-body irregular movement) stay in the tests and are named there.
 
 The pose Footman can be read from the game with `electron/casc.cjs`:
 `new CascReader('<Warcraft III folder>', process.cwd()).read('war3.w3mod:units\\human\\footman\\footman.mdx')`.

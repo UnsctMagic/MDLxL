@@ -10,7 +10,15 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const { allNodes, sampleNodeMatrices, skinGeoset } = await import('../src/animation.js');
   const { samplePreviewMatrices } = await import('../app/preview-pose.js');
   const { assertModelEquivalent } = await import('../src/save-equivalence.js');
-  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-setup-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose-complex-fixtures/WH_WOC_KurganWarlord3.mdx');
+  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-setup-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx');
+  // Default fixture: LowPolyWorks WH_VC_VonCarsteinLord07.mdx (out/pose-setup-fixture, textures from the game, docs/PACKAGED-TESTS.md).
+  // Measured with out/fixture-scan/pose-rig.mjs (src/pose-ik.js suggestPoseRig at the first Stand frame, suggestPickedPoseChain
+  // and poseChainBetween as the Setup's End/Start picks use them): picking End 16 (L_Hand) suggests the four-joint limb
+  // 13 L_Shoulder > 14 L_Arm > 15 L_Forearm > 16 L_Hand with nothing excluded, and the suggested rig already has the Hand
+  // chain [14,15,16] ending there; 24 (Blade, under R_Hand) gives no valid End draft; 9 (R_Shoulder) is not above 16.
+  // These replace the KurganWarlord3 ids 12,13,14,16 / 20 / 9, whose model is gone.
+  const [ROOT, FIRST, SECOND, END] = (process.env.MDLXL_POSE_LIMB || '13,14,15,16').split(',').map(Number), LIMB = [ROOT, FIRST, SECOND, END];
+  const NO_DRAFT = Number(process.env.MDLXL_POSE_NO_DRAFT || 24), OTHER_BRANCH = Number(process.env.MDLXL_POSE_OTHER_BRANCH || 9);
   const { executablePath } = appTarget();
   fs.mkdirSync(out, { recursive: true });
   for (const entry of fs.readdirSync(path.dirname(fixture), {withFileTypes:true})) if (entry.isDirectory()) fs.cpSync(path.join(path.dirname(fixture),entry.name),path.join(out,entry.name),{recursive:true});
@@ -206,42 +214,42 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
 
     assert.ok(await page.locator('.pose-mapped button').evaluateAll(buttons=>buttons.every(button=>button.clientHeight>=32&&button.scrollHeight<=button.clientHeight+1)),'handle rows fit their icon, role and bone name');
     assert.equal(await page.locator('.pose-setup select').count(),0);
-    await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(20);
+    await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(NO_DRAFT);
     assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);
-    await pickBone(16);assert.deepEqual((await configNow()).inspectIds,[12,13,14,16]);
-    await bound('Start');await pickBone(9);assert.match(await page.locator('.pose-setup [role=status]').textContent(),/same bone branch/);
+    await pickBone(END);assert.deepEqual((await configNow()).inspectIds,LIMB);
+    await bound('Start');await pickBone(OTHER_BRANCH);assert.match(await page.locator('.pose-setup [role=status]').textContent(),/same bone branch/);
     assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);
-    await pickBone(12);await page.getByRole('button',{name:'Replace handle',exact:true}).click();await closeSetup();await assertMappingOnly();
+    await pickBone(ROOT);await page.getByRole('button',{name:'Replace handle',exact:true}).click();await closeSetup();await assertMappingOnly();
     results.checks.push('Quick endpoint suggestion exposes all four joints; invalid roots stay editable and can be corrected without restarting');
     await page.getByRole('button',{name:'Pin selected hand',exact:true}).click();
-    await setup();assert.match(await page.getByRole('button',{name:'Pick Start',exact:true}).textContent(),new RegExp(names.get(12)));
+    await setup();assert.match(await page.getByRole('button',{name:'Pick Start',exact:true}).textContent(),new RegExp(names.get(ROOT)));
     const joint=id=>page.getByRole('checkbox',{name:'Use joint '+names.get(id),exact:true});
-    await joint(13).uncheck();await shot('03-edit-bending-joints');await save();await closeSetup();
-    assert.deepEqual((await configNow()).chains.find(c=>c.end===16).joints,[12,14,16]);assert.ok((await configNow()).pins.includes('limb:16'));
-    await setup();await joint(14).uncheck();assert.equal(await page.getByRole('button',{name:'Save changes',exact:true}).isEnabled(),false);assert.match(await page.locator('.pose-setup [role=status]').textContent(),/at least one bending joint/);
-    await joint(13).check();await joint(14).check();await save();await closeSetup();
-    await setup();await bound('End');await pickBone(14);await save();await closeSetup();
-    assert.ok(!(await configNow()).chains.some(c=>c.end===16));assert.ok((await configNow()).chains.some(c=>c.end===14));assert.ok(!(await configNow()).pins.includes('limb:16'));
-    await setup();await bound('End');await pickBone(16);await save();await closeSetup();
-    assert.deepEqual((await configNow()).chains.find(c=>c.end===16).joints,[12,13,14,16]);
+    await joint(FIRST).uncheck();await shot('03-edit-bending-joints');await save();await closeSetup();
+    assert.deepEqual((await configNow()).chains.find(c=>c.end===END).joints,[ROOT,SECOND,END]);assert.ok((await configNow()).pins.includes('limb:'+END));
+    await setup();await joint(SECOND).uncheck();assert.equal(await page.getByRole('button',{name:'Save changes',exact:true}).isEnabled(),false);assert.match(await page.locator('.pose-setup [role=status]').textContent(),/at least one bending joint/);
+    await joint(FIRST).check();await joint(SECOND).check();await save();await closeSetup();
+    await setup();await bound('End');await pickBone(SECOND);await save();await closeSetup();
+    assert.ok(!(await configNow()).chains.some(c=>c.end===END));assert.ok((await configNow()).chains.some(c=>c.end===SECOND));assert.ok(!(await configNow()).pins.includes('limb:'+END));
+    await setup();await bound('End');await pickBone(END);await save();await closeSetup();
+    assert.deepEqual((await configNow()).chains.find(c=>c.end===END).joints,LIMB);
     results.checks.push('Existing handles reopen for editing; bending joints and End are editable, pins survive same-end edits, and retargeting removes stale mappings');
-    await setup();await bound('Start');await pickBone(9);await page.getByRole('button',{name:'Cancel',exact:true}).click();
-    assert.deepEqual((await configNow()).chains.find(c=>c.end===16).joints,[12,13,14,16]);
-    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Handles',exact:true}).click();await page.getByRole('button',{name:'Edit Hand: '+names.get(16),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
+    await setup();await bound('Start');await pickBone(OTHER_BRANCH);await page.getByRole('button',{name:'Cancel',exact:true}).click();
+    assert.deepEqual((await configNow()).chains.find(c=>c.end===END).joints,LIMB);
+    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Handles',exact:true}).click();await page.getByRole('button',{name:'Edit Hand: '+names.get(END),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
     assert.equal((await configNow()).chains.length,baseline.chains.length-1);
-    await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(16);
-    await shot('04-new-chain');assert.deepEqual((await configNow()).inspectIds,[12,13,14,16]);
+    await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(END);
+    await shot('04-new-chain');assert.deepEqual((await configNow()).inspectIds,LIMB);
     const panel=await page.locator('.pose-setup').boundingBox();await page.mouse.move(panel.x+70,panel.y+12);await page.mouse.down();await page.mouse.move(panel.x-250,panel.y+32,{steps:6});await page.mouse.up();await settle();
     assert.ok((await page.locator('.pose-setup').boundingBox()).x<panel.x-100,'Setup can move away from bones');
     const cameraBefore=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),box=await viewportBox();
     await page.mouse.move(box.x+box.width*.2,box.y+box.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(box.x+box.width*.2+40,box.y+box.height*.65+15,{steps:6});await page.mouse.up({button:'right'});await settle();
     assert.notDeepEqual(await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),cameraBefore);assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),true);await shot('05-moved-setup');
     await page.getByRole('button',{name:'Add handle',exact:true}).click();await closeSetup();
-    const custom=(await configNow()).chains.find(c=>c.end===16);assert.equal(custom.label,'Chain');assert.deepEqual(custom.joints,[12,13,14,16]);
-    assert.deepEqual((await configNow()).chains.filter(c=>c.end!==16),baseline.chains.filter(c=>c.end!==16));await assertMappingOnly();
+    const custom=(await configNow()).chains.find(c=>c.end===END);assert.equal(custom.label,'Chain');assert.deepEqual(custom.joints,LIMB);
+    assert.deepEqual((await configNow()).chains.filter(c=>c.end!==END),baseline.chains.filter(c=>c.end!==END));await assertMappingOnly();
     assert.equal(await page.getByRole('checkbox',{name:'Bones',exact:true}).isChecked(),false);assert.equal(await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width),sidebar);
     results.checks.push('A four-joint custom chain can be built from scratch with actual bone clicks; Cancel, Remove, overlap cycling, movable Setup and camera rotation preserve the model and other handles');
-    await grab('endpoint',16,12,-10);const posed=await snap();assert.ok(posed.revision>initial.revision);await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,posed.model);await shot('06-custom-chain-posed');
+    await grab('endpoint',END,12,-10);const posed=await snap();assert.ok(posed.revision>initial.revision);await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,posed.model);await shot('06-custom-chain-posed');
     results.checks.push('The manually created chain actually poses its limb, creates one native edit, and supports exact Undo/Redo');
     assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
   } catch(error){await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png')});throw error;} finally{await closeApp(app);}
