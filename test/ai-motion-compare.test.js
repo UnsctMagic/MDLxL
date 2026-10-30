@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compareMotion } from '../src/ai-motion-compare.js';
+import { compareMotion, trackInventory } from '../src/ai-motion-compare.js';
 
 const key = (Frame, ...Vector) => ({ Frame, Vector: new Float32Array(Vector) });
 const track = (...Keys) => ({ LineType: 1, GlobalSeqId: -1, Keys });
@@ -89,4 +89,31 @@ test('global animations use the existing isolated preview owner', () => {
   const b = structuredClone(a); b.Bones[0].Translation.Keys[1].Vector[0] = 8;
   const row = compareMotion(a, b, { sequences: [{ globalSequence: 0 }] }).sequences[0];
   assert.equal(row.globalSequence, 0); assert.equal(row.distance.distance, 4);
+});
+
+test('inventory reports encoded bytes, keyed domains, constant curves and equal quaternion controls', () => {
+  const m = model(); m.Sequences[0].Name = 'Attack';
+  m.Bones[0].Translation.GlobalSeqId = null; m.Bones[0].Translation.Keys.push(key(40, 0, 0, 0));
+  m.Bones[0].Rotation = track(key(0, 0, 0, 0, 1), key(10, 0, 0, 1, 0)); m.Bones[0].Rotation.LineType = 2;
+  for (const k of m.Bones[0].Rotation.Keys) k.InTan = k.OutTan = k.Vector.slice();
+  m.GeosetAnims[0].Color = { ...track(key(0, 1, 1, 1)), GlobalSeqId: null };
+  m.Nodes = m.Bones; const snapshot = structuredClone(m), result = trackInventory(m);
+  const translation = result.tracks.find(t => t.path === '/Bones/0/Translation');
+  assert.equal(translation.bytes, 16 + 5 * 16); assert.equal(translation.keysOutsideAnimations, 1);
+  assert.equal(translation.perAnimation[0].keys, 3); assert.equal(translation.constantWithinKeyedDomains, false);
+  const rotation = result.tracks.find(t => t.path === '/Bones/0/Rotation');
+  assert.equal(rotation.bytes, 16 + 2 * 52); assert.equal(rotation.cubicEqualControlSegments, 1);
+  assert.equal(result.animations[0].nativeComparison.medianKeysPerTrack, 2, 'median of 3 and 1, not the largest track');
+  assert.equal(result.animations[0].nativeComparison.excludedExplicitLocalTracks, 2, 'rotation and attachment use explicit -1');
+  assert.deepEqual(result.animations[0].nativeComparison.percentileRange, [0, 10]);
+  assert.equal(result.animations[0].nativeComparison.reference.median, 6);
+  assert.ok(result.tracks.every(t => !t.path.startsWith('/Nodes/'))); assert.deepEqual(m, snapshot);
+});
+
+test('constant key values alone do not certify a vector Hermite curve as constant', () => {
+  const m = model(), t = m.Bones[0].Translation;
+  t.LineType = 2; t.Keys = [key(0, 1, 1, 1), key(10, 1, 1, 1)];
+  for (const k of t.Keys) k.InTan = k.OutTan = k.Vector.slice();
+  const inventory = trackInventory(m).tracks.find(t => t.path === '/Bones/0/Translation');
+  assert.equal(inventory.constantKeyValues, true); assert.equal(inventory.constantWithinKeyedDomains, false);
 });

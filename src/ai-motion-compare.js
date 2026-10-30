@@ -1,6 +1,7 @@
 // Read-only motion evidence. Playback and skinning stay with animation.js.
-import { sampleTrack, sampleNodeMatrices, skinGeoset, sampleGeosetAnimation } from './animation.js';
+import { sampleTrack, sampleNodeMatrices, skinGeoset, sampleGeosetAnimation, visitTracks, isGlobalTrack } from './animation.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
+import nativeStudy from '../docs/AI-SD-STUDY-DATA.json' with { type: 'json' };
 
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const percentile = (values, p) => {
@@ -181,4 +182,77 @@ export function compareMotion(before, after, { sequences, step } = {}) {
  * span, without shipping all sampled frames a second time. */
 export function motionTable(motion) {
   return { ...motion, sequences: motion.sequences.map(({ perFrame, ...row }) => row) };
+}
+
+const median = values => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b), middle = (sorted.length - 1) / 2;
+  return (sorted[Math.floor(middle)] + sorted[Math.ceil(middle)]) / 2;
+};
+const sameVector = (a, b) => a?.length === b?.length && a != null && Array.from(a).every((v, i) => v === b[i]);
+function constantCurve(track, keys, rotation) {
+  if (!keys.length) return null;
+  if (!keys.every(k => sameVector(k.Vector, keys[0].Vector))) return false;
+  if (track.LineType < 2 || keys.length === 1) return true;
+  return keys.slice(0, -1).every((key, i) => {
+    const next = keys[i + 1];
+    if (rotation || track.LineType === 3) return sameVector(key.OutTan, key.Vector) && sameVector(next.InTan, next.Vector);
+    return key.OutTan != null && next.InTan != null && [...key.OutTan, ...next.InTan].every(v => v === 0);
+  });
+}
+function nativePercentileRange(value, reference) {
+  if (value == null || !reference) return null;
+  // The study commits quantiles, not the raw distribution. A bracket is honest;
+  // interpolating an exact rank from these summaries would invent evidence.
+  const points = [['min', 0], ['p10', 10], ['p25', 25], ['median', 50], ['p75', 75], ['p90', 90], ['p95', 95], ['max', 100]];
+  const lower = points.filter(([key]) => reference[key] < value).at(-1)?.[1] ?? 0;
+  const upper = points.find(([key]) => reference[key] > value)?.[1] ?? 100;
+  return [lower, upper];
+}
+
+/** Track bytes are encoded controller bytes (16-byte header, timestamp +
+ * vectors/controls), not a prediction of total serialized file size. Native
+ * density follows the study reproduction's median-per-clip definition exactly.
+ * No recommendations, targets or pass/fail fields are derived from it.
+ */
+export function trackInventory(model) {
+  const sequences = model.Sequences || [], tracks = [];
+  visitTracks(model, (track, { property, path }) => {
+    const global = isGlobalTrack(track, model), rotation = property === 'Rotation';
+    const keys = track.Keys, components = keys[0]?.Vector?.length || 0;
+    const perAnimation = global ? [] : sequences.map((s, sequence) => {
+      const local = keys.filter(k => k.Frame >= s.Interval[0] && k.Frame <= s.Interval[1]);
+      return { sequence, keys: local.length, constant: constantCurve(track, local, rotation) };
+    });
+    const cubicEqualControlSegments = rotation && track.LineType >= 2
+      ? keys.slice(0, -1).filter((key, i) => {
+        const next = keys[i + 1];
+        const sameDomain = global || sequences.some(s => key.Frame >= s.Interval[0] && next.Frame <= s.Interval[1]);
+        return sameDomain && sameVector(key.OutTan, key.Vector) && sameVector(next.InTan, next.Vector);
+      }).length : 0;
+    tracks.push({ path: '/' + path.join('/'), interpolation: track.LineType, globalSequence: global ? track.GlobalSeqId : null,
+      keys: keys.length, bytes: 16 + keys.length * (4 + components * 4 * (track.LineType >= 2 ? 3 : 1)), components,
+      keysOutsideAnimations: global ? 0 : keys.filter(k => !sequences.some(s => k.Frame >= s.Interval[0] && k.Frame <= s.Interval[1])).length,
+      constantKeyValues: keys.length > 0 && keys.every(k => sameVector(k.Vector, keys[0].Vector)),
+      constantWithinKeyedDomains: global ? constantCurve(track, keys, rotation) : perAnimation.filter(s => s.keys).every(s => s.constant),
+      cubicEqualControlSegments, perAnimation,
+      // The study used `global == null`, not the renderer's broader local rule.
+      nativeStudyEligible: track.GlobalSeqId == null,
+    });
+  }, { skip: ['Nodes'] });
+  const animations = sequences.map((s, sequence) => {
+    const active = tracks.filter(t => t.perAnimation[sequence]?.keys > 0), nativeActive = active.filter(t => t.nativeStudyEligible);
+    const kind = /^(stand|walk|attack|death|decay|birth|spell|morph|dissipate|portrait)(?:\b|\s)/i.exec(s.Name)?.[1]?.toLowerCase() || 'other';
+    const studyMedian = median(nativeActive.map(t => t.perAnimation[sequence].keys));
+    const reference = nativeStudy.blizzard.summary.sequenceKinds[kind]?.keysPerTrack;
+    return { sequence, name: s.Name, kind, activeTracks: active.length,
+      keys: active.reduce((n, t) => n + t.perAnimation[sequence].keys, 0),
+      medianKeysPerTrack: median(active.map(t => t.perAnimation[sequence].keys)),
+      nativeComparison: { medianKeysPerTrack: studyMedian, activeTracks: nativeActive.length,
+        excludedExplicitLocalTracks: active.length - nativeActive.length,
+        percentileRange: nativePercentileRange(studyMedian, reference), reference: reference || null } };
+  });
+  return { source: 'MDLxL track inventory; Blizzard AI-SD-STUDY-DATA.json',
+    nativeDefinition: 'Distribution of each unit-family clip’s median key count across active tracks of all properties, by sequence kind. The reproduction skips Nodes aliases and includes only null/absent GlobalSeqId; explicit -1 is excluded from native comparison, while inventory uses playback semantics. Percentile ranges bracket committed quantiles; they are not targets.',
+    tracks, animations, trackBytes: tracks.reduce((n, t) => n + t.bytes, 0), keysOutsideAnimations: tracks.reduce((n, t) => n + t.keysOutsideAnimations, 0) };
 }

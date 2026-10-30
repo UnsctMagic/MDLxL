@@ -399,6 +399,15 @@ its measured distance. The existing 16-picture inspect and 12-picture outside
 budgets still apply; whole comparison pairs stay together. Explicit `frames`
 retain their previous selection and labels.
 
+For size work, `ai-motion-compare.trackInventory(model)` reports encoded track
+bytes, interpolation, keys per animation/outside animations, constant keyed
+domains and quaternion cubic segments with controls equal to keys. Native
+key-density references come from Blizzard's committed study first: each value
+is a clip's median across active tracks, compared by sequence kind. Only quantile
+brackets are available, so percentile ranges are reported without targets.
+The reproduction used null/absent `GlobalSeqId`; explicit `-1` tracks appear in
+the inventory but are excluded from that exact native comparison and counted.
+
 **Outside check.** When the AI says a model edit is finished, a separate AI that
 never saw its work judges the result. It gets only your request, the plan's keep
 list, the AI's own measured checks and the before/after pictures. It answers
