@@ -234,3 +234,33 @@ test('the UV tool row uses the main toolbar Tool with its own icons', async () =
   assert.doesNotMatch(uv, /UV_ICONS|from 'lucide-react'/);
   assert.match(uv, /<EditorTool action=\{action\} icon=\{`uv_\$\{icon\}`\}[^>]*className="uv-tool" data-hotkey-category="UV">/);
 });
+test('Showcase numeric controls defer typing, restore on Escape and keep negative Extra Time', async () => {
+  const source = await bundle('ShowcaseNumber.jsx');
+  function box(props) {
+    const runner = hookRunner(), ShowcaseNumber = load(source, runner.react).default;
+    let current;
+    const render = () => (current = runner.render(ShowcaseNumber, props).props);
+    const element = { value: '', blur() { current.onBlur({ currentTarget: this }); } };
+    render();
+    return {
+      type(value) { element.value = value; current.onFocus(); current.onChange({ target: element }); render(); },
+      key(key) { current.onKeyDown({ key, currentTarget: element, stopPropagation() {} }); render(); },
+      get value() { return render().value; },
+    };
+  }
+  const commits = [], size = box({ value: 48, min: 6, max: 300, onChange: value => commits.push(value) });
+  size.type('72');
+  assert.deepEqual(commits, [], 'typing must not apply the format');
+  size.key('Escape');
+  assert.equal(size.value, '48');
+  assert.deepEqual(commits, [], 'Escape must leave the old format intact');
+  size.type('72'); size.key('Enter');
+  assert.deepEqual(commits, [72], 'Enter commits once even when it blurs');
+  size.type('800'); size.key('Enter');
+  assert.deepEqual(commits, [72, 300], 'existing bounded fields still clamp at commit');
+  const extra = [], timing = box({ value: 0, onChange: value => extra.push(value) });
+  timing.type('-2.5');
+  assert.deepEqual(extra, []);
+  timing.key('Enter');
+  assert.deepEqual(extra, [-2.5], 'Extra Time remains unbounded and accepts negative values');
+});

@@ -1,3 +1,4 @@
+import ShowcaseNumber from './ShowcaseNumber.jsx';
 import { isPortraitSequence } from '../src/sequence-editor.js';
 import React, { lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
 import AnimationPreviewTools from './AnimationPreviewTools.jsx';
@@ -46,7 +47,7 @@ function NumberField({ label, value, onChange, min, max, step = 1, ...rest }) {
 // Negative extra time cuts the end off; the total never drops below one frame.
 function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
   const total=Math.max(.02,Math.round((base+(Number(value)||0))*100)/100);
-  return <label className="showcase-extra-time" title="Seconds added at the end. A negative number cuts the end off.">Extra Time<input aria-label={label} type="number" step={.01} value={value} onChange={event=>onChange(event.target.value===''?'':Number(event.target.value)||0)}/><output title={`Sequence: ${base}s, including effects. Total: ${total}s.`}>{total}s</output></label>;
+  return <label className="showcase-extra-time" title="Seconds added at the end. A negative number cuts the end off.">Extra Time<ShowcaseNumber aria-label={label} step={.01} value={value} onChange={onChange}/><output title={`Sequence: ${base}s, including effects. Total: ${total}s.`}>{total}s</output></label>;
 }
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
   return <RangeField className="showcase-slider" label={label} min={min} max={max} value={value} output={`${value}%`} onChange={onChange}/>;
@@ -64,6 +65,7 @@ function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemo
   const sequence=model.Sequences[draft.sequence],base=duration(draft),emitters=showcaseEmitters(model),disabled=new Set(draft.disabledEmitters || []);
   const naturalSeconds=Math.max(0,(sequence?.Interval?.[1]||0)-(sequence?.Interval?.[0]||0))/1000;
   const change=patch=>setDraft(row=>({...row,...patch}));
+  const loopsInput=useDraftNumber({value:draft.durationLoops,disabled:draft.speed<=0||naturalSeconds<=0,onCommit:durationLoops=>change({durationLoops})});
   return <Dialog scope="showcase-animation" title={initial.editing ? 'Edit animation' : 'Add animation'} onPointerDown={event=>{history.current.end();history.current.begin(event.target);}} onPointerUp={()=>setTimeout(()=>history.current.end(),0)} onClose={onClose} onSubmit={() => {
     const durationLoops=Number(draft.durationLoops);
     if(!Number.isSafeInteger(durationLoops)||durationLoops<1){setError('Enter a whole number of loops, at least 1.');return;}
@@ -71,7 +73,7 @@ function AnimationDialog({ model, initial, portrait, definitions, onSave, onRemo
     onSave({sequence:draft.sequence,seconds,speed:draft.speed,loop:true,useDuration:true,durationLoops,extraTime,disabledEmitters:[...disabled]});
   }} footer={initial.editing && <button type="button" onClick={onRemove}>Remove</button>}>
     <label>Animation<select aria-label="Animation" value={draft.sequence} onChange={event => change({sequence:Number(event.target.value)})}>{model.Sequences.map((row,index)=>isPortraitSequence(row)===portrait?<option translate="no" key={index} value={index}>{row.Name}</option>:null)}</select></label>
-    <ExtraTimeField label="Animation Extra Time" value={draft.extraTime} base={base} onChange={extraTime=>change({extraTime})}/><label className="showcase-extra-time">Loops<input aria-label="Loops" type="number" min="1" step="1" disabled={draft.speed<=0||naturalSeconds<=0} value={draft.durationLoops} onChange={event=>change({durationLoops:event.target.value===''?'':Number(event.target.value)})}/><output>{base}s</output></label>{!portrait&&<Slider label="Speed" value={Math.round(draft.speed*100)} onChange={value=>change({speed:value/100})}/>}
+    <ExtraTimeField label="Animation Extra Time" value={draft.extraTime} base={base} onChange={extraTime=>change({extraTime})}/><label className="showcase-extra-time">Loops<input aria-label="Loops" type="number" min="1" step="1" disabled={draft.speed<=0||naturalSeconds<=0} {...loopsInput}/><output>{base}s</output></label>{!portrait&&<Slider label="Speed" value={Math.round(draft.speed*100)} onChange={value=>change({speed:value/100})}/>}
     {emitters.length > 0 && <details className="showcase-emitters"><summary>Emitters{disabled.size ? ` · ${disabled.size} off` : ''}</summary><div>{emitters.map(emitter => <label key={emitter.id} translate="no" title={emitter.name}><input type="checkbox" translate="no" aria-label={emitter.name} checked={!disabled.has(emitter.id)} onChange={event => change({disabledEmitters: event.target.checked ? [...disabled].filter(id => id !== emitter.id) : [...disabled, emitter.id]})}/><span translate="no">{emitter.name}</span></label>)}</div></details>}
     {error&&<div className="showcase-error" role="alert">{error}</div>}
   </Dialog>;

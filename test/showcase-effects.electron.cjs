@@ -1,4 +1,4 @@
-const { fixturePath } = require('./helpers/fixtures.cjs');
+const { fixturePath, gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, sha256File } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 
@@ -6,7 +6,9 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const root=process.cwd(),out=path.join(root,'out/showcase-review/ui-'+Date.now());fs.mkdirSync(out,{recursive:true});
  const fixture=fixturePath('effect');if(!fixture)throw Error('Set MDLXL_EFFECT_MODEL to the Flail model to inspect.');
  const original=sha256File(fixture);
- const cache=JSON.parse(fs.readFileSync(path.join(root,'profile/game-data-discovery.json'),'utf8')).result;
+ const {GameDataDiscovery}=require('../electron/game-data.cjs');
+ const folder=await gameFolder();assert.ok(folder,'Set MDLXL_GAME_FOLDER to the Warcraft installation used by the effect fixture.');
+ const cache=await new GameDataDiscovery({cacheFile:path.join(out,'game-data-discovery.json'),env:{},registry:async()=>[],drives:async()=>[]}).discover({explicitFolder:folder});
  const entry=path.join(out,'main.cjs');fs.writeFileSync(entry,`
  const {app}=require('electron');app.getAppPath=()=>${JSON.stringify(root)};
  const {GameDataDiscovery}=require(${JSON.stringify(path.join(root,'electron/game-data.cjs'))});GameDataDiscovery.prototype.discover=async()=>(${JSON.stringify(cache)});

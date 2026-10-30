@@ -23,10 +23,13 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await idle(); fs.writeFileSync(path.join(out,'mouse-settings.png'),Buffer.from(await app.evaluate(async ({BrowserWindow})=>{const contents=BrowserWindow.getAllWindows()[0].webContents;contents.invalidate();await contents.capturePage(undefined,{stayHidden:true,stayAwake:true});await new Promise(resolve=>setTimeout(resolve,150));return (await contents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64');}),'base64'));await closeSettings();
   await configure('all','pivot',2);await configure('uv','linear',.5);
   d=await rotationPage();await d.getByLabel('Rotation editor',{exact:true}).selectOption('uv');
+  await page.waitForFunction(value=>document.querySelector('[data-hotkey="mouse:rotation-sensitivity"]')?.value===value,'0.5');
   check('UV overrides persist after reopening Settings',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='linear'&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='0.5');
   await d.getByLabel('Rotation editor',{exact:true}).selectOption('forge');
+  await page.waitForFunction(value=>document.querySelector('[data-hotkey="mouse:rotation-sensitivity"]')?.value===value,'2');
   check('unmodified editor inherits behavior and speed',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()===''&&await d.getByLabel('Use default rotation sensitivity').isChecked()&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='2');
   await d.getByRole('button',{name:'Restore mouse defaults',exact:true}).click();
+  await page.waitForFunction(value=>document.querySelector('[data-hotkey="mouse:rotation-sensitivity"]')?.value===value,'1');
   check('Restore mouse defaults clears editor overrides',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()===''&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await closeSettings();
   // Along the ring is the default; the straight-drag checks below measure Straight drag (linear).

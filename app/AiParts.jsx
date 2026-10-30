@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Bird, Brain, Check, ChevronRight, Frown, LoaderCircle, X } from 'lucide-react';
 import AiMessage from './AiMessage.jsx';
 import BIRDS from '../src/ai-birds.json';
+import { translate } from '../src/localization.js';
 
 // The parts of an AI reply in the console thread: what the AI says, thinks and
 // does, its bird jobs, questions, notices and cost.
@@ -115,15 +116,15 @@ function readablePlan(detail, line) {
   try {
     const plan = JSON.parse(detail);
     return [
-      'Cause: ' + plan.cause,
-      'Reaches: ' + plan.reach,
-      'Keeps: ' + (plan.keep || []).join('; '),
-      'Options:',
-      ...(plan.options || []).map((option, index) => typeof option === 'string' ? '  ' + option : `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← chosen' : ''}`),
-      'Why: ' + plan.why,
+      translate('Cause:') + ' ' + plan.cause,
+      translate('Reaches:') + ' ' + plan.reach,
+      translate('Keeps:') + ' ' + (plan.keep || []).map(item => /^\+\d+ more$/.test(item) ? translate(item) : item).join('; '),
+      translate('Options:'),
+      ...(plan.options || []).map((option, index) => typeof option === 'string' ? '  ' + (/^\+\d+ more$/.test(option) ? translate(option) : option) : `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← ' + translate('chosen') : ''}`),
+      translate('Why:') + ' ' + plan.why,
     ].join('\n');
   } catch {
-    return line || 'plan too long to show';
+    return line || translate('plan too long to show');
   }
 }
 function ToolPart({ part }) {
