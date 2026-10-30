@@ -44,38 +44,45 @@ const path = require('node:path');
       const saved = openDocument(await fs.readFile(file), path.basename(file)); assert.equal(saved.readOnly, false); return saved.model;
     };
     const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, actual + ' != ' + expected);
-    const verify = (model, value, all, baseline = before) => {
+    // RGB and visibility bake separately: the RGB buttons never touch Alpha, Bake All Visibility never touches Color.
+    const verify = (model, value, all, baseline = before, alphaBaked = true) => {
       for (const animation of model.GeosetAnims) {
-        if (animation.GeosetId !== 0) { assert.deepEqual(animation, baseline.GeosetAnims.find(item => item.GeosetId === animation.GeosetId), 'Unchecked geosets stay unchanged'); continue; }
-        const expectedFrames = [0, 2000, 2500, 3000, 5000];
-        assert.deepEqual(animation.Alpha.Keys.map(key => key.Frame), expectedFrames);
-        close(animation.Alpha.Keys.find(key => key.Frame === 2500).Vector[0], .9);
+        const original = baseline.GeosetAnims.find(item => item.GeosetId === animation.GeosetId);
+        if (animation.GeosetId !== 0) { assert.deepEqual(animation, original, 'Unchecked geosets stay unchanged'); continue; }
+        if (alphaBaked) {
+          assert.deepEqual(animation.Alpha.Keys.map(key => key.Frame), [0, 2000, 2500, 3000, 5000]);
+          close(animation.Alpha.Keys.find(key => key.Frame === 2500).Vector[0], .9);
+        } else assert.deepEqual(animation.Alpha, original.Alpha, 'Baking RGB leaves visibility unchanged');
         for (const [index, frames] of [[0, [0, 1000, 2000]], [1, [3000, 4000, 5000]]]) {
           const target = property => ({ kind: 'geoset', id: animation.GeosetId, property });
           for (const frame of frames) {
-            close(sampleAnimationProperty(model, target('Alpha'), frame, index), all || index === 0 ? value : .6);
+            if (alphaBaked) close(sampleAnimationProperty(model, target('Alpha'), frame, index), all || index === 0 ? value : .6);
             const rgb = sampleAnimationProperty(model, target('Color'), frame, index); [1, .2, .4].forEach((v, i) => close(rgb[i], v));
           }
         }
       }
       assert.deepEqual(model.Geosets, baseline.Geosets); assert.deepEqual(model.Bones, baseline.Bones);
     };
+    const rgbOnly = (model, baseline) => verify(model, null, false, baseline, false);
     await page.getByRole('button', { name: 'Bake Sequence RGB', exact: true }).click();
-    verify(await save('sequence'), .25, false);
+    const sequence = await save('sequence'); rgbOnly(sequence);
     await page.keyboard.press('Control+z');
     assert.deepEqual((await save('undo')).GeosetAnims, before.GeosetAnims);
-    await page.keyboard.press('Control+y'); verify(await save('redo'), .25, false);
+    await page.keyboard.press('Control+y'); assert.deepEqual((await save('redo')).GeosetAnims, sequence.GeosetAnims);
     await page.getByLabel('Visible at current frame', { exact: true }).uncheck();
     assert.equal(await alpha.inputValue(), '0');
     await page.getByRole('button', { name: 'Bake All RGB', exact: true }).click();
-    verify(await save('all'), 0, true); verify(await save('all', 'mdl'), 0, true, openDocument(openDocument(original, 'bake.mdx').serialize('mdl'), 'baseline.mdl').model);
+    const rgb = await save('all-rgb'); rgbOnly(rgb);
+    await page.getByRole('button', { name: 'Bake All Visibility', exact: true }).click();
+    const visible = await save('all'); verify(visible, 0, true);
+    for (const animation of visible.GeosetAnims) assert.deepEqual(animation.Color, rgb.GeosetAnims.find(item => item.GeosetId === animation.GeosetId).Color, 'Bake All Visibility leaves colour unchanged');
+    verify(await save('all', 'mdl'), 0, true, openDocument(openDocument(original, 'bake.mdx').serialize('mdl'), 'baseline.mdl').model);
     await page.keyboard.press('Control+z');
     const undone = await save('undo-all');
-    close(undone.GeosetAnims[0].Alpha.Keys.find(key => key.Frame === 2000).Vector[0], .25);
-    close(undone.GeosetAnims[0].Alpha.Keys.find(key => key.Frame === 3000).Vector[0], .6);
+    assert.deepEqual(undone.GeosetAnims, rgb.GeosetAnims, 'Undo removes only the visibility bake');
     await page.keyboard.press('Control+y'); verify(await save('redo-all'), 0, true);
     assert.deepEqual(await fs.readFile(fixture), Buffer.from(original)); assert.deepEqual(errors, []);
-    const result = { passed: true, sequenceAlpha: .25, allAlpha: 0, rgbPreserved: true, gapKeysPreserved: true, otherSequencePreserved: true, undoRedo: true, saved: ['mdx', 'mdl'], rendererErrors: errors };
+    const result = { passed: true, sequenceAlpha: .25, allAlpha: 0, rgbPreserved: true, rgbLeavesAlpha: true, visibilityLeavesRgb: true, gapKeysPreserved: true, otherSequencePreserved: true, undoRedo: true, saved: ['mdx', 'mdl'], rendererErrors: errors };
     await fs.writeFile(path.join(out, 'result.json'), JSON.stringify(result, null, 2)); console.log(JSON.stringify(result));
   } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
