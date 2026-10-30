@@ -1,0 +1,864 @@
+{
+  "mode": "live",
+  "model": "gpt-6-luna",
+  "repeats": 1,
+  "commit": "d1dc4ffe17be3930a1d7f6854931a5b2447a0915",
+  "started": "2026-10-30T01:20:23.493Z",
+  "runs": [
+    {
+      "id": "thicken-band",
+      "workflow": {
+        "finalState": "incomplete",
+        "summary": null,
+        "reachedFinal": false,
+        "resumes": 2,
+        "resumeLoop": true,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [
+          "The edit is applied but verification is incomplete. Resume the task to finish checking it.",
+          "The edit is kept but not verified.\nThe independent review could not confirm from its whole-model images that the band visibly reads as a few-pixel-thicker plated ring; the edit remains applied, but that visual result is unverified.",
+          "The edit is kept but not verified.\nThe independent review images are too distant to confirm that the band visibly sticks out by a few pixels."
+        ],
+        "timedOut": false,
+        "score": 58
+      },
+      "qualityScore": 100,
+      "objectiveScore": 100,
+      "lookScore": 60,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 0.25000012006293515,
+        "surfaceRelative": 0.006040763846400652,
+        "uvMax": 1.3050240272407672,
+        "uvUnmatchedSamples": 4,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 0.9495033112582781
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 0.994838104176443
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 0.9954934655250113
+          }
+        ],
+        "silhouetteMean": 0.9799449603199109,
+        "sampleCount": 2832
+      },
+      "example": null,
+      "triangle": {
+        "before": 354,
+        "after": 354,
+        "requested": null,
+        "perComponent": [],
+        "targetScore": null
+      },
+      "addedSurfaces": null,
+      "vertices": {
+        "before": 383,
+        "after": 383
+      },
+      "seconds": 312.844,
+      "tokens": 4653182,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 6,
+      "knownTokenReplies": 3,
+      "repeat": 1,
+      "demonstration": null,
+      "harnessCancelled": false
+    },
+    {
+      "id": "reference-studs",
+      "workflow": {
+        "finalState": "incomplete",
+        "summary": null,
+        "reachedFinal": false,
+        "resumes": 2,
+        "resumeLoop": true,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [
+          "The edit is kept but not verified.\nNo studs were committed: the model is restored to the original baseline. The inspect review found 0 added vertices and 0 added triangles, while the original band and all other checked protected data are preserved. Returned front/back/left/right images show the unchanged helmet with its existing three band studs. MDX and MDL serialization validation returned no diagnostics. The requested four studs remain unverified and incomplete.",
+          "The edit is kept but not verified.\nThe model is restored to the original baseline. Review confirms no candidate geometry remains, the existing studs, selected band, materials and textures are preserved, and MDX/MDL serialization validates. The requested four studs were not achieved; do not treat this as a completed edit.",
+          "The edit is kept but not verified.\nNo stud edit remains in the model: geoset 6 is the original 72 vertices/64 triangles and the original/edited images are identical. Protected band, existing studs, materials and textures match the baseline. MDX and MDL serialization validation pass. Requested four studs are unachieved; visual review confirms no candidate additions."
+        ],
+        "timedOut": false,
+        "score": 58
+      },
+      "qualityScore": 0,
+      "objectiveScore": 0,
+      "lookScore": 100,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 6.864515881518349e-12,
+        "surfaceRelative": 1.6586759778227406e-13,
+        "uvMax": 1.4521988773752584e-13,
+        "uvUnmatchedSamples": 0,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 1
+          }
+        ],
+        "silhouetteMean": 1,
+        "sampleCount": 2832
+      },
+      "example": null,
+      "triangle": {
+        "before": 354,
+        "after": 354,
+        "requested": null,
+        "perComponent": [],
+        "targetScore": null
+      },
+      "addedSurfaces": [],
+      "vertices": {
+        "before": 383,
+        "after": 383
+      },
+      "seconds": 397.693,
+      "tokens": 10458632,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 0,
+      "knownTokenReplies": 3,
+      "repeat": 1,
+      "demonstration": null,
+      "harnessCancelled": false
+    },
+    {
+      "id": "reduce-studs",
+      "workflow": {
+        "finalState": "complete",
+        "summary": "Done. Each of the eight studs now has exactly six triangles. Their placement, size, and texture are preserved. Geometry and serialization checks passed, and the textured model looks coherent from all four sides.",
+        "reachedFinal": true,
+        "resumes": 0,
+        "resumeLoop": false,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [],
+        "timedOut": false,
+        "score": 100
+      },
+      "qualityScore": 100,
+      "objectiveScore": 100,
+      "lookScore": 62,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 0.17672669158225845,
+        "surfaceRelative": 0.004270254786019128,
+        "uvMax": 0.0034097105621542874,
+        "uvUnmatchedSamples": 33,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 1
+          }
+        ],
+        "silhouetteMean": 1,
+        "sampleCount": 2768
+      },
+      "example": null,
+      "triangle": {
+        "before": 354,
+        "after": 338,
+        "requested": 6,
+        "perComponent": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "targetScore": 1
+      },
+      "addedSurfaces": null,
+      "vertices": {
+        "before": 383,
+        "after": 367
+      },
+      "seconds": 164.2,
+      "tokens": 2775416,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 3,
+      "knownTokenReplies": 2,
+      "repeat": 1,
+      "demonstration": null,
+      "harnessCancelled": false
+    },
+    {
+      "id": "keep-the-look",
+      "workflow": {
+        "finalState": "complete",
+        "summary": "Simplified the helmet by removing 50 duplicate vertex records from the shell (162 → 112); the triangle count stayed at 54.\n\nExact face-corner positions, normals, groups, and UVs were preserved. Materials, textures, and other model data remained unchanged. Front, side, and oblique views were checked, and MDX/MDL validation passed. Warcraft III gameplay was not tested.",
+        "reachedFinal": true,
+        "resumes": 1,
+        "resumeLoop": false,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [
+          "The edit is kept but not verified.\nStructural checks pass: 50 duplicate shell vertices removed, all triangle corners and protected data unchanged, and MDX/MDL validation is clean. The review system cannot provide matching original side and oblique captures, so it cannot confirm the requested full appearance match."
+        ],
+        "timedOut": false,
+        "score": 88
+      },
+      "qualityScore": 100,
+      "objectiveScore": 100,
+      "lookScore": 100,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 6.864515881518349e-12,
+        "surfaceRelative": 1.6586759778227406e-13,
+        "uvMax": 1.4521988773752584e-13,
+        "uvUnmatchedSamples": 0,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 1
+          }
+        ],
+        "silhouetteMean": 1,
+        "sampleCount": 2832
+      },
+      "example": null,
+      "triangle": {
+        "before": 354,
+        "after": 354,
+        "requested": null,
+        "perComponent": [],
+        "targetScore": null
+      },
+      "addedSurfaces": null,
+      "vertices": {
+        "before": 487,
+        "after": 437
+      },
+      "seconds": 203.114,
+      "tokens": 3078855,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 4,
+      "knownTokenReplies": 2,
+      "repeat": 1,
+      "demonstration": null,
+      "harnessCancelled": false
+    },
+    {
+      "id": "follow-example",
+      "workflow": {
+        "finalState": "incomplete",
+        "summary": null,
+        "reachedFinal": false,
+        "resumes": 2,
+        "resumeLoop": true,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [
+          "The edit is kept but not verified.\nCould not safely apply the requested weld. Geoset 1 has no coincident vertex pairs; its vertices define distinct corners. The visible lower-right welded example is in the captured selection on Geoset 0. The rejected face-only change was restored, and Geoset 1 now exactly matches the original. MDX/MDL validation passes. Please retarget the example or intended geoset if Geoset 0 was meant.",
+          "The edit is kept but not verified.\nVerified the restored model against the original: Geoset 1 vertex, face, UV, normal and binding fields match; other geosets' vertices, faces and UVs match. MDX and MDL serialization validation pass. The matched perspective and four side views show the same helmet shape and texture. No weld was performed because Geoset 1 has no coincident vertices to weld without changing shape; the captured lower-right example is in Geoset 0.",
+          "The edit is kept but not verified.\nThe reviewed model matches the baseline outside prior Geoset 0 edits, and Geoset 1 fields match the original. Views show no visual change. The weld cannot be safely completed because Geoset 1 has zero coincident vertices; selected lower-right reference is Geoset 0."
+        ],
+        "timedOut": false,
+        "score": 58
+      },
+      "qualityScore": 50,
+      "objectiveScore": 0,
+      "lookScore": 100,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 6.864515881518349e-12,
+        "surfaceRelative": 1.6586759778227406e-13,
+        "uvMax": 1.4521988773752584e-13,
+        "uvUnmatchedSamples": 0,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 1
+          }
+        ],
+        "silhouetteMean": 1,
+        "sampleCount": 2832
+      },
+      "example": {
+        "eligibleGroups": 53,
+        "eligibleVertices": 102,
+        "remainingVertices": 102,
+        "coverage": 0,
+        "patternSimilarity": 1,
+        "surfacePreserved": true
+      },
+      "triangle": {
+        "before": 354,
+        "after": 354,
+        "requested": null,
+        "perComponent": [],
+        "targetScore": null
+      },
+      "addedSurfaces": null,
+      "vertices": {
+        "before": 485,
+        "after": 485
+      },
+      "seconds": 124.774,
+      "tokens": 2258963,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 1,
+      "knownTokenReplies": 3,
+      "repeat": 1,
+      "demonstration": {
+        "area": "lower right of Geoset 1",
+        "removedVertices": 2
+      },
+      "harnessCancelled": false
+    },
+    {
+      "id": "just-deliver",
+      "workflow": {
+        "finalState": "complete",
+        "summary": "Geoset 1’s helmet cleanup is delivered: it now has four unique triangles instead of eight, with the duplicate faces removed. The two triangles on each side already share welded edges. The sides are separated in the model, so joining them would change the cap’s shape and look.\n\nPositions, normals, UVs, bindings and material were preserved. MDX and MDL serialization checks passed earlier. The review tool did not run its new checks; it returned “unchanged” after the replan, so I can’t claim a fresh review pass.",
+        "reachedFinal": true,
+        "resumes": 0,
+        "resumeLoop": false,
+        "stoppedObserved": false,
+        "stoppedCutoff": false,
+        "harnessStoppedCutoff": false,
+        "staleRefusalMentions": 0,
+        "falseStaleRefusal": false,
+        "externalChanges": 0,
+        "error": null,
+        "observedErrors": [
+          "The edit is kept but not verified.\nThe review could not confirm the required six-angle comparison because its supplied edited-target images omit top and bottom views, despite those views being captured and inspected separately."
+        ],
+        "timedOut": false,
+        "score": 100
+      },
+      "qualityScore": 50,
+      "objectiveScore": 0,
+      "lookScore": 100,
+      "drift": {
+        "available": true,
+        "boundsDelta": 0,
+        "boundsRelative": 0,
+        "surfaceMax": 6.864515881518349e-12,
+        "surfaceRelative": 1.6586759778227406e-13,
+        "uvMax": 1.4521988773752584e-13,
+        "uvUnmatchedSamples": 0,
+        "texturePathsChanged": false,
+        "materialsChanged": false,
+        "silhouetteIoU": [
+          {
+            "axes": [
+              0,
+              1
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              0,
+              2
+            ],
+            "iou": 1
+          },
+          {
+            "axes": [
+              1,
+              2
+            ],
+            "iou": 1
+          }
+        ],
+        "silhouetteMean": 1,
+        "sampleCount": 2816
+      },
+      "example": {
+        "eligibleGroups": 53,
+        "eligibleVertices": 102,
+        "remainingVertices": 102,
+        "coverage": 0,
+        "patternSimilarity": 1,
+        "surfacePreserved": true
+      },
+      "triangle": {
+        "before": 354,
+        "after": 350,
+        "requested": null,
+        "perComponent": [],
+        "targetScore": null
+      },
+      "addedSurfaces": null,
+      "vertices": {
+        "before": 485,
+        "after": 485
+      },
+      "seconds": 155.393,
+      "tokens": 1900629,
+      "usd": null,
+      "source": "saved transcript costs; worker totals are not added twice",
+      "outsideCheckCalls": 3,
+      "knownTokenReplies": 2,
+      "repeat": 1,
+      "demonstration": {
+        "area": "lower right of Geoset 1",
+        "removedVertices": 2
+      },
+      "harnessCancelled": false
+    }
+  ],
+  "summary": [
+    {
+      "id": "thicken-band",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 58,
+        "min": 58,
+        "max": 58
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 2,
+        "min": 2,
+        "max": 2
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 312.844,
+        "min": 312.844,
+        "max": 312.844
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 4653182,
+        "min": 4653182,
+        "max": 4653182
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 6,
+        "min": 6,
+        "max": 6
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 0,
+      "resumeLoopRate": 1,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    },
+    {
+      "id": "reference-studs",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 58,
+        "min": 58,
+        "max": 58
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 2,
+        "min": 2,
+        "max": 2
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 397.693,
+        "min": 397.693,
+        "max": 397.693
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 10458632,
+        "min": 10458632,
+        "max": 10458632
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 0,
+      "resumeLoopRate": 1,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    },
+    {
+      "id": "reduce-studs",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 164.2,
+        "min": 164.2,
+        "max": 164.2
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 2775416,
+        "min": 2775416,
+        "max": 2775416
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 3,
+        "min": 3,
+        "max": 3
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 1,
+      "resumeLoopRate": 0,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    },
+    {
+      "id": "keep-the-look",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 88,
+        "min": 88,
+        "max": 88
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 1,
+        "min": 1,
+        "max": 1
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 203.114,
+        "min": 203.114,
+        "max": 203.114
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 3078855,
+        "min": 3078855,
+        "max": 3078855
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 4,
+        "min": 4,
+        "max": 4
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 1,
+      "resumeLoopRate": 0,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    },
+    {
+      "id": "follow-example",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 58,
+        "min": 58,
+        "max": 58
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 50,
+        "min": 50,
+        "max": 50
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 2,
+        "min": 2,
+        "max": 2
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 124.774,
+        "min": 124.774,
+        "max": 124.774
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 2258963,
+        "min": 2258963,
+        "max": 2258963
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 1,
+        "min": 1,
+        "max": 1
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 0,
+      "resumeLoopRate": 1,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    },
+    {
+      "id": "just-deliver",
+      "runs": 1,
+      "workflowScore": {
+        "n": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "qualityScore": {
+        "n": 1,
+        "mean": 50,
+        "min": 50,
+        "max": 50
+      },
+      "resumes": {
+        "n": 1,
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "seconds": {
+        "n": 1,
+        "mean": 155.393,
+        "min": 155.393,
+        "max": 155.393
+      },
+      "tokens": {
+        "n": 1,
+        "mean": 1900629,
+        "min": 1900629,
+        "max": 1900629
+      },
+      "outsideChecks": {
+        "n": 1,
+        "mean": 3,
+        "min": 3,
+        "max": 3
+      },
+      "usd": {
+        "n": 0,
+        "mean": null,
+        "min": null,
+        "max": null
+      },
+      "completionRate": 1,
+      "resumeLoopRate": 0,
+      "stoppedRate": 0,
+      "falseStaleRate": 0,
+      "timeoutRate": 0
+    }
+  ],
+  "note": "K=1 live baseline from origin/main. Saved transcripts and geometry were scored offline with the final graders; no additional live calls were made. The live provider turn context confirmed gpt-6-luna with low reasoning effort.",
+  "environment": {
+    "hiddenDesktop": true,
+    "turnTimeoutMs": 240000,
+    "resumeBudget": 2,
+    "from": 1
+  },
+  "textures": "All fixture texture paths resolved from CASC.",
+  "package": {
+    "indexHash": "845b3bc5161afeb25ef080fa7d023ea7e6a10f54b5579dedc9aa1d8e12542a16",
+    "assetsHash": "1f89f34bc3eec7babc648054b2c39980125d6d998c43b6d7cc7c17455e7d469f",
+    "executable": "D:\\Codex\\mdlxl-ai-real-use\\out\\pkg\\MDLxL-win32-x64\\MDLxL.exe"
+  },
+  "auth": "Existing owner login copied; status signed in.",
+  "mouseRotationObserved": true,
+  "finished": "2026-10-30T01:43:22.103Z"
+}
