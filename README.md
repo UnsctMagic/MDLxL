@@ -1,4 +1,4 @@
-# MDLxL 0.37.0
+# MDLxL 0.37.1
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.37.0 includes everything from the recalled 0.36.0 and adds an optional World-space bound in OptimizeXL animation optimization, which checks how the whole model moves and often saves two to three times more on over-keyed models. Auto Corpse no longer turns a separate weapon skeleton into a skull, and Delete, Ctrl+Z and Escape work wherever focus is in the corpse and blood editors; Attachemator Esc cancels bone picking. Tools now reuse what a model already has instead of creating textures, materials, animations or geosets on their own, and Auto Corpse decays the body itself like Blizzard's units. From 0.36.0: it gives Rotate one Along the ring rule in every editor, Smooth edges in every 3D view with sharp editor lines, and shared window keys, sliders and number boxes. Citadel Paint follows the same camera and mouse settings; Inspector rebuilds SD-style normals. Showcase adds recording quality levels, shorter endings and custom fonts. Auto Corpse gains corpse and blood editors, Library previews and AI chats are more reliable, and MDX saves omit empty animation tracks rejected by War3 Model Editor 1.07. The codebase audit also replaces duplicated helpers and makes the packaged tests use the packaged app.
+Version 0.37.1 is a hotfix: UV Wrapper Rotate follows the mouse around the selection again instead of the 3D rotation rules, Save is back on the toolbar, Sort My Mess keeps the camera, API-key AI loads its model list, and updates show an installing window. From 0.37.0: it includes everything from the recalled 0.36.0 and adds an optional World-space bound in OptimizeXL animation optimization, which checks how the whole model moves and often saves two to three times more on over-keyed models. Auto Corpse no longer turns a separate weapon skeleton into a skull, and Delete, Ctrl+Z and Escape work wherever focus is in the corpse and blood editors; Attachemator Esc cancels bone picking. Tools now reuse what a model already has instead of creating textures, materials, animations or geosets on their own, and Auto Corpse decays the body itself like Blizzard's units. From 0.36.0: it gives Rotate one Along the ring rule in every editor, Smooth edges in every 3D view with sharp editor lines, and shared window keys, sliders and number boxes. Citadel Paint follows the same camera and mouse settings; Inspector rebuilds SD-style normals. Showcase adds recording quality levels, shorter endings and custom fonts. Auto Corpse gains corpse and blood editors, Library previews and AI chats are more reliable, and MDX saves omit empty animation tracks rejected by War3 Model Editor 1.07. The codebase audit also replaces duplicated helpers and makes the packaged tests use the packaged app.
 
 ## Releases
 
@@ -51,6 +51,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.37.1](docs/RELEASE-0.37.1.md) ([ES](docs/RELEASE-0.37.1-ES.md), [RU](docs/RELEASE-0.37.1-RU.md), [ZH-CN](docs/RELEASE-0.37.1-ZH-CN.md))
 - [0.37.0](docs/RELEASE-0.37.0.md) ([ES](docs/RELEASE-0.37.0-ES.md), [RU](docs/RELEASE-0.37.0-RU.md), [ZH-CN](docs/RELEASE-0.37.0-ZH-CN.md))
 - [0.36.0](docs/RELEASE-0.36.0.md) ([ES](docs/RELEASE-0.36.0-ES.md), [RU](docs/RELEASE-0.36.0-RU.md), [ZH-CN](docs/RELEASE-0.36.0-ZH-CN.md))
 - [0.35.0](docs/RELEASE-0.35.0.md) ([ES](docs/RELEASE-0.35.0-ES.md), [RU](docs/RELEASE-0.35.0-RU.md), [ZH-CN](docs/RELEASE-0.35.0-ZH-CN.md))
