@@ -616,7 +616,16 @@ geometry/UV/rig/material/animation operations in one script, then check numerica
 samples, multiple rendered views and serialization before reporting the result.
 The same contract is available to embedded providers and external MCP clients.
 
-To generate a texture with the existing procedural image/painting libraries,
+Reuse before creating. For textures, materials and geosets the AI uses what the
+model already has first, then Blizzard's native game files: `mdlxl_assets`
+searches the model (`source: "model"`), the installed texture library
+(`"textures"`) and the game files (`"game"`). A native texture needs only its
+game path in `model.Textures[].Image`; no bytes are pushed. The AI creates a new
+texture, material or geoset only when the user's request explicitly asks for
+something new; if nothing existing fits, it says what it checked and asks first.
+
+When the user asked for a new texture, generate it with the existing
+procedural image/painting libraries:
 push `{name, bytes: Uint8Array}` to `assets` and reference that name in
 `model.Textures`. Use a new relative `MDLxL_Forge/Name.tga`, `.blp` or `.dds`
 path (the existing `MDLxL_Parts` and `MDLxL_Citadel` paths are also supported).

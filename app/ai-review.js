@@ -440,7 +440,7 @@ export async function reviewAiModel(bridge, args, options) {
       ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
       pendingPreviews: !!drafts,
       next: args.turnaround
-        ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, unpainted or noisy texture). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'
+        ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, stretched or mismatched texture mapping). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'
         : 'Inspect the images. Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.',
     },
     images,
