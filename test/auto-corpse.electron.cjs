@@ -27,6 +27,11 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     assert.notDeepEqual((await scoped()).quaternion,preview.quaternion);checks.push('Auto Corpse preview turns with a normal mouse drag');
     const size=window_.getByRole('slider',{name:'Size',exact:true});await size.focus();for(let n=0;n<10;n++)await page.keyboard.press('ArrowRight');
     await page.waitForFunction(()=>document.querySelector('[aria-label="Auto Corpse"] output')?.textContent==='150%');await settlePage(page, 500);await capture('window-size-150');
+    // Delete removes the selected part while a preview handle has focus.
+    const fitted=(await scoped()).model.Geosets;await window_.getByRole('button',{name:'+ Skull',exact:true}).click();await settlePage(page, 300);
+    assert.notDeepEqual((await scoped()).model.Geosets,fitted,'+ Skull adds a part');
+    await window_.getByRole('slider',{name:'Move this piece',exact:true}).focus();await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.deepEqual((await scoped()).model.Geosets,fitted);checks.push('Delete removes the selected part while its handle has focus');
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});

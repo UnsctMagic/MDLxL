@@ -154,7 +154,8 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
     event.stopPropagation();
     const typing = event.target.matches?.('input[type=number],input[type=text],textarea');
     if ((event.ctrlKey || event.metaKey) && !typing && /^[zy]$/i.test(event.key)) { event.preventDefault(); if (event.key.toLowerCase() === 'y' || event.shiftKey) step(future, past); else step(past, future); return; }
-    if (event.key === 'Delete' && event.target === root.current) { if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); } };
+    // Delete works wherever focus is (preview, handles, buttons), except in form fields.
+    if (event.key === 'Delete' && !event.target.closest?.('input,textarea,select')) { if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); } };
   // Double-click a body part (or blood) in the preview to grab it; double-click empty ground to let go.
   const pick = event => {
     const marks = snapshot?.marks, box = event.currentTarget.getBoundingClientRect();
