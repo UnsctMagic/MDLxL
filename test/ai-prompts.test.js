@@ -20,52 +20,54 @@ const BEFORE_RULE = {
   'editing handbook+web': ['7c4c8792b5e8d5e257efd5726a9b91172eb709c1433b14353cb840a7c91e616b', 10368],
   'worker handbook+web': ['42fa98e21e6cb2668a0339171eadfbbf010a6ebf309f215af833dc350ff7221b', 11524],
 };
+const CONTEXT_BEFORE = "Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts have the target, selection, frame and only the fields that changed, so call mdlxl_context when you need the full lists or editor commands.";
+const CONTEXT_AFTER = "Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts carry the target and only changed fields, including selection, view and sequence. Omitted fields keep their last value. The full snapshot returns after a reset, compaction or model replacement. Call mdlxl_context when you need the full lists or editor commands.";
 const EXAMPLE_RULE = "When the user points to an example they made, first read or sample the referenced area with mdlxl_read or mdlxl_sample and inspect its structure before planning edits. Copy that example's pattern and apply it across the full requested scope, including less visible regions; do not substitute your own picks. \"Keep the look\" means preserve the geometry silhouette and texture appearance, including UV mapping and material/texture assignments; reducing polygons does not authorize changing them.";
 const EXPECTED = {
   "editing plain": [
-    "5c1a89a696270614258692e95d305b8044976ac07e662650aa78a1ec6031ab80",
-    7353
+    "420a606e958051b0656265cab9f966d21825a7217b9556e4e69aaede96505dc0",
+    7476
   ],
   "worker plain": [
-    "10fbd40b4e2ec933667e66c643caa6f88f9ea451b00457003f77a2e028198c96",
-    8509
+    "edb0c23446e842b54bbd74dafa4ee13dda1c74693f0053f4cb99a2cd90c6c81d",
+    8632
   ],
   "editing plain+web": [
-    "924e032c1f99ef9695df33db1bc5d15a0891cf526ccd4ea37c5ffc381c28e0b5",
-    7855
+    "d236dbcd9515205babfd96e751bacc83d63d044e5bb495f693a30ba7b9960222",
+    7978
   ],
   "worker plain+web": [
-    "68c35e013fe9184de0f2308eb5a1120458ec68f74da644dc35bed3bf629d98e7",
-    9011
+    "978f02fb7f0f4c08bc9581a302c718b2f0d3c2bfaf3d695805e94dfe691b2039",
+    9134
   ],
   "editing handbook": [
-    "4371106d5dc7ee8924e7f568a8cdaada2b01f09d8f5194a2f7a1bfc672124a88",
-    10360
+    "ee3b3ba9a3d11794edd501a2f513665a8eae571ef0cdbdd0081430fb328b58f1",
+    10483
   ],
   "worker handbook": [
-    "fa6947fe0f39324229d40c8ddeac3a8dcbae8bab7fe6051078b9ce09f8737c57",
-    11516
+    "bb4e8d3b44c06d8c82604232d26f21b07dceef1ac67c80cb1b6eba7ec977520f",
+    11639
   ],
   "editing handbook+web": [
-    "bfb3b02cf95c8446fe3b7059a47c3a893fd28004fcc00fce1c6b56172badaeda",
-    10862
+    "30a3132a1b22ef1ac20a92786426c6d487406e88292da9f7d42f71d20b6fb94b",
+    10985
   ],
   "worker handbook+web": [
-    "c356f38b404bed4da5bccca1e4afa116590d0752d57f4161fd8c77cd9749d59e",
-    12018
+    "62b4ee8e48219ad830fca8e02a96bd27b9214e295fbc03d336656f97252bce6b",
+    12141
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
 
-test('router is unchanged; editing and worker prompts add only the structural example rule', () => {
+test('router is unchanged; editing and worker prompts change only the example and incremental-context rules', () => {
   assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT), BEFORE_RULE.router);
   for (const handbook of [false, true])
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false }).replace('\n' + EXAMPLE_RULE, '')), BEFORE_RULE['editing ' + key], 'only the added rule changes editing ' + key);
+      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false }).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true })), EXPECTED['worker ' + key], 'worker ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true }).replace('\n' + EXAMPLE_RULE, '')), BEFORE_RULE['worker ' + key], 'only the added rule changes worker ' + key);
+      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true }).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));
@@ -81,4 +83,8 @@ test('owner example and keep-look replays receive the structural example rule in
     assert.match(prompt, /example's pattern.*full requested scope/);
     assert.match(prompt, /Keep the look.*geometry silhouette and texture appearance.*UV mapping/);
   }
+});
+
+test('the context rule explains omitted values and when a full snapshot returns', () => {
+  assert.ok(contract.AI_EDITING_BODY.includes(CONTEXT_AFTER));
 });
