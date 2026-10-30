@@ -79,39 +79,20 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     await page.keyboard.press('Control+z');await idle();
   }
   await configure('vertices','',1);
-  // UV uses its own editor preference and keeps the existing 2D pivot.
+  // The UV map is flat: Rotate is a plain left/right turn, the same wherever
+  // the drag starts (test/uv-rotate-steady.electron.cjs measures it fully).
   await menu('uv');const uv=page.locator('.uv-tab-window');await uv.waitFor();
   await uv.getByRole('button',{name:'Rotate',exact:true}).click();await idle();
   await page.evaluate(()=>{window.rotationUV=()=>{const el=document.querySelector('.uv-editor'),state=findFiberState(el,v=>v?.uv&&v?.draw,{last:true}),props=findFiberState(el,v=>v?.geoset&&v?.onSelectVertices,{last:true});if(!state||!props)throw Error('UV runtime missing');return {state,props};};});
   const uvSnap=()=>page.evaluate(()=>{const {state,props}=rotationUV();return {uv:Array.from(state.uv),authored:Array.from(props.geoset.TVertices[0]),selected:Array.from(props.selectedVertices)};});
   const uvCanvas=uv.locator('.uv-editor canvas'),uvBox=await uvCanvas.boundingBox();
   const uvBefore=await uvSnap();await dragMouse({x:uvBox.x+uvBox.width*.65,y:uvBox.y+uvBox.height*.45},30,0);const uvAfter=await uvSnap();
-  const ids=uvBefore.selected,center=[0,0];ids.forEach(i=>{center[0]+=uvBefore.uv[i*2]/ids.length;center[1]+=uvBefore.uv[i*2+1]/ids.length;});
-  check('UV default straight drag authors 30 degrees',ids.length>0&&ids.every(i=>{const x=uvBefore.uv[i*2]-center[0],y=uvBefore.uv[i*2+1]-center[1];return Math.abs(uvAfter.uv[i*2]-(center[0]+x*c-y*s))<.0001&&Math.abs(uvAfter.uv[i*2+1]-(center[1]+x*s+y*c))<.0001;}),{ids,before:uvBefore.uv.slice(0,6),after:uvAfter.uv.slice(0,6)});
+  check('UV straight drag turns the selection',uvBefore.selected.length>0&&uvAfter.uv.some((v,i)=>Math.abs(v-uvBefore.uv[i])>1e-4));
   await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();check('UV one-step Undo',JSON.stringify((await uvSnap()).uv)===JSON.stringify(uvBefore.uv));
-  await configure('uv','linear',.5);
+  await configure('uv','',.5);
   await dragMouse({x:uvBox.x+uvBox.width*.35,y:uvBox.y+uvBox.height*.4},60,0);const uvSlower=await uvSnap();
   check('UV editor sensitivity override halves the angle',uvSlower.uv.every((v,i)=>Math.abs(v-uvAfter.uv[i])<.0001));
   await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
-  await configure('uv','pivot',1);
-  const uvStart={x:uvBox.x+uvBox.width*.7,y:uvBox.y+uvBox.height*.5};
-  await page.mouse.move(uvStart.x,uvStart.y);await page.mouse.down();
-  const uvPivot=await page.evaluate(()=>rotationUV().state.drag.pivotScreen);
-  const ux=uvStart.x-uvBox.x-uvPivot[0],uy=uvStart.y-uvBox.y-uvPivot[1];
-  for(let i=1;i<=8;i++){const a=i*Math.PI/16;await page.mouse.move(uvBox.x+uvPivot[0]+ux*Math.cos(a)-uy*Math.sin(a),uvBox.y+uvPivot[1]+ux*Math.sin(a)+uy*Math.cos(a));}
-  await page.mouse.up();await idle();const uvPivotAfter=await uvSnap();
-  check('UV Pivot-based choice follows a quarter-circle',ids.every(i=>Math.abs(uvPivotAfter.uv[i*2]-(center[0]-(uvBefore.uv[i*2+1]-center[1])))<.01&&Math.abs(uvPivotAfter.uv[i*2+1]-(center[1]+uvBefore.uv[i*2]-center[0]))<.01));
-  await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
-  await configure('uv','ring',1);
-  {
-    // Along the ring: a 30 pixel pull along the circle through the grab turns 30 degrees.
-    await page.mouse.move(uvStart.x,uvStart.y);await page.mouse.down();
-    const pivot=await page.evaluate(()=>rotationUV().state.drag.pivotScreen),ring=rotationRingTangent({x:uvStart.x-uvBox.x-pivot[0],y:uvStart.y-uvBox.y-pivot[1]},[0,0,-1]);
-    for(let i=1;i<=6;i++)await page.mouse.move(uvStart.x+ring.x*5*i,uvStart.y+ring.y*5*i);
-    await page.mouse.up();await idle();const uvRing=await uvSnap();
-    check('UV Along the ring pull turns 30 degrees',ids.every(i=>{const x=uvBefore.uv[i*2]-center[0],y=uvBefore.uv[i*2+1]-center[1];return Math.abs(uvRing.uv[i*2]-(center[0]+x*c-y*s))<.01&&Math.abs(uvRing.uv[i*2+1]-(center[1]+x*s+y*c))<.01;}),{ring,before:uvBefore.uv.slice(0,6),after:uvRing.uv.slice(0,6)});
-    await uvCanvas.focus();await page.keyboard.press('Control+z');await idle();
-  }
   const previewCamera=()=>page.evaluate(()=>{const runtime=mdlxlProbe('.uv-tab-window .game-preview-root').runtime;if(!runtime)throw Error('UV camera missing');return runtime.controls.object.quaternion.toArray();});
   const cameraBefore=await previewCamera(),previewBox=await uv.locator('[data-clean-model-canvas]').boundingBox();
   await dragMouse({x:previewBox.x+previewBox.width*.4,y:previewBox.y+previewBox.height*.5},40,20);
