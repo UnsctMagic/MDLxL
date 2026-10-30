@@ -2053,8 +2053,15 @@ function choosePictures(images, limit = 12) {
   // phases consume the budget. Whole groups always survive or leave together.
   const captured = groups.filter(g => g.key.startsWith('capture ') && g.items.some(p => p.role === 'original'));
   captured.forEach(take);
-  for (let count = phases.length; count > 0; count--) {
-    const spread = [...new Set(Array.from({ length: count }, (_, i) => Math.round(count === 1 ? (phases.length - 1) / 2 : (i * (phases.length - 1)) / (count - 1))))].map(i => phases[i]);
+  // Measurement-selected groups retain the worst motion/speed and other
+  // touched animations before spare start/middle/end pictures. Old explicit
+  // frame results have no priority and keep the existing spread unchanged.
+  groups.filter(g => g.items.some(p => p.motionPriority != null))
+    .sort((a, b) => Math.min(...a.items.map(p => p.motionPriority)) - Math.min(...b.items.map(p => p.motionPriority)))
+    .forEach(take);
+  const remainingPhases = phases.filter(g => !chosen.has(g));
+  for (let count = remainingPhases.length; count > 0; count--) {
+    const spread = [...new Set(Array.from({ length: count }, (_, i) => Math.round(count === 1 ? (remainingPhases.length - 1) / 2 : (i * (remainingPhases.length - 1)) / (count - 1))))].map(i => remainingPhases[i]);
     if (spread.reduce((n, g) => n + g.items.length, 0) <= room) {
       spread.forEach(take);
       break;

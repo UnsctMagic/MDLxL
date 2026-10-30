@@ -221,13 +221,16 @@ async function comparisonPictures(bridge, id, review, before, args) {
   // The animation compared: the one named, else the one the edit changed, else the task's own.
   const own = target.globalSequence != null ? { globalSequence: target.globalSequence } : { sequence: target.sequence ?? -1 };
   const touched = [...(review.sequences || []).map(sequence => ({ sequence })), ...(review.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+  const measured = !args.frames ? (review.motionCache?.value.sequences || []).filter(row => !row.missing).sort((a, b) => b.distance.distance - a.distance.distance) : [];
   const same = (x, y) => (x.globalSequence ?? null) === (y.globalSequence ?? null) && (x.sequence ?? -1) === (y.sequence ?? -1);
   const shown =
     args.globalSequence != null
       ? { globalSequence: args.globalSequence }
       : args.sequence !== undefined
         ? { sequence: args.sequence }
-        : touched.some(t => same(t, own)) || touched.length !== 1
+        : measured.length && !measured.some(t => same(t, own))
+          ? measured[0]
+          : touched.some(t => same(t, own)) || touched.length !== 1
           ? own
           : touched[0];
   checkAnimation(model, shown, 'Review');
@@ -253,19 +256,36 @@ async function comparisonPictures(bridge, id, review, before, args) {
     if (new Set(frames).size < 3) throw Error('Animation verification needs at least three distinct frames. Provide frames in the edited animation.');
     if (frames.some(f => f < range[0] || f > range[1])) throw Error(`frames must lie inside ${animationName(model, shown)}: ${range[0]}–${range[1]}.`);
   } else frames = [same(shown, own) ? (target.frame ?? range?.[0] ?? 0) : (range?.[0] ?? 0)];
+  const motion = measured.find(row => same(row, shown));
+  if (motion) frames = frames.map(frame => motion.perFrame.reduce((best, f) => Math.abs(f.frame - frame) < Math.abs(best.frame - frame) ? f : best).frame);
   const perFrame = 2 + (donor ? 1 : 0);
   if (frames.length * perFrame + (args.turnaround ? 4 : 0) > MAX_REVIEW_PICTURES)
     throw Error(`That is more than ${MAX_REVIEW_PICTURES} pictures. Use fewer frames.`);
+  if (motion) for (const frame of [motion.distance.frame, motion.speedDifference.frame]) {
+    if (!frames.includes(frame) && (frames.length + 1) * perFrame + (args.turnaround ? 4 : 0) <= MAX_REVIEW_PICTURES) frames.push(frame);
+  }
+  const plans = frames.map(frame => ({ frame, shown, motion, extra: false }));
+  let room = MAX_REVIEW_PICTURES - frames.length * perFrame - (args.turnaround ? 4 : 0);
+  for (const row of measured.filter(row => !same(row, shown))) {
+    if (room < 2) break;
+    plans.push({ frame: row.distance.frame, shown: row, motion: row, extra: true }); room -= 2;
+  }
   const images = [],
     missing = [];
   if (!original) missing.push(`The original model has no ${animationName(model, shown)}, so there are no original pictures to compare.`);
   const sample = a => (a.globalSequence != null ? { globalSequence: a.globalSequence } : { sequence: a.sequence });
-  for (const frame of frames) {
+  for (const plan of plans) {
+    const { frame, shown, motion } = plan, range = animationRange(model, shown),
+      original = sameAnimation(before, model, shown), originalRange = original && animationRange(before, original),
+      pairedDonor = plan.extra ? null : donor;
     bridge.requireTarget(id);
     const phase = range && range[1] > range[0] ? (frame - range[0]) / (range[1] - range[0]) : null;
     const at = r => (phase == null || !r ? (r?.[0] ?? frame) : Math.round(r[0] + phase * (r[1] - r[0])));
-    const group = review.animation ? `frame ${frame}` : 'still',
+    const group = review.animation ? `frame ${frame}${measured.length ? `; ${animationName(model, shown)}` : ''}` : 'still',
       when = `${phase == null ? '' : `${Math.round(phase * 100)}% through; `}frame `;
+    const distance = motion?.perFrame.find(f => f.frame === frame)?.max;
+    const labelDistance = distance !== undefined ? `; measured distance ${distance.toFixed(4)} model units` : '';
+    const priority = motion ? { motionPriority: plan.extra ? 2 + measured.indexOf(motion) : frame === motion.distance.frame ? 0 : frame === motion.speedDifference.frame ? 1 : 100 + frames.indexOf(frame) } : {};
     // One framing for the pair: both posed models fit inside it.
     const originalFrame = original && at(originalRange);
     const focus = [
@@ -274,21 +294,21 @@ async function comparisonPictures(bridge, id, review, before, args) {
     ];
     if (original)
       images.push({
-        role: 'original', group,
-        label: `Original target ${args.baseline ? `version "${args.baseline}"` : 'before the task'}; ${animationName(before, original)}; ${when}${originalFrame}`,
+        role: 'original', group, ...priority,
+        label: `Original target ${args.baseline ? `version "${args.baseline}"` : 'before the task'}; ${animationName(before, original)}; ${when}${originalFrame}${labelDistance}`,
         image: (await bridge.picture(id, { ...sample(original), frame: originalFrame }, { model: before, focus })).image,
       });
     images.push({
-      role: 'edited', group,
-      label: `Edited target; ${animationName(model, shown)}; ${when}${frame}`,
+      role: 'edited', group, ...priority,
+      label: `Edited target; ${animationName(model, shown)}; ${when}${frame}${labelDistance}`,
       image: (await bridge.picture(id, { ...sample(shown), frame }, { focus })).image,
     });
-    if (donor) {
-      const donorFrame = at(donor.range);
+    if (pairedDonor) {
+      const donorFrame = at(pairedDonor.range);
       images.push({
-        role: 'donor', group,
-        label: `Donor ${donor.name}; ${animationName(donor.model, donor.animation)}; ${when}${donorFrame}`,
-        image: (await bridge.picture(id, { ...sample(donor.animation), frame: donorFrame }, { documentId: donor.id, focus: posedCorners(donor.model, donor.animation, donorFrame, new Set()) })).image,
+        role: 'donor', group, ...priority,
+        label: `Donor ${pairedDonor.name}; ${animationName(pairedDonor.model, pairedDonor.animation)}; ${when}${donorFrame}${labelDistance}`,
+        image: (await bridge.picture(id, { ...sample(pairedDonor.animation), frame: donorFrame }, { documentId: pairedDonor.id, focus: posedCorners(pairedDonor.model, pairedDonor.animation, donorFrame, new Set()) })).image,
       });
     }
   }

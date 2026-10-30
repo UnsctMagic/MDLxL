@@ -392,6 +392,12 @@ channel spans. These are observations, never acceptance gates. Changed topology
 has no assumed vertex correspondence, and billboards need visual review.
 The outside check receives this table separately from the worker's own checks;
 still pictures alone cannot establish timing, sliding or popping.
+When review frames are omitted, measured motion adds the worst-distance and
+worst-speed frames to the usual start/middle/end pictures, then worst-frame
+pairs for other touched animations, most different first. Each is labelled with
+its measured distance. The existing 16-picture inspect and 12-picture outside
+budgets still apply; whole comparison pairs stay together. Explicit `frames`
+retain their previous selection and labels.
 
 **Outside check.** When the AI says a model edit is finished, a separate AI that
 never saw its work judges the result. It gets only your request, the plan's keep
