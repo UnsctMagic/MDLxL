@@ -12,7 +12,7 @@ export default function GlowUpControls({glow,choices,own,error,onChange,onCreate
  return <div className="pe-placement pe-glow" role="dialog" aria-modal="false" data-hotkey-prefix="glow-up" data-hotkey-scope="glow-up" aria-label="Glow Up">
   <strong>Glow Up</strong>
   {own&&<small title="Glow Up moves, resizes and brightens the glow this model already has. It adds glow only when you tick a kind the model doesn't have.">Adjusts this model's own glow.</small>}
-  {faults.length>0&&!faultsHidden&&<button className="pe-glow-fix" aria-expanded={faultsOpen} title="This glow is built differently from Blizzard's heroes. Click to see how and fix it." onClick={()=>setFaultsOpen(v=>!v)}>Fix glow ({faults.length})</button>}
+  {faults.length>0&&!faultsHidden&&<button className="pe-glow-fix" aria-expanded={faultsOpen} title="This glow is built differently from Blizzard's heroes. Click to see how and fix it." onClick={()=>setFaultsOpen(v=>!v)}>{`Fix glow (${faults.length})`}</button>}
   {faultsOpen&&!faultsHidden&&faults.length>0&&<div className="pe-glow-faults" role="group" aria-label="Glow faults">
    <ul>{faults.map(f=><li key={f.key} title={f.title}>{f.label}{f.count>1?` (${f.count})`:''}</li>)}</ul>
    <button title="Repair the glow in place, as Blizzard builds it. One undo step." onClick={()=>{setFaultsOpen(false);onFix();}}>Fix</button>
