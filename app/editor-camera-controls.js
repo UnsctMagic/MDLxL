@@ -107,7 +107,21 @@ export class EditorCameraControls extends OrbitControls {
     return {clientX:point.x,clientY:point.y};
   }
   _handleMouseDownPan(event) { this._startScreenDrag(event);super._handleMouseDownPan(event); }
-  _handleMouseDownRotate(event) { this._startScreenDrag(event);super._handleMouseDownRotate(event); }
+  _handleMouseDownRotate(event) { if (this.orbitWorldUp?.()) this.restoreWorldUp(); this._startScreenDrag(event);super._handleMouseDownRotate(event); }
+  /** Top and bottom presets point "up" along the model's front, so dragging
+   * left/right would spin the picture flat. Stand the camera back on world +Z
+   * before orbiting; the view stays the same apart from an invisible nudge off
+   * the pole that keeps the current screen orientation. */
+  restoreWorldUp() {
+    const camera = this.object, worldUp = new Vector3(0, 0, 1);
+    if (camera.up.equals(worldUp)) return;
+    const offset = camera.position.clone().sub(this.target), distance = offset.length();
+    const screenUp = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion).setZ(0);
+    if (distance > 0 && Math.abs(offset.z) > distance * .999 && screenUp.lengthSq() > 1e-12)
+      offset.addScaledVector(screenUp.normalize(), -Math.sign(offset.z) * distance * .001);
+    camera.position.copy(this.target).add(offset);
+    camera.up.copy(worldUp); camera.lookAt(this.target); camera.updateMatrixWorld();
+  }
   _handleMouseMovePan(event) { super._handleMouseMovePan(this._screenDragEvent(event)); }
   _handleMouseMoveRotate(event) { super._handleMouseMoveRotate(this._screenDragEvent(event)); }
   _customWheelEvent(event) {

@@ -23,6 +23,22 @@ test('all six Warcraft views have distinct axes and perpendicular up vectors', (
   assert.deepEqual(camera.position.toArray(), [10, 0, 0]);
 });
 
+test('top and bottom views orbit left and right around the model, not flat', async () => {
+  const { EditorCameraControls } = await import('../app/editor-camera-controls.js');
+  for (const name of ['top', 'bottom']) {
+    const camera = new OrthographicCamera(-2, 2, 2, -2, .1, 100), controls = new EditorCameraControls(camera);
+    applyViewPreset(camera, name, controls.target, 10);
+    const before = new Vector3(1, 0, 0).project(camera);
+    controls.restoreWorldUp();
+    assert.deepEqual(camera.up.toArray(), [0, 0, 1], name);
+    const after = new Vector3(1, 0, 0).project(camera);
+    assert.ok(Math.abs(after.x - before.x) < .01 && Math.abs(after.y - before.y) < .01, `${name} keeps its picture`);
+    controls._rotateLeft(Math.PI / 2); controls.update();
+    assert.ok(Math.abs(camera.position.z) > 9.9, `${name} stays above/below while turning`);
+    assert.ok(Math.abs(new Vector3(0, 0, 1).project(camera).x) < .01, `${name} turns around the vertical axis`);
+  }
+});
+
 test('UV angled projection presets cover front and back from top and bottom', () => {
   for (const height of ['top','bottom']) for (const plane of ['front','back']) for (const side of ['left','right']) {
     const name = `${height}-${plane}-${side}`, preset = VIEW_PRESETS[name];

@@ -372,6 +372,8 @@ export default function GamePreview(inputProps) {
     // Showcase framing fits its crop with the lens itself, so it keeps lens zoom.
     controls.wideLensZoom = () => !!latest.current.showcase;
     controls.keepWorldUp=()=>!!latest.current.showcase&&!latest.current.portraitMode;
+    // Model cameras keep their editable roll; other previews orbit upright.
+    controls.orbitWorldUp=()=>!latest.current.portraitMode;
     controls.lockScreenAxis=!!latest.current.showcase;
     let projectionKey = '';
     const reportProjectionView = () => {
