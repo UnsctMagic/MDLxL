@@ -1,141 +1,103 @@
 # MDLxL 0.36.0 release preparation
 
-Status: active; final integrated package and preflight passed; full hidden suite starting
-Owner / consolidator: Codex
+Status: checks complete; release PR ready for owner review.
 Updated: 2026-10-30
 
-## Goal and completion criteria
+The owner merges, tags, publishes and updates the website. No release was merged,
+tagged or published by this task. Installed applications and personal profiles
+were not changed.
 
-Open Release 0.36.0 PR only. Owner merges, tags, publishes and does the website.
-Four localized notes/PDFs, translation catch-up, full hidden default/all suite,
-one retry of failures and persistent-failure comparisons with official 0.35.0.
-AI console/editor are must-pass; compare any failure against main before #430.
-No real profile or installed application changes.
+## Scope
 
-## Current state
+- Version, README title/current paragraph/release index and four release notes
+  are 0.36.0. RELEASE-NEXT is reset.
+- Notes include the merge-history/PR-body review, Showcase carry-over, #427 AI
+  chat repairs, #429 Bitz, #430 context diet and all four #436 release notes.
+  #434 is documentation only and has no release note.
+- Main through #436 (de36134b), including #434 (1b4d9c6f), is integrated by
+  47ae36e4. The final AI package is rebuilt from that integrated source plus
+  the release translation catch-up. Runtime/renderer hashes match the source.
+- The Escape repair is separate [PR #432](https://github.com/UnsctMagic/MDLxL/pull/432),
+  merged by the owner as 0541756b. It arrives through main, with no duplicate
+  release commit. It uses the existing Close binding; Search can dismiss the
+  Library, while number-field restoration and earlier drag claims remain.
+- The owner-approved missed number fields now commit on Enter/blur and restore
+  on Escape. Negative Extra Time, field limits and whole-loop checks remain.
+- Russian/Spanish/Chinese catalogs gained 289 entries each. Catalog counts are
+  7265/7281/7145. Requested-file AST review covered 124 files; brands, paths,
+  chords, formats and examples were reviewed rather than blindly translated.
+  JSX title fragments and plan headings that bypass automatic translation use
+  translate() explicitly. Model and AI-authored plan text stays unchanged.
 
-- D:\Codex\mdlxl-release-0.36.0, branch codex/release-0.36.0.
-- Main through #425–#432 is integrated; #432 merged as 0541756b.
-- Release history was consolidated onto that main to split the Escape repair.
-  Original unpublished history is protected by codex/release-0.36.0-pre-escape-split.
-- Escape is separate PR https://github.com/UnsctMagic/MDLxL/pull/432,
-  branch codex/uv-library-escape, 03b248b1, cut from current main. It changes
-  only Hotkeys.jsx and adds escape-input.electron.cjs. No duplicate Escape
-  source/test diff remains on the release branch. The repair arrived through main, with no duplicate release commit. Its
-  disposable worktree/package/profile/junction were removed.
-- All tools use MDLXL_TEMP, TEMP and TMP = this worktree's out/tmp.
-  out/tmp/package.json must remain {"type":"commonjs"}. D: began at 39.86 GB,
-  above the owner's 25 GB minimum; it later had over 50 GB free.
-- Dependency junction: D:\Claude\MDLxL\node_modules. Never pnpm scripts here.
-- Final checker is out/final-checks.ps1. Current PID is out/final-checks.pid.
-  Consult out/release-run-state.json and stdout/stderr logs before acting.
-  An interrupted partial package was deleted. The final package is verified
-  (1,336 runtime/asset files, 55 locales); only 0.36.0 feature PDFs ship.
+## Guides
 
-## Release changes
+Four New-Features PDFs have seven pages each: Rotate, Smooth edges, windows and
+keys, sliders/numbers, Paint/Forge, Inspector normals and Showcase quality/fonts.
+All 28 built HTML page screenshots were visually inspected. Captures were
+refreshed per language on the hidden desktop, with the original five Smooth
+edges captures preserved. Contact sheets are in
+[release-0.36.0-previews](../verification/release-0.36.0-previews).
+Guide source/captures remain at D:\Claude\MDLxL-gate\features-0.36.0.
+The AI addition affects no guide page, so the PDFs were not rebuilt again.
+Runtime guides select 0.36.0; old 0.35.0 PDFs remain because audit evidence
+still references them.
 
-- package.json, README title/current summary/release index: 0.36.0.
-- Four notes cover the merge-history/PR-body review plus RELEASE-NEXT carry-over;
-  RELEASE-NEXT is reset. #427 AI chat fixes, #429 Bitz visibility and #430 AI
-  context diet are included in all four notes and out/release-body-draft.md.
-  Owner BITZ/A1 placement click-through is in out/pr-body-template.md.
-- Catalogs ru/es/zh gained 285 entries each; counts 7261/7277/7141. Placeholders
-  preserved. AST review of 124 requested files; remaining presentation strings
-  are brands, chords, formats, paths, URLs and examples. Composed JSX labels
-  now explicitly translate; malformed loading/separator text corrected.
-- Owner-approved number-field repair completes D11: Settings sensitivities,
-  ShowcaseNumber, Extra Time, animation Loops and fades apply on Enter/blur;
-  Escape restores. Sliders, limits, negative Extra Time and whole-loop error
-  remain. Packaged number regression and Showcase actions passed.
-- Runtime guides select the four 0.36.0 New-Features PDFs. Old 0.35.0 PDFs stay:
-  docs/agent-tasks/codebase-audit/07-tests-scripts-docs.md references that family.
-- Guide source: D:\Claude\MDLxL-gate\features-0.36.0. Original five top-level
-  shots were preserved. Fresh localized captures/HTML/28 page previews are in
-  out/feature-shots and copied to external source shots/<lang>/ and previews/.
-  Four seven-page PDFs in docs; all 28 HTML pages rendered with Chrome and LOOKED
-  at. Fixed headings, labels, crops and pictures. pypdf verified pages/text.
-  Contact sheets tracked in docs/verification/release-0.36.0-previews.
+## Verification
 
-## Five stale harnesses: owner-approved updates
+- Full compatibility: 57 passed.
+- Full source before the late AI addition: 2429 passed, 14 skipped, zero failed.
+- Full hidden default/all: 155 passed, 14 failed, 24 skipped initially.
+  After one retry and setup corrections: **160 passed, 9 failed, 24 skipped**.
+  All nine remaining failures also fail against the official SHA-verified
+  0.35.0 ZIP; see the release PR comparison table. Passing cases were not
+  needlessly repeated against 0.35.0.
+- Five owner-named stale harnesses passed with their original behavioral
+  assertions preserved: physical Blend key, Paint Alt orbit, smoothed model
+  render pass, real ESM text import and current Undo path.
+- Rotation repeated all geometry, real-mouse, Undo and Settings persistence
+  checks successfully. The helper waits for draft-number value synchronization.
+- Archive fixture clears the inherited game-folder override; its MPQ bytes,
+  restart/removal and real camera rotation checks pass. Showcase effects uses
+  GameDataDiscovery with a task-local cache instead of a personal profile;
+  held poses, continuous effect clocks and unchanged model bytes pass.
+  Popup browser checks use installed Chrome through the existing executable
+  option and pass. These development/browser checks do not prove a 0.35.0 app
+  comparison merely by using the release variant.
+- Number-field packaged regression and unchanged UV Library dismissal passed.
+- Bitz replacement/parts: 17 passed.
+- Reduced updater source: 15 passed, 1 platform skip. Hidden packaged updater
+  passed real portable update/restart, one-version retention and offline revert.
+  The full manual updater gate was not run, as instructed.
+- Latest owner scope after #436: **AI source 297 passed, 1 skipped**;
+  catalog checks 2 passed. Fresh build/package verified 1340 runtime/asset files
+  and 55 Electron locales. Hidden ai-console, ai-editor, ai-routing,
+  ai-questions and ai-parallel all passed. ai-editor reports 71 assertions.
+  Attachments and the whole suite were not repeated for this AI-only addition.
+- No live signed-in AI run, artistic acceptance, Warcraft III or external
+  War3 Model Editor acceptance is claimed. Owner click-throughs remain in the PR.
 
-- citadel-flow sends physical shifted } for the current Blend binding.
-- citadel-surfaces uses documented Paint Alt-drag, verifies camera rotation and
-  retains exact paint hash / mapped preview / committed texel / Undo checks.
-- showcase measures GL samples while the model draw runs (High/Medium 4, Low 0),
-  keeps the default framebuffer single-sample and retains resolution ratios.
-- showcase-text imports the real ESM module and its dependencies, preserving
-  every font/effect/pixel/fade/capture assertion.
-- uv-preview-edit-constraints uses the current menu Undo/Redo path, retaining
-  all model equality, live camera, save/reload and input-preservation assertions.
-- The typed-number behavior updates Showcase tests to commit before history or
-  timing assertions. Window-key harness waits for initialized history and the
-  restored draft value; original assertions remain.
+## Remaining baseline/environment failures
 
-## Evidence and pending verification
+- event-sound-scroll, manager-simplification, tree-appearance: private Graveguard
+  model unavailable.
+- particle-model-io, particle-prototype, particle-review: private particle
+  current.json/index unavailable.
+- material-presets: the required older Archer fixture is unavailable. The
+  installed MDX1800 fixture lacks the requested geoset; the owner approved
+  reporting this gap.
+- optimizexl-review: the review panel never appears for the supplied Flail in
+  either build. Cause was not fully diagnosed.
+- particle-library-previews: both builds miss the 72 cached-image assertion
+  before its timeout. Cause was not fully diagnosed.
+- 24 explicit skips cover opt-in AI/live checks, private OptimizeXL/POSE/Showcase
+  fixtures, a missing particle index, copied-profile/performance baselines and
+  excluded/manual updater gates. ai-real-use remains opt-in and outside all.
 
-- Before final integration: compatibility 57 pass; full source 2389 pass/14 skip.
-  Initial 14 temp-scope failures were fixed by out/tmp CommonJS scope, with all
-  affected tests passing on repeat. Final full source must run after all merges.
-- Number/history/timeline source 19 pass; hidden number-commit, Showcase actions
-  (including mouse rotation and real 7-second/210-frame High GIF) passed.
-- Reduced updater gate: source updater 15 pass/1 platform skip; hidden packaged
-  update/restart/retention/offline revert passed. Do not run full manual gate.
-- Escape PR: 29 focused source tests, Vite/package, unchanged complete hidden
-  uv-tab-window and new escape-input passed. The official 0.35.0 Search-focused
-  Escape control closes, proving prior current-main behavior was a regression.
-  Logs copied to out/escape-split-results. #432 CI is tracked on GitHub.
-- #427 focused integrated AI tests 73 pass; catalogs 2 pass; #428 graders 11 pass.
-- Required #429 command: node --test test/bit-replacement.test.js
-  test/bits-and-parts.test.js: 17 passed.
-- Final checker waits for #432, fetches/merges main, builds/packages, runs source
-  checks, then AI console/editor must-pass and the five updated harnesses as
-  preflight before full default/all. Copies preflight summaries/logs separately.
-- Pre-#430 main is b3bb48e920041cb074cac25e0a1004258b381aff (#430 first parent),
-  saved in out/pre430-main.txt. If AI console/editor fail, compare against a
-  clean package of that main and report any regression HERE before continuing.
-  They are must-pass, not accepted environment failures.
-- Initial/retry/baseline suite snapshots: out/suite-initial.json,
-  out/suite-retry.json, out/suite-baseline.json. Runner logs out/suite/default
-  and release. If stopped early, resume with SUITE_RESUME=1. Compare failure
-  causes, not just fail statuses, before calling one pre-existing.
-- Known environment gaps to list: event-sound-scroll, manager-simplification,
-  tree-appearance (private models); particle-model-io, particle-prototype,
-  particle-review (profile/particles/current.json). Keep their assertions.
-- #428 live AI measurements are deliberately excluded from default/all; no
-  signed-in real-use run is requested. Other documented runner skips stay.
+## Handoff and cleanup
 
-## Fixtures and finish
-
-Fixtures live only under out: pose/Footman (MDX1800); citadel-fixture/Footman
-(MDX800, copied from D:/Claude/BloodDragon/ref/blizzard); native-fixtures/Archer
-(read-only CASC extraction); effect and optimizexl-review KnightKhorneFlail03;
-native-fixtures/HoofprintModel (four authored FPT events, Walk MoveSpeed 380).
-Particle index is absent. See final-checks.ps1 for exact environment variables.
-Official 0.35.0 ZIP was SHA-256 verified and extracted at out/rel-0.35.0.
-
-After checks: curate this note/report, push release branch, open Release 0.36.0
-PR with checks, suite comparison table, all PDF previews, owner click-through,
-Release body draft, final line Session: codex release 0.36.0. Do not merge/tag/
-publish. Reply with release PR URL and release branch revision. Remove disposable
-packages/profiles/runtimes and unused processes, preserve small report and
-requested external guide sources/captures, unlink node_modules then remove and
-prune finished worktree after push. Preserve unpushed history and user inputs.
-
-## Final integrated preflight
-
-Build source: b4324f57 (main through #432); later changes are harness/docs only.
-Compatibility: 57 passed. Source: 2429 passed, 14 skipped, zero failures.
-AI must-pass preflight: ai-console passed (59s), ai-editor passed (20s; 70
-assertions), using the repaired harnesses on the #430 release package.
-All five updated harnesses passed. The first preflight preserved two setup
-failures: Showcase used Classic, and the tilted curved panel centre projected
-below its model canvas. The repeat explicitly selects Smooth, retains the
-80/15-pixel real Alt orbit, and places on a visible upper point of that same
-curved surface. All coverage, exact texel/Undo, geometry and render assertions
-remain. The final obsolete private fiber walk uses the shared probe with the
-same target-ID check. Real ESM text import passed every pixel/fade assertion.
-Showcase sampled model targets: High 4, Medium 4, Low 0; default canvas 0;
-resolution ratios 2, 1.5, 1. Live video trim and real 10-second GIF passed.
-Evidence: suite-ai-guard.json; ai-guard/*.log; suite-harness-preflight-initial.json
-and suite-harness-preflight-retry.json; harness-preflight/ initial logs plus
-suite/default current logs. Preserve those before the full run overwrites logs.
+The PR contains the suite comparison, four PDF contact sheets, grouped owner
+click-throughs (including BITZ/A1 placement) and the English release body draft.
+Small logs/summaries are retained at D:\Codex\mdlxl-release-0.36.0-report.
+Disposable packages, extracted release/runtime, test profiles and caches are
+removed after verification; the finished worktree and its dependency junction
+are removed after push. Requested guide sources and unpushed Git history remain.

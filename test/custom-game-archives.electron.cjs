@@ -60,7 +60,7 @@ function archive(name, bytes) {
   const packaged = appTarget().packaged, errors = [], result = { packaged, mpq: false, restart: false, removal: false, mouseRotation: false, casc: null };
   let app, page;
   async function launch() {
-    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: modelPath })).app;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1', MDLVIS_GAME_DATA: '' }, timeout: 60000, fixture: modelPath })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(25000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));

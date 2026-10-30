@@ -14,7 +14,7 @@
 
 **Paint, Forge and model editing**
 - Citadel Paint keeps cut-out edges clean with smoothing on, fits the whole model in tall orthographic panels and follows **Grabthrough**. Paint texture/cut-out views and Forge's mask editor follow **Settings > Mouse** for wheel zoom and pan; zoom stays under the pointer.
-- Inspector's **Recalculate normals** uses the NormalsXL SD-style result. **Add sequence** fills each geoset's extents; Inspector checks sequence names and whole-frame intervals like the Animations list. Portrait framing refreshes after rig edits; empty geosets save with zero-sized bounds.
+- Inspector's **Recalculate normals** uses the NormalsXL SD-style result. **Add sequence** fills each geoset's extents; Inspector checks sequence names and whole-frame intervals like the Animations list. Portrait framing refreshes after rig edits; empty geosets save with zero-sized bounds. Forge and shaping tools reset normals on tiny or flat triangles cleanly, without leaving old X/Y values.
 - Glow Up and Attachemator no longer mistake Elbow or Balance bones for weapons. Tools agree on which **Stand** to preview. New bone names avoid clashes with other node types. Bitz **Replace Part** fits the incoming part to the selected part's size and position.
 - Bitz: parts without animations (such as a saved bit) now show every piece in the preview and stay visible when placed.
 - **Help > Sanity Check** checks unsaved model data without changing it. Classic-format checks use mdx-m3-viewer by GhostWolf and contributors; modern-format coverage is partial. MDL comments round-trip safely; MDX saving explains that comments cannot be stored. Collision handles cancel cleanly if their shape disappears.
@@ -40,6 +40,10 @@
 - AI review compares matching original, edited and donor poses, including after Resume. A failed review stays unverified instead of passing. Birds route jobs and keep checkpoints more reliably, use read-only helpers and carry less repeated context. Unused model chats clean up after 3 days by default; **Important model** keeps a model's chats, and an empty cleanup setting disables cleanup.
 - AI review now sees your reference pictures and before/after captures; missing ones are noted without blocking. Say “deliver anyway” to accept the result, with review concerns kept in the reply. A stuck display step no longer stops the whole job. Follow-ups no longer get a false “the model or selection changed” refusal after the AI’s own edits. When you point to an example you made, the AI copies its treatment over the whole requested area while keeping shape and textures.
 - The AI now gets the full editor picture once and afterwards only what changed, with your newest words first, so short instructions are not lost.
+- AI can measure animation changes with MDLxL's own playback code, including visibility and colour changes.
+- AI can compare edits with a saved accepted version and show frames with the largest measured differences.
+- A new size-optimisation guide helps preserve motion and explains native Blizzard key-density statistics.
+- AI guidance now asks what looks wrong after a close result is rejected and reports the size and motion differences of saved candidates.
 - Under the hood, the codebase audit replaces many copied helpers with shared owners. POSE rig detection is about 12× faster on the measured large rig. The packaged suite now selects the packaged app, with documented development-only exceptions.
 
 **Update** Open Settings > Appearance > Search for updates > Update and restart, or download the full portable ZIP from the MDLxL page.

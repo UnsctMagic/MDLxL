@@ -47,6 +47,7 @@ const SPECIAL = {
   // About 18 minutes of real mouse drags across every editing Rotate tool.
   'rotation-interaction': { timeout: 30 * 60 * 1000 },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },
+  'update-popup-effects.browser': { env: { MDLXL_BROWSER_EXE: process.env.MDLXL_BROWSER_EXE || chrome }, needs: [process.env.MDLXL_BROWSER_EXE || chrome], hint: 'set MDLXL_BROWSER_EXE to chrome.exe' },
   'particle-lifecycle': { env: { MDLXL_PARTICLE_INDEX: particleIndex }, needs: [particleIndex] },
   'footprint-travel': { env: { MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
   'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },

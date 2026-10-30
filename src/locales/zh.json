@@ -7139,5 +7139,9 @@
   "Other (creatures)": "其他（生物）",
   "Loading managers…": "正在加载管理器…",
   "MDLxL FORGE · SHAPE": "MDLxL FORGE · 形状",
-  "Add sequence": "添加序列"
+  "Add sequence": "添加序列",
+  "Options:": "选项：",
+  "chosen": "已选",
+  "+{0} more": "另有 {0} 项",
+  "plan too long to show": "计划过长，无法完整显示"
 }

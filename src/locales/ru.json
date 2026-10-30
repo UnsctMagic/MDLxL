@@ -7259,5 +7259,9 @@
   "Other (creatures)": "Другие (существа)",
   "Loading managers…": "Загрузка менеджеров…",
   "MDLxL FORGE · SHAPE": "MDLxL FORGE · ФОРМА",
-  "Add sequence": "Добавить анимацию"
+  "Add sequence": "Добавить анимацию",
+  "Options:": "Варианты:",
+  "chosen": "выбрано",
+  "+{0} more": "ещё +{0}",
+  "plan too long to show": "план слишком длинный для показа"
 }

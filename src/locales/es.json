@@ -7275,5 +7275,9 @@
   "Other (creatures)": "Otros (criaturas)",
   "Loading managers…": "Cargando administradores…",
   "MDLxL FORGE · SHAPE": "MDLxL FORGE · FORMA",
-  "Add sequence": "Añadir secuencia"
+  "Add sequence": "Añadir secuencia",
+  "Options:": "Opciones:",
+  "chosen": "elegida",
+  "+{0} more": "+{0} más",
+  "plan too long to show": "el plan es demasiado largo para mostrarlo"
 }
