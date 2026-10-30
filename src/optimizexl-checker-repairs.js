@@ -8,6 +8,7 @@ import { typedJson } from './value-key.js';
 import { createNode, removeGeosets } from './editor-document.js';
 import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { changeNodeType, remapNodes } from './optimizexl-nodes.js';
+import { attachmentKey } from './attachemator.js';
 
 const json = typedJson;
 const resolve = (m, path) => path.reduce((v, k) => v?.[k], m);
@@ -79,6 +80,32 @@ function boneUsage(m) {
     for (const [group, n] of counts) for (const id of g.Groups[group] || []) used.set(id, (used.get(id) || 0) + n);
   }
   return used;
+}
+// Origin: the checker and the game want an attachment named "Origin Ref".
+// Near-miss names use Attachemator's own matcher; placement stays its job.
+const ORIGIN = 'Origin Ref';
+const isOriginName = name => attachmentKey(name) === 'origin';
+const ownAttachmentId = (m, a) => Number.isInteger(a.AttachmentID) && a.AttachmentID >= 0 && !(m.Attachments || []).some(o => o !== a && o.AttachmentID === a.AttachmentID);
+/** What the origin repair would do, or null when a valid origin is there. */
+function originPlan(m) {
+  const attachments = m.Attachments || [], named = attachments.find(a => (a.Name || '').startsWith(ORIGIN));
+  if (named) return ownAttachmentId(m, named) ? null : { node: named };
+  const near = attachments.find(a => isOriginName(a.Name));
+  if (near) return { node: near, rename: true };
+  // A helper or bone that has the name but is not an attachment point; only
+  // one that moves no vertices and no children can change type in place.
+  const used = boneUsage(m), parents = new Set(allNodes(m).map(n => n.Parent));
+  const other = [...m.Bones, ...m.Helpers].find(n => isOriginName(n.Name) && !used.has(n.ObjectId) && !parents.has(n.ObjectId));
+  return other ? { node: other, convert: true } : { create: true };
+}
+function fixOrigin(m) {
+  const plan = originPlan(m);
+  if (!plan) return;
+  if (plan.create) { createNode(m, 'Attachment').Name = ORIGIN; return; }
+  const node = plan.node;
+  if (plan.convert) { changeNodeType(m, node, 'Attachment'); node.Path ??= ''; }
+  node.Name = ORIGIN;
+  if (!ownAttachmentId(m, node)) node.AttachmentID = Math.max(-1, ...m.Attachments.filter(a => a !== node && Number.isInteger(a.AttachmentID)).map(a => a.AttachmentID)) + 1;
 }
 
 // Each rule: detect(m) -> instances, apply(m, choice) fixes them all.
@@ -170,10 +197,10 @@ const RULES = [
     detail: 'mdx-m3-viewer expects light attenuation to start at 80 or more and end at 200 or less.',
     detect: m => (m.Lights || []).filter(l => { const [s, e] = attenuation(l); return s < 80 || e > 200 || e <= s; }).map(nodeName),
     apply: m => { for (const l of m.Lights || []) { const [s, e] = attenuation(l), start = Math.min(199, Math.max(80, s)), end = Math.min(200, Math.max(start + 1, e)); setAttenuation(l, 'AttenuationStart', start); setAttenuation(l, 'AttenuationEnd', end); } } },
-  { id: 'origin', exact: true, label: () => 'Add the missing Origin attachment point',
-    detail: 'Units need an "Origin Ref" attachment point for effects placed on them. Add one at the model centre.',
-    detect: m => (m.Attachments || []).some(a => (a.Name || '').startsWith('Origin Ref')) ? [] : ['Origin Ref'],
-    apply: m => { if (!(m.Attachments || []).some(a => (a.Name || '').startsWith('Origin Ref'))) { const n = createNode(m, 'Attachment'); n.Name = 'Origin Ref'; } } },
+  { id: 'origin', exact: true, label: () => 'Fix the Origin attachment point',
+    detail: 'Units need one attachment point named "Origin Ref" for effects placed on them. Correct a misspelt one, make a helper or bone with that name an attachment point, give it its own attachment number, or add one at the model centre if there is none.',
+    detect: m => { const plan = originPlan(m); return plan ? [plan.node ? nodeName(plan.node) : ORIGIN] : []; },
+    apply: fixOrigin },
   { id: 'timeMiddle', exact: true, label: n => `Fix ${plural(n, 'particle emitter')} with a middle time outside 0–1`,
     detail: 'The middle time of a particle\'s life must be between 0 and 1.',
     detect: m => (m.ParticleEmitters2 || []).filter(e => typeof e.Time === 'number' && !(e.Time >= 0 && e.Time <= 1)).map(nodeName),
@@ -205,18 +232,6 @@ const RULES = [
     detect: m => timelineConflicts(m).map(i => m.Sequences[i].Name),
     apply: m => separateTimeline(m) },
   // Decisions: the default is applied unless another choice is selected.
-  { id: 'standDeath', label: n => `Add the missing ${n === 2 ? 'Stand and Death animations' : 'Stand or Death animation'}`,
-    detail: 'The game expects every model with animations to have a Stand and a Death. Attachments and props often only need Stand.',
-    choices: [['add', 'Add a still one-second animation after the others'], ['skip', 'Leave it']],
-    detect: m => m.Sequences.length ? ['stand', 'death'].filter(word => !m.Sequences.some(s => sequenceWord(s.Name) === word)) : [],
-    apply: (m, choice) => {
-      if (choice === 'skip' || !m.Sequences.length) return;
-      for (const word of ['stand', 'death']) if (!m.Sequences.some(s => sequenceWord(s.Name) === word)) {
-        const start = Math.ceil((Math.max(...m.Sequences.map(s => s.Interval[1])) + 100) / 100) * 100, template = m.Sequences[0];
-        m.Sequences.push({ ...structuredClone(template), Name: word === 'stand' ? 'Stand' : 'Death', Interval: new Uint32Array([start, start + 1000]), NonLooping: word === 'death', Flags: word === 'death' ? 1 : 0, MoveSpeed: 0, Rarity: 0 });
-        for (const g of m.Geosets) if (g.Anims?.length) g.Anims.push(structuredClone(g.Anims[0]));
-      }
-    } },
   { id: 'vertexAttachment', label: n => `Attach ${plural(n, 'loose vertex', 'loose vertices')} to a bone`,
     detail: 'Some vertices are attached to nothing, or to a bone or group that does not exist. They do not follow the animation.',
     choices: [['neighbour', 'Attach to the bone of the nearest connected vertex'], ['skip', 'Leave them']],
@@ -313,7 +328,6 @@ function stepVisibility(m, track, path) {
   track.Keys = [...track.Keys.map(k => ({ Frame: k.Frame, Vector: new Float32Array(k.Vector) })), ...added].sort((a, b) => a.Frame - b.Frame);
   track.LineType = 0;
 }
-function sequenceWord(name) { const words = (name || '').toLowerCase().trim().split('-')[0].split(/\s+/); return words[0] === 'alternate' ? words[1] : words[0]; }
 function roomAfter(m, index) { const f = m.Sequences[index].Interval[0] + 1; return !m.Sequences.some((s, i) => i !== index && f >= s.Interval[0] && f <= s.Interval[1]); }
 function attenuation(l) { const read = k => typeof l[k] === 'number' ? l[k] : l._MdxDefaults?.[k] ?? (k === 'AttenuationStart' ? 80 : 200); return [read('AttenuationStart'), read('AttenuationEnd')]; }
 function setAttenuation(l, key, value) { if (typeof l[key] === 'number' || !l[key]?.Keys) l[key] = value; else (l._MdxDefaults ||= {})[key] = value; }

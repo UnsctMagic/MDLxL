@@ -63,8 +63,10 @@ export function createResourceImporter(source, target, {
     if (old == null || old === -1) return old;
     if (!source.Textures?.[old]) fail('texture', old);
     if (!maps.textures.has(old)) {
-      const sourceTexture = source.Textures[old], key = reuseTextures === 'partKey' ? partTextureKey : fingerprint;
-      const existing = reuseTextures === 'never' ? -1 : target.Textures.findIndex(texture => key(texture) === key(sourceTexture));
+      const sourceTexture = source.Textures[old], key = ['partKey', 'partPath'].includes(reuseTextures) ? partTextureKey : fingerprint;
+      let existing = reuseTextures === 'never' ? -1 : target.Textures.findIndex(texture => key(texture) === key(sourceTexture));
+      // 'partPath' also reuses the target's own entry for the same file path.
+      if (existing < 0 && reuseTextures === 'partPath' && !sourceTexture.ReplaceableId && sourceTexture.Image) existing = target.Textures.findIndex(texture => !texture.ReplaceableId && texture.Image && gamePathKey(texture.Image) === gamePathKey(sourceTexture.Image));
       maps.textures.set(old, existing >= 0 ? existing : target.Textures.push(cloneTexture(sourceTexture)) - 1);
     }
     return maps.textures.get(old);

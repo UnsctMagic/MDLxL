@@ -1,5 +1,7 @@
 // Frozen from origin/main a953a6949db1bf1e47303e517766b15062a19c60 for WP-3.3 identity tests.
 // Function bodies are unchanged; imports point to the shared source dependencies.
+// Exception: importGeosets reuses identical global sequences, texture animations and
+// materials (owner's paste reuse rule, 0.37.0), matching the shipped policy.
 import { TEXTURE_SLOTS } from '../../../src/mdx-compatibility.js';
 import { MODEL_COMMENTS_KEY, readModelComments, writeModelComments } from '../../../src/model-comments.js';
 import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdContentKind, clearHDMaterialSettings, HD_VIEW_ONLY_MESSAGE } from '../../../src/model-version.js';
@@ -183,7 +185,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
     if (value.GlobalSeqId != null && value.GlobalSeqId !== -1) {
       const old = value.GlobalSeqId;
-      if (!maps.globals.has(old)) { if (source.GlobalSequences[old] === undefined) throw new Error('Source track references a missing global sequence.'); maps.globals.set(old, target.GlobalSequences.push(source.GlobalSequences[old]) - 1); }
+      if (!maps.globals.has(old)) { if (source.GlobalSequences[old] === undefined) throw new Error('Source track references a missing global sequence.'); const duration = source.GlobalSequences[old], existing = target.GlobalSequences.findIndex(item => fingerprint(item) === fingerprint(duration)); maps.globals.set(old, existing >= 0 ? existing : target.GlobalSequences.push(duration) - 1); }
       value.GlobalSeqId = maps.globals.get(old);
     }
     for (const child of Object.values(value)) globalRef(child);
@@ -213,14 +215,13 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
         const texAnim = layer.TVertexAnimId;
         if (texAnim != null && texAnim !== -1) {
           if (!source.TextureAnims[texAnim]) throw new Error('Source material references a missing texture animation.');
-          if (!maps.textureAnims.has(texAnim)) { const animation = clone(source.TextureAnims[texAnim]); globalRef(animation); maps.textureAnims.set(texAnim, target.TextureAnims.push(animation) - 1); }
+          if (!maps.textureAnims.has(texAnim)) { const animation = clone(source.TextureAnims[texAnim]); globalRef(animation); const existing = target.TextureAnims.findIndex(item => fingerprint(item) === fingerprint(animation)); maps.textureAnims.set(texAnim, existing >= 0 ? existing : target.TextureAnims.push(animation) - 1); }
           layer.TVertexAnimId = maps.textureAnims.get(texAnim);
         }
       }
       globalRef(material);
-      // A rigid import has a separate dependency table. Compare only after
-      // texture, texture-animation and global-sequence IDs are remapped.
-      const existing = rigid ? target.Materials.findIndex(candidate => fingerprint(candidate) === fingerprint(material)) : -1;
+      // Compare only after texture, texture-animation and global-sequence IDs are remapped.
+      const existing = target.Materials.findIndex(candidate => fingerprint(candidate) === fingerprint(material));
       maps.materials.set(old, existing >= 0 ? existing : target.Materials.push(material) - 1);
     }
     return maps.materials.get(old);

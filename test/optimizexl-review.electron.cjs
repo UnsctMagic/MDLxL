@@ -23,7 +23,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
    const { runtime: r, props } = mdlxlProbe(root); if(!r||!props)return null;return {frame:r.native.getFrame(),sequence:r.native.getSequence(),globalTime:props.playbackGlobalTime,hovered:props.hoveredGeoset,matrices:r.native.rendererData.nodes.map(n=>n?.matrix?Array.from(n.matrix):null)};
   });});
   const details=p.locator('.ox-review');assert.equal(await details.getAttribute('open'),null,'Review details start collapsed');await details.locator('summary').click();
-  const rows=details.locator('.ox-review-row');assert.equal(await rows.count(),10);assert.equal(await rows.first().textContent(),'Geoset 18');
+  // Geoset 41 left the list in PR #383: near-match welding now keeps it (it protects small holes).
+  const rows=details.locator('.ox-review-row');assert.equal(await rows.count(),9);assert.equal(await rows.first().textContent(),'Geoset 18');
   assert.ok((await rows.allTextContents()).every(s=>/^Geoset \d+$/.test(s)),'Duplicate review lists only geosets');assert.equal(await details.getByRole('button').count(),0);
   await rows.first().hover();await p.waitForFunction(()=>reviewState().every(s=>s?.hovered===17)&&document.querySelectorAll('[data-geoset-overlay]').length===2);
   assert.ok(await p.locator('[data-geoset-overlay]').evaluateAll(canvases=>canvases.every(c=>{const ctx=c.getContext('2d'),d=ctx.getImageData(0,0,c.width,c.height).data;return ctx.fillStyle==='#ff9900'&&d.some((v,i)=>i%4===3&&v>0);})));await p.screenshot({path:path.join(out,'01-duplicate-guidance-hover.png')});

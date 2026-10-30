@@ -1082,10 +1082,12 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   if (!indices.length) return { geosetIndices: [], selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
   for (const index of indices) if (!source.Geosets?.[index]) throw new Error(`Source geoset ${index} does not exist.`);
   const { requireNode, requiredNodes: neededNodes, globalRef, textureRef, materialRef, maps } = createResourceImporter(source, target, {
-    reuseTextures: 'fingerprint', reuseGlobals: false,
+    // Reuse identical global sequences, texture animations and materials already
+    // in the destination so a remapped material still matches its twin.
+    reuseTextures: 'fingerprint', reuseGlobals: true, reuseTextureAnims: true,
     validGlobalId: (id, model) => model.GlobalSequences[id] !== undefined,
     keyArrayType: 'int32', fingerprint, requireLayers: true, defaultsAfterSlots: true,
-    reuseMaterials: rigid,
+    reuseMaterials: true,
     existingMaterial: old => {
       if (!reuseExisting) return -1;
       const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;

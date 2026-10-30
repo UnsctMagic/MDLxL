@@ -25,7 +25,7 @@ export function validateAiAssets(assets, model, existing = new Map()) {
   for (const asset of assets) {
     if (!isForgeAssetPath(asset.name) || names.has(key(asset.name)) || existing.has(key(asset.name)))
       throw Error(
-        'Give each generated texture a new MDLxL_Forge, MDLxL_Parts or MDLxL_Citadel .tga/.blp/.dds name; existing textures are preserved.',
+        'Reuse first: the model\'s own or a native game texture needs only its path in Textures[].Image, not assets. A new texture the user asked for needs a new MDLxL_Forge, MDLxL_Parts or MDLxL_Citadel .tga/.blp/.dds name; existing textures are preserved.',
       );
     if (!model.Textures.some(t => key(t.Image || '') === key(asset.name)))
       throw Error('Generated textures must be referenced by the edited model.');
