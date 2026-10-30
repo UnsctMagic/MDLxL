@@ -1,0 +1,43 @@
+# MDLxL 0.36.0 - Una forma de trabajar
+
+**Rotación y vistas del modelo**
+- **Rotar** usa **A lo largo del anillo** en todos los editores: arrastra siguiendo el anillo del eje. X, Y y Z giran lo mismo por píxel, sin atascarse ni acelerarse cerca del centro. La velocidad es **Sensibilidad de rotación × DPI** (rueda de Wisp). **Ajustes > Ratón > Rotación > Comportamiento** también ofrece **Arrastre recto** y **Girar alrededor del pivote**. Mayús sigue ajustando por pasos; cancelar y deshacer se conservan. Los perfiles pasan una vez al nuevo valor predeterminado; conservan velocidades y excepciones por editor.
+- **Suavizar bordes (antialiasing)** funciona en todas las vistas 3D: suaviza el modelo y mantiene nítidos huesos, alambres, puntos y líneas. El primer inicio pregunta **¿Cómo quieres que se vean tus modelos?**, con **Suave** y **MDLVis clásico**. Los perfiles existentes conservan su elección. XL tiene un pequeño interruptor junto al idioma y al color de equipo; VIS conserva su barra compacta.
+- **Listo para probar:** gira una pieza en X, Y y Z y activa el suavizado con huesos o alambres visibles.
+
+**Ventanas y teclas**
+- Escape cierra las ventanas y sus botones muestran la tecla. Si hay un arrastre activo, primero lo cancela; vuelve a pulsar para cerrar. **Deshacer**, **Rehacer** y **Reproducir** en AnimXL y Showcase siguen **Ajustes > Atajos de teclado** y cuentan en **Modo de aprendizaje**. El aprendizaje enseña comandos reales en lugar de letras incidentales de una ventana.
+- Los deslizadores comparten aspecto. Los campos numéricos aplican al pulsar Intro o salir; Escape restaura el valor anterior, también en Ajustes y Showcase. Las ventanas comparten movimiento, foco con Tab y cierre.
+- Se elimina la antigua fila superior izquierda de botones de archivo, edición y cámara; los menús y atajos conservan esas acciones. El idioma pasa delante del color de equipo. Los colores del tema son más coherentes, incluido el eje Y en temas oscuros. Español, ruso y chino incorporan los textos nuevos.
+
+- **Bienvenida y actualizaciones**: los ojos del casco se encienden con la fanfarria tras 0,65 segundos. **Desactivar sonidos** conserva tu elección; ambas ventanas funcionan aunque fallen los efectos opcionales.
+
+**Pintura, Forge y edición**
+- Citadel Paint mantiene limpios los bordes recortados con suavizado, muestra el modelo completo en paneles ortográficos altos y respeta **Selección a través**. Sus vistas de textura y recorte y la máscara de Forge siguen **Ajustes > Ratón** para zoom y desplazamiento. El zoom se mantiene bajo el puntero.
+- **Recalcular normales** del Inspector usa el resultado SD de NormalsXL. **Añadir sequence** rellena las extensiones de cada geoset; el Inspector comprueba nombres e intervalos de fotogramas enteros como la lista de Animaciones. El encuadre del retrato se actualiza tras editar el rig; los geosets vacíos guardan límites de tamaño cero.
+- Glow Up y Attachemator ya no confunden Elbow o Balance con armas. Las herramientas eligen el mismo **Stand**. Los nombres de huesos nuevos evitan otros tipos de nodo. **Reemplazar pieza** de Bitz ajusta tamaño y posición de la pieza entrante a la selección.
+- **Ayuda > Comprobación del modelo** comprueba los cambios sin guardar sin modificar el modelo. El formato clásico usa mdx-m3-viewer de GhostWolf y colaboradores; los formatos modernos tienen cobertura parcial. Los comentarios MDL se conservan y guardar MDX explica su omisión. Los controles de colisión cancelan el arrastre si desaparece la forma.
+- **Listo para probar:** recalcula normales, añade una secuencia o abre la comprobación antes de guardar.
+
+**Restos y efectos**
+- **CORP** abre **Editor de restos** y **Editor de sangre** con una vista que gira con el ratón. Ajusta **Tamaño**, **Altura** y **Tinte de color**; arrastra piezas para moverlas, estirarlas o ensancharlas. Añade o elimina piezas y usa **Contorno del cuerpo** para encajarlas. **Crear** aplica restos y sangre en un solo paso de deshacer y pausa en el primer fotograma de Decay Bone.
+- Los restos tienen más volumen y menos parpadeo por solapamientos. Puede haber tronco sin cabeza reconocida; el equipo de las manos no se convierte en anatomía. Cada mancha y chorro tiene su propio **Tipo**, tiempo y posición.
+- Las vistas de caminar dejan atrás partículas del mundo y huellas. Las huellas duran entre ciclos hasta terminar su desvanecimiento; pausar conserva el rastro y buscar otro tiempo lo reinicia. Showcase respeta la velocidad de cada fila y las poses detenidas. Los modelos de sangre y huellas usan el color de equipo real.
+- OptimizeXL conserva el movimiento según el alcance de cada pieza. Los datos duplicados respetan pequeños agujeros y ranuras; solo se quitan triángulos repetidos donde es seguro.
+
+**Showcase**
+- **Tiempo extra** admite negativos para la toma y cada animación. Las colas de efectos de Death se cortan a los 10 segundos; se conserva el movimiento más largo y no se alargan muertes cortas. Añade tiempo extra para conservar más.
+- **Salida** ofrece **Baja** (hasta 480 px / 2 MB), **Media** (640 px / 5 MB, predeterminado), **Alta** (864 px / 20 MB) y **Máxima** (1280 px / 50 MB). Cada nivel fija colores, suavizado y FPS; las tomas largas se reducen para caber. **Imagen principal** (612 × 490) funciona con todos. Los ajustes antiguos Low Size pasan a Medium y Standard a High. La elección Classic se respeta.
+- La barra sigue el orden de trabajo: **Ajustes predefinidos**, **Lista de grabación**, **Modelo y animación**, **Salida**, **Fondo** o **Retrato**, **Cámara**, **Texto** y **Firma**. RECORD sigue visible al desplazar; los controles menos evidentes se explican al pasar el puntero.
+- **Texto > Fuente > Cargar fuente…** añade fuentes TTF, OTF, WOFF o WOFF2 para vista previa y exportación. Permanecen en la lista; el botón derecho elimina una.
+- **Listo para probar:** elige Medium, recorta un final con tiempo negativo y carga una fuente para el título.
+
+**Biblioteca, guardado e IA**
+- Las vistas de Reforged y Forsaken Kingdom conservan piel y texturas. Los personajes de campaña usan sus nombres y el selector de animación no corta el texto. Las bibliotecas de texturas y partículas leen primero la carpeta de Warcraft elegida en Ajustes; las texturas personalizadas del modelo siguen teniendo prioridad.
+- MDX omite pistas de animación vacías que War3 Model Editor 1.07 rechazaba. Windows escribe mediante archivos temporales y reintenta bloqueos breves. Las exportaciones conservan su extensión. Los errores ya no empiezan con «Error invoking remote method…».
+- Las preguntas y avisos de IA siguen legibles en el chat. Los errores aparecen en directo; el inicio de sesión se comprueba una vez por sesión y los planes largos se leen bien. Cada chat conserva adjuntos y borradores propios; las referencias no abren pestañas del editor.
+- La revisión compara poses equivalentes del original, editado y donante, incluso al reanudar. Una revisión fallida sigue sin verificar, en lugar de aprobarse. Los pájaros distribuyen trabajos, guardan avances, usan ayudantes de solo lectura y repiten menos contexto. Los chats sin usar se limpian tras 3 días; **Modelo importante** los conserva y dejar vacío el ajuste desactiva la limpieza.
+- La revisión de IA ahora ve tus imágenes de referencia y capturas de antes/después; si falta alguna, lo indica sin bloquear. Di «deliver anyway» para aceptar el resultado; las observaciones de la revisión siguen en la respuesta. Un paso de visualización atascado ya no detiene todo el trabajo. Los mensajes siguientes ya no se rechazan por un falso «el modelo o la selección cambiaron» tras las propias ediciones de la IA. Si señalas un ejemplo que hiciste, la IA aplica ese mismo tratamiento a toda el área solicitada, conservando forma y texturas.
+- La auditoría sustituye muchas copias por código compartido. La detección de rig de POSE fue unas 12 veces más rápida en el rig grande medido. Las pruebas empaquetadas ahora seleccionan la aplicación empaquetada, con excepciones de desarrollo documentadas.
+
+**Actualizar** Abre Ajustes > Apariencia > Buscar actualizaciones > Actualizar y reiniciar, o descarga el ZIP portátil completo desde la página de MDLxL.

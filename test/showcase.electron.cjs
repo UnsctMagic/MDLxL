@@ -49,7 +49,7 @@ const {execFileSync}=require('node:child_process');
     assert.deepEqual(await page.locator('[data-preview-background]').evaluate(c=>Array.from(c.getContext('2d').getImageData(0,0,1,1).data)),[34,170,102,255]);
     const list=page.getByRole('list',{name:'Animation sequence'});
     console.log('STEP length');const extra=page.getByLabel('Extra Time',{exact:true}),base=Number((await page.locator('label.showcase-extra-time:has([aria-label="Extra Time"]) output').getAttribute('title')).match(/Sequence: ([0-9.]+)s/)[1]);
-    assert.ok(base>0&&base<10,'automatic sequence length '+base);await extra.fill(String(Math.round((10-base)*100)/100));
+    assert.ok(base>0&&base<10,'automatic sequence length '+base);await extra.fill(String(Math.round((10-base)*100)/100));await extra.press('Enter');
     await page.locator('label.showcase-extra-time:has([aria-label="Extra Time"]) output').filter({hasText:/^10s$/}).waitFor();
     console.log('STEP video');await page.getByLabel('Background source').selectOption('media');
     await page.evaluate(()=>{const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.testVideo=this;return play.apply(this,arguments);};});

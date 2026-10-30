@@ -40,7 +40,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
     const transform=await page.locator('.showcase-layer-selection').evaluate(element=>getComputedStyle(element).transform);assert.notEqual(transform,'none');
     await page.getByText('Fades',{exact:true}).click();
     await page.getByLabel('Fade in start').fill('1');await page.getByLabel('Fade in length').fill('2');
-    await page.getByLabel('Fade out start').fill('5');await page.getByLabel('Fade out length').fill('1.5');
+    await page.getByLabel('Fade out start').fill('5');await page.getByLabel('Fade out length').fill('1.5');await page.getByLabel('Fade out length').press('Enter');
     await page.locator('.showcase-font-grid').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'controls.png')});
     // showcase-text.js imports its rich-text runs helper since 97fabb9e; inline both sources.
     const textSource=fs.readFileSync(path.join(root,'app/showcase-rich-text.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app/showcase-text.js'),'utf8').replace(/^import \{[^}]*\} from '\.\/showcase-rich-text\.js';$/m,'').replace(/^import \{[^}]*\} from '\.\/showcase-custom-fonts\.js';$/m,'const customFontFamily=()=>undefined;');
