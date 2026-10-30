@@ -305,6 +305,22 @@ test('the outside check can be switched off in connection settings', async t => 
   assert.equal(f.checks.length, 0, 'no extra AI call while it is off');
 });
 
+test('outside check receives the app motion table independently of the worker checks', async t => {
+  const f = await setup(t, ({ requests }) => requests === 1 ? plan() : requests === 2 ? edit() : requests === 3
+    ? tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }) : requests === 4
+      ? tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Measured.' }) : done());
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    const result = await call(name, args, ...rest);
+    if (name === 'mdlxl_review' && args.action === 'inspect') result.review.motion = { source: 'MDLxL', sequences: [{ name: 'First', distance: { distance: 40 } }] };
+    return result;
+  };
+  await f.service.send({ id: 'motion-table', text: 'Make the animation smaller, keep its motion.', context });
+  const question = JSON.stringify(f.checks[0].messages);
+  assert.match(question, /MDLxL's own measurement, not written by the worker/);
+  assert.match(question, /First.*distance.*40/);
+});
+
 test('with the handbook on, a job carries the guides its request touches; effort defaults to high', async t => {
   const received = [],
     read = [];

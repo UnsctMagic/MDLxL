@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { snapshotModel, measureDrift, gradeWorkflow, transcriptUsage, componentTriangles, addedSurfaceComponents, duplicateGroups, gradeExample, gradeScenario, summarize, markdownReport } from './helpers/ai-real-use-grade.js';
+import { snapshotModel, measureDrift, gradeWorkflow, transcriptUsage, componentTriangles, addedSurfaceComponents, duplicateGroups, gradeExample, gradeScenario, gradeMotionScenario, summarize, markdownReport } from './helpers/ai-real-use-grade.js';
+import { motionFixture } from './helpers/ai-motion-fixture.js';
+import { openDocument } from '../src/editor-document.js';
+import { compareMotion } from '../src/ai-motion-compare.js';
+import { createStarterDocument } from '../src/starter-model.js';
 const mesh = { vertices:[0,0,0, 1,0,0, 1,1,0, 0,1,0], faces:[0,1,2,0,2,3], uv:[[0,0,1,0,1,1,0,1]], normals:Array(4).fill([0,0,1]).flat(), groups:[0,0,0,0], bindings:[[0]],skin:[],material:0 };
 const state = m => ({meshes:[structuredClone(m)],textures:[{path:'game.blp'}],materials:[{Layers:[{TextureID:0}]}]});
 const base=state(mesh);
@@ -73,7 +77,45 @@ test('repeat summary gives distributions and rates without a pass/fail verdict',
  const s=summarize([one,two])[0];assert.deepEqual(s.seconds,{n:2,mean:20,min:10,max:30});assert.equal(s.completionRate,.5);assert.equal(s.resumeLoopRate,.5);assert.equal(s.tokens.n,0);
  const md=markdownReport({mode:'dry-run',model:'stand-in',repeats:2,commit:'abc',summary:[s],runs:[one,two]});assert.match(md,/50%/);assert.match(md,/not applicable \(stand-in\)/);assert.match(md,/unknown/);assert.doesNotMatch(JSON.stringify(s),/passed|verdict/);
 });
-test('snapshot converts typed/wire arrays and all six scenario prompts remain specific',()=>{
+test('snapshot converts typed/wire arrays and all eight scenario prompts remain specific',()=>{
  const s=snapshotModel({Geosets:[{Vertices:new Float32Array(mesh.vertices),Faces:{$data:mesh.faces},TVertices:[new Float32Array(mesh.uv[0])]}]});assert.deepEqual(s.meshes[0].vertices,mesh.vertices);assert.deepEqual(s.meshes[0].faces,mesh.faces);
- const scenarios=JSON.parse(fs.readFileSync(new URL('./fixtures/ai-real-use/scenarios.json',import.meta.url)));assert.equal(scenarios.length,6);assert.equal(scenarios.filter(s=>s.image).length,1);assert.equal(scenarios.filter(s=>s.demo).length,2);
+ const scenarios=JSON.parse(fs.readFileSync(new URL('./fixtures/ai-real-use/scenarios.json',import.meta.url)));assert.equal(scenarios.length,8);assert.equal(scenarios.filter(s=>s.image).length,1);assert.equal(scenarios.filter(s=>s.demo).length,2);
+ assert.deepEqual(scenarios.filter(s=>s.kind==='motion').map(s=>s.id),['animation-size','pre-existing-motion']);
+});
+
+test('motion fixture bakes the committed model with app sampling and preserves its reference motion/channels', () => {
+  const bytes = new Uint8Array(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', import.meta.url))), original = bytes.slice();
+  for (const excursion of [false, true]) {
+    const fixture = motionFixture(bytes, { excursion }), before = openDocument(fixture.referenceBytes, 'reference.mdx').model, after = openDocument(fixture.bytes, 'baked.mdx').model;
+    assert.ok(fixture.bytes.length > fixture.referenceBytes.length);
+    const result = compareMotion(before, after, { step: 100 });
+    assert.equal(result.sequences.length, 13); assert.deepEqual(result.changedTopology, []);
+    assert.ok(result.sequences.every(s => s.distance.distance < .0001 && s.endpoints.start === 0 && s.endpoints.end === 0), 'only Float32 sampling noise');
+    assert.ok(result.sequences.every(s => s.channels.length === 0));
+    if (excursion) {
+      const source = compareMotion(openDocument(bytes, 'source.mdx').model, before, { sequences: [fixture.attack], step: 100 });
+      assert.ok(source.sequences[0].distance.distance > 1, 'excursion is already in the unbaked reference');
+    }
+  }
+  assert.deepEqual(bytes, original);
+});
+
+test('motion graders report serialization, all animation statistics and follow-up rates without gates', () => {
+  const doc = createStarterDocument();
+  doc.apply('Motion grading fixture', ['Sequences', 'Bones'], model => {
+    model.Sequences = [{ Name: 'Attack', Interval: new Uint32Array([0, 10]), MoveSpeed: 0, Rarity: 0, NonLooping: false }];
+    model.Bones[0].Translation = { LineType: 1, Keys: [0, 5, 10].map(Frame => ({ Frame, Vector: new Float32Array([Frame === 5 ? 5 : 0, 0, 0]) })) };
+  });
+  const before = doc.serialize('mdx');
+  const a = gradeMotionScenario({ scenario: { id: 'pre-existing-motion' }, beforeBytes: before, afterBytes: before, afterFirstBytes: before,
+    followupTranscript: [{ role: 'assistant', text: 'The original already steps sideways. Do you want that accepted motion changed?' }] });
+  assert.equal(a.sizeRatio, 1); assert.equal(a.endpointExactness, 1); assert.deepEqual(a.nonGeometricChanges, []);
+  assert.equal(a.followup.preExistingReported, true); assert.equal(a.followup.questionAsked, true); assert.equal(a.followup.changedWithoutQuestion, false);
+  doc.apply('Unasked motion change', ['Bones'], m => { m.Bones[0].Translation.Keys[1].Vector[0] = 0; });
+  const b = gradeMotionScenario({ scenario: { id: 'pre-existing-motion' }, beforeBytes: before, afterFirstBytes: before, afterBytes: doc.serialize('mdx') });
+  assert.equal(b.followup.changedWithoutQuestion, true); assert.equal(b.motion.sequences[0].distance.distance, 5);
+  assert.deepEqual(b.counts.before, b.counts.after);
+  const summary = summarize([a, b])[0];
+  assert.equal(summary.motion.preExistingReportRate, .5); assert.equal(summary.motion.changedWithoutQuestionRate, .5);
+  assert.ok(!('passed' in a)); assert.match(markdownReport({ mode: 'dry-run', model: 'stand-in', repeats: 2, summary: [summary], runs: [a, b] }), /size ratio/);
 });

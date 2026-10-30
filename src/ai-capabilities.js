@@ -41,6 +41,7 @@ export const AI_AREAS = [
       'Sparse keyframes, poses, clips, retiming, interpolation, transfer and secondary motion; sample deformed vertices to verify motion.',
     modules: [
       'animation',
+      'ai-motion-compare',
       'animation-tracks',
       'keyframe-timeline',
       'sequence-editor',
@@ -89,7 +90,7 @@ export const AI_AREAS = [
     id: 'inspection',
     description:
       'Geometry measurements, normals, motion inspection, repair proposals and structural validation; inspect captures as well as numeric results.',
-    modules: ['animation', 'normals-rebuild', 'motion-inspector', 'optimizexl', 'optimizexl-checker-repairs'],
+    modules: ['animation', 'ai-motion-compare', 'normals-rebuild', 'motion-inspector', 'optimizexl', 'optimizexl-checker-repairs'],
   },
 ];
 

@@ -4,6 +4,7 @@ import { createChanges } from '../src/history-store.js';
 import { regionBefore, regionSignature, checkRegionEdit } from '../src/ai-regions.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
+import { compareMotion, motionTable } from '../src/ai-motion-compare.js';
 
 export async function aiCheckpoint(
   bridge,
@@ -103,11 +104,13 @@ export function recordAiChange(review, result, model) {
   review.phase = 'pending';
   delete review.inspectedRevision;
   delete review.summary;
+  delete review.motionCache;
   const changes = createChanges(review.region ? regionBefore(model, review.before, review.region) : review.before, model, { ignore: ignoreHistoryAlias });
   review.changes = changes.slice(0, 100).map(c => ({ path: pointer(c.path), kind: c.kind }));
   review.animation ||= changes.some(
     c =>
       /\/(?:Sequences|GlobalSequences)(?:\/|$)|\/Keys(?:\/|$)/.test(pointer(c.path)) ||
+      /\/(?:GeosetAnims|Materials|Attachments|ParticleEmitters2?|ParticleEmitterPopcorns|RibbonEmitters|Lights)\//.test(pointer(c.path)) && /\/(?:Alpha|Color|Visibility|Flags)(?:\/|$)/.test(pointer(c.path)) ||
       containsTrack(c.before) ||
       containsTrack(c.after),
   );
@@ -119,6 +122,8 @@ export function recordAiChange(review, result, model) {
 export function touchedAnimations(changes, before, model) {
   const frames = new Set(),
     globals = new Set();
+  const selected = new Set();
+  let allLocal = false;
   const walk = (value, global, depth = 0) => {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || depth > 8) return;
     if (Array.isArray(value.Keys)) global = value.GlobalSeqId >= 0 ? value.GlobalSeqId : null;
@@ -130,10 +135,22 @@ export function touchedAnimations(changes, before, model) {
   };
   const at = (source, path) => path.reduce((value, key) => value?.[key], source);
   for (const c of changes) {
+    if (c.path[0] === 'Sequences') {
+      if (Number.isInteger(c.path[1])) selected.add(c.path[1]);
+      else allLocal = true;
+    }
     const keys = c.path.indexOf('Keys');
     if (keys < 0) {
       walk(c.before, null);
       walk(c.after, null);
+      // Changing interpolation/static channels can affect a clip even without
+      // changing a key timestamp. Inspect the owning track, not just its value.
+      for (const source of [before, model]) for (let n = c.path.length; n > 0; n--) {
+        const owner = at(source, c.path.slice(0, n));
+        if (Array.isArray(owner?.Keys)) { walk(owner, null); break; }
+      }
+      if (c.path[0] === 'GlobalSequences' && Number.isInteger(c.path[1])) globals.add(c.path[1]);
+      if (['GeosetAnims', 'Materials', 'Attachments', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'Lights'].includes(c.path[0])) allLocal = true;
       continue;
     }
     for (const source of [before, model]) {
@@ -142,7 +159,7 @@ export function touchedAnimations(changes, before, model) {
     }
   }
   const sequences = (model.Sequences || []).flatMap((s, i) =>
-    [...frames].some(f => f >= s.Interval[0] && f <= s.Interval[1]) ? [i] : [],
+    allLocal || selected.has(i) || [...frames].some(f => f >= s.Interval[0] && f <= s.Interval[1]) ? [i] : [],
   );
   return { sequences, globalSequences: [...globals].filter(g => model.GlobalSequences?.[g] > 0) };
 }
@@ -204,13 +221,16 @@ async function comparisonPictures(bridge, id, review, before, args) {
   // The animation compared: the one named, else the one the edit changed, else the task's own.
   const own = target.globalSequence != null ? { globalSequence: target.globalSequence } : { sequence: target.sequence ?? -1 };
   const touched = [...(review.sequences || []).map(sequence => ({ sequence })), ...(review.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+  const measured = !args.frames ? (review.motionCache?.value.sequences || []).filter(row => !row.missing).sort((a, b) => b.distance.distance - a.distance.distance) : [];
   const same = (x, y) => (x.globalSequence ?? null) === (y.globalSequence ?? null) && (x.sequence ?? -1) === (y.sequence ?? -1);
   const shown =
     args.globalSequence != null
       ? { globalSequence: args.globalSequence }
       : args.sequence !== undefined
         ? { sequence: args.sequence }
-        : touched.some(t => same(t, own)) || touched.length !== 1
+        : measured.length && !measured.some(t => same(t, own))
+          ? measured[0]
+          : touched.some(t => same(t, own)) || touched.length !== 1
           ? own
           : touched[0];
   checkAnimation(model, shown, 'Review');
@@ -236,19 +256,36 @@ async function comparisonPictures(bridge, id, review, before, args) {
     if (new Set(frames).size < 3) throw Error('Animation verification needs at least three distinct frames. Provide frames in the edited animation.');
     if (frames.some(f => f < range[0] || f > range[1])) throw Error(`frames must lie inside ${animationName(model, shown)}: ${range[0]}–${range[1]}.`);
   } else frames = [same(shown, own) ? (target.frame ?? range?.[0] ?? 0) : (range?.[0] ?? 0)];
+  const motion = measured.find(row => same(row, shown));
+  if (motion) frames = frames.map(frame => motion.perFrame.reduce((best, f) => Math.abs(f.frame - frame) < Math.abs(best.frame - frame) ? f : best).frame);
   const perFrame = 2 + (donor ? 1 : 0);
   if (frames.length * perFrame + (args.turnaround ? 4 : 0) > MAX_REVIEW_PICTURES)
     throw Error(`That is more than ${MAX_REVIEW_PICTURES} pictures. Use fewer frames.`);
+  if (motion) for (const frame of [motion.distance.frame, motion.speedDifference.frame]) {
+    if (!frames.includes(frame) && (frames.length + 1) * perFrame + (args.turnaround ? 4 : 0) <= MAX_REVIEW_PICTURES) frames.push(frame);
+  }
+  const plans = frames.map(frame => ({ frame, shown, motion, extra: false }));
+  let room = MAX_REVIEW_PICTURES - frames.length * perFrame - (args.turnaround ? 4 : 0);
+  for (const row of measured.filter(row => !same(row, shown))) {
+    if (room < 2) break;
+    plans.push({ frame: row.distance.frame, shown: row, motion: row, extra: true }); room -= 2;
+  }
   const images = [],
     missing = [];
   if (!original) missing.push(`The original model has no ${animationName(model, shown)}, so there are no original pictures to compare.`);
   const sample = a => (a.globalSequence != null ? { globalSequence: a.globalSequence } : { sequence: a.sequence });
-  for (const frame of frames) {
+  for (const plan of plans) {
+    const { frame, shown, motion } = plan, range = animationRange(model, shown),
+      original = sameAnimation(before, model, shown), originalRange = original && animationRange(before, original),
+      pairedDonor = plan.extra ? null : donor;
     bridge.requireTarget(id);
     const phase = range && range[1] > range[0] ? (frame - range[0]) / (range[1] - range[0]) : null;
     const at = r => (phase == null || !r ? (r?.[0] ?? frame) : Math.round(r[0] + phase * (r[1] - r[0])));
-    const group = review.animation ? `frame ${frame}` : 'still',
+    const group = review.animation ? `frame ${frame}${measured.length ? `; ${animationName(model, shown)}` : ''}` : 'still',
       when = `${phase == null ? '' : `${Math.round(phase * 100)}% through; `}frame `;
+    const distance = motion?.perFrame.find(f => f.frame === frame)?.max;
+    const labelDistance = distance !== undefined ? `; measured distance ${distance.toFixed(4)} model units` : '';
+    const priority = motion ? { motionPriority: plan.extra ? 2 + measured.indexOf(motion) : frame === motion.distance.frame ? 0 : frame === motion.speedDifference.frame ? 1 : 100 + frames.indexOf(frame) } : {};
     // One framing for the pair: both posed models fit inside it.
     const originalFrame = original && at(originalRange);
     const focus = [
@@ -257,21 +294,21 @@ async function comparisonPictures(bridge, id, review, before, args) {
     ];
     if (original)
       images.push({
-        role: 'original', group,
-        label: `Original target before the task; ${animationName(before, original)}; ${when}${originalFrame}`,
+        role: 'original', group, ...priority,
+        label: `Original target ${args.baseline ? `version "${args.baseline}"` : 'before the task'}; ${animationName(before, original)}; ${when}${originalFrame}${labelDistance}`,
         image: (await bridge.picture(id, { ...sample(original), frame: originalFrame }, { model: before, focus })).image,
       });
     images.push({
-      role: 'edited', group,
-      label: `Edited target; ${animationName(model, shown)}; ${when}${frame}`,
+      role: 'edited', group, ...priority,
+      label: `Edited target; ${animationName(model, shown)}; ${when}${frame}${labelDistance}`,
       image: (await bridge.picture(id, { ...sample(shown), frame }, { focus })).image,
     });
-    if (donor) {
-      const donorFrame = at(donor.range);
+    if (pairedDonor) {
+      const donorFrame = at(pairedDonor.range);
       images.push({
-        role: 'donor', group,
-        label: `Donor ${donor.name}; ${animationName(donor.model, donor.animation)}; ${when}${donorFrame}`,
-        image: (await bridge.picture(id, { ...sample(donor.animation), frame: donorFrame }, { documentId: donor.id, focus: posedCorners(donor.model, donor.animation, donorFrame, new Set()) })).image,
+        role: 'donor', group, ...priority,
+        label: `Donor ${pairedDonor.name}; ${animationName(pairedDonor.model, pairedDonor.animation)}; ${when}${donorFrame}${labelDistance}`,
+        image: (await bridge.picture(id, { ...sample(pairedDonor.animation), frame: donorFrame }, { documentId: pairedDonor.id, focus: posedCorners(pairedDonor.model, pairedDonor.animation, donorFrame, new Set()) })).image,
       });
     }
   }
@@ -308,7 +345,8 @@ export async function reviewAiModel(bridge, args, options) {
   const env = bridge.env(target),
     revision = env.doc.revision,
     state = env.state;
-  const before = target.region ? regionBefore(state.model, review.before, target.region) : review.before;
+  const baseline = args.baseline !== undefined ? bridge.versionStore.get(target.documentId, args.baseline) : review.before;
+  const before = target.region ? regionBefore(state.model, baseline, target.region) : baseline;
   const inspectedRegion = target.region && regionSignature(state.model, target.region);
   const tested = await window.desktop.aiScript({
     requestId: options.requestId,
@@ -317,7 +355,8 @@ export async function reviewAiModel(bridge, args, options) {
     before: structuredClone(before),
     selection: structuredClone(target.selection),
     context: bridge.contextFor(args.target),
-    references: {},
+    references: Object.fromEntries((bridge.versionStore?.names(target.documentId) || [])
+      .map(name => ['version:' + name, { name: 'Version ' + name, model: structuredClone(bridge.versionStore.get(target.documentId, name)) }])),
   });
   bridge.requireTarget(args.target);
   if (
@@ -341,6 +380,16 @@ export async function reviewAiModel(bridge, args, options) {
     options,
   );
   const poses = [];
+  if (review.animation) {
+    const touched = args.baseline !== undefined ? touchedAnimations(createChanges(before, state.model, { ignore: ignoreHistoryAlias }), before, state.model) : review;
+    // A changed global controller plays in every local clip as well as its own
+    // isolated preview. Those clips are all touched by that controller.
+    const local = touched.globalSequences?.length ? (state.model.Sequences || []).map((_, i) => i) : touched.sequences || [];
+    const sequences = [...local, ...(touched.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+    const key = JSON.stringify(sequences);
+    if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
+      review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
+  }
   const comparison = await comparisonPictures(bridge, args.target, review, before, args),
     images = comparison.images;
   if (args.turnaround)
@@ -385,6 +434,8 @@ export async function reviewAiModel(bridge, args, options) {
       checks,
       validation,
       poses,
+      ...(args.baseline !== undefined ? { baseline: args.baseline } : {}),
+      ...(review.animation ? { motion: motionTable(review.motionCache.value) } : {}),
       compared: comparison.compared,
       ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
       pendingPreviews: !!drafts,

@@ -62,5 +62,22 @@
       "Weld the whole helmet in Geoset 1 like the lower right example I made. Keep the same shape and texture wrap. Check it from six angles before finishing.",
       "The check is getting in the way and this still is not delivered. Just deliver it. I do not care about the pictures. Finish welding the whole part like my example and keep the look."
     ]
+  },
+  {
+    "id": "animation-size",
+    "kind": "motion",
+    "meshIndex": 0,
+    "turns": [
+      "This model is over-keyed. Make the file much smaller while every animation looks the same; no sudden uneven movements. Apply it."
+    ]
+  },
+  {
+    "id": "pre-existing-motion",
+    "kind": "motion",
+    "meshIndex": 0,
+    "turns": [
+      "This model is over-keyed. Make the file much smaller while every animation looks the same; no sudden uneven movements. Apply it.",
+      "Around the middle of that attack the body steps sideways."
+    ]
   }
 ]

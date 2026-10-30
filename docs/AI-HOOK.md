@@ -375,6 +375,46 @@ Undo step, so you can undo it too. This means "go back to the good version" work
 ask for it by name or by job. Versions are kept until MDLxL closes; they are not
 saved into the model file.
 
+`mdlxl_review inspect` optionally accepts `baseline: "version name"`: its
+`before`, pictures and motion table then use that saved version. Without it,
+the job's starting state remains the reference. Read-only checks can also read
+detached version models as `references["version:NAME"].model`. Measure complaints
+and candidates against the last accepted version, ask before changing motion
+already present there, and save accepted results with `mdlxl_versions`.
+After MDLxL closes, reopen the saved file to establish the reference again.
+
+**Motion measurements.** Animation reviews include MDLxL's own before/after
+measurement for each touched animation, cached until the model revision changes.
+`ai-motion-compare.compareMotion` imports the preview's sampler and skinning;
+it reports distances, speed differences, exact endpoint samples, horizontal
+centre drift, structural contact travel, changed topology and non-geometric
+channel spans. These are observations, never acceptance gates. Changed topology
+has no assumed vertex correspondence, and billboards need visual review.
+The outside check receives this table separately from the worker's own checks;
+still pictures alone cannot establish timing, sliding or popping.
+When review frames are omitted, measured motion adds the worst-distance and
+worst-speed frames to the usual start/middle/end pictures, then worst-frame
+pairs for other touched animations, most different first. Each is labelled with
+its measured distance. The existing 16-picture inspect and 12-picture outside
+budgets still apply; whole comparison pairs stay together. Explicit `frames`
+retain their previous selection and labels.
+
+For size work, `ai-motion-compare.trackInventory(model)` reports encoded track
+bytes, interpolation, keys per animation/outside animations, constant keyed
+domains and quaternion cubic segments with controls equal to keys. Native
+key-density references come from Blizzard's committed study first: each value
+is a clip's median across active tracks, compared by sequence kind. Only quantile
+brackets are available, so percentile ranges are reported without targets.
+The reproduction used null/absent `GlobalSeqId`; explicit `-1` tracks appear in
+the inventory but are excluded from that exact native comparison and counted.
+The editing handbook routes size/optimise requests to
+[Make a model smaller without changing how it moves](WC3-EDITING-OPTIMIZATION.md).
+The existing sandbox can serialize a detached working model and call
+`runOptimizeStage` unchanged; the guide supplies a tested recipe, so no second
+optimizer adapter or repair rules are added. Optional real-use scenarios measure
+animation size and complaints about pre-existing motion; see
+[packaged measurements](PACKAGED-TESTS.md#opt-in-real-use-ai-measurements).
+
 **Outside check.** When the AI says a model edit is finished, a separate AI that
 never saw its work judges the result. It gets only your request, the plan's keep
 list, the AI's own measured checks and the before/after pictures. It answers
