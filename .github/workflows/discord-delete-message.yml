@@ -1,0 +1,35 @@
+name: Delete a Discord release announcement
+
+# Removes one message that the release webhook posted (for example after a
+# release is recalled). Only the webhook's own messages can be deleted. Copy the
+# message link in Discord and pass the last number of that link.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_id:
+        description: Discord message ID (last number of the message link)
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the webhook message
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+          MESSAGE_ID: ${{ inputs.message_id }}
+        run: |
+          if ! [[ "$MESSAGE_ID" =~ ^[0-9]{15,22}$ ]]; then
+            echo "::error::message_id must be a Discord message number."
+            exit 1
+          fi
+          status=$(curl -s -o response.txt -w '%{http_code}' -X DELETE "${WEBHOOK%%\?*}/messages/$MESSAGE_ID")
+          echo "Discord answered HTTP $status"
+          if [ "$status" != "204" ]; then
+            cat response.txt
+            exit 1
+          fi
