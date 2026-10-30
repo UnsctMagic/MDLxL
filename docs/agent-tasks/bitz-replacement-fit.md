@@ -1,8 +1,12 @@
 # Bitz replacement fitting
 
-Status: completed — merged in #360 (dc60ad3d)
+Status: scaling withdrawn in 0.37.1 — merged in #360 (dc60ad3d)
 Owner: Codex
-Updated: 2026-10-28
+Updated: 2026-10-31
+
+**0.37.1 (owner):** the automatic resize was "not a good design". positionPart
+now only centres the Bit on the selected bounds at its own size; Scale in the
+vertex editor resizes it. The bounds-centre placement below still applies.
 
 ## Request and boundary
 

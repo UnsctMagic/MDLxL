@@ -156,7 +156,13 @@ const bounds = (model, selection = all(model)) => {
 };
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-4, actual + ' != ' + expected);
 
-test('replacement fits actual selected bounds across geosets, independent of saved bounds and vertex density', () => {
+// The Bit keeps its own size and is centred on the selected part's actual bounds.
+const centredOn = (source, target, selection) => {
+  const own = bounds(source), goal = bounds(target, selection);
+  return own.map(([low, high], axis) => { const shift = (goal[axis][0] + goal[axis][1]) / 2 - (low + high) / 2; return [low + shift, high + shift]; });
+};
+
+test('replacement keeps its size, centred on actual selected bounds across geosets, independent of saved bounds and vertex density', () => {
   const source = createStarterDocument().model, target = createStarterDocument().model;
   source.Geosets.push(structuredClone(source.Geosets[0]));
   // Different pieces retain their relative placement under one shared transform.
@@ -169,7 +175,7 @@ test('replacement fits actual selected bounds across geosets, independent of sav
   // must not participate in measuring what is being replaced.
   target.Geosets.push(structuredClone(target.Geosets[0]));
   transformVertices(target.Geosets[2], all(target)[2], [10000, 10000, 10000]);
-  const before = structuredClone({ source, target }), expected = bounds(target, selection);
+  const before = structuredClone({ source, target }), expected = centredOn(source, target, selection);
   const fitted = positionPart(source, target, selection);
   bounds(fitted).flat().forEach((value, index) => near(value, expected.flat()[index]));
   assert.deepEqual(fitted.Geosets[0].TVertices, source.Geosets[0].TVertices);
@@ -179,7 +185,7 @@ test('replacement fits actual selected bounds across geosets, independent of sav
   assert.deepEqual({ source, target }, before);
 });
 
-test('fitted replacement uses the existing inverse-scale normals/tangents and transfers bindings at fitted positions', () => {
+test('placed replacement keeps its normals/tangents and transfers bindings at placed positions', () => {
   for (const version of [800, 1000]) {
     const source = createStarterDocument(version).model, doc = createStarterDocument(version);
     const geoset = source.Geosets[0];
@@ -200,8 +206,7 @@ test('fitted replacement uses the existing inverse-scale normals/tangents and tr
     transformVertices(target.Geosets[0], selection[0], [250, -80, 30], [2, .5, 3]);
     doc.apply('Record target fixture', [], () => {});
     const original = structuredClone(target.Geosets[0]), fitted = positionPart(source, target, selection);
-    const expectedNormal = [-.5, -2, -1 / 3], length = Math.hypot(...expectedNormal);
-    Array.from(fitted.Geosets[0].Normals.slice(0, 3)).forEach((value, axis) => near(value, expectedNormal[axis] / length));
+    Array.from(fitted.Geosets[0].Normals).forEach((value, index) => near(value, source.Geosets[0].Normals[index]));
     if (version === 1000) {
       const n = fitted.Geosets[0].Normals, t = fitted.Geosets[0].Tangents;
       near(Math.hypot(...t.slice(0, 3)), 1); near(n[0] * t[0] + n[1] * t[1] + n[2] * t[2], 0);
@@ -209,13 +214,13 @@ test('fitted replacement uses the existing inverse-scale normals/tangents and tr
     }
     const before = doc.serialize('mdx'), preview = previewPartReplacement(target, fitted, selection);
     doc.apply('Replace fitted Bit', [], model => commitPart(model, fitted, { replacement: selection }));
-    assert.deepEqual(doc.model.Geosets[0].Vertices, original.Vertices);
+    assert.deepEqual(doc.model.Geosets[0].Vertices, fitted.Geosets[0].Vertices);
     assert.deepEqual(doc.model.Geosets[0].Vertices, preview.model.Geosets[0].Vertices);
     if (version === 800) assert.deepEqual(doc.model.Geosets[0].VertexGroup, original.VertexGroup);
     if (version === 1000) assert.deepEqual(doc.model.Geosets[0].SkinWeights, original.SkinWeights);
     for (const format of ['mdl', 'mdx']) {
       const reopened = openDocument(doc.serialize(format));
-      assert.deepEqual(reopened.model.Geosets[0].Vertices, original.Vertices);
+      assert.deepEqual(reopened.model.Geosets[0].Vertices, fitted.Geosets[0].Vertices);
       assert.deepEqual(errors(reopened.model), []);
     }
     const after = doc.serialize('mdx'); doc.undo(); assert.deepEqual(doc.serialize('mdx'), before);
@@ -223,16 +228,14 @@ test('fitted replacement uses the existing inverse-scale normals/tangents and tr
   }
 });
 
-test('flat and point selections fit measurable axes without collapsing the Bit or inventing thickness', () => {
+test('flat and point selections place the Bit at its own size without collapsing it', () => {
   const target = createStarterDocument().model, source = createStarterDocument().model;
   transformVertices(target.Geosets[0], all(target)[0], [20, 30, 40], [2, 3, 4]);
-  const flat = positionPart(source, target, { 0: [0, 1, 2, 3] });
-  assert.deepEqual(bounds(flat), [[-44, 84], [-66, 126], [-120, -56]]);
-  const point = positionPart(source, target, { 0: [6] });
-  assert.deepEqual(bounds(point), [[52, 116], [94, 158], [136, 200]]);
+  for (const selection of [{ 0: [0, 1, 2, 3] }, { 0: [6] }, all(target)])
+    assert.deepEqual(bounds(positionPart(source, target, selection)), centredOn(source, target, selection));
   for (let id = 0; id < 8; id++) source.Geosets[0].Vertices[id * 3 + 2] = 10;
   const planar = positionPart(source, target, all(target));
-  assert.deepEqual(bounds(planar), [[-44, 84], [-66, 126], [40, 40]]);
+  assert.deepEqual(bounds(planar), centredOn(source, target, all(target)));
   assert.ok(planar.Geosets[0].Vertices.every(Number.isFinite));
   assert.throws(() => positionPart(source, target, {}), /Select vertices/);
   source.Geosets = [];
