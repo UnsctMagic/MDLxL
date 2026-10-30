@@ -13,6 +13,7 @@ const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = requi
   const byName = name => [...model.Bones, ...model.Helpers].find(node => node.Name === name).ObjectId, flailHead = byName('Flail_Head'), bodyHead = byName('Bone_Head');
   const results = { fixture, fixtureHash: hash(fixture), executablePath: appTarget().executablePath, bundle: bundleHashes(), checks: [] };
   const { app, page, errors } = await launchApp({ fixture, out });
+  const shot = async name => { const data = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')); fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(data, 'base64')); };
   try {
     await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(String(sequence));
     const time = page.getByLabel('Current animation frame'); await time.fill(String(frame)); await time.press('Enter');
@@ -20,7 +21,6 @@ const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = requi
     await page.evaluate(() => { window.poseProbe = () => { const { runtime, props, session } = mdlxlProbe(); if (!runtime || !props || !session) throw Error('Movement is not ready'); return { runtime, props, session }; }; }); // test/helpers/fiber-probe.cjs
     await page.waitForFunction(() => { try { return !!poseProbe().runtime.captureApi?.isReady; } catch { return false; } });
     const settle = () => page.waitForTimeout(180), box = () => page.locator('[data-clean-model-canvas]').boundingBox();
-    const shot = async name => { const data = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')); fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(data, 'base64')); };
     const camera = async () => { const camera = new ObjectLoader().parse(await page.evaluate(() => poseProbe().runtime.controls.object.toJSON())); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true); return camera; };
     async function handles() {
       const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, width: canvas.clientWidth, height: canvas.clientHeight }; });
