@@ -175,12 +175,18 @@ to every Electron launch.
 | `WH_WOC_KnightKhorneFlail03.mdx` | none | `MDLXL_EFFECT_MODEL` | showcase-effects |
 | SD Chaos Knight (with hoofprint events) from the Warcraft III CASC install | none | `MDLXL_SUITE_HOOFPRINT` | footprint-travel |
 | Google Chrome | `C:/Program Files/Google/Chrome/Application/chrome.exe` | `MDLXL_CHROMIUM_PATH` | module-button-labels.browser |
+| The owner's `WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx` (private; the byte-exact `_Before` copy in `D:/MDLxL-Reviews/OptimizeXL-geosets-20260928/portable-proofs/optimizexl-proof/`) | `out/optimizexl/` | `MDLXL_OPTIMIZEXL_MODEL` | optimizexl, optimizexl-geosets, optimizexl-inspection |
+| The owner's `WH_WOC_KnightKhorneFlail07.mdx` and `WH_WOC_KnightKhorneFlail03.mdx` (private; `_Before` copies in `D:/MDLxL-Reviews/OptimizeXL-expression-20260929/packaged-proofs/expression-ui/`) | `out/optimizexl-expression/` | `MDLXL_EXPRESSION_MODEL` (list separated by `;`) | optimizexl-expression |
+| The owner's `WH_VC_NecrarchLord3.mdx` (private, from Downloads) | `out/pose-complex-fixtures/` | `MDLXL_POSE_FIXTURE` | pose-complex, pose-performance |
+| Two Khorne knights with an `Attack - 1` animation (the owner's `WH_WOC_KnightKhorneFlail03.mdx` and `WH_WOC_KnightKhorneAxe03.mdx` from Downloads), plus `profile/game-data-discovery.json` | `out/showcase-queue/` | `MDLXL_QUEUE_MODEL_A`, `MDLXL_QUEUE_MODEL_B` | showcase-queue |
 
 The pose Footman can be read from the game with `electron/casc.cjs`:
 `new CascReader('<Warcraft III folder>', process.cwd()).read('war3.w3mod:units\\human\\footman\\footman.mdx')`.
 
-Some tests are always skipped (`SKIP` in the script): manual tools such as the
-updater release gate, and tests that need private models or old builds.
+`out/fixtures.sh` in the release worktree copies all of these from the owner's
+folders. Some tests are always skipped (`SKIP` in the script): manual tools such as the
+updater release gate, old builds, and tests whose exact private model is not on
+this PC. Each reason names the missing file and where it would go.
 
 ## Results
 

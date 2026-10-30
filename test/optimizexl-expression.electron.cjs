@@ -3,7 +3,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
 
 (async()=>{
  const {openDocument}=await import('../src/editor-document.js'),{runOptimizeStage,simpleSettings}=await import('../src/optimizexl.js');
- const files=process.env.MDLXL_EXPRESSION_MODEL?[process.env.MDLXL_EXPRESSION_MODEL]:['C:/Users/PC/Desktop/fINALS/WH_WOC_KnightKhorneFlail07.mdx','C:/Users/PC/Desktop/WH_WOC_KnightKhorneFlail03.mdx'];
+ const files=process.env.MDLXL_EXPRESSION_MODEL?process.env.MDLXL_EXPRESSION_MODEL.split(path.delimiter).filter(Boolean):['C:/Users/PC/Desktop/fINALS/WH_WOC_KnightKhorneFlail07.mdx','C:/Users/PC/Desktop/WH_WOC_KnightKhorneFlail03.mdx'];
  const proof=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','expression-ui');fs.mkdirSync(proof,{recursive:true});
  const reports=[];
  for(const [index,file] of files.entries()){

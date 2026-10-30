@@ -63,6 +63,15 @@ for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor',
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+// The owner's private OptimizeXL review models, copied to out/ by out/fixtures.sh (docs/PACKAGED-TESTS.md).
+const flail01 = out('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
+const expression = [out('optimizexl-expression/WH_WOC_KnightKhorneFlail07.mdx'), out('optimizexl-expression/WH_WOC_KnightKhorneFlail03.mdx')];
+const necrarch = out('pose-complex-fixtures/WH_VC_NecrarchLord3.mdx'), queueA = out('showcase-queue/WH_WOC_KnightKhorneFlail03.mdx'), queueB = out('showcase-queue/WH_WOC_KnightKhorneAxe03.mdx');
+SPECIAL.optimizexl = { env: { MDLXL_OPTIMIZEXL_MODEL: flail01, MDLXL_OPTIMIZEXL_EXE: exe }, needs: [flail01] };
+for (const name of ['optimizexl-geosets', 'optimizexl-inspection']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_MODEL: flail01 }, needs: [flail01] };
+SPECIAL['optimizexl-expression'] = { env: { MDLXL_EXPRESSION_MODEL: expression.join(path.delimiter) }, needs: expression };
+for (const name of ['pose-complex', 'pose-performance']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: necrarch }, needs: [necrarch] };
+SPECIAL['showcase-queue'] = { env: { MDLXL_QUEUE_MODEL_A: queueA, MDLXL_QUEUE_MODEL_B: queueB }, needs: [queueA, queueB, path.join(root, 'profile/game-data-discovery.json')] };
 SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
 SPECIAL['ai-parallel'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
@@ -77,11 +86,13 @@ export const SKIP = {
   'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
-  'pose-complex': 'needs WH_VC_NecrarchLord3.mdx (private model)',
-  'pose-performance': 'needs WH_VC_NecrarchLord3.mdx (private model)',
-  'pose-setup': 'needs WH_WOC_KurganWarlord3.mdx (private model)',
-  'showcase-queue': 'needs KnightKhorneFlail04 / Axe01 (private models)',
-  ...Object.fromEntries(['optimizexl', 'optimizexl-bounds', 'optimizexl-cleanup', 'optimizexl-diagnostics', 'optimizexl-expression', 'optimizexl-footman', 'optimizexl-format', 'optimizexl-geosets', 'optimizexl-inspection', 'optimizexl-motion', 'optimizexl-opening', 'optimizexl-selection', 'optimizexl-spline'].map(name => [name, 'needs a private OptimizeXL review model'])),
+  'pose-setup': 'needs WH_WOC_KurganWarlord3.mdx (SHA-256 73a0ebe1..., docs/POSE_IK_VERIFICATION.md) in out/pose-complex-fixtures/; KurganWarlord01/02/Hero01 have a different rig (bone 16 is RLF, not the [12,13,14,16] chain the test clicks)',
+  'optimizexl-bounds': 'needs AlmostFinal_NODES_Only_AnimationsUntouched_After.mdx (223,643 bytes, SHA-256 b5f28d80...) set as MDLXL_BOUNDS_MODEL; not on this PC',
+  'optimizexl-format': 'needs WH_VC_Strigoi3_Death_After.mdx (216,411 bytes, SHA-256 d8c260ba...) set as MDLXL_FORMAT_MODEL; not on this PC',
+  'optimizexl-diagnostics': 'needs the pre-cleanup WH_WOC_KnightKhorneAxe02.mdx (5 checker unused notices) set as MDLXL_DIAGNOSTICS_MODEL; not on this PC (the published Axe02 of 29 Sep 2026 is already checker-clean)',
+  'optimizexl-spline': 'needs VoidWalkertc2_Harvester_FullTC_Lumber_v22.mdx (121,378 bytes, SHA-256 ef2dba9f...) set as MDLXL_SPLINE_MODEL; not on this PC',
+  ...Object.fromEntries(['optimizexl-footman', 'optimizexl-motion', 'optimizexl-selection'].map(name => [name, 'needs the owner\'s "Footman (Unoptimized).mdx" (280.78 KB, Bone_Root, 13 animations) set as MDLXL_FOOTMAN_MODEL; not on this PC (the SD Footman is a different model)'])),
+  ...Object.fromEntries(['optimizexl-opening', 'optimizexl-cleanup'].map(name => [name, 'needs WH_WOC_KnightKhorneFlail02_After.mdx (the optimized Flail02, BlastFlare key at 173015) set as MDLXL_OPENING_MODEL; not on this PC (the published Flail02 lacks that key)'])),
 };
 // Rendering-, timing- and layout-heavy tests that are worth running under every variant.
 export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'anim-xl', 'model-tabs'];
