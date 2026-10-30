@@ -9,7 +9,7 @@ import { omitEmptyMdxNodeTracks } from '../src/mdx-compatibility.js';
 import { createDemoDocument, createNode, openDocument, importGeosets } from '../src/editor-document.js';
 import { captureNodeSelection, pasteNodesToDummy } from '../src/node-clipboard.js';
 import { commitPart } from '../src/bits-and-parts.js';
-import { extractParticleRecipe, copyEffectGraph, placeParticleRecipe } from '../src/particle-recipes.js';
+import { extractParticleRecipe, copyEffectGraph, placeParticleRecipe, emptyParticleModel } from '../src/particle-recipes.js';
 import { CascReader } from '../electron/casc.cjs';
 import { tempDir, gameFolder } from './helpers/fixtures.cjs';
 import { importGeosets as beforeGeosets } from './fixtures/model-import-baseline/editor-document.js';
@@ -97,8 +97,21 @@ async function callerTests(t, input) {
     const source = withResources(input), ids = [source.RibbonEmitters.at(-1).ObjectId, source.ParticleEmitters2.at(-1).ObjectId];
     const recipe = beforeExtract(source, ids, { id: 'import-identity', name: 'Import identity' });
     assert.deepStrictEqual(extractParticleRecipe(source, ids, { id: 'import-identity', name: 'Import identity' }), recipe, 'extraction also preserves its dependency graph');
+    // Placement now reuses the target's identical textures, materials, texture
+    // animations and global sequences, so the baseline still matches exactly only
+    // for a target that has none of them yet.
+    const bare = emptyParticleModel(source.Version), parent = createNode(bare, 'Bone');
+    bare.Sequences = clone(source.Sequences); parent.Name = 'Parent';
+    const counts = model => ['Textures', 'Materials', 'TextureAnims', 'GlobalSequences'].map(key => model[key].length);
     for (const options of [{}, { directAttachment: true, parent: source.Bones[0].ObjectId }, { sourceInterval: [0, 1000], targetInterval: [3000, 5000], fit: true }, { motion: 'target', position: [1, 2, 3] }]) {
-      compare(beforeParticle, placeParticleRecipe, recipe, source, (fn, target, donor) => { fn(target, donor, options); return fn(target, donor, options); }, JSON.stringify(options));
+      const bareOptions = options.parent == null ? options : { ...options, parent: parent.ObjectId };
+      compare(beforeParticle, placeParticleRecipe, recipe, bare, (fn, target, donor) => fn(target, donor, bareOptions), JSON.stringify(options));
+      // The fixture's repeated global loop maps to its first copy, so the first
+      // placement may add a matching animation/material; a second adds nothing.
+      const target = clone(source);
+      placeParticleRecipe(target, recipe, options); const once = counts(target);
+      placeParticleRecipe(target, recipe, options);
+      assert.deepStrictEqual(counts(target), once, `${JSON.stringify(options)}: repeated placement adds no resources`);
     }
   });
 }

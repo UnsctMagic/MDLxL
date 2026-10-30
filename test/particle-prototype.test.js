@@ -42,11 +42,42 @@ test('placement remaps sparse target resources and undo restores exact target mo
   const target=openDocument(generateMDL(model),'target.mdl'),before=stringifyParticleData(target.model);
   let result;target.apply('Place effect',['Nodes','Textures'],m=>{result=placeParticleRecipe(m,recipe,{parent:0,position:[3,4,5]});});
   const emitter=target.model.Nodes[result.ids[0]];
-  assert.notEqual(emitter.ObjectId,p.ObjectId);assert.notEqual(emitter.TextureID,p.TextureID);
-  assert.equal(emitter.EmissionRate.GlobalSeqId,2);
+  // The target already has this picture and global loop: placement reuses them.
+  assert.notEqual(emitter.ObjectId,p.ObjectId);assert.equal(emitter.TextureID,p.TextureID);
+  assert.equal(emitter.EmissionRate.GlobalSeqId,1);
+  assert.equal(target.model.Textures.length,2);assert.deepEqual([...target.model.GlobalSequences],[1000,3000]);
   assert.equal(target.model.Nodes[result.anchorId].Parent,0);
   assert.equal(validateModel(target.model).filter(d=>d.severity==='error').length,0);
   target.undo();assert.equal(stringifyParticleData(target.model),before);
+  // A target without them receives remapped copies.
+  const sparse=emptyParticleModel();sparse.GlobalSequences=[500];sparse.Textures=[{Image:'Textures\\Other.blp',ReplaceableId:0,Flags:0}];
+  const placed=sparse.Nodes[placeParticleRecipe(sparse,recipe).ids[0]];
+  assert.equal(placed.TextureID,1);assert.equal(sparse.Textures[1].Image,'Textures\\Spark.blp');
+  assert.equal(placed.EmissionRate.GlobalSeqId,1);assert.deepEqual([...sparse.GlobalSequences],[500,3000]);
+});
+test('placing the same effect twice reuses its pictures, materials, texture animations and global loops',()=>{
+  const source=emptyParticleModel();
+  source.GlobalSequences=[2000];
+  source.Textures=[{Image:'Textures\\GenericGlow64.blp',ReplaceableId:0,Flags:0},{Image:'Textures\\RibbonNE1_White.blp',ReplaceableId:0,Flags:0}];
+  source.TextureAnims=[{Translation:{LineType:1,GlobalSeqId:0,Keys:[{Frame:0,Vector:v(0,0,0)},{Frame:2000,Vector:v(1,0,0)}]}}];
+  source.Materials=[{RenderMode:0,PriorityPlane:0,Layers:[{FilterMode:4,Shading:17,TextureID:1,TVertexAnimId:0,CoordId:0,Alpha:1}]}];
+  const p=createNode(source,'ParticleEmitter2');p.TextureID=0;p.EmissionRate={LineType:0,GlobalSeqId:0,Keys:[{Frame:0,Vector:v(10)}]};
+  const ribbon=createNode(source,'RibbonEmitter');ribbon.MaterialID=0;ribbon.Visibility=1;
+  const recipe=extractParticleRecipe(source,[p.ObjectId,ribbon.ObjectId]);
+  // The model already uses the glow picture (path spelled differently) and a 2000 loop.
+  const target=emptyParticleModel();target.GlobalSequences=[2000];target.Textures=[{Image:'textures/genericglow64.BLP',ReplaceableId:0,Flags:0}];
+  const first=placeParticleRecipe(target,recipe),counts=()=>['Textures','Materials','TextureAnims','GlobalSequences'].map(key=>target[key].length);
+  assert.deepEqual(counts(),[2,1,1,1]);
+  assert.equal(target.Nodes[first.ids[0]].TextureID,0);assert.equal(target.Nodes[first.ids[0]].EmissionRate.GlobalSeqId,0);
+  assert.equal(target.TextureAnims[0].Translation.GlobalSeqId,0);
+  const second=placeParticleRecipe(target,recipe);
+  assert.deepEqual(counts(),[2,1,1,1]);
+  assert.equal(target.Nodes[second.ids[1]].MaterialID,target.Nodes[first.ids[1]].MaterialID);
+  assert.equal(target.Nodes[second.ids[0]].TextureID,0);
+  // A picture entry that differs (team colour or wrap flags) is not taken over.
+  const flagged=emptyParticleModel();flagged.Textures=[{Image:'Textures\\GenericGlow64.blp',ReplaceableId:0,Flags:3}];
+  placeParticleRecipe(flagged,recipe);assert.equal(flagged.Textures.length,3);
+  assert.equal(validateModel(target).filter(d=>d.severity==='error').length,0);
 });
 test('gesture is continuous in private preview, commits once and cancels without document mutations',()=>{
   const {model,p}=fixture(),doc=openDocument(generateMDL(model),'gesture.mdl'),before=stringifyParticleData(doc.model);
