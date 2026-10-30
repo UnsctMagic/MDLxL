@@ -154,6 +154,20 @@ test('the kept original is encoded with the checkpoint and restored on resume', 
   assert.deepEqual(saved.baseline, encodeAiValue(bridge.targets.get('t').review.before));
 });
 
+test('review returns app-owned motion for touched animations only and reuses it at the same revision', async () => {
+  const { bridge, target, edit, sessions } = editor(); await edit();
+  const first = await inspect(bridge), cached = target.review.motionCache.value;
+  assert.deepEqual(first.review.motion.sequences.map(s => s.sequence), [1]);
+  assert.match(first.review.motion.source, /MDLxL/);
+  assert.equal(first.review.motion.sequences[0].distance.distance, 25);
+  assert.ok(!('perFrame' in first.review.motion.sequences[0]), 'tool output is the compact table');
+  await inspect(bridge); assert.equal(target.review.motionCache.value, cached);
+  sessions[0].doc.model.Bones[0].Translation.Keys[2].Vector[0] = 40;
+  sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
+  assert.equal((await inspect(bridge)).review.motion.sequences[0].distance.distance, 35);
+  assert.notEqual(target.review.motionCache.value, cached);
+});
+
 
 test('explicit owner acceptance uses the same review completion path after a blocked inspection', async () => {
   const { bridge, target, edit } = editor();

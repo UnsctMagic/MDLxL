@@ -4,6 +4,7 @@ import { createChanges } from '../src/history-store.js';
 import { regionBefore, regionSignature, checkRegionEdit } from '../src/ai-regions.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
+import { compareMotion, motionTable } from '../src/ai-motion-compare.js';
 
 export async function aiCheckpoint(
   bridge,
@@ -103,11 +104,13 @@ export function recordAiChange(review, result, model) {
   review.phase = 'pending';
   delete review.inspectedRevision;
   delete review.summary;
+  delete review.motionCache;
   const changes = createChanges(review.region ? regionBefore(model, review.before, review.region) : review.before, model, { ignore: ignoreHistoryAlias });
   review.changes = changes.slice(0, 100).map(c => ({ path: pointer(c.path), kind: c.kind }));
   review.animation ||= changes.some(
     c =>
       /\/(?:Sequences|GlobalSequences)(?:\/|$)|\/Keys(?:\/|$)/.test(pointer(c.path)) ||
+      /\/(?:GeosetAnims|Materials|Attachments|ParticleEmitters2?|ParticleEmitterPopcorns|RibbonEmitters|Lights)\//.test(pointer(c.path)) && /\/(?:Alpha|Color|Visibility|Flags)(?:\/|$)/.test(pointer(c.path)) ||
       containsTrack(c.before) ||
       containsTrack(c.after),
   );
@@ -119,6 +122,8 @@ export function recordAiChange(review, result, model) {
 export function touchedAnimations(changes, before, model) {
   const frames = new Set(),
     globals = new Set();
+  const selected = new Set();
+  let allLocal = false;
   const walk = (value, global, depth = 0) => {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || depth > 8) return;
     if (Array.isArray(value.Keys)) global = value.GlobalSeqId >= 0 ? value.GlobalSeqId : null;
@@ -130,10 +135,22 @@ export function touchedAnimations(changes, before, model) {
   };
   const at = (source, path) => path.reduce((value, key) => value?.[key], source);
   for (const c of changes) {
+    if (c.path[0] === 'Sequences') {
+      if (Number.isInteger(c.path[1])) selected.add(c.path[1]);
+      else allLocal = true;
+    }
     const keys = c.path.indexOf('Keys');
     if (keys < 0) {
       walk(c.before, null);
       walk(c.after, null);
+      // Changing interpolation/static channels can affect a clip even without
+      // changing a key timestamp. Inspect the owning track, not just its value.
+      for (const source of [before, model]) for (let n = c.path.length; n > 0; n--) {
+        const owner = at(source, c.path.slice(0, n));
+        if (Array.isArray(owner?.Keys)) { walk(owner, null); break; }
+      }
+      if (c.path[0] === 'GlobalSequences' && Number.isInteger(c.path[1])) globals.add(c.path[1]);
+      if (['GeosetAnims', 'Materials', 'Attachments', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'Lights'].includes(c.path[0])) allLocal = true;
       continue;
     }
     for (const source of [before, model]) {
@@ -142,7 +159,7 @@ export function touchedAnimations(changes, before, model) {
     }
   }
   const sequences = (model.Sequences || []).flatMap((s, i) =>
-    [...frames].some(f => f >= s.Interval[0] && f <= s.Interval[1]) ? [i] : [],
+    allLocal || selected.has(i) || [...frames].some(f => f >= s.Interval[0] && f <= s.Interval[1]) ? [i] : [],
   );
   return { sequences, globalSequences: [...globals].filter(g => model.GlobalSequences?.[g] > 0) };
 }
@@ -341,6 +358,12 @@ export async function reviewAiModel(bridge, args, options) {
     options,
   );
   const poses = [];
+  if (review.animation) {
+    const sequences = [...(review.sequences || []), ...(review.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+    const key = JSON.stringify(sequences);
+    if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
+      review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
+  }
   const comparison = await comparisonPictures(bridge, args.target, review, before, args),
     images = comparison.images;
   if (args.turnaround)
@@ -385,6 +408,7 @@ export async function reviewAiModel(bridge, args, options) {
       checks,
       validation,
       poses,
+      ...(review.animation ? { motion: motionTable(review.motionCache.value) } : {}),
       compared: comparison.compared,
       ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
       pendingPreviews: !!drafts,

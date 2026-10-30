@@ -1140,7 +1140,7 @@ class AiService {
           await this.persistConversation(conversation);
         }
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
-          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [] };
+          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [], motion: result.review?.motion };
         // The review judges the plan's keep list along with the request.
         if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
           result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, checks: task.plan.checks, check: 'Confirm each keep item with a measured check or a visible comparison.' };
@@ -1538,6 +1538,7 @@ class AiService {
           ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).join('; ')}.`
           : 'The worker recorded no plan (an exact value edit).',
         `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
+        ...(inspect.motion ? [`MDLxL's own measurement, not written by the worker:\n${JSON.stringify(inspect.motion)}`] : []),
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
         ...(left.length ? [`Not sent, to keep the set small (the worker saw them): ${left.join('; ')}.`] : []),
         ...(inspect.missing?.length ? [`Evidence the review could not produce: ${inspect.missing.join(' ')}`] : []),

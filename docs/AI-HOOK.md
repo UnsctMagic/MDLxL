@@ -375,6 +375,16 @@ Undo step, so you can undo it too. This means "go back to the good version" work
 ask for it by name or by job. Versions are kept until MDLxL closes; they are not
 saved into the model file.
 
+**Motion measurements.** Animation reviews include MDLxL's own before/after
+measurement for each touched animation, cached until the model revision changes.
+`ai-motion-compare.compareMotion` imports the preview's sampler and skinning;
+it reports distances, speed differences, exact endpoint samples, horizontal
+centre drift, structural contact travel, changed topology and non-geometric
+channel spans. These are observations, never acceptance gates. Changed topology
+has no assumed vertex correspondence, and billboards need visual review.
+The outside check receives this table separately from the worker's own checks;
+still pictures alone cannot establish timing, sliding or popping.
+
 **Outside check.** When the AI says a model edit is finished, a separate AI that
 never saw its work judges the result. It gets only your request, the plan's keep
 list, the AI's own measured checks and the before/after pictures. It answers

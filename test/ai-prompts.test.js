@@ -59,6 +59,14 @@ const EXPECTED = {
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
 
+// Research §6.1: add app-owned motion evidence to the outside check while
+// retaining its rule that missing evidence is a note, never a failure.
+test('outside check deliberately adds motion measurements alongside still pictures', () => {
+  assert.deepEqual(fingerprint(contract.AI_OUTSIDE_CHECK), ['37fa817e1c54bbec4de2d1601f0d92930feb4b3a51c4e99fd9a48aced5b8bf01', 1856]);
+  assert.match(contract.AI_OUTSIDE_CHECK, /still pictures cannot show timing, sliding or popping/);
+  assert.match(contract.AI_OUTSIDE_CHECK, /Missing baseline.*notes only/);
+});
+
 test('router is unchanged; editing and worker prompts change only the example and incremental-context rules', () => {
   assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT), BEFORE_RULE.router);
   for (const handbook of [false, true])
