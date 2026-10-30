@@ -142,6 +142,12 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     checks.push('Repeated minimize/restore/expand and title-bar dragging remain usable inside the tab');
     await page.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
     await page.locator('.uv-tab-window [aria-modal="true"]').waitFor();
+    // Window keys register after the modal mounts; wait for its actual Escape
+    // binding and focused input before sending the keyboard event.
+    await page.waitForFunction(() => {
+      const modal = document.querySelector('.uv-tab-window [aria-modal="true"]');
+      return modal?.contains(document.activeElement) && modal.querySelector('[aria-label="Close texture library"]')?.getAttribute('data-hotkey-shortcuts') === 'Escape';
+    });
     await page.keyboard.press('Escape');
     await page.locator('.uv-tab-window [aria-modal="true"]').waitFor({ state: 'hidden' });
     checks.push('Texture Library opens and closes inside the UV window');
