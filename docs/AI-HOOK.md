@@ -117,11 +117,13 @@ into compacting.
 
 - Your message reaches the worker exactly as you wrote it, together with your
   selection and drawings. Only the working bird receives images and captured context.
-  A bird's first message (and its first after a resume or handover) carries the full
-  editor snapshot without the editor command list; later messages and verification
-  nudges carry the target, document, revision, selection, frame, sequence, drawings,
-  region and only the fields that changed. The AI calls `mdlxl_context` for the full
-  lists and commands.
+  A bird's first message carries the full editor snapshot without the command list.
+  Later messages and verification nudges carry the target and only changed sections;
+  omitted selection, view, sequence, drawings and IDs keep their last values. A reset,
+  compaction or replacement model starts with the full snapshot again. The AI calls
+  `mdlxl_context` for the complete current lists and commands. Your words lead every
+  job, steering message and verification nudge. Workers see only relevant earlier
+  decisions, newest first; the organiser keeps the complete stored diary.
 - **Job routing** in Connection settings offers Manual (default), Automatic, or Both.
   Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
   uses the shared bird for quick tasks. Automatic asks the organiser on the chosen

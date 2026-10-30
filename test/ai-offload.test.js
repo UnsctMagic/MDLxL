@@ -1,4 +1,5 @@
 import test from 'node:test';
+import helmet from './fixtures/ai-context-helmet.json' with { type: 'json' };
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -306,7 +307,7 @@ test('birds of different models work at the same time; a model takes one job at 
     organiser: data =>
       last(data).role === 'tool' ? say('Done.') : ask({ job: userText(data).includes('model A') ? 'Job A' : 'Job B', instructions: 'Do it.' }),
     worker: async data => {
-      if (userText(data).startsWith('Job: Job A')) await holdA;
+      if (userText(data).includes('\n\nJob: Job A')) await holdA;
       return say('Report: done');
     },
   });
@@ -795,7 +796,7 @@ test('dependent jobs receive only completed prerequisite reports',async t=>{
   const started=[];
   const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:data=>{
     if(data.messages[0].content.startsWith('Route one message')) return say(JSON.stringify({jobs:[{job:'Reference report',readOnly:true},{job:'Dependent check',readOnly:true,dependsOn:[0]}]}));
-    if(userText(data).startsWith('Job: Reference')){started.push(0);return say('Reference ID 42 measured.');}
+    if(userText(data).includes('\n\nJob: Reference')){started.push(0);return say('Reference ID 42 measured.');}
     started.push(1);assert.match(userText(data),/Reference ID 42 measured/);return say('Checked against the reference.');
   }});
   helperRegions(f); const {id}=await f.service.organiser({modelKey}); const result=await f.service.send({id,text:'Inspect reference then compare its proportions',route:'auto',context});
@@ -909,8 +910,8 @@ test('a bird gets the full editor snapshot once; later messages carry the target
     assert.ok(!p.includes('Bone_Node_'), 'unchanged lists are not repeated');
   }
   const delta = i => JSON.parse(contextPart(prompts[i]).split('\n').at(-1));
-  assert.deepEqual(delta(1), { target: 'selected', documentId: 'model', revision: 7, selection: { 0: [3] }, frame: 0, sequence: 2 });
-  assert.deepEqual(delta(2), { target: 'next-target', documentId: 'model', revision: 7, selection: { 0: [3] }, frame: 250, sequence: 2, diagnostics: [] });
+  assert.deepEqual(delta(1), { target: 'selected', selection: { 0: [3] } });
+  assert.deepEqual(delta(2), { target: 'next-target', frame: 250, diagnostics: [] });
   assert.ok(after[1] * 10 < after[0] && after[2] * 10 < after[0], 'later messages are much smaller');
   // A new bird starts again from the full snapshot.
   await f.service.send({ id, text: 'Something new', route: 'new', context: sent[1] });
@@ -971,4 +972,68 @@ test('connection settings are saved whole through a temporary file, in the order
   const saved = JSON.parse(await fs.readFile(path.join(service.directory, 'connections.json'), 'utf8'));
   assert.deepEqual([saved.offload, saved.webResearch, saved.editingHandbook], [true, true, true]);
   assert.deepEqual((await fs.readdir(service.directory)).filter(name => name.endsWith('.tmp')), []);
+});
+
+
+test('context diet: words lead, unchanged drawings stay out of follow-ups, replacement and compaction reset once', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No organiser'), worker: () => say('Done.') });
+  const { id } = await f.service.organiser({ modelKey });
+  const ctx = { ...bigContext({ 0: [1, 2] }, 0), annotations: { strokes: Array.from({ length: 120 }, (_, i) => ({ points: [i, i+1, i+2] })), markedVertices: { 0: [1, 2] } }, view: 'front' };
+  await f.service.send({ id, text: 'Read geoset 1 and Bone_Node_119', context: ctx });
+  await f.service.send({ id, text: 'Keep its shape and textures', context: { ...ctx, target: 'follow-up', view: 'left' } });
+  const prompts = f.requests.map(r => userText(r.data));
+  assert.ok(prompts[0].startsWith('Read geoset 1 and Bone_Node_119\n\n'));
+  assert.ok(prompts[0].includes('Bone_Node_119') && prompts[0].includes('"selection":{"0":[1,2]}'));
+  assert.ok(prompts[1].startsWith('Keep its shape and textures\n\n'));
+  const delta=JSON.parse(prompts[1].split('\n').at(-1));
+  assert.deepEqual(delta, { target: 'follow-up', view: 'left' });
+  const org=await f.service.conversation(id,'compatible'), bird=await f.service.conversation(org.currentWorker,'compatible');
+  f.service.measureUsage(bird, f.service.recorder(bird, () => {}), 'bird')({type:'compaction',active:false});
+  await f.service.send({id,text:'After compaction',context:ctx});
+  assert.match(userText(f.requests.at(-1).data), /context captured when this prompt was sent/);
+  await f.service.send({id,text:'Still the same model',context:ctx});
+  assert.equal(JSON.parse(userText(f.requests.at(-1).data).split('\n').at(-1)).nodes, undefined);
+  await f.service.send({id,text:'A replacement model',context:{...ctx,documentId:'replacement'}});
+  assert.ok(userText(f.requests.at(-1).data).includes('Bone_Node_119'));
+});
+
+test('context diet: replay the three recorded helmet messages and measure the actual follow-up reduction', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No organiser'), worker: () => say('Done.') });
+  const {id}=await f.service.organiser({modelKey});
+  const sent=[];
+  for(const row of helmet.records) {
+    (await f.service.registry.model(modelKey)).diary=structuredClone(row.jobs);
+    await f.service.send({id,text:row.request,context:{...helmet.context,...row.context}});
+    const message=userText(f.requests.at(-1).data);
+    assert.ok(message.startsWith(row.request+'\n\n'));
+    sent.push(Buffer.byteLength(message));
+  }
+  const recorded=helmet.records.map(r=>r.recordedBytes), before=helmet.records.map(r=>r.beforeContextDietBytes);
+  t.diagnostic(JSON.stringify({recordedBytes:recorded,firstPrBytes:before,dietBytes:sent,followupReductionPercent:Math.round(100*(1-(sent[1]+sent[2])/(before[1]+before[2]))),recordedReductionPercent:Math.round(100*(1-(sent[1]+sent[2])/(recorded[1]+recorded[2])))}));
+  assert.ok(sent[1]+sent[2] < (recorded[1]+recorded[2])/5);
+  assert.ok(sent[1]+sent[2] < (before[1]+before[2])/2, 'large improvement over the first PR, not only the older recorded payload');
+});
+
+
+test('context diet: an on-demand context read becomes the diff baseline and fresh history starts full again',async t=>{
+  let f,asked=false;
+  const ctx={...bigContext({0:[3]},0),selectedNodeIds:[119]};
+  f=await setup(t,{organiser:()=>assert.fail('No organiser'),worker:()=>{
+    if(!asked){asked=true;return jobTool('mdlxl_context',{target:ctx.target});}
+    return say('Read the exact parts.');
+  }});
+  const original=f.service.call;
+  f.service.call=(name,args,...rest)=>name==='mdlxl_context'?Promise.resolve({...ctx,view:'right',geosets:[{index:0,vertices:9,triangles:8}],nodes:[{id:119,name:'Selected bone',parent:42}]}):original(name,args,...rest);
+  const {id}=await f.service.organiser({modelKey});
+  await f.service.send({id,text:'Read the selected part and bone 119',context:ctx});
+  const current={...ctx,view:'right',geosets:[{index:0,vertices:9,triangles:8}],nodes:[{id:119,name:'Selected bone',parent:42}]};
+  await f.service.send({id,text:'Use those same part and bone ids',context:current});
+  assert.deepEqual(JSON.parse(userText(f.requests.at(-1).data).split('\n').at(-1)),{target:ctx.target});
+  const org=await f.service.conversation(id,'compatible'),bird=await f.service.conversation(org.currentWorker,'compatible');
+  bird.messages=[];
+  await f.service.send({id,text:'After a provider-history reset',context:current});
+  const restored=userText(f.requests.at(-1).data);
+  assert.match(restored,/context captured when this prompt was sent/);
+  assert.match(restored,/"selectedNodeIds":\[119\]/);
+  assert.match(restored,/"parent":42/);
 });

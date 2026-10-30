@@ -404,7 +404,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   for (let i = 0; i < 300 && workerRequests.length < 7; i++) await wait(100);
   const patched = JSON.stringify(workerRequests[4]?.messages || []);
   check('Crow edits Footman while you are on another tab', patched.includes('\\"applied\\":true') && (await dirty('Footman.mdx')) === '●', patched.slice(-400));
-  check('steering reaches the running bird', JSON.stringify(workerRequests[2].messages).includes('steering for the current task:\\nKeep the shoulder pads'));
+  const steeringMessage = workerRequests[2].messages.filter(m => m.role === 'user').map(m => typeof m.content === 'string' ? m.content : m.content.map(p => p.text || '').join('\n')).find(text => text.startsWith('Keep the shoulder pads\n\nSteering:\n'));
+  check('steering reaches the running bird with the user words first', !!steeringMessage);
   const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
   check('the review gets original and edited pictures drawn off-screen', reviewed.includes('Edited target') && reviewed.includes('Original target before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
   // Keep the compared pair, drawn with one framing, for a look.
