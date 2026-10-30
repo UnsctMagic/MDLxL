@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Viewport, { textureFromAsset } from './Viewport.jsx';
 import { openDocument, validateModel } from '../src/editor-document.js';
 import { HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
-import { collectPart, partPathKey, partRgbSnapshot, partTextureIndices, partTextureKey, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
+import { collectPart, partPathKey, partRgbSnapshot, partTextureFiles, partTextureIndices, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
 import PartAnimations from './PartAnimations.jsx';
 import { hasDesktop, resolveGameFiles } from './desktop.js';
@@ -53,10 +53,16 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
       if (!document.model.Geosets.length) throw Error('This part has no geosets.');
       const names = partTextureIndices(document.model).map(index => document.model.Textures[index]).filter(texture => !texture.ReplaceableId && texture.Image).map(texture => texture.Image);
       let records = [];
-      if (hasDesktop('resolveTextures')) records = await resolveGameFiles(names, record.path);
+      // Without the Bit's path the lookup sees installed game data only, so a
+      // hit there marks a native path that is referenced, never copied.
+      let native = new Set();
+      if (hasDesktop('resolveTextures')) {
+        records = await resolveGameFiles(names, record.path);
+        native = new Set((await resolveGameFiles(names)).map(found => partPathKey(found.logicalName || found.texturePath || found.name)));
+      }
       else for (const name of names) { const relative = entry.id.split('/').slice(0, -1).concat(name.replaceAll('\\', '/')).join('/'), file = bank.assets.get(partPathKey(relative)) || bank.assets.get(partPathKey(name)); if (file) records.push({ name, bytes: new Uint8Array(await file.arrayBuffer()) }); }
       const loaded = new Map();
-      for (const record of records) { const name = record.logicalName || record.texturePath || record.name; loaded.set(partPathKey(name), { ...record, name }); }
+      for (const record of records) { const name = record.logicalName || record.texturePath || record.name; loaded.set(partPathKey(name), { ...record, name, ...(native.has(partPathKey(name)) ? { native: true } : {}) }); }
       // Existing destination assets can satisfy equivalent dependency records.
       for (const name of names) if (!loaded.has(partPathKey(name)) && textureAssets.has(partPathKey(name))) loaded.set(partPathKey(name), textureAssets.get(partPathKey(name)));
       if (generation.current !== request) return;
@@ -87,15 +93,8 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
     const request = generation.current;
     setBusy(true); setError('');
     try {
-      const portable = [], preparedPaths = new Set();
-      for (const index of partTextureIndices(partRgbSnapshot(part.model, rgbSequence))) {
-        const texture = part.model.Textures[index];
-        if (texture.ReplaceableId || !texture.Image || /\.w3mod:/i.test(texture.Image)) continue;
-        if (model.Textures.some(existing => partTextureKey(existing) === partTextureKey(texture)) || preparedPaths.has(partPathKey(texture.Image))) continue;
-        const asset = assets.get(partPathKey(texture.Image));
-        if (!asset) throw Error(`Missing texture: ${texture.Image}. Place it beside the source part or configure its Warcraft data folder.`);
-        const prepared = await preparePartAsset(asset, texture.Image); portable.push(prepared); preparedPaths.add(partPathKey(texture.Image));
-      }
+      const portable = [];
+      for (const { name, asset } of partTextureFiles(model, partRgbSnapshot(part.model, rgbSequence), assets)) portable.push(await preparePartAsset(asset, name));
       if (generation.current !== request) return;
       const result = await onCommit({ source: replacing ? placed : part.model, rgbSequence, assets: portable, replacement: replacing ? selectionByGeoset : null });
       if (generation.current === request && result !== false) onClose();
