@@ -32,6 +32,17 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     assert.notDeepEqual((await scoped()).model.Geosets,fitted,'+ Skull adds a part');
     await window_.getByRole('slider',{name:'Move this piece',exact:true}).focus();await page.keyboard.press('Delete');await settlePage(page, 300);
     assert.deepEqual((await scoped()).model.Geosets,fitted);checks.push('Delete removes the selected part while its handle has focus');
+    // The user's way: double-click a generated piece in the preview (focus
+    // stays on the preview), press Delete; Ctrl+Z brings it back.
+    const corpseVertices=()=>scoped().then(s=>s.model.Geosets.reduce((n,g)=>n+g.Vertices.length,0));
+    const whole=await corpseVertices(),box=(await scoped()).rect;
+    await page.mouse.dblclick(box.x+box.width*.5,box.y+box.height*.55);await settlePage(page, 300);
+    await window_.getByRole('slider',{name:'Move this piece',exact:true}).waitFor();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.ok(await corpseVertices()<whole,'Delete removes a generated piece picked in the preview');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await corpseVertices(),whole,'Ctrl+Z brings the deleted piece back');
+    checks.push('Delete removes a generated piece double-clicked in the preview; Ctrl+Z restores it');
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});

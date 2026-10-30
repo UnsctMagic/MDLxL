@@ -118,7 +118,12 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // body surface closest to the joint, not a shield, blade or tall helmet.
   for(const [owner,list] of candidates){list.sort((a,b)=>Number(b.bodySurface)-Number(a.bodySurface)||a.distance-b.distance);regions.set(owner,list[0].points);}
   const cloud=id=>regions.get(id)||clouds.get(id)||[];
-  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
+  // A head belongs to a body, whatever it is called: it must be on a skeleton
+  // that carries limbs. A separate weapon skeleton (a flail and its head) is
+  // equipment, never a skull. Without limbs anywhere, any skeleton qualifies.
+  const limbSkeletons=new Set(chains.map(c=>ancestors(c.root).at(-1)));
+  const onBody=id=>!limbSkeletons.size||limbSkeletons.has(ancestors(id).at(-1));
+  const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&onBody(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
   const vertices=[],uv=[],faces=[],parts=[],pieces=[],used=new Set();
   // Wanted positions; heights are settled once every piece is known.
   function vertex(p,t) {const i=vertices.length/3;vertices.push(p[0],p[1],p[2]);uv.push(...t);return i;}

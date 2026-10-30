@@ -191,3 +191,22 @@ test('corpse excludes tracked team glow, retaining its every-layer and additive 
     if (!mixed) assert.deepEqual(model.Materials[materialId], materialBefore);
   }
 });
+
+// Owner report: a flail on its own skeleton (no limbs) became a second skull.
+// Private model, skipped when absent: MDLXL_CORPSE_FLAIL or the research copy.
+test('a separate weapon skeleton never becomes a corpse skull', {skip: !flailModel() && 'private flail model not on this machine'}, async () => {
+  const fs = await import('node:fs');
+  const {openDocument} = await import('../src/editor-document.js');
+  const {allNodes} = await import('../src/animation.js');
+  const d = openDocument(new Uint8Array(fs.readFileSync(flailModel())), 'flail.mdx');
+  const byId = new Map(allNodes(d.model).map(n => [n.ObjectId, n]));
+  const top = id => { let n = byId.get(id); while (byId.has(n?.Parent)) n = byId.get(n.Parent); return n?.ObjectId; };
+  const r = apply(d).corpses[0], skulls = r.pieces.filter(p => p.kind === 'skull');
+  assert.equal(skulls.length, 1, 'only the body head becomes a skull');
+  const bodies = new Set(r.pieces.filter(p => p.kind !== 'skull' && p.ids?.length).flatMap(p => p.ids.map(top)));
+  for (const p of r.pieces) for (const id of p.ids || []) assert.ok(bodies.has(top(id)), `${byId.get(id)?.Name} belongs to the body skeleton`);
+});
+function flailModel() {
+  const fs = process.getBuiltinModule('node:fs');
+  return [process.env.MDLXL_CORPSE_FLAIL, 'D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/Fx_original.mdx'].find(p => p && fs.existsSync(p));
+}
