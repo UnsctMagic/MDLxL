@@ -26,38 +26,42 @@ const EXAMPLE_RULE = "When the user points to an example they made, first read o
 // Research §6.2: compare complaints/candidates with the accepted version and
 // retain accepted results, without changing any existing editing instructions.
 const ACCEPTED_RULE = 'When the user reports a problem in a result, first measure the same thing in the version the user last accepted (or the original). If that version already has it, tell the user with the numbers and ask whether the accepted motion should change before editing. Measure every candidate against the accepted version, not only against an earlier candidate. After the user accepts a result, save it with mdlxl_versions.';
+// Research §6.5: two sentences each, added deliberately to both editing prompts.
+const TOLERANCE_RULE = "When a request combines a size or count target with keeping the look or motion, state 'the same' as measured tolerances for each animation, keep first and last poses exact, try more than one tolerance as saved versions, and report each candidate's size and measured difference. If the target cannot be met within the tolerance, show the numbers and let the user choose.";
+const REJECTION_RULE = 'When the user rejects a result that your measurements show is close to the accepted version, show where and how much it differs and ask what they see before changing direction. Do not switch to the opposite extreme.';
+const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text);
 const EXPECTED = {
   "editing plain": [
-    "6e21fdb9b489d380814ce265616d82918d005514caa2ec1bf4eb56784af62b7f",
-    7891
+    "906a52906d47bb8c1636512e0379e69dcb35cdc86a381709296cdd8d9c824cce",
+    8477
   ],
   "worker plain": [
-    "5c6351f7eb1096b1a8ecb63214413aeb413839c860fd76b9db31e5a3957f599f",
-    9047
+    "a6247ae1cca3e9d97f4dd3e157f95694ee84d72438437ddbae535d12007f5fae",
+    9633
   ],
   "editing plain+web": [
-    "b4e8e004f85e59666548ba15d7ea0ebcbcd7a9322d80b8fc77045cf42fa2a02f",
-    8393
+    "d444afbafc604957bba7e438f4028a190a077b50c33451c8104ca4a46bd78e42",
+    8979
   ],
   "worker plain+web": [
-    "558b899a8a11f0af1de42a472c2a5ad905372468667d841f2bfe7672e5248a09",
-    9549
+    "835a8be67d5c933fdec5ecb9c9ace09d6899d63de8af5299da5f10229ef6d188",
+    10135
   ],
   "editing handbook": [
-    "c5044f776c4b8cb97640eb105d8fa91c72201dee73996ec59424b62e25356d2a",
-    10898
+    "f45566bf91ce437f2d7d7af78554181a6e5f4c731ffd6246b651ac28949b7ee6",
+    11484
   ],
   "worker handbook": [
-    "b0db631a0111c389a00aeb31ebfe23ad037e59e98c9cba847e777fb18fa83711",
-    12054
+    "d6552682a2c5893cc9f09fd00438a544084a556a4635b0fa9787de0d08ebae88",
+    12640
   ],
   "editing handbook+web": [
-    "312f78bd39758a6bab12ad9d47fdf9c5755c4714e59235b0c1585425a24b608b",
-    11400
+    "89a4814543261a3a14e2b53f11e5681d056b7ce2e31c23b2cd24bad10aeb2125",
+    11986
   ],
   "worker handbook+web": [
-    "82ab969f22078dbfa22d3fc8e9516b84d49f14dddcaee5d77e6f523d97b248d3",
-    12556
+    "e4e6f6c3446025e6390a52bfb3819274b8ef85646fe4d7192833b3a9d0529b3b",
+    13142
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -76,9 +80,9 @@ test('router is unchanged; editing and worker prompts change only the documented
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: false }).replace('\n' + ACCEPTED_RULE, '').replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: false })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true })), EXPECTED['worker ' + key], 'worker ' + key);
-      assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web, worker: true }).replace('\n' + ACCEPTED_RULE, '').replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web, worker: true })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['worker ' + key], 'only the documented rules change worker ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));
@@ -98,4 +102,10 @@ test('owner example and keep-look replays receive the structural example rule in
 
 test('the context rule explains omitted values and when a full snapshot returns', () => {
   assert.ok(contract.AI_EDITING_BODY.includes(CONTEXT_AFTER));
+});
+
+test('accepted references, tolerance ladders and rejection questions reach direct and worker jobs', () => {
+  for (const worker of [false, true]) for (const rule of [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE])
+    assert.ok(editingPrompt(contract, { worker }).includes(rule));
+  assert.equal(TOLERANCE_RULE.split('. ').length, 2); assert.equal(REJECTION_RULE.split('. ').length, 2);
 });
