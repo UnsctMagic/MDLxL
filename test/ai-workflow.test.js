@@ -420,8 +420,8 @@ test('a message sent mid-task steers the running turn and streams live in order'
     return call(name, args, ...rest);
   };
   assert.equal((await f.service.send({ id: 'test', text: 'Shape this', context })).ok, true);
-  assert.match(seen.content, /steering for the current task:\nMake it wider/);
-  assert.match(seen.content, /Current console drawings/);
+  assert.ok(seen.content.startsWith('Make it wider\n\nSteering:'));
+  assert.match(seen.content, /"annotations":\{"strokes":\[\]\}/);
   const order = f.events.map(e => e.type).filter(type => ['tool', 'steer', 'thinking', 'text', 'done'].includes(type));
   assert.deepEqual(order, ['tool', 'steer', 'thinking', 'text', 'done']);
   const transcript = (await f.service.conversation('test', 'compatible')).transcript;
@@ -818,4 +818,56 @@ test('a new owner turn has a fresh abort signal after Stop', async t => {
   assert.equal(first.cancelled, true);
   assert.equal((await f.service.send({ id: 'test', text: ownerTurns.turns['35'].text, context })).ok, true);
   assert.equal((await f.service.taskInfo('test')).status, 'complete');
+});
+
+
+test('context diet: verification nudges lead with the latest steering words and current edited state', async t => {
+  let f, steered=false;
+  const prompts=[];
+  f=await setup(t,({data,requests})=>{
+    const last=data.messages.filter(m=>m.role==='user').at(-1);
+    const text=typeof last.content==='string'?last.content:last.content[0].text;
+    prompts.push(text);
+    if(requests===1) return edit();
+    if(!steered){steered=true;f.service.steer({id:'test',text:'Keep the marked points, only reduce their triangles',annotations:{strokes:[]}});}
+    return done();
+  });
+  const original=f.service.call;
+  f.service.call=async(name,args,...rest)=>{
+    const result=await original(name,args,...rest);
+    if(name==='mdlxl_checkpoint')result.context={...context,revision:2,geosets:[{index:0,triangles:8}],nodes:[{id:42,name:'Band bone'}]};
+    return result;
+  };
+  await f.service.send({id:'test',text:'Set the marked vertex to 2',context:{...context,revision:1,geosets:[{index:0,triangles:24}],nodes:[{id:42,name:'Band bone'}]}});
+  const nudges=prompts.filter(p=>p.includes('Task update:'));
+  assert.ok(nudges.length>0);
+  for(const message of nudges)assert.ok(message.startsWith('Keep the marked points, only reduce their triangles\n\nTask update:'));
+  const delivered=prompts.join('\n');
+  assert.match(delivered,/"revision":2/);
+  assert.match(delivered,/"triangles":8/);
+  assert.match(delivered,/"id":42/);
+});
+
+
+test('context diet: steering queued during an edit describes the post-edit state when delivered',async t=>{
+  let f,seen;
+  f=await setup(t,({data,requests})=>{
+    if(requests===1)return edit();
+    seen=data.messages.filter(m=>m.role==='user').at(-1).content;
+    return done();
+  });
+  const original=f.service.call;
+  f.service.call=async(name,args,...rest)=>{
+    if(name==='mdlxl_patch')await f.service.steer({id:'test',text:'Keep my example, change only the remaining points',annotations:{strokes:[{color:'red',points:[1,2,3]}]}});
+    const result=await original(name,args,...rest);
+    if(name==='mdlxl_checkpoint')result.context={...context,revision:f.counts().edits?2:1};
+    return result;
+  };
+  await f.service.send({id:'test',text:'Set the marked vertex to 2',context:{...context,revision:1}});
+  // The final verification nudge is separate; the steering itself leads with the owner words.
+  const messages=(await f.service.conversation('test','compatible')).messages;
+  const steer=messages.filter(m=>m.role==='user').map(m=>typeof m.content==='string'?m.content:m.content[0]?.text).find(m=>m?.startsWith('Keep my example')&&m.includes('Steering:'));
+  assert.match(steer,/"revision":2/);
+  assert.ok(!steer.includes('"revision":1'));
+  assert.match(steer,/"color":"red"/);
 });

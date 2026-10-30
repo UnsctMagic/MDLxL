@@ -1,0 +1,1386 @@
+{
+  "source": "Anonymised three complete user messages from the supplied helmet rollout, ordinals 11, 66 and 77. Paths, model name and target tokens are replaced. Shared snapshot fields are stored once; the commands list is omitted because both prompt formatters leave it to mdlxl_context. recordedBytes is metadata from the original unmodified payload, including commands.",
+  "records": [
+    {
+      "ordinal": 11,
+      "request": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet.",
+      "context": {
+        "target": "target-0"
+      },
+      "recordedBytes": 34732,
+      "jobs": [
+        {
+          "id": "history-0",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "please make them all as big as the one im holding",
+          "edits": [
+            "showAllGeosets",
+            "Match seven studs to selected stud size",
+            "showAllGeosets"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Selected stud0 vertices0..8 has been manually uniformly enlarged by1.90867327 (fit error below0.000009) relative to the saved original studs. Its height is1.83235 versus0.960007 for the other7. The other studs must receive that same enlargement.",
+            "chosen": "Scale each existing smaller stud by1.90867327 around its own mounting center, fitting enlarged base corners to the ring only where needed.",
+            "why": "Transfers the exact measured enlargement while preserving local orientation,topology,UVs and established placement. Retains more existing data than duplicating the selected shape.",
+            "keep": [
+              "Selected stud vertices0..8 exactly unchanged",
+              "All six other geosets exactly unchanged",
+              "Eight triangles per stud and all faces/UVs/materials/texture paths/bindings/vis\u2026",
+              "Each remaining stud stays at its original mounting center and facing; rig and a\u2026"
+            ]
+          },
+          "ownerNext": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight"
+        },
+        {
+          "id": "history-1",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight",
+          "edits": [
+            "showAllGeosets",
+            "Straighten selected breathing slit area by about 65 percent",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straighten breathing slits and preserve lower trim columns",
+            "mdlxl_versions",
+            "Straighten selected slit area while preserving eye opening",
+            "mdlxl_versions",
+            "Reduce both components of breathing slit lean"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Outside review correctly flagged remaining lean in angled side views. Fore-aft-only straightening left transverse Y lean intact. Restore baseline and reduce both horizontal components of slit edge lean, with upper eye rim and side joins anchored.",
+            "chosen": "Solve both X and Y horizontal slit-lean reductions with supporting shell anchors; transport fitted mouth through shell triangle weights and trim through paired columns.",
+            "why": "Addresses the remaining transverse cause visible from oblique sides,retains a measured positive fit,and keeps original heights,topology and protected upper eyeopening.",
+            "keep": [
+              "All unselected positions/normals and every Z coordinate exact",
+              "Eye rim30,32,43 and other geosets including eyes ring studs exact",
+              "UVs faces topology bindings materials texture paths visibility rig format uncha\u2026",
+              "Mouth minimum original0.05 clearance preserved",
+              "Lower trim paired column vectors preserved to avoid skew",
+              "Unrelated model data exact"
+            ]
+          },
+          "ownerNext": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down."
+        },
+        {
+          "id": "history-2",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down.",
+          "edits": [
+            "showAllGeosets",
+            "Build straight overhanging visor and fit lower helmet",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straight visor with clean side shoulder joins"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Fully vertical slit draft meets measured goal and clearance, but a redundant column only0.00085units from the positive side boundary makes a thin folded shoulder. Restored pre-edit version. Merge near-end sampling stations while preserving actual boundary endpoints.",
+            "chosen": "Merge grid stations within0.01units of side endpoints, retaining exact endpoint geometry; rebuild vertical panels and shoulder.",
+            "why": "Removes the cause of the folded shoulder rather than compensating with facing. Keeps the verified straight slit geometry,fit and protected surfaces.",
+            "keep": [
+              "Six long slit pairs exactly vertical in X/Y; corner UVs retained",
+              "Eyes ring studs and geosets1,2,5,6 exact",
+              "Original upper/rear helmet triangles and rear trim attributes retained",
+              "Material paths layers binding rig visibility format and unrelated data retained",
+              "Lower panel contact clearance0.06 and front trim join retained"
+            ]
+          },
+          "ownerNext": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !"
+        },
+        {
+          "id": "history-3",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !",
+          "edits": [
+            "Add low polygon crown spike and collar",
+            "showAllGeosets",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.; outside check: doubtful",
+          "plan": {
+            "cause": "The reference uses one centered slender metal cone, a narrow neck and flared mounting foot. Current helmet has no crown spike. Crown at center[8.73,0.04968] is132.196 units high; a1.45-radius foot samples131.959\u2013132.187 over the crown. Helmet height is about21.5units, so an8.8\u20139unit spike gives a s\u2026",
+            "chosen": "Build a six-sided tapered spike with two low polygon collar transitions and a conforming embedded foot; reuse the existing warm Garithos texture patch.",
+            "why": "Captures the cone,waist and flared foot that define the reference at a small triangle budget. Existing material8 provides a warm metal area without adding textures or changing the authored helmet.",
+            "keep": [
+              "All seven existing geosets exactly unchanged including visor eyes ring and studs",
+              "All existing materials textures paths UVs and resource arrays unchanged",
+              "Rig pivots existing visibility and other animation data exact",
+              "New spike uses DummyBone0 and crown's existing visibility clock",
+              "MDX800 format retained; no source save or export"
+            ]
+          },
+          "ownerNext": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026"
+        },
+        {
+          "id": "history-4",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026",
+          "edits": [
+            "showAllGeosets",
+            "Simplify visor and center six equal breathing holes",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.",
+          "plan": {
+            "cause": "Selected helmet geoset3 has124triangles, including81in the lower front fit-grid and3redundant duplicate triangles. Six slit rectangles vary from5.62to6.95units tall and1.57to2.12wide physically. Mirrored slit pairs are centered aroundY0.209\u20130.250 rather than the helmet's brow centerlineY0.04968. De\u2026",
+            "chosen": "Replace81triangle front grid with two broad mirrored front faces,short side returns and a minimal shoulder; simplify matching front trim. Reposition the six existing quads as an equal centered row.",
+            "why": "Removes the cause of the excess topology and makes all six holes equal in both physical and projected size. Keeps the outer helmet identity and the user's edited crown,spike and resources. Target is \u2026",
+            "keep": [
+              "Current upper/rear helmet surface and attributes retained",
+              "removing only same-w\u2026",
+              "All other geosets1,2,5,6,7,8 exactly unchanged",
+              "Rear trim surface exact; front trim stays joined to helmet",
+              "Materials texture paths existing slit UVs rig influences visibility and all ani\u2026",
+              "Six vertical holes with identical physical dimensions and identical front-view \u2026",
+              "MDX800 format and unrelated data unchanged"
+            ]
+          },
+          "ownerNext": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!"
+        },
+        {
+          "id": "history-5",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!",
+          "edits": [
+            "Conservative helmet cleanup with equal centered slits"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "The rejected broad-plane rebuild changed the visor curvature, chin shape and interpolated texture layout. User restored revision776. Existing124-triangle shell contains3exact same-winding duplicate faces; two redundant samples can be removed without moving any remaining point or changing its UV/nor\u2026",
+            "chosen": "Remove3duplicate faces plus2redundant samples by changing only face indices. Keep every existing shell vertex/UV/normal value. Fit equal centered slit overlays onto untouched curved shell.",
+            "why": "Conservative face-only cleanup preserves the user's current geometry and mapping, rather than rebuilding or flattening it. Reject all other tested collapses that would visibly shift texture or shape.\u2026",
+            "keep": [
+              "Helmet geoset3 entire Vertices,Normals,TVertices,VertexGroup,Groups and all met\u2026",
+              "Helmet surface and silhouette within0.00001model units of restored version; no \u2026",
+              "All geosets0,1,2,5,6,7,8 entirely exact",
+              "All materials textures paths layers rig tracks visibility exact",
+              "Existing slit UVs/faces/bindings exact; preserve stepped pair center heights an\u2026",
+              "Slits remain vertical with positive contact clearance; no body shrinking or ref\u2026"
+            ]
+          },
+          "ownerNext": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026"
+        },
+        {
+          "id": "history-6",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026",
+          "edits": [
+            "Weld redundant mesh points while preserving appearance",
+            "mdlxl_versions",
+            "mdlxl_versions",
+            "showVertices",
+            "mdlxl_view",
+            "mdlxl_view",
+            "cleanView",
+            "clear",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "verified; outside check: doubtful",
+          "plan": {
+            "cause": "Whole-mesh audit found3exact-compatible shell duplicates,1more shell seam with identical position/normal and0.000335UV difference,2unused shell vertices, and8band seam pairs with identical positions and only0.0117\u20130.0342normal-vector/0\u20130.000534UV differences. Lower trim has1redundant nearly colline\u2026",
+            "chosen": "Conservative whole-mesh weld/compact: join12near/exact-compatible pairs, remove2unused shell points and1redundant trim sample.",
+            "why": "The chosen trial saves most of the safe redundant points while retaining the existing silhouette and texture mapping much more closely than the broader option. It directly targets the user's join-poi\u2026",
+            "keep": [
+              "Current helmet silhouette and all component locations; maximum measured surface\u2026",
+              "All material layers texture paths alpha/visibility clocks rig bindings resource\u2026",
+              "Geosets1,2,4,6,7,8 entirely exact including current user-edited breathing slits",
+              "Retain hard normal/UV seams; only join near-compatible pairs below0.035normal d\u2026",
+              "Remaining trim/shell/band attributes copied from existing corners",
+              "no new unwra\u2026",
+              "Six matching clean front/back/left/right/top/bottom images must each pass99perc\u2026"
+            ]
+          },
+          "ownerNext": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet."
+        },
+        {
+          "id": "history-7",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet.",
+          "edits": [
+            "Weld redundant helmet edge rows",
+            "mdlxl_versions",
+            "Compare tighter helmet edge welds",
+            "mdlxl_versions",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "incomplete: Weld candidate preserved exactly as Helmet edge weld stronger, current revision844:335vertices314triangles,27distinct actual points and33triangles removed from owner's362/347baseline. Completed matching live isolated wireframe front/right/top/bottom baseline/result captures and matching isolated plain right-side baseline/result capture; all visually inspected. Completed all six full textured baseline/result views and calculated silhouetteIoU>=99.8886%, normalized meanRGB>=99.6397%; exactRGB83.17\u201399.54%, so no pixel-identity claim. Protected-data, source-attribute, contact-edge, sampled-drift, affected-bounds, stream/primitive, MDX/MDL checks all pass. Review finish was rejected by automatic outside review because its fixed packet Pictures1\u20135 contains only textured after views, with neither baseline nor wireframe pictures. Those missing pictures were successfully captured in this resumed turn, but mdlxl_review has no public parameter for supplying them, and its inspect still returns after views only. Public review schemas and relevant capabilities inspected; no available evidence-attachment operation. No geometry failure was identified; no further mesh edits justified. Required independent visual review remains outstanding. Preserve owner baseline, tighter trial and stronger trial. No source saved/exported; no gameplay test.; outside check: doubtful",
+          "plan": {
+            "cause": "The previous cleanup removed mostly coincident duplicates and did not address redundant edge rows. The owner's new geoset1 (index0) weld removes6 actual lower-trim points/triangles by fanning an almost straight lower border. Current model362vertices347triangles. A paired-edge audit finds redundant \u2026",
+            "chosen": "Collapse redundant connected edges to existing endpoints, synchronizing coincident seam records; compare tight and stronger measured candidates",
+            "why": "Matches the owner's demonstrated actual weld operation and removes redundant topology while retaining authored points and UV records. Compare reductions directly, choose the strongest candidate that \u2026",
+            "keep": [
+              "Owner's current helmet appearance and manual weld result; six matching before/a\u2026",
+              "No replacement mesh",
+              "no changed texture paths/material layers/resources/visibil\u2026",
+              "Every retained vertex position/normal/every UV/binding must be an exact existin\u2026",
+              "All8studs,slits,eye glow and spike shape unchanged; preserve independent parts \u2026",
+              "No new gaps at shared trim/shell/band edges; synchronize seam collapses by topo\u2026",
+              "All non-geoset data and untouched geosets exact; validate primitive metadata",
+              "s\u2026"
+            ]
+          }
+        }
+      ],
+      "beforeContextDietBytes": 19530
+    },
+    {
+      "ordinal": 66,
+      "request": "just fucking deliver it i dont care about the pictures ",
+      "context": {
+        "target": "target-1"
+      },
+      "recordedBytes": 29847,
+      "jobs": [
+        {
+          "id": "history-0",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "please make them all as big as the one im holding",
+          "edits": [
+            "showAllGeosets",
+            "Match seven studs to selected stud size",
+            "showAllGeosets"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Selected stud0 vertices0..8 has been manually uniformly enlarged by1.90867327 (fit error below0.000009) relative to the saved original studs. Its height is1.83235 versus0.960007 for the other7. The other studs must receive that same enlargement.",
+            "chosen": "Scale each existing smaller stud by1.90867327 around its own mounting center, fitting enlarged base corners to the ring only where needed.",
+            "why": "Transfers the exact measured enlargement while preserving local orientation,topology,UVs and established placement. Retains more existing data than duplicating the selected shape.",
+            "keep": [
+              "Selected stud vertices0..8 exactly unchanged",
+              "All six other geosets exactly unchanged",
+              "Eight triangles per stud and all faces/UVs/materials/texture paths/bindings/vis\u2026",
+              "Each remaining stud stays at its original mounting center and facing; rig and a\u2026"
+            ]
+          },
+          "ownerNext": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight"
+        },
+        {
+          "id": "history-1",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight",
+          "edits": [
+            "showAllGeosets",
+            "Straighten selected breathing slit area by about 65 percent",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straighten breathing slits and preserve lower trim columns",
+            "mdlxl_versions",
+            "Straighten selected slit area while preserving eye opening",
+            "mdlxl_versions",
+            "Reduce both components of breathing slit lean"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Outside review correctly flagged remaining lean in angled side views. Fore-aft-only straightening left transverse Y lean intact. Restore baseline and reduce both horizontal components of slit edge lean, with upper eye rim and side joins anchored.",
+            "chosen": "Solve both X and Y horizontal slit-lean reductions with supporting shell anchors; transport fitted mouth through shell triangle weights and trim through paired columns.",
+            "why": "Addresses the remaining transverse cause visible from oblique sides,retains a measured positive fit,and keeps original heights,topology and protected upper eyeopening.",
+            "keep": [
+              "All unselected positions/normals and every Z coordinate exact",
+              "Eye rim30,32,43 and other geosets including eyes ring studs exact",
+              "UVs faces topology bindings materials texture paths visibility rig format uncha\u2026",
+              "Mouth minimum original0.05 clearance preserved",
+              "Lower trim paired column vectors preserved to avoid skew",
+              "Unrelated model data exact"
+            ]
+          },
+          "ownerNext": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down."
+        },
+        {
+          "id": "history-2",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down.",
+          "edits": [
+            "showAllGeosets",
+            "Build straight overhanging visor and fit lower helmet",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straight visor with clean side shoulder joins"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Fully vertical slit draft meets measured goal and clearance, but a redundant column only0.00085units from the positive side boundary makes a thin folded shoulder. Restored pre-edit version. Merge near-end sampling stations while preserving actual boundary endpoints.",
+            "chosen": "Merge grid stations within0.01units of side endpoints, retaining exact endpoint geometry; rebuild vertical panels and shoulder.",
+            "why": "Removes the cause of the folded shoulder rather than compensating with facing. Keeps the verified straight slit geometry,fit and protected surfaces.",
+            "keep": [
+              "Six long slit pairs exactly vertical in X/Y; corner UVs retained",
+              "Eyes ring studs and geosets1,2,5,6 exact",
+              "Original upper/rear helmet triangles and rear trim attributes retained",
+              "Material paths layers binding rig visibility format and unrelated data retained",
+              "Lower panel contact clearance0.06 and front trim join retained"
+            ]
+          },
+          "ownerNext": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !"
+        },
+        {
+          "id": "history-3",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !",
+          "edits": [
+            "Add low polygon crown spike and collar",
+            "showAllGeosets",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.; outside check: doubtful",
+          "plan": {
+            "cause": "The reference uses one centered slender metal cone, a narrow neck and flared mounting foot. Current helmet has no crown spike. Crown at center[8.73,0.04968] is132.196 units high; a1.45-radius foot samples131.959\u2013132.187 over the crown. Helmet height is about21.5units, so an8.8\u20139unit spike gives a s\u2026",
+            "chosen": "Build a six-sided tapered spike with two low polygon collar transitions and a conforming embedded foot; reuse the existing warm Garithos texture patch.",
+            "why": "Captures the cone,waist and flared foot that define the reference at a small triangle budget. Existing material8 provides a warm metal area without adding textures or changing the authored helmet.",
+            "keep": [
+              "All seven existing geosets exactly unchanged including visor eyes ring and studs",
+              "All existing materials textures paths UVs and resource arrays unchanged",
+              "Rig pivots existing visibility and other animation data exact",
+              "New spike uses DummyBone0 and crown's existing visibility clock",
+              "MDX800 format retained; no source save or export"
+            ]
+          },
+          "ownerNext": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026"
+        },
+        {
+          "id": "history-4",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026",
+          "edits": [
+            "showAllGeosets",
+            "Simplify visor and center six equal breathing holes",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.",
+          "plan": {
+            "cause": "Selected helmet geoset3 has124triangles, including81in the lower front fit-grid and3redundant duplicate triangles. Six slit rectangles vary from5.62to6.95units tall and1.57to2.12wide physically. Mirrored slit pairs are centered aroundY0.209\u20130.250 rather than the helmet's brow centerlineY0.04968. De\u2026",
+            "chosen": "Replace81triangle front grid with two broad mirrored front faces,short side returns and a minimal shoulder; simplify matching front trim. Reposition the six existing quads as an equal centered row.",
+            "why": "Removes the cause of the excess topology and makes all six holes equal in both physical and projected size. Keeps the outer helmet identity and the user's edited crown,spike and resources. Target is \u2026",
+            "keep": [
+              "Current upper/rear helmet surface and attributes retained",
+              "removing only same-w\u2026",
+              "All other geosets1,2,5,6,7,8 exactly unchanged",
+              "Rear trim surface exact; front trim stays joined to helmet",
+              "Materials texture paths existing slit UVs rig influences visibility and all ani\u2026",
+              "Six vertical holes with identical physical dimensions and identical front-view \u2026",
+              "MDX800 format and unrelated data unchanged"
+            ]
+          },
+          "ownerNext": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!"
+        },
+        {
+          "id": "history-5",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!",
+          "edits": [
+            "Conservative helmet cleanup with equal centered slits"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "The rejected broad-plane rebuild changed the visor curvature, chin shape and interpolated texture layout. User restored revision776. Existing124-triangle shell contains3exact same-winding duplicate faces; two redundant samples can be removed without moving any remaining point or changing its UV/nor\u2026",
+            "chosen": "Remove3duplicate faces plus2redundant samples by changing only face indices. Keep every existing shell vertex/UV/normal value. Fit equal centered slit overlays onto untouched curved shell.",
+            "why": "Conservative face-only cleanup preserves the user's current geometry and mapping, rather than rebuilding or flattening it. Reject all other tested collapses that would visibly shift texture or shape.\u2026",
+            "keep": [
+              "Helmet geoset3 entire Vertices,Normals,TVertices,VertexGroup,Groups and all met\u2026",
+              "Helmet surface and silhouette within0.00001model units of restored version; no \u2026",
+              "All geosets0,1,2,5,6,7,8 entirely exact",
+              "All materials textures paths layers rig tracks visibility exact",
+              "Existing slit UVs/faces/bindings exact; preserve stepped pair center heights an\u2026",
+              "Slits remain vertical with positive contact clearance; no body shrinking or ref\u2026"
+            ]
+          },
+          "ownerNext": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026"
+        },
+        {
+          "id": "history-6",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026",
+          "edits": [
+            "Weld redundant mesh points while preserving appearance",
+            "mdlxl_versions",
+            "mdlxl_versions",
+            "showVertices",
+            "mdlxl_view",
+            "mdlxl_view",
+            "cleanView",
+            "clear",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "verified; outside check: doubtful",
+          "plan": {
+            "cause": "Whole-mesh audit found3exact-compatible shell duplicates,1more shell seam with identical position/normal and0.000335UV difference,2unused shell vertices, and8band seam pairs with identical positions and only0.0117\u20130.0342normal-vector/0\u20130.000534UV differences. Lower trim has1redundant nearly colline\u2026",
+            "chosen": "Conservative whole-mesh weld/compact: join12near/exact-compatible pairs, remove2unused shell points and1redundant trim sample.",
+            "why": "The chosen trial saves most of the safe redundant points while retaining the existing silhouette and texture mapping much more closely than the broader option. It directly targets the user's join-poi\u2026",
+            "keep": [
+              "Current helmet silhouette and all component locations; maximum measured surface\u2026",
+              "All material layers texture paths alpha/visibility clocks rig bindings resource\u2026",
+              "Geosets1,2,4,6,7,8 entirely exact including current user-edited breathing slits",
+              "Retain hard normal/UV seams; only join near-compatible pairs below0.035normal d\u2026",
+              "Remaining trim/shell/band attributes copied from existing corners",
+              "no new unwra\u2026",
+              "Six matching clean front/back/left/right/top/bottom images must each pass99perc\u2026"
+            ]
+          },
+          "ownerNext": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet."
+        },
+        {
+          "id": "history-7",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet.",
+          "edits": [
+            "Weld redundant helmet edge rows",
+            "mdlxl_versions",
+            "Compare tighter helmet edge welds",
+            "mdlxl_versions",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "incomplete: Resume inspected revision844; exactly matches saved Helmet edge weld stronger, so no applied weld repeated and no further model edit. Fresh checks against job baseline confirm362/347 to335/314, all independent geosets and non-geoset data exact, every retained position/normal/UV/binding exact source corner, symmetric sampled surface drift0.156104 maximum, streams/primitive metadata valid and MDX/MDL reopening clean. Inspected returned front/back/left/right textured images: no obvious new gap; weakest areas are existing faceted crown, side visor return and stretched lower-trim texture. Six matching before/after comparisons and isolated wire/plain comparisons were already completed per checkpoint, with silhouetteIoU>=99.8886% and mean RGB agreement>=99.6397%. Required independent visual acceptance remains unavailable: automatic outside review rejected the previous passed finish because fixed Pictures1\u20135 omitted baseline/wireframe images; fresh inspect again returns only textured after views, and no public evidence-attachment parameter is available. Capture sample geosets/plain options also ignored in fresh call. Preserve baseline/tighter/stronger versions; no geometry failure demonstrated, no new edit justified. No source saved/exported, no gameplay test. Do not certify complete until required visual review can consume the baseline comparisons.; outside check: doubtful",
+          "plan": {
+            "cause": "The previous cleanup removed mostly coincident duplicates and did not address redundant edge rows. The owner's new geoset1 (index0) weld removes6 actual lower-trim points/triangles by fanning an almost straight lower border. Current model362vertices347triangles. A paired-edge audit finds redundant \u2026",
+            "chosen": "Collapse redundant connected edges to existing endpoints, synchronizing coincident seam records; compare tight and stronger measured candidates",
+            "why": "Matches the owner's demonstrated actual weld operation and removes redundant topology while retaining authored points and UV records. Compare reductions directly, choose the strongest candidate that \u2026",
+            "keep": [
+              "Owner's current helmet appearance and manual weld result; six matching before/a\u2026",
+              "No replacement mesh",
+              "no changed texture paths/material layers/resources/visibil\u2026",
+              "Every retained vertex position/normal/every UV/binding must be an exact existin\u2026",
+              "All8studs,slits,eye glow and spike shape unchanged; preserve independent parts \u2026",
+              "No new gaps at shared trim/shell/band edges; synchronize seam collapses by topo\u2026",
+              "All non-geoset data and untouched geosets exact; validate primitive metadata",
+              "s\u2026"
+            ]
+          },
+          "ownerNext": "just fucking deliver it i dont care about the pictures"
+        }
+      ],
+      "beforeContextDietBytes": 17700
+    },
+    {
+      "ordinal": 77,
+      "request": "What the fuck are you talking about you moron? you didnt do any changes in the bottom like i asked you idiot",
+      "context": {
+        "target": "target-2"
+      },
+      "recordedBytes": 29900,
+      "jobs": [
+        {
+          "id": "history-0",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "please make them all as big as the one im holding",
+          "edits": [
+            "showAllGeosets",
+            "Match seven studs to selected stud size",
+            "showAllGeosets"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Selected stud0 vertices0..8 has been manually uniformly enlarged by1.90867327 (fit error below0.000009) relative to the saved original studs. Its height is1.83235 versus0.960007 for the other7. The other studs must receive that same enlargement.",
+            "chosen": "Scale each existing smaller stud by1.90867327 around its own mounting center, fitting enlarged base corners to the ring only where needed.",
+            "why": "Transfers the exact measured enlargement while preserving local orientation,topology,UVs and established placement. Retains more existing data than duplicating the selected shape.",
+            "keep": [
+              "Selected stud vertices0..8 exactly unchanged",
+              "All six other geosets exactly unchanged",
+              "Eight triangles per stud and all faces/UVs/materials/texture paths/bindings/vis\u2026",
+              "Each remaining stud stays at its original mounting center and facing; rig and a\u2026"
+            ]
+          },
+          "ownerNext": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight"
+        },
+        {
+          "id": "history-1",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "The vertices I selected are a bit slanted and angled, that means when viewing from the side the breathing slits are not straight - straighten out my selected vertices by about 65% so that the breathing sliths are more straight",
+          "edits": [
+            "showAllGeosets",
+            "Straighten selected breathing slit area by about 65 percent",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straighten breathing slits and preserve lower trim columns",
+            "mdlxl_versions",
+            "Straighten selected slit area while preserving eye opening",
+            "mdlxl_versions",
+            "Reduce both components of breathing slit lean"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Outside review correctly flagged remaining lean in angled side views. Fore-aft-only straightening left transverse Y lean intact. Restore baseline and reduce both horizontal components of slit edge lean, with upper eye rim and side joins anchored.",
+            "chosen": "Solve both X and Y horizontal slit-lean reductions with supporting shell anchors; transport fitted mouth through shell triangle weights and trim through paired columns.",
+            "why": "Addresses the remaining transverse cause visible from oblique sides,retains a measured positive fit,and keeps original heights,topology and protected upper eyeopening.",
+            "keep": [
+              "All unselected positions/normals and every Z coordinate exact",
+              "Eye rim30,32,43 and other geosets including eyes ring studs exact",
+              "UVs faces topology bindings materials texture paths visibility rig format uncha\u2026",
+              "Mouth minimum original0.05 clearance preserved",
+              "Lower trim paired column vectors preserved to avoid skew",
+              "Unrelated model data exact"
+            ]
+          },
+          "ownerNext": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down."
+        },
+        {
+          "id": "history-2",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "I want the breathing sliths to be straight from both side and front few - you may adjust the helm under to fit. The part of the visor that includes the breathing slits can overhang a slight bit to create this effect - so it can extend beyond the eyes forward and down.",
+          "edits": [
+            "showAllGeosets",
+            "Build straight overhanging visor and fit lower helmet",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "Straight visor with clean side shoulder joins"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "Fully vertical slit draft meets measured goal and clearance, but a redundant column only0.00085units from the positive side boundary makes a thin folded shoulder. Restored pre-edit version. Merge near-end sampling stations while preserving actual boundary endpoints.",
+            "chosen": "Merge grid stations within0.01units of side endpoints, retaining exact endpoint geometry; rebuild vertical panels and shoulder.",
+            "why": "Removes the cause of the folded shoulder rather than compensating with facing. Keeps the verified straight slit geometry,fit and protected surfaces.",
+            "keep": [
+              "Six long slit pairs exactly vertical in X/Y; corner UVs retained",
+              "Eyes ring studs and geosets1,2,5,6 exact",
+              "Original upper/rear helmet triangles and rear trim attributes retained",
+              "Material paths layers binding rig visibility format and unrelated data retained",
+              "Lower panel contact clearance0.06 and front trim join retained"
+            ]
+          },
+          "ownerNext": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !"
+        },
+        {
+          "id": "history-3",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "Make me a spike like the one on these helmets. keep it low poly and suitable for this model !",
+          "edits": [
+            "Add low polygon crown spike and collar",
+            "showAllGeosets",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.; outside check: doubtful",
+          "plan": {
+            "cause": "The reference uses one centered slender metal cone, a narrow neck and flared mounting foot. Current helmet has no crown spike. Crown at center[8.73,0.04968] is132.196 units high; a1.45-radius foot samples131.959\u2013132.187 over the crown. Helmet height is about21.5units, so an8.8\u20139unit spike gives a s\u2026",
+            "chosen": "Build a six-sided tapered spike with two low polygon collar transitions and a conforming embedded foot; reuse the existing warm Garithos texture patch.",
+            "why": "Captures the cone,waist and flared foot that define the reference at a small triangle budget. Existing material8 provides a warm metal area without adding textures or changing the authored helmet.",
+            "keep": [
+              "All seven existing geosets exactly unchanged including visor eyes ring and studs",
+              "All existing materials textures paths UVs and resource arrays unchanged",
+              "Rig pivots existing visibility and other animation data exact",
+              "New spike uses DummyBone0 and crown's existing visibility clock",
+              "MDX800 format retained; no source save or export"
+            ]
+          },
+          "ownerNext": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026"
+        },
+        {
+          "id": "history-4",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons. finally, make all the breathing holes the same size and make sure the\u2026",
+          "edits": [
+            "showAllGeosets",
+            "Simplify visor and center six equal breathing holes",
+            "showAllGeosets"
+          ],
+          "outcome": "interrupted: AI request cancelled.",
+          "plan": {
+            "cause": "Selected helmet geoset3 has124triangles, including81in the lower front fit-grid and3redundant duplicate triangles. Six slit rectangles vary from5.62to6.95units tall and1.57to2.12wide physically. Mirrored slit pairs are centered aroundY0.209\u20130.250 rather than the helmet's brow centerlineY0.04968. De\u2026",
+            "chosen": "Replace81triangle front grid with two broad mirrored front faces,short side returns and a minimal shoulder; simplify matching front trim. Reposition the six existing quads as an equal centered row.",
+            "why": "Removes the cause of the excess topology and makes all six holes equal in both physical and projected size. Keeps the outer helmet identity and the user's edited crown,spike and resources. Target is \u2026",
+            "keep": [
+              "Current upper/rear helmet surface and attributes retained",
+              "removing only same-w\u2026",
+              "All other geosets1,2,5,6,7,8 exactly unchanged",
+              "Rear trim surface exact; front trim stays joined to helmet",
+              "Materials texture paths existing slit UVs rig influences visibility and all ani\u2026",
+              "Six vertical holes with identical physical dimensions and identical front-view \u2026",
+              "MDX800 format and unrelated data unchanged"
+            ]
+          },
+          "ownerNext": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!"
+        },
+        {
+          "id": "history-5",
+          "at": "2026-10-29T00:00:00Z",
+          "request": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!",
+          "edits": [
+            "Conservative helmet cleanup with equal centered slits"
+          ],
+          "outcome": "verified; outside check: good",
+          "plan": {
+            "cause": "The rejected broad-plane rebuild changed the visor curvature, chin shape and interpolated texture layout. User restored revision776. Existing124-triangle shell contains3exact same-winding duplicate faces; two redundant samples can be removed without moving any remaining point or changing its UV/nor\u2026",
+            "chosen": "Remove3duplicate faces plus2redundant samples by changing only face indices. Keep every existing shell vertex/UV/normal value. Fit equal centered slit overlays onto untouched curved shell.",
+            "why": "Conservative face-only cleanup preserves the user's current geometry and mapping, rather than rebuilding or flattening it. Reject all other tested collapses that would visibly shift texture or shape.\u2026",
+            "keep": [
+              "Helmet geoset3 entire Vertices,Normals,TVertices,VertexGroup,Groups and all met\u2026",
+              "Helmet surface and silhouette within0.00001model units of restored version; no \u2026",
+              "All geosets0,1,2,5,6,7,8 entirely exact",
+              "All materials textures paths layers rig tracks visibility exact",
+              "Existing slit UVs/faces/bindings exact; preserve stepped pair center heights an\u2026",
+              "Slits remain vertical with positive contact clearance; no body shrinking or ref\u2026"
+            ]
+          },
+          "ownerNext": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026"
+        },
+        {
+          "id": "history-6",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. geoset 1 for sure but I can also see parts of geoset 5. Your acceptance gate is 6 pictures - from every angle and a 99% identical shape an\u2026",
+          "edits": [
+            "Weld redundant mesh points while preserving appearance",
+            "mdlxl_versions",
+            "mdlxl_versions",
+            "showVertices",
+            "mdlxl_view",
+            "mdlxl_view",
+            "cleanView",
+            "clear",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "verified; outside check: doubtful",
+          "plan": {
+            "cause": "Whole-mesh audit found3exact-compatible shell duplicates,1more shell seam with identical position/normal and0.000335UV difference,2unused shell vertices, and8band seam pairs with identical positions and only0.0117\u20130.0342normal-vector/0\u20130.000534UV differences. Lower trim has1redundant nearly colline\u2026",
+            "chosen": "Conservative whole-mesh weld/compact: join12near/exact-compatible pairs, remove2unused shell points and1redundant trim sample.",
+            "why": "The chosen trial saves most of the safe redundant points while retaining the existing silhouette and texture mapping much more closely than the broader option. It directly targets the user's join-poi\u2026",
+            "keep": [
+              "Current helmet silhouette and all component locations; maximum measured surface\u2026",
+              "All material layers texture paths alpha/visibility clocks rig bindings resource\u2026",
+              "Geosets1,2,4,6,7,8 entirely exact including current user-edited breathing slits",
+              "Retain hard normal/UV seams; only join near-compatible pairs below0.035normal d\u2026",
+              "Remaining trim/shell/band attributes copied from existing corners",
+              "no new unwra\u2026",
+              "Six matching clean front/back/left/right/top/bottom images must each pass99perc\u2026"
+            ]
+          },
+          "ownerNext": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet."
+        },
+        {
+          "id": "history-7",
+          "at": "2026-10-30T00:00:00Z",
+          "request": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet.",
+          "edits": [
+            "Weld redundant helmet edge rows",
+            "mdlxl_versions",
+            "Compare tighter helmet edge welds",
+            "mdlxl_versions",
+            "showAllGeosets",
+            "mdlxl_versions",
+            "mdlxl_versions"
+          ],
+          "outcome": "incomplete: Resume inspected revision844; exactly matches saved Helmet edge weld stronger, so no applied weld repeated and no further model edit. Fresh checks against job baseline confirm362/347 to335/314, all independent geosets and non-geoset data exact, every retained position/normal/UV/binding exact source corner, symmetric sampled surface drift0.156104 maximum, streams/primitive metadata valid and MDX/MDL reopening clean. Inspected returned front/back/left/right textured images: no obvious new gap; weakest areas are existing faceted crown, side visor return and stretched lower-trim texture. Six matching before/after comparisons and isolated wire/plain comparisons were already completed per checkpoint, with silhouetteIoU>=99.8886% and mean RGB agreement>=99.6397%. Required independent visual acceptance remains unavailable: automatic outside review rejected the previous passed finish because fixed Pictures1\u20135 omitted baseline/wireframe images; fresh inspect again returns only textured after views, and no public evidence-attachment parameter is available. Capture sample geosets/plain options also ignored in fresh call. Preserve baseline/tighter/stronger versions; no geometry failure demonstrated, no new edit justified. No source saved/exported, no gameplay test. Do not certify complete until required visual review can consume the baseline comparisons.; outside check: doubtful",
+          "plan": {
+            "cause": "The previous cleanup removed mostly coincident duplicates and did not address redundant edge rows. The owner's new geoset1 (index0) weld removes6 actual lower-trim points/triangles by fanning an almost straight lower border. Current model362vertices347triangles. A paired-edge audit finds redundant \u2026",
+            "chosen": "Collapse redundant connected edges to existing endpoints, synchronizing coincident seam records; compare tight and stronger measured candidates",
+            "why": "Matches the owner's demonstrated actual weld operation and removes redundant topology while retaining authored points and UV records. Compare reductions directly, choose the strongest candidate that \u2026",
+            "keep": [
+              "Owner's current helmet appearance and manual weld result; six matching before/a\u2026",
+              "No replacement mesh",
+              "no changed texture paths/material layers/resources/visibil\u2026",
+              "Every retained vertex position/normal/every UV/binding must be an exact existin\u2026",
+              "All8studs,slits,eye glow and spike shape unchanged; preserve independent parts \u2026",
+              "No new gaps at shared trim/shell/band edges; synchronize seam collapses by topo\u2026",
+              "All non-geoset data and untouched geosets exact; validate primitive metadata",
+              "s\u2026"
+            ]
+          },
+          "ownerNext": "just fucking deliver it i dont care about the pictures"
+        }
+      ],
+      "beforeContextDietBytes": 17753
+    }
+  ],
+  "comparison": "beforeContextDietBytes replays the exact contextText and diaryText functions from f1b0a923 with the same anonymised records and worker job/settings header; recordedBytes measures the older actual native payload including its command list.",
+  "context": {
+    "documentId": "model",
+    "onScreen": true,
+    "name": "example.mdx",
+    "path": "D:/fixtures/example.mdx",
+    "revision": 844,
+    "version": 800,
+    "readOnly": false,
+    "dirty": true,
+    "selection": {
+      "0": [
+        24,
+        26
+      ]
+    },
+    "selectedNodeIds": [],
+    "checkedGeosets": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "activeGeoset": 0,
+    "uvSet": 0,
+    "mode": "vertices",
+    "animationPanel": "animations",
+    "sequence": -1,
+    "sequenceName": null,
+    "frame": 0,
+    "liveFrame": 0,
+    "globalSequence": null,
+    "uvEditing": false,
+    "renderMode": "wireframe",
+    "hiddenGeosets": [],
+    "keyframes": null,
+    "workplane": "xz",
+    "view": "front",
+    "playing": false,
+    "pending": {
+      "dialog": null,
+      "paint": false,
+      "animationDrafts": [],
+      "uvPreviews": []
+    },
+    "counts": {
+      "geosets": 9,
+      "vertices": 335,
+      "triangles": 314,
+      "nodes": 1
+    },
+    "geosets": [
+      {
+        "index": 0,
+        "vertices": 38,
+        "triangles": 34,
+        "material": 0
+      },
+      {
+        "index": 1,
+        "vertices": 8,
+        "triangles": 8,
+        "material": 1
+      },
+      {
+        "index": 2,
+        "vertices": 10,
+        "triangles": 8,
+        "material": 2
+      },
+      {
+        "index": 3,
+        "vertices": 75,
+        "triangles": 98,
+        "material": 3
+      },
+      {
+        "index": 4,
+        "vertices": 24,
+        "triangles": 12,
+        "material": 8
+      },
+      {
+        "index": 5,
+        "vertices": 82,
+        "triangles": 54,
+        "material": 3
+      },
+      {
+        "index": 6,
+        "vertices": 72,
+        "triangles": 64,
+        "material": 4
+      },
+      {
+        "index": 7,
+        "vertices": 19,
+        "triangles": 30,
+        "material": 4
+      },
+      {
+        "index": 8,
+        "vertices": 7,
+        "triangles": 6,
+        "material": 9
+      }
+    ],
+    "nodes": [
+      {
+        "id": 0,
+        "name": "DummyBone",
+        "parent": null
+      }
+    ],
+    "sequences": [],
+    "diagnostics": [],
+    "annotations": {
+      "about": "The user drew these on the model in the AI console to point at areas. Pen = scribble/outline, possibly a wanted shape drawn off the surface. Marker = highlighted surface region. They are not part of the model. Colors are the user's own labels.",
+      "strokes": [
+        {
+          "number": 1,
+          "tool": "pen",
+          "color": "red",
+          "points": [
+            [
+              15.5,
+              0.5,
+              128
+            ],
+            [
+              15.4,
+              0.6,
+              128
+            ],
+            [
+              15.3,
+              0.7,
+              128
+            ],
+            [
+              15.2,
+              0.8,
+              128
+            ],
+            [
+              15.1,
+              0.9,
+              128
+            ],
+            [
+              15.1,
+              1,
+              128
+            ],
+            [
+              15,
+              1.1,
+              128
+            ],
+            [
+              14.9,
+              1.2,
+              128
+            ],
+            [
+              14.9,
+              1.3,
+              128
+            ],
+            [
+              14.8,
+              1.4,
+              128
+            ],
+            [
+              14.7,
+              1.5,
+              128
+            ],
+            [
+              14.6,
+              1.6,
+              128.1
+            ],
+            [
+              14.6,
+              1.6,
+              128.1
+            ],
+            [
+              14.5,
+              1.7,
+              128.1
+            ],
+            [
+              14.4,
+              1.8,
+              128.1
+            ],
+            [
+              14.4,
+              1.9,
+              128.2
+            ],
+            [
+              14.3,
+              2,
+              128.2
+            ],
+            [
+              14.2,
+              2,
+              128.2
+            ],
+            [
+              14.2,
+              2.1,
+              128.3
+            ],
+            [
+              14.1,
+              2.2,
+              128.3
+            ],
+            [
+              14.1,
+              2.3,
+              128.3
+            ],
+            [
+              14,
+              2.4,
+              128.4
+            ],
+            [
+              14,
+              2.4,
+              128.4
+            ],
+            [
+              14,
+              2.5,
+              128.4
+            ],
+            [
+              13.9,
+              2.6,
+              128.4
+            ],
+            [
+              13.9,
+              2.7,
+              128.5
+            ],
+            [
+              13.8,
+              2.8,
+              128.5
+            ],
+            [
+              13.8,
+              2.8,
+              128.5
+            ],
+            [
+              13.7,
+              2.9,
+              128.5
+            ],
+            [
+              13.7,
+              3,
+              128.5
+            ],
+            [
+              13.6,
+              3.1,
+              128.6
+            ],
+            [
+              13.6,
+              3.2,
+              128.6
+            ],
+            [
+              13.5,
+              3.2,
+              128.6
+            ],
+            [
+              13.5,
+              3.3,
+              128.6
+            ],
+            [
+              13.4,
+              3.4,
+              128.6
+            ]
+          ],
+          "pointsOnModel": "35 of 35",
+          "viewDirection": [
+            -0.99,
+            0,
+            -0.15
+          ],
+          "nearbyVertices": {
+            "3": [
+              7,
+              14
+            ]
+          }
+        },
+        {
+          "number": 2,
+          "tool": "pen",
+          "color": "red",
+          "points": [
+            [
+              15.1,
+              1,
+              128
+            ],
+            [
+              15,
+              1.1,
+              128
+            ],
+            [
+              15,
+              1.1,
+              128.1
+            ],
+            [
+              14.9,
+              1.2,
+              128.1
+            ],
+            [
+              14.9,
+              1.3,
+              128.2
+            ],
+            [
+              14.8,
+              1.4,
+              128.2
+            ],
+            [
+              14.7,
+              1.5,
+              128.2
+            ],
+            [
+              14.6,
+              1.6,
+              128.3
+            ],
+            [
+              14.6,
+              1.6,
+              128.3
+            ],
+            [
+              14.5,
+              1.7,
+              128.3
+            ],
+            [
+              14.4,
+              1.8,
+              128.3
+            ],
+            [
+              14.4,
+              1.9,
+              128.3
+            ],
+            [
+              14.3,
+              2,
+              128.4
+            ],
+            [
+              14.2,
+              2.1,
+              128.4
+            ],
+            [
+              14.2,
+              2.2,
+              128.4
+            ],
+            [
+              14.1,
+              2.2,
+              128.4
+            ],
+            [
+              14.1,
+              2.3,
+              128.4
+            ],
+            [
+              14,
+              2.4,
+              128.4
+            ],
+            [
+              14,
+              2.5,
+              128.4
+            ],
+            [
+              13.9,
+              2.6,
+              128.4
+            ],
+            [
+              13.8,
+              2.7,
+              128.4
+            ],
+            [
+              13.8,
+              2.8,
+              128.4
+            ],
+            [
+              13.7,
+              2.9,
+              128.4
+            ],
+            [
+              13.7,
+              3,
+              128.4
+            ],
+            [
+              13.6,
+              3.1,
+              128.4
+            ],
+            [
+              13.6,
+              3.2,
+              128.5
+            ],
+            [
+              13.5,
+              3.3,
+              128.5
+            ],
+            [
+              13.4,
+              3.4,
+              128.5
+            ],
+            [
+              13.4,
+              3.5,
+              128.5
+            ],
+            [
+              13.3,
+              3.5,
+              128.5
+            ],
+            [
+              13.3,
+              3.6,
+              128.6
+            ],
+            [
+              13.3,
+              3.7,
+              128.6
+            ],
+            [
+              13.2,
+              3.8,
+              128.7
+            ],
+            [
+              13.2,
+              3.8,
+              128.7
+            ],
+            [
+              13.2,
+              3.9,
+              128.8
+            ],
+            [
+              13.2,
+              3.9,
+              128.8
+            ],
+            [
+              13.1,
+              4,
+              128.9
+            ],
+            [
+              13.1,
+              4.1,
+              128.9
+            ]
+          ],
+          "pointsOnModel": "38 of 38",
+          "viewDirection": [
+            -0.99,
+            0,
+            -0.15
+          ],
+          "nearbyVertices": {
+            "3": [
+              14
+            ]
+          }
+        },
+        {
+          "number": 3,
+          "tool": "pen",
+          "color": "red",
+          "points": [
+            [
+              14.2,
+              2,
+              127.6
+            ],
+            [
+              14.3,
+              1.9,
+              127.6
+            ],
+            [
+              14.4,
+              1.8,
+              127.5
+            ],
+            [
+              14.4,
+              1.8,
+              127.5
+            ],
+            [
+              14.5,
+              1.7,
+              127.5
+            ],
+            [
+              14.6,
+              1.6,
+              127.5
+            ],
+            [
+              14.7,
+              1.5,
+              127.5
+            ],
+            [
+              14.7,
+              1.4,
+              127.5
+            ],
+            [
+              14.8,
+              1.3,
+              127.5
+            ],
+            [
+              14.9,
+              1.2,
+              127.5
+            ],
+            [
+              15,
+              1.1,
+              127.5
+            ],
+            [
+              15,
+              1,
+              127.4
+            ],
+            [
+              15.1,
+              0.9,
+              127.4
+            ],
+            [
+              15.2,
+              0.8,
+              127.4
+            ],
+            [
+              15.3,
+              0.7,
+              127.4
+            ],
+            [
+              15.3,
+              0.6,
+              127.4
+            ],
+            [
+              15.4,
+              0.5,
+              127.4
+            ],
+            [
+              15.5,
+              0.5,
+              127.4
+            ],
+            [
+              15.6,
+              0.4,
+              127.4
+            ],
+            [
+              15.6,
+              0.3,
+              127.4
+            ],
+            [
+              15.7,
+              0.2,
+              127.4
+            ],
+            [
+              15.8,
+              0.1,
+              127.4
+            ],
+            [
+              15.8,
+              0,
+              127.3
+            ],
+            [
+              15.8,
+              -0.1,
+              127.3
+            ],
+            [
+              15.8,
+              -0.1,
+              127.2
+            ]
+          ],
+          "pointsOnModel": "25 of 25",
+          "viewDirection": [
+            -0.99,
+            0,
+            -0.15
+          ],
+          "nearbyVertices": {}
+        }
+      ]
+    },
+    "documents": [
+      {
+        "id": "model",
+        "name": "example.mdx",
+        "path": "D:/fixtures/example.mdx",
+        "active": true,
+        "revision": 844
+      },
+      {
+        "id": "model",
+        "name": "example.mdx",
+        "path": "D:/fixtures/example.mdx",
+        "active": false,
+        "revision": 0
+      },
+      {
+        "id": "model",
+        "name": "example.mdx",
+        "path": "D:/fixtures/example.mdx",
+        "active": false,
+        "revision": 1
+      },
+      {
+        "id": "model",
+        "name": "example.mdx",
+        "path": "D:/fixtures/example.mdx",
+        "active": false,
+        "revision": 0
+      }
+    ]
+  }
+}

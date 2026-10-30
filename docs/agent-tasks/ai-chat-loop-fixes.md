@@ -1,6 +1,6 @@
 # AI chat loop fixes
 
-Status: completed (implementation ready to test; PR not merged)
+Status: five fixes merged in PR #427; separate context-diet follow-up completed, ready to test
 Owner / consolidator: Codex
 Updated: 2026-10-30
 
@@ -10,7 +10,7 @@ Fix the five failures from the owner's 0.35.0 chat in the existing chat and Undo
 
 ## Revision and local state
 
-- Branch / checkout: `codex/ai-chat-loop-fixes`; `D:\Codex\mdlxl-ai-chat-loops`.
+- Original fixes: `codex/ai-chat-loop-fixes`; PR [#427](https://github.com/UnsctMagic/MDLxL/pull/427) merged at `9f4e079b`. Its disposable checkout was removed after push.
 - Base / checked revision: `d1dc4ffe` from origin/main (unchanged at final fetch). Five commits, one per bug, on this PR branch. Final documentation amendment does not change tested code.
 - Required local fixtures: the supplied chat and Codex rollout are read-only inputs. The supplied model is copied to `out/owner-model.mdx` before use. Only anonymised prompt/evidence excerpts enter `test/fixtures/ai-chat-loop-turns.json`.
 
@@ -49,5 +49,25 @@ Fix the five failures from the owner's 0.35.0 chat in the existing chat and Undo
 
 ## Blockers and next action
 
-- Result: the five changes and regressions are ready for owner testing; push and PR handoff into main. Do not merge. Release inclusion is left to the 0.36.0 release PR if still open, otherwise the next release.
+- Original result: the five fixes merged through PR #427 at `9f4e079b`; the context-diet follow-up below is separate and must remain unmerged.
 - Cleanup: remove disposable packages, profiles, baseline and task worktrees after pushing; retain the small local result report. The branch and all source changes remain in Git/GitHub.
+
+
+## Follow-up: AI context diet
+
+Status: completed (implementation and checks); separate PR ready to test, no merge authorised.
+
+- Branch / checkout: `codex/ai-context-diet`; `D:\Codex\mdlxl-ai-context-diet`.
+- Started at first PR [#427](https://github.com/UnsctMagic/MDLxL/pull/427), tip `f1b0a923`. After #427 merged during this work, rebased onto `origin/main` at `9f4e079b` (same code tree as the starting tip). Then preserved the separately merged real-use grading harness in #428 by rebasing onto `de508bc2`. The second PR targets main; the original five fixes stay in their own PR.
+- Goal: send the snapshot once per worker/conversation, then actual changes; keep user words first, pass only task-relevant model diary entries, preserve on-demand full context and necessary IDs. No new settings, UI or user-facing limits.
+- Verified source: a partial diff already existed at the base. It repeated selection/frame/annotations even when unchanged, did not invalidate its cursor at compaction or model replacement, and nudges used the original captured state. `runWorker` prefixed the job label, while steering prefixed an explanation. The diary sent eight recent entries in chronological order without task relevance.
+- Evidence: three complete user payloads in the supplied read-only rollout (ordinals 11, 66, 77), anonymised in `test/fixtures/ai-context-helmet.json`; original byte counts are metadata. These are recorded message sizes, not an estimate of all API history retransmitted by a stateless provider. The recorded context has 37 sections including commands; the replay stores common fields once and leaves command data out because both formatters reserve it for `mdlxl_context`.
+- Decisions: target always travels; other sections travel only when changed, removed fields are explicit nulls. Reset/compaction/model replacement starts a full snapshot again. Editor tool results refresh the worker state; an on-demand full context becomes its comparison baseline. User words lead job messages, Resume, nudges and steering under separate context/update/diary headings.
+- Diary: existing 40-entry storage is unchanged. Keep all stored entries with the organiser (no diary read tool exists). Workers receive the closest task-word matches, touched parts and a directly continued prior task, newest first; equally relevant entries are not cut at a fixed count. The current owner's reply is never used to manufacture a relevance match for the previous job.
+- Prompt change: only the first sentence/rule of `AI_EDITING_BODY` changes to explain omission semantics and reset cases. Deliberate hashes cover all direct/worker handbook/web combinations; removing this replacement and the already-approved example rule restores the original hashes. Router and all other static prompt text remain unchanged.
+- Regression evidence: three new regressions failed before editing. Added coverage also checks on-demand context reads, history reset, model replacement, compaction, current geoset/bone IDs, latest-word nudges and steering delivered after an edit. Selected node ObjectIds remain distinct from Bones array indices. A fake native CLI also reproduces rejected steering/injection delivery: this invalidates the context baseline and the late follow-up carries the current full snapshot. That regression failed before the delivery-reset patch; private reset bookkeeping stays out of the visible transcript.
+- Replay sizes (UTF-8 bytes per new message, ordinals 11/66/77): recorded 34732 / 29847 / 29900; first-PR formatter 19530 / 17700 / 17753; context diet 7801 / 4265 / 3670. The two follow-ups are 78% smaller than the first-PR formatter and 87% smaller than the older actual payloads. The baseline formatter is replayed from `f1b0a923`, not estimated from a claimed 22 KB snapshot.
+- Source verification: `npx vite build` passed; `node --test test/ai-*.test.js`: 266 passed, 1 skipped; `node --test test/*.test.js`: 2416 passed, 23 skipped (the first-PR baseline was 2396/23; #428 adds eleven unchanged grading tests, this PR adds nine regressions; no new failures); compatibility suite all 57 passed. Prompt hashes restore every earlier byte after reversing only the documented context-rule replacement and the first PR's example rule.
+- Package verified 1332 runtime/assets and 55 locales. Hidden `node scripts/run-packaged-tests.mjs default ai-console,ai-routing,ai-questions,ai-editor,ai-parallel`: routing, questions and parallel passed. Console verified user-first steering, model edits, captures and task cleanup before reaching the same pre-existing reference-tab assertion as #427; editor stopped at the same fake native sign-in launcher as that baseline. These two checks are not claimed as passing. The console assertion was updated to require delivery with user words first, replacing only its deliberate old-prefix expectation.
+- Result: push the separate `codex/ai-context-diet` branch and PR into main; do not merge. The same note covers both tasks. No installed app/profile, model source, release version, release note, user-facing setting or limit changed. Original chat/rollout were read-only evidence.
+- Verification revision: `6a0128c4` on base `de508bc2`; the final amendment only records results. The first PR and new main harness are preserved. Remove task-created builds/profiles and the pushed disposable worktree; retain the small result report.

@@ -863,6 +863,7 @@ async function runCodex(options) {
               items: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: message }] }],
             });
           } catch {
+            event({ type: 'context-reset' });
             steering.restore(message);
           }
         }

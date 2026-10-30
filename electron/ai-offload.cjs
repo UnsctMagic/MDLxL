@@ -49,7 +49,7 @@ class AiSteering {
   }
   take() {
     if (!this.queue.length) return null;
-    return this.queue.splice(0).join('\n\n');
+    return this.queue.splice(0).map(message => typeof message === 'function' ? message() : message).join('\n\n');
   }
   restore(message) {
     this.queue.unshift(message);

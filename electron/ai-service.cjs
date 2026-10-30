@@ -67,17 +67,22 @@ function addressedBird(workers, text) {
 // provider history starts over); later prompts carry the target, where the user
 // is, and only the fields that changed. mdlxl_context returns everything,
 // including the editor command list, which prompts leave out.
-const CONTEXT_ALWAYS = ['target', 'documentId', 'revision', 'selection', 'frame', 'sequence', 'annotations', 'region'];
 function contextText(conversation, context) {
   const { commands, ...snapshot } = context;
   const fingerprints = Object.fromEntries(Object.entries(snapshot).map(([key, value]) => [key, crypto.createHash('sha1').update(JSON.stringify(value) ?? '').digest('base64')]));
-  const sent = (conversation.messages?.length || conversation.threadId) && conversation.sentContext;
+  const sameModel = conversation.sentContextDocument === snapshot.documentId &&
+    !(Number.isFinite(snapshot.revision) && snapshot.revision < conversation.sentContextRevision);
+  const sameThread = conversation.sentContextThread === undefined || conversation.sentContextThread === (conversation.threadId || null);
+  const sent = (conversation.messages?.length || conversation.threadId) && sameModel && sameThread && conversation.sentContext;
+  conversation.sentContextDocument = snapshot.documentId;
+  conversation.sentContextRevision = snapshot.revision;
+  conversation.sentContextThread = conversation.threadId || null;
   conversation.sentContext = fingerprints;
   if (!sent) return '\n\nMDLxL context captured when this prompt was sent (call mdlxl_context for the editor command list):\n' + JSON.stringify(snapshot);
   const delta = {};
-  for (const key of Object.keys(snapshot)) if (CONTEXT_ALWAYS.includes(key) || fingerprints[key] !== sent[key]) delta[key] = snapshot[key];
+  for (const key of Object.keys(snapshot)) if (key === 'target' || fingerprints[key] !== sent[key]) delta[key] = snapshot[key];
   for (const key of Object.keys(sent)) if (!(key in snapshot)) delta[key] = null;
-  return '\n\nMDLxL context for this prompt: the target and what changed since the full context earlier in this conversation. Call mdlxl_context for the full lists.\n' + JSON.stringify(delta);
+  return '\n\nMDLxL context for this prompt: the target and changes since the last context you received. Omitted fields keep their previous values. Call mdlxl_context for the full lists.\n' + JSON.stringify(delta);
 }
 
 class AiService {
@@ -774,6 +779,9 @@ class AiService {
     let lastTokens = 0, lastUsd = 0;
     const own = { calls: 0, tokens: null, usd: null };
     return value => {
+      if (value.type === 'context-reset') { delete conversation.sentContext; return; }
+      if (value.type === 'compaction') delete conversation.sentContext;
+      if (value.type === 'request') conversation.sentContextThread = conversation.threadId || null;
       if (!['request', 'cost'].includes(value.type)) {
         recorder.event(value);
         const parent = this.tasks.get(conversation.organiserId)?.recorder;
@@ -820,11 +828,13 @@ class AiService {
       sdReviewProblem,
     } = contract;
     const id = conversation.id;
+    context = structuredClone(context);
     if (conversation.kind === 'worker' && conversation.model !== undefined) settings = { ...settings, model: conversation.model };
     const lightController = new AbortController();
     signal = AbortSignal.any([signal, lightController.signal]);
     let lightFailure, workerYield;
     const escalate = reason => { lightFailure = Error(reason); lightFailure.code = 'AI_LIGHT_ESCALATE'; lightController.abort(lightFailure); throw lightFailure; };
+    const previousTask = conversation.task;
     let task;
     if (resume) {
       task = conversation.task;
@@ -861,6 +871,7 @@ class AiService {
       task = conversation.task = {
         prompt: text,
         request: requestText || text,
+        latestRequest: requestText || text,
         images,
         context,
         status: 'running',
@@ -871,6 +882,8 @@ class AiService {
     // SD Brain and the editing handbook stay as they were when the task started;
     // toggling applies to the next task. Workers inherit the organiser's policy.
     const sd = (task.sdBrain ||= policy || { enabled: false });
+    task.context = context;
+    task.latestRequest ||= task.request || text;
     task.status = 'running';
     task.summary = '';
     this.runningIds.add(id);
@@ -886,8 +899,9 @@ class AiService {
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     };
+    let promptHasContext = false;
     let prompt =
-      text +
+      (resume ? 'Resume task\n\nOriginal request:\n' + text : text) +
       (resume
         ? '\n\nResume the interrupted task. Inspect the current model and these completed steps before continuing; do not repeat an applied edit. A pending step may have been interrupted before its result was recorded.\n' +
           checkpointNote(task)
@@ -924,12 +938,11 @@ class AiService {
       }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!organiser && !conversation.toolsOff && !conversation.helperOnly && conversation.modelKey) {
-      const diary = diaryText(await this.registry.model(conversation.modelKey));
+      const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
       if (diary) prompt += '\n\n' + diary;
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
-    prompt += contextText(conversation, context);
     const helperController = new AbortController();
     let helperPromise;
     const startHelper = spec => {
@@ -1092,6 +1105,18 @@ class AiService {
           },
           requestSignal,
         );
+        if (name === 'mdlxl_context' && result?.target === context.target) {
+          Object.assign(context, result);
+        } else if (result?.context?.target === context.target) Object.assign(context, result.context);
+        else if (result?.target === context.target) {
+          for (const key of Object.keys(context)) if (key in result) context[key] = result[key];
+        }
+        if (task.steeringAnnotations) {
+          context.annotations = task.steeringAnnotations;
+          if (name === 'mdlxl_context') result.annotations = task.steeringAnnotations;
+        }
+        if (name === 'mdlxl_context' && result?.target === context.target)
+          contextText(conversation, context); // The full tool result is the worker's new baseline.
         // What the outside check will judge: the latest inspected checks and pictures.
         if (edit) {
           lastInspect = null;
@@ -1121,6 +1146,8 @@ class AiService {
           result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, checks: task.plan.checks, check: 'Confirm each keep item with a measured check or a visible comparison.' };
         if (edit || name === 'mdlxl_review') {
           task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, requestSignal);
+          if (task.checkpoint.context?.target === context.target) Object.assign(context, task.checkpoint.context);
+          if (task.steeringAnnotations) context.annotations = task.steeringAnnotations;
           if (edit)
             Object.assign(task.steps.at(-1), {
               status: 'applied',
@@ -1185,7 +1212,7 @@ class AiService {
           tools,
           call,
           system: instructions,
-          prompt,
+          prompt: prompt + (promptHasContext && conversation.sentContext ? '' : contextText(conversation, context)),
           images: runs++ ? [] : images,
           conversation,
           signal,
@@ -1193,17 +1220,19 @@ class AiService {
           steering,
           web,
         };
-        await runProvider(options);
+        try { await runProvider(options); }
+        catch (error) { delete conversation.sentContext; throw error; }
         if (workerYield) throw workerYield;
         if (lightFailure) throw lightFailure;
         const findings = await helperFindings();
-        if (findings) { prompt = 'Your helper finished. Incorporate these findings before completing the job: ' + JSON.stringify(findings); continue; }
+        if (findings) { promptHasContext = false; prompt = task.latestRequest + '\n\nTask update:\nYour helper finished. Incorporate these findings before completing the job: ' + JSON.stringify(findings); continue; }
         if (conversation.light && /\b(?:cannot|can't|couldn't|could not|unable to)\s+(?:finish|complete|do)\b/i.test(recorder.report())) escalate('The lighter model reported that it could not finish.');
         // Steering that arrived as the AI finished starts a follow-up turn on the same task.
         const late = steering.take();
         if (late) {
           recorder.separate();
-          prompt = late + contextText(conversation, context);
+          prompt = late;
+          promptHasContext = true;
           continue;
         }
         attempt++;
@@ -1234,10 +1263,10 @@ class AiService {
         if (attempt >= 4) break;
         await progress('verifying');
         recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
+        promptHasContext = false;
         prompt =
-          'The edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
-          JSON.stringify(review) +
-          contextText(conversation, context);
+          task.latestRequest + '\n\nTask update:\nThe edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
+          JSON.stringify(review);
       }
       throw Error(
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
@@ -1260,7 +1289,7 @@ class AiService {
           const outcome =
             (task.phase === 'verified' ? 'verified' : task.status === 'complete' ? 'complete' : (task.status || 'incomplete') + (task.summary ? ': ' + task.summary : '')) +
             (task.outsideCheck ? `; outside check: ${task.outsideCheck.verdict}` : '');
-          if (recordJob(entry, { id: task.diaryId, request: task.prompt || text, plan: task.plan, steps: task.steps, outcome, bird: conversation.kind === 'worker' ? conversation.name : undefined })) {
+          if (recordJob(entry, { id: task.diaryId, request: task.request || task.prompt || text, plan: task.plan, steps: task.steps, nodeIds: context.selectedNodeIds, outcome, bird: conversation.kind === 'worker' ? conversation.name : undefined })) {
             await this.persistConversation(conversation);
             await this.registry.save();
           }
@@ -1390,7 +1419,7 @@ class AiService {
       if (!args.helperOnly) active.lastWorker = worker.id;
       this.emitRunning();
       const text =
-        `Job: ${args.job}\n\n${userText}` +
+        `${userText}\n\nJob: ${args.job}` +
         (args.instructions ? '\n\nAssigned investigation or prerequisite evidence:\n' + args.instructions : '') +
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
@@ -1785,16 +1814,24 @@ class AiService {
     if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
       throw Error('Enter a message of 1–20000 characters.');
-    const message =
-      'The user sent this while you were working. Treat it as steering for the current task:\n' +
-      text +
-      (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
+    const messageFor = id => {
+      const conversation = this.conversations.get(id), task = conversation?.task;
+      if (task) task.latestRequest = text;
+      // Render at delivery, after the pending editor operation has returned its
+      // updated state. Queued steering must not freeze the pre-edit snapshot.
+      return () => {
+        const context = task?.context;
+        if (context && annotations) context.annotations = task.steeringAnnotations = annotations;
+        return text + '\n\nSteering:\nThe user sent this while you were working. Treat it as steering for the current task.' +
+          (context ? contextText(conversation, context) : '');
+      };
+    };
     // Steering the organiser reaches the worker it is waiting on; steering a
     // running worker directly goes only to that worker.
     const deliver = w => {
       if (acceptsDelivery(text)) { const task = this.conversations.get(w.id)?.task; if (task) task.acceptedByUser = true; }
       if (w.light && !simpleJob(text)) { w.escalation = text; w.controller.abort(Error('Complex steering requires the chosen model.')); }
-      else w.steering.push(text, message);
+      else w.steering.push(text, messageFor(w.id));
       this.emit({ id: w.id, type: 'steer', text });
     };
     const addressed = active.workers?.get(id);
@@ -1812,7 +1849,7 @@ class AiService {
       active.recorder.split(text); return { queued: true };
     }
     if (active.worker && id === active.worker.id) {
-      active.worker.steering.push(text, message);
+      active.worker.steering.push(text, messageFor(active.worker.id));
       this.emit({ id, type: 'steer', text });
       return { queued: true };
     }
@@ -1820,7 +1857,7 @@ class AiService {
     const only = active.workers?.size === 1 ? [...active.workers.values()][0] : null;
     if (only?.light && !simpleJob(text)) { active.recorder.split(text); deliver(only); return { queued: true }; }
     if (acceptsDelivery(text)) { const task = this.conversations.get(active.worker?.id || id)?.task; if (task) task.acceptedByUser = true; }
-    active.steering.push(text, message);
+    active.steering.push(text, messageFor(active.worker?.id || id));
     this.emit({ id, type: 'steer', text });
     if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
     return { queued: true };

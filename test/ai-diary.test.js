@@ -36,7 +36,7 @@ test("the owner's next message is kept as the reaction to the last job", () => {
   assert.equal(entry.diary[0].ownerNext, 'it looks too mechanical');
 });
 
-test('new jobs see the most recent entries as choices they may undo', () => {
+test('the organiser retains the complete stored diary as choices it may undo', () => {
   const entry = {};
   assert.equal(diaryText(entry), '');
   for (let i = 1; i <= 50; i++) recordJob(entry, { id: 'job' + i, request: 'job ' + i, plan, steps: [applied('Edit ' + i)], outcome: 'verified' });
@@ -44,8 +44,32 @@ test('new jobs see the most recent entries as choices they may undo', () => {
   noteOwnerReply(entry, 'All the changes are bad');
   const text = diaryText(entry);
   assert.match(text, /choice another AI made, not part of the authored model/);
-  assert.equal(text.split('\n').length - 1, 8, 'eight most recent jobs');
-  assert.ok(text.includes('"job 50"') && !text.includes('"job 42"'));
+  assert.equal(text.split('\n').length - 1, 40, 'the complete stored diary stays with the organiser');
+  assert.ok(text.indexOf('"job 50"') < text.indexOf('"job 11"'));
   assert.match(text, /the owner then said: "All the changes are bad"/);
   assert.match(text, /chose: Remove the skirt bones from thigh groups/);
+});
+
+
+test('workers receive only relevant entries, newest first, without a fixed count cut-off', () => {
+  const entry={diary:[]};
+  for(let i=0;i<12;i++) recordJob(entry,{id:'w'+i,request:'Weld the plated band',steps:[{...applied('Weld band'),changes:[{path:'/Geosets/0/Vertices'}]}],outcome:'verified'});
+  recordJob(entry,{id:'unrelated',request:'Retime the cape animation',steps:[{...applied('Retime cape'),changes:[{path:'/Bones/9/Translation'}]}],outcome:'verified'});
+  const relevant=diaryText(entry,{request:'Weld the band like my example',context:{selection:{0:[1,2]}}});
+  assert.ok(!relevant.includes('Retime cape'));
+  assert.equal(relevant.split('\n').length-1,12,'all matching entries survive relevance selection');
+  assert.ok(relevant.indexOf('Weld band')>=0);
+  const full=diaryText(entry);
+  assert.ok(full.indexOf('Retime cape')<full.indexOf('Weld band'));
+  assert.equal(diaryText(entry,{request:'Inspect the camera',context:{selection:{}}}), '');
+});
+
+
+test('diary relevance uses selected node object ids, not the Bones array index', () => {
+  const entry={};
+  recordJob(entry,{id:'right',request:'Adjust motion',steps:[{...applied('Exact selected joint'),changes:[{path:'/Bones/0/Translation'}]}],nodeIds:[42],outcome:'verified'});
+  recordJob(entry,{id:'wrong',request:'Alter motion',steps:[{...applied('Another joint'),changes:[{path:'/Bones/42/Translation'}]}],nodeIds:[0],outcome:'verified'});
+  const text=diaryText(entry,{request:'Inspect this bone',context:{selectedNodeIds:[42]}});
+  assert.ok(text.includes('Exact selected joint'));
+  assert.ok(!text.includes('Another joint'));
 });
