@@ -127,3 +127,61 @@ test('removing faceless geosets keeps bone and glider references consistent', ()
   // Gliders were left stale before the shared removeGeosets; they now follow too.
   assert.deepEqual(m.Gliders, [{ GeosetId: 1 }]);
 });
+
+// Origin Ref: rename a misspelt one, make one if there is none, fix one that
+// is not right, and stay silent when it is already valid.
+const originRule = m => checkerRepairProposals(m).filter(f => f.rule === 'origin');
+const origins = m => allNodesNamed(m, 'Origin Ref');
+const allNodesNamed = (m, name) => ['Bones', 'Helpers', 'Attachments'].flatMap(k => (m[k] || []).filter(n => n.Name === name).map(n => ({ type: k, node: n })));
+const fixedOrigin = m => openDocument(runOptimizeStage(bytesOf(m), 'sanity', {}, { kind: 'fixAll', stage: 'sanity' }).bytes, 'x.mdx').model;
+
+test('a valid Origin Ref shows no origin repair', () => {
+  const m = cleanModel();
+  assert.deepEqual(originRule(m), []);
+  const before = structuredClone(m.Attachments); applyCheckerRepair(m, { rule: 'origin' });
+  assert.deepEqual(m.Attachments, before);
+});
+
+for (const name of ['origin ref', 'OriginRef', 'Origin_Ref', 'origin']) test(`a misspelt "${name}" is renamed, not doubled`, () => {
+  const m = cleanModel(); m.Attachments[0].Name = name;
+  const id = m.Attachments[0].ObjectId, count = m.Attachments.length;
+  assert.deepEqual(originRule(m).map(f => f.items), [[name]]);
+  const after = fixedOrigin(m);
+  assert.equal(after.Attachments.length, count);
+  assert.deepEqual(origins(after).map(o => [o.type, o.node.ObjectId]), [['Attachments', id]]);
+  assert.deepEqual(originRule(after), []);
+});
+
+test('a model without any origin gets one', () => {
+  const m = cleanModel(); m.Attachments[0].Name = 'Chest Ref';
+  const after = fixedOrigin(m);
+  assert.deepEqual(origins(after).map(o => o.type), ['Attachments']);
+  assert.equal(after.Attachments.find(a => a.Name === 'Chest Ref').ObjectId, m.Attachments[0].ObjectId);
+  assert.deepEqual(originRule(after), []);
+});
+
+test('a helper named Origin Ref becomes the attachment point in place', () => {
+  const m = cleanModel(); m.Attachments[0].Name = 'Chest Ref';
+  const h = createNode(m, 'Helper'); h.Name = 'origin ref';
+  const after = fixedOrigin(m), found = origins(after);
+  assert.deepEqual(found.map(o => o.type), ['Attachments']);
+  assert.equal(found[0].node.ObjectId, h.ObjectId);
+  assert.equal(after.Helpers.length, 0);
+  assert.notEqual(found[0].node.AttachmentID, after.Attachments.find(a => a.Name === 'Chest Ref').AttachmentID);
+});
+
+test('a bone named Origin Ref that moves vertices stays a bone; a new origin is added', () => {
+  const m = cleanModel(); m.Attachments[0].Name = 'Chest Ref'; bone(m).Name = 'Origin Ref';
+  const after = fixedOrigin(m);
+  assert.deepEqual(origins(after).map(o => o.type).sort(), ['Attachments', 'Bones']);
+});
+
+test('an Origin Ref sharing another point\'s attachment number gets its own', () => {
+  const m = cleanModel(), chest = createNode(m, 'Attachment'); chest.Name = 'Chest Ref'; chest.AttachmentID = m.Attachments[0].AttachmentID;
+  assert.deepEqual(originRule(m).map(f => f.items), [['Origin Ref']]);
+  applyCheckerRepair(m, { rule: 'origin' });
+  assert.equal(m.Attachments.length, 2);
+  assert.notEqual(m.Attachments[0].AttachmentID, chest.AttachmentID);
+  assert.equal(chest.AttachmentID, 0, 'the other point keeps its number');
+  assert.deepEqual(originRule(m), []);
+});
