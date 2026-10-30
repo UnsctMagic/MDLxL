@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createRequire } from 'node:module';
-import { AI_TOOLS } from '../src/ai-tools.js';
+import { AI_TOOLS, AI_PLAN_TOOL } from '../src/ai-tools.js';
 const { runApi, endpoint, sseEvents, effortFor } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
 
 async function fixture(t, handle) {
@@ -342,4 +342,68 @@ test('tool details keep a short line from the whole input and stay JSON when lon
   // The console keeps the line with its step.
   const [, reply] = applyAiEvent([{ role: 'user', text: 'Go' }], { type: 'tool', callId: 'c', name: 'mdlxl_script', ...script });
   assert.equal(reply.parts[0].line, 'Recolour the cape');
+});
+
+
+test('many short plan entries keep valid display JSON, omission counts and the full input line', () => {
+  const { toolDetail } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  const text = 'x'.repeat(62);
+  const plan = { target: text, cause: text, reach: text, keep: Array(20).fill(text),
+    options: Array.from({ length: 6 }, () => ({ fix: text, cost: text })), choice: 0,
+    why: text, checks: Array(20).fill(text), label: 'Preserve the complete plan' };
+  const before = structuredClone(plan);
+  for (const input of [plan, JSON.stringify(plan, null, 1)]) {
+    const result = toolDetail(input), shown = JSON.parse(result.detail);
+    assert.ok(result.detail.length <= 4000);
+    assert.equal(result.line, plan.label);
+    assert.equal(shown.cause, plan.cause);
+    assert.equal(shown.why, plan.why);
+    assert.match(result.detail, /\+\d+ more/);
+    for (const key of ['keep', 'options', 'checks']) {
+      const entries = shown[key], marker = entries.at(-1);
+      if (typeof marker === 'string' && /^\+\d+ more$/.test(marker)) {
+        const omitted = Number(marker.match(/\d+/)[0]);
+        assert.equal(entries.length - 1 + omitted, plan[key].length);
+        assert.deepEqual(entries.slice(0, -1), plan[key].slice(0, entries.length - 1));
+      } else assert.deepEqual(entries, plan[key]);
+    }
+    assert.deepEqual(plan, before, 'display shortening never mutates the tool arguments');
+  }
+});
+
+test('very large and nested detail lists and records remain valid shortened JSON', () => {
+  const { toolDetail } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  for (const input of [
+    { values: Array.from({ length: 10000 }, (_, index) => index) },
+    { nested: { values: Array.from({ length: 100 }, () => ({ values: Array(100).fill('short') })) } },
+    Object.fromEntries(Array.from({ length: 1000 }, (_, index) => ['field' + index, index])),
+  ]) {
+    const result = toolDetail(input);
+    assert.ok(result.detail.length <= 4000);
+    assert.doesNotThrow(() => JSON.parse(result.detail));
+    assert.match(result.detail, /\+\d+ more/);
+  }
+});
+
+test('provider executes the complete plan while emitting only a shortened display copy', async t => {
+  const text = 'x'.repeat(80);
+  const plan = { target: text, cause: text, reach: text, keep: Array(20).fill(text),
+    options: Array.from({ length: 6 }, () => ({ fix: text, cost: text })),
+    choice: 0, why: text, checks: Array(20).fill(text) };
+  const before = structuredClone(plan), events = [], calls = [];
+  const server = await fixture(t, (data, res, round) => {
+    event(res, { choices: [{ delta: round === 1 ? { tool_calls: [{ index: 0, id: 'long-plan',
+      function: { name: 'mdlxl_plan', arguments: JSON.stringify(plan) } }] } : { content: 'Planned.' },
+      finish_reason: round === 1 ? 'tool_calls' : 'stop' }] });
+    res.end();
+  });
+  await runApi({ settings: { provider: 'compatible', baseUrl: server.url, model: 'test-model' },
+    key: 'test-key', tools: [...AI_TOOLS, AI_PLAN_TOOL], prompt: 'Plan the change', system: 'editor',
+    conversation: { messages: [] }, images: [], signal: new AbortController().signal,
+    call: (name, args) => { calls.push({ name, args }); return { planned: true }; }, event: value => events.push(value) });
+  assert.deepEqual(calls, [{ name: 'mdlxl_plan', args: before }]);
+  const detail = events.find(value => value.type === 'tool' && value.name === 'mdlxl_plan').detail;
+  assert.doesNotThrow(() => JSON.parse(detail));
+  assert.match(detail, /\+\d+ more/);
+  assert.deepEqual(plan, before);
 });

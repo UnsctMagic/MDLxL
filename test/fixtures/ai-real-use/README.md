@@ -19,3 +19,14 @@ This creates redundant, attribute-identical points without altering the surface,
 UVs, textures, normals or bindings. The example cases select a compatible group
 in the lower right and invoke MDLxL's real Weld command before sending the prompt.
 The saved evidence includes geometry immediately before and after that demonstration.
+
+The motion scenarios generate fixtures at run time from the already committed
+`test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx`; no research download
+or private model is added. `test/helpers/ai-motion-fixture.js` samples selected
+local tracks every 1–3 ms with `src/animation.js`, retains authored breakpoints
+and exact endpoints, adds equal-control cubic quaternion tracks, unassigned keys
+and a constant colour controller. Constant/empty domains keep their own keys and
+fallbacks. For `pre-existing-motion`, the structural root with the most skinned
+influence gets an excursion in an attack before baking, so it belongs to the
+original reference. Pure regressions compare all 13 clips and non-geometric
+channels; real-use graders capture bytes with the live document serializer.

@@ -941,7 +941,7 @@ export function recalculateNormals(geoset) {
   for (let i = 0; i < normals.length; i += 3) {
     const length = Math.hypot(normals[i], normals[i + 1], normals[i + 2]);
     if (length > 1e-12) for (let k = 0; k < 3; k++) normals[i + k] /= length;
-    else normals[i + 2] = 1;
+    else { normals[i] = 0; normals[i + 1] = 0; normals[i + 2] = 1; }
   }
   geoset.Normals = normals;
   return normals;

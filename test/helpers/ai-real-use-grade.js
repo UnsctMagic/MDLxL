@@ -1,4 +1,7 @@
 // Pure, provider-independent measurements. Scores describe observations, never acceptance.
+import { openDocument, ignoreHistoryAlias } from '../../src/editor-document.js';
+import { createChanges } from '../../src/history-store.js';
+import { compareMotion, motionTable } from '../../src/ai-motion-compare.js';
 const clamp = n => Math.max(0, Math.min(1, n));
 const array = v => Array.from(v?.$data ?? v ?? []);
 const finite = v => typeof v === 'number' && Number.isFinite(v);
@@ -171,10 +174,31 @@ export function gradeScenario({ scenario, before, after, transcript=[], task, tu
 export function distribution(values) {
   const v=values.filter(finite);return { n:v.length, mean:average(v), min:v.length?Math.min(...v):null, max:v.length?Math.max(...v):null };
 }
+
+export function gradeMotionScenario({ scenario, beforeBytes, afterBytes, afterFirstBytes, transcript = [], followupTranscript = [], task, turns = [], error = null, seconds = 0, step }) {
+  const before = openDocument(new Uint8Array(beforeBytes), 'before.mdx').model, after = openDocument(new Uint8Array(afterBytes), 'after.mdx').model;
+  const motion = motionTable(compareMotion(before, after, { step })), rows = motion.sequences.filter(s => !s.missing);
+  const counts = m => ({ geosets: m.Geosets.length, vertices: m.Geosets.reduce((n, g) => n + g.Vertices.length / 3, 0), materials: m.Materials.length, bones: m.Bones.length });
+  const text = followupTranscript.filter(m => m.role === 'assistant').map(m => [m.text, ...(m.parts || []).map(p => p.text || p.summary || '')].join('\n')).join('\n');
+  const questionAsked = /\?/.test(text) || followupTranscript.some(m => m.parts?.some(p => /question|clarif/i.test(p.name || '')));
+  const changedAfterFollowup = afterFirstBytes ? createChanges(openDocument(new Uint8Array(afterFirstBytes), 'first.mdx').model, after, { ignore: ignoreHistoryAlias }).length > 0 : null;
+  const preExistingReported = scenario.id === 'pre-existing-motion' ? /already|pre.existing|original|accepted|earlier|before/i.test(text) && /sideways|excursion|drift|step|motion/i.test(text) : null;
+  return { id: scenario.id, workflow: gradeWorkflow({ transcript, task, turns, error }), ...transcriptUsage(transcript), seconds,
+    qualityScore: null, objectiveScore: null, motion, sizeRatio: afterBytes.length / beforeBytes.length,
+    counts: { before: counts(before), after: counts(after) },
+    endpointExactness: rows.length ? rows.filter(r => r.endpoints.start === 0 && r.endpoints.end === 0).length / rows.length : null,
+    nonGeometricChanges: rows.flatMap(r => r.channels.map(c => ({ animation: r.name, ...c }))),
+    followup: { preExistingReported, questionAsked, changedAfterFollowup, changedWithoutQuestion: changedAfterFollowup === null ? null : changedAfterFollowup && !questionAsked,
+      method: 'Transcript wording/question observations, not a semantic verdict; model changes use the app document diff.' } };
+}
 export function summarize(runs) {
   return [...new Set(runs.map(r=>r.id))].map(id=>{
     const rows=runs.filter(r=>r.id===id), rate=key=>rows.filter(r=>r.workflow[key]).length/rows.length;
-    return { id, runs:rows.length, workflowScore:distribution(rows.map(r=>r.workflow.score)), qualityScore:distribution(rows.map(r=>r.qualityScore)), resumes:distribution(rows.map(r=>r.workflow.resumes)), seconds:distribution(rows.map(r=>r.seconds)), tokens:distribution(rows.map(r=>r.tokens)), outsideChecks:distribution(rows.map(r=>r.outsideCheckCalls)), usd:distribution(rows.map(r=>r.usd)), completionRate:rate('reachedFinal'), resumeLoopRate:rate('resumeLoop'), stoppedRate:rate('stoppedCutoff'), falseStaleRate:rate('falseStaleRefusal'), timeoutRate:rate('timedOut') };
+    const motionRows = rows.filter(r => r.motion), followups = motionRows.filter(r => r.followup.preExistingReported !== null);
+    return { id, runs:rows.length, workflowScore:distribution(rows.map(r=>r.workflow.score)), qualityScore:distribution(rows.map(r=>r.qualityScore)), resumes:distribution(rows.map(r=>r.workflow.resumes)), seconds:distribution(rows.map(r=>r.seconds)), tokens:distribution(rows.map(r=>r.tokens)), outsideChecks:distribution(rows.map(r=>r.outsideCheckCalls)), usd:distribution(rows.map(r=>r.usd)), completionRate:rate('reachedFinal'), resumeLoopRate:rate('resumeLoop'), stoppedRate:rate('stoppedCutoff'), falseStaleRate:rate('falseStaleRefusal'), timeoutRate:rate('timedOut'),
+      ...(motionRows.length ? { motion: { sizeRatio: distribution(motionRows.map(r => r.sizeRatio)), endpointExactness: distribution(motionRows.map(r => r.endpointExactness)),
+        preExistingReportRate: followups.length ? followups.filter(r => r.followup.preExistingReported).length / followups.length : null,
+        changedWithoutQuestionRate: followups.length ? followups.filter(r => r.followup.changedWithoutQuestion).length / followups.length : null } } : {}) };
   });
 }
 export function markdownReport(report) {
@@ -182,6 +206,6 @@ export function markdownReport(report) {
   const range=d=>`${fmt(d.mean)} / ${fmt(d.min)} / ${fmt(d.max)} (n=${d.n})`;
   return `# AI real-use measurements\n\nMode: ${report.mode}. Model: ${report.model}. Effort: ${report.mode==='live'?'low':'not applicable (stand-in)'}. Repeats requested: ${report.repeats}.${report.repeats===1?' Each distribution is one observation.':''}\n\nPackage commit: ${report.commit}. ${report.note||''}\n\nScores are 0–100 observations, not a pass/fail verdict. Distributions below are mean / min / max. A missing price is unknown, never zero. Token totals are the app-recorded transcript usage, including cached input where the provider counts it.\n\n| Scenario | Runs | Workflow | Edit quality | Seconds | Tokens | Completed | Resume loops | Stopped | False stale |\n|---|---:|---|---|---|---|---:|---:|---:|---:|\n`+
     report.summary.map(s=>`| ${s.id} | ${s.runs} | ${range(s.workflowScore)} | ${range(s.qualityScore)} | ${range(s.seconds)} | ${range(s.tokens)} | ${fmt(100*s.completionRate)}% | ${fmt(100*s.resumeLoopRate)}% | ${fmt(100*s.stoppedRate)}% | ${fmt(100*s.falseStaleRate)}% |`).join('\n')+
-    '\n\n## Per-scenario observations\n\n'+report.runs.map(r=>`- Repeat ${r.repeat}, ${r.id}: state ${r.workflow.finalState}; resumes ${r.workflow.resumes}; outside checks ${r.outsideCheckCalls??'unknown'}; triangles ${r.triangle.before} → ${r.triangle.after}${r.triangle.requested?'; per stud target '+r.triangle.requested+', observed ['+r.triangle.perComponent.join(', ')+']':''}${r.addedSurfaces?'; added stud patches '+r.addedSurfaces.length:''}; surface drift ${fmt(r.drift.surfaceMax)} units; UV drift ${fmt(r.drift.uvMax)}; texture/material changed ${!!(r.drift.texturePathsChanged||r.drift.materialsChanged)}; example coverage ${r.example?fmt(r.example.coverage):'not applicable'}; cost USD ${fmt(r.usd)}.${r.workflow.summary?' Task note: '+r.workflow.summary:''}${r.workflow.error?' Error: '+r.workflow.error:r.workflow.observedErrors?.length?' Reported: '+r.workflow.observedErrors.join(' | '):''}`).join('\n')+
+    '\n\n## Per-scenario observations\n\n'+report.runs.map(r=>r.motion ? `- Repeat ${r.repeat}, ${r.id}: size ratio ${fmt(r.sizeRatio)}; exact endpoint share ${fmt(r.endpointExactness)}; non-geometric changes ${r.nonGeometricChanges.length}; counts ${JSON.stringify(r.counts)}; follow-up ${JSON.stringify(r.followup)}. Full per-animation motion statistics are in report.json.` : `- Repeat ${r.repeat}, ${r.id}: state ${r.workflow.finalState}; resumes ${r.workflow.resumes}; outside checks ${r.outsideCheckCalls??'unknown'}; triangles ${r.triangle.before} → ${r.triangle.after}${r.triangle.requested?'; per stud target '+r.triangle.requested+', observed ['+r.triangle.perComponent.join(', ')+']':''}${r.addedSurfaces?'; added stud patches '+r.addedSurfaces.length:''}; surface drift ${fmt(r.drift.surfaceMax)} units; UV drift ${fmt(r.drift.uvMax)}; texture/material changed ${!!(r.drift.texturePathsChanged||r.drift.materialsChanged)}; example coverage ${r.example?fmt(r.example.coverage):'not applicable'}; cost USD ${fmt(r.usd)}.${r.workflow.summary?' Task note: '+r.workflow.summary:''}${r.workflow.error?' Error: '+r.workflow.error:r.workflow.observedErrors?.length?' Reported: '+r.workflow.observedErrors.join(' | '):''}`).join('\n')+
     '\n\n## How to read this\n\nWorkflow is the mean of completion, 1/(1+resumes), no provider cutoff, and no false stale refusal. Harness cancellations are reported as timeouts rather than provider cutoffs. Edit quality is the mean of the requested operation score and, when requested, look preservation. Scores describe closeness and can award partial credit. Simplification must actually reduce geometry. Weld coverage measures remaining compatible duplicate points across the requested geoset; pattern similarity requires the demonstrated surface and UVs to survive. Triangle targets are checked per connected stud, not against the entire helmet.\n\nKeep-the-look checks compare bounds, bidirectional sampled triangle surfaces, three 64×64 orthographic silhouette projections, texture paths/materials and interpolated UVs at corresponding surface points. They tolerate reindexing and exact coplanar retriangulation. They are measurements, not proof of visual identity: finite samples can miss small details, and they do not grade lighting, shading or artistic photo resemblance. Stud addition counts connected patches of faces protruding beyond the old surface, including studs extruded into the band; placement and resemblance still need human review. The test does not verify Warcraft III acceptance.\n\nDry runs use an explicitly inert stand-in provider and measure plumbing only. They are never live-model quality evidence. Harness timeouts/resume budgets stop measurement only and add no product limits.\n';
 }

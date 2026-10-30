@@ -1,0 +1,2285 @@
+{
+  "schemaVersion": 2,
+  "date": "2026-10-30",
+  "timeZone": "Europe/Amsterdam",
+  "outcome": {
+    "mode": "live",
+    "requestedRepeats": 2,
+    "actualRepeats": 2,
+    "scenarioObservations": 12,
+    "standInObservations": 0,
+    "retryNumber": 1,
+    "fourHourFallback": false
+  },
+  "tested": {
+    "repository": "UnsctMagic/MDLxL",
+    "mainCommit": "0541756b63ed5d9c863af5c47aa44b701370a382",
+    "renderer": {
+      "indexHash": "664ab8763388b5d4042729eec1e65f8f91914b5e318dbffb1017c9ba2d5af99c",
+      "assetsHash": "acc31d286b035cae269104db3c7768c7bca3d6c8b81fd61ccbfb760f324d85ac",
+      "executable": "D:\\Codex\\mdlxl-ai-real-use-retry\\out\\pkg\\MDLxL-win32-x64\\MDLxL.exe"
+    },
+    "includesPr427": true,
+    "includesPr430": true,
+    "dietPr": {
+      "mergeCommit": {
+        "oid": "56fb26c861715cc0e2188b9f0a00503bb70c35dc"
+      },
+      "mergedAt": "2026-10-30T02:17:31Z",
+      "number": 430,
+      "title": "AI chat: send the editor snapshot once, then only changes; user's words first",
+      "url": "https://github.com/UnsctMagic/MDLxL/pull/430"
+    },
+    "sourceIdentities": [
+      {
+        "path": "test/ai-real-use.electron.cjs",
+        "baselineGitBlob": "d0ba193dc9b13e330929b18f96af671c6674194b",
+        "testedMainGitBlob": "d0ba193dc9b13e330929b18f96af671c6674194b"
+      },
+      {
+        "path": "test/helpers/ai-real-use-grade.js",
+        "baselineGitBlob": "f14f94cd23807531529a95e612499485ca264a0a",
+        "testedMainGitBlob": "f14f94cd23807531529a95e612499485ca264a0a"
+      },
+      {
+        "path": "test/fixtures/ai-real-use/scenarios.json",
+        "baselineGitBlob": "6aeb4e761df4bfcda3d50ec411c9c7445f834f2f",
+        "testedMainGitBlob": "6aeb4e761df4bfcda3d50ec411c9c7445f834f2f"
+      },
+      {
+        "path": "test/fixtures/ai-real-use/helmet.mdx",
+        "baselineGitBlob": "01de2acd09e5efd331296d90c8b26e4da0e8621d",
+        "testedMainGitBlob": "01de2acd09e5efd331296d90c8b26e4da0e8621d"
+      },
+      {
+        "path": "test/fixtures/ai-real-use/stud-reference.jpg",
+        "baselineGitBlob": "36c4b52d4d72ee80cfe1e6f9aad477348af39a93",
+        "testedMainGitBlob": "36c4b52d4d72ee80cfe1e6f9aad477348af39a93"
+      }
+    ]
+  },
+  "freshLogin": {
+    "copiedAt": "2026-10-30T02:58:18.173Z",
+    "firstAccountCheckStartedUtc": "2026-10-30T02:58:21.355Z",
+    "firstAccountCheckFinishedUtc": "2026-10-30T02:58:22.343Z",
+    "signedInAtFirstCheck": true,
+    "firstTurnStartedUtc": "2026-10-30T02:58:24.028Z",
+    "secondsFromCopyToFirstTurn": 5.855,
+    "ownerProfileAccess": "read-only source; no writes or login write-back",
+    "authenticationStopGuard": "Local-only test-driver change aborts on signed-out/authentication errors instead of the normal inert fallback. Copy/start times were recorded. Scenario, resume, timeout and grading behavior were unchanged; the guard was restored before committing.",
+    "guardDiffSha256": "6a2b953ec7801a16f0ed65beb35caa69b6b1556bac2972e78ddaa0e2b1e4d428"
+  },
+  "settings": {
+    "provider": "codex",
+    "model": "gpt-6-luna",
+    "reasoningEffort": "low",
+    "repeats": 2,
+    "scenarios": 6,
+    "from": 1,
+    "turnTimeoutMs": 240000,
+    "resumeBudget": 2,
+    "hiddenDesktop": true,
+    "offload": true,
+    "outsideCheck": true,
+    "routing": "manual",
+    "allowLighter": false,
+    "editingHandbook": true,
+    "observedProviderSettings": [
+      {
+        "model": "gpt-6-luna",
+        "effort": "low"
+      }
+    ]
+  },
+  "baseline": {
+    "report": "docs/verification/ai-real-use-baseline-2026-10-30.json",
+    "markdown": "docs/verification/ai-real-use-baseline-2026-10-30.md",
+    "productCommit": "d1dc4ffe17be3930a1d7f6854931a5b2447a0915",
+    "harnessCommit": "dd23abac46cba1e05239f874b88a1f58691fb103",
+    "repeats": 1,
+    "scenarioObservations": 6,
+    "renderer": {
+      "indexHash": "845b3bc5161afeb25ef080fa7d023ea7e6a10f54b5579dedc9aa1d8e12542a16",
+      "assetsHash": "1f89f34bc3eec7babc648054b2c39980125d6d998c43b6d7cc7c17455e7d469f",
+      "executable": "D:\\Codex\\mdlxl-ai-real-use\\out\\pkg\\MDLxL-win32-x64\\MDLxL.exe"
+    },
+    "repeatTotals": [
+      {
+        "repeat": 1,
+        "scenarioObservations": 6,
+        "resumes": 7,
+        "outsideChecks": 17,
+        "finishedScenarios": 3,
+        "addedStudPatches": 0,
+        "followExampleCoverage": 0,
+        "justDeliverCoverage": 0,
+        "followExamplePatternSimilarity": 1,
+        "justDeliverPatternSimilarity": 1,
+        "keepLookSurfaceMax": 6.864515881518349e-12,
+        "keepLookBoundsMax": 0,
+        "keepLookUvMax": 1.4521988773752584e-13,
+        "keepLookSilhouetteMin": 1,
+        "keepLookTextureOrMaterialChanges": 0,
+        "scenarioSeconds": 1358.018,
+        "tokens": 25125677,
+        "usd": null,
+        "stoppedCutoffs": 0,
+        "falseStaleRefusals": 0,
+        "harnessTimeouts": 0,
+        "workflowScore": 77,
+        "editScore": 66.66666666666667
+      }
+    ],
+    "scenarioSummary": [
+      {
+        "id": "thicken-band",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 58,
+          "min": 58,
+          "max": 58
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 2,
+          "min": 2,
+          "max": 2
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 312.844,
+          "min": 312.844,
+          "max": 312.844
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 4653182,
+          "min": 4653182,
+          "max": 4653182
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 6,
+          "min": 6,
+          "max": 6
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 0,
+        "resumeLoopRate": 1,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "reference-studs",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 58,
+          "min": 58,
+          "max": 58
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 2,
+          "min": 2,
+          "max": 2
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 397.693,
+          "min": 397.693,
+          "max": 397.693
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 10458632,
+          "min": 10458632,
+          "max": 10458632
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 0,
+        "resumeLoopRate": 1,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "reduce-studs",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 164.2,
+          "min": 164.2,
+          "max": 164.2
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 2775416,
+          "min": 2775416,
+          "max": 2775416
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 3,
+          "min": 3,
+          "max": 3
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "keep-the-look",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 88,
+          "min": 88,
+          "max": 88
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 203.114,
+          "min": 203.114,
+          "max": 203.114
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 3078855,
+          "min": 3078855,
+          "max": 3078855
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 4,
+          "min": 4,
+          "max": 4
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "follow-example",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 58,
+          "min": 58,
+          "max": 58
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 50,
+          "min": 50,
+          "max": 50
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 2,
+          "min": 2,
+          "max": 2
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 124.774,
+          "min": 124.774,
+          "max": 124.774
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 2258963,
+          "min": 2258963,
+          "max": 2258963
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 0,
+        "resumeLoopRate": 1,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "just-deliver",
+        "runs": 1,
+        "workflowScore": {
+          "n": 1,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 1,
+          "mean": 50,
+          "min": 50,
+          "max": 50
+        },
+        "resumes": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 1,
+          "mean": 155.393,
+          "min": 155.393,
+          "max": 155.393
+        },
+        "tokens": {
+          "n": 1,
+          "mean": 1900629,
+          "min": 1900629,
+          "max": 1900629
+        },
+        "outsideChecks": {
+          "n": 1,
+          "mean": 3,
+          "min": 3,
+          "max": 3
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      }
+    ]
+  },
+  "comparison": {
+    "normalization": "Six scenarios per repeat; before n=1, after n=2. Means/minima/maxima are over repeat totals or repeat maxima/minima as stated. Raw K=2 totals are separate and are not compared directly with K=1 totals.",
+    "rows": [
+      {
+        "key": "resumes",
+        "label": "Resumes",
+        "unit": "per six-scenario repeat",
+        "before": {
+          "n": 1,
+          "mean": 7,
+          "min": 7,
+          "max": 7
+        },
+        "after": {
+          "n": 2,
+          "mean": 2.5,
+          "min": 2,
+          "max": 3
+        }
+      },
+      {
+        "key": "outsideChecks",
+        "label": "Outside checks",
+        "unit": "per six-scenario repeat",
+        "before": {
+          "n": 1,
+          "mean": 17,
+          "min": 17,
+          "max": 17
+        },
+        "after": {
+          "n": 2,
+          "mean": 3.5,
+          "min": 3,
+          "max": 4
+        }
+      },
+      {
+        "key": "finishedScenarios",
+        "label": "Finished scenario states",
+        "unit": "out of 6 per repeat",
+        "before": {
+          "n": 1,
+          "mean": 3,
+          "min": 3,
+          "max": 3
+        },
+        "after": {
+          "n": 2,
+          "mean": 5,
+          "min": 5,
+          "max": 5
+        }
+      },
+      {
+        "key": "addedStudPatches",
+        "label": "Stud addition: new protruding patches",
+        "unit": "per photo scenario; requested 4",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 2,
+          "min": 0,
+          "max": 4
+        }
+      },
+      {
+        "key": "followExampleCoverage",
+        "label": "Follow-example weld coverage",
+        "unit": "eligible duplicate points, %",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "key": "justDeliverCoverage",
+        "label": "Just-deliver weld coverage",
+        "unit": "eligible duplicate points, %",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "key": "followExamplePatternSimilarity",
+        "label": "Follow-example pattern similarity",
+        "unit": "fraction, %; requires surface/UV preservation",
+        "before": {
+          "n": 1,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "after": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "key": "justDeliverPatternSimilarity",
+        "label": "Just-deliver pattern similarity",
+        "unit": "fraction, %; requires surface/UV preservation",
+        "before": {
+          "n": 1,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "after": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "key": "keepLookSurfaceMax",
+        "label": "Keep-look maximum sampled surface drift",
+        "unit": "model units; maximum of 3 keep-look cases per repeat",
+        "before": {
+          "n": 1,
+          "mean": 6.864515881518349e-12,
+          "min": 6.864515881518349e-12,
+          "max": 6.864515881518349e-12
+        },
+        "after": {
+          "n": 2,
+          "mean": 6.864515881518349e-12,
+          "min": 6.864515881518349e-12,
+          "max": 6.864515881518349e-12
+        }
+      },
+      {
+        "key": "keepLookBoundsMax",
+        "label": "Keep-look maximum bounds drift",
+        "unit": "model units; maximum of 3 keep-look cases per repeat",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "key": "keepLookUvMax",
+        "label": "Keep-look maximum UV drift",
+        "unit": "UV units; maximum of 3 keep-look cases per repeat",
+        "before": {
+          "n": 1,
+          "mean": 1.4521988773752584e-13,
+          "min": 1.4521988773752584e-13,
+          "max": 1.4521988773752584e-13
+        },
+        "after": {
+          "n": 2,
+          "mean": 1.4521988773752584e-13,
+          "min": 1.4521988773752584e-13,
+          "max": 1.4521988773752584e-13
+        }
+      },
+      {
+        "key": "keepLookSilhouetteMin",
+        "label": "Keep-look minimum silhouette overlap",
+        "unit": "fraction, %; minimum of 3 keep-look cases per repeat",
+        "before": {
+          "n": 1,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "after": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "key": "keepLookTextureOrMaterialChanges",
+        "label": "Keep-look texture/material changes",
+        "unit": "out of 3 keep-look cases per repeat",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "key": "scenarioSeconds",
+        "label": "Scenario wall time",
+        "unit": "seconds per six-scenario repeat",
+        "before": {
+          "n": 1,
+          "mean": 1358.018,
+          "min": 1358.018,
+          "max": 1358.018
+        },
+        "after": {
+          "n": 2,
+          "mean": 818.272,
+          "min": 681.519,
+          "max": 955.0250000000001
+        }
+      },
+      {
+        "key": "tokens",
+        "label": "App-recorded tokens",
+        "unit": "per six-scenario repeat; cached input included where counted",
+        "before": {
+          "n": 1,
+          "mean": 25125677,
+          "min": 25125677,
+          "max": 25125677
+        },
+        "after": {
+          "n": 2,
+          "mean": 12640476.5,
+          "min": 11577481,
+          "max": 13703472
+        }
+      },
+      {
+        "key": "usd",
+        "label": "Dollar cost",
+        "unit": "USD per repeat; unknown when not reported",
+        "before": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "after": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        }
+      },
+      {
+        "key": "stoppedCutoffs",
+        "label": "Provider Stopped. cut-offs",
+        "unit": "scenario count per repeat",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "key": "falseStaleRefusals",
+        "label": "False model/selection-change refusals",
+        "unit": "scenario count per repeat",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "key": "harnessTimeouts",
+        "label": "Measurement timeouts",
+        "unit": "scenario count per repeat",
+        "before": {
+          "n": 1,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "after": {
+          "n": 2,
+          "mean": 0.5,
+          "min": 0,
+          "max": 1
+        }
+      },
+      {
+        "key": "workflowScore",
+        "label": "Workflow score",
+        "unit": "mean of 6 scenario scores, 0–100",
+        "before": {
+          "n": 1,
+          "mean": 77,
+          "min": 77,
+          "max": 77
+        },
+        "after": {
+          "n": 2,
+          "mean": 92,
+          "min": 91,
+          "max": 93
+        }
+      },
+      {
+        "key": "editScore",
+        "label": "Edit quality score",
+        "unit": "mean of 6 scenario scores, 0–100",
+        "before": {
+          "n": 1,
+          "mean": 66.66666666666667,
+          "min": 66.66666666666667,
+          "max": 66.66666666666667
+        },
+        "after": {
+          "n": 2,
+          "mean": 79.16666666666666,
+          "min": 75,
+          "max": 83.33333333333333
+        }
+      }
+    ],
+    "afterRepeatTotals": [
+      {
+        "repeat": 1,
+        "scenarioObservations": 6,
+        "resumes": 2,
+        "outsideChecks": 4,
+        "finishedScenarios": 5,
+        "addedStudPatches": 0,
+        "followExampleCoverage": 0,
+        "justDeliverCoverage": 1,
+        "followExamplePatternSimilarity": 1,
+        "justDeliverPatternSimilarity": 1,
+        "keepLookSurfaceMax": 6.864515881518349e-12,
+        "keepLookBoundsMax": 0,
+        "keepLookUvMax": 1.4521988773752584e-13,
+        "keepLookSilhouetteMin": 1,
+        "keepLookTextureOrMaterialChanges": 0,
+        "scenarioSeconds": 681.519,
+        "tokens": 11577481,
+        "usd": null,
+        "stoppedCutoffs": 0,
+        "falseStaleRefusals": 0,
+        "harnessTimeouts": 0,
+        "workflowScore": 93,
+        "editScore": 75
+      },
+      {
+        "repeat": 2,
+        "scenarioObservations": 6,
+        "resumes": 3,
+        "outsideChecks": 3,
+        "finishedScenarios": 5,
+        "addedStudPatches": 4,
+        "followExampleCoverage": 0,
+        "justDeliverCoverage": 1,
+        "followExamplePatternSimilarity": 1,
+        "justDeliverPatternSimilarity": 1,
+        "keepLookSurfaceMax": 6.864515881518349e-12,
+        "keepLookBoundsMax": 0,
+        "keepLookUvMax": 1.4521988773752584e-13,
+        "keepLookSilhouetteMin": 1,
+        "keepLookTextureOrMaterialChanges": 0,
+        "scenarioSeconds": 955.0250000000001,
+        "tokens": 13703472,
+        "usd": null,
+        "stoppedCutoffs": 0,
+        "falseStaleRefusals": 0,
+        "harnessTimeouts": 1,
+        "workflowScore": 91,
+        "editScore": 83.33333333333333
+      }
+    ],
+    "rawTotals": {
+      "before": {
+        "scenarioObservations": 6,
+        "finishedScenarios": 3,
+        "resumes": 7,
+        "outsideChecks": 17,
+        "scenarioSeconds": 1358.018,
+        "tokens": 25125677
+      },
+      "after": {
+        "scenarioObservations": 12,
+        "finishedScenarios": 10,
+        "resumes": 5,
+        "outsideChecks": 7,
+        "scenarioSeconds": 1636.5439999999999,
+        "tokens": 25280953
+      }
+    }
+  },
+  "validation": {
+    "build": "npx vite build",
+    "package": "node scripts/package.mjs --out out/pkg --electron-zip-dir <read-only existing cache>",
+    "verifiedRuntimeAndAssetFiles": 1332,
+    "aiSourceTests": {
+      "total": 267,
+      "passed": 266,
+      "failed": 0,
+      "skipped": 1
+    },
+    "graderTestsIncluded": 11,
+    "driverSyntaxChecked": true,
+    "scenarioDefinitionsChanged": false,
+    "gradersChanged": false,
+    "productCodeChanged": false,
+    "additionalLiveRepeatsBeyondK2": 0
+  },
+  "limitations": [
+    "The baseline has one repetition; the retry has two. These distributions describe only these runs and are not reliability estimates or an isolated causal experiment.",
+    "Finished scenario states come from the task transcript. Geometry, coverage, target counts and drift are measured separately; a completed state does not certify the requested edit.",
+    "Stud addition counts new protruding surface patches; artistic resemblance and placement require human review.",
+    "Look preservation uses finite triangle-surface, silhouette and interpolated UV samples. Shading and Warcraft III behavior were not tested.",
+    "Token counters are the app-recorded transcript usage, including cached input where counted. Unknown cost remains null.",
+    "The previous attempt had no live observations and is not included in the after distribution."
+  ],
+  "measuredReport": {
+    "mode": "live",
+    "model": "gpt-6-luna",
+    "repeats": 2,
+    "commit": "0541756b63ed5d9c863af5c47aa44b701370a382",
+    "started": "2026-10-30T02:58:18.171Z",
+    "runs": [
+      {
+        "id": "thicken-band",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Thickened the selected band by moving its rim panels outward 0.6 model units. The band height, texture wrap, underlying helmet, and rest of the model remain unchanged.\n\nNumeric preservation checks passed, and MDX/MDL round-trip validation completed without diagnostics. No gameplay test was run.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 55,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 0.6000000998933115,
+          "surfaceRelative": 0.014497828682481725,
+          "uvMax": 1.3050240272407672,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 0.8753408648227503
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 0.9967074317968015
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 0.9990954319312528
+            }
+          ],
+          "silhouetteMean": 0.9570479095169349,
+          "sampleCount": 2832
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 383,
+          "after": 383
+        },
+        "seconds": 48.312,
+        "tokens": 664738,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 1,
+        "repeat": 1,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "reference-studs",
+        "workflow": {
+          "finalState": "incomplete",
+          "summary": null,
+          "reachedFinal": false,
+          "resumes": 2,
+          "resumeLoop": true,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [
+            "The edit is applied but verification is incomplete. Resume the task to finish checking it.",
+            "The edit is kept but not verified.\nReview completed against the original at revision 14. No four-stud edit is present: band geoset 5 remains at 90 vertices and the original and edited images match across front, back, left, and right views. Protected band arrays, other geosets, materials, textures, and nodes pass; MDX and MDL round-trip validation is clean. The requested geometry cannot be certified or completed under the current instruction not to repeat the edit.",
+            "The edit is kept but not verified.\nRequested studs are absent: the inspected model has 0 new vertices and 0 new triangles, and the original and edited views match. The original band geometry and all other geosets, materials, textures and nodes are preserved; MDX and MDL serialization checks pass. No visual result can be certified because no studs were added."
+          ],
+          "timedOut": false,
+          "score": 58
+        },
+        "qualityScore": 0,
+        "objectiveScore": 0,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": [],
+        "vertices": {
+          "before": 383,
+          "after": 383
+        },
+        "seconds": 323.824,
+        "tokens": 6902518,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 0,
+        "knownTokenReplies": 3,
+        "repeat": 1,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "reduce-studs",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "I checked the current mesh: all eight studs already have exactly six triangles each (48 total). Their placement, bounds, material, and retained UVs are unchanged, so no further edit was needed.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 62,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 0.17672669158225845,
+          "surfaceRelative": 0.004270254786019128,
+          "uvMax": 0.0034097105621542874,
+          "uvUnmatchedSamples": 33,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2768
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 338,
+          "requested": 6,
+          "perComponent": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "targetScore": 1
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 383,
+          "after": 367
+        },
+        "seconds": 98.976,
+        "tokens": 711647,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 2,
+        "repeat": 1,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "keep-the-look",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Simplified the helmet by welding exact duplicate vertices in geosets 0 and 3. Vertex rows fell from 487 to 380, while all 354 triangles remained.\n\nPositions, normals, UVs, groups, materials, textures, and other model data passed comparison against the original. Front, back, side, and angled captures showed no visible appearance change. MDX and MDL validation passed; Warcraft III gameplay was not tested.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 487,
+          "after": 380
+        },
+        "seconds": 115.599,
+        "tokens": 2282720,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 1,
+        "repeat": 1,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "follow-example",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "I couldn’t proceed because MDLxL rejected the supplied target as stale: it requires the target captured with the current prompt. I made no changes. Please resend the job from the current model context so I can inspect the lower-right weld and apply it across Geoset 1.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 50,
+        "objectiveScore": 0,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": {
+          "eligibleGroups": 53,
+          "eligibleVertices": 102,
+          "remainingVertices": 102,
+          "coverage": 0,
+          "patternSimilarity": 1,
+          "surfacePreserved": true
+        },
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 485,
+          "after": 485
+        },
+        "seconds": 10.632,
+        "tokens": 84495,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 0,
+        "knownTokenReplies": 1,
+        "repeat": 1,
+        "demonstration": {
+          "area": "lower right of Geoset 1",
+          "removedVertices": 2
+        },
+        "harnessCancelled": false
+      },
+      {
+        "id": "just-deliver",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Welded the full marked helmet in visible Geoset 1: **102 duplicate vertices merged**, leaving 58 vertices and all 54 triangles. The six angle checks show the silhouette and texture wrap preserved.\n\nMDX and MDL round-trip validation passed without diagnostics. Warcraft III gameplay was not tested.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": {
+          "eligibleGroups": 53,
+          "eligibleVertices": 102,
+          "remainingVertices": 0,
+          "coverage": 1,
+          "patternSimilarity": 1,
+          "surfacePreserved": true
+        },
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 485,
+          "after": 383
+        },
+        "seconds": 84.176,
+        "tokens": 931363,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 2,
+        "repeat": 1,
+        "demonstration": {
+          "area": "lower right of Geoset 1",
+          "removedVertices": 2
+        },
+        "harnessCancelled": false
+      },
+      {
+        "id": "thicken-band",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Thickened the selected helm band outward by 2 model units. Its height, texture wrap, material, and the rest of the helmet are unchanged.\n\nFront, back, and side views look clean. MDX and MDL round-trip validation passed without diagnostics; no Warcraft III gameplay test was run.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 43,
+        "drift": {
+          "available": true,
+          "boundsDelta": 1.2588119506835938,
+          "boundsRelative": 0.030416728276739437,
+          "surfaceMax": 1.999999264356964,
+          "surfaceRelative": 0.04832606978714266,
+          "uvMax": 1.311189118337045,
+          "uvUnmatchedSamples": 40,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 0.7840394899218429
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 0.9493293591654247
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 0.9666357738646896
+            }
+          ],
+          "silhouetteMean": 0.9000015409839858,
+          "sampleCount": 2832
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 383,
+          "after": 383
+        },
+        "seconds": 47.482,
+        "tokens": 575708,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 1,
+        "repeat": 2,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "reference-studs",
+        "workflow": {
+          "finalState": "incomplete",
+          "summary": null,
+          "reachedFinal": false,
+          "resumes": 1,
+          "resumeLoop": false,
+          "stoppedObserved": true,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": true,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [
+            "The edit is kept but not verified.\nThe requested studs are absent: review measured zero added vertices. Original helmet and existing studs, materials, and textures are preserved. No corrective edit was made per the task update."
+          ],
+          "timedOut": true,
+          "score": 63
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 56,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 0.9970776563911651,
+          "surfaceRelative": 0.024092431064694615,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 128,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 0.9941102229701304
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 0.9980367409900435,
+          "sampleCount": 2960
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 386,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": [
+          8,
+          8,
+          8,
+          8
+        ],
+        "vertices": {
+          "before": 383,
+          "after": 419
+        },
+        "seconds": 305.773,
+        "tokens": 4277182,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 0,
+        "knownTokenReplies": 2,
+        "repeat": 2,
+        "demonstration": null,
+        "harnessCancelled": true
+      },
+      {
+        "id": "reduce-studs",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Done. All eight studs now have six nondegenerate triangles. Their placement, outer bounds, raised points, material, and retained UV coordinates are preserved. Front, back, and side views show no visible gaps or texture spill; texture interpolation is slightly coarser.\n\nMDX and MDL validation passed with no diagnostics. Gameplay was not tested.",
+          "reachedFinal": true,
+          "resumes": 2,
+          "resumeLoop": true,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [
+            "The edit is kept but not verified.\nNo topology reduction was retained: face-only deletion visibly opened the stud surfaces, and the available close-up capture did not isolate the selected studs well enough to judge a weld candidate. Restored the original geometry, UVs and material. MDX and MDL validation both passed with no diagnostics.",
+            "The edit is applied but verification is incomplete. Resume the task to finish checking it.",
+            "The edit is kept but not verified.\nThe six-triangle reduction is applied and validates structurally, but strict preservation of placement, size, and texture cannot be certified. Original studs are 8-triangle fans with 8 perimeter vertices plus a center (9 vertices). Current six-triangle fans retain 7 vertices each and omit two original vertices, including the first stud's X maximum (17.1176 became 16.3588). A six-triangle closed fan cannot retain all eight perimeter corners and the center without changing topology or adding/removing other surface regions. The inspected same-view model captures look similar at full-model scale, but extent/UV checks did not pass; MDX and MDL round-trip validation had no diagnostics."
+          ],
+          "timedOut": false,
+          "score": 83
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 62,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 0.17672669158225845,
+          "surfaceRelative": 0.004270254786019128,
+          "uvMax": 0.002904828544649353,
+          "uvUnmatchedSamples": 33,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2768
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 338,
+          "requested": 6,
+          "perComponent": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "targetScore": 1
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 383,
+          "after": 367
+        },
+        "seconds": 472.047,
+        "tokens": 7086871,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 4,
+        "repeat": 2,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "keep-the-look",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "I can’t verify the textured helmet appearance from the current view. The model has **no captured “helmet” label**, no annotations, and nothing linking the visible surfaces to a helmet. I can see several helmet-like components, including an overlapping set whose role is ambiguous. I need one boundary confirmed before reducing anything; otherwise I could change neighboring armor or another model part.\n\nThe helmet boundary is ambiguous: geoset 3 is the visible body, geosets 7–8 appear to form the spike, and geoset 6 overlaps the helmet but may belong to another part. I haven’t edited the model. Which geosets should I simplify?",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 50,
+        "objectiveScore": 0,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": null,
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 487,
+          "after": 487
+        },
+        "seconds": 39.027,
+        "tokens": 636646,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 0,
+        "knownTokenReplies": 1,
+        "repeat": 2,
+        "demonstration": null,
+        "harnessCancelled": false
+      },
+      {
+        "id": "follow-example",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "I couldn’t apply the weld because the captured target doesn’t match the request. The live selection is in **Geoset 0**, while the helmet shown in the viewport is **Geoset 1** and has no marked vertices. Its 8 vertices form a small separate section, and the lower-right welded example isn’t identifiable in the captured selection.\n\nPlease mark the welded lower-right area in Geoset 1 and resend the job. I stopped before editing so I wouldn’t weld the wrong vertices.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 50,
+        "objectiveScore": 0,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": {
+          "eligibleGroups": 53,
+          "eligibleVertices": 102,
+          "remainingVertices": 102,
+          "coverage": 0,
+          "patternSimilarity": 1,
+          "surfacePreserved": true
+        },
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 485,
+          "after": 485
+        },
+        "seconds": 15.196,
+        "tokens": 131013,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 0,
+        "knownTokenReplies": 1,
+        "repeat": 2,
+        "demonstration": {
+          "area": "lower right of Geoset 1",
+          "removedVertices": 2
+        },
+        "harnessCancelled": false
+      },
+      {
+        "id": "just-deliver",
+        "workflow": {
+          "finalState": "complete",
+          "summary": "Welded the whole helmet in **Geoset 0**: 160 vertices reduced to 58, with all 54 triangles retained. Six-angle checks and per-face comparisons confirm the shape, texture wrap, normals, and bindings were preserved. MDX and MDL serialization checks passed.\n\nGeoset 1 is a separate cap and was left unchanged. The edited model is in the open document; I did not save over the source file.",
+          "reachedFinal": true,
+          "resumes": 0,
+          "resumeLoop": false,
+          "stoppedObserved": false,
+          "stoppedCutoff": false,
+          "harnessStoppedCutoff": false,
+          "staleRefusalMentions": 0,
+          "falseStaleRefusal": false,
+          "externalChanges": 0,
+          "error": null,
+          "observedErrors": [],
+          "timedOut": false,
+          "score": 100
+        },
+        "qualityScore": 100,
+        "objectiveScore": 100,
+        "lookScore": 100,
+        "drift": {
+          "available": true,
+          "boundsDelta": 0,
+          "boundsRelative": 0,
+          "surfaceMax": 6.864515881518349e-12,
+          "surfaceRelative": 1.6586759778227406e-13,
+          "uvMax": 1.4521988773752584e-13,
+          "uvUnmatchedSamples": 0,
+          "texturePathsChanged": false,
+          "materialsChanged": false,
+          "silhouetteIoU": [
+            {
+              "axes": [
+                0,
+                1
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                0,
+                2
+              ],
+              "iou": 1
+            },
+            {
+              "axes": [
+                1,
+                2
+              ],
+              "iou": 1
+            }
+          ],
+          "silhouetteMean": 1,
+          "sampleCount": 2832
+        },
+        "example": {
+          "eligibleGroups": 53,
+          "eligibleVertices": 102,
+          "remainingVertices": 0,
+          "coverage": 1,
+          "patternSimilarity": 1,
+          "surfacePreserved": true
+        },
+        "triangle": {
+          "before": 354,
+          "after": 354,
+          "requested": null,
+          "perComponent": [],
+          "targetScore": null
+        },
+        "addedSurfaces": null,
+        "vertices": {
+          "before": 485,
+          "after": 383
+        },
+        "seconds": 75.5,
+        "tokens": 996052,
+        "usd": null,
+        "source": "saved transcript costs; worker totals are not added twice",
+        "outsideCheckCalls": 1,
+        "knownTokenReplies": 2,
+        "repeat": 2,
+        "demonstration": {
+          "area": "lower right of Geoset 1",
+          "removedVertices": 2
+        },
+        "harnessCancelled": false
+      }
+    ],
+    "summary": [
+      {
+        "id": "thicken-band",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 47.897,
+          "min": 47.482,
+          "max": 48.312
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 620223,
+          "min": 575708,
+          "max": 664738
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "reference-studs",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 60.5,
+          "min": 58,
+          "max": 63
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 50,
+          "min": 0,
+          "max": 100
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 1.5,
+          "min": 1,
+          "max": 2
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 314.7985,
+          "min": 305.773,
+          "max": 323.824
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 5589850,
+          "min": 4277182,
+          "max": 6902518
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 0,
+        "resumeLoopRate": 0.5,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0.5
+      },
+      {
+        "id": "reduce-studs",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 91.5,
+          "min": 83,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 1,
+          "min": 0,
+          "max": 2
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 285.5115,
+          "min": 98.976,
+          "max": 472.047
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 3899259,
+          "min": 711647,
+          "max": 7086871
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0.5,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "keep-the-look",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 75,
+          "min": 50,
+          "max": 100
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 77.313,
+          "min": 39.027,
+          "max": 115.599
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 1459683,
+          "min": 636646,
+          "max": 2282720
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 0.5,
+          "min": 0,
+          "max": 1
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "follow-example",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 50,
+          "min": 50,
+          "max": 50
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 12.914,
+          "min": 10.632,
+          "max": 15.196
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 107754,
+          "min": 84495,
+          "max": 131013
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      },
+      {
+        "id": "just-deliver",
+        "runs": 2,
+        "workflowScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "qualityScore": {
+          "n": 2,
+          "mean": 100,
+          "min": 100,
+          "max": 100
+        },
+        "resumes": {
+          "n": 2,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "seconds": {
+          "n": 2,
+          "mean": 79.838,
+          "min": 75.5,
+          "max": 84.176
+        },
+        "tokens": {
+          "n": 2,
+          "mean": 963707.5,
+          "min": 931363,
+          "max": 996052
+        },
+        "outsideChecks": {
+          "n": 2,
+          "mean": 1,
+          "min": 1,
+          "max": 1
+        },
+        "usd": {
+          "n": 0,
+          "mean": null,
+          "min": null,
+          "max": null
+        },
+        "completionRate": 1,
+        "resumeLoopRate": 0,
+        "stoppedRate": 0,
+        "falseStaleRate": 0,
+        "timeoutRate": 0
+      }
+    ],
+    "note": "",
+    "environment": {
+      "hiddenDesktop": true,
+      "turnTimeoutMs": 240000,
+      "resumeBudget": 2,
+      "from": 1
+    },
+    "loginCopy": {
+      "copiedAt": "2026-10-30T02:58:18.173Z"
+    },
+    "textures": "All fixture texture paths resolved from CASC.",
+    "package": {
+      "indexHash": "664ab8763388b5d4042729eec1e65f8f91914b5e318dbffb1017c9ba2d5af99c",
+      "assetsHash": "acc31d286b035cae269104db3c7768c7bca3d6c8b81fd61ccbfb760f324d85ac",
+      "executable": "D:\\Codex\\mdlxl-ai-real-use-retry\\out\\pkg\\MDLxL-win32-x64\\MDLxL.exe"
+    },
+    "accountCheckStartedUtc": "2026-10-30T02:58:21.355Z",
+    "accountCheckFinishedUtc": "2026-10-30T02:58:22.343Z",
+    "signedInAtFirstCheck": true,
+    "auth": "Current owner login copied immediately before launch; signed in.",
+    "mouseRotationObserved": true,
+    "firstTurnStartedUtc": "2026-10-30T02:58:24.028Z",
+    "secondsFromLoginCopyToFirstTurn": 5.855,
+    "finished": "2026-10-30T03:26:14.528Z"
+  }
+}

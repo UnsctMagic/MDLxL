@@ -1,11 +1,12 @@
 # MDLxL codebase audit and repair plan
 
 Status: audit repaired; release 0.36.0 in progress. All package PRs are merged;
-owner click-throughs remain ready to test, and B16 plus the remaining B18 case
-are still open (section 4).
+owner click-throughs remain ready to test. B16 and B18 are fixed in [#433](https://github.com/UnsctMagic/MDLxL/pull/433)
+(pending merge; section 4).
 Revision checked: `origin/main` at `56fb26c8`, 2026-10-30.
 Revision originally audited: `fe46a534` (0.35.0), 2026-10-29.
-Branch: `codex/audit-closeout` (documentation only).
+Branch: `codex/audit-b16-b18` (B16/B18 follow-up to merged #431).
+Repair base: `origin/main` at `5f403ec6`; [PR #433](https://github.com/UnsctMagic/MDLxL/pull/433) remains open.
 Session: codex audit close-out
 
 Evidence: seven area reports with `file:line` for every instance live in
@@ -15,7 +16,7 @@ scripts, CI and docs), plus the mechanical scans (`dupscan-*.txt`, `unused-expor
 `dupscan.mjs`). Finding ids below (for example `06-#3`, `02-F4`) point into those files.
 The evidence reports and sections 1–3 describe the original audit snapshot; sections 5–6
 and the owner review notes preserve the approved plan. Sections 4 and 7 record the close-out.
-No application was built, launched or packaged for this documentation update. Items marked
+The original docs-only close-out (#431) did not build or launch the app. Items marked
 **ready to test** still need owner acceptance in the packaged app.
 
 ---
@@ -99,7 +100,8 @@ Playwright themselves, 130 walk React fibers by hand, 19 variable names pick the
 ## 4. Likely bugs found along the way — outcomes
 
 Checked against `origin/main` at `56fb26c8` on 2026-10-30. Source links pin that
-revision so their file:line references remain usable after main moves. These are
+revision so their file:line references remain usable after main moves. B16/B18 link
+to their proposed follow-up changes in [#433](https://github.com/UnsctMagic/MDLxL/pull/433). These are
 code outcomes, not owner acceptance or Warcraft III test results.
 
 | Finding | Outcome | PR(s) | Current-main evidence |
@@ -119,19 +121,26 @@ code outcomes, not owner acceptance or Warcraft III test results.
 | B13 · Inspector skips sequence validation | Fixed: name, start and end edits use the shared validators. | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | [app/Inspectors.jsx:58](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Inspectors.jsx#L58) |
 | B14 · Portrait bounds depend on declared edit sections | Fixed: the actual changed sections decide the Portrait refresh, inside the same Undo step. | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | [src/editor-document.js:425](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/editor-document.js#L425); [app/App.jsx:409](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/App.jsx#L409) |
 | B15 · Release tests silently launch the development app | Fixed across the helper and family migrations: the runner supplies one executable choice; explicit development-only wrappers remain listed. | [#400](https://github.com/UnsctMagic/MDLxL/pull/400), [#414](https://github.com/UnsctMagic/MDLxL/pull/414), [#407](https://github.com/UnsctMagic/MDLxL/pull/407), [#417](https://github.com/UnsctMagic/MDLxL/pull/417), [#425](https://github.com/UnsctMagic/MDLxL/pull/425) | [scripts/run-packaged-tests.mjs:65](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/scripts/run-packaged-tests.mjs#L65); [scripts/run-packaged-tests.mjs:146](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/scripts/run-packaged-tests.mjs#L146); [test/helpers/app.cjs:12](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/test/helpers/app.cjs#L12) |
-| B16 · Tiny normals keep nonzero X/Y | **Still open:** D1 approved clearing X/Y, but the quick geometry helper still changes only Z. The Inspector switch in #412 avoids this helper there; Forge and shaping still use it. No fixing PR. | — | [src/editor-document.js:944](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/editor-document.js#L944) |
+| B16 · Tiny normals keep nonzero X/Y | **fixed in [#433](https://github.com/UnsctMagic/MDLxL/pull/433):** D1 now resets every degenerate sum to exactly (0, 0, 1). The quick area-weighted helper remains the Forge/shaping path; normal nondegenerate results are unchanged. | [#433](https://github.com/UnsctMagic/MDLxL/pull/433) | [src/editor-document.js:944](https://github.com/UnsctMagic/MDLxL/pull/433/files#diff-af955f41865218f0f6f765f15554f3678b137798809798748ad71414e1418c9fR944) |
 | B17 · Running organiser shown as interrupted | Fixed: a live Offload task counts as running. | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | [electron/ai-service.cjs:440](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/ai-service.cjs#L440) |
-| B18 · Long AI plans show raw cut-off data | **Still open in part:** #406 adds the short label and shortens long strings before cutting. A plan with many short entries can still exceed the limit, be cut mid-JSON and fall back to raw data; older cut-off chats also remain unreadable. | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | [electron/ai-providers.cjs:112](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/ai-providers.cjs#L112); [app/AiParts.jsx:114](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/AiParts.jsx#L114); [app/AiParts.jsx:38](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/AiParts.jsx#L38) |
+| B18 · Long AI plans show raw cut-off data | **fixed in [#433](https://github.com/UnsctMagic/MDLxL/pull/433):** display JSON drops trailing entries with “+N more” markers instead of cutting JSON. Old cut-off plans show their short line, or “plan too long to show”. Complete tool arguments are unchanged. | [#433](https://github.com/UnsctMagic/MDLxL/pull/433) | [electron/ai-providers.cjs:111](https://github.com/UnsctMagic/MDLxL/pull/433/files#diff-1b3dcef5d3299615b14e5d0fc9fcc9753f33397b855c5c6b5b4413dc47ab4447R111); [app/AiParts.jsx:114](https://github.com/UnsctMagic/MDLxL/pull/433/files#diff-c8fbad2f78cf907455cd5714aa0612f7ebd3b1aec6e7722a726bfffc211e9ec0R114) |
 | B19 · POSE repeatedly rebuilds the node lookup | Fixed: each public operation builds or receives one shared lookup and passes it through. | [#402](https://github.com/UnsctMagic/MDLxL/pull/402) | [src/pose-ik.js:42](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L42); [src/pose-ik.js:613](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L613) |
 | B20 · Smooth switch rebuilds a renderer that ignores it | Fixed per D9 by making the setting work: the live model pass is smoothed while editor lines keep their sharp layer. | [#424](https://github.com/UnsctMagic/MDLxL/pull/424) | [app/Viewport.jsx:845](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Viewport.jsx#L845); [app/model-smoothing.js:37](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/model-smoothing.js#L37) |
 | B21 · Different previews choose different Stand clips | Fixed per D5: callers use Attachemator's shared Stand rule; the Showcase Portrait callback missed in #411 is corrected in #416. | [#411](https://github.com/UnsctMagic/MDLxL/pull/411), [#416](https://github.com/UnsctMagic/MDLxL/pull/416) | [src/sequence-editor.js:17](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/sequence-editor.js#L17); [src/paint-view.js:9](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/paint-view.js#L9); [app/ParticleEditor.jsx:230](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/ParticleEditor.jsx#L230) |
 | B22 · Outdated POSE refusal explanation | Wording fixed; the solver restriction remains deliberately. The message now distinguishes what the preview shows from what the joint solver supports. | [#396](https://github.com/UnsctMagic/MDLxL/pull/396) | [src/pose-ik.js:30](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L30) |
 
-Close-out checks confirmed both remaining cases without launching the app: B16
+The original close-out reproduced both cases without launching the app: B16
 returns `[0, 9.9999998245167e-15, 1]` for a tiny triangle; B18 turns a valid
 4,052-character plan (20 keeps, six options, 20 checks, 62-character strings)
 into 4,001 characters that no longer parse. Neither is an owner decision to
-leave the bug. B16's approved D1 change was missed; B18 is only partly repaired.
+leave the bug. Both are now fixed in [#433](https://github.com/UnsctMagic/MDLxL/pull/433), with regression tests for tiny
+normals, many-entry plans, legacy chat rendering and delivery of the full tool input.
+Verification for #433: direct Node build/package passed; the requested focused
+selection passed 379 tests (one skipped), the full source suite passed 2,436
+(14 skipped), and compatibility passed 57. The hidden packaged AI console passed,
+including actual mouse rotation and no page errors. The new React rendering tests
+cover long and legacy plan text. Owner click-throughs remain ready to test; the PR
+is open and unmerged.
 
 The owner decisions to keep separate material comparisons (D6), keep the two
 vertex-click distances (D10), and omit UV splits/AI width from exported preferences
@@ -301,7 +310,7 @@ mean every B-item or owner click-through passed; see section 4 and the list belo
 | WP-2.3a | [#401](https://github.com/UnsctMagic/MDLxL/pull/401) | Merged 2026-10-29 | Shared track checks, track walking and new animation-key creation. |
 | WP-2.3b | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | Merged 2026-10-29 | Shared part/sequence editing and repaired bounds, validation and Portrait refresh. |
 | WP-2.4 | [#403](https://github.com/UnsctMagic/MDLxL/pull/403) | Merged 2026-10-29 | Shared safe file writes and made libraries prefer the Settings installation. |
-| WP-2.5 | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | Merged 2026-10-29 | Shared AI chat/provider state, live errors and short step labels; B18 remains partial. |
+| WP-2.5 | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | Merged 2026-10-29 | Shared AI chat/provider state, live errors and short step labels; B18 follow-up is in #433. |
 | WP-2.6 | [#413](https://github.com/UnsctMagic/MDLxL/pull/413) | Merged 2026-10-29 | Shared number boxes, slider styling and movable tool-window shells. |
 | WP-2.7 | [#418](https://github.com/UnsctMagic/MDLxL/pull/418), [#423](https://github.com/UnsctMagic/MDLxL/pull/423) | #418 merged 2026-10-29; #423 merged 2026-10-30 | Routed tool-window keys through Shortcuts; follow-up cancels a drag before closing. |
 | WP-2.8a | [#414](https://github.com/UnsctMagic/MDLxL/pull/414) | Merged 2026-10-29 | Moved AI and UV app checks onto the shared test helpers. |
@@ -336,8 +345,9 @@ mean every B-item or owner click-through passed; see section 4 and the list belo
 
 PR #430 merged during close-out and is included in checked main `56fb26c8`.
 The UV and release branch names above come from the task handover; their work
-is separate from this documentation PR. B16 and the remaining B18 case have no
-separate fixing PR in the checked records. The full-suite results in #425
+is separate from the original documentation PR. B16 and B18 now have the follow-up
+[#433](https://github.com/UnsctMagic/MDLxL/pull/433); its two commits and regression tests close the remaining code defects.
+The full-suite results in #425
 (150 pass, 12 fail, 29 skip after repeat) are its historical run, not the release
 0.36.0 result. Its UV Search/Escape failure is a product bug; its other remaining
 failures include stale test expectations and missing private inputs.
@@ -345,7 +355,7 @@ failures include stale test expectations and missing private inputs.
 ### Owner click-through — ready to test
 
 Use the release task's hand-test build when ready. These checks are pending owner
-acceptance; this docs-only close-out did not build or run the app. Repeat visual
+acceptance; #431 was docs-only and #433 verification is recorded in section 4. Repeat visual
 checks in light, dark and VIS where available, and rotate every 3D preview by mouse.
 
 **Settings and the main window**
@@ -402,7 +412,7 @@ Glow Up, Portrait setup, Addons, NormalsXL and Auto Corpse.
 
 - Switch connection providers and send two requests, then sign out/in; the same settings rows work and sending continues without a duplicate sign-in check (#406, #410).
 - Trigger a request error and reopen the chat; the error appears beside the failed reply both live and after reopening, with the banner still present (#406).
-- Open a long plan and inspect its step label; ordinary long-string plans are readable, while the many-entry B18 case above remains open (#406).
+- Open a plan with many short entries; it stays readable and shows “+N more” for omitted entries. An old cut-off plan shows its short line or “plan too long to show”, never raw data (#433).
 - Finish a task with reference pictures and before/after or wire comparisons; the outside check sees those pictures and explains missing ones (#427).
 - After a blocked review, say “deliver anyway”; the kept result completes without repeating edits, with remaining concerns stated (#427).
 - After a failed or stalled display step or Stop, send another message; work can continue, and “reduce it to around 8” does not produce a false model-changed refusal (#427).
@@ -473,6 +483,7 @@ Nothing was declared off limits and no package was dropped. Changes to the plan:
 - Not covered: domain correctness of each feature's rules, `src/vendor/`, native C# and C++
   helpers, the paint-library and public assets, performance beyond the two O(n²) notes.
 - Original audit verification: `node --test tests/*.test.js` (57/57 pass). Package PRs
-  record their own later checks. This close-out checked PR records, current source, links
-  and the two isolated remaining-bug cases; it ran no build, packaged app or owner test.
+  record their own later checks. The #431 close-out checked PR records, current source,
+  links and the two isolated remaining-bug cases without building or running the app.
+  The #433 repair follow-up and its verification are recorded in section 4.
   The owner click-throughs in section 7 remain **ready to test**.

@@ -1,6 +1,6 @@
 # AI chat loop fixes
 
-Status: five fixes merged in PR #427; separate context-diet follow-up completed, ready to test
+Status: original fixes and context diet merged in #427 / #430; deterministic steering test ready for review, awaiting merge approval
 Owner / consolidator: Codex
 Updated: 2026-10-30
 
@@ -49,13 +49,13 @@ Fix the five failures from the owner's 0.35.0 chat in the existing chat and Undo
 
 ## Blockers and next action
 
-- Original result: the five fixes merged through PR #427 at `9f4e079b`; the context-diet follow-up below is separate and must remain unmerged.
+- Original result: the five fixes merged through PR #427 at `9f4e079b`, and context diet through #430 at `56fb26c8`. The test follow-up below is separate and must remain unmerged until authorised.
 - Cleanup: remove disposable packages, profiles, baseline and task worktrees after pushing; retain the small local result report. The branch and all source changes remain in Git/GitHub.
 
 
 ## Follow-up: AI context diet
 
-Status: completed (implementation and checks); separate PR ready to test, no merge authorised.
+Status: merged externally in [#430](https://github.com/UnsctMagic/MDLxL/pull/430) at `56fb26c8`. Checks below record the earlier branch state; the final PR description records all five hidden checks passing after main's harness audit landed.
 
 - Branch / checkout: `codex/ai-context-diet`; `D:\Codex\mdlxl-ai-context-diet`.
 - Started at first PR [#427](https://github.com/UnsctMagic/MDLxL/pull/427), tip `f1b0a923`. After #427 merged during this work, rebased onto `origin/main` at `9f4e079b` (same code tree as the starting tip). Then preserved the separately merged real-use grading harness in #428 by rebasing onto `de508bc2`. The second PR targets main; the original five fixes stay in their own PR.
@@ -71,3 +71,15 @@ Status: completed (implementation and checks); separate PR ready to test, no mer
 - Package verified 1332 runtime/assets and 55 locales. Hidden `node scripts/run-packaged-tests.mjs default ai-console,ai-routing,ai-questions,ai-editor,ai-parallel`: routing, questions and parallel passed. Console verified user-first steering, model edits, captures and task cleanup before reaching the same pre-existing reference-tab assertion as #427; editor stopped at the same fake native sign-in launcher as that baseline. These two checks are not claimed as passing. The console assertion was updated to require delivery with user words first, replacing only its deliberate old-prefix expectation.
 - Result: push the separate `codex/ai-context-diet` branch and PR into main; do not merge. The same note covers both tasks. No installed app/profile, model source, release version, release note, user-facing setting or limit changed. Original chat/rollout were read-only evidence.
 - Verification revision: `6a0128c4` on base `de508bc2`; the final amendment only records results. The first PR and new main harness are preserved. Remove task-created builds/profiles and the pushed disposable worktree; retain the small result report.
+
+
+## Follow-up: deterministic native steering regression
+
+Status: ready for review; awaiting merge approval.
+
+- Branch / base: `codex/ai-context-diet-flake`, cut from current `origin/main` at `a544fe9c` (2026-10-30).
+- Evidence: PR #433 CI run [40994272961](https://github.com/UnsctMagic/MDLxL/actions/runs/40994272961), first-attempt job `123863637023`, failed the native steering test in 431.684 ms with `2 !== 1` at the reset-count assertion; the rerun passed.
+- Cause: the fixture's READY output can arrive before `turn/start` resumes. Queuing steering inline can leave both its subscription callback and the provider's initial queue check scheduled. After the first rejected delivery restores the message, the second callback can retry it and produce a second reset.
+- Decision: observe the existing initial `AiSteering.take()` check with a test-scoped mock, then queue steering only after that check and READY have both occurred. Await the actual `context-reset` delivery-failure event before checking the late follow-up. No sleeps, elapsed-time assumptions, provider changes or relaxed assertions.
+- Verification: `node --test test/ai-context-native.test.js` passed 30 consecutive fresh-process runs; `node --test test/ai-*.test.js` passed 273 tests, 1 skipped, 0 failed. Every original assertion is byte-identical; the fake CLI still requires the full snapshot and revision 2. No app or packaged build is needed for this test-only change.
+- Result: push this narrow follow-up and open a separate PR; do not merge. Keep the small report, remove disposable profiles/logs and the finished worktree after push.
