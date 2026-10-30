@@ -308,7 +308,10 @@ export function partRgbSnapshot(source, sequenceIndex = -1) {
   const model = structuredClone(source), frame = sequence?.Interval[0] || 0;
   for (const animation of model.GeosetAnims || []) {
     const sampled = sampleGeosetAnimation(source, animation.GeosetId, frame, sequenceIndex);
-    animation.Color = new Float32Array(sampled.color); animation.Alpha = sampled.alpha;
+    // With no animation chosen, an animated Alpha stays visible as in the
+    // editor's unanimated view; its hidden MDX base is often 0.
+    const animatedAlpha = sequenceIndex === -1 && animation.Alpha?.Keys;
+    animation.Color = new Float32Array(sampled.color); animation.Alpha = animatedAlpha ? 1 : sampled.alpha;
     if (animation._MdxDefaults) {
       delete animation._MdxDefaults.Color; delete animation._MdxDefaults.Alpha;
       if (!Object.keys(animation._MdxDefaults).length) delete animation._MdxDefaults;
