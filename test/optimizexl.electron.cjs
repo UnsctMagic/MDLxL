@@ -31,6 +31,8 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   const rightRotated=await popup.evaluate(()=>oxState());assert.ok(Math.hypot(...rightRotated[1].position.map((v,i)=>v-cameraZoomed[1].position[i]))>1,'After-view drag must actually rotate both views');nearVector(rightRotated[0].position,rightRotated[1].position);
   const cameraBefore=await popup.evaluate(()=>oxState());nearVector(cameraBefore[0].position,cameraBefore[1].position);nearVector(cameraBefore[0].target,cameraBefore[1].target);
   await popup.screenshot({path:path.join(out,'01-simple.png')});
+  // OptimizeXL opens on Insanity FIxer (first stage since 3a5c89a4); UV tolerance belongs to Duplicate data.
+  await popup.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
   await popup.getByRole('button',{name:'Advanced',exact:true}).click();await popup.getByLabel('UV tolerance',{exact:true}).waitFor();
   await popup.getByRole('button',{name:'Animation optimization',exact:true}).click();await popup.getByLabel('Translation tolerance',{exact:true}).waitFor();
   await popup.getByRole('button',{name:'Simple',exact:true}).click();await popup.getByLabel('Strength',{exact:true}).fill('30');
@@ -68,7 +70,13 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   assert.equal(await popup.getByLabel('Shape/texture error (%)',{exact:true}).inputValue(),'20');
   await popup.getByRole('button',{name:'Simple',exact:true}).click();
   await popup.getByLabel('Strength',{exact:true}).fill('0');
-  await popup.waitForFunction(()=>document.querySelector('.ox-savings strong')?.textContent==='0.00 KB saved');
+  // Strength 0 removes no polygons: the candidate is the approved model, so the estimate
+  // (measured from the original, docs/OPTIMIZEXL.md) equals the footer's approved total.
+  await popup.waitForFunction(()=>{
+    const s=document.querySelector('.ox-savings strong')?.textContent||'',f=document.querySelector('.ox-root>footer')?.textContent||'';
+    const m=/Original: ([\d.]+) KB · Approved: ([\d.]+) KB/.exec(f),n=/^([\d.]+) KB (saved|larger)$/.exec(s);if(!m||!n)return false;
+    const d=+m[1]-+m[2],shown=n[2]==='saved'?+n[1]:-n[1];return Math.abs(shown-d)<=.011;
+  });
   await popup.getByLabel('Strength',{exact:true}).fill('100');
   await popup.waitForFunction(()=>document.querySelector('.ox-savings strong')&&!document.querySelector('.ox-savings').textContent.includes('Updating'));
   await popup.screenshot({path:path.join(out,'04-nuclear.png')});
