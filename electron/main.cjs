@@ -616,7 +616,9 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences,preferences.PREFERENCE_LIMITS);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
-  updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status)});
+  updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status),
+    // The small window the installer shows while MDLxL is closed for the update.
+    installWindow:(mode,version)=>{const t=text=>translateText(text,settings.preferences?.language);return {title:t(mode==='revert'?'Restoring MDLxL {version}':'Installing MDLxL {version}').replace('{version}',version),detail:t('MDLxL restarts by itself when it is done. Please wait.'),undoing:t('Undoing the update…'),colors:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors,icon:path.join(__dirname,'../dist/branding/MDLxL.png'),sheet:path.join(__dirname,'../dist/update/shredder-sheet.png'),wings:path.join(__dirname,'../dist/update/shredder-wings.png')};}});
   await updater.initialize();
   try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;

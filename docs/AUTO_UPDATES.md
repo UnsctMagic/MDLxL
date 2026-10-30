@@ -96,6 +96,16 @@ finish and this MDLxL process exits, a local Windows helper applies the
 verified program files in the existing installation and restarts MDLxL.
 The installation location and existing shortcuts stay valid.
 
+While the helper works, it shows a small installing window in the user's
+theme and language: the MDLxL icon, "Installing MDLxL <version>" (or
+"Restoring" for a revert), and a progress bar. The update popup's Shredder
+bird peeks around its edges and flies off when the files are in place; the
+window closes once the restarted MDLxL shows its window (at most 30 seconds).
+It is `electron/update-window.cs`, compiled by the helper. Installing never
+depends on it: if it cannot start, the update runs without it. The helper
+comes from the version being replaced, so the window first appears when
+updating from a release that includes it.
+
 The closing editor acquires an installation lock before handing off to the
 native installer and waits for its startup acknowledgement. New launches exit
 before loading editor modules while that lock is present. The installer replaces

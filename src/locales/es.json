@@ -7375,5 +7375,9 @@
   "Bake All Visibility": "Aplicar visibilidad a todas",
   "Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed.": "Pone el Alpha de arriba al principio y al final de cada animación en los geosets marcados. El color no cambia.",
   "Bake visibility in all sequences": "Fijar la visibilidad en todas las secuencias",
-  "Visibility baked at the beginning and end of every sequence.": "Visibilidad fijada al principio y al final de cada secuencia."
+  "Visibility baked at the beginning and end of every sequence.": "Visibilidad fijada al principio y al final de cada secuencia.",
+  "Installing MDLxL {version}": "Instalando MDLxL {version}",
+  "Restoring MDLxL {version}": "Restaurando MDLxL {version}",
+  "MDLxL restarts by itself when it is done. Please wait.": "MDLxL se reiniciará solo cuando termine. Espera, por favor.",
+  "Undoing the update…": "Deshaciendo la actualización…"
 }

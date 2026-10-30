@@ -7239,5 +7239,9 @@
   "Bake All Visibility": "烘焙全部可见性",
   "Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed.": "为勾选的几何组在每个动画的开头和结尾设置上方的 Alpha。颜色不变。",
   "Bake visibility in all sequences": "在所有序列中烘焙可见性",
-  "Visibility baked at the beginning and end of every sequence.": "已在每个序列的开头和结尾烘焙可见性。"
+  "Visibility baked at the beginning and end of every sequence.": "已在每个序列的开头和结尾烘焙可见性。",
+  "Installing MDLxL {version}": "正在安装 MDLxL {version}",
+  "Restoring MDLxL {version}": "正在恢复 MDLxL {version}",
+  "MDLxL restarts by itself when it is done. Please wait.": "完成后 MDLxL 会自动重新启动，请稍候。",
+  "Undoing the update…": "正在撤销更新…"
 }
