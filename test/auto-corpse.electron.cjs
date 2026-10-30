@@ -147,7 +147,15 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
         assert.ok(sampleGeosetAnimation(m,id,(a+b)/2,fl).alpha>.5,'the body shows in Decay Flesh');assert.equal(sampleGeosetAnimation(m,id,b,fl).alpha,0);
         assert.ok(Math.max(...last.filter((_,i)=>i%3===2))<0,'the body is underground at the end of Decay Flesh');
       }
-      checks.push('Saved '+format+': the body itself holds the last Death pose, shows through Decay Flesh and sinks underground');fs.unlinkSync(saved);
+      checks.push('Saved '+format+': the body itself holds the last Death pose, shows through Decay Flesh and sinks underground');
+      // Like every native corpse: Decay Bone shows it lying still where Decay Flesh left it, until the last frame.
+      const bo=m.Sequences.findIndex(x=>/^Decay Bones?$/i.test(x.Name)),[c,e]=m.Sequences[bo].Interval,corpse=m.Geosets.findIndex((g,i)=>sampleGeosetAnimation(m,i,c+1,bo).alpha>.5);
+      const lying=skinGeoset(m.Geosets[corpse],sampleNodeMatrices(m,a+167,fl));
+      for(const t of [c,(c+e)/2,e-1])assert.ok(skinGeoset(m.Geosets[corpse],sampleNodeMatrices(m,t,bo)).every((v,i)=>Math.abs(v-lying[i])<.01),'the corpse lies still in Decay Bone');
+      assert.ok(sampleGeosetAnimation(m,corpse,e-1,bo).alpha>.5,'the corpse shows until the last frame of Decay Bone');
+      const {sampleTrack}=await import('../src/animation.js'),fade=t=>sampleTrack(m.Materials[m.Geosets[corpse].MaterialID].Layers[0].Alpha,t,{interval:[c,e],fallback:1});
+      assert.ok(fade(e-1667)>.99&&fade(e-1)<.05,'the corpse fades out over the end of Decay Bone like native corpses');
+      checks.push('Saved '+format+': the corpse lies still through Decay Bone and fades out at its end, as on Blizzard units');fs.unlinkSync(saved);
     }
     assert.deepEqual(fs.readFileSync(fixture),original);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,fixture,hidden:true,geosetsBefore:before.model.Geosets.length,geosetsAfter:after.model.Geosets.length},null,2));

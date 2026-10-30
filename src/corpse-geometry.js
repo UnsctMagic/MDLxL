@@ -17,10 +17,12 @@ const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 // Native gutz proportions, measured on the 58 study models with a native
 // corpse (docs/AUTO-CORPSE.md). Sizes are in the unit's typical limb bone
 // (joint to joint), the steadiest predictor of native piece sizes: ribs 2.57
-// and skull 1.18 limb bones long, a hand 1.62 of its own forearm; each long
+// and skull 1.27 limb bones long, a hand 1.62 of its own forearm; each long
 // bone reaches 1.6x its own joints. Widths are native width/length. Heights are shares of the dead
-// body's height: bones lowest, then hands and ribs, the skull's crown at 43%.
-const NATIVE = { bone: .47, boneReach: 1.6, hand: .62, handLimb: 1.62, ribs: .57, ribLimb: 2.57, skull: 1.18, skullHalf: .42, base: .12, step: .04, crown: .43 };
+// body's height: bones lowest, then hands and ribs. Every native skull is one
+// mesh scaled evenly (87 SD units, 30 Oct 2026): 0.72 of its length wide and
+// 0.42 tall, resting 0.22 of its length above the ground.
+const NATIVE = { bone: .47, boneReach: 1.6, hand: .62, handLimb: 1.62, ribs: .57, ribLimb: 2.57, skull: 1.27, skullHalf: .362, base: .12, step: .04, skullBase: .218, skullRise: .42 };
 
 /** Top surface of the actual terminal pose, rather than its bounding rectangle.
  * A uniform XY grid keeps footprint/height fitting linear in mesh size. */
@@ -297,8 +299,8 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   for(const i of parts.map((_,k)=>k).sort((a,b)=>parts[a].level-parts[b].level||a-b)){while(settled.some(j=>touches(i,j)&&Math.abs(parts[j].level-parts[i].level)<.2))parts[i].level+=.25;settled.push(i);}
   const base=Math.max(1.5,bodyHeight*NATIVE.base),step=Math.max(1.5,bodyHeight*NATIVE.step);
   for(const part of parts) {
-    const z=base+part.level*step,rise=Math.max(step,bodyHeight*NATIVE.crown-z);
-    // The skull's crown reaches the native 43% of the body's height.
+    // A skull's height follows its own length, like the native skull mesh.
+    const length=part.kind==='skull'?distance(part.start,part.end):0,z=length?length*NATIVE.skullBase:base+part.level*step,rise=length*NATIVE.skullRise;
     for(const id of part.vertices)vertices[id*3+2]=part.kind==='skull'?z+vertices[id*3+2]*rise:z;
     delete part.faces;
   }

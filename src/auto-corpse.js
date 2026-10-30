@@ -227,18 +227,22 @@ export function autoCorpse(model, options={}) {
   for(const event of model.EventObjects||[])if(event.EventTrack)event.EventTrack=new Uint32Array(Array.from(event.EventTrack).filter(t=>!intervals.some(([a,b])=>t>=a&&t<=b)));
   let texture=model.Textures.findIndex(t=>/^textures[\\/]gutz\.blp$/i.test(t.Image));
   if(texture<0){texture=model.Textures.length;model.Textures.push({Image:'Textures\\gutz.blp',ReplaceableId:0,Flags:0});}
-  const corpseMaterial=material(model,{PriorityPlane:0,RenderMode:0,Layers:[{FilterMode:1,Shading:16,TextureID:texture,TVertexAnimId:null,CoordId:0,Alpha:1}]});
+  // Native corpses (198 of 206 SD units) fade their material out at the end of
+  // Decay Bone; the commonest fade is the last 1667 ms, down to nothing.
+  const fade=track(pairs.flatMap(p=>{const [f]=model.Sequences[p.flesh].Interval,[c,e]=model.Sequences[p.bone].Interval;return [[f,[1]],[c,[1]],[Math.max(c,e-1667),[1]],[e,[0]]];}),1);
+  const corpseMaterial=material(model,{PriorityPlane:0,RenderMode:0,Layers:[{FilterMode:1,Shading:16,TextureID:texture,TVertexAnimId:null,CoordId:0,Alpha:fade}]});
   const results=[];
   for(const [number,pair] of pairs.entries()) {
     const corpse=root(model,PREFIX+number),fs=model.Sequences[pair.flesh],bs=model.Sequences[pair.bone];
-    const sink=pair.sink,boneSink=Math.max(pair.geometry.geoset.MaximumExtent[2],0)+pair.geometry.span*.025;
-    corpse.Translation=track(model.Sequences.flatMap((s,i)=>i===pair.bone?[[s.Interval[0],[0,0,0]],[s.Interval[1],[0,0,-boneSink]]]:[[s.Interval[0],[0,0,0]]]),1);
+    // Blizzard's corpse lies still through Decay Bone (all 206 SD units with
+    // one) and is gone on its last frame; the game itself sinks the remains.
+    const sink=pair.sink;delete corpse.Translation;
     const corpseStart=Math.min(fs.Interval[0]+167,fs.Interval[1]-1);
     const alpha=sequenceVisibility(model,new Map([[pair.flesh,[[fs.Interval[0],0],[corpseStart,1],[fs.Interval[1],1]]],[pair.bone,[[bs.Interval[0],1],[bs.Interval[1]-1,1],[bs.Interval[1],0]]]]));
     const g=pair.geometry.geoset;bind(g,corpse);g.MaterialID=corpseMaterial;
     const id=addGeoset(model,g,alpha,options.color||[1,1,1]);
     decayExtents(model,pair,{flesh:[...pair.body,id],bone:[id]});
-    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,boneSinkDistance:boneSink,parts:pair.geometry.parts,ground:pair.geometry.ground});
+    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
   }
   for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds

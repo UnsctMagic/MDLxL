@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {existsSync,readFileSync} from 'node:fs';
 import {createStarterDocument} from '../src/starter-model.js';
 import {EditorDocument,createNode} from '../src/editor-document.js';
 import {autoCorpse,AUTO_CORPSE_SECTIONS} from '../src/auto-corpse.js';
@@ -40,7 +41,14 @@ test('the body itself holds the last Death pose in Decay Flesh and sinks; only t
     near(p,base.map((v,i)=>v-(i%3===2?r.sinkDistance*t:0)),.001);
   }
   assert.ok(Math.max(...Array.from(posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[1])).filter((_,i)=>i%3===2))<0);
-  assert.ok(Math.max(...Array.from(posed(m,r.corpseGeoset,r.bone,bs.Interval[1])).filter((_,i)=>i%3===2))<0);
+  // Blizzard: the corpse lies still through all of Decay Bone, visible until its last frame.
+  for(const t of [.25,.5,.75,1])near(posed(m,r.corpseGeoset,r.bone,bs.Interval[0]+t*(bs.Interval[1]-bs.Interval[0])),posed(m,r.corpseGeoset,r.bone,bs.Interval[0]));
+  near(posed(m,r.corpseGeoset,r.bone,bs.Interval[0]),posed(m,r.corpseGeoset,r.flesh,fs.Interval[1]));
+  assert.equal(alpha(m,r.corpseGeoset,r.bone,bs.Interval[1]-1),1);
+  // ...and, like 198 of 206 native corpses, its material fades out over the last 1667 ms.
+  const fade=t=>sampleTrack(m.Materials[m.Geosets[r.corpseGeoset].MaterialID].Layers[0].Alpha,t,{interval:bs.Interval,fallback:1});
+  assert.equal(fade(bs.Interval[1]-1667),1);assert.ok(Math.abs(fade(bs.Interval[1]-833)-.5)<.01);assert.ok(fade(bs.Interval[1]-1)<.01);
+  assert.equal(sampleTrack(m.Materials[m.Geosets[r.corpseGeoset].MaterialID].Layers[0].Alpha,fs.Interval[0]+167,{interval:fs.Interval,fallback:1}),1);
   for(const time of [fs.Interval[0],(fs.Interval[0]+fs.Interval[1])/2,fs.Interval[1]-1])assert.equal(alpha(m,0,r.flesh,time),1,'the body shows through Decay Flesh');
   assert.equal(alpha(m,0,r.flesh,fs.Interval[1]),0);
   assert.equal(alpha(m,r.corpseGeoset,r.flesh,fs.Interval[0]),0);
@@ -147,8 +155,8 @@ test('Size and Height scale the fitted corpse, and 100% keeps it unchanged',()=>
   const spread=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===0))-Math.min(...g.Vertices.filter((_,i)=>i%3===0)),peak=g=>Math.max(...g.Vertices.filter((_,i)=>i%3===2));
   assert.ok(Math.abs(spread(big.g)/spread(plain.g)-1.5)<.01,'Size scales the footprint');
   assert.ok(peak(tall.g)>peak(plain.g)*1.5,'Height raises the bones');
-  // A taller corpse is still buried completely before Decay Bone hides it.
-  const bs=tall.m.Sequences[tall.r.bone];assert.ok(Math.max(...Array.from(posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[1]-1)).filter((_,i)=>i%3===2))<0);
+  // A taller corpse lies still through Decay Bone like any native corpse.
+  const bs=tall.m.Sequences[tall.r.bone];near(posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[1]-1),posed(tall.m,tall.r.corpseGeoset,tall.r.bone,bs.Interval[0]));
 });
 test('edited, added and removed pieces and the corpse tint reach the made corpse',()=>{
   const make=options=>{const d=fixture();const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,options)).corpses[0];return {r,m:d.model,g:d.model.Geosets[r.corpseGeoset]};};
@@ -230,3 +238,21 @@ function flailModel() {
   const fs = process.getBuiltinModule('node:fs');
   return [process.env.MDLXL_CORPSE_FLAIL, 'D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/Fx_original.mdx'].find(p => p && fs.existsSync(p));
 }
+// Real models: the SD Footman (out/pose, prepared by out/fixtures.sh) and the owner's flail.
+const footmanModel=()=>{const file=new URL('../out/pose/Footman.mdx',import.meta.url);return existsSync(file)?file:null;};
+test('the skull has the native gutz skull proportions and rests near the ground',{skip:!footmanModel()&&!flailModel()&&'no SD Footman or flail on this machine'},async()=>{
+  // Every native skull is one mesh scaled evenly: 0.72 of its length wide, 0.42 tall, 0.22 above the ground.
+  const {openDocument}=await import('../src/editor-document.js');
+  for(const file of [footmanModel(),flailModel()].filter(Boolean)) {
+  const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),r=apply(d).corpses[0],g=d.model.Geosets[r.corpseGeoset];
+  const skulls=r.parts.filter(p=>p.kind==='skull');assert.ok(skulls.length>0);
+  for(const part of skulls) {
+    const ids=part.vertices,P=ids.map(i=>[g.Vertices[i*3],g.Vertices[i*3+1],g.Vertices[i*3+2]]);
+    const length=Math.hypot(part.end[0]-part.start[0],part.end[1]-part.start[1]),axis=[(part.end[0]-part.start[0])/length,(part.end[1]-part.start[1])/length],side=[axis[1],-axis[0]];
+    const across=P.map(p=>p[0]*side[0]+p[1]*side[1]),z=P.map(p=>p[2]);
+    assert.ok(Math.abs((Math.max(...across)-Math.min(...across))/length-.724)<.02,'skull width is 0.72 of its length');
+    assert.ok(Math.abs((Math.max(...z)-Math.min(...z))/length-.42)<.01,'skull height is 0.42 of its length');
+    assert.ok(Math.abs(Math.min(...z)/length-.218)<.01,'skull rests 0.22 of its length above the ground');
+  }
+  }
+});
