@@ -360,12 +360,13 @@ Verify the requested result and protected data separately. Compare the same pose
 // The handbook guides a request touches, most relevant first (at most two), so
 // the job carries them instead of a pointer the AI rarely follows.
 const GUIDE_WORDS = [
+  ['WC3-EDITING-OPTIMIZATION.md', /\b(optimi|file\s*size|size\b|smaller|over.key|key.*reduc|reduc.*key)/gi],
   ['WC3-EDITING-NODES-BINDING.md', /\b(bind|binding|bound|weight|skin|rig|bone|bones|pivot|clip|clipping|deform|warp|tear|seam|joint|hierarchy|attach)/gi],
   ['WC3-EDITING-ANIMATION.md', /\b(animat|walk|attack|stand|death|spell|keyframe|key|retime|pose|sequence|motion|move|swing|lunge|sway|loop|frame)/gi],
   ['WC3-EDITING-GEOMETRY.md', /\b(vertex|vertices|mesh|geoset|weld|normal|shape|extrude|mirror|split|merge|triangle|poly|smooth|gap|hole)/gi],
   ['WC3-EDITING-UV-MATERIALS.md', /\b(uv|texture|material|colou?r|alpha|team|layer|transparen|visibility|paint|shading)/gi],
   ['WC3-EDITING-EMITTERS.md', /\b(particle|emitter|ribbon|glow|light|event|sound|trail|effect)/gi],
-  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(optimi|file size|collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay)/gi],
+  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay)/gi],
 ];
 export function guidesForRequest(text) {
   return GUIDE_WORDS.map(([guide, words]) => [guide, (String(text).match(words) || []).length])
