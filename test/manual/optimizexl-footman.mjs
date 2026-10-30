@@ -1,5 +1,5 @@
 // Optional supplied-model integration proof; inputs are never rewritten.
-// node test/optimizexl-footman.mjs unoptimized.mdx original.mdx [known-good.mdx ...]
+// node test/manual/optimizexl-footman.mjs unoptimized.mdx original.mdx [known-good.mdx ...]
 import fs from 'node:fs';import {loadHiveViewer} from '../helpers/hive.mjs';import assert from 'node:assert/strict';
 import {ModelRenderer} from 'war3-model';import {Matrix4} from 'three';
 import {openDocument} from '../../src/editor-document.js';import {runOptimizeStage,simpleSettings,sanityProposals} from '../../src/optimizexl.js';import {allNodes,skinGeoset} from '../../src/animation.js';

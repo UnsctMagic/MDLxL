@@ -1,5 +1,5 @@
 // Optional integration check against user-supplied files; never rewrites them.
-// node test/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
+// node test/manual/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
 import fs from 'node:fs';
 import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';

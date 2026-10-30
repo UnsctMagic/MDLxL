@@ -1,5 +1,5 @@
 // Original synthetic fixtures; no game assets are redistributed.
-// node test/save-compatibility-fixtures.mjs [output directory]
+// node test/manual/save-compatibility-fixtures.mjs [output directory]
 import fs from 'node:fs';
 import path from 'node:path';
 import { createStarterDocument } from '../../src/starter-model.js';
