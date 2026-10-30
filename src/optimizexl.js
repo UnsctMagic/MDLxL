@@ -5,6 +5,7 @@ import { mergeDuplicateVertices, removeUnusedVertices, reducePolygons } from './
 import { protectedGeosetData } from './optimizexl-exclusions.js';
 import { commonEndpointProposals, applyCommonEndpointPose } from './optimizexl-endpoints.js';
 import { optimizationReview } from './optimizexl-review.js';
+import { reduceWorldAnimation } from './optimizexl-world-animation.js';
 import { reduceAnimationTrack, trackValueError } from './optimizexl-animation.js';
 import { boundsProposals, repairBounds } from './optimizexl-bounds.js';
 import { repairMotionIrregularity, scanIrregularMotion } from './optimizexl-motion.js';
@@ -45,9 +46,9 @@ const local=t=>t?.Keys && optimizexlLocalTrack(t);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number(v)||0));
 export const triangleCount=m=>m.Geosets.reduce((n,g)=>n+g.Faces.length/3,0);
 export function dimensions(m){const points=m.Geosets.flatMap(g=>Array.from(g.Vertices));const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];points.forEach((v,i)=>{lo[i%3]=Math.min(lo[i%3],v);hi[i%3]=Math.max(hi[i%3],v);});return Math.max(1,...hi.map((v,i)=>v-lo[i]).filter(Number.isFinite));}
-export function simpleSettings(stage,strength,m){const s=clamp(strength,0,100)/100,d=dimensions(m);switch(stage){
+export function simpleSettings(stage,strength,m,mode){const s=clamp(strength,0,100)/100,d=dimensions(m);switch(stage){
  case 'duplicates':return {position:d*.005*s*s,uv:.01*s*s,normal:10*s*s,bones:true};
- case 'animation':return {position:d*.005*s*s,rotation:3*s*s,scale:.02*s*s};
+ case 'animation':return {position:d*.005*s*s,rotation:3*s*s,scale:.02*s*s,...(mode==='world'?{mode,worldTolerance:d*.01*s*s}:{})};
  case 'unused':return {vertices:true,resources:true,nodes:true};
  case 'spheres':return {preset:1,size:1,spheres:SPHERE_PRESETS[1].spheres};
  case 'nuclear':return {target:Math.round(triangleCount(m)*(1-.98*s)),error:.2*s*s,normalLimit:45,protectNormals:true,protectSeams:true,protectSkin:true};
@@ -90,14 +91,23 @@ function nodeReach(m){
  for(const n of nodes)if(n.Parent!=null)carry(n.Parent,pivot(n));
  return reach;
 }
-function animationReduction(m,settings,changes){const protectedData=protectedGeosetData(m,settings),reach=nodeReach(m);let removed=0;for(const {track:t,path}of tracks(m)){
+function animationReduction(m,settings,changes){const protectedData=protectedGeosetData(m,settings),reach=nodeReach(m),world=settings.mode==='world';let removed=0;
+ for(const {track:t,path}of tracks(m)){
  const [collection,index]=path;
  if(collections.includes(collection)&&protectedData.nodes.has(m[collection][index].ObjectId)||collection==='GeosetAnims'&&protectedData.geosets.has(m.GeosetAnims[index].GeosetId)||collection==='Materials'&&protectedData.materials.has(Number(index))||collection==='TextureAnims'&&protectedData.textureAnims.has(Number(index)))continue;
  const p=path.at(-1),transform=['Translation','Rotation','Scaling'].includes(p);
- const tolerance=transform?settings[p==='Translation'?'position':p==='Rotation'?'rotation':'scale']||0:0;
+ const tolerance=!world&&transform?settings[p==='Translation'?'position':p==='Rotation'?'rotation':'scale']||0:0;
  const node=collections.includes(collection)?m[collection][index]:null;
  removed+=reduceAnimationTrack(m,t,p,tolerance,change=>changes.push({path,...change}),{reach:node?reach.get(node.ObjectId)||0:0,position:settings.position||0});
- }return removed;}
+ }
+ if(!world)return removed;
+ // Reuse the existing unused-local-key owner, restricted to unexcluded node
+ // transforms. Globals, setup keys and wholly unassigned tracks keep its rules.
+ const unused=unusedTrackProposals(m,tracks(m).filter(({path})=>collections.includes(path[0])&&['Translation','Rotation','Scaling'].includes(path.at(-1))&&!protectedData.nodes.has(m[path[0]][path[1]].ObjectId)));
+ let unusedLocalKeys=0;for(const fix of unused){unusedLocalKeys+=fix.frames.length;applyUnusedTrack(m,fix);}
+ const result=reduceWorldAnimation(m,settings,{protectedNodes:protectedData.nodes,size:dimensions(m),reach,onChange:(node,property,change)=>{const collection=collections.find(key=>m[key]?.includes(node));changes.push({path:[collection,m[collection].indexOf(node),property],...change});}});
+ return {...result,unusedLocalKeys,keys:result.keys+removed+unusedLocalKeys};
+}
 function setKey(t,frame,value){const i=t.Keys.findIndex(k=>k.Frame===frame),key={Frame:frame,Vector:new Float32Array(Array.isArray(value)||ArrayBuffer.isView(value)?value:[value])};if(i>=0)t.Keys[i]=key;else t.Keys.push(key);t.Keys.sort((a,b)=>a.Frame-b.Frame);}
 function hideGeoset(m,gi,si){const a=ensureGeosetAnimation(m,gi,{refuseDuplicates:false});const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
  const [lo,hi]=m.Sequences[si].Interval;for(const k of t.Keys)if(k.Frame>=lo&&k.Frame<=hi)k.Vector[0]=0;setKey(t,lo,0);setKey(t,hi,0);}
@@ -233,11 +243,11 @@ function spheres(m,settings){const chosen=settings.spheres||SPHERE_PRESETS[setti
  for(let i=0;i<chosen.length;i++){const [x,y,z,r]=chosen[i];if(![x,y,z,r].every(Number.isFinite)||r<=0)throw Error('Sphere coordinates must be finite and radius must be positive.');let n=old[i];if(!n)n=createNode(m,'CollisionShape');Object.assign(n,{Shape:2,Name:`OptimizeXL Sphere ${i+1}`,Parent:null,Vertices:new Float32Array([x*size,y*size,z*size]),BoundsRadius:r*size});for(const k of ['Translation','Rotation','Scaling'])delete n[k];}
  const removed=new Set(m.CollisionShapes.slice(chosen.length).map(n=>n.ObjectId));if(removed.size)remapNodes(m,removed);rebuildNodes(m);
 }
-export function runOptimizeStage(bytes,stage,settings={},fix=null){const doc=openDocument(new Uint8Array(bytes),'working.mdx');supported(doc);const baseline=validateModel(doc.model).filter(d=>d.severity==='error').map(d=>d.code+':'+d.path),stats={},skipped=new Set(),changes=[],reviewBase=['duplicates','animation','unused'].includes(stage)?structuredClone(doc.model):null;
- doc.apply('OptimizeXL '+stage,sections,m=>{switch(stage){case'duplicates':if(settings.bones)stats.duplicateBones=duplicateBones(m,settings,changes);Object.assign(stats,mergeDuplicateVertices(m,settings,change=>changes.push(change)));break;case'animation':stats.keys=animationReduction(m,settings,changes);break;case'unused':if(settings.vertices)stats.vertices=removeUnusedVertices(m,settings,change=>changes.push(change));if(settings.resources)unusedResources(m,stats,skipped,changes);if(settings.nodes)stats.nodes=unusedNodes(m,changes);if(settings.resources)stats.globalSequences=unusedGlobals(m,changes);break;case'sanity':case'irregularities':applyRepair(m,fix,settings);break;case'spheres':spheres(m,settings);stats.spheres=m.CollisionShapes.length;break;case'nuclear':Object.assign(stats,reducePolygons(m,settings));break;default:throw Error('Unknown OptimizeXL stage.');}});
+export function runOptimizeStage(bytes,stage,settings={},fix=null){const doc=openDocument(new Uint8Array(bytes),'working.mdx');supported(doc);const baseline=validateModel(doc.model).filter(d=>d.severity==='error').map(d=>d.code+':'+d.path),stats={},skipped=new Set(),changes=[],reviewBase=['duplicates','animation','unused'].includes(stage)?structuredClone(doc.model):null;let animationMetrics;
+ doc.apply('OptimizeXL '+stage,sections,m=>{switch(stage){case'duplicates':if(settings.bones)stats.duplicateBones=duplicateBones(m,settings,changes);Object.assign(stats,mergeDuplicateVertices(m,settings,change=>changes.push(change)));break;case'animation':{const result=animationReduction(m,settings,changes);if(typeof result==='number')stats.keys=result;else{stats.keys=result.keys;animationMetrics=result;}break;}case'unused':if(settings.vertices)stats.vertices=removeUnusedVertices(m,settings,change=>changes.push(change));if(settings.resources)unusedResources(m,stats,skipped,changes);if(settings.nodes)stats.nodes=unusedNodes(m,changes);if(settings.resources)stats.globalSequences=unusedGlobals(m,changes);break;case'sanity':case'irregularities':applyRepair(m,fix,settings);break;case'spheres':spheres(m,settings);stats.spheres=m.CollisionShapes.length;break;case'nuclear':Object.assign(stats,reducePolygons(m,settings));break;default:throw Error('Unknown OptimizeXL stage.');}});
  const after=doc.serialize('mdx'),reopened=openDocument(after,'after.mdx');if(reopened.readOnly)throw Error('The candidate could not be reopened.');const errors=validateModel(reopened.model).filter(d=>d.severity==='error'&&!baseline.includes(d.code+':'+d.path));if(errors.length)throw Error(errors[0].message);
  assertRoundTripFields(doc.model,reopened.model);
  if(!same(doc.model.Sequences,reopened.model.Sequences)||triangleCount(doc.model)!==triangleCount(reopened.model))throw Error('Candidate changed during save verification.');
  const changed=bytes.byteLength!==after.byteLength||new Uint8Array(after).some((value,i)=>value!==bytes[i]);
- return {bytes:new Uint8Array(after),changed,review:reviewBase?optimizationReview(reviewBase,stage,changes):null,beforeBytes:bytes.byteLength,afterBytes:after.byteLength,saved:bytes.byteLength-after.byteLength,stats,skipped:[...skipped],triangles:triangleCount(reopened.model)};
+ return {bytes:new Uint8Array(after),changed,review:reviewBase?optimizationReview(reviewBase,stage,changes):null,beforeBytes:bytes.byteLength,afterBytes:after.byteLength,saved:bytes.byteLength-after.byteLength,stats,...(animationMetrics?{animationMetrics}:{}),skipped:[...skipped],triangles:triangleCount(reopened.model)};
 }

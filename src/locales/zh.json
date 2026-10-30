@@ -1,4 +1,10 @@
 {
+  "Local tracks keeps the established reduction. World-space bound measures the posed mesh against the stage input every millisecond. Slow animations get tighter limits from their measured speed. Small components and turns keep their 10% protection when the mesh budget could flatten them. Global tracks, camera-facing parts and overlapping spans keep their current handling.": "局部轨道保留现有精简方式。世界空间限制每毫秒将网格与本阶段输入比较，根据实测速度收紧慢动作的容差。如果容差可能抹去细小运动或转折，它们仍受原有的 10% 保护。全局轨道、面向相机的部分和重叠区间保持现有处理规则。",
+  "Maximum sampled vertex difference in model units for fast animations. Slow animations use one quarter of this amount, with intermediate limits based on measured speed. First and last poses stay exact. Zero performs exact key cleanup and proven quaternion conversion. The Simple strength slider changes this value.": "快速动画的最大顶点偏差，单位为模型单位。慢速动画使用此值的四分之一，中间容差由实测速度决定。起始与结束姿态保持精确。零仅进行精确关键帧清理和已证明等价的四元数转换。简单模式的强度滑块会修改此值。",
+  "Reduction method": "精简方式",
+  "Local tracks": "局部轨道",
+  "World-space bound": "世界空间误差限制",
+  "World-space tolerance": "世界空间容差",
   "Blend brush": "混合画笔",
   "Pick color": "拾取颜色",
   "Connected piece": "相连部分",

@@ -1,4 +1,10 @@
 {
+  "Local tracks keeps the established reduction. World-space bound measures the posed mesh against the stage input every millisecond. Slow animations get tighter limits from their measured speed. Small components and turns keep their 10% protection when the mesh budget could flatten them. Global tracks, camera-facing parts and overlapping spans keep their current handling.": "Pistas locales conserva la reducción existente. El límite global compara la malla con la entrada de la etapa cada milisegundo. Las animaciones lentas reciben límites más estrictos según su velocidad medida. Los movimientos y giros pequeños conservan su protección del 10% cuando el límite podría borrarlos. Las pistas globales, las partes orientadas a la cámara y los intervalos superpuestos conservan su tratamiento actual.",
+  "Maximum sampled vertex difference in model units for fast animations. Slow animations use one quarter of this amount, with intermediate limits based on measured speed. First and last poses stay exact. Zero performs exact key cleanup and proven quaternion conversion. The Simple strength slider changes this value.": "Diferencia máxima de vértices en unidades del modelo para animaciones rápidas. Las lentas usan una cuarta parte; los límites intermedios dependen de la velocidad medida. Las poses inicial y final permanecen exactas. Cero realiza limpieza exacta de claves y conversión demostrada de cuaterniones. El control de intensidad del modo Simple cambia este valor.",
+  "Reduction method": "Método de reducción",
+  "Local tracks": "Pistas locales",
+  "World-space bound": "Límite en espacio global",
+  "World-space tolerance": "Tolerancia en espacio global",
   "Blend brush": "Pincel de mezcla",
   "Pick color": "Elegir color",
   "Connected piece": "Pieza conectada",

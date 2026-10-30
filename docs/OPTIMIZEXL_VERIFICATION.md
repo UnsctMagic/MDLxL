@@ -376,3 +376,101 @@ The owner approved replacing the affected accepted outputs. Duplicate data 40/10
 Not reproduced: the reported Nurgle Knight Champion axe and Knight Heavy mace damage. Duplicate data at maximum changes no weapon geoset in Champion, 02, 06, Unit07, Hero01, Heavy02 or Heavy06 (the mace's rust/poison is two layers of one material, which this stage does not touch). The owner attributes it to an older build; not pursued.
 
 Not adopted here, each needing owner approval because it changes accepted outputs or another feature: folding never-moving bones into their parent (Flail03 has 34), removing never-visible geosets (Flail03 geoset 46), refitting surviving key values instead of deletion only, and reusing the living body in Decay Flesh instead of Auto Corpse's posed copies (the report's 72 KB saving).
+
+## Fx world-space per-animation teaching case (2026-10-30)
+
+Added an opt-in World-space bound method inside the existing Animation optimization stage, Simple slider, Advanced help and Before/After approval history. Local tracks stays the default. Only unexcluded node transforms receive approximate world changes; geometry, UVs, materials, original color tracks, rig, effects, sequence metadata and non-TRS data remain unchanged apart from the serializer's already verified atomic ID ordering. The original private input is unchanged (158,969 bytes, SHA-256 f799c8f4afc935297a7b759891ae1728c2f5dcb98ad040469f4454ac7fa30b4c).
+
+The world bound compares the full candidate against an immutable stage input, never the previous deletion. Parents run first, and every influenced skinned vertex (including descendants and blended groups) must fit at each integer millisecond between retained keys. Start/end poses are exact. Peak local mesh speed and the widest bind dimension derive each sequence budget without names. At strength 100 on this input, slow domains receive 0.481437 units, Walk's measured motion receives 1.411892, and fast domains receive 1.925749. The 10% component/turn guard remains for excursions the world budget could flatten; reach only estimates that guard's excursion. Direct skin displacement supersedes the local/reach acceptance metric for larger excursions in this mode. No existing Local tracks tolerance or result was changed.
+
+Existing zero-tolerance interior cleanup and the unused-local-key owner run first. Constant terminal holds own only a final boundary record. Quaternion controls equal to their keys have identical squad slerps; generated tests check 11,920 shared-sampler values within 1e-12 and 802 native renderer pose pairs within 1e-6 per matrix component. A Hermite vector counterexample with equal values/controls is retained. Other local cubic tracks use adaptive linear refitting only if smaller and all their animations fit. Existing redundant-key and Remaining cubic redundancy checker plans keep their own approvals and stale-evidence validation; no new checker proposal competes with them.
+
+### Private measurement
+
+Every animation is measured every 1 ms: 134,009 poses and 1,478 vertices per candidate. Mean is over all vertices and frames, including hidden geometry. Percentages use the same 192.574920654-unit widest bind-mesh dimension for every candidate. Peak velocity error is the maximum vector difference of successive one-millisecond vertex displacements, in units/ms. TRS key bytes exclude shared track headers and keys outside that animation; file bytes are listed separately.
+
+The manual file is a test reference only, never a runtime input or source of copied keys. Its unaccepted constant-color change is not adopted. Its raw file saving includes 1,380 bytes of non-node-TRS changes; the node-TRS-only equivalent is computed from record sizes while retaining all original non-TRS data (no reference keys are copied). Each produced candidate's computed equivalent exactly equals its actual serialized file size.
+
+| Candidate | File bytes | Saved | Node-TRS-only equivalent bytes | Reduction time |
+| --- | ---: | ---: | ---: | ---: |
+| Manual reference | 130,225 | 18.08% | 131,605 | reference |
+| Local 100 | 151,241 | 4.86% | 151,241 | 0.64 s |
+| World 60 | 144,453 | 9.13% | 144,453 | 63.44 s |
+| World 80 | 139,281 | 12.38% | 139,281 | 61.66 s |
+| World 100 | 136,097 | 14.39% | 136,097 | 98.01 s |
+
+At 100 the new mode saves 22,872 bytes (14.39%), versus legacy's 7,728 (4.86%). It does **not** reach the raw manual reference's 18.08% (17.21% when only node TRS record changes are counted). There are 260 more retained node keys than in the manual reference, including small foot and secondary-motion excursions guarded by this mode. This is a remaining saving gap, not a claim that the manual target was achieved. No tolerance was loosened to close it.
+
+All three strengths fit their derived original-input budgets and every accepted per-animation maximum; all 33 start/end pairs are exactly zero. Durations are this PC's finite wall times during other verification, not portable performance claims.
+
+| Animation | Candidate | TRS key bytes | Max units | Mean units | Max % | Mean % | Start / end units | Peak velocity error (units/ms) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stand - 1 | Manual reference | 2,000 | 0.499955 | 0.178160 | 0.259616 | 0.092515 | 0 / 0 | 0.034167 |
+| Stand - 1 | Local 100 | 2,396 | 0.450243 | 0.009046 | 0.233801 | 0.004697 | 0 / 0 | 0.007629 |
+| Stand - 1 | World 60 | 2,240 | 0.164105 | 0.002910 | 0.085216 | 0.001511 | 0 / 0 | 0.019779 |
+| Stand - 1 | World 80 | 2,108 | 0.299093 | 0.005709 | 0.155313 | 0.002964 | 0 / 0 | 0.033517 |
+| Stand - 1 | World 100 | 2,056 | 0.423593 | 0.017546 | 0.219963 | 0.009111 | 0 / 0 | 0.033517 |
+| Attack - 1 | Manual reference | 4,688 | 1.999779 | 0.583409 | 1.038442 | 0.302952 | 0 / 0 | 1.628599 |
+| Attack - 1 | Local 100 | 7,584 | 0.912507 | 0.016610 | 0.473845 | 0.008625 | 0 / 0 | 0.101390 |
+| Attack - 1 | World 60 | 6,400 | 0.692850 | 0.049830 | 0.359782 | 0.025876 | 0 / 0 | 0.144036 |
+| Attack - 1 | World 80 | 5,960 | 1.185917 | 0.087443 | 0.615821 | 0.045407 | 0 / 0 | 0.196694 |
+| Attack - 1 | World 100 | 5,596 | 1.924696 | 0.463226 | 0.999453 | 0.240543 | 0 / 0 | 0.359747 |
+| Attack - 2 | Manual reference | 6,008 | 1.997994 | 0.389066 | 1.037515 | 0.202034 | 0 / 0 | 1.779686 |
+| Attack - 2 | Local 100 | 9,344 | 0.882617 | 0.026703 | 0.458324 | 0.013866 | 0 / 0 | 0.133451 |
+| Attack - 2 | World 60 | 7,976 | 0.686972 | 0.042463 | 0.356730 | 0.022050 | 0 / 0 | 0.197127 |
+| Attack - 2 | World 80 | 7,352 | 1.226379 | 0.126967 | 0.636832 | 0.065931 | 0 / 0 | 0.155480 |
+| Attack - 2 | World 100 | 6,764 | 1.911871 | 0.312061 | 0.992793 | 0.162046 | 0 / 0 | 0.177952 |
+| Walk | Manual reference | 4,252 | 1.498797 | 0.302113 | 0.778293 | 0.156881 | 0 / 0 | 0.279541 |
+| Walk | Local 100 | 5,956 | 0.943399 | 0.049394 | 0.489887 | 0.025649 | 0 / 0 | 0.094364 |
+| Walk | World 60 | 5,272 | 0.494972 | 0.049356 | 0.257028 | 0.025630 | 0 / 0 | 0.118177 |
+| Walk | World 80 | 4,876 | 0.879637 | 0.125477 | 0.456776 | 0.065157 | 0 / 0 | 0.133041 |
+| Walk | World 100 | 4,704 | 1.409402 | 0.119172 | 0.731872 | 0.061883 | 0 / 0 | 0.126406 |
+| Death | Manual reference | 8,232 | 1.998030 | 0.314404 | 1.037534 | 0.163263 | 0 / 0 | 0.381115 |
+| Death | Local 100 | 9,932 | 1.140073 | 0.079951 | 0.592015 | 0.041517 | 0 / 0 | 0.122537 |
+| Death | World 60 | 9,452 | 0.675982 | 0.092837 | 0.351023 | 0.048208 | 0 / 0 | 0.122537 |
+| Death | World 80 | 8,948 | 1.223643 | 0.143834 | 0.635411 | 0.074690 | 0 / 0 | 0.171399 |
+| Death | World 100 | 8,372 | 1.911771 | 0.225680 | 0.992741 | 0.117191 | 0 / 0 | 0.276973 |
+| Decay Flesh | Manual reference | 1,132 | 1.41e-06 | 1.64e-07 | 7.31e-07 | 8.50e-08 | 0 / 0 | 1.41e-06 |
+| Decay Flesh | Local 100 | 1,508 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Decay Flesh | World 60 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
+| Decay Flesh | World 80 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
+| Decay Flesh | World 100 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
+| Decay Bone | Manual reference | 632 | 4.52e-06 | 4.03e-07 | 2.35e-06 | 2.09e-07 | 0 / 0 | 4.52e-06 |
+| Decay Bone | Local 100 | 732 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Decay Bone | World 60 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
+| Decay Bone | World 80 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
+| Decay Bone | World 100 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
+| Portrait | Manual reference | 928 | 0.499954 | 0.191341 | 0.259616 | 0.099359 | 0 / 0 | 0.034167 |
+| Portrait | Local 100 | 1,208 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Portrait | World 60 | 1,128 | 0.164105 | 0.000168 | 0.085216 | 0.000087 | 0 / 0 | 0.019779 |
+| Portrait | World 80 | 1,016 | 0.291516 | 0.000441 | 0.151378 | 0.000229 | 0 / 0 | 0.033517 |
+| Portrait | World 100 | 980 | 0.435965 | 0.004960 | 0.226387 | 0.002576 | 0 / 0 | 0.033517 |
+| Portrait Talk | Manual reference | 1,108 | 0.499705 | 0.188622 | 0.259486 | 0.097948 | 0 / 0 | 0.025512 |
+| Portrait Talk | Local 100 | 1,368 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Portrait Talk | World 60 | 1,288 | 0.164107 | 0.000168 | 0.085217 | 0.000087 | 0 / 0 | 0.015038 |
+| Portrait Talk | World 80 | 1,176 | 0.291516 | 0.000441 | 0.151378 | 0.000229 | 0 / 0 | 0.025358 |
+| Portrait Talk | World 100 | 1,160 | 0.308169 | 0.000474 | 0.160026 | 0.000246 | 0 / 0 | 0.025358 |
+| Stand Ready | Manual reference | 2,328 | 0.499998 | 0.033258 | 0.259638 | 0.017270 | 0 / 0 | 0.024860 |
+| Stand Ready | Local 100 | 2,884 | 0.452348 | 0.008528 | 0.234894 | 0.004428 | 0 / 0 | 0.008414 |
+| Stand Ready | World 60 | 2,704 | 0.169112 | 0.002046 | 0.087816 | 0.001062 | 0 / 0 | 0.014372 |
+| Stand Ready | World 80 | 2,508 | 0.264942 | 0.007273 | 0.137579 | 0.003777 | 0 / 0 | 0.015424 |
+| Stand Ready | World 100 | 2,408 | 0.473675 | 0.014623 | 0.245969 | 0.007593 | 0 / 0 | 0.015424 |
+| Attack Slam | Manual reference | 9,616 | 1.996021 | 0.796469 | 1.036491 | 0.413589 | 0 / 0 | 1.060960 |
+| Attack Slam | Local 100 | 15,864 | 1.707975 | 0.227708 | 0.886914 | 0.118244 | 0 / 0 | 0.851880 |
+| Attack Slam | World 60 | 15,368 | 0.692500 | 0.268678 | 0.359600 | 0.139518 | 0 / 0 | 0.304170 |
+| Attack Slam | World 80 | 12,712 | 1.232110 | 0.393399 | 0.639808 | 0.204283 | 0 / 0 | 0.851880 |
+| Attack Slam | World 100 | 11,432 | 1.921238 | 0.584003 | 0.997657 | 0.303260 | 0 / 0 | 0.824886 |
+
+### Regression and packaged verification
+
+- Source: node --test test/optimizexl*.test.js tests/*.test.js test/localization-catalogs.test.js test/localization-current.test.js: 251 passed, 2 intentionally skipped. The private Fx unit test skips without its environment path; the dedicated private replay above exercised all three strengths. Generated tests cover positive reduction, parent/child accumulation, small speech/scale/rotation cycles, non-unit influence chains, long reach, global tracks and global-influenced skin, overlapping sequences, exclusions, camera-dependent skin, vector cubic counterexamples, native quaternion identity, exact prerequisites, selected-batch stale evidence, stable exact rescans, other-stage pipelines and Back.
+- Frozen flails: 56 recorded comparisons pass (25 Flail03, 31 Flail01), using both exact source hashes. Golden files are unchanged. Existing authored-key retention and approved welding exceptions retain their exact checks. Flail03's historical mounted-sphere output was reproduced using accepted Git source c6dc15ce0253355f6ef212d18c99157d48e80d37 and required to match the unchanged 084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a hash before the existing serializer-permutation comparison passed.
+- Build: npx vite build passes. A disposable package verifies 1,335 runtime/asset files and 55 locales.
+- Full selected hidden suite: 4 passed (new world workflow, existing workflow, paired preview, Flail03 playback), 1 pre-existing failure, 13 private-only skips by runner policy. The existing review test still hard-codes 10 Duplicate-data rows but receives 9. Unmodified base aa668982 produces the identical bytes and review list (SHA-256 6b775e0458d1ca1c7656dbe2133fa2b3df3693b8bef5ac0defe74d732859d248). That unrelated assertion was not weakened.
+- The final rebuilt package repeats all three generated harnesses successfully. The world harness checks the collapsed default, method/tooltip, existing strength slider restoring source detail, eight native before/after matrices, actual mouse rotation from either pane with paired cameras, approval, pinned Before, Back restoring method/history and exact approved-only saving. No page errors occurred.
+
+### Remaining limits and reproduction
+
+The new mode remains selectable, with Local tracks as default: it costs roughly one minute on this example, does not reach the manual saving target, and is supported only for ordinary Classic/SD skin transforms. Global or camera-facing/anchored influence and overlapping spans retain their established handling. The guarantee is finite sampled displacement, not an analytic continuous-time or velocity bound. A later approved stage can spend a new budget or change geometry; the stage does not retroactively constrain other operations. Shader effects, camera-dependent appearance, external checker websites, user visual acceptance and Warcraft III playback were not exercised.
+
+Private files stay outside Git. Read input files as data and never execute downloaded research scripts. Reproduce with the new test/manual/optimizexl-world-budget.mjs using original, accepted-reference and output-directory arguments; set MDLXL_FX_RESUME=1 only to reuse already measured original/reference/legacy bytes with identical hashes. MDLXL_FX_MODEL opts into the separate private unit case. The hidden runner command is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview,optimizexl-playback,optimizexl-review (set the normal private fixture path for the last two). No visible desktop takeover, release, version bump, merge, installed-app or real-profile modification occurred. Disposable packages, profiles, runtime/source copies and processes are removed after verification, retaining only the small report/logs and needed capture.

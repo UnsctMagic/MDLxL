@@ -1,4 +1,10 @@
 {
+  "Local tracks keeps the established reduction. World-space bound measures the posed mesh against the stage input every millisecond. Slow animations get tighter limits from their measured speed. Small components and turns keep their 10% protection when the mesh budget could flatten them. Global tracks, camera-facing parts and overlapping spans keep their current handling.": "Локальные дорожки сохраняют прежнее сокращение. Мировое ограничение каждую миллисекунду сравнивает сетку с входной моделью этапа. Медленные анимации получают строгий допуск по измеренной скорости. Малые движения и повороты сохраняют защиту 10%, если допуск мог бы их сгладить. Глобальные дорожки, обращённые к камере части и перекрывающиеся интервалы сохраняют прежние правила.",
+  "Maximum sampled vertex difference in model units for fast animations. Slow animations use one quarter of this amount, with intermediate limits based on measured speed. First and last poses stay exact. Zero performs exact key cleanup and proven quaternion conversion. The Simple strength slider changes this value.": "Максимальное расхождение вершин в единицах модели для быстрых анимаций. Медленные используют четверть; промежуточные допуски зависят от измеренной скорости. Начальная и конечная позы точны. Ноль выполняет точную очистку ключей и доказанное преобразование кватернионов. Ползунок силы в простом режиме меняет это значение.",
+  "Reduction method": "Способ сокращения",
+  "Local tracks": "Локальные дорожки",
+  "World-space bound": "Ограничение в мировых координатах",
+  "World-space tolerance": "Допуск в мировых координатах",
   "Blend brush": "Кисть смешивания",
   "Pick color": "Выбрать цвет",
   "Connected piece": "Связанная часть",
