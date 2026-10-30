@@ -8,7 +8,11 @@ import {createDemoDocument,openDocument} from '../src/editor-document.js';
 import {createPaintProject,compositePaintTarget} from '../src/paint-project.js';
 import {createPaintMaterial,paintableGeosets,repairPaintMaterials} from '../src/paint-materials.js';
 import {createPaintRaster} from '../src/paint-raster.js';
-import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
+import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs,adoptCommittedPaintMaterials} from '../src/paint-model-integration.js';
+import {addPaintProjectTarget,readStoredZip} from '../src/paint-project.js';
+import {enablePaintMaterials,assignPaintMaterial,validatePaintAssignments} from '../src/paint-materials.js';
+import {enumeratePaintTargets} from '../src/paint-targets.js';
+import {buildPaintExportArtifact} from '../src/paint-export.js';
 import {paintProjectModel} from '../src/paint-view.js';
 import {retainedForgeAssets,missingForgeAssetPaths} from '../src/forge-assets.js';
 import {decodePaintBlp} from '../src/paint-blp.js';
@@ -72,4 +76,85 @@ test('adopting applied UV0 allows later main-editor UV and vertex edits to survi
   doc.apply('Edit vertex and UV',['Geosets'],m=>{m.Geosets[0].Vertices[0]+=3;m.Geosets[0].TVertices[0][0]=.314;});
   const returned=paintProjectModel(structuredClone(doc.model),project,original);
   assert.equal(returned.Geosets[0].Vertices[0],doc.model.Geosets[0].Vertices[0]);assert.equal(returned.Geosets[0].TVertices[0][0],doc.model.Geosets[0].TVertices[0][0]);
+});
+
+// Edit the texture: only skins whose pixels changed become new files.
+function skinDocument(){
+  const doc=createDemoDocument(),layer=(TextureID,extra={})=>({Alpha:1,TVertexAnimId:null,Shading:16,CoordId:0,FilterMode:0,TextureID,...extra});
+  doc.apply('Skins',['Textures','Materials','Geosets'],m=>{
+    m.Textures=[{Image:'',ReplaceableId:1,Flags:0},{Image:'Textures\\Body.blp',ReplaceableId:0,Flags:0},{Image:'Textures\\Cape.blp',ReplaceableId:0,Flags:0}];
+    m.Materials=[{PriorityPlane:0,RenderMode:0,Layers:[layer(1)]},{PriorityPlane:0,RenderMode:0,Layers:[layer(2,{FilterMode:1})]},{PriorityPlane:0,RenderMode:0,Layers:[layer(1,{Shading:0})]},m.Materials[3]];
+    [0,0,1,2,3].forEach((id,i)=>{m.Geosets[i].MaterialID=id;});
+  });
+  return doc;
+}
+function editTexture(model){const project=createPaintProject({sourceMode:'current'});project.preserveMaterials=true;for(const target of enumeratePaintTargets(model))addPaintProjectTarget(project,target,createPaintRaster(8,8,[90,90,90,255]));enablePaintMaterials(project,model);return project;}
+const paintStroke=target=>{target.coats[0].raster.data.set([200,30,30,255],0);target.revision=(target.revision||0)+1;};
+function unusedEntries(model){
+  const materials=new Set([...model.Geosets,...(model.RibbonEmitters||[])].map(owner=>owner.MaterialID)),textures=new Set([...model.Materials.flatMap(m=>m.Layers.map(l=>l.TextureID)),...(model.ParticleEmitters2||[]).map(e=>e.TextureID)]);
+  return {materials:model.Materials.map((_,i)=>i).filter(i=>!materials.has(i)),textures:model.Textures.map((_,i)=>i).filter(i=>!textures.has(i))};
+}
+const stubDocument=model=>({model:structuredClone(model),apply(label,sections,mutate){this.sections=sections;mutate(this.model);}});
+
+test('Edit the texture saves only the painted skin; the untouched skin keeps its path, entry and material',async()=>{
+  const doc=skinDocument(),before=structuredClone(doc.model),project=editTexture(doc.model),[body,cape]=project.targets;
+  assert.deepEqual([body.texturePath,cape.texturePath],['Textures\\Body.blp','Textures\\Cape.blp']);
+  paintStroke(body);
+  const prepared=await preparePaintModelCommit(doc.model,project,before);commitPaintModel(doc,prepared);
+  assert.equal(prepared.assets.length,1);assert.match(prepared.assets[0].name,/^MDLxL_Citadel\/Body_[0-9a-f]+\.blp$/);
+  // Body was only used by painted parts: its materials are edited in place and the new file takes its entry.
+  assert.deepEqual(doc.model.Textures,[before.Textures[0],{...before.Textures[1],Image:prepared.assets[0].name.replaceAll('/','\\')},before.Textures[2]]);
+  assert.deepEqual(doc.model.Materials,before.Materials);assert.deepEqual(doc.model.Geosets.map(g=>g.MaterialID),[0,0,1,2,3]);
+  assert.deepEqual(unusedEntries(doc.model),{materials:[],textures:[]});
+});
+
+test('leaving Edit the texture unpainted, or with every stroke undone, keeps the model exactly',async()=>{
+  const doc=skinDocument(),before=structuredClone(doc.model),project=editTexture(doc.model),[body]=project.targets;
+  const untouched=await preparePaintModelCommit(doc.model,project,before);
+  assert.deepEqual(untouched.assets,[]);assert.deepEqual(untouched.model.Textures,before.Textures);assert.deepEqual(untouched.model.Materials,before.Materials);assert.deepEqual(untouched.model.Geosets.map(g=>g.MaterialID),before.Geosets.map(g=>g.MaterialID));
+  paintStroke(body);body.coats[0].raster.data.fill(0);body.revision++;
+  const undone=await preparePaintModelCommit(doc.model,project,before);assert.deepEqual(undone.assets,[]);assert.deepEqual(undone.model.Textures,before.Textures);assert.deepEqual(undone.model.Materials,before.Materials);
+});
+
+test('a material an unpainted part shares is copied, and only for the painted parts',async()=>{
+  const doc=skinDocument(),model={...structuredClone(doc.model),RibbonEmitters:[{MaterialID:0}],ParticleEmitters2:[{TextureID:1}]},before=structuredClone(model),project=editTexture(model);
+  paintStroke(project.targets[0]);
+  const {model:out,assets}=await preparePaintModelCommit(model,project,before),citadel=assets[0].name.replaceAll('/','\\');
+  assert.deepEqual(model,before,'the working model is never changed');
+  assert.deepEqual(out.Materials.slice(0,2),before.Materials.slice(0,2));assert.equal(out.RibbonEmitters[0].MaterialID,0);assert.equal(out.Textures[out.ParticleEmitters2[0].TextureID].Image,'Textures\\Body.blp');
+  assert.equal(out.Materials.length,before.Materials.length+1);assert.deepEqual(out.Geosets.map(g=>g.MaterialID),[4,4,1,2,3]);
+  assert.equal(out.Textures[out.Materials[4].Layers[0].TextureID].Image,citadel);assert.equal(out.Textures[out.Materials[2].Layers[0].TextureID].Image,citadel);assert.equal(out.Materials[2].Layers[0].Shading,0);
+  assert.equal(out.Textures.length,before.Textures.length+1);assert.deepEqual(unusedEntries(out),{materials:[],textures:[]});
+  // Returning to Paint moves the painting slots past the settled model, undo snapshots included.
+  const stub=stubDocument(model);commitPaintModel(stub,{model:out,assets});
+  project.history.undo.push({kind:'surface',before:{target:structuredClone(project.targets[0])},after:{targets:[structuredClone(project.targets[0])]}});
+  assert.equal(adoptCommittedPaintMaterials(project,stub.model),true);validatePaintAssignments(project,stub.model);
+  assert.equal(project.targets[0].textureId,stub.model.Textures.length);assert.equal(project.preservedMaterials[0].materialId,stub.model.Materials.length);
+  for(const snapshot of [project.history.undo[0].before.target,project.history.undo[0].after.targets[0]])assert.deepEqual([snapshot.textureId,snapshot.bindings],[project.targets[0].textureId,project.targets[0].bindings]);
+  const again=await preparePaintModelCommit(stub.model,project,before);assert.equal(again.assets[0].name,assets[0].name);assert.deepEqual(again.model.Materials,stub.model.Materials);assert.deepEqual(again.model.Textures,stub.model.Textures);
+});
+
+test('releasing a skin nothing shows any more renumbers emitter textures in the document',async()=>{
+  const doc=skinDocument(),model={...structuredClone(doc.model),ParticleEmitters2:[{TextureID:2}]},before=structuredClone(model),project=editTexture(model),[body,cape]=project.targets;
+  assignPaintMaterial(project,model,cape.id,body.geosetIndices);
+  const prepared=await preparePaintModelCommit(model,project,before);assert.deepEqual(prepared.assets,[]);
+  assert.deepEqual(prepared.model.Textures,[before.Textures[0],before.Textures[2]]);assert.deepEqual(unusedEntries(prepared.model),{materials:[],textures:[]});
+  const stub=stubDocument(model);commitPaintModel(stub,prepared);
+  assert.ok(stub.sections.includes('ParticleEmitters2'));assert.equal(stub.model.ParticleEmitters2[0].TextureID,1);
+});
+
+test('Apply, return and undo every stroke restores the original skin with no Citadel leftovers',async()=>{
+  const doc=skinDocument(),before=structuredClone(doc.model),project=editTexture(doc.model),[body]=project.targets;
+  paintStroke(body);commitPaintModel(doc,await preparePaintModelCommit(doc.model,project,before));adoptCommittedPaintMaterials(project,doc.model);
+  body.coats[0].raster.data.fill(0);body.revision++;
+  const prepared=await preparePaintModelCommit(doc.model,project,before);commitPaintModel(doc,prepared);
+  assert.deepEqual(prepared.assets,[]);assert.deepEqual(doc.model.Textures,before.Textures);assert.deepEqual(doc.model.Materials,before.Materials);assert.deepEqual(unusedEntries(doc.model),{materials:[],textures:[]});
+});
+
+test('export packs only edited skins, never under a path the model already uses',async()=>{
+  const doc=skinDocument(),project=editTexture(doc.model);paintStroke(project.targets[0]);
+  const result=await buildPaintExportArtifact(doc,project,new Map(),doc.serialize('mdx')),files=readStoredZip(new Uint8Array(await result.archive.arrayBuffer())),exported=openDocument(files.get(result.modelName),result.modelName).model;
+  assert.deepEqual(result.textures.map(t=>t.name),['Textures/BodyCitadel.blp']);assert.ok(files.has('Textures/BodyCitadel.blp'));
+  assert.deepEqual(exported.Textures.map(t=>t.Image),['','Textures\\BodyCitadel.blp','Textures\\Cape.blp']);assert.equal(exported.Materials.length,doc.model.Materials.length);
+  assert.deepEqual(unusedEntries(exported),{materials:[],textures:[]});
 });
