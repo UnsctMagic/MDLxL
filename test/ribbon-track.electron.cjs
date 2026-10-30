@@ -90,6 +90,12 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const tip=manual.getByRole('tooltip');await tip.waitFor();assert.match(await tip.textContent(),/A ribbon: a glowing strip/);await page.screenshot({path:path.join(out,'3-hover.png')});
   await text.fill(mdl.replace(/LifeSpan [0-9.]+/,'LifeSpan 0.75'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
   now=await read();assert.equal(now.model.RibbonEmitters.at(-1).LifeSpan,.75);assert.equal(now.undo,pairs.undo+1);
+  // "Apply ...; Ctrl+Z undoes it": the dialog closed under the Apply click; Ctrl+Z (focus where that left it) undoes, Ctrl+Y redoes.
+  assert.equal(await manual.count(),0,'Apply closes Adjust Manually');
+  await page.keyboard.press('Control+Z');let undone=await read();
+  assert.equal(undone.undo,pairs.undo,'Ctrl+Z right after Apply undoes the manual edit (focus: '+await page.evaluate(()=>document.activeElement?.tagName+' '+(document.activeElement?.textContent||'').slice(0,30))+')');
+  assert.equal(undone.model.RibbonEmitters.at(-1).LifeSpan,added.model.RibbonEmitters.at(-1).LifeSpan,'Ctrl+Z restores the LifeSpan');
+  await page.keyboard.press('Control+Y');now=await read();assert.equal(now.model.RibbonEmitters.at(-1).LifeSpan,.75,'Ctrl+Y redoes the manual edit');assert.equal(now.undo,pairs.undo+1);
   await editor.getByRole('button',{name:'Adjust Manually',exact:true}).click();await text.fill(mdl.replace(/MaterialID \d+/,'MaterialID 999'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
   await manual.getByRole('alert').waitFor();assert.equal((await read()).undo,now.undo);await manual.getByRole('button',{name:'Cancel',exact:true}).click();
 

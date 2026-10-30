@@ -34,6 +34,21 @@ const {pathToFileURL}=require('node:url');
     assert.equal(layout.names.length,15);assert.ok(layout.names.every(name=>name==='Aa'));assert.ok(layout.grid.height<153);assert.ok(layout.sidebar.width<=250);assert.ok(layout.overflow<=1,JSON.stringify(layout));assert.equal(layout.outline.fill,'rgb(255, 255, 255)');assert.notEqual(layout.outline.fill,layout.outline.stroke);
     assert.equal(await page.getByRole('button',{name:'Neon',exact:true}).evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(37, 40, 51)');
     assert.equal(await page.locator('.showcase-text-colors input[type=color]').count(),3);
+    // Own font "right-click to remove": Load font… through the file picker, then right-click its button.
+    const fontFile=path.join(out,'MyTestFont.ttf');fs.copyFileSync(path.join(root,'public/fonts/showcase/almendra/font.ttf'),fontFile);
+    const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Load font…',exact:true}).click();await (await chooser).setFiles(fontFile);
+    const ownFont=page.locator('.showcase-font-grid').getByRole('button',{name:'MyTestFont',exact:true});await ownFont.waitFor();
+    assert.match(await ownFont.getAttribute('title'),/right-click to remove/);
+    await ownFont.click({button:'right'});await ownFont.waitFor({state:'detached',timeout:5000}).catch(()=>{throw Error('right-clicking a loaded font does not remove it');});
+    await page.getByRole('button',{name:'Orbitron',exact:true}).click();
+    // Saved background swatch "right-click to clear": Background → Color, click an empty slot to save, right-click it.
+    const backgroundSource=await page.getByLabel('Background source',{exact:true}).inputValue();await page.getByLabel('Background source',{exact:true}).selectOption('color');
+    const colors=page.getByRole('group',{name:'Colors',exact:true});
+    await colors.getByRole('button',{name:'Save color 1',exact:true}).click();
+    const saved=colors.getByRole('button',{name:/^Saved color 1: /});await saved.waitFor();assert.match(await saved.getAttribute('title'),/right-click to clear/);
+    await saved.click({button:'right'});
+    await colors.getByRole('button',{name:'Save color 1',exact:true}).waitFor({timeout:5000}).catch(()=>{throw Error('right-clicking a saved color does not clear it');});
+    await page.getByLabel('Background source',{exact:true}).selectOption(backgroundSource);
     // 015d8090 replaced the Text rotation field with the on-canvas Rotate text handle (1d71df1f): drag it about 27 degrees.
     const rotateText=async degrees=>{const selection=await page.locator('.showcase-layer-selection').boundingBox(),handle=await page.getByRole('button',{name:'Rotate text',exact:true}).boundingBox(),cx=selection.x+selection.width/2,cy=selection.y+selection.height/2,hx=handle.x+handle.width/2,hy=handle.y+handle.height/2,radius=Math.hypot(hx-cx,hy-cy),angle=Math.atan2(hy-cy,hx-cx)+degrees*Math.PI/180;
       await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(cx+radius*Math.cos(angle),cy+radius*Math.sin(angle),{steps:8});await page.mouse.up();};

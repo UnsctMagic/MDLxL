@@ -49,7 +49,29 @@ const {launchApp,closeApp}=require('./helpers/app.cjs');
     assert.equal(await page.locator('.hotkeys-table [title="animxl:undo"]').count(),1);
     assert.equal(await page.locator('.hotkeys-table [title="showcase:undo"]').count(),1);
     checks.push('Closed windows keep their shortcut entries in Settings');
+    // Recording a shortcut: click "Assign shortcut" (the recorder takes focus itself), start a Ctrl+Alt+Space code,
+    // then Esc cancels the code and keeps the recorder open; nothing is assigned.
+    const settingsWindow=page.getByRole('dialog',{name:'Settings',exact:true}),undoChips=()=>page.locator('.hotkeys-table tr',{has:page.locator('[title="animxl:undo"]')}).locator('.hotkeys-chip kbd').allInnerTexts();
+    await page.getByLabel('Search Hotkeys',{exact:true}).fill('animxl:undo');const chipsBefore=await undoChips();
+    await settingsWindow.getByRole('button',{name:/^Assign shortcut to /}).first().click();
+    const capture=settingsWindow.getByLabel('Press a key combination',{exact:true});await capture.waitFor();
+    await page.keyboard.press('Control+Alt+Space');await page.keyboard.press('a');
+    await capture.locator('kbd').filter({hasText:/>\s*A/}).waitFor({timeout:3000});
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!document.querySelector('.hotkeys-capture kbd'),null,{timeout:3000}).catch(()=>{throw Error('Esc does not cancel the typed Ctrl+Alt+Space code in the recorder');});
+    assert.equal(await capture.count(),1,'Esc cancels only the code; the recorder stays open');assert.equal(await settingsWindow.count(),1,'Settings stays open');
+    // The user clicks the recorder's heading (focus leaves the capture box), then Esc cancels the recording itself.
+    await settingsWindow.locator('.hotkeys-recorder strong').click();await page.keyboard.press('Escape');
+    await capture.waitFor({state:'detached',timeout:3000}).catch(()=>{throw Error('Esc outside the capture box does not cancel recording');});
+    assert.equal(await settingsWindow.count(),1,'Esc cancels the recording before it closes Settings');
+    assert.deepEqual(await undoChips(),chipsBefore,'a cancelled recording assigns nothing');
+    checks.push('Shortcut recording: Esc cancels a typed Ctrl+Alt+Space code, then Esc cancels the recording; Settings stays open');
     await page.getByRole('button',{name:'Close Settings',exact:true}).click();
+    // The editor's own Ctrl+Alt+Space cue says "Esc cancels": focus is where the Close click left it.
+    await page.keyboard.press('Control+Alt+Space');const cue=page.locator('.hotkeys-sequence-cue');await cue.waitFor({timeout:3000});
+    assert.match(await cue.innerText(),/Esc cancels/);await page.keyboard.press('Escape');
+    await cue.waitFor({state:'detached',timeout:3000}).catch(()=>{throw Error('Esc does not cancel the Ctrl+Alt+Space hotkey code');});
+    checks.push('Ctrl+Alt+Space code cue: Esc cancels it');
     await page.locator('[data-hotkey="paint"]:visible').first().click();
     await page.getByRole('button',{name:/New base coat/}).click();
     await page.getByRole('button',{name:'Begin painting',exact:true}).click();

@@ -62,6 +62,33 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     await removeButtons.last().click();await settlePage(page, 300);assert.equal(await removeButtons.count(),rows-1,'× removes the blood');
     await page.keyboard.press('Control+z');await settlePage(page, 300);assert.equal(await removeButtons.count(),rows,'Ctrl+Z after × brings the blood back');
     checks.push('Blood ×, then Ctrl+Z, restores the blood');
+    // "Delete removes it" for blood, the user's way: click a blood row in the list
+    // (focus stays wherever that click leaves it, no .focus()), press Delete; Ctrl+Z brings it back.
+    const bloodRows=window_.getByRole('listbox',{name:'Death blood',exact:true}).getByRole('option'),bloodCount=await bloodRows.count();
+    await bloodRows.last().locator('span').first().click();await settlePage(page, 300);
+    assert.equal(await bloodRows.last().getAttribute('aria-selected'),'true','clicking a blood row selects it');
+    await window_.getByText('Drag the handle to move this blood. Delete removes it.',{exact:true}).waitFor();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),bloodCount-1,'Delete removes the blood clicked in the list');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),bloodCount,'Ctrl+Z after Delete brings the blood back');
+    checks.push('Blood: click a row, Delete removes it; Ctrl+Z restores it');
+    // The preview way: double-click the blood in the preview, drag its handle, then Delete and Ctrl+Z.
+    await bloodRows.last().locator('span').first().click();await settlePage(page, 300);
+    const bloodHandle=window_.getByRole('slider',{name:'Move this blood',exact:true});await bloodHandle.waitFor();
+    const hb=await bloodHandle.boundingBox(),spot=[hb.x+hb.width/2,hb.y+hb.height/2],pv=(await scoped()).rect;
+    // Double-click empty ground (a corner of the preview) lets the blood go.
+    await page.mouse.dblclick(pv.x+12,pv.y+pv.height-12);await settlePage(page, 300);
+    assert.equal(await bloodHandle.count(),0,'double-clicking empty ground lets the blood go');
+    await page.mouse.dblclick(...spot);await settlePage(page, 300);
+    await bloodHandle.waitFor({timeout:3000}).catch(()=>{throw Error('double-clicking the blood in the preview does not select it');});
+    {const b=await bloodHandle.boundingBox(),bx=b.x+b.width/2,by=b.y+b.height/2;await page.mouse.move(bx,by);await page.mouse.down();await page.mouse.move(bx+30,by+20,{steps:6});await page.mouse.up();await settlePage(page, 300);}
+    const draggedBlood=await bloodRows.count();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),draggedBlood-1,'Delete removes the blood after its handle was dragged');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),draggedBlood,'Ctrl+Z brings the dragged and deleted blood back');
+    checks.push('Blood: double-click it in the preview, drag its handle, Delete removes it; Ctrl+Z restores it');
     await window_.getByRole('tab',{name:'Corpse Editor'}).or(window_.getByRole('button',{name:'Corpse Editor',exact:true})).first().click();await settlePage(page, 200);
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
