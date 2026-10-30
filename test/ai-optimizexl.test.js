@@ -7,7 +7,7 @@ import { runOptimizeStage, simpleSettings } from '../src/optimizexl.js';
 
 test('documented sandbox recipe returns the exact existing stage bytes without an adapter or input mutation', async () => {
   const guide = fs.readFileSync(new URL('../docs/WC3-EDITING-OPTIMIZATION.md', import.meta.url), 'utf8');
-  const code = /```js\n([^]*?)\n```/.exec(guide)[1];
+  const code = /```js\r?\n([^]*?)\r?\n```/.exec(guide)[1];
   const model = createStarterDocument().model;
   model.Sequences = [{ Name: 'Stand', Interval: new Uint32Array([0, 100]), MoveSpeed: 0, NonLooping: false, Rarity: 0 }];
   model.Bones[0].Translation = { LineType: 1, Keys: [0, 50, 100].map(Frame => ({ Frame, Vector: new Float32Array([0, 0, 0]) })) };

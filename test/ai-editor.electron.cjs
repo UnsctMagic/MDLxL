@@ -326,7 +326,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check('help leaves out the SD guides while SD Brain is parked', !(await tool('mdlxl_help')).topics.some(topic => topic.includes('AI-SD-')));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
-  const recipe = /```js\n([^]*?)\n```/.exec(fs.readFileSync(path.join(__dirname, '../docs/WC3-EDITING-OPTIMIZATION.md'), 'utf8'))[1];
+  const recipe = /```js\r?\n([^]*?)\r?\n```/.exec(fs.readFileSync(path.join(__dirname, '../docs/WC3-EDITING-OPTIMIZATION.md'), 'utf8'))[1];
   const optimized = await tool('mdlxl_script', { target: context.target, code: recipe + '\n', timeoutMs: 120000 });
   check('sandbox can serialize and call unchanged OptimizeXL without an adapter', optimized.applied === false && optimized.value.report.afterBytes > 0 && optimized.value.candidate.Geosets.length === 2);
   await tool('mdlxl_select', { target: context.target, geosetIds: [0], activeGeoset: 0 });
@@ -618,13 +618,16 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     },
     true,
   );
-  // Each of three phases now has both its original and edited picture.
+  // Default phases retain pairs and may add measured worst-motion frames.
   const reviewReport = JSON.parse(reviewImages[0].text).review;
   check(
     'animation verification samples intermediate poses and returns before/after images',
     reviewReport.passed &&
       reviewReport.poses.length === 1 &&
-      reviewImages.filter(x => x.type === 'image').length === 6,
+      reviewReport.motion?.source.includes('MDLxL') &&
+      reviewImages.filter(x => x.type === 'image').length >= 6 &&
+      reviewImages.filter(x => x.type === 'image').length <= 16 &&
+      reviewImages.some(x => x.type === 'text' && x.text.includes('measured distance')),
     { report: reviewReport, imageCount: reviewImages.filter(x => x.type === 'image').length },
   );
   check(
@@ -639,7 +642,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   check(
     'the review can show the result from the front, back, left and right',
-    turned.filter(x => x.type === 'image').length === 10 &&
+    turned.filter(x => x.type === 'image').length >= 10 && turned.filter(x => x.type === 'image').length <= 16 &&
       ['front', 'back', 'left', 'right'].every(side => turned.some(x => x.type === 'text' && x.text.includes(`${side} view`))),
     turned.filter(x => x.type === 'text').map(x => x.text.slice(0, 60)),
   );

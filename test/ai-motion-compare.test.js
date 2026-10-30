@@ -8,7 +8,7 @@ function model() {
   return {
     Sequences: [{ Name: 'First', Interval: [0, 10] }, { Name: 'Second', Interval: [20, 30] }], GlobalSequences: [],
     Bones: [{ ObjectId: 0, Translation: track(key(0, 0, 0, 0), key(4, 4, 0, 0), key(10, 0, 0, 0), key(20, 0, 0, 0)) }],
-    Geosets: [{ Vertices: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 1]), Faces: new Uint16Array([0, 1, 2]), VertexGroup: [0, 0, 0], Groups: [[0]] }],
+    Geosets: [{ Vertices: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 1]), Faces: new Uint16Array([0, 1, 2]), VertexGroup: [0, 0, 0], Groups: [[0]], MaterialID: 0 }],
     GeosetAnims: [{ GeosetId: 0, Flags: 2, Alpha: 1, Color: [1, .5, .25] }], Materials: [{ Layers: [{ Alpha: 1 }] }],
     Attachments: [{ ObjectId: 1, Visibility: track(key(0, 0), key(20, 0)) }],
   };
@@ -89,6 +89,13 @@ test('global animations use the existing isolated preview owner', () => {
   const b = structuredClone(a); b.Bones[0].Translation.Keys[1].Vector[0] = 8;
   const row = compareMotion(a, b, { sequences: [{ globalSequence: 0 }] }).sequences[0];
   assert.equal(row.globalSequence, 0); assert.equal(row.distance.distance, 4);
+});
+
+test('exported node/resource renumbering does not invent non-geometric channel differences', () => {
+  const a = model(), b = structuredClone(a);
+  b.Attachments[0].ObjectId = 50;
+  a.Materials.unshift({ Layers: [{ Alpha: 0 }] }); a.Geosets[0].MaterialID = 1;
+  assert.deepEqual(compareMotion(a, b).sequences.flatMap(s => s.channels), []);
 });
 
 test('inventory reports encoded bytes, keyed domains, constant curves and equal quaternion controls', () => {

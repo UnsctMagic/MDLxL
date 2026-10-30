@@ -382,7 +382,10 @@ export async function reviewAiModel(bridge, args, options) {
   const poses = [];
   if (review.animation) {
     const touched = args.baseline !== undefined ? touchedAnimations(createChanges(before, state.model, { ignore: ignoreHistoryAlias }), before, state.model) : review;
-    const sequences = [...(touched.sequences || []), ...(touched.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+    // A changed global controller plays in every local clip as well as its own
+    // isolated preview. Those clips are all touched by that controller.
+    const local = touched.globalSequences?.length ? (state.model.Sequences || []).map((_, i) => i) : touched.sequences || [];
+    const sequences = [...local, ...(touched.globalSequences || []).map(globalSequence => ({ globalSequence }))];
     const key = JSON.stringify(sequences);
     if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
       review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };

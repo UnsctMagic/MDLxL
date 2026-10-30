@@ -11,7 +11,8 @@ async function run(note='') {
   const { launchApp, closeApp, settle, stubDialogs, clickMenu, bundleHashes } = require('./helpers/app.cjs');
   const { openDocument } = await import('../src/editor-document.js');
   const { gatherStreams } = await import('../src/mesh-tools.js');
-  const { snapshotModel, duplicateGroups, gradeScenario, summarize, markdownReport } = await import('./helpers/ai-real-use-grade.js');
+  const { snapshotModel, duplicateGroups, gradeScenario, gradeMotionScenario, summarize, markdownReport } = await import('./helpers/ai-real-use-grade.js');
+  const { motionFixture } = await import('./helpers/ai-motion-fixture.js');
   const root = path.resolve(__dirname,'..');
   if (process.platform === 'win32' && process.env.MDLXL_SUITE_HIDDEN !== '1') throw Error('Use node scripts/run-packaged-tests.mjs default ai-real-use: this run requires the hidden desktop.');
   if (process.platform === 'win32' && !/^D:[\\/]/i.test(root)) throw Error('Run from a worktree on D:.');
@@ -39,12 +40,15 @@ async function run(note='') {
   // Native settings support "default", so the copied provider config owns the requested low effort.
   fs.writeFileSync(path.join(profile,'ai','connections.json'),JSON.stringify({provider,enabled:false,offload:true,routing:'manual',outsideCheck:true,providers:{codex:{model,effort:'default',allowLighter:false}},editingHandbook:true}));
   const bytes=fs.readFileSync(path.join(__dirname,'fixtures/ai-real-use/helmet.mdx'));
+  const motionSource = scenarios.some(s => s.kind === 'motion') ? fs.readFileSync(path.join(__dirname, 'fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx')) : null;
+  const motionFixtures = new Map();
   // Textures are disposable CASC reads, never committed game files. The model copy remains immutable.
   const { CascReader } = require('../electron/casc.cjs');
   try {
   const casc=new CascReader(process.env.MDLXL_AI_REAL_USE_GAME||'D:/Warcraft III',scratch);
   try {
-    for(const texture of openDocument(bytes,'helmet.mdx').model.Textures)if(texture.Image){
+    const textures = [bytes, ...(motionSource ? [motionSource] : [])].flatMap(b => openDocument(b, 'fixture.mdx').model.Textures);
+    for(const texture of textures)if(texture.Image){
       let data=null;for(const name of [texture.Image,'war3.w3mod:'+texture.Image]){data=await casc.read(name);if(data)break;}
       if(!data)throw Error('Missing CASC texture '+texture.Image);
       const file=path.resolve(scratch,texture.Image.replaceAll('\\','/'));
@@ -54,6 +58,11 @@ async function run(note='') {
     report.textures='All fixture texture paths resolved from CASC.';
   } finally {casc.close();}
   const fixture=(scenario,repeat)=>{
+    if (scenario.kind === 'motion') {
+      if (!motionFixtures.has(scenario.id)) motionFixtures.set(scenario.id, motionFixture(motionSource, { excursion: scenario.id === 'pre-existing-motion' }));
+      const generated = motionFixtures.get(scenario.id), file = path.join(scratch, `${repeat}-${scenario.id}.mdx`);
+      fs.writeFileSync(file, generated.bytes); return file;
+    }
     const doc=openDocument(bytes,'Helmet.mdx');
     if(scenario.split)doc.apply('Fixture: redundant compatible points',['Geosets'],m=>{
       const g=m.Geosets[scenario.meshIndex],ids=Array.from(g.Faces);
@@ -108,6 +117,9 @@ async function run(note='') {
       const m=session.doc.model;
       return {Textures:m.Textures,Materials:m.Materials,Geosets:m.Geosets.map(g=>({...g,Vertices:Array.from(g.Vertices),Normals:Array.from(g.Normals),Faces:Array.from(g.Faces),TVertices:g.TVertices.map(u=>Array.from(u)),VertexGroup:Array.from(g.VertexGroup),SkinWeights:g.SkinWeights?Array.from(g.SkinWeights):[]}))};
     }).then(snapshotModel);
+    // The document serializer, rather than mesh-only snapshots, captures every
+    // animation/channel for the pure motion grader.
+    const serialized = () => page.evaluate(() => Array.from(window.mdlxlProbe().session.doc.serialize('mdx')));
     // Saved chat trees include workers: their tool errors and final text matter too.
     const chats=id=>{
       const seen=new Set(),all=[];
@@ -116,6 +128,7 @@ async function run(note='') {
     measurements: for(let repeat=1;repeat<=(authUnavailable?1:repeats);repeat++)for(const scenario of scenarios) {
       console.log(`MEASURING repeat ${repeat}/${repeats}: ${scenario.id}`);
       const started=Date.now(), turns=[];let error=null, before, after, task, tree=[], demo=null, scenarioChat=null;
+      let beforeBytes, afterBytes, afterFirstBytes, followupStart = {}, followupTranscript = [];
       const prefix=`${repeat}-${scenario.id}`;
       try {
         if(repeat!==1||scenario!==scenarios[0]){
@@ -138,7 +151,13 @@ async function run(note='') {
           demo={area:'lower right of Geoset 1',position:sample.position,removedVertices:removed,before:original,after:demonstrated};
         }
         const state=await snapshot(), context=await tool('mdlxl_context'), gi=scenario.meshIndex;
-        await tool('mdlxl_select',{target:context.target,geosetIds:[gi],activeGeoset:gi,vertices:{[gi]:Array.from({length:state.meshes[gi].vertices.length/3},(_,i)=>i)}});
+        await tool('mdlxl_select',{target:context.target,geosetIds:[gi],activeGeoset:gi,vertices:scenario.kind === 'motion' ? {} : {[gi]:Array.from({length:state.meshes[gi].vertices.length/3},(_,i)=>i)}});
+        if (scenario.kind === 'motion') {
+          const sequence = motionFixtures.get(scenario.id).attack;
+          const source = openDocument(motionFixtures.get(scenario.id).bytes, 'fixture.mdx').model;
+          await tool('mdlxl_view', { target: (await tool('mdlxl_context')).target, sequence, frame: source.Sequences[sequence].Interval[0], playing: false });
+          beforeBytes = await serialized();
+        }
         before=await snapshot();
         const id=await page.evaluate(()=>window.findFiberState('.ai-assistant',s=>s&&typeof s==='object'&&s.id&&s.modelKey,{current:true})?.id);
         if(!id)throw Error('Console has no active chat');
@@ -168,10 +187,17 @@ async function run(note='') {
           if(entry.timedOut)entry.cancellation='harness measurement timeout';
         }
         for(const prompt of scenario.turns) {
-          await turn(prompt);if(turns.at(-1).timedOut)break;
+          if (scenario.kind === 'motion' && turns.length === 1) followupStart = Object.fromEntries(chats(id).map(c => [c.id, c.transcript.length]));
+          await turn(prompt);
+          if (scenario.kind === 'motion' && turns.length === 1) afterFirstBytes = await serialized();
+          if(turns.at(-1).timedOut)break;
         }
         while(task?.canResume&&turns.filter(t=>t.resume).length<resumeBudget&&!turns.at(-1).timedOut)await turn('Resume task',true);
         after=await snapshot();tree=chats(id);
+        if (scenario.kind === 'motion') {
+          afterBytes = await serialized();
+          followupTranscript = scenario.turns.length > 1 ? tree.flatMap(c => c.transcript.slice(followupStart[c.id] || 0)) : [];
+        }
         fs.writeFileSync(path.join(out,prefix+'-evidence.json'),JSON.stringify({scenario,turns,task,chats:tree,before,after,demo},null,2));
       } catch(e){
         error=e.message;console.error(prefix+': '+error);
@@ -181,10 +207,13 @@ async function run(note='') {
           task=await page.evaluate(id=>window.desktop.aiTask(id),scenarioChat);tree=chats(scenarioChat);
         }
         if(page)after=await snapshot().catch(()=>before);
+        if (page && beforeBytes) afterBytes = await serialized().catch(() => beforeBytes);
       }
       if(!before)throw Error('Scenario setup failed before measurement: '+error);
       const parent=tree[0]?.transcript||[], children=tree.slice(1).flatMap(c=>c.transcript.map(m=>({...m,cost:undefined})));
-      const result=gradeScenario({scenario,before,after:after||before,transcript:[...parent,...children],task,turns,error,seconds:(Date.now()-started)/1000});
+      const result=scenario.kind === 'motion'
+        ? gradeMotionScenario({ scenario, beforeBytes, afterBytes: afterBytes || beforeBytes, afterFirstBytes, followupTranscript, transcript: [...parent, ...children], task, turns, error, seconds: (Date.now()-started)/1000 })
+        : gradeScenario({scenario,before,after:after||before,transcript:[...parent,...children],task,turns,error,seconds:(Date.now()-started)/1000});
       result.repeat=repeat;result.demonstration=demo&&{area:demo.area,removedVertices:demo.removedVertices};
       result.harnessCancelled=turns.some(t=>t.timedOut);report.runs.push(result);save();
       console.log(JSON.stringify({id:scenario.id,repeat,workflow:result.workflow.score,quality:result.qualityScore,seconds:result.seconds}));

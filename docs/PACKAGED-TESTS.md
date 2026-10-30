@@ -48,7 +48,7 @@ a single test). Other platforms always run on the current display.
 
 ## Opt-in real-use AI measurements
 
-`ai-real-use` sends the six owner-style scenario sequences through the packaged
+`ai-real-use` sends eight owner-style scenario sequences through the packaged
 AI console with Codex `gpt-6-luna` and low reasoning effort. It is excluded from
 `all`, `core` and CI, even when its opt-in environment variable is set. It runs
 only when named explicitly **and** `MDLXL_AI_REAL_USE=1`. Use a D: worktree.
@@ -89,6 +89,24 @@ Reports never collapse the measurements to a single pass/fail. A zero runner exi
 means it produced measurements; it does not approve the AI edits. Unexpected
 harness errors still exit nonzero. Harness timeouts are marked separately from
 provider-initiated stops.
+
+`animation-size` and `pre-existing-motion` are scenarios 7 and 8; set
+`MDLXL_AI_LIVE_FROM=7` to run just these. They generate redundant 1–3 ms local
+keys with MDLxL's sampler from the committed
+`test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx`, including quaternion
+cubic controls equal to keys, unassigned keys and a constant colour track.
+The second fixture has a structural root excursion before baking. Graders read
+model bytes through the live document serializer and report size ratio,
+per-animation distances/speed/channels, exact endpoint share and structure
+counts. Follow-up wording and edits without a question are observations with
+rates over repeats, never pass/fail. Transcript detection is a wording heuristic.
+Set `MDLXL_AI_REAL_USE_DRY_RUN=1` for inert plumbing checks without live AI calls.
+
+For private research replay, run
+`node test/manual/ai-motion-compare-replay.mjs before.mdx after.mdx --out D:\Codex\replay.json`.
+`--manifest` accepts a private JSON array of `{before,after,expected?,channels?}`;
+`expected` points at a research comparison JSON and checks rounded per-animation
+distance, speed and endpoint results. Model files are read as data only.
 
 The fixture is a neutral copy of the authorized helmet; provenance is in
 [test/fixtures/ai-real-use/README.md](../test/fixtures/ai-real-use/README.md).

@@ -225,6 +225,19 @@ test('implicit pictures cover other touched animations, most different first, wi
   assert.ok(groups.every(g => chosen.filter(i => i.group === g).length === 2));
 });
 
+test('a changed global controller is measured in every local clip that plays it as well as its isolated clock', async () => {
+  const { bridge, target, sessions } = editor();
+  const model = sessions[0].doc.model;
+  model.GlobalSequences = [100];
+  model.Bones[0].Translation = { LineType: 1, GlobalSeqId: 0, Keys: [key(0, 0), key(50, 5), key(100, 0)] };
+  await beginAiReview(bridge, 't');
+  model.Bones[0].Translation.Keys[1].Vector[0] = 10;
+  sessions[0].doc.revision++; recordAiChange(target.review, {}, model);
+  const result = await inspect(bridge, { globalSequence: 0, frames: [0, 50, 100] });
+  assert.deepEqual(result.review.motion.sequences.map(row => row.globalSequence == null ? row.sequence : 'global:' + row.globalSequence), [0, 1, 'global:0']);
+  assert.ok(result.review.motion.sequences.every(row => row.distance.distance === 5));
+});
+
 
 test('explicit owner acceptance uses the same review completion path after a blocked inspection', async () => {
   const { bridge, target, edit } = editor();

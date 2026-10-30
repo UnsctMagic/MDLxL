@@ -32,8 +32,9 @@ function matching(before, after, selection) {
   return index < 0 ? null : animation(before, { sequence: index });
 }
 
-// Records are compared by geoset index, node ObjectId within its collection, and
-// material/layer index. No nearest-vertex guess disguises a topology change.
+// Geosets retain their indices; nodes match within their collection by unique
+// name (else stable position). Material references follow corresponding geosets.
+// Export can renumber ObjectIds/resources without changing their channels.
 function channelPairs(before, after) {
   const pairs = [];
   for (let i = 0; i < Math.max(before.Geosets?.length || 0, after.Geosets?.length || 0); i++) {
@@ -44,20 +45,30 @@ function channelPairs(before, after) {
     });
   }
   for (const collection of ['Attachments', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'Lights']) {
-    const ids = new Set([...(before[collection] || []), ...(after[collection] || [])].map(n => n.ObjectId));
-    for (const id of ids) pairs.push({
-      path: `/${collection}/ObjectId:${id}/Visibility`, kind: 'node-visibility',
-      sample: (a, frame) => {
-        const node = a.model[collection]?.find(n => n.ObjectId === id);
+    const old = before[collection] || [], next = after[collection] || [], remaining = new Set(next.map((_, i) => i));
+    const indices = old.map((node, i) => {
+      const namedMatches = node.Name ? next.flatMap((n, j) => n.Name === node.Name && remaining.has(j) ? [j] : []) : [];
+      const j = namedMatches.length === 1 ? namedMatches[0] : remaining.has(i) && next[i]?.Name === node.Name ? i : -1;
+      remaining.delete(j); return [i, j];
+    }).concat([...remaining].map(j => [-1, j]));
+    for (const ids of indices) pairs.push({
+      path: `/${collection}/${ids[1] >= 0 ? ids[1] : 'removed:' + ids[0]}/Visibility`, kind: 'node-visibility',
+      sample: (a, frame, side) => {
+        const node = a.model[collection]?.[ids[side]];
         return node ? sampleTrack(node.Visibility, frame, { interval: a.interval, globalSequences: a.model.GlobalSequences, fallback: 1 }) : null;
       },
     });
   }
-  for (let mi = 0; mi < Math.max(before.Materials?.length || 0, after.Materials?.length || 0); mi++) {
-    for (let li = 0; li < Math.max(before.Materials?.[mi]?.Layers?.length || 0, after.Materials?.[mi]?.Layers?.length || 0); li++) pairs.push({
-      path: `/Materials/${mi}/Layers/${li}/Alpha`, kind: 'layer-alpha',
-      sample: (a, frame) => {
-        const layer = a.model.Materials?.[mi]?.Layers?.[li];
+  const materials = new Map();
+  for (let gi = 0; gi < Math.max(before.Geosets?.length || 0, after.Geosets?.length || 0); gi++) {
+    const ids = [before.Geosets?.[gi]?.MaterialID, after.Geosets?.[gi]?.MaterialID];
+    materials.set(ids.join(':'), ids);
+  }
+  for (const ids of materials.values()) {
+    for (let li = 0; li < Math.max(before.Materials?.[ids[0]]?.Layers?.length || 0, after.Materials?.[ids[1]]?.Layers?.length || 0); li++) pairs.push({
+      path: `/Materials/${ids[0] ?? 'absent'}->${ids[1] ?? 'absent'}/Layers/${li}/Alpha`, kind: 'layer-alpha',
+      sample: (a, frame, side) => {
+        const layer = a.model.Materials?.[ids[side]]?.Layers?.[li];
         return layer ? sampleTrack(layer.Alpha, frame, { interval: a.interval, globalSequences: a.model.GlobalSequences, fallback: 1 }) : null;
       },
     });
@@ -104,15 +115,16 @@ export function compareMotion(before, after, { sequences, step } = {}) {
     let centre = { max: 0, frame: start, beforeTravel: 0, afterTravel: 0 }, firstCentres;
     const contact = { before: 0, after: 0 };
     for (let fi = 0; fi < frames.length; fi++) {
-      const frame = frames[fi], phase = duration ? (frame - start) / duration : 0;
-      const beforeFrame = a.interval[0] + phase * (a.interval[1] - a.interval[0]);
+      const frame = frames[fi];
+      const beforeFrame = a.interval[0] + (frame - start) * (duration ? (a.interval[1] - a.interval[0]) / duration : 0);
       const matrices = [sampleNodeMatrices(a.model, beforeFrame, a.sequence), sampleNodeMatrices(b.model, frame, b.sequence)];
-      const centres = [[0, 0], [0, 0]], lowest = [Infinity, Infinity], points = [[], []];
+      const centres = [[0, 0], [0, 0]], lowest = [Infinity, Infinity], visible = [];
       let max = 0, sum = 0, count = 0, speedDifference = 0, speed = 0;
       const poses = comparable.map((gi, index) => [a, b].map((side, si) => skinGeoset(side.model.Geosets[gi], matrices[si], buffers[si][index][fi % 2])));
       for (let g = 0; g < comparable.length; g++) {
         const gi = comparable[g], [x, y] = poses[g];
         if (sampleGeosetAnimation(a.model, gi, beforeFrame, a.sequence).alpha < .01 && sampleGeosetAnimation(b.model, gi, frame, b.sequence).alpha < .01) continue;
+        visible.push(g);
         for (let v = 0; v < x.length; v += 3) {
           const distance = Math.hypot(x[v] - y[v], x[v + 1] - y[v + 1], x[v + 2] - y[v + 2]);
           max = Math.max(max, distance); sum += distance; count++;
@@ -120,13 +132,14 @@ export function compareMotion(before, after, { sequences, step } = {}) {
             const p = poses[g][si];
             centres[si][0] += p[v]; centres[si][1] += p[v + 1];
             lowest[si] = Math.min(lowest[si], p[v + 2]);
-            points[si].push({ g, v, z: p[v + 2] });
           }
           if (previous) {
-            const dt = frame - previous.frame, da = [0, 1, 2].map(k => x[v + k] - previous.poses[g][0][v + k]), db = [0, 1, 2].map(k => y[v + k] - previous.poses[g][1][v + k]);
-            const beforeDt = beforeFrame - previous.beforeFrame;
-            speed = Math.max(speed, Math.hypot(...da) / (beforeDt || dt));
-            speedDifference = Math.max(speedDifference, Math.hypot(...da.map((d, k) => d / (beforeDt || dt) - db[k] / dt)));
+            const dt = frame - previous.frame, beforeDt = beforeFrame - previous.beforeFrame || dt;
+            const pa = previous.poses[g][0], pb = previous.poses[g][1];
+            const ax = (x[v] - pa[v]) / beforeDt, ay = (x[v + 1] - pa[v + 1]) / beforeDt, az = (x[v + 2] - pa[v + 2]) / beforeDt;
+            const bx = (y[v] - pb[v]) / dt, by = (y[v + 1] - pb[v + 1]) / dt, bz = (y[v + 2] - pb[v + 2]) / dt;
+            speed = Math.max(speed, Math.hypot(ax, ay, az));
+            speedDifference = Math.max(speedDifference, Math.hypot(ax - bx, ay - by, az - bz));
           }
         }
       }
@@ -138,9 +151,14 @@ export function compareMotion(before, after, { sequences, step } = {}) {
         centre.beforeTravel = Math.max(centre.beforeTravel, xy(centres[0], firstCentres[0]));
         centre.afterTravel = Math.max(centre.afterTravel, xy(centres[1], firstCentres[1]));
         if (previous) for (let si = 0; si < 2; si++) {
-          const travel = points[si].filter(p => p.z <= lowest[si] + 1e-4 && previous.poses[p.g][si][p.v + 2] <= previous.lowest[si] + 1e-4)
-            .map(p => Math.hypot(poses[p.g][si][p.v] - previous.poses[p.g][si][p.v], poses[p.g][si][p.v + 1] - previous.poses[p.g][si][p.v + 1]));
-          contact[si === 0 ? 'before' : 'after'] += mean(travel);
+          let travel = 0, contacts = 0;
+          for (const g of visible) {
+            const p = poses[g][si], old = previous.poses[g][si];
+            for (let v = 0; v < p.length; v += 3) if (p[v + 2] <= lowest[si] + 1e-4 && old[v + 2] <= previous.lowest[si] + 1e-4) {
+              travel += Math.hypot(p[v] - old[v], p[v + 1] - old[v + 1]); contacts++;
+            }
+          }
+          contact[si === 0 ? 'before' : 'after'] += contacts ? travel / contacts : 0;
         }
       }
       peakSpeed = Math.max(peakSpeed, speed);
@@ -148,7 +166,7 @@ export function compareMotion(before, after, { sequences, step } = {}) {
       if (speedDifference > worstSpeed.difference) worstSpeed = { difference: speedDifference, frame };
       perFrame.push({ frame, beforeFrame, max, mean: count ? sum / count : 0, speedDifference, comparedVertices: count });
       channels.forEach((channel, ci) => {
-        const av = channel.sample(a, beforeFrame), bv = channel.sample(b, frame), difference = channelDifference(av, bv), row = channelRows[ci];
+        const av = channel.sample(a, beforeFrame, 0), bv = channel.sample(b, frame, 1), difference = channelDifference(av, bv), row = channelRows[ci];
         // Float roundoff is reported geometrically; channel spans use 1e-6.
         if (difference === null || difference > 1e-6) {
           if (difference === null || difference > row.max) Object.assign(row, { max: difference, frame });

@@ -407,6 +407,13 @@ is a clip's median across active tracks, compared by sequence kind. Only quantil
 brackets are available, so percentile ranges are reported without targets.
 The reproduction used null/absent `GlobalSeqId`; explicit `-1` tracks appear in
 the inventory but are excluded from that exact native comparison and counted.
+The editing handbook routes size/optimise requests to
+[Make a model smaller without changing how it moves](WC3-EDITING-OPTIMIZATION.md).
+The existing sandbox can serialize a detached working model and call
+`runOptimizeStage` unchanged; the guide supplies a tested recipe, so no second
+optimizer adapter or repair rules are added. Optional real-use scenarios measure
+animation size and complaints about pre-existing motion; see
+[packaged measurements](PACKAGED-TESTS.md#opt-in-real-use-ai-measurements).
 
 **Outside check.** When the AI says a model edit is finished, a separate AI that
 never saw its work judges the result. It gets only your request, the plan's keep
