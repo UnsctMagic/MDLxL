@@ -38,8 +38,8 @@ export const ATTACHMENT_POINTS = Object.freeze([
 ]);
 
 const STANDARD = new Map(ATTACHMENT_POINTS.map(point => [point.key, point]));
-/** "Head - Ref", "OverHead Ref " and "Foot Right  Ref" all name standard points. */
-export const attachmentKey = name => String(name || '').toLowerCase().replace(/\bref\b/g, ' ').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+/** "Head - Ref", "OverHead Ref ", "Foot Right  Ref", "origin_ref" and "OriginRef" all name standard points. */
+export const attachmentKey = name => String(name || '').toLowerCase().replace(/[-_]/g, ' ').replace(/ref\b/g, ' ').replace(/\s+/g, ' ').trim();
 const NOT_A_WEAPON = /shield|hand|arm|finger|thumb|wrist|elbow|axel|axle|backpack/i;
 
 export { standSequenceIndex as attachematorStandSequence } from './sequence-editor.js';
