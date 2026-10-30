@@ -73,3 +73,4 @@
 .pe-frame-grid{display:flex;gap:10px;align-items:center}.pe-frame-step{display:flex;gap:3px;align-items:center}.pe-frame-step button{padding:0 6px}.pe-frame-step output{min-width:16px;text-align:center}
 .pe-frame-pick{display:flex;align-items:center;gap:8px}.pe-frame-pick label{flex:1;display:flex;align-items:center;gap:6px}.pe-frame-pick select{flex:1}.pe-frame-preview{flex:none;width:40px;height:40px;background:#222;border:1px solid var(--ui-border,#888)}
 .pe-glow{gap:10px}.pe-glow .pe-glow-toggle{flex-direction:row;align-items:center;gap:6px;font-weight:600}.pe-glow small{color:var(--ui-muted,#666)}
+.pe-glow .pe-glow-faults{display:flex;flex-wrap:wrap;gap:6px}.pe-glow .pe-glow-faults ul{flex-basis:100%;margin:0;padding-left:18px;font-size:.92em}

@@ -33,7 +33,7 @@ import ParticleStageTools from './ParticleStageTools.jsx';
 import ParticleLibrary from './ParticleLibrary.jsx';
 import GlowUpControls from './GlowUpControls.jsx';
 import GlowStageTools from './GlowStageTools.jsx';
-import {addHeroGlow,glowLayout,hasHeroGlow,weaponChoices} from '../src/glow-up.js';
+import {findHeroGlow,glowLayout,glowStart,glowUp,heroGlowFaults,repairHeroGlow,weaponChoices} from '../src/glow-up.js';
 import './resource-editors.css';
 import './particle-editor.css';
 import { gamePathKey } from '../src/game-path.js';
@@ -201,6 +201,8 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   };
   // Glow Up: hero glow at the origin and along the weapon (docs/GLOW_UP.md).
   const glowChoices=useMemo(()=>glow&&doc?weaponChoices(doc.model,selectedGeometry):[],[!!glow,doc,revision,selectedGeometry]);
+  // A model that already glows: Glow Up adjusts its own glow and offers to repair it.
+  const glowOwn=useMemo(()=>{if(!glow||!doc)return null;const found=findHeroGlow(doc.model);return found&&{origin:!!found.origin,weapon:!!found.weapon,faults:heroGlowFaults(doc.model)};},[!!glow,doc,revision]);
   const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
   // Drag handles in the preview, as for emitters: their bind-pose points follow the weapon bone.
   const glowLayoutNow=useMemo(()=>{if(!glow||!doc)return null;try{return glowLayout(doc.model,glowOptions(glow));}catch{return null;}},[glow,doc,revision,glowChoices]);
@@ -208,9 +210,9 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     if(!glowLayoutNow)return undefined;const marks={};
     if(glow.origin){const {center:[x,y,z],half}=glowLayoutNow.origin;Object.assign(marks,{origin:{point:[x,y,z]},originX:{point:[x+1,y,z]},originY:{point:[x,y+1,z]},edge:{point:[x+half,y,z]},edgeUnit:{point:[x+half+1,y,z]}});[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b],i)=>{marks['corner'+i]={point:[x+a*half,y+b*half,z]};});}
     const weapon=glow.weapon&&glowLayoutNow.weapons[0];
-    if(weapon)for(const key of ['butt','tip','start','end','mid'])marks[key]={point:weapon[key],node:weapon.parentId,...(key==='mid'?{radius:weapon.half}:{})};
+    if(weapon)for(const key of ['butt','tip','start','end','mid'])if(weapon[key])marks[key]={point:weapon[key],node:weapon.parentId,...(key==='mid'?{radius:weapon.half}:{})};
     // One model unit along the weapon and its two sides from each end: the drag turns screen movement into these.
-    if(weapon)for(const key of ['start','end'])for(const axis of ['along','side','other'])marks[key+'-'+axis]={point:weapon[key].map((v,a)=>v+weapon.frame[axis][a]),node:weapon.parentId};
+    if(weapon?.frame)for(const key of ['start','end'])for(const axis of ['along','side','other'])marks[key+'-'+axis]={point:weapon[key].map((v,a)=>v+weapon.frame[axis][a]),node:weapon.parentId};
     return marks;
   },[glowLayoutNow,glow?.origin,glow?.weapon]);
   // Each slider change rebuilds the preview; fit the view once, then keep the user's camera.
@@ -220,29 +222,38 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const glowDraft=useDeferredValue(glow);
   const glowPreview=useMemo(()=>{
     if(!glowDraft||!doc)return null;
-    try{const copy=structuredClone(doc.model);addHeroGlow(copy,glowOptions(glowDraft));return {model:copy};}catch(error){return {error:error.message};}
+    try{const copy=structuredClone(doc.model);glowUp(copy,glowOptions(glowDraft));return {model:copy};}catch(error){return {error:error.message};}
   },[glowDraft,doc,revision,glowChoices]);
   if(!glow)glowShown.current=null;else if(glowPreview?.model)glowShown.current=glowPreview.model;
   const beginGlow=()=>{
     cancel();if(!doc||doc.readOnly)return;
     if(glow){setGlow(null);return;}
     try{
-      const best=weaponChoices(doc.model,selectedGeometry)[0],clips=doc.model.Sequences,clip=standSequenceIndex(doc.model);
+      const clips=doc.model.Sequences,clip=standSequenceIndex(doc.model);
       if(context!=='On model'){setContext('On model');setEmitterId(effectNodes(doc.model)[0]?.node.ObjectId??null);setStructure(v=>v+1);}
       setSequence(clip);setTime(clips[clip]?.Interval[0]??0);setPlaying(true);
       // Weapon glow starts on only for a clear weapon: marked polygons or a weapon-named bone.
+      // A model that glows starts from its own glow.
       glowFitted.current=false;
       setGlowSnapshot(null);
-      setGlow({origin:true,originSize:1,originOffset:[0,0],weapon:!!best?.sure,weaponKey:best?.key??'',weaponSize:1,weaponFrom:null,weaponTo:null,originBrightness:.75,weaponBrightness:.75});
+      setGlow(glowStart(doc.model,selectedGeometry));
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
   };
   const createGlow=()=>{
     try{
-      const options=glowOptions(glow),mutate=m=>addHeroGlow(m,options);
+      const options=glowOptions(glow),own=!!glowOwn,mutate=m=>glowUp(m,options);
       const accepted=edit?edit('Glow Up',GLOW_SECTIONS,mutate,{rethrow:true}):doc.apply('Glow Up',GLOW_SECTIONS,mutate);
       if(accepted===false)return;
-      setGlow(null);setStructure(v=>v+1);refresh?.();setMessage('Hero glow added. Undo restores the model.');
+      setGlow(null);setStructure(v=>v+1);refresh?.();setMessage(own?'Hero glow adjusted. Undo restores the model.':'Hero glow added. Undo restores the model.');
+    }catch(error){setMessage(error.message);}
+  };
+  // Repairs are their own undo step; Glow Up then starts again from the repaired glow.
+  const fixGlow=()=>{
+    try{
+      const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,repairHeroGlow,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,repairHeroGlow);
+      if(accepted===false)return;
+      setGlow(glowStart(doc.model,selectedGeometry));setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
     }catch(error){setMessage(error.message);}
   };
   const toggleLibrary=async()=>{
@@ -337,7 +348,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
           <select aria-label="Particle preview animation" value={sequence} onChange={e=>{cancel();const next=Number(e.target.value);setSequence(next);setTime(model.Sequences[next].Interval[0]);}}>{model.Sequences.map((clip,index)=><option key={index} value={index}>{clip.Name}</option>)}</select></>}
         </div>
         <fieldset className="pe-controls inspector-fields" disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients}>
-          {glow?<GlowUpControls glow={glow} choices={glowChoices} existing={hasHeroGlow(doc.model)} error={glowPreview?.error} onChange={setGlow} onCreate={createGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError}/>:
+          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} error={glowPreview?.error} onChange={setGlow} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError}/>:
           emitter?<>{family==='RibbonEmitters'?<div className="pe-clueless-controls pe-ribbon-fields"><RibbonFields flat model={activeDoc.model} id={emitterId} time={frame} sequenceIndex={sequence} globalSeqId={null} restPose={false} disabled={activeDoc.readOnly} onEdit={(label,sections,mutate)=>apply(label,mutate,sections)} onPause={()=>{cancel();setPlaying(false);}}><div className="ribbon-box-actions"><button disabled={activeDoc.readOnly} title="Edit the exact MDL text of this ribbon, for experienced users. Apply is one undo step." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div></RibbonFields></div>:<><div className="pe-tool-tabs">{['Look','Motion'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>{cancel();setTool(item);}}>{item}</button>)}<button className="pe-manual" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this emitter, for experienced users. Hover a word to see what it does." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div><ParticleCluelessControls onDemo={context==='Lab'?setDemo:undefined} demo={demo} teamColor={teamColor||'#ed3333'} {...{emitter,frame,sequence,tool,scope,setScope,asset,assets,preferences,update,patch,begin,change,finish,cancel,lifeStage,setLifeStage}} onImport={importPicture} onLibrary={()=>{cancel();setPictureLibrary(true);}} onChoosePicture={choosePicture} onRemovePicture={removePicture} onTeamPicture={teamPicture} model={working} globalTime={previewStatus.global??frame} onSeek={value=>{setPlaying(false);setTime(value);}}/></>}</>:<p>{selectedEffect?<>{translate("This emitter type has no sliders yet. ")}<button disabled={activeDoc.readOnly} onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></>:'Choose an effect in the library.'}</p>}
         </fieldset>
       </div>
