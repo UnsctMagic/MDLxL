@@ -1,18 +1,22 @@
 # MDLxL codebase audit and repair plan
 
-Status: audit complete, plan final after the owner review of 2026-10-29 (decisions in
-section 5, plan changes in section 7 "Review notes"). Wave 0 packages launched 2026-10-29.
-Revision audited: `origin/main` at `fe46a534` (0.35.0), 2026-10-29.
-Branch: `claude/codebase-audit` (this document and the evidence folder only; no code changed).
-Session: claude local_2ff36156-d295-4751-9c75-28b35fe8316d
+Status: audit repaired; release 0.36.0 in progress. All package PRs are merged;
+owner click-throughs remain ready to test, and B16 plus the remaining B18 case
+are still open (section 4).
+Revision checked: `origin/main` at `56fb26c8`, 2026-10-30.
+Revision originally audited: `fe46a534` (0.35.0), 2026-10-29.
+Branch: `codex/audit-closeout` (documentation only).
+Session: codex audit close-out
 
 Evidence: seven area reports with `file:line` for every instance live in
 [codebase-audit/](codebase-audit/) (01 math helpers, 02 Electron plumbing, 03 AI subsystem,
 04 React shell and UI, 05 preview and render stack, 06 model core and features, 07 tests,
 scripts, CI and docs), plus the mechanical scans (`dupscan-*.txt`, `unused-exports.txt`,
 `dupscan.mjs`). Finding ids below (for example `06-#3`, `02-F4`) point into those files.
-Nothing was built, run or packaged for this audit; all statements come from reading code.
-Items marked **ready to test** need a look in the packaged app.
+The evidence reports and sections 1–3 describe the original audit snapshot; sections 5–6
+and the owner review notes preserve the approved plan. Sections 4 and 7 record the close-out.
+No application was built, launched or packaged for this documentation update. Items marked
+**ready to test** still need owner acceptance in the packaged app.
 
 ---
 
@@ -92,35 +96,46 @@ Playwright themselves, 130 walk React fibers by hand, 19 variable names pick the
 
 ---
 
-## 4. Likely bugs found along the way
+## 4. Likely bugs found along the way — outcomes
 
-Found by reading; none reproduced. Each is a one-line fix inside its repair package, but the
-owner should know they exist. **Visible today** means a user can see it without special setup.
+Checked against `origin/main` at `56fb26c8` on 2026-10-30. Source links pin that
+revision so their file:line references remain usable after main moves. These are
+code outcomes, not owner acceptance or Warcraft III test results.
 
-| # | Where | What | Visible | Package |
-| --- | --- | --- | --- | --- |
-| B1 | `PaintViewport.jsx:858` | Alpha-to-coverage on every layer; Viewport's own comment says this leaks white edges on cut-out textures | yes | WP-2.1 |
-| B2 | `PaintViewport.jsx:243` | Ortho framing ignores window shape; tall Paint panels crop the model | yes | WP-2.1 |
-| B3 | `event-preview-runtime.js:231` | Spawned event models get linear team colour, so non-red teams look darker than the unit | yes | WP-1.9 |
-| B4 | `styles.css:31` vs `theme.css:108` | Dark themes: Y axis label is pure `#00ff00` while X and Z use the theme's soft colours | yes | WP-0.3 |
-| B5 | 4 CSS files | `--selection`, `--error`, `--ui-error`, `--ui-text-muted` are never defined, so those spots ignore the theme | yes | WP-0.3 |
-| B6 | `EmitterTextDialog.jsx:37` | Looks modal but has no `aria-modal`; editor shortcuts can run behind it | ready to test | WP-2.6 |
-| B7 | all `ipcRenderer.invoke` errors | Users see `Error invoking remote method 'model:open': Error: …` prefixes | ready to test | WP-1.5 |
-| B8 | `main.cjs:130`, 11 other writers | `recent.json` written non-atomically; Windows EPERM rename retry exists in one writer only | rare | WP-2.4 |
-| B9 | `main.cjs:306-350`, `particle-library.cjs:165` | With a custom CASC source added, Library browser reads the Settings install while Texture Library and particles read the custom one | yes, with custom CASC | decision D2 |
-| B10 | `bone-tools.js:23` | New `bone_newN` checks only Bones, so it can collide with a Helper or Attachment of that name | rare | WP-2.2 |
-| B11 | `glow-up.js:15`, `attachemator.js:38` | Weapon regex matches `Bone_Elbow_R` (bow), `Bone_Balance` (lance) | yes, on such rigs | decision D7 |
-| B12 | `ResourceEditors.jsx:162` | Add sequence never fills per-geoset extents; OptimizeXL then flags the model | yes | WP-2.3b |
-| B13 | `Inspectors.jsx:56` | Sequence rename and interval edits skip `setSequenceName`/`setSequenceInterval` validation; bad names surface only at save | yes | WP-2.3b |
-| B14 | `editor-document.js:447`, `App.jsx:433` | `apply(sections)` is advisory; the portrait-extent refresh depends on the declared list | rare | WP-2.3b |
-| B15 | `scripts/run-packaged-tests.mjs` | 99 of 164 harnesses launch dev Electron, so release variants do not test the release | CI blind spot | WP-1.7 |
-| B16 | `editor-document.js:894` | Degenerate normal keeps tiny x and y, only z is set to 1 | rare | decision D1 |
-| B17 | `ai-service.cjs:388` | In Offload mode `taskInfo` can persist the organiser's task as interrupted while it runs | small | WP-2.5 |
-| B18 | `ai-providers.cjs:75`, `AiAssistant.jsx:132` | Tool details truncated at 4000 chars then `JSON.parse`d; long plans show raw JSON | yes, long plans | decision D13 |
-| B19 | `pose-ik.js:618` | `descendantOf` rebuilds the node map on every call inside loops (O(n²)) | slow on big rigs | WP-2.2 |
-| B20 | `Viewport.jsx:172,1078` | Renderer is `antialias:false` but effects still depend on the setting; toggling rebuilds for nothing | minor | decision D9 |
-| B21 | 6 Stand pickers | `paint-view` picks `Stand Ready`, ParticleEditor and Attachemator pick `Stand` on the same model | yes | decision D5 |
-| B22 | `pose-ik.js:27` | Refuses inherited-transform flags with a reason that is no longer true | message only | WP-1.3 |
+| Finding | Outcome | PR(s) | Current-main evidence |
+| --- | --- | --- | --- |
+| B1 · Paint cut-out edges | Fixed: coverage is limited to cut-out layers and follows the live Smooth choice. | [#422](https://github.com/UnsctMagic/MDLxL/pull/422), [#424](https://github.com/UnsctMagic/MDLxL/pull/424) | [app/PaintViewport.jsx:444](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/PaintViewport.jsx#L444) |
+| B2 · Tall Paint panels crop in ortho | Fixed: framing accounts for panel shape. | [#422](https://github.com/UnsctMagic/MDLxL/pull/422) | [app/PaintViewport.jsx:133](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/PaintViewport.jsx#L133); [app/viewport-math.js:55](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/viewport-math.js#L55) |
+| B3 · Event models have darker team colour | Fixed: spawned models use the same colour conversion as the unit. | [#397](https://github.com/UnsctMagic/MDLxL/pull/397) | [app/event-preview-runtime.js:203](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/event-preview-runtime.js#L203) |
+| B4 · Pure-green Y label in dark themes | Fixed: axis labels use the theme colours; the overriding rule is gone. | [#390](https://github.com/UnsctMagic/MDLxL/pull/390) | [app/styles.css:59](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/styles.css#L59); [app/theme.css:112](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/theme.css#L112) |
+| B5 · Undefined theme colours | Fixed: selection, error and muted text use existing theme colours. | [#390](https://github.com/UnsctMagic/MDLxL/pull/390) | [app/particle-editor.css:4](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/particle-editor.css#L4); [app/movement.css:8](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/movement.css#L8); [app/pose-controls.css:24](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/pose-controls.css#L24); [app/styles.css:89](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/styles.css#L89) |
+| B6 · Adjust Manually lets keys reach the editor | Fixed: it uses the shared modal window and shortcut boundary. | [#413](https://github.com/UnsctMagic/MDLxL/pull/413), [#418](https://github.com/UnsctMagic/MDLxL/pull/418) | [app/EmitterTextDialog.jsx:38](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/EmitterTextDialog.jsx#L38); [app/Dialog.jsx:22](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Dialog.jsx#L22); [app/Hotkeys.jsx:56](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Hotkeys.jsx#L56) |
+| B7 · Technical prefix in error messages | Fixed: the desktop bridge removes the remote-method prefix. | [#395](https://github.com/UnsctMagic/MDLxL/pull/395) | [electron/preload.cjs:3](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/preload.cjs#L3) |
+| B8 · Interrupted file writes and Windows rename failures | Fixed: recent files and the other app-owned writers share temporary-file replacement and rename retry. | [#403](https://github.com/UnsctMagic/MDLxL/pull/403) | [electron/main.cjs:154](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/main.cjs#L154); [electron/atomic-file.cjs:27](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/atomic-file.cjs#L27) |
+| B9 · Libraries disagree on Warcraft installation | Fixed per D2: the Settings installation comes first for Library, Texture Library and particles; ordinary model-texture lookup keeps custom-source priority. | [#403](https://github.com/UnsctMagic/MDLxL/pull/403) | [electron/game-data.cjs:36](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/game-data.cjs#L36); [electron/main.cjs:78](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/main.cjs#L78); [electron/main.cjs:349](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/main.cjs#L349) |
+| B10 · New bone name can collide with another node | Fixed: new bone names check Helpers and Attachments as well as Bones. | [#402](https://github.com/UnsctMagic/MDLxL/pull/402) | [src/bone-tools.js:28](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/bone-tools.js#L28) |
+| B11 · Elbow and Balance mistaken for weapons | Fixed per D7: weapon names are checked as words, with each tool keeping its own ranking rules. | [#408](https://github.com/UnsctMagic/MDLxL/pull/408) | [src/rig-names.js:21](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/rig-names.js#L21); [src/glow-up.js:108](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/glow-up.js#L108); [src/attachemator.js:96](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/attachemator.js#L96) |
+| B12 · Add sequence misses per-part bounds | Fixed: the manager calls the shared sequence creator, which adds bounds for every part. | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | [app/ResourceEditors.jsx:164](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/ResourceEditors.jsx#L164); [src/sequence-editor.js:122](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/sequence-editor.js#L122) |
+| B13 · Inspector skips sequence validation | Fixed: name, start and end edits use the shared validators. | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | [app/Inspectors.jsx:58](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Inspectors.jsx#L58) |
+| B14 · Portrait bounds depend on declared edit sections | Fixed: the actual changed sections decide the Portrait refresh, inside the same Undo step. | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | [src/editor-document.js:425](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/editor-document.js#L425); [app/App.jsx:409](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/App.jsx#L409) |
+| B15 · Release tests silently launch the development app | Fixed across the helper and family migrations: the runner supplies one executable choice; explicit development-only wrappers remain listed. | [#400](https://github.com/UnsctMagic/MDLxL/pull/400), [#414](https://github.com/UnsctMagic/MDLxL/pull/414), [#407](https://github.com/UnsctMagic/MDLxL/pull/407), [#417](https://github.com/UnsctMagic/MDLxL/pull/417), [#425](https://github.com/UnsctMagic/MDLxL/pull/425) | [scripts/run-packaged-tests.mjs:65](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/scripts/run-packaged-tests.mjs#L65); [scripts/run-packaged-tests.mjs:146](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/scripts/run-packaged-tests.mjs#L146); [test/helpers/app.cjs:12](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/test/helpers/app.cjs#L12) |
+| B16 · Tiny normals keep nonzero X/Y | **Still open:** D1 approved clearing X/Y, but the quick geometry helper still changes only Z. The Inspector switch in #412 avoids this helper there; Forge and shaping still use it. No fixing PR. | — | [src/editor-document.js:944](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/editor-document.js#L944) |
+| B17 · Running organiser shown as interrupted | Fixed: a live Offload task counts as running. | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | [electron/ai-service.cjs:440](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/ai-service.cjs#L440) |
+| B18 · Long AI plans show raw cut-off data | **Still open in part:** #406 adds the short label and shortens long strings before cutting. A plan with many short entries can still exceed the limit, be cut mid-JSON and fall back to raw data; older cut-off chats also remain unreadable. | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | [electron/ai-providers.cjs:112](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/electron/ai-providers.cjs#L112); [app/AiParts.jsx:114](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/AiParts.jsx#L114); [app/AiParts.jsx:38](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/AiParts.jsx#L38) |
+| B19 · POSE repeatedly rebuilds the node lookup | Fixed: each public operation builds or receives one shared lookup and passes it through. | [#402](https://github.com/UnsctMagic/MDLxL/pull/402) | [src/pose-ik.js:42](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L42); [src/pose-ik.js:613](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L613) |
+| B20 · Smooth switch rebuilds a renderer that ignores it | Fixed per D9 by making the setting work: the live model pass is smoothed while editor lines keep their sharp layer. | [#424](https://github.com/UnsctMagic/MDLxL/pull/424) | [app/Viewport.jsx:845](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/Viewport.jsx#L845); [app/model-smoothing.js:37](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/model-smoothing.js#L37) |
+| B21 · Different previews choose different Stand clips | Fixed per D5: callers use Attachemator's shared Stand rule; the Showcase Portrait callback missed in #411 is corrected in #416. | [#411](https://github.com/UnsctMagic/MDLxL/pull/411), [#416](https://github.com/UnsctMagic/MDLxL/pull/416) | [src/sequence-editor.js:17](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/sequence-editor.js#L17); [src/paint-view.js:9](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/paint-view.js#L9); [app/ParticleEditor.jsx:230](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/app/ParticleEditor.jsx#L230) |
+| B22 · Outdated POSE refusal explanation | Wording fixed; the solver restriction remains deliberately. The message now distinguishes what the preview shows from what the joint solver supports. | [#396](https://github.com/UnsctMagic/MDLxL/pull/396) | [src/pose-ik.js:30](https://github.com/UnsctMagic/MDLxL/blob/56fb26c861715cc0e2188b9f0a00503bb70c35dc/src/pose-ik.js#L30) |
+
+Close-out checks confirmed both remaining cases without launching the app: B16
+returns `[0, 9.9999998245167e-15, 1]` for a tiny triangle; B18 turns a valid
+4,052-character plan (20 keeps, six options, 20 checks, 62-character strings)
+into 4,001 characters that no longer parse. Neither is an owner decision to
+leave the bug. B16's approved D1 change was missed; B18 is only partly repaired.
+
+The owner decisions to keep separate material comparisons (D6), keep the two
+vertex-click distances (D10), and omit UV splits/AI width from exported preferences
+(D18) remain intentional. They are not unresolved B-items.
 
 ---
 
@@ -227,7 +242,7 @@ the default are in bold; see the review notes in section 7 for what they change 
 | WP-3.4 | `isTeamColorLayer`/`isTeamGlowLayer` resolving track texture ids (each feature keeps its own "geoset is glow" aggregation); `visitTextureReferences` for the 5 remap copies. Sort My Mess and Merge Similar keep their own material keys (D6: no shared `materialKey`). | D6 answered: keep separate | Opus | medium |
 | WP-3.5 | `src/rig-names.js` token vocabularies; Glow Up and Attachemator rankings re-checked on the SD corpus. | D7 | Opus | high |
 | WP-3.6 | Inspector "Recalculate normals" button calls `planNormalRebuild`/`applyNormalRebuild` with NormalsXL defaults (90°); label unchanged; `editor-document.recalculateNormals` stays for Forge and shaping and gets a comment saying it is the quick area-weighted version for generated geometry. **Ready to test**: press the button on an SD unit and compare with NormalsXL. | D4 answered: switch the maths | Sonnet | medium |
-| WP-3.7 | 2D image zoom in Paint image views and the Forge mask editor goes through `bindScrollSensitivity` with the UV editor's zoom step (`wheelZoomFactor` exported from `viewport-performance.js`); Forge's mask editor gains the wheel (D8). Vertex click rules stay as they are and are documented in the map row (D10). | Ready to test: UV step shared; Paint/Forge Mouse settings wired; D10 documented. Build, 57 compatibility, 242 focused and 2338 source tests pass (22 skipped); four requested hidden packaged checks and image-navigation acceptance pass. [PR #420](https://github.com/UnsctMagic/MDLxL/pull/420) open; not merged. | Codex | medium |
+| WP-3.7 | 2D image zoom in Paint image views and the Forge mask editor goes through `bindScrollSensitivity` with the UV editor's zoom step (`wheelZoomFactor` exported from `viewport-performance.js`); Forge's mask editor gains the wheel (D8). Vertex click rules stay as they are and are documented in the map row (D10). | D8, D10; merged in [PR #420](https://github.com/UnsctMagic/MDLxL/pull/420). Owner zoom checks remain ready to test (section 7). | Codex | medium |
 | WP-3.8 | `ai-service.cjs` editor-utility IPC handlers to `electron/ai-editor-ipc.cjs`; `AiConnectionSettings.jsx` extraction. | none, optional | Opus | medium |
 | WP-3.9 | Storage key naming convention and the channel-naming convention written into the map; source test that fails when a preload channel has no handler or vice versa. | none | Sonnet | low |
 | WP-3.10 | **Smooth edges (antialiasing) made real everywhere.** The setting works in every 3D view including `Viewport.jsx` (hard-coded off since `59cf9ce7`); the pointless rebuild on toggle stops; with smoothing on, only the model is multisampled and bones, wireframe, vertex dots, normals and editor lines stay pixel-sharp on their own layer (the `pixel-lines.js` way GamePreview already draws bone connectors); off by default stays, existing users keep their value; software rendering and low-power still force off; re-check `viewportPixelRatio` so "on" is not blurrier on HiDPI and `test/herrdave-render.test.js` HD06 still means something. First-run question in the existing welcome prompt with the owner's wording ("How should your models look?" → **Smooth** default / **Classic MDLVis**, note "You can change this any time in Settings → Graphics"), translated into the four languages. One toolbar quick switch next to team colour and language, existing button look, short tooltip, same preference; hidden in VIS. Full spec in the section 7 review notes. **Ready to test**: fresh-profile prompt, toolbar switch in XL and absent in VIS, crisp bones and wireframe with Smooth on, mouse rotation in every preview. | D9 answered | Opus | high |
@@ -257,13 +272,143 @@ the default are in bold; see the review notes in section 7 for what they change 
 
 ## 7. Tracker
 
-| Package | Branch / PR | State | Notes |
+### Package close-out (2026-10-30)
+
+All 36 package rows below are merged, including the four WP-2.8 test families
+and the separate rotation package. PR states and bodies were read with
+`gh pr list --repo UnsctMagic/MDLxL --state all --limit 80` (including its JSON
+body/state/date fields). Merge dates use Europe/Amsterdam (UTC+1).
+The original audit/plan was merged in [#387](https://github.com/UnsctMagic/MDLxL/pull/387). Package completion does not
+mean every B-item or owner click-through passed; see section 4 and the list below.
+
+| Package | PR(s) | State | What it did |
 | --- | --- | --- | --- |
-| audit | `claude/codebase-audit` | plan final; PR open; wave 0 launched 2026-10-29 | the Fable session keeps this tracker current from the package sessions' reports |
-| WP-0.1 docs sweep | `claude/audit-wp-0-1-*` | started | Sonnet low |
-| WP-0.2 dead code | `claude/audit-wp-0-2-*` | started | Sonnet medium; D14, D15 = delete |
-| WP-0.3 CSS tokens | `claude/audit-wp-0-3-*` | started | Sonnet medium; ready to test after merge |
-| WP-0.4 AI double translate | `claude/audit-wp-0-4-*` | started | Sonnet low |
+| WP-0.1 | [#388](https://github.com/UnsctMagic/MDLxL/pull/388) | Merged 2026-10-29 | Updated old task notes, links and setup wording. |
+| WP-0.2 | [#391](https://github.com/UnsctMagic/MDLxL/pull/391) | Merged 2026-10-29 | Removed unused code and test entries, keeping code with real callers. |
+| WP-0.3 | [#390](https://github.com/UnsctMagic/MDLxL/pull/390) | Merged 2026-10-29 | Repaired theme colours and shared identical window styles. |
+| WP-0.4 | [#389](https://github.com/UnsctMagic/MDLxL/pull/389) | Merged 2026-10-29 | Stopped the AI console translating the same words twice. |
+| WP-1.1 | [#392](https://github.com/UnsctMagic/MDLxL/pull/392) | Merged 2026-10-29 | Shared identical maths, vector, checksum and rotation helpers. |
+| WP-1.2 | [#394](https://github.com/UnsctMagic/MDLxL/pull/394) | Merged 2026-10-29 | Shared game-file path matching and made missing names safe to compare. |
+| WP-1.3 | [#396](https://github.com/UnsctMagic/MDLxL/pull/396) | Merged 2026-10-29 | Shared animation node maths and corrected the POSE refusal wording. |
+| WP-1.4 | [#393](https://github.com/UnsctMagic/MDLxL/pull/393) | Merged 2026-10-29 | Shared value comparisons and texture slots; moved model helpers out of the UI. |
+| WP-1.5 | [#395](https://github.com/UnsctMagic/MDLxL/pull/395) | Merged 2026-10-29 | Shared desktop bridge helpers and removed technical prefixes from errors. |
+| WP-1.6 | [#399](https://github.com/UnsctMagic/MDLxL/pull/399) | Merged 2026-10-29 | Shared dialogs, saved small choices, popover dismissal and Tab handling. |
+| WP-1.7 | [#400](https://github.com/UnsctMagic/MDLxL/pull/400) | Merged 2026-10-29 | Added common test launch helpers and one setting for the app under test. |
+| WP-1.8 | [#398](https://github.com/UnsctMagic/MDLxL/pull/398) | Merged 2026-10-29 | Shared AI provider calls, prompt assembly and service helpers. |
+| WP-1.9 | [#397](https://github.com/UnsctMagic/MDLxL/pull/397) | Merged 2026-10-29 | Shared preview helpers and matched event-model team colour to the unit. |
+| WP-2.1 | [#422](https://github.com/UnsctMagic/MDLxL/pull/422) | Merged 2026-10-29 | Brought shared materials, wire display and camera fixes into Citadel Paint. |
+| WP-2.2 | [#402](https://github.com/UnsctMagic/MDLxL/pull/402) | Merged 2026-10-29 | Shared node and bone lookups, avoided duplicate bone names and sped up POSE. |
+| WP-2.3a | [#401](https://github.com/UnsctMagic/MDLxL/pull/401) | Merged 2026-10-29 | Shared track checks, track walking and new animation-key creation. |
+| WP-2.3b | [#404](https://github.com/UnsctMagic/MDLxL/pull/404) | Merged 2026-10-29 | Shared part/sequence editing and repaired bounds, validation and Portrait refresh. |
+| WP-2.4 | [#403](https://github.com/UnsctMagic/MDLxL/pull/403) | Merged 2026-10-29 | Shared safe file writes and made libraries prefer the Settings installation. |
+| WP-2.5 | [#406](https://github.com/UnsctMagic/MDLxL/pull/406) | Merged 2026-10-29 | Shared AI chat/provider state, live errors and short step labels; B18 remains partial. |
+| WP-2.6 | [#413](https://github.com/UnsctMagic/MDLxL/pull/413) | Merged 2026-10-29 | Shared number boxes, slider styling and movable tool-window shells. |
+| WP-2.7 | [#418](https://github.com/UnsctMagic/MDLxL/pull/418), [#423](https://github.com/UnsctMagic/MDLxL/pull/423) | #418 merged 2026-10-29; #423 merged 2026-10-30 | Routed tool-window keys through Shortcuts; follow-up cancels a drag before closing. |
+| WP-2.8a | [#414](https://github.com/UnsctMagic/MDLxL/pull/414) | Merged 2026-10-29 | Moved AI and UV app checks onto the shared test helpers. |
+| WP-2.8b | [#407](https://github.com/UnsctMagic/MDLxL/pull/407) | Merged 2026-10-29 | Moved OptimizeXL and Citadel app checks onto the shared test helpers. |
+| WP-2.8c | [#417](https://github.com/UnsctMagic/MDLxL/pull/417) | Merged 2026-10-29 | Moved particle, Showcase and Forge app checks onto the shared test helpers. |
+| WP-2.8d | [#425](https://github.com/UnsctMagic/MDLxL/pull/425) | Merged 2026-10-30 | Moved remaining app checks, repaired stale tests and shared script/CI setup. |
+| WP-3.1 | [#426](https://github.com/UnsctMagic/MDLxL/pull/426) | Merged 2026-10-30 | Moved App state into four small owners while preserving controls and saved choices. |
+| WP-3.2 | [#411](https://github.com/UnsctMagic/MDLxL/pull/411), [#416](https://github.com/UnsctMagic/MDLxL/pull/416) | Merged 2026-10-29 | Shared animation-name rules; follow-up repaired Showcase's Portrait playlist. |
+| WP-3.3 | [#415](https://github.com/UnsctMagic/MDLxL/pull/415) | Merged 2026-10-29 | Shared cross-model resource importing while keeping each tool's reuse choices. |
+| WP-3.4 | [#421](https://github.com/UnsctMagic/MDLxL/pull/421) | Merged 2026-10-29 | Shared team-colour/glow checks and texture remapping; kept material comparisons separate. |
+| WP-3.5 | [#408](https://github.com/UnsctMagic/MDLxL/pull/408) | Merged 2026-10-29 | Shared rig-name words so Elbow and Balance no longer count as weapons. |
+| WP-3.6 | [#412](https://github.com/UnsctMagic/MDLxL/pull/412) | Merged 2026-10-29 | Made Inspector Recalculate normals use NormalsXL at 90°; kept Forge's quick helper. |
+| WP-3.7 | [#420](https://github.com/UnsctMagic/MDLxL/pull/420) | Merged 2026-10-29 | Made Paint and Forge image zoom follow the UV step and Mouse settings. |
+| WP-3.8 | [#410](https://github.com/UnsctMagic/MDLxL/pull/410) | Merged 2026-10-29 | Moved AI editor messages and connection settings into their own files. |
+| WP-3.9 | [#405](https://github.com/UnsctMagic/MDLxL/pull/405) | Merged 2026-10-29 | Documented bridge/storage names and added a check for missing message connections. |
+| WP-3.10 | [#424](https://github.com/UnsctMagic/MDLxL/pull/424) | Merged 2026-10-30 | Made Smooth edges work live with sharp editor lines, welcome choice and toolbar switch. |
+| WP-R1 rotation | [#409](https://github.com/UnsctMagic/MDLxL/pull/409) | Merged 2026-10-29 | Made Along the ring the shared Rotate default with equal speed on every axis. |
+
+### Follow-ups and release work
+
+| Work | PR / branch | State | What it did / what remains |
+| --- | --- | --- | --- |
+| Showcase Portrait correction | [#416](https://github.com/UnsctMagic/MDLxL/pull/416) | Merged 2026-10-29 | Replaced the missed playlist callback after #411 so Showcase opens again. |
+| MDX empty node tracks | [#419](https://github.com/UnsctMagic/MDLxL/pull/419) | Merged 2026-10-29 | User-reported save bug: omits empty node animation blocks while preserving the other saved data. |
+| Escape during a drag | [#423](https://github.com/UnsctMagic/MDLxL/pull/423) | Merged 2026-10-30 | Cancels Glow Up, emitter, UV, Movement and Forge drags before window dismissal; a second Escape closes where applicable. |
+| AI chat fixes | [#427](https://github.com/UnsctMagic/MDLxL/pull/427) | Merged 2026-10-30 | Gives the outside check its pictures, honours deliver anyway and lets chats recover from failed display steps and follow-ups. |
+| Opt-in real-use AI checks | [#428](https://github.com/UnsctMagic/MDLxL/pull/428) | Merged 2026-10-30 | Adds explicitly requested live-AI runs and graded reports; the recorded baseline still shows unfinished jobs and missed example-following. |
+| Bitz unanimated parts | [#429](https://github.com/UnsctMagic/MDLxL/pull/429) | Merged 2026-10-30 | Shows and imports every piece of an unanimated saved part such as A1. |
+| AI context diet | [#430](https://github.com/UnsctMagic/MDLxL/pull/430) | Merged 2026-10-30 | Sends the first editor snapshot and then changes, with the user's words first; restores a full snapshot when needed. |
+| UV Texture Library Escape | `codex/uv-library-escape` | Open follow-up; no PR found in the checked list | Search takes focus but Escape leaves the library open on main; the release task is splitting out the fix. |
+| Release 0.36.0 | `codex/release-0.36.0` | In progress; no PR found in the checked list | The release task owns the full test run and release preparation; no release is claimed here. |
+
+PR #430 merged during close-out and is included in checked main `56fb26c8`.
+The UV and release branch names above come from the task handover; their work
+is separate from this documentation PR. B16 and the remaining B18 case have no
+separate fixing PR in the checked records. The full-suite results in #425
+(150 pass, 12 fail, 29 skip after repeat) are its historical run, not the release
+0.36.0 result. Its UV Search/Escape failure is a product bug; its other remaining
+failures include stale test expectations and missing private inputs.
+
+### Owner click-through — ready to test
+
+Use the release task's hand-test build when ready. These checks are pending owner
+acceptance; this docs-only close-out did not build or run the app. Repeat visual
+checks in light, dark and VIS where available, and rotate every 3D preview by mouse.
+
+**Settings and the main window**
+
+- On a fresh test profile, the welcome window asks “How should your models look?” and offers Smooth / Classic MDLVis; an existing profile keeps its choice without asking again (#424).
+- Beside team colour and language, switch Smooth / Classic MDLVis; Settings agrees, VIS hides the switch, and bones, wire, dots and lines stay sharp with Smooth on, including at high screen scaling (#424).
+- Restart with a saved dark theme or another language; the first screen already uses it (#403, #426).
+- Open a moved or deleted Recent file; the error contains the useful message without “Error invoking remote method” (#395).
+- Look at X/Y/Z labels and tool colours in each theme; no pure-green Y override or unreadable error/selection text remains (#390).
+
+**Movement, vertices and UV Wrapper**
+
+- Choose Along the ring, view a bone from an angle and drag X, Y and Z equally; turns are equally fast and do not jam near the centre, and vertex, Forge, UV and Showcase rotation feels steady too (#409).
+- Change rotation speed with the Wisp wheel, try Shift snapping, Undo, Escape and right-click cancel; the old Straight drag / Circle the pivot choices and camera orbit still work (#409).
+- In UV Wrapper, try Move, Rotate, Zoom, Mirror, Uncouple and Fold; the familiar tools and icons still work (#413).
+- On a rig with unusual inherited movement, try POSE; its refusal explains that the preview can show the movement but the joint solver cannot use it (#396).
+- Save and reopen a copy of a previously affected model as MDX, then open that copy in War3 Model Editor; empty animation blocks no longer prevent opening (#419; external editor/game acceptance still pending).
+
+**Tool windows and their keys**
+
+Repeat the following window checks in Settings, Managers/resource editors, Node
+Manager, AnimXL, Particle Editor, Adjust Manually, Sort My Mess, Attachemator,
+Forge and its shaping/detail windows, BITZ, Texture Library, OptimizeXL, Showcase
+and its Add/Edit animation/preset windows, Paint, Game Files, Node Event Editor,
+Glow Up, Portrait setup, Addons, NormalsXL and Auto Corpse.
+
+- In each window, check light/dark/VIS appearance, move its title bar where offered, use × to close, and Tab through a modal without focus escaping (#399, #413).
+- In each window, press Escape from its body and a number/search box; leave picking or an inner menu first where offered, then close; UV Texture Library Search is the known open exception awaiting its separate fix (#413, #418, #425).
+- Where a window offers Undo, Redo or Play, try Ctrl+Z/Y and Space, then rebound keys in Keyboard Shortcuts; buttons show their key hints and Learn counts their use (#418).
+- While dragging Glow Up, an emitter/placement handle, UVs, Movement or Forge, press Escape; the drag rolls back before dismissal, then Escape closes the tool where applicable (#423).
+- Open the Learn menu, bone-create menu or AI drawing mode and press Escape; it leaves that inner mode before dismissing the surrounding window (#418, #423).
+- In Adjust Manually, type Space/Delete in the text box; the model behind the window does not react (#413).
+- Open a small popover and dismiss it by Escape or an outside click, including the Portrait toolbar in the separate OptimizeXL window (#399).
+- Compare AnimXL, Auto Corpse, Showcase, Paint, ribbon, particle, triangle-density and animation-speed sliders; their theme styling agrees, and a ribbon/speed drag cancels with Escape or undoes in one step (#413).
+- In Settings and Showcase video From/To boxes, type a value; it applies on Enter or leaving the box, while Escape drops the typed change (#413).
+- In Managers, add an animation and edit its name/start/end in Inspector; valid values work, invalid names/times are refused and OptimizeXL does not report missing per-part animation bounds (#404).
+
+**Citadel Paint, Forge and model previews**
+
+- In Citadel Paint with Smooth on, inspect cut-out edges and opaque pieces; there are no white fringes or faded solid parts (#422, #424).
+- Make Paint tall and narrow in ortho; the whole model stays framed (#422).
+- Rotate, pan and zoom with the mouse in the editor, Paint, GamePreview, Quad View and Showcase; change model tabs and return without losing each saved camera (#422, #425).
+- In Paint texture view, Paint cut-out view and Forge's mask editor, compare wheel zoom with UV Wrapper; Mouse wheel sensitivity, Peon/Wisp and chosen pan buttons all work, with zoom staying under the pointer (#420).
+- On an SD unit, use Inspector Recalculate normals for a part and compare with NormalsXL at 90°; shading agrees and Undo restores the old result (#412).
+- Open Paint, Particle Editor and Attachemator on the same Footman; all start on the same Stand clip, and a model with Stand Ready before Stand still chooses the ordinary Stand (#411).
+- Open Showcase and its Portrait playlist; it opens and plays without the missing-Portrait-rule error (#416).
+- In EMTR → Glow Up and Bones → Tools → Attachemator, check the Footman's sword/shield choices and a rig named Elbow/Balance; body parts no longer gain a weapon-name preference (#408).
+- Set a unit to blue or another non-red team and play a blood/footprint event; the spawned model matches the unit's team colour (#397).
+- In Emitter Editor, open Ingredients, blend comparison and examples; their small pictures fill in (#397).
+- With a custom CASC source added, open Library, Texture Library and particles; each browses the installation selected in Settings first (#403).
+- In BITZ, select A1 and place it on a model; all seven pieces appear both in the preview and after placement (#429).
+
+**AI console**
+
+- Switch connection providers and send two requests, then sign out/in; the same settings rows work and sending continues without a duplicate sign-in check (#406, #410).
+- Trigger a request error and reopen the chat; the error appears beside the failed reply both live and after reopening, with the banner still present (#406).
+- Open a long plan and inspect its step label; ordinary long-string plans are readable, while the many-entry B18 case above remains open (#406).
+- Finish a task with reference pictures and before/after or wire comparisons; the outside check sees those pictures and explains missing ones (#427).
+- After a blocked review, say “deliver anyway”; the kept result completes without repeating edits, with remaining concerns stated (#427).
+- After a failed or stalled display step or Stop, send another message; work can continue, and “reduce it to around 8” does not produce a false model-changed refusal (#427).
+- Point to an example you made and request it over the whole chosen area; check coverage, shape and textures yourself, since the measured baseline still missed example-following (#427, #428).
+- Continue a job with steering, then after chat compaction or replacing the model; the newest words arrive with the current target, unchanged context is not repeatedly added and a fresh snapshot returns when needed (#430).
+- Only when deliberately opting in, use the [real-use AI run instructions](../PACKAGED-TESTS.md#opt-in-real-use-ai-measurements), then read the [recorded baseline](../verification/ai-real-use-baseline-2026-10-30.md) and the new report; unfinished or poor edits stay reported rather than counted as accepted (#428).
 
 ### Review notes (owner walkthrough, 2026-10-29)
 
@@ -327,5 +472,7 @@ Nothing was declared off limits and no package was dropped. Changes to the plan:
   corrected in the reports (for example `clamp` 20 → 16 named copies, App.jsx 56 → 100 states).
 - Not covered: domain correctness of each feature's rules, `src/vendor/`, native C# and C++
   helpers, the paint-library and public assets, performance beyond the two O(n²) notes.
-- Nothing was run except `node --test tests/*.test.js` (57/57 pass). Every "likely bug" and
-  every **ready to test** item needs the packaged app.
+- Original audit verification: `node --test tests/*.test.js` (57/57 pass). Package PRs
+  record their own later checks. This close-out checked PR records, current source, links
+  and the two isolated remaining-bug cases; it ran no build, packaged app or owner test.
+  The owner click-throughs in section 7 remain **ready to test**.
