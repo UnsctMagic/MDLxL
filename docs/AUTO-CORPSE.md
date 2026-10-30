@@ -40,6 +40,26 @@ in other animations and all non-blood events stay. Community blood models
 were studied (Hive Workshop, XGM) but are not bundled: their credit terms
 could not be confirmed, and the game's own blood ships with every copy.
 
+## Design rule (owner, 30 Oct 2026)
+
+CORP is a normal Warcraft III style corpse maker. The body is already there in
+the Death animation; decay continues from it.
+
+- Pressing **Create** takes the **last frame of Death** as the starting pose of
+  decay.
+- The body goes down and disappears exactly as Blizzard's own units do: the
+  same body geosets stay visible and the bones are keyed to hold that pose and
+  sink. No copies or extra parts are made for the body.
+- CORP creates **only the corpse**: the body parts left behind for decay
+  (gutz). The corpse is sized to the unit, easy to adjust, and parts are easy to
+  delete and add.
+
+Codex's first version (PR #276, 23 Oct 2026, in 0.33.0–0.36.0) made a frozen
+copy of every body geoset for Decay Flesh and hid the real body. The owner's
+verdict, in their words: "Codex is a FUCKING idiot." 0.37.0 replaced it with
+the Blizzard way below; a repeat Create on a model made by the old version
+removes the old copies.
+
 ## What owns the result
 
 - `src/corpse-geometry.js` samples the literal last frame of each Death variant
@@ -88,12 +108,20 @@ could not be confirmed, and the game's own blood ships with every copy.
 - `app/App.jsx` owns the normal edit/Undo/selection path; `AppToolbar.jsx` owns
   only the compact temporary button. The normal camera controls remain active.
 
-The original body vertices, UVs, bindings and authored transform curves remain
-unchanged. Separate body meshes hold the last Death pose during Decay Flesh,
-including models whose original rig has global motion. Their material/UV
-appearance is sampled at that frame. Original body meshes are hidden in the
-generated decay intervals. Existing corpse meshes are hidden so they do not
-overlap the fitted corpse.
+Decay works like Blizzard's own units (measured on 208 SD units with Decay
+Flesh and Decay Bone, 30 Oct 2026). The body geosets that show at the end of
+Death stay visible through Decay Flesh and switch off on its last frame; Decay
+Bone shows only the corpse. Every bone that moves the body gets one key at the
+start of Decay Flesh that holds its last-Death value, and each top bone gets a
+straight-line key pair that carries the body down. A top bone that bobs on a
+global loop (ships) keeps bobbing and hands the drop to the bones under it.
+Global loops keep running in decay, as on Blizzard's units; a body bound
+directly to a globally moving top bone is refused. Keyed layer and UV
+animation, layer alpha and geoset colour likewise hold their last-Death value.
+A body that switches off on exactly the last Death frame shows whole in decay.
+Only keys inside the decay clips change: body vertices, UVs, bindings, living
+animations, Death and keys elsewhere stay as they are. Existing corpse meshes
+are hidden so they do not overlap the fitted corpse.
 
 Bones switch on at 167 ms into Decay Flesh, matching the studied Footman. They
 remain covered by the body, which moves vertically underground. Bone decay then
@@ -136,8 +164,8 @@ node scripts/audit-corpse-decay.mjs GAME OUTPUT
 node scripts/verify-auto-corpse.mjs OUTPUT REPORT.json
 ```
 
-The corpus verifier checks the exact terminal body pose, original geometry and
-transform preservation, burial before each final-frame hide, MDX/MDL reopen,
+The corpus verifier checks the exact terminal body pose, original geometry,
+transform keys outside the decay clips, burial before each final-frame hide, MDX/MDL reopen,
 Undo/Redo and repeat-click behavior. A source MDL export limitation is reported
 separately only if the untouched input reproduces the exact same error.
 

@@ -18,11 +18,13 @@ for(const source of study.models) {
     const result=doc.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,autoCorpse),model=doc.model;
     for(let id=0;id<before.Geosets.length;id++)for(const field of ['Vertices','Normals','TVertices','Faces','VertexGroup','Groups','SkinWeights'])assert.deepEqual(model.Geosets[id][field],before.Geosets[id][field]);
     const nodes=new Map(allNodes(model).map(n=>[n.ObjectId,n]));
-    for(const n of allNodes(before))for(const field of ['Translation','Rotation','Scaling','Parent','PivotPoint','Flags'])assert.deepEqual(nodes.get(n.ObjectId)[field],n[field]);
+    // Blizzard-style decay keys the body's own bones; only keys inside the decay clips may change.
+    const decay=result.corpses.flatMap(c=>[c.flesh,c.bone]).map(i=>Array.from(model.Sequences[i].Interval)),outside=v=>v?.Keys?{...v,Keys:v.Keys.filter(k=>!decay.some(([a,b])=>k.Frame>=a&&k.Frame<=b))}:v;
+    for(const n of allNodes(before)){for(const field of ['Parent','PivotPoint','Flags'])assert.deepEqual(nodes.get(n.ObjectId)[field],n[field]);for(const field of ['Translation','Rotation','Scaling'])if(n[field]!=null)assert.deepEqual(outside(nodes.get(n.ObjectId)[field]),outside(n[field]));}
     for(const c of result.corpses) {
       const flesh=model.Sequences[c.flesh],bone=model.Sequences[c.bone];
       assert.ok(Array.from(pose(model,c.corpseGeoset,c.bone,bone.Interval[0])).filter((_,i)=>i%3===2).every(z=>z>0),'Corpse must start above the terrain');
-      for(let i=0;i<c.bodyGeosets.length;i++)near(pose(model,c.bodyGeosets[i],c.flesh,flesh.Interval[0]),pose(before,c.sourceBodyGeosets[i],c.death,c.sourceFrame));
+      for(let i=0;i<c.bodyGeosets.length;i++)near(pose(model,c.bodyGeosets[i],c.flesh,flesh.Interval[0]),skinGeoset(before.Geosets[c.sourceBodyGeosets[i]],sampleNodeMatrices(before,c.sourceFrame,c.death,flesh.Interval[0]))); // global loops keep running: compare at the same loop time
       for(const [seq,ids] of [[c.flesh,c.bodyGeosets],[c.bone,[c.corpseGeoset]]])for(const id of ids) {
         const end=model.Sequences[seq].Interval[1];assert.ok(maxZ(pose(model,id,seq,end-1))<0,'Body must be buried before its last-frame hide');assert.equal(sampleGeosetAnimation(model,id,end,seq).alpha,0);
       }
@@ -54,7 +56,7 @@ for(const source of study.models) {
   }
   models.push(row);console.log(`${models.length}/${study.count} ${source.file}: ${row.excluded?'excluded':row.passed?'PASS':'FAIL '+row.error}`);
 }
-const report={source:study.source,studied:models.length,passed:models.filter(r=>r.passed).length,excluded:models.filter(r=>r.excluded).length,failed:models.filter(r=>r.passed===false).length,checks:['Literal final Death pose','Original geometry and transform tracks preserved','Both phases buried before final frame and invisible on final frame','MDX and MDL save/reopen','One Undo/Redo','Repeat click is a no-op'],models};
+const report={source:study.source,studied:models.length,passed:models.filter(r=>r.passed).length,excluded:models.filter(r=>r.excluded).length,failed:models.filter(r=>r.passed===false).length,checks:['Literal final Death pose','Original geometry preserved; transform keys change only inside the decay clips','Both phases buried before final frame and invisible on final frame','MDX and MDL save/reopen','One Undo/Redo','Repeat click is a no-op'],models};
 fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({studied:report.studied,passed:report.passed,excluded:report.excluded,failed:report.failed}));
 if(report.failed)process.exitCode=1;
