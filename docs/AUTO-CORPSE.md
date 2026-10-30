@@ -50,6 +50,10 @@ the Death animation; decay continues from it.
 - The body goes down and disappears exactly as Blizzard's own units do: the
   same body geosets stay visible and the bones are keyed to hold that pose and
   sink. No copies or extra parts are made for the body.
+- The remains follow the owner's anatomy: two arms and two legs on ordinary
+  humanoids, distinct rider/mount bodies, four legs on centaurs and turtles,
+  and each creature's actual heads and appendages. Clothing, equipment and
+  helper controls are not additional limbs.
 - CORP creates **only the corpse**: the body parts left behind for decay
   (gutz). The corpse is sized to the unit, easy to adjust, and parts are easy to
   delete and add.
@@ -75,10 +79,32 @@ removes the old copies.
   gets two long bones, with its lower part including the foot skin. No copied
   body is made. Recognized tail joints own their skin even when POSE exposes
   only the terminal tail handle; tail skin cannot lengthen the rib cage.
+  Named robe/skirt/dress/flap/cape/cloth/cloak panels do not supply anatomical
+  fitting samples, including vertices blended with an anatomical bone. A
+  backpack is equipment, never a long bone.
+  Sided hip/knee/foot controls omitted from IK suggestions still locate static
+  remains, including independently animated feet; no hierarchy is rewritten.
+  When hips identify the pelvis, torso skin is limited to the neck/pelvis region
+  with 20% end reach; the shoulder/hip span limits rib width to 1.25 times that
+  span. Costume geometry bound directly to the chest cannot widen the rib cage
+  indefinitely. Clothing extending toward the feet is not a longer rib cage.
+  A single-headed, two-armed humanoid without mapped legs can use its authored,
+  detached left/right foot references: carry them with the final body transform,
+  split each hip-to-foot segment at its midpoint, and fit native long-bone pieces.
+  No new rig joints are created; this does not apply a human skeleton to animals
+  or mounted models. Knee placement in this rigid-skirt case is inferred.
+  Quadruped torso fitting uses the front and hind leg groups of the same body,
+  rather than treating the front-leg junction nearest the head as its pelvis.
+  A centaur's upright and four-legged trunks retain separate skin regions and
+  rib pieces. A tail starts at the tail itself; its connection back to the waist
+  is not a bone across the trunk. A one-control tail uses its own skin extent.
 
   The automatic fit measures the union of the projected corpse meshes and targets
-  0.826 of the chalk-outline area: the median measured on 206 Blizzard SD units
-  with a visible gutz corpse. The fit retains each part's length and location,
+  0.826 of the anatomical surface area: the median measured on 206 Blizzard SD units
+  with a visible gutz corpse. Named garment triangles are excluded from this
+  sizing target while remaining in the chalk outline. Thus a robed model may
+  cover less of its dressed outline; increasing its robe must not increase its
+  bones. The fit retains each part's length and location,
   adjusting widths to reach that area; the native skull scales uniformly about
   its head centre, preserving width/length 0.724, crown/length 0.42 and base/length
   0.218. The owner explicitly chose native overall size with small overhangs over
@@ -181,7 +207,10 @@ recording the preview; Krell reproduces the old missing-texture failure.
 Run via the existing hidden packaged runner.
 Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
 `MDLXL_CORPSE_FLAIL` (the owner's Fx model), `MDLXL_CORPSE_DETACHED` (Ratling),
-and `MDLXL_CORPSE_TAILED` (Skink).
+`MDLXL_CORPSE_TAILED` (Skink), `out/pose/Necromancer.mdx`, and
+`MDLXL_CORPSE_ROBED` (owner Lahmian), and `out/pose/Medivh.mdx`, `Guldan.mdx`,
+`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`. The robe regressions check actual leg
+segments, ribs ending at the pelvis, and invariance when garment vertices extend.
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
 an isolated profile. Set `MDLXL_CORPSE_FIXTURE`, `MDLXL_TEST_OUT`, and optionally

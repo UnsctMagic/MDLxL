@@ -333,3 +333,122 @@ test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!p
     assert.ok(along>=-.5&&along<=1.5,`rib endpoint ${along.toFixed(2)} torso lengths from the neck must stay around the chest/pelvis, not follow the tail`);
   }
 });
+
+
+const robeFixtures=()=>[new URL('../out/pose/Necromancer.mdx',import.meta.url),process.env.MDLXL_CORPSE_ROBED].filter(Boolean);
+const robeOptions={skip:!process.env.MDLXL_CORPSE_ROBED&&'set MDLXL_CORPSE_ROBED to the owner Lahmian fixture'};
+async function robeCase(file){
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes,nodePivot}=await import('../src/animation.js');
+  const {Vector3}=await import('three');
+  assert.ok(existsSync(file),'prepare both Necromancer and owner Lahmian fixtures');
+  const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
+  const nodes=allNodes(m),M=sampleNodeMatrices(m,r.sourceFrame,r.death),at=id=>new Vector3().fromArray(nodePivot(m,nodes.find(n=>n.ObjectId===id),id)).applyMatrix4(M.get(id)).toArray();
+  const byName=name=>nodes.find(n=>n.Name===name)?.ObjectId;
+  const legs=byName('Hip_R')!=null?[['Hip_R','Knee_R','Ankle_R'],['Hip_L','Knee_L','Ankle_L']]:[['UpperLegL','LowerLegL','FootL'],['UpperLegR','LowerLegR','FootR']];
+  return {m,r,at,nodes,legs:legs.map(names=>names.map(byName))};
+}
+test('robes retain both anatomical hip-knee-foot legs, never a root-to-foot-mesh chain',robeOptions,async()=>{
+  for(const file of robeFixtures()){
+    const {r,legs}=await robeCase(file),bones=r.pieces.filter(p=>p.kind==='leg');
+    assert.equal(bones.length,4,`${file}: two bones per leg must survive the robe`);
+    for(const ids of legs)for(let i=0;i<2;i++)assert.ok(bones.some(p=>p.ids[0]===ids[i]&&p.ids.at(-1)===ids[i+1]),`${file}: missing anatomical leg segment ${ids[i]} to ${ids[i+1]}`);
+  }
+});
+test('robed humanoid ribs end at the pelvis rather than at the clothing hem',robeOptions,async()=>{
+  for(const file of robeFixtures()){
+    const {r,at,legs}=await robeCase(file),rib=r.pieces.find(p=>p.kind==='torso'),head=r.pieces.find(p=>p.kind==='skull');
+    assert.ok(rib&&head);
+    const neck=at(head.ids[0]),hips=legs.map(ids=>at(ids[0])),pelvis=hips[0].map((v,i)=>(v+hips[1][i])/2),dx=pelvis[0]-neck[0],dy=pelvis[1]-neck[1],len2=dx*dx+dy*dy;
+    for(const p of [rib.start,rib.end]){
+      const along=((p[0]-neck[0])*dx+(p[1]-neck[1])*dy)/len2;
+      assert.ok(along>=-.25&&along<=1.25,`${file}: rib endpoint ${along.toFixed(2)} torso lengths from the neck reaches the robe instead of the pelvis`);
+    }
+  }
+});
+test('extending named garment panels changes the chalk outline but does not grow the anatomy',robeOptions,async()=>{
+  const {nameTokens}=await import('../src/rig-names.js');
+  const {nodeIndex}=await import('../src/node-hierarchy.js');
+  const {vertexBones}=await import('../src/part-bones.js');
+  for(const file of robeFixtures()){
+    const {m,r,nodes}=await robeCase(file),tree=nodeIndex(m,nodes);
+    const garment=id=>tree.ancestors(id,true).some(a=>nameTokens(tree.byId.get(a)?.Name).some(t=>['robe','skirt','dress','flap','flaps'].includes(t)));
+    let count=0;
+    for(const gi of r.sourceBodyGeosets){const g=m.Geosets[gi];for(let i=0;i<g.Vertices.length/3;i++){
+      const ids=vertexBones(g,i,{minWeight:32});if(!ids.length||!ids.every(garment))continue;
+      for(let a=0;a<3;a++)g.Vertices[i*3+a]*=2;
+      count++;
+    }}
+    assert.ok(count>0,'real garment vertices were changed');
+    const changed=buildCorpseGeometry(m,r.sourceBodyGeosets,r.death);
+    assert.notDeepEqual(changed.outline,r.outline,'chalk still shows the dressed body');
+    assert.equal(changed.pieces.length,r.pieces.length,'clothes never add anatomical pieces');
+    for(let i=0;i<r.pieces.length;i++){
+      const a=r.pieces[i],b=changed.pieces[i];assert.equal(a.kind,b.kind);
+      const dimensions=p=>[...p.start.slice(0,2),...p.end.slice(0,2),p.half];
+      near(dimensions(a),dimensions(b),.01);
+    }
+  }
+});
+
+
+
+test('Medivh ribs fit his shoulders, not his cape, including blended cloth vertices',{skip:!existsSync(new URL('../out/pose/Medivh.mdx',import.meta.url))&&'prepare SD Medivh'},async()=>{
+  const {m,r,at,nodes}=await robeCase(new URL('../out/pose/Medivh.mdx',import.meta.url));
+  const {nameTokens}=await import('../src/rig-names.js');
+  const {nodeIndex}=await import('../src/node-hierarchy.js');
+  const {vertexBones}=await import('../src/part-bones.js');
+  const shoulder=side=>at(nodes.find(n=>n.Name===`Bone_Arm1_${side}`).ObjectId),a=shoulder('L'),b=shoulder('R');
+  const shoulderWidth=Math.hypot(a[0]-b[0],a[1]-b[1]),rib=r.pieces.find(p=>p.kind==='torso');
+  assert.ok(rib.half*2<=shoulderWidth*1.5,`rib width ${(rib.half*2).toFixed(1)} must fit the ${shoulderWidth.toFixed(1)} shoulder span, not the cape`);
+  const tree=nodeIndex(m,nodes),garment=id=>tree.ancestors(id,true).some(a=>nameTokens(tree.byId.get(a)?.Name).some(t=>['cape','cloth','cloak'].includes(t)));
+  let blended=0;
+  for(const gi of r.sourceBodyGeosets){const g=m.Geosets[gi];for(let i=0;i<g.Vertices.length/3;i++){
+    const ids=vertexBones(g,i,{minWeight:32});if(!ids.some(garment))continue;
+    if(!ids.every(garment))blended++;
+    for(let a=0;a<3;a++)g.Vertices[i*3+a]*=1.5;
+  }}
+  assert.ok(blended>0,'the real cape shares skin weights with the body');
+  const changed=buildCorpseGeometry(m,r.sourceBodyGeosets,r.death);
+  assert.equal(changed.pieces.length,r.pieces.length);
+  for(let i=0;i<r.pieces.length;i++){
+    const dimensions=p=>[...p.start.slice(0,2),...p.end.slice(0,2),p.half];
+    near(dimensions(r.pieces[i]),dimensions(changed.pieces[i]),.01);
+  }
+});
+test('Guldan backpack never becomes an anatomical bone',{skip:!existsSync(new URL('../out/pose/Guldan.mdx',import.meta.url))&&'prepare SD Guldan'},async()=>{
+  const {r,nodes}=await robeCase(new URL('../out/pose/Guldan.mdx',import.meta.url));
+  const pack=nodes.filter(n=>/backpack/i.test(n.Name)).map(n=>n.ObjectId);assert.ok(pack.length);
+  assert.ok(r.pieces.every(p=>!p.ids.some(id=>pack.includes(id))),'backpack controls must not generate corpse bones');
+});
+
+
+test('Acolyte keeps two arms and two legs under the robe using its authored foot references',{skip:!existsSync(new URL('../out/pose/Acolyte.mdx',import.meta.url))&&'prepare SD Acolyte'},async()=>{
+  const {r}=await robeCase(new URL('../out/pose/Acolyte.mdx',import.meta.url));
+  const count=kind=>r.pieces.filter(p=>p.kind===kind).length;
+  assert.equal(count('skull'),1);assert.equal(count('torso'),1);
+  assert.equal(count('arm'),2);assert.equal(count('hand'),2);
+  assert.equal(count('leg'),4,'two thigh and two lower-leg pieces, even when the skirt has no knee joints');
+  assert.equal(count('branch'),0,'a human robe does not add extra limbs');
+  const legs=r.pieces.filter(p=>p.kind==='leg');
+  assert.equal(legs.filter(p=>Math.min(p.start[0],p.end[0]) < -45).length,2,'both lower legs reach the feet beneath the final Death robe');
+  assert.ok(legs.every(p=>p.half*2<30),'the skirt width must not become a leg width');
+});
+
+
+test('quadruped trunks reach the hind hips instead of ending at the front legs',{skip:!existsSync(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url))&&'prepare turtle, centaur and knight'},async()=>{
+  for(const name of ['DragonSeaTurtle','CentaurKhan','Knight']){
+    const {r,at,nodes}=await robeCase(new URL(`../out/pose/${name}.mdx`,import.meta.url)),byId=new Map(nodes.map(n=>[n.ObjectId,n]));
+    const roots=[...new Set(r.pieces.filter(p=>p.kind==='leg').map(p=>p.ids[0]))].filter(id=>/leg1.*rear|back.*leg/i.test(byId.get(id)?.Name));
+    assert.equal(roots.length,2,`${name}: both actual hind hip joints were found`);
+    const ps=roots.map(at),hip=ps[0].map((v,i)=>(v+ps[1][i])/2);
+    const covers=p=>{const dx=p.end[0]-p.start[0],dy=p.end[1]-p.start[1],len=Math.hypot(dx,dy),x=hip[0]-p.start[0],y=hip[1]-p.start[1],along=(x*dx+y*dy)/len,across=(x*dy-y*dx)/len;return along>=-len*.1&&along<=len*1.1&&Math.abs(across)<=p.half*1.1;};
+    assert.ok(r.pieces.filter(p=>p.kind==='torso').some(covers),`${name}: the trunk must cover the hind pelvis, not only the front-leg/neck region`);
+  }
+});
+test('the turtle tail stays behind the shell instead of becoming a bone through its trunk',{skip:!existsSync(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url))&&'prepare SD turtle'},async()=>{
+  const {r,at,nodes}=await robeCase(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url));
+  const a=at(nodes.find(n=>n.Name==='Bone Tail 03').ObjectId),b=at(nodes.find(n=>n.Name==='Bone Tail 04').ObjectId),dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy;
+  const tails=r.pieces.filter(p=>p.kind==='branch');assert.ok(tails.length);
+  for(const p of tails)for(const v of [p.start,p.end])assert.ok(((v[0]-a[0])*dx+(v[1]-a[1])*dy)/len2>=-.35,'tail pieces must not cross the shell from the waist to the tail root');
+});

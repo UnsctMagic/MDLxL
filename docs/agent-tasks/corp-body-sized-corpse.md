@@ -1,96 +1,128 @@
 # CORP: body-sized corpse on the POSE body parts
 
-Status: two-piece arm preview awaiting owner judgment; full capture set must
-be regenerated after acceptance. No PR opened.
+Status: anatomy correction ready for owner visual review; no PR opened.
 Owner: Codex, chat `01a18c85-4bcf-74f2-9520-9aff51b2a0c9`
 Updated: 2026-10-30
-Branch: `claude/corp-long-bones`, continued from handover `48bf08d5` in
-`D:\Codex\mdlxl-corp-body-20261030\repo`. The original Claude checkout was clean
-and is untouched. Base of this lane is release `6049624e`; eventual PR targets
+Branch: `claude/corp-long-bones`; worktree:
+`D:\Codex\mdlxl-corp-body-20261030\repo`.
+Continued handover `48bf08d5`; local checkpoints `f9173fc3`, `6876f06c`.
+The original Claude checkout is untouched. Eventual PR targets
 `claude/release-0.36.1`, not main. Do not merge or release.
 
-## Owner decisions and gate
+## Owner decisions and acceptance gate
 
-CORP must use the last Death pose and POSE body parts, producing native-sized
-remains rather than tiny strips. The owner explicitly chose **Blizzard overall
-size, allowing small native overhangs**, when measurements showed that strict
-containment conflicts with Blizzard's meshes. Preserve body reuse, sinking in
-Decay Flesh, static/fading Decay Bone, the native skull shape, weapon exclusion,
-and the existing editing controls. The owner subsequently corrected the arm
-layout: normal arms need **an upper-arm bone plus a forearm/hand piece**, not
-hand-only. This supersedes the earlier Claude prompt. Owner judges the 20 listed
-models pass/fail
-before any PR. Release 0.37.0 still waits for this gate.
+Use the last Death pose and POSE anatomy. The owner chose Blizzard overall size
+with small native overhangs rather than strict outline containment. Normal arms
+need an upper-arm bone plus a forearm/hand piece; that layout was accepted on
+Empire Captain at `6876f06c`. The owner then rejected robe-based fits on
+Necromancer and Lahmian and requested proof on other robed models.
+
+Every corpse must match its owner's anatomy. Ordinary humanoids have two arms
+and two legs. Clothing, equipment and helper controls cannot become extra limbs.
+Keep rider/mount bodies separate and preserve centaur, turtle, ogre and other
+creature anatomy. Missing humanoid leg chains are not permission to omit legs.
+Preserve the original body geosets, sinking during Decay Flesh, static/fading
+Decay Bone, native skull shape, flail exclusion and existing editing controls.
+
+Owner pass/fail per model is required before any PR. The original 20-model
+review remains pending acceptance of this anatomy correction. Release 0.37.0
+waits for that gate. Claude owns independent QA under
+[TESTING-RULES.md](../TESTING-RULES.md); automated checks are not owner acceptance.
 
 ## Current implementation
 
-`src/corpse-geometry.js` keeps disconnected
-body-skin patches instead of fitting an entire part from its nearest tiny patch;
-fits projected part extents; includes foot skin in lower-leg pieces; resolves
-skinless hand references; preserves native forearm-sized hands without treating
-held equipment as palm skin; recognizes detached anatomical Death chests without
-recognizing flail roots as anatomy. It measures the actual union of corpse
-footprints and adjusts widths toward the Blizzard 0.826 corpse/body area median.
-Skulls scale uniformly. Part placement/length and manual edits are preserved.
-The arm planner now includes the upper arm on a normal articulated arm chain.
-Recognized tail joints retain their own skin instead of attributing it to the
-root; this corrects the Skink rib cage stretching along its tail.
-`app/AutoCorpse.jsx` resolves the draft's gutz texture through the existing game-data
-loader, so models without an original gutz reference no longer show grey
-placeholders. No control/layout changes. No edits to `auto-corpse.js`, installed
-apps, real profiles, model originals, versions or imported libraries.
+The current continuation changes `src/corpse-geometry.js`, its source tests and
+these notes. Prior checkpoints include body-sized fitting, two-piece arms, tail
+skin ownership and the draft gutz texture loader in `app/AutoCorpse.jsx`.
+No changes to `src/auto-corpse.js`, POSE, original models, installed app/profile,
+versions, imported libraries or UI controls.
 
-The exact fitting contract and measurement limitations are in
-[AUTO-CORPSE.md](../AUTO-CORPSE.md). Metrics measure XY triangle unions, not texture
-alpha pixels. Matching the median is not per-species artistic acceptance; the table exposes
-per-unit coverage and overhang rather than claiming every model passes.
+- Garment ancestry excludes entire blended cloth vertices from fitting. Robes,
+  skirts, capes and cloth do not supply body area; backpacks are equipment.
+- Existing sided hip/knee/foot controls locate omitted static leg chains,
+  including Necromancer's independently animated feet. No hierarchy changes.
+- Torso fitting stays near the chest/pelvis. Shoulder/hip span bounds human rib
+  width, including costumes bound directly to an anonymous chest control.
+- Acolyte's narrow structural case (one head, two arms, no mapped legs, two
+  detached static sided foot references) uses those authored references carried
+  with the dead body. Its knees are inferred midpoints, not authored joints.
+- Quadruped trunks reach their own rear hips. A centaur keeps separate upright
+  and horizontal trunk regions. Tails start at the tail; a waist-to-tail-root
+  connection cannot become a bone through the trunk.
 
-## Evidence
+The 0.826 Blizzard median remains a size reference, applied to eligible anatomy
+rather than a requirement to fill a dress with flesh. Measurements still use
+XY triangle unions, including transparent atlas padding, not alpha pixels.
+See [AUTO-CORPSE.md](../AUTO-CORPSE.md) for the contract and limits.
+Captain's accepted arm layout remains; its fitted dimensions changed with the
+broader cloth filtering. Do not claim exact geometry equality with `6876f06c`.
+
+Final source SHA-256:
+`D589391DE4700F409EFAFD88472CEE2BD9049DCF5E86E9EFB2EB29552CBD13D1`.
+
+## Current evidence
 
 Artifacts: `D:\Codex\mdlxl-corp-body-20261030\reports`.
-- `baseline.json` and `after.json`: per-unit data for all 206 SD gutz corpses.
-- `owners-before.json` / `owners-after.json`: all 20 requested owner models.
-- `source-before.log`: three new regressions fail on handover code; 22 pass,
-  3 fail, zero skips. `source-final.log`: 26 pass, zero failures/skips.
-- `source-tail-before.log`: Skink rib endpoint 3.27 torso lengths from the
-  neck fails before separating tail skin.
-- `source-arms-before.log`: the owner's revised arm check fails 0 versus 2
-  upper-arm bones on the hand-only candidate.
-- Separate regression caught a held Ogre club enlarging its hand before the
-  corrected hand-component selection; see `source-held-before.log`.
-- `corpus-preservation.json`: supplied corpus checks for body reuse, posed/sunk
-  body, living animation, saved size and Undo; 362 pass, zero failures. The 36
-  unsupported inputs are enumerated, not counted as successes.
-- `packaged-size.log`: hidden real-app Create/Save As, size, camera and keyboard
-  check. Baseline failed: saved Footman corpse area 1795.4 versus native 3067.9.
-- `texture-before.log`: the new preview texture assertion fails on the old app
-  on Krell; the final app resolves and renders the native texture.
-- `review.html` and the five contact sheets are historical captures of the
-  hand-only candidate `f9173fc3`, before the tail/arm corrections. They are
-  explicitly labeled stale for acceptance.
-- `arm-review` contains the current Empire Captain preview for owner judgment;
-  `arm-comparison.png` compares its prior one-piece and current two-piece arms.
-  The 206-unit table and `after.json` track the current geometry.
-- Missing Gluma body textures were found in the website texture folders.
-  `fixture-hashes.json` records byte-identical model copies staged beside those
-  existing textures. Originals are unchanged.
 
-## Remaining work
+- `anatomy-review.html`: 14 complete real-app comparison pairs, Size/Height 100%.
+  Necromancer, Lahmian, Captain; Acolyte, Priest, Sorceress, Medivh, Jaina, Guldan,
+  Dark Elf Witch; Knight, Centaur Khan, Dragon Sea Turtle and Ogre.
+- Four contact sheets: `anatomy-robes-1.png`, `anatomy-robes-2.png`,
+  `anatomy-owner-check.png`, `anatomy-creatures.png`.
+- Eleven pairs were captured on preceding source `89A99356...`; their planned
+  geometry is exactly unchanged on final source. Three changed creature pairs
+  were recaptured. `after-quadruped-comparison.json` records that comparison;
+  `anatomy-review/results.json` records each capture's provenance.
+- `anatomy-review-measurements.json`: per-piece anatomy. Ten humanoids have
+  two upper arms, two forearm/hands, four leg pieces and one skull/torso. Knight
+  has separate rider/horse with 12 leg pieces; centaur eight leg pieces and two
+  trunks; turtle eight leg pieces and its tail; Ogre retains its two heads.
+- `blizzard-206-anatomy-table.html` and `after-owner-anatomy.json`: final per-unit
+  comparison for all 206 native SD corpses, zero measurement errors.
+  `owners-owner-anatomy.json`: final numerical results for the original 20.
+- `source-quadruped-after.log`: 34 pass, zero fail/skip. New checks failed first
+  on preceding behavior: `source-robes-before.log`, `source-cloth-blend-before.log`,
+  `source-acolyte-before.log`, `source-quadruped-before.log`. Earlier checkpoint
+  red proofs are `source-before.log`, `source-held-before.log`,
+  `source-tail-before.log`, `source-arms-before.log`, `texture-before.log`.
+- `corpus-owner-anatomy.log` / `corpus-preservation.json`: 362 pass, zero fail;
+  same 36 explicit refusals among 398 inputs (collapsed Death 12, no Death 14,
+  read-only format 1, globally moving body root 1, invisible Death body 8).
+- `final-controls.log` and `final-controls-check/results.json`: final packaged
+  Footman Create/Save As, saved footprint, actual mouse camera rotation, drag,
+  Escape cancel, Delete, Ctrl+Z and Escape close passed. Native/generated mesh
+  areas 3067.9 / 4272.1. This is behavior evidence, not artistic acceptance.
+- `quadruped-refresh`: final creature pairs and separate Skink tail check passed.
+- Initial capture batches had unexpected app closures. Preserve the failed
+  logs; interrupted pairs passed unchanged-build retries. Cause remains unknown.
+- Warcraft III itself and independent Claude QA were not exercised.
 
-1. Obtain the owner's judgment on the two-piece arms shown on Empire Captain.
-   Then regenerate all 20 captures on the accepted candidate, with the five
-   Gluma textures staged beside byte-identical copies, and obtain pass/fail per
-   model. The Khorne Flail Knight Hero has a pre-existing global-effect visibility
-   refusal. Show it; do not alter its globals.
-2. After acceptance, push this named branch and open a PR into
-   `claude/release-0.36.1`. No merge authorization. Claude owns independent QA and
-   the release gate under [TESTING-RULES.md](../TESTING-RULES.md).
+Lahmian still lacks its custom `Maid.blp` in the body preview; gutz is resolved.
+Krell's exact native texture was found in the existing SD-Brain-Kitbash pack.
+Gluma fixtures were staged with existing website textures; `fixture-hashes.json`
+records byte-identical models. Originals remain unchanged. The Khorne Flail
+Knight Hero has a pre-existing global-effect visibility refusal; do not alter
+its globals to force a capture.
 
-Use existing linked dependencies. No pnpm run/test/install. Commands:
-`npx vite build`, `node scripts/package.mjs --out out/pkg --overwrite`,
-`node --test test/auto-corpse.test.js`, and the hidden packaged runner.
-Set TEMP/TMP/MDLXL_TEMP/npm cache to this D: task directory. Playwright is
+`review.html`, `blizzard-206-table.html`, `after.json`, earlier robe galleries
+and the complete `screenshots-6876f06c` set are historical, not the current
+anatomy candidate. `reports/reproduction/anatomy-review.py` generates the current
+14-pair gallery and 206-unit table.
+
+## Next steps and reproduction
+
+1. Obtain owner pass/fail on the anatomy proof. Correct only observed failures.
+2. Complete the original 20-model review on the accepted candidate, including
+   the explicit texture/refusal limits, before any PR.
+3. After owner acceptance, push this named feature branch and open a PR into
+   `claude/release-0.36.1`. Do not merge. Include the Codex session in the PR.
+
+Use linked dependencies. Never run pnpm run/test/install. Build with
+`npx vite build`; package with `node scripts/package.mjs --out out/pkg --overwrite`;
+source checks use `node --test test/auto-corpse.test.js` with the documented
+fixtures. Packaged checks use `node scripts/run-packaged-tests.mjs default corpse-size`.
+Set TEMP/TMP/MDLXL_TEMP/npm cache under this D: task directory. Playwright is
 `D:\Claude\tools\node_modules\playwright-core`; game is `D:\Warcraft III`.
-Never take over the user's desktop. Remove disposable packages/profiles and
-unused task processes after checks. Preserve this unfinished source until the
-owner accepts it; no PR/worktree cleanup gate has been reached yet.
+Never take over the user's desktop. Disposable build, staged test fixtures,
+profiles, runtime and caches are removed after checks. Keep the unfinished
+source and review evidence; no push/worktree-removal gate has been reached.
