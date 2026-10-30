@@ -205,18 +205,6 @@ const RULES = [
     detect: m => timelineConflicts(m).map(i => m.Sequences[i].Name),
     apply: m => separateTimeline(m) },
   // Decisions: the default is applied unless another choice is selected.
-  { id: 'standDeath', label: n => `Add the missing ${n === 2 ? 'Stand and Death animations' : 'Stand or Death animation'}`,
-    detail: 'The game expects every model with animations to have a Stand and a Death. Attachments and props often only need Stand.',
-    choices: [['add', 'Add a still one-second animation after the others'], ['skip', 'Leave it']],
-    detect: m => m.Sequences.length ? ['stand', 'death'].filter(word => !m.Sequences.some(s => sequenceWord(s.Name) === word)) : [],
-    apply: (m, choice) => {
-      if (choice === 'skip' || !m.Sequences.length) return;
-      for (const word of ['stand', 'death']) if (!m.Sequences.some(s => sequenceWord(s.Name) === word)) {
-        const start = Math.ceil((Math.max(...m.Sequences.map(s => s.Interval[1])) + 100) / 100) * 100, template = m.Sequences[0];
-        m.Sequences.push({ ...structuredClone(template), Name: word === 'stand' ? 'Stand' : 'Death', Interval: new Uint32Array([start, start + 1000]), NonLooping: word === 'death', Flags: word === 'death' ? 1 : 0, MoveSpeed: 0, Rarity: 0 });
-        for (const g of m.Geosets) if (g.Anims?.length) g.Anims.push(structuredClone(g.Anims[0]));
-      }
-    } },
   { id: 'vertexAttachment', label: n => `Attach ${plural(n, 'loose vertex', 'loose vertices')} to a bone`,
     detail: 'Some vertices are attached to nothing, or to a bone or group that does not exist. They do not follow the animation.',
     choices: [['neighbour', 'Attach to the bone of the nearest connected vertex'], ['skip', 'Leave them']],
@@ -313,7 +301,6 @@ function stepVisibility(m, track, path) {
   track.Keys = [...track.Keys.map(k => ({ Frame: k.Frame, Vector: new Float32Array(k.Vector) })), ...added].sort((a, b) => a.Frame - b.Frame);
   track.LineType = 0;
 }
-function sequenceWord(name) { const words = (name || '').toLowerCase().trim().split('-')[0].split(/\s+/); return words[0] === 'alternate' ? words[1] : words[0]; }
 function roomAfter(m, index) { const f = m.Sequences[index].Interval[0] + 1; return !m.Sequences.some((s, i) => i !== index && f >= s.Interval[0] && f <= s.Interval[1]); }
 function attenuation(l) { const read = k => typeof l[k] === 'number' ? l[k] : l._MdxDefaults?.[k] ?? (k === 'AttenuationStart' ? 80 : 200); return [read('AttenuationStart'), read('AttenuationEnd')]; }
 function setAttenuation(l, key, value) { if (typeof l[key] === 'number' || !l[key]?.Keys) l[key] = value; else (l._MdxDefaults ||= {})[key] = value; }

@@ -69,7 +69,6 @@ const CASES = [
   ['two geoset animations on one geoset', /Referenced by 2 geoset animations/, m => { for (let i = 0; i < 2; i++) m.GeosetAnims.push({ GeosetId: 0, Flags: 0, Color: new Float32Array([1, 1, 1]), Alpha: 1 }); }],
   ['burst particles with a fixed amount', /squirt/, m => { const e = createNode(m, 'ParticleEmitter2'); e.Squirt = true; }],
   ['flat particles with zero speed', /XY Quad/, m => { const e = createNode(m, 'ParticleEmitter2'); e.Flags |= 1048576; e.Speed = 0; }],
-  ['a model without a Death animation', /Missing "Death" sequence/, m => { m.Sequences = m.Sequences.slice(0, 1); for (const g of m.Geosets) g.Anims = g.Anims.slice(0, 1); }],
   ['a bone without vertices but with a geoset animation link', /no vertices attached to this bone/, m => { m.GeosetAnims.push({ GeosetId: 0, Flags: 0, Color: new Float32Array([1, 1, 1]), Alpha: 1 }); createNode(m, 'Bone').GeosetAnimId = 0; }],
   ['fading particle visibility', /Interpolation type not set to None/, m => { createNode(m, 'ParticleEmitter2').Visibility = track([key(0, [1]), key(1000, [0])]); }],
 ];
@@ -103,9 +102,8 @@ test('an oversized geoset is split without changing its look', () => {
 test('every checker repair is listed with a plain label and a default', () => {
   const m = cleanModel(); geoset(m).MaterialID = 5; m.Sequences[0].Name = 'Stand1';
   const list = checkerRepairProposals(m);
-  // "Stand1" is not read as Stand, so the Stand choice also appears; the name fix runs first.
-  assert.deepEqual(list.map(f => f.rule).sort(), ['materialReference', 'sequenceNames', 'standDeath']);
-  assert.equal(openDocument(runOptimizeStage(bytesOf(m), 'sanity', {}, { kind: 'fixAll', stage: 'sanity' }).bytes, 'x.mdx').model.Sequences.filter(s => /^stand/i.test(s.Name)).length, 1);
+  assert.deepEqual(list.map(f => f.rule).sort(), ['materialReference', 'sequenceNames']);
+  assert.equal(openDocument(runOptimizeStage(bytesOf(m), 'sanity', {}, { kind: 'fixAll', stage: 'sanity' }).bytes, 'x.mdx').model.Sequences.length, m.Sequences.length, 'Fix everything never adds animations');
   assert.ok(list.every(f => f.label && f.detail));
   assert.equal(list.find(f => f.rule === 'materialReference').choice, 'first');
   assert.ok(sanityProposals(m).some(f => f.id === 'checker:sequenceNames'));
