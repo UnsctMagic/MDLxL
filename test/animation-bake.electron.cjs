@@ -71,8 +71,9 @@ const path = require('node:path');
     await page.keyboard.press('Control+y'); assert.deepEqual((await save('redo')).GeosetAnims, sequence.GeosetAnims);
     await page.getByLabel('Visible at current frame', { exact: true }).uncheck();
     assert.equal(await alpha.inputValue(), '0');
+    const unticked = await save('unticked'); // the checkbox itself keys Alpha 0 at the current frame
     await page.getByRole('button', { name: 'Bake All RGB', exact: true }).click();
-    const rgb = await save('all-rgb'); rgbOnly(rgb);
+    const rgb = await save('all-rgb'); rgbOnly(rgb, unticked);
     await page.getByRole('button', { name: 'Bake All Visibility', exact: true }).click();
     const visible = await save('all'); verify(visible, 0, true);
     for (const animation of visible.GeosetAnims) assert.deepEqual(animation.Color, rgb.GeosetAnims.find(item => item.GeosetId === animation.GeosetId).Color, 'Bake All Visibility leaves colour unchanged');
