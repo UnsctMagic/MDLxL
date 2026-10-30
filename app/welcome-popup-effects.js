@@ -5,4 +5,5 @@ const helmet = document.getElementById('welcome-update-helmet');
 const detach = helmet ? effects.attach(helmet) : () => {};
 window.prepareWelcomeEffects = () => effects.ready;
 window.startWelcomeEffects = muted => effects.open({ muted });
+window.setWelcomeMuted = muted => effects.setMuted(muted);
 window.addEventListener('pagehide', () => { effects.close(); detach(); }, { once: true });

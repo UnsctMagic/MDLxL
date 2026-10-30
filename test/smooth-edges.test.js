@@ -42,6 +42,10 @@ test('the welcome writes the same antialias preference for both choices and pres
       assert.equal((await new SettingsStore(file, normalizePreferences).load()).preferences.modelLookAnswered, true);
     }
     assert.deepEqual(welcomePreferences('yes'), { updateOfferAnswered: true, checkUpdatesOnStartup: true });
+    // The welcome's Disable sounds checkbox is saved like the update popup's.
+    assert.equal(welcomePreferences('no-smooth-mute').disableSounds, true);
+    assert.equal(welcomePreferences('yes-classic-sound').disableSounds, false);
+    assert.equal(welcomePreferences('yes-sound').checkUpdatesOnStartup, true);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 

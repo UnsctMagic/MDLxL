@@ -22,7 +22,9 @@ await page.evaluate(()=>{window.litAt=null;new MutationObserver(()=>{if(document
 await settle(page, 300);assert.equal(await page.locator('.update-helmet').getAttribute('data-eyes'),'dark');
 await page.waitForFunction(()=>window.litAt!=null);const welcomeDelay=await page.evaluate(()=>window.litAt-window.openedAt);assert(welcomeDelay>=620&&welcomeDelay<760,welcomeDelay);
 await settle(page, 150);const signal=await page.evaluate(()=>{const {audio,analyser}=window.audios[0],values=new Float32Array(2048);analyser.getFloatTimeDomainData(values);return {state:audio.state,nonzero:values.some(v=>Math.abs(v)>.0001)};});assert(signal.nonzero);assert.equal(signal.state,'running');
-await page.locator('[data-action=yes]').click();assert.equal(await page.title(),'mdlxl-welcome:yes');
+// Disable sounds in the welcome window silences the fanfare at once and is saved with the answer.
+await page.locator('[data-sound]').check();await settle(page, 100);assert.equal(await page.evaluate(()=>window.audios[0].audio.state),'closed','Disable sounds mutes the welcome fanfare');
+await page.locator('[data-action=yes]').click();assert.equal(await page.title(),'mdlxl-welcome:yes-mute');
 await page.goto(file('popup-fixture.html'));await page.locator('.update-helmet[data-eyes=lit]').waitFor();assert.equal(await page.evaluate(()=>window.audios.length),1);
 await page.evaluate(()=>window.updateStatus({state:'downloading'}));await settle(page, 50);assert.equal(await page.evaluate(()=>window.audios.length),1);
 await page.evaluate(()=>{window.updateStatus({state:'available'});window.remountPopup();});await page.locator('.update-helmet[data-eyes=lit]').waitFor();assert.equal(await page.evaluate(()=>window.audios.length),1,'remount does not replay audio');
