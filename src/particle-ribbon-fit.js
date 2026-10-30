@@ -37,7 +37,7 @@ export function fitRibbonToPolygons(model,selection){
  center.addScaledVector(axis,(min+max)/2);
  const recipe=createStarterRecipe('ribbon'),ribbon=recipe.native.RibbonEmitters[0];
  recipe.name='Weapon ribbon';recipe.id='weapon-ribbon';ribbon.Name='Weapon ribbon';
- // The original soft-disc picture stores falloff in alpha; AddAlpha retains that soft edge.
+ // The stock ribbon picture stores its soft edge in alpha; AddAlpha retains it.
  recipe.native.Materials[0].Layers[0].FilterMode=4;
  ribbon.PivotPoint=new Float32Array(center.toArray());recipe.native.PivotPoints[ribbon.ObjectId]=ribbon.PivotPoint;
  ribbon.HeightAbove=ribbon.HeightBelow=length/2;

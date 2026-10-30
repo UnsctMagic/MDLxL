@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createDemoDocument, deleteNode, openDocument, validateModel } from '../src/editor-document.js';
 import { buildForgeMesh, commitForge } from '../src/forge.js';
-import { commitPart, partTextureIndices, partTextureKey, previewPart } from '../src/bits-and-parts.js';
+import { commitPart, partTextureFiles, partTextureIndices, partTextureKey, previewPart } from '../src/bits-and-parts.js';
 import { retainedForgeAssets } from '../src/forge-assets.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url), { BitsAndPartsLibrary } = require('../electron/bits-and-parts.cjs'), { saveForgeAssets } = require('../electron/forge-assets.cjs');
@@ -79,4 +79,27 @@ test('original part textures participate in existing save and recovery retention
   await saveForgeAssets(path.join(directory, 'model.mdl'), retainedForgeAssets(assets, model)); assert.deepEqual(new Uint8Array(await fs.readFile(path.join(directory, asset.name))), asset.bytes);
   await assert.rejects(saveForgeAssets(path.join(directory, 'model.mdl'), [{ ...asset, bytes: new Uint8Array([4]) }]), /different texture/);
   await assert.rejects(saveForgeAssets(path.join(directory, 'model.mdl'), [{ ...asset, name: 'MDLxL_Parts\\..\\outside.tga' }]), /supported filename/);
+});
+test('Bit textures: native game paths stay path-only, the model\'s own textures are reused, only custom files travel', () => {
+  const doc = createDemoDocument(), source = sword(), material = source.Materials[source.Geosets[0].MaterialID], layer = material.Layers[0];
+  const owned = 'Textures\\My Model\\Armor.blp';
+  doc.model.Textures.push({ Image: owned, Flags: 0 });
+  source.Textures = [{ Image: 'Textures\\Footman.blp' }, { Image: owned.toUpperCase().replaceAll('\\', '/'), Flags: 3 }, { Image: 'Textures\\My Bit\\Skin.blp' }];
+  material.Layers = [0, 1, 2].map(TextureID => ({ ...layer, TextureID }));
+  const key = name => name.toLowerCase().replaceAll('/', '\\');
+  const native = { name: 'Textures\\Footman.blp', bytes: new Uint8Array([1]), native: true }, custom = { name: 'Textures\\My Bit\\Skin.blp', bytes: new Uint8Array([2]) };
+  const assets = new Map([[key(native.name), native], [key(custom.name), custom]]);
+  assert.deepEqual(partTextureFiles(doc.model, source, assets), [{ name: custom.name, asset: custom }]);
+  assert.throws(() => partTextureFiles(doc.model, source, new Map([[key(native.name), native]])), /Missing texture: Textures\\My Bit\\Skin\.blp\. Place it beside the source part/);
+  const before = doc.model.Textures.length;
+  doc.apply('Bit', [], model => commitPart(model, source));
+  const images = doc.model.Textures.map(texture => key(texture.Image || ''));
+  assert.equal(doc.model.Textures.length, before + 2, 'the model\'s own path is reused even with other flags');
+  assert.equal(images.filter(image => image === key(owned)).length, 1);
+  assert.ok(images.includes(key(native.name)) && images.includes(key(custom.name)));
+  // Importing the Bit again adds no texture entries and carries no files.
+  assert.deepEqual(partTextureFiles(doc.model, source, assets), []);
+  doc.apply('Bit again', [], model => commitPart(model, source));
+  assert.equal(doc.model.Textures.length, before + 2);
+  assert.deepEqual(validateModel(doc.model).filter(issue => issue.severity === 'error'), []);
 });

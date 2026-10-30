@@ -62,7 +62,7 @@ Lab is a self-contained working space that opens without a model. Its Particle L
 
 A lab draft has its own undo history and dependencies. Opening or editing a preset creates a working copy. Browsing, scrubbing, changing colors, and experimentation must not dirty the open model or overwrite the preset.
 
-A new emitter should be visibly useful immediately: provide an original, redistributable starter texture and sensible defaults, or an explicitly resolved local texture. Do not create an invisible emitter that requires entering a texture ID before anything appears. Starter effects must be labeled as MDLxL starters, never falsely presented as Blizzard originals.
+A new emitter should be visibly useful immediately: use a stock Warcraft III picture read from the player's game data (for example `Textures\GenericGlow64.blp`), or a picture the model already uses, with sensible defaults. MDLxL never generates or bundles effect pictures. Do not create an invisible emitter that requires entering a texture ID before anything appears. Starter effects must be labeled as MDLxL starters, never falsely presented as Blizzard originals.
 
 Closing with an unsaved lab draft preserves it through the application's draft/recovery mechanism or offers a short save/discard decision. It must not disappear silently.
 
@@ -381,7 +381,7 @@ Do not claim that scaling a wrapper node always scales every native particle pro
 
 ### 12.4 Asset resolution and safety
 
-Deduplicate dependencies using source identity/content and relevant flags, not filename alone. Two different images called `Fire.blp` must not overwrite each other. Preserve native logical paths when those resources are resolved from the game.
+Deduplicate dependencies using source identity/content and relevant flags, not filename alone. Two different images called `Fire.blp` must not overwrite each other. Preserve native logical paths when those resources are resolved from the game. Placing an effect reuses the target's texture entry for the same game path (the target's existing file owns that path and is never overwritten) and its identical materials, texture animations and global sequences; it adds only what is missing.
 
 Portable presets must not require another user's absolute filesystem paths. Mark unresolved custom dependencies, support relinking, and avoid falsely displaying the last cached image as the new missing texture.
 
