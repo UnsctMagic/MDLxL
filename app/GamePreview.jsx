@@ -55,6 +55,7 @@ import ShowcaseLayers from './ShowcaseLayers.jsx';
 import { exposePreviewForTests } from './test-hook.js';
 
 import { gamePathKey as pathKey } from '../src/game-path.js';
+import { addClayPreviewMaterials } from '../src/forge-clay.js';
 let humanFramePromise;
 const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
 const portraitHasFrame = props => props.portraitMode && props.showcasePortraitFrame !== false;
@@ -297,6 +298,8 @@ export default function GamePreview(inputProps) {
     };
     const invalidate = () => scheduler?.invalidate();
     const ownedModel = structuredClone(rendererModel);
+    // New Forge items have no material yet; the private clone shows them as clay.
+    const clayPixels = addClayPreviewMaterials(ownedModel);
     ownedModel.Nodes = []; for (const node of allNodes(ownedModel)) ownedModel.Nodes[node.ObjectId] = node;
     // Global editing plays only its own tracks; the authored model is untouched.
     if (globalPreviewId !== null) isolateGlobalSequence(ownedModel, globalPreviewId);
@@ -1162,6 +1165,7 @@ export default function GamePreview(inputProps) {
     let texturesReady = false;
     const jobs = ownedModel.Textures.map(async (info,textureId) => {
       if (!info.Image || info.ReplaceableId === 1 || info.ReplaceableId === 2) return;
+      if (clayPixels.has(info.Image)) { native.setTextureImageData(info.Image, [new ImageData(new Uint8ClampedArray([...clayPixels.get(info.Image), 255]), 1, 1)]); return; }
       // A deterministic placeholder also prevents absent samplers in HD materials.
       native.setTextureImageData(info.Image, [new ImageData(graphics.textures ? checker.slice() : new Uint8ClampedArray(8 * 8 * 4).fill(255), 8, 8)]);
       if (!graphics.textures) return;

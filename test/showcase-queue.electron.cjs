@@ -14,7 +14,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.addInitScript(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=id=>clearTimeout(id);});
   await page.reload();
   await page.getByRole('button',{name:'Showcase',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('.showcase-model-file')?.textContent.includes('Flail04'));
+  await page.waitForFunction(name=>document.querySelector('.showcase-model-file')?.textContent.includes(name),path.basename(model));
   await page.waitForFunction(()=>{const api=findFiberState('.showcase-workspace',v=>v?.playbackState&&v.isReady);if(api){window.inspectShowcaseAPI=api;return true;}return false;});
   await page.evaluate(()=>window.inspectShowcaseAPI.whenReady());
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'));window.inspectShowcaseAPI.invalidate();});

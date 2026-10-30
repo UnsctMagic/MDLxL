@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_TEXTURE, TRIANGLE_ICON_UV } from '../src/forge-primitives.js';
-import { thumperImage, THUMPER_TEXTURE } from '../src/forge-thumper.js';
+import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, TRIANGLE_ICON_UV } from '../src/forge-primitives.js';
+import { THUMPER_COLORS } from '../src/forge-thumper.js';
 import { commitForge } from '../src/forge.js';
+import { forgeSaveBlock } from '../src/forge-clay.js';
+import { applyUVPreviews } from '../src/uv-preview.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
 test('Forge editor starters use Z-up height and preserve corner UVs', () => {
@@ -79,18 +81,21 @@ test('flat Blender starters gain real, closed thickness with usable front, back 
     const y = Array.from(rotated).filter((_, i) => i % 3 === 1); assert.ok(Math.abs(Math.min(...y) - 15) < 1e-5 && Math.abs(Math.max(...y) - 25) < 1e-5, `${shape} thickness rotates and moves with the shape`);
   }
 });
-test('each primitive commits through Forge, saves to MDL and MDX, and undoes as one operation', () => {
+test('each primitive commits through Forge as clay, saves to MDL and MDX once textured, and undoes as one operation', () => {
   for (const shape of FORGE_SHAPES) {
     const doc = createDemoDocument(), before = structuredClone(doc.model), mesh = buildForgePrimitive({ shape, thickness: FLAT_FORGE_SHAPES.includes(shape) ? 10 : 0 });
-    const result = doc.apply('Forge shape', [], model => commitForge(model, mesh, { texturePath: shape === 'ThumperXL' ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE })), gi = result.geosetIndices[0];
+    const result = doc.apply('Forge shape', [], model => commitForge(model, mesh, { name: shape })), gi = result.geosetIndices[0];
+    assert.equal(doc.model.Textures.length, before.Textures.length, `${shape} adds no texture`); assert.equal(doc.model.Materials.length, before.Materials.length, `${shape} adds no material`);
+    assert.ok(forgeSaveBlock(doc.model).includes(shape));
+    doc.apply('Texture', ['Geosets', 'Textures', 'Materials'], model => applyUVPreviews(model, { [gi]: { geosetIndex: gi, asset: { name: 'Textures\\white.blp', bytes: new Uint8Array(1) } } }));
+    assert.equal(forgeSaveBlock(doc.model), '');
     for (const format of ['mdl', 'mdx']) { const reopened = openDocument(doc.serialize(format)); assert.equal(reopened.diagnostics.filter(d => d.severity === 'error').length, 0); const g = reopened.model.Geosets[gi]; assert.equal(g.Faces.length, mesh.geosets[0].Faces.length); assert.deepEqual(g.TVertices, mesh.geosets[0].TVertices); }
-    doc.undo(); assert.deepEqual(doc.model, before);
+    doc.undo(); doc.undo(); assert.deepEqual(doc.model, before);
   }
 });
 
 test('lowest detail uses only essential triangles and each ordinary triangle includes the whole icon', () => {
   const counts = { Plane: 2, Cube: 12, Circle: 1, 'UV Sphere': 8, Icosphere: 20, Cylinder: 8, Cone: 4, Torus: 36, Grid: 2, 'Quad Sphere': 12 };
-  assert.equal(PRIMITIVE_TEXTURE, String.raw`ReplaceableTextures\CommandButtons\BTNTemp.blp`);
   for (const [shape, count] of Object.entries(counts)) {
     const mesh = buildForgePrimitive({ shape }); assert.equal(mesh.triangleCount, count, shape);
     for (const g of mesh.geosets) for (let i = 0; i < g.Faces.length; i += 3) {
@@ -102,14 +107,14 @@ test('lowest detail uses only essential triangles and each ordinary triangle inc
 });
 
 test('ThumperXL keeps gray armor and two red triangular eyes with outward side faces', () => {
-  const g = buildForgePrimitive({ shape: 'ThumperXL' }).geosets[0], image = thumperImage();
+  const g = buildForgePrimitive({ shape: 'ThumperXL' }).geosets[0];
   let eyes = 0, sides = 0;
   const key = id => Array.from(g.Vertices.slice(id * 3, id * 3 + 3), n => Math.round(n * 1000)).join(',');
   const edges = new Set();
   for (let i = 0; i < g.Faces.length; i += 3) for (let k = 0; k < 3; k++) edges.add(key(g.Faces[i + k]) + '|' + key(g.Faces[i + (k + 1) % 3]));
   for (let i = 0; i < g.Faces.length; i += 3) {
     const ids = Array.from(g.Faces.slice(i, i + 3)), p = ids.map(id => Array.from(g.Vertices.slice(id * 3, id * 3 + 3)));
-    const id = ids[0], x = Math.floor(g.TVertices[0][id * 2] * image.width), color = Array.from(image.data.slice(x * 4, x * 4 + 3));
+    const id = ids[0], hex = THUMPER_COLORS[Math.floor(g.TVertices[0][id * 2] * 8)], color = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
     if (color[0] > color[1] * 2) { eyes++; assert.ok(p.every(v => v[2] > 0)); }
     if (p.some(v => v[2] < 0) && p.some(v => v[2] > 0)) { sides++; for (let k = 0; k < 3; k++) assert.ok(edges.has(key(ids[(k + 1) % 3]) + '|' + key(ids[k])), 'solid side edges must wind opposite their front, back and side neighbors'); }
   }

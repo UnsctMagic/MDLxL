@@ -55,6 +55,10 @@ function patternsFor(locale) {
 
 /** Translate presentation text only; model fields and file bytes never pass here. */
 export function translate(text, locale = language, depth = 0) {
+  // "context\u0004Text" (the gettext convention) separates words that read the
+  // same in English but differ elsewhere, e.g. "navigation\u0004Back" (go back)
+  // versus the camera's "Back" (rear view). Without its own entry it reads as Text.
+  if (typeof text === 'string' && text.includes('\u0004')) { const own = locale !== 'en' && dictionaries[locale]?.[text]; return own || translate(text.slice(text.indexOf('\u0004') + 1), locale, depth); }
   if (locale === 'en' || !dictionaries[locale] || typeof text !== 'string' || !/[a-z]/i.test(text)) return text;
   const trimmed=text.trim(), before=text.slice(0,text.indexOf(trimmed)), after=text.slice(text.indexOf(trimmed)+trimmed.length);
   let translated=dictionaries[locale][trimmed];

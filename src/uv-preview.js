@@ -3,6 +3,7 @@ import { sampleTrack } from './animation.js';
 import { materialPreset } from './material-presets.js';
 import { partMaterialKey } from './bits-and-parts.js';
 import { gamePathKey } from './game-path.js';
+import { FORGE_ITEM_KEY } from './forge-clay.js';
 
 
 export function getUVPreviewSelection(model, selection) {
@@ -13,7 +14,9 @@ export function getUVPreviewSelection(model, selection) {
   if (geosetIndices.some(index => !Number.isSafeInteger(index) || index < 0 || !model.Geosets[index])) return { ...result, reason: 'The geoset selection changed. Select the geosets again.' };
   const materialID = model.Geosets[geosetIndices[0]].MaterialID;
   if (geosetIndices.some(index => model.Geosets[index].MaterialID !== materialID)) return { ...result, reason: 'Selected geosets use different materials. Select geosets using the same material.' };
-  if (!Number.isSafeInteger(materialID) || materialID < 0 || !model.Materials[materialID]) return { ...result, reason: 'The selected geosets need a valid material before previewing a texture.' };
+  // New Forge items have no material yet: Save on the preview gives them one.
+  const forgeClay = geosetIndices.every(index => model.Geosets[index][FORGE_ITEM_KEY]);
+  if (!forgeClay && (!Number.isSafeInteger(materialID) || materialID < 0 || !model.Materials[materialID])) return { ...result, reason: 'The selected geosets need a valid material before previewing a texture.' };
   return { ...result, materialID, enabled: true };
 }
 
@@ -151,18 +154,18 @@ function remapTextureRefs(model, remap) {
   for (const emitter of model.ParticleEmitters2 || []) if (typeof emitter.TextureID === 'number') emitter.TextureID = remap(emitter.TextureID);
 }
 
-function usedTextures(model) {
+export function usedTextures(model) {
   const used = new Set();
   remapTextureRefs(model, id => { if (id >= 0) used.add(Math.round(id)); return id; });
   return used;
 }
 
-const usedMaterials = model => new Set(materialOwners(model).map(owner => owner.MaterialID).filter(id => Number.isSafeInteger(id) && id >= 0));
+export const usedMaterials = model => new Set(materialOwners(model).map(owner => owner.MaterialID).filter(id => Number.isSafeInteger(id) && id >= 0));
 
 // Drop only the materials and textures this replacement stopped using, so
 // repeated replacements never accumulate entries. A new image takes over the
 // slot its predecessor freed; entries that were already unused stay as authored.
-function releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture) {
+export function releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture) {
   const liveMaterials = usedMaterials(model);
   const droppedMaterials = new Set([...materialsBefore].filter(id => !liveMaterials.has(id)));
   if (droppedMaterials.size) {
@@ -204,16 +207,15 @@ export function applyUVPreviews(model, drafts, { release = true } = {}) {
   }
   for (const { materialID, textureID, separate, geosets } of groups.values()) {
     if (separate) {
-      const material = structuredClone(model.Materials[materialID] || { PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }] });
+      const material = structuredClone(model.Materials[materialID] || { PriorityPlane: 0, RenderMode: 0, Layers: [] });
       replaceTextureChain(model, materialID, material, textureID);
       const target = model.Materials.push(material) - 1;
       for (const geoset of geosets) geoset.MaterialID = target;
       continue;
     }
     const original = model.Materials[materialID];
-    const material = structuredClone(original || {
-      PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }],
-    });
+    // Without a material (a new Forge item) the texture becomes its only layer.
+    const material = structuredClone(original || { PriorityPlane: 0, RenderMode: 0, Layers: [] });
     replaceTextureChain(model, materialID, material, textureID);
     const materialKey = value => { try { return partMaterialKey(model, value); } catch { return null; } };
     const key = materialKey(material);

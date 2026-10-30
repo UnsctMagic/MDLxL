@@ -68,7 +68,8 @@ const root = path.resolve(__dirname, '..');
       assert(layout.bottom<=layout.height,'welcome buttons and localized text fit after effects failure');
       assert.equal(layout.icon,'1','the static helmet is visible');
       await prompt.getByRole('button',{name:'No thanks'}).click();
-      assert.equal(await app.evaluate(()=>welcomeAnswer),'no');
+      // Opened with sounds disabled, the Disable sounds box starts ticked and the answer keeps it.
+      assert.equal(await app.evaluate(()=>welcomeAnswer),'no-mute');
     }
     await welcome(false);
     await welcome(true);

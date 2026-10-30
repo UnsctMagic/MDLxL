@@ -53,3 +53,14 @@ test('Mordor mode ciphers otherwise untranslated UI prose into Black Speech voca
  assert.notEqual(translated,source);
  assert.match(translated,/^(?:ash|nazg|durb|atulûk|gimb|krimp|burzum|ishi|agh|ghâsh|snaga|uruk|lugbúrz|nazgûl)/);
 });
+
+test('a context marks words that read the same in English but differ elsewhere', () => {
+  // OptimizeXL's and POSE's Back button go back; the camera's Back is the rear view.
+  setLanguage('es');
+  try {
+    assert.equal(translate('navigation\u0004Back'), 'Atrás');
+    assert.equal(translate('Back'), 'Posterior');
+    assert.equal(translate('unknown\u0004Handles'), translate('Handles'), 'a context without its own entry reads as the plain text');
+  } finally { setLanguage('en'); }
+  assert.equal(translate('navigation\u0004Back'), 'Back', 'English shows the plain text');
+});

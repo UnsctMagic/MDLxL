@@ -23,6 +23,7 @@ import { geosetColorExportIssues, prepareGeosetAnimationColors, mdlDroppedGeoset
 export const EDITOR_ONLY_CHUNKS = new Set(['MDVI']);
 import { GEOSET_TABS_KEY, GEOSET_TAB_KEY, geosetTabsData, normalizeGeosetTabs, readGeosetTabs, writeGeosetTabs, isGeosetTabsChunk } from './geoset-tabs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, stripAnimationSpeed, isAnimationSpeedChunk } from './animation-speed.js';
+import { FORGE_ITEM_KEY, NO_MATERIAL } from './forge-clay.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new Float32Array([x, y, z]);
 const clone = (value) => structuredClone(value);
@@ -56,7 +57,7 @@ const fingerprint = (value) => JSON.stringify(value, (key, val) => {
 const nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
 // Node collections and PivotPoints alias the canonical Nodes list; diffs compare the canonical copy only.
 export const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === 'PivotPoint';
-const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && path[2] === GEOSET_TAB_KEY || path.some(key => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
+const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && (path[2] === GEOSET_TAB_KEY || path[2] === FORGE_ITEM_KEY) || path.some(key => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
 const pickSections = (model, keys) => Object.fromEntries([...keys].filter(key => key !== 'Nodes').map(key => [key, model[key]]));
 
 function emptyModel(version = 800, name = 'Untitled') {
@@ -723,7 +724,9 @@ export function validateModel(model, { numericSections = null, previousDiagnosti
     if (g.Normals?.length !== g.Vertices?.length) add('error', 'NORMAL_COUNT', `Geoset ${gi} normals do not match its vertices.`, path);
     if (!ArrayBuffer.isView(g.Faces) || g.Faces.length % 3) add('error', 'TRIANGLE_COUNT', `Geoset ${gi} has invalid triangle data.`, path);
     if (g.Faces?.some((index) => index >= count || index < 0 || !Number.isInteger(index))) add('error', 'FACE_REFERENCE', `Geoset ${gi} contains a face with a missing vertex.`, path);
-    if (!Number.isInteger(g.MaterialID) || !model.Materials?.[g.MaterialID]) add('error', 'MATERIAL_REFERENCE', `Geoset ${gi} references missing material ${g.MaterialID}.`, path);
+    // A new Forge item has no material on purpose until the user assigns one; saving waits for it.
+    if (g[FORGE_ITEM_KEY] && g.MaterialID === NO_MATERIAL) add('warning', 'FORGE_ITEM_MATERIAL', `Geoset ${gi} is a Forge item without a material yet.`, path);
+    else if (!Number.isInteger(g.MaterialID) || !model.Materials?.[g.MaterialID]) add('error', 'MATERIAL_REFERENCE', `Geoset ${gi} references missing material ${g.MaterialID}.`, path);
     if (!g.TVertices?.length) add('warning', 'MISSING_UV', `Geoset ${gi} has no texture coordinates.`, path);
     if (g.TVertices?.length > 16) add('error', 'UV_SET_LIMIT', `Geoset ${gi} exceeds the 16 UV set limit.`, path);
     for (const [uv, values] of (g.TVertices || []).entries()) if (values.length !== count * 2) add('error', 'UV_COUNT', `Geoset ${gi} UV set ${uv} has a mismatched vertex count.`, `${path}.TVertices[${uv}]`);
@@ -1079,10 +1082,12 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   if (!indices.length) return { geosetIndices: [], selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
   for (const index of indices) if (!source.Geosets?.[index]) throw new Error(`Source geoset ${index} does not exist.`);
   const { requireNode, requiredNodes: neededNodes, globalRef, textureRef, materialRef, maps } = createResourceImporter(source, target, {
-    reuseTextures: 'fingerprint', reuseGlobals: false,
+    // Reuse identical global sequences, texture animations and materials already
+    // in the destination so a remapped material still matches its twin.
+    reuseTextures: 'fingerprint', reuseGlobals: true, reuseTextureAnims: true,
     validGlobalId: (id, model) => model.GlobalSequences[id] !== undefined,
     keyArrayType: 'int32', fingerprint, requireLayers: true, defaultsAfterSlots: true,
-    reuseMaterials: rigid,
+    reuseMaterials: true,
     existingMaterial: old => {
       if (!reuseExisting) return -1;
       const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;

@@ -44,6 +44,7 @@ import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 import { gamePathKey as normalizedPath } from '../src/game-path.js';
+import { clayColors } from '../src/forge-clay.js';
 const selectionArray = selection => Array.from(selection || []);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
@@ -798,9 +799,10 @@ export default function Viewport(inputProps) {
           const textureIndex = Math.round(sampleTrack(layer.TextureID, state.frame, { ...animOptions, fallback: 0 }));
           const textureInfo = p.model?.Textures?.[textureIndex];
           const textured = p.mode === 'textured' && renderGraphics.textures;
-          const map = !textured || textureInfo?.ReplaceableId === 1 ? null : textureInfo?.ReplaceableId === 2 ? state.teamGlow : state.textures.get(textureIndex) || state.checker;
+          // A geoset without a material (a new Forge item) shows its clay colour.
+          const map = !textured || entry.clay !== undefined || textureInfo?.ReplaceableId === 1 ? null : textureInfo?.ReplaceableId === 2 ? state.teamGlow : state.textures.get(textureIndex) || state.checker;
           if (material.map !== map) { material.map = map; material.needsUpdate = true; }
-          material.color.set(textured ? textureInfo?.ReplaceableId === 1 || textureInfo?.ReplaceableId === 2 ? p.teamColor : 0xffffff : p.rgbPreview ? 0xffffff : p.surfaceColors?.[index] ?? COLORS[index % COLORS.length]);
+          material.color.set(textured && entry.clay !== undefined ? entry.clay : textured ? textureInfo?.ReplaceableId === 1 || textureInfo?.ReplaceableId === 2 ? p.teamColor : 0xffffff : p.rgbPreview ? 0xffffff : p.surfaceColors?.[index] ?? COLORS[index % COLORS.length]);
           material.userData.geosetTint.value.set(1, 1, 1);
           if ((p.rgbPreview || p.presentation === 'preview') && !pureWireframe) {
             const sampled = sampleGeosetAnimation(p.model, index, rgbState.frame, rgbState.sequenceIndex, rgbState.globalTime);
@@ -969,6 +971,7 @@ export default function Viewport(inputProps) {
     state.geosetAnims = new Map((model?.GeosetAnims || []).map(anim => [anim.GeosetId, anim]));
     state.scheduler?.invalidate();
     if (!model) return;
+    const clay = clayColors(model);
     for (let index = 0; index < (model.Geosets || []).length; index++) {
       const geoset = model.Geosets[index], group = new THREE.Group(), geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(geoset.Vertices), 3).setUsage(THREE.DynamicDrawUsage));
@@ -1011,7 +1014,7 @@ export default function Viewport(inputProps) {
         const selectedGeometry = new THREE.BufferGeometry(); selectedGeometry.setAttribute('position', geometry.attributes.position); selectedGeometry.setIndex([]);
         selectedSurface = new THREE.Mesh(selectedGeometry, new THREE.MeshBasicMaterial({ color: 0xff9a22, opacity: .22, transparent: true, side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); selectedSurface.renderOrder = 9998; selectedSurface.frustumCulled = false; group.add(selectedSurface);
       }
-      state.modelGroup.add(group); state.entries[index] = { geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
+      state.modelGroup.add(group); state.entries[index] = { geoset, clay: clay.get(index), group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
       updateWideWireGeometry(state.entries[index]);
     }
     const signature = `${model.Info?.Name}|${model.Geosets?.map(g => g.Vertices.length).join(',')}`;

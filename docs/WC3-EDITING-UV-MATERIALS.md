@@ -61,8 +61,12 @@ Use [geometry](WC3-EDITING-GEOMETRY.md) for vertex splits,
 ## Change one material layer
 
 1. Read all geosets using the material. If the change applies to only one,
-   append `structuredClone(model.Materials[materialID])` and point only that
-   geoset's `MaterialID` at the new index. Keep its other layers unchanged.
+   first look for an existing material that already has the wanted layers and
+   point that geoset's `MaterialID` at it. Only if none matches, append
+   `structuredClone(model.Materials[materialID])` and point only that geoset's
+   `MaterialID` at the new index. Keep its other layers unchanged. For a different
+   texture, reuse the model's own textures first, then a native game texture;
+   paint a new one only when the user asked for it.
 2. For a texture assignment call
    `material-presets.setMaterialLayerTexture(material, layerIndex, value)`,
    where `value` is a texture index or a complete typed TextureID track.

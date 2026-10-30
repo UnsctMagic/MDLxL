@@ -88,6 +88,10 @@ separate and are not a shared handover.
 
 ## Build and verification
 
+[Testing rules](docs/TESTING-RULES.md) are binding for every agent: tests do what
+the user does, fail on the broken code first, and Claude owns QA and the release
+gate. Read them before writing or changing any test.
+
 Use Node.js 22.12+ and pnpm; [package.json](package.json) owns script definitions
 and [README source development](README.md#source-development) explains setup.
 

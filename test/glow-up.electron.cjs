@@ -90,6 +90,15 @@ throw Error('No document');});
    assert.equal(await playingNow(),false,'a drag while paused stays paused');
    await emtr.locator('.pe-transport').getByRole('button',{name:'Play',exact:true}).click();await sleep(300);assert.equal(await playingNow(),true,'Play starts it again');}
   checks.push('Pause keeps the animation still through drags until Play');
+  // Play/Pause "Space does the same": after a real handle drag (focus where the drag left it), Space pauses and plays.
+  {const [mx,my]=await centerOf('Move origin glow');await page.mouse.move(mx,my);await page.mouse.down();await page.mouse.move(mx+8,my+4,{steps:3});await page.mouse.up();await sleep(800);
+   assert.equal(await playingNow(),true,'playing again after the drag');
+   await page.keyboard.press('Space');await sleep(300);assert.equal(await playingNow(),false,'Space after a handle drag pauses');
+   await page.keyboard.press('Space');await sleep(300);assert.equal(await playingNow(),true,'Space again plays');}
+  // Right after clicking the Pause button (focus stays on it), Space plays again: one toggle, not two.
+  {await emtr.locator('.pe-transport').getByRole('button',{name:'Pause',exact:true}).click();await sleep(300);assert.equal(await playingNow(),false);
+   await page.keyboard.press('Space');await sleep(300);assert.equal(await playingNow(),true,'Space with focus on the Play button plays (exactly one toggle)');}
+  checks.push('Space pauses and plays Glow Up like the Play button, after a handle drag and right after clicking Pause');
   if(weaponOn){
    // A small hero: zoom in with the wheel, as a user would, until the weapon's two handles are apart.
    for(let i=0;i<12;i++){const [sx,sy]=await centerOf('Weapon glow start'),[tx,ty]=await centerOf('Weapon glow end');if(Math.hypot(tx-sx,ty-sy)>=40)break;await page.mouse.move(box.x+20,box.y+20);await page.mouse.wheel(0,-240);await sleep(400);}

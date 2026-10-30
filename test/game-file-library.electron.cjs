@@ -203,7 +203,24 @@ return null;});
     await page.locator('[data-hotkey="textureLibrary"]').click();await library.waitFor();
     await page.getByRole('tab',{name:'Models',exact:true}).click();
     await row('Orc').click();await row('Units').click();await row('Heroes').click();await row('Blademaster').click();await waitModel('Blademaster');await settlePage(page, 2000);
-    await shot(page,'theme-'+(process.env.MDLXL_TEST_THEME||'light'));await page.keyboard.press('Escape');await library.waitFor({state:'hidden'});
+    await shot(page,'theme-'+(process.env.MDLXL_TEST_THEME||'light'));
+    // Folder keys after the user clicks a row (no .focus()): clicking Heroes closes it, Right opens it, Left closes it again.
+    const heroes=row('Heroes'),expandedOf=locator=>locator.getAttribute('aria-expanded');
+    await heroes.click();await settlePage(page, 300);assert.equal(await expandedOf(heroes),'false','clicking an open folder closes it');
+    await page.keyboard.press('ArrowRight');await settlePage(page, 300);assert.equal(await expandedOf(heroes),'true','Right opens the clicked folder');
+    await row('Blademaster').waitFor();
+    await page.keyboard.press('ArrowLeft');await settlePage(page, 300);assert.equal(await expandedOf(heroes),'false','Left closes the clicked folder');
+    assert.equal(await row('Blademaster').count(),0,'its models are hidden again');
+    // Enter on a folder opens it too.
+    await page.keyboard.press('Enter');await settlePage(page, 300);assert.equal(await expandedOf(heroes),'true','Enter opens the clicked folder');
+    checks.push('Folder list: after clicking a folder, Right opens it, Left closes it, Enter opens it');
+    // "Enter opens": click a model in the list, then press Enter; it opens in the editor as a new tab.
+    const tabs=await page.locator('.model-tabs [role="tab"]').count();
+    await row('Blademaster').click();await waitModel('Blademaster');
+    await page.keyboard.press('Enter');
+    await library.waitFor({state:'hidden',timeout:15000}).catch(()=>{throw Error('Enter after clicking a model row did not open it in the editor');});
+    await page.waitForFunction(count=>document.querySelectorAll('.model-tabs [role="tab"]').length>count,tabs,{timeout:20000});
+    checks.push('Click a model in the list, Enter opens it in the editor as a new tab');
     console.log('PASS:\n- '+checks.join('\n- '));
   }finally{await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

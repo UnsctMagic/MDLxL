@@ -3,7 +3,7 @@ import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
-import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
+import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs,adoptCommittedPaintMaterials} from '../src/paint-model-integration.js';
 import Addons from './Addons.jsx';
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
@@ -50,6 +50,7 @@ import useMotionInspector from './useMotionInspector.js';
 import { rememberMotionSave } from '../src/motion-decisions.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
+import { forgeSaveBlock } from '../src/forge-clay.js';
 import { nativeStarterTexture, repointStarterTextures } from '../src/particle-starters.js';
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
@@ -580,7 +581,7 @@ export default function App() {
     document.activeElement?.blur?.();
     if (mode === 'showcase') { const pending = []; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures', { detail: pending })); await Promise.all(pending); }
     if (mode === 'paint') { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); if (session.paintProject && !await applyPaintToModel()) return; setRenderMode('textured'); setSelectable(new Set(visiblePaintGeosets(paintOriginalModel, activeGeoset))); setShowAllGeosets(false); }
-    if (next === 'paint' && session.paintAppliedRevision !== undefined) { session.paintWorkingModel = structuredClone(doc.model); session.paintWorkingRevision++; }
+    if (next === 'paint' && session.paintAppliedRevision !== undefined) { session.paintWorkingModel = structuredClone(doc.model); adoptCommittedPaintMaterials(session.paintProject, session.paintWorkingModel); session.paintWorkingRevision++; }
     if (next === 'uv' && uvWindow) { setUVWindow(previous => ({ ...previous, minimized: false })); setUVFocused(true); return; }
     if (next === 'uv') {
       const entry = captureUVSelection(model, validSelection, selectable), eligible = Object.keys(entry)[0];
@@ -902,6 +903,8 @@ export default function App() {
       const pending = target.uvPreviews;
       const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
       if (staged !== target.doc) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
+      const unfinished = forgeSaveBlock(staged.model);
+      if (unfinished) { say(unfinished, true); setNotice({ title: 'Save', message: unfinished }); return false; }
       // Save As must bring reopened Forge textures along, even before preview
       // resolution completes or when texture rendering is disabled.
       const missing = missingForgeAssetPaths(target.assets, staged.model);
@@ -962,7 +965,7 @@ export default function App() {
       for(const asset of prepared.assets){if(!asset.bytes?.byteLength)throw Error('A painted texture is empty.');assets.set(gamePathKey(asset.name),asset);assets.set(gamePathKey(asset.name.split(/[\\/]/).at(-1)),asset);}
       commitPaintModel(doc,prepared);
       nextTextureResolution(session);session.assets=assets;adoptCommittedPaintUVs(value);
-      session.paintWorkingModel=structuredClone(doc.model);session.paintWorkingRevision++;
+      session.paintWorkingModel=structuredClone(doc.model);adoptCommittedPaintMaterials(value,session.paintWorkingModel);session.paintWorkingRevision++;
       session.paintAppliedRevision=value.revision;refresh();
       say('Paint applied to the model. Save the model to keep its BLP textures beside it.');return true;
     }catch(error){say('Could not apply paint: '+error.message,true);return false;}
@@ -1235,20 +1238,18 @@ export default function App() {
     } catch (error) { say(error.message, true); }
   }
   function showHistory() { setHistoryMB(Math.round(doc.historyStats.budgetBytes / 1048576)); setHistorySteps(doc.historyStats.maxSteps); setDialog({ type: 'history' }); }
-  async function forgeItem({mesh,asset,texturePath,trimColor,items}) {
+  async function forgeItem({mesh,name,items}) {
     const {commitForge}=await import('../src/forge.js');
     if(latest.current.session!==session || savingRef.current)return false;
-    const drafts=items||[{mesh,asset,texturePath,trimColor}];
+    const drafts=items||[{mesh,name}];
+    // Forge adds geometry only; each item shows as clay until it gets a material.
     const result=edit('Forge item',['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'],m=>{
-      const added=drafts.map(d=>commitForge(m,d.mesh,{texturePath:d.texturePath,trimColor:d.trimColor}));
-      return {...added[0],geosetIndices:added.flatMap(r=>r.geosetIndices),extraAssets:added.flatMap(r=>r.extraAssets)};
+      const added=drafts.map(d=>commitForge(m,d.mesh,{name:d.name}));
+      return {...added[0],geosetIndices:added.flatMap(r=>r.geosetIndices)};
     });
     if(result===false)return false;
-    for(const draft of drafts)if(draft.asset) await loadTextures([{...draft.asset,name:draft.texturePath}],session,{source:draft.asset.source==='forge'?'forge':'gameData'});
-    if(result.extraAssets?.length) await loadTextures(result.extraAssets,session,{source:'forge'});
-    if(drafts.some(d=>d.mesh.geosets.length>1)){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(gamePathKey('Textures\\white.blp'),{...white,name:'white.tga'});}
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
-    say('Forge item created and attached to DummyBone.');return result;
+    say('Forge item created and attached to DummyBone. It shows as clay until you give it a material and texture.');return result;
   }
   function applyGeosetDensity(changes) {
     try {

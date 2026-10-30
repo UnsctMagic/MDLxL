@@ -170,16 +170,38 @@ to every Electron launch.
 | Classic MDX800 Footman | `out/citadel-fixture/Footman.mdx` | `MDLXL_SUITE_CITADEL_FOOTMAN` | Citadel paint |
 | Particle index (`node scripts/index-particles.mjs --output out/particle-index/particles`; rebuild after game patches) | `out/particle-index/particles` | `MDLXL_PARTICLE_INDEX` | particle-lifecycle |
 | OptimizeXL review model `WH_WOC_KnightKhorneFlail03.mdx` | `out/optimizexl-review/` | `MDLXL_OPTIMIZEXL_REVIEW_MODEL` | optimizexl-review, optimizexl-playback |
-| An archer `.mdx` | none | `MDLXL_SUITE_ARCHER` | material-presets |
+| A model whose geoset index 4 uses Materials[4] with 3 layers and that has 11+ textures (the original archer is gone; the Hive model `Mecha-CL.mdx` fits) | none | `MDLXL_SUITE_ARCHER` | material-presets |
+| The owner's `graveguard_Optimized Weapon (1).mdx` (private) | `out/graveguard/` | `MDLXL_TEST_MODEL` per test | event-sound-scroll, manager-simplification, tree-appearance |
 | `WH_WOC_KnightKhorneFlail03.mdx` | none | `MDLXL_EFFECT_MODEL` | showcase-effects |
 | SD Chaos Knight (with hoofprint events) from the Warcraft III CASC install | none | `MDLXL_SUITE_HOOFPRINT` | footprint-travel |
 | Google Chrome | `C:/Program Files/Google/Chrome/Application/chrome.exe` | `MDLXL_CHROMIUM_PATH` | module-button-labels.browser |
+| The owner's `WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx` (private; the byte-exact `_Before` copy in `D:/MDLxL-Reviews/OptimizeXL-geosets-20260928/portable-proofs/optimizexl-proof/`) | `out/optimizexl/` | `MDLXL_OPTIMIZEXL_MODEL` | optimizexl, optimizexl-geosets, optimizexl-inspection |
+| The owner's `WH_WOC_KnightKhorneFlail07.mdx` and `WH_WOC_KnightKhorneFlail03.mdx` (private; `_Before` copies in `D:/MDLxL-Reviews/OptimizeXL-expression-20260929/packaged-proofs/expression-ui/`) | `out/optimizexl-expression/` | `MDLXL_EXPRESSION_MODEL` (list separated by `;`) | optimizexl-expression |
+| The owner's `WH_VC_NecrarchLord3.mdx` (private, from Downloads) | `out/pose-complex-fixtures/` | `MDLXL_POSE_FIXTURE` | pose-complex, pose-performance |
+| The owner's flail model `Fx_original.mdx` (private; `D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/`) | `out/pose-flail/` | `MDLXL_FLAIL_MODEL` | pose-one-head |
+| Two Khorne knights with an `Attack - 1` animation (the owner's `WH_WOC_KnightKhorneFlail03.mdx` and `WH_WOC_KnightKhorneAxe03.mdx` from Downloads), plus `profile/game-data-discovery.json` | `out/showcase-queue/` | `MDLXL_QUEUE_MODEL_A`, `MDLXL_QUEUE_MODEL_B` | showcase-queue |
+| LowPolyWorks `WH_WOC_WarriorKhorneGW02.mdx`: only checker unused notices, all repaired by the Insanity FIxer (25) | `out/optimizexl-diagnostics/` | `MDLXL_DIAGNOSTICS_MODEL` | optimizexl-diagnostics |
+| LowPolyWorks herrdave `Spanish_Halberdier.mdx`: one severe missing opening key (Jaw, Portrait Talk), 409 notices that one select-all pass clears | `out/optimizexl-opening/` | `MDLXL_OPENING_MODEL` | optimizexl-opening, optimizexl-cleanup |
+| The owner's `WH_WOC_WarriorNurgle_Flail11_Optimized.mdx` (Downloads): a bounds repair on sequence extents is its only proposal | `out/optimizexl-bounds/` | `MDLXL_BOUNDS_MODEL` | optimizexl-bounds |
+| LowPolyWorks herrdave `KnightOfTheBlazingSun.mdx`: a non-None visibility interpolation and a Portrait | `out/optimizexl-format/` | `MDLXL_FORMAT_MODEL` | optimizexl-format |
+| LowPolyWorks gluma `Warp_Lightning_CannonB.mdx`: spline tracks with notices only resampling clears | `out/optimizexl-spline/` | `MDLXL_SPLINE_MODEL` | optimizexl-spline |
+| SD Footman MDX800 (`out/corpus-sd800/human__footman.mdx`, with `Textures/` from `out/pose`): 13 animations, invalid bounds | `out/optimizexl-footman/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-footman |
+| The owner's `WH_WOC_WarriorNurgle_Flail12_Optimized.mdx` (Downloads): repairable irregular movement, bounds-only Insanity FIxer, Standard spheres | `out/optimizexl-motion/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-motion |
+| SD Muradin MDX800 (`out/corpus-sd800/human__muradin.mdx`): orange motion pair in one animation, context inspections, invalid bounds | `out/optimizexl-selection/` | `MDLXL_FOOTMAN_MODEL` | optimizexl-selection |
+| LowPolyWorks `WH_VC_VonCarsteinLord07.mdx` with its game textures (`out/fixtures.sh` reads them from CASC): four-joint left arm 13-14-15-16 | `out/pose-setup-fixture/` | `MDLXL_POSE_FIXTURE` | pose-setup |
+
+Each of the last nine rows was chosen for the feature its test exercises, measured with MDLxL's own code by the scripts in
+`out/fixture-scan/` (`scan.mjs`, `sim.mjs`, `one-fix.mjs`, `motion.mjs`, `pose-rig.mjs`); the test comments give the numbers.
+Checks no available model can exercise (an effect glow left without its geometry, a sequence-timeline quirk, portrait
+particles beside a format quirk, a red whole-body irregular movement) stay in the tests and are named there.
 
 The pose Footman can be read from the game with `electron/casc.cjs`:
 `new CascReader('<Warcraft III folder>', process.cwd()).read('war3.w3mod:units\\human\\footman\\footman.mdx')`.
 
-Some tests are always skipped (`SKIP` in the script): manual tools such as the
-updater release gate, and tests that need private models or old builds.
+`out/fixtures.sh` in the release worktree copies all of these from the owner's
+folders. Some tests are always skipped (`SKIP` in the script): manual tools such as the
+updater release gate, old builds, and tests whose exact private model is not on
+this PC. Each reason names the missing file and where it would go.
 
 ## Results
 

@@ -75,6 +75,13 @@ and the old five-tool toolbar.
 - Existing skins default to a 512-pixel working copy, nearest-scaled only when
   smaller. Authored layout, aspect ratio and source files remain. Hidden corpse
   targets stay native. Native and 1024 working resolutions remain available.
+- Edit the texture saves only the skins whose pixels changed (owner rule:
+  "Only textures you edit are saved as new"). Untouched skins, and skins whose
+  strokes were all undone, keep their path, texture entry and material. A
+  painted material is edited in place; it is copied only while an unpainted
+  part, such as a ribbon, still shares it. Leaving Paint and Export release the
+  paint-only copies and anything only they used (`settleCurrentPaintMaterials`
+  in [paint-current-materials.js](../../src/paint-current-materials.js)).
 - Blank base coats intentionally create a fresh paint mapping and solid RGBA
   color. View shading is never baked into the texture.
 - Stamp source coordinates come from destination texel centers. Filter and

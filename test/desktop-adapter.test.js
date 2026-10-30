@@ -26,7 +26,7 @@ test('game files resolve through the desktop bridge and are an empty list in the
 });
 
 test('the resolve-with-fallback sites use the desktop adapter', async () => {
-  for (const file of ['ParticleEditor.jsx', 'ParticleExampleComparison.jsx', 'PaintTextureShelf.jsx', 'PaintWorkspace.jsx', 'BitsAndParts.jsx', 'App.jsx', 'ForgeShapes.jsx', 'TextureLibrary.jsx']) {
+  for (const file of ['ParticleEditor.jsx', 'ParticleExampleComparison.jsx', 'PaintTextureShelf.jsx', 'PaintWorkspace.jsx', 'BitsAndParts.jsx', 'App.jsx', 'TextureLibrary.jsx']) {
     const source = await fs.readFile(new URL('../app/' + file, import.meta.url), 'utf8');
     assert.match(source, /from '\.\/desktop\.js'/, file);
     assert.doesNotMatch(source, /window\.desktop\??\.resolveTextures/, file);

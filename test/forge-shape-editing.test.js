@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForgePrimitive, FORGE_SHAPES, PRIMITIVE_TEXTURE } from '../src/forge-primitives.js';
+import { buildForgePrimitive, FORGE_SHAPES } from '../src/forge-primitives.js';
 import { createForgeShape, forgeShapeMesh, forgeFaceNormal, forgeShapeEdges, forgeSelectionCenter, transformForgeSelection, extrudeForgeFaces, insetForgeFaces } from '../src/forge-shape-editing.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 import { commitForge } from '../src/forge.js';
@@ -62,7 +62,7 @@ test('multiple edited shapes add atomically, retain existing authored data, roun
   const doc = createDemoDocument(), before = structuredClone(doc.model), a = createForgeShape(buildForgePrimitive(), { id: 1 }), b = createForgeShape(buildForgePrimitive({ position: [200, 0, 0] }), { id: 2 });
   const selection = { 1: [1], 2: [1] }, center = forgeSelectionCenter([a, b], selection, 'Shape'); assert.deepEqual(center, [100, 0, 0]);
   const shapes = [a, b].map(s => transformForgeSelection(s, selection[s.id], 'Shape', { scale: [2, 1, 1], center }));
-  const results = doc.apply('Forge shapes', [], model => shapes.map(s => commitForge(model, forgeShapeMesh(s), { texturePath: PRIMITIVE_TEXTURE })));
+  const results = doc.apply('Forge shapes', [], model => shapes.map(s => commitForge(model, forgeShapeMesh(s), { texturePath: 'Textures\\white.blp' })));
   assert.equal(results.length, 2);
   const authored = geosets => geosets.map(({ BoundsRadius, ...g }) => g);
   assert.deepEqual(authored(doc.model.Geosets.slice(0, before.Geosets.length)), authored(before.Geosets));

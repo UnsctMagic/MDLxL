@@ -238,3 +238,56 @@ test('a same-model paste whose bone is gone, or that has no bone, goes on DummyB
   const geoset = next.model.Geosets[next.result.geosetIndices[0]];
   assert.equal(next.model.Nodes[geoset.Groups[0][0]].Name, 'DummyBone');
 });
+
+// Owner rule: materials and textures already present are reused; only what
+// the destination lacks is added. Geoset 0 gets a scrolling, pulsing material.
+const animateMaterial = doc => doc.apply('Animated material', [], model => {
+  model.GlobalSequences = [1000];
+  model.TextureAnims = [{ Translation: { LineType: 1, GlobalSeqId: 0, Keys: [0, 1000].map((Frame, i) => ({ Frame, Vector: new Float32Array([i, 0, 0]) })) } }];
+  const layer = model.Materials[model.Geosets[0].MaterialID].Layers[0];
+  layer.TVertexAnimId = 0; layer.FilterMode = 2;
+  layer.Alpha = { LineType: 1, GlobalSeqId: 0, Keys: [0, 500].map((Frame, i) => ({ Frame, Vector: new Float32Array([1 - i / 2]) })) };
+});
+const resourceCounts = model => [model.Materials.length, model.TextureAnims?.length || 0, model.GlobalSequences?.length || 0, model.Textures.length];
+const pastedMaterial = (model, plan) => model.Geosets[plan.result.geosetIndices[0]].MaterialID;
+
+test('pasting a part with an animated material reuses the material, texture animation and global sequence already present', () => {
+  const cases = [
+    ['Ctrl+V into its own model', target => [target, {}]],
+    ['Ctrl+V into its own model after its bone was removed', target => [target, {}], true],
+    ['Ctrl+V into another model with the same material', () => [null, {}]],
+    ['paste-special into its own model', target => [target, { special: true }]],
+    ['paste-special onto a bone of its own model', target => [target, { special: true, parent: 1 }]],
+    ['paste-special into another model with the same material', () => [null, { special: true }]],
+  ];
+  for (const [name, setup, removeBone] of cases) {
+    const source = createDemoDocument(); animateMaterial(source);
+    let lone; if (removeBone) source.apply('Own bone', [], model => { lone = createNode(model, 'Bone'); model.Geosets[0].Groups = [[lone.ObjectId]]; });
+    const clipboard = copiedMesh(source), material = source.model.Geosets[0].MaterialID;
+    if (removeBone) source.apply('Remove bone', [], model => { model.Bones = model.Bones.filter(node => node !== lone); model.Geosets[0].Groups = model.Geosets[1].Groups.map(group => [...group]); });
+    let [target, options] = setup(source);
+    const sameModel = target === source;
+    if (!target) { target = createDemoDocument(); animateMaterial(target); }
+    const before = resourceCounts(target.model);
+    const plan = prepareClipboardPaste(target.model, clipboard, { ...options, sameModel }); commit(target, plan);
+    assert.deepEqual(resourceCounts(target.model), before, name);
+    assert.equal(pastedMaterial(target.model, plan), material, name);
+    roundTrip(target);
+  }
+});
+
+test('pasting an animated material into a model without it adds exactly one material, texture animation and global sequence', () => {
+  for (const special of [false, true]) {
+    const source = createDemoDocument(); animateMaterial(source);
+    const target = createDemoDocument(), [materials, , , textures] = resourceCounts(target.model);
+    const plan = prepareClipboardPaste(target.model, copiedMesh(source), { special }); commit(target, plan);
+    assert.deepEqual(resourceCounts(target.model), [materials + 1, 1, 1, textures]);
+    const layer = target.model.Materials[pastedMaterial(target.model, plan)].Layers[0];
+    assert.equal(layer.TVertexAnimId, 0); assert.equal(layer.Alpha.GlobalSeqId, 0); assert.equal(target.model.TextureAnims[0].Translation.GlobalSeqId, 0);
+    assert.equal(target.model.GlobalSequences[0], 1000);
+    // A second paste of the same part adds nothing more.
+    const again = prepareClipboardPaste(target.model, copiedMesh(source), { special }); commit(target, again);
+    assert.deepEqual(resourceCounts(target.model), [materials + 1, 1, 1, textures]);
+    roundTrip(target);
+  }
+});

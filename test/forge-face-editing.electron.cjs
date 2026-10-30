@@ -1,4 +1,4 @@
-const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle, clickMenu } = require('./helpers/app.cjs');
 // Packaged integration: all mutations use public UI; React reads only assert results.
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path');
 
@@ -37,8 +37,19 @@ function readView(selector='.forge-dialog .forge-editor'){
  await click('Shape');await click('Edit Cube 2');state=await page.evaluate(readView);await click('Bend');const amount=(await page.evaluate(readView)).moldHandles.find(h=>h.id==='amount');assert.ok(amount,'Bend amount handle');await drag(amount.x,amount.y,0,-35);moved=await page.evaluate(readView);assert.deepEqual(moved.model.Geosets[0],state.model.Geosets[0]);assert.notDeepEqual(moved.model.Geosets[1].Vertices,state.model.Geosets[1].Vertices);assert.equal(moved.surfaceColors[1],state.surfaceColors[1]);checks.push('Viewport Bend handle shapes only the selected object and keeps its color');await click('Quad View');assert.equal(await d.locator('.quad-pane').count(),4);await capture('shape-effects-quad');await click('Quad View');await page.keyboard.press('Escape');await settle(page, 150);assert.deepEqual((await page.evaluate(readView)).model.Geosets,state.model.Geosets);checks.push('Shaping preview shares Quad View; Escape preserves draft');
  await click('Copy');await click('Paste');assert.equal((await page.evaluate(readView)).model.Geosets.length,3);await click('Undo');assert.equal((await page.evaluate(readView)).model.Geosets.length,2);checks.push('Copy/Paste and atomic undo');
  await click('Commit shape');assert.ok(Object.values((await page.evaluate(readView)).selection).every(v=>!v.length));
- await click('Add to model');await page.getByRole('dialog',{name:'Forge',exact:true}).waitFor({state:'hidden'});const result=await page.evaluate(readView,'.classic-view');assert.deepEqual(result.model.Geosets[0],main.model.Geosets[0]);assert.equal(result.model.Geosets.length,main.model.Geosets.length+2);await page.keyboard.press('Control+s');await settle(page, 800);const {openDocument}=await import('../src/editor-document.js');assert.equal(openDocument(fs.readFileSync(fixture)).model.Geosets.length,3);checks.push('Add to model preserves authored shape and saves');
+ await click('Add to model');await page.getByRole('dialog',{name:'Forge',exact:true}).waitFor({state:'hidden'});const result=await page.evaluate(readView,'.classic-view');assert.deepEqual(result.model.Geosets[0],main.model.Geosets[0]);assert.equal(result.model.Geosets.length,main.model.Geosets.length+2);const {openDocument}=await import('../src/editor-document.js'),savedGeosets=()=>openDocument(fs.readFileSync(fixture)).model.Geosets.length,startCount=savedGeosets();
+    // Add to model is one undo step (checked before the material steps add their own).
  await page.keyboard.press('Control+z');assert.deepEqual((await page.evaluate(readView,'.classic-view')).model.Geosets,main.model.Geosets);await page.keyboard.press('Control+y');checks.push('Add to model is one undo step');
+    // Forge items have no material yet: Save waits and names them (owner rule, 0.37.0).
+    await page.keyboard.press('Control+s');await page.getByText('Give these Forge items a material and texture before saving',{exact:false}).first().waitFor();await settle(page, 300);assert.equal(savedGeosets(),startCount,'nothing is saved while Forge items have no material');
+    // The message window is titled Save (it used to say "HD models"); the user clicks OK.
+    const notice=page.getByRole('dialog',{name:'Save',exact:true});await notice.waitFor();await notice.getByRole('button',{name:'OK',exact:true}).click();await notice.waitFor({state:'hidden'});
+    // The user gives each new item a material in the Geoset Manager, then Save works.
+    await clickMenu(app,'Geoset Manager…');await page.getByRole('dialog',{name:'Geoset Manager',exact:true}).waitFor();
+    for(const n of [main.model.Geosets.length+1,main.model.Geosets.length+2]){await page.locator('[aria-label="Geosets list"] [role="option"]').nth(n-1).click();await page.getByLabel('Material',{exact:true}).selectOption({label:'Material 1'});await settle(page, 200);}
+    await page.getByRole('button',{name:/^Close .*Manager$/}).click();await settle(page, 200);
+    await page.keyboard.press('Control+s');for(let tries=0;tries<60&&savedGeosets()!==main.model.Geosets.length+2;tries++)await settle(page, 100);
+    assert.equal(savedGeosets(),main.model.Geosets.length+2);checks.push('Add to model preserves authored shape; Save waits for materials, then saves');
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({executable,checks,rendererErrors:errors},null,2));console.log(JSON.stringify({pass:true,checks},null,2));
  }catch(e){if(page)await capture('failure');console.error('Renderer errors:',errors);throw e;}finally{if(app)await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

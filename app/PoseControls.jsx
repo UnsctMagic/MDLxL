@@ -127,7 +127,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     </>}
     {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>
-        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
+        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'navigation\u0004Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
         <p>{editor.end == null ? 'Click the bone you want to grab.' : draft ? 'Ready. The connected bones are highlighted.' : 'Choose the bones in the view.'}</p>
         <button className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
         {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}

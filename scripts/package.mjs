@@ -10,7 +10,7 @@ const { MANIFEST, validateManifest, digest: hash } = createRequire(import.meta.u
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.36.0-New-Features', '0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
+const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.37.0-New-Features', '0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
 const stageEntries = [...runtimeFolders, 'docs', 'package.json', 'README.md', 'MERGER_NOTES.md', 'THIRD_PARTY_NOTICES.md', 'LICENSES.bundled.txt'].sort();
 const exists = async file => { try { await fs.access(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 

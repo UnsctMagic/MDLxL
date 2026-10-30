@@ -1,4 +1,5 @@
 import React,{useRef} from 'react';
+import {useWindowKeyClaim} from './Hotkeys.jsx';
 // Corpse piece handles in the Auto Corpse preview. Same handles, look and keys
 // as EMTR/Glow Up: the middle moves a piece like an emitter, the two ends
 // stretch it like a ribbon's edges, the side handle sets its width like the
@@ -20,6 +21,11 @@ export const pieceMarks=(pieces,selected,show)=>{
 // moveOnly (Blood): points with only the move handle; others show as dots.
 export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveOnly=false,onSelect,onChange,onDrag}) {
   const drag=useRef(null),raw=snapshot?.marks;
+  // Like Glow Up: Escape during a drag cancels the drag before the window's Close takes it.
+  useWindowKeyClaim(({event})=>{
+    const d=drag.current;if(event.key!=='Escape'||!d)return false;
+    drag.current=null;onChange(selected,d.before);onDrag?.(false);return true;
+  },0);
   if(!raw||!pieces)return null;
   // A just-added piece has no projected marks until the preview draws again.
   const marks=Object.fromEntries(Object.entries(raw).filter(([,p])=>p&&Number.isFinite(p[0])&&Number.isFinite(p[1])));

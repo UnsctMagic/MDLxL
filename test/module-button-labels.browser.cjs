@@ -5,24 +5,34 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { chromium } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
-const port = 4174;
-
-const preview=spawn(process.execPath,[path.join(root,'node_modules/vite/bin/vite.js'),'preview','--configLoader','runner','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','inherit']});
+// Ask the OS for a free port. A fixed 4174 can already belong to another preview;
+// Vite then picks 4175, so waiting for the old URL never completes.
+const preview=spawn(process.execPath,[path.join(root,'node_modules/vite/bin/vite.js'),'preview','--configLoader','runner','--host','127.0.0.1','--port','0'],{cwd:root,stdio:['ignore','pipe','inherit'],windowsHide:true});
 const ready=new Promise((resolve,reject)=>{
-  preview.once('error',reject);
+  let output='';
+  const timer=setTimeout(()=>reject(Error('Vite preview did not start within 15 seconds: '+output)),15000);
+  const stop=error=>{clearTimeout(timer);reject(error);};
+  preview.once('error',stop);
+  preview.once('exit',(code,signal)=>stop(Error(`Vite preview exited before ready (${signal||code}): ${output}`)));
   preview.stdout.on('data',chunk=>{
-    if(chunk.toString().includes(`http://127.0.0.1:${port}/`))resolve();
+    output+=chunk.toString();
+    // Vite colours the port in a terminal; strip the colour codes before reading the URL.
+    const url=output.replace(/\u001b\[[0-9;]*m/g,'').match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+    if(url){clearTimeout(timer);resolve(url);}
   });
 });
 
 (async()=>{
-  await ready;
-  const browser=await chromium.launch({headless:true,executablePath:process.env.MDLXL_CHROMIUM_PATH||chromium.executablePath()});
+  let browser;
   try{
+    const url=await ready;
+    console.log('Preview ready at '+url);
+    browser=await chromium.launch({headless:true,executablePath:process.env.MDLXL_CHROMIUM_PATH||chromium.executablePath(),timeout:15000});
     const page=await browser.newPage({viewport:{width:1920,height:1080}});
+    page.setDefaultTimeout(10000);
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
-    await page.goto(`http://127.0.0.1:${port}/`);
+    await page.goto(url);
     const toolbar=page.locator('.toolbar-modules');
     await toolbar.waitFor();
     assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['AI','LIBR','FRG','BITZ','OPXL','EMTR','ANIM','CORP','KEY','LER','VIS']);
@@ -59,7 +69,7 @@ const ready=new Promise((resolve,reject)=>{
     assert.deepEqual(errors,[]);
     console.log('PASS labeled modules, relocated Quick Display, and Animations portrait controls render');
   }finally{
-    await browser.close();
+    await browser?.close();
     preview.kill();
   }
 })().catch(error=>{preview.kill();console.error(error);process.exitCode=1;});

@@ -16,7 +16,7 @@ const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || out('pkg/MDLxL-win32-x64
 // how to prepare them.
 const { fixturePath } = createRequire(import.meta.url)('../test/helpers/fixtures.cjs');
 const footman = fixturePath('footman'), citadelFootman = fixturePath('citadel-footman'), particleIndex = fixturePath('particle-index'), reviewModel = fixturePath('optimizexl-review');
-const archer = fixturePath('archer'), effectModel = fixturePath('effect'), hoofprintModel = fixturePath('hoofprint');
+const graveguard = out('graveguard/graveguard_Optimized Weapon (1).mdx'), archer = fixturePath('archer'), effectModel = fixturePath('effect'), hoofprintModel = fixturePath('hoofprint');
 const chrome = process.env.MDLXL_CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
 const VARIANTS = {
@@ -42,6 +42,10 @@ const SPECIAL = {
   attachemator: { env: { MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { argv: [footman], needs: [footman] },
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
+  // The owner's Graveguard WIP model (supplied from Downloads), copied to out/graveguard.
+  'event-sound-scroll': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'manager-simplification': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
   // About 18 minutes of real mouse drags across every editing Rotate tool.
@@ -59,6 +63,36 @@ for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor',
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+// The owner's private OptimizeXL review models, copied to out/ by out/fixtures.sh (docs/PACKAGED-TESTS.md).
+const flail01 = out('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
+const expression = [out('optimizexl-expression/WH_WOC_KnightKhorneFlail07.mdx'), out('optimizexl-expression/WH_WOC_KnightKhorneFlail03.mdx')];
+const necrarch = out('pose-complex-fixtures/WH_VC_NecrarchLord3.mdx'), queueA = out('showcase-queue/WH_WOC_KnightKhorneFlail03.mdx'), queueB = out('showcase-queue/WH_WOC_KnightKhorneAxe03.mdx');
+SPECIAL.optimizexl = { env: { MDLXL_OPTIMIZEXL_MODEL: flail01, MDLXL_OPTIMIZEXL_EXE: exe }, needs: [flail01] };
+for (const name of ['optimizexl-geosets', 'optimizexl-inspection']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_MODEL: flail01 }, needs: [flail01] };
+SPECIAL['optimizexl-expression'] = { env: { MDLXL_EXPRESSION_MODEL: expression.join(path.delimiter) }, needs: expression };
+for (const name of ['pose-complex', 'pose-performance']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: necrarch }, needs: [necrarch] };
+const fxFlail = out('pose-flail/Fx_original.mdx');
+SPECIAL['pose-one-head'] = { env: { MDLXL_FLAIL_MODEL: fxFlail }, needs: [fxFlail] };
+SPECIAL['showcase-queue'] = { env: { MDLXL_QUEUE_MODEL_A: queueA, MDLXL_QUEUE_MODEL_B: queueB }, needs: [queueA, queueB, path.join(root, 'profile/game-data-discovery.json')] };
+// LowPolyWorks / Blizzard SD models chosen for the OptimizeXL feature each test exercises (docs/PACKAGED-TESTS.md).
+const diagnosticsModel = out('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx');
+SPECIAL['optimizexl-diagnostics'] = { env: { MDLXL_DIAGNOSTICS_MODEL: diagnosticsModel }, needs: [diagnosticsModel] };
+const openingModel = out('optimizexl-opening/Spanish_Halberdier.mdx');
+const boundsModel = out('optimizexl-bounds/WH_WOC_WarriorNurgle_Flail11_Optimized.mdx');
+SPECIAL['optimizexl-bounds'] = { env: { MDLXL_BOUNDS_MODEL: boundsModel }, needs: [boundsModel] };
+const formatModel = out('optimizexl-format/KnightOfTheBlazingSun.mdx');
+SPECIAL['optimizexl-format'] = { env: { MDLXL_FORMAT_MODEL: formatModel }, needs: [formatModel] };
+const splineModel = out('optimizexl-spline/Warp_Lightning_CannonB.mdx');
+SPECIAL['optimizexl-spline'] = { env: { MDLXL_SPLINE_MODEL: splineModel }, needs: [splineModel] };
+const footmanModel = out('optimizexl-footman/human__footman.mdx');
+SPECIAL['optimizexl-footman'] = { env: { MDLXL_FOOTMAN_MODEL: footmanModel }, needs: [footmanModel] };
+const motionModel = out('optimizexl-motion/WH_WOC_WarriorNurgle_Flail12_Optimized.mdx');
+SPECIAL['optimizexl-motion'] = { env: { MDLXL_FOOTMAN_MODEL: motionModel }, needs: [motionModel] };
+const selectionModel = out('optimizexl-selection/human__muradin.mdx');
+SPECIAL['optimizexl-selection'] = { env: { MDLXL_FOOTMAN_MODEL: selectionModel }, needs: [selectionModel] };
+const poseSetupModel = out('pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx');
+SPECIAL['pose-setup'] = { env: { MDLXL_POSE_FIXTURE: poseSetupModel }, needs: [poseSetupModel, out('pose-setup-fixture/Textures')] };
+for (const name of ['optimizexl-opening', 'optimizexl-cleanup']) SPECIAL[name] = { env: { MDLXL_OPENING_MODEL: openingModel }, needs: [openingModel] };
 SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
 SPECIAL['ai-parallel'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
@@ -73,11 +107,6 @@ export const SKIP = {
   'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
-  'pose-complex': 'needs WH_VC_NecrarchLord3.mdx (private model)',
-  'pose-performance': 'needs WH_VC_NecrarchLord3.mdx (private model)',
-  'pose-setup': 'needs WH_WOC_KurganWarlord3.mdx (private model)',
-  'showcase-queue': 'needs KnightKhorneFlail04 / Axe01 (private models)',
-  ...Object.fromEntries(['optimizexl', 'optimizexl-bounds', 'optimizexl-cleanup', 'optimizexl-diagnostics', 'optimizexl-expression', 'optimizexl-footman', 'optimizexl-format', 'optimizexl-geosets', 'optimizexl-inspection', 'optimizexl-motion', 'optimizexl-opening', 'optimizexl-selection', 'optimizexl-spline'].map(name => [name, 'needs a private OptimizeXL review model'])),
 };
 // Rendering-, timing- and layout-heavy tests that are worth running under every variant.
 export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'anim-xl', 'model-tabs'];

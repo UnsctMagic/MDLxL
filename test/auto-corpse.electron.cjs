@@ -32,11 +32,74 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     assert.notDeepEqual((await scoped()).model.Geosets,fitted,'+ Skull adds a part');
     await window_.getByRole('slider',{name:'Move this piece',exact:true}).focus();await page.keyboard.press('Delete');await settlePage(page, 300);
     assert.deepEqual((await scoped()).model.Geosets,fitted);checks.push('Delete removes the selected part while its handle has focus');
+    // The user's way: double-click a generated piece in the preview (focus
+    // stays on the preview), press Delete; Ctrl+Z brings it back.
+    const corpseVertices=()=>scoped().then(s=>s.model.Geosets.reduce((n,g)=>n+g.Vertices.length,0));
+    const whole=await corpseVertices(),box=(await scoped()).rect,corpseGeosets=async()=>JSON.stringify((await scoped()).model.Geosets.map(g=>Array.from(g.Vertices)));
+    await page.mouse.dblclick(box.x+box.width*.5,box.y+box.height*.55);await settlePage(page, 300);
+    const handle=window_.getByRole('slider',{name:'Move this piece',exact:true});await handle.waitFor();
+    const dragFrom=async()=>{const h=await handle.boundingBox();return [h.x+h.width/2,h.y+h.height/2];};
+    // Escape during a real handle drag cancels the drag and keeps the window open.
+    const unmoved=await corpseGeosets();let [hx,hy]=await dragFrom();
+    await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(hx+40,hy+25,{steps:6});await settlePage(page, 200);
+    assert.notEqual(await corpseGeosets(),unmoved,'dragging the handle moves the piece');
+    await page.keyboard.press('Escape');await page.mouse.up();await settlePage(page, 300);
+    assert.equal(await window_.count(),1,'Escape during a drag does not close Auto Corpse');
+    assert.equal(await corpseGeosets(),unmoved,'Escape during a drag puts the piece back');
+    checks.push('Escape during a handle drag cancels the drag and keeps the window open');
+    // The reported path: drag the handle, then Delete, then Ctrl+Z.
+    [hx,hy]=await dragFrom();await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(hx+30,hy+20,{steps:6});await page.mouse.up();await settlePage(page, 300);
+    const dragged=await corpseVertices();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.ok(await corpseVertices()<dragged,'Delete removes a dragged generated piece');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await corpseVertices(),dragged,'Ctrl+Z brings the deleted piece back');
+    assert.ok(whole>0);checks.push('Double-click a piece, drag its handle, Delete removes it; Ctrl+Z restores it');
+    // Blood: the × button removes itself with focus; Ctrl+Z still undoes inside the window.
+    await window_.getByRole('tab',{name:'Blood Editor'}).or(window_.getByRole('button',{name:'Blood Editor',exact:true})).first().click();await settlePage(page, 300);
+    await window_.getByRole('button',{name:'+ Splat',exact:true}).click();await settlePage(page, 300);
+    const removeButtons=window_.getByRole('button',{name:/^Remove /});const rows=await removeButtons.count();assert.ok(rows>0,'+ Splat adds a blood row');
+    await removeButtons.last().click();await settlePage(page, 300);assert.equal(await removeButtons.count(),rows-1,'× removes the blood');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);assert.equal(await removeButtons.count(),rows,'Ctrl+Z after × brings the blood back');
+    checks.push('Blood ×, then Ctrl+Z, restores the blood');
+    // "Delete removes it" for blood, the user's way: click a blood row in the list
+    // (focus stays wherever that click leaves it, no .focus()), press Delete; Ctrl+Z brings it back.
+    const bloodRows=window_.getByRole('listbox',{name:'Death blood',exact:true}).getByRole('option'),bloodCount=await bloodRows.count();
+    await bloodRows.last().locator('span').first().click();await settlePage(page, 300);
+    assert.equal(await bloodRows.last().getAttribute('aria-selected'),'true','clicking a blood row selects it');
+    await window_.getByText('Drag the handle to move this blood. Delete removes it.',{exact:true}).waitFor();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),bloodCount-1,'Delete removes the blood clicked in the list');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),bloodCount,'Ctrl+Z after Delete brings the blood back');
+    checks.push('Blood: click a row, Delete removes it; Ctrl+Z restores it');
+    // The preview way: double-click the blood in the preview, drag its handle, then Delete and Ctrl+Z.
+    await bloodRows.last().locator('span').first().click();await settlePage(page, 300);
+    const bloodHandle=window_.getByRole('slider',{name:'Move this blood',exact:true});await bloodHandle.waitFor();
+    const hb=await bloodHandle.boundingBox(),spot=[hb.x+hb.width/2,hb.y+hb.height/2],pv=(await scoped()).rect;
+    // Double-click empty ground (a corner of the preview) lets the blood go.
+    await page.mouse.dblclick(pv.x+12,pv.y+pv.height-12);await settlePage(page, 300);
+    assert.equal(await bloodHandle.count(),0,'double-clicking empty ground lets the blood go');
+    await page.mouse.dblclick(...spot);await settlePage(page, 300);
+    await bloodHandle.waitFor({timeout:3000}).catch(()=>{throw Error('double-clicking the blood in the preview does not select it');});
+    {const b=await bloodHandle.boundingBox(),bx=b.x+b.width/2,by=b.y+b.height/2;await page.mouse.move(bx,by);await page.mouse.down();await page.mouse.move(bx+30,by+20,{steps:6});await page.mouse.up();await settlePage(page, 300);}
+    const draggedBlood=await bloodRows.count();
+    await page.keyboard.press('Delete');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),draggedBlood-1,'Delete removes the blood after its handle was dragged');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);
+    assert.equal(await bloodRows.count(),draggedBlood,'Ctrl+Z brings the dragged and deleted blood back');
+    checks.push('Blood: double-click it in the preview, drag its handle, Delete removes it; Ctrl+Z restores it');
+    await window_.getByRole('tab',{name:'Corpse Editor'}).or(window_.getByRole('button',{name:'Corpse Editor',exact:true})).first().click();await settlePage(page, 200);
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
     await page.locator('[data-clean-model-canvas]').waitFor();await settlePage(page, 700);
     const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Bones?/i);
+    // Blizzard's way: the body itself decays, CORP adds only the corpse.
+    const made=after.model.Bones.filter(n=>/^MDLxL /.test(n.Name));
+    assert.deepEqual(made.map(n=>n.Name).filter(n=>!/^MDLxL Corpse /.test(n)),[],'no bone for a frozen copy of the body');
+    assert.equal(after.model.Geosets.length-before.model.Geosets.length,made.length,'one corpse geoset per Death and no copy of the body');
+    checks.push('Create adds only the corpse; the body is not copied');
     assert.equal(after.frame,after.model.Sequences[after.sequence].Interval[0]);
     assert.equal(after.playing,false);
     await settlePage(page, 200);
@@ -46,7 +109,11 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     async function seek(time){await input.fill(String(time));await input.press('Enter');await page.waitForFunction(t=>Math.abs(window.corpseRuntime().frame-t)<1,time);await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}
     for(const label of ['Bones','Skeleton','Nodes','Emitters','Events','Sounds']) {const box=page.getByRole('checkbox',{name:label,exact:true});if(await box.count())await box.uncheck();}
     const fi=after.model.Sequences.findIndex(s=>/^Decay Flesh$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(fi));
-    const s=after.model.Sequences[fi];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
+    const s=after.model.Sequences[fi];
+    // Decay Flesh start, middle and end from the side, where the sink shows.
+    await page.getByLabel('View direction',{exact:true}).selectOption('front');await page.getByRole('button',{name:'Fit',exact:true}).click();
+    for(const [name,t] of [['flesh-start',0],['flesh-middle',.5],['flesh-end',.98]]){await seek(Math.round(s.Interval[0]+t*(s.Interval[1]-s.Interval[0])));await capture(name);}
+    await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
     const bi=after.model.Sequences.findIndex(s=>/^Decay Bones?$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(bi));await seek(after.model.Sequences[bi].Interval[0]);await capture('corpse');
     console.log('Body and corpse captured at the same camera scale.');
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;
@@ -67,7 +134,28 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
       for(let n=0;n<100&&!fs.existsSync(saved);n++)await settlePage(page, 100);
       const reopened=new EditorDocument(fs.readFileSync(saved),saved);assert.equal(reopened.readOnly,false);assert.equal(reopened.model.Geosets.length,after.model.Geosets.length);
-      assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');fs.unlinkSync(saved);
+      assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');
+      // The saved body lies in its last Death pose at the start of Decay
+      // Flesh, stays visible through it, and is underground and gone at the end.
+      const {sampleNodeMatrices,skinGeoset,sampleGeosetAnimation}=await import('../src/animation.js'),m=reopened.model;
+      const di=m.Sequences.findIndex(x=>/^Death$/i.test(x.Name)),fl=m.Sequences.findIndex(x=>/^Decay Flesh$/i.test(x.Name)),[a,b]=m.Sequences[fl].Interval,end=m.Sequences[di].Interval[1];
+      const body=m.Geosets.map((g,i)=>i).filter(i=>sampleGeosetAnimation(m,i,end-1,di).alpha>.5&&!m.Geosets[i].Groups.flat().some(o=>m.Bones.find(n=>n.ObjectId===o)?.Name.startsWith('MDLxL')));
+      assert.ok(body.length>0);
+      for(const id of body) {
+        const dead=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,end,di)),start=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,a,fl)),last=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,b-1,fl));
+        assert.ok(dead.every((v,i)=>Math.abs(v-start[i])<.05),'Decay Flesh starts from the last Death frame');
+        assert.ok(sampleGeosetAnimation(m,id,(a+b)/2,fl).alpha>.5,'the body shows in Decay Flesh');assert.equal(sampleGeosetAnimation(m,id,b,fl).alpha,0);
+        assert.ok(Math.max(...last.filter((_,i)=>i%3===2))<0,'the body is underground at the end of Decay Flesh');
+      }
+      checks.push('Saved '+format+': the body itself holds the last Death pose, shows through Decay Flesh and sinks underground');
+      // Like every native corpse: Decay Bone shows it lying still where Decay Flesh left it, until the last frame.
+      const bo=m.Sequences.findIndex(x=>/^Decay Bones?$/i.test(x.Name)),[c,e]=m.Sequences[bo].Interval,corpse=m.Geosets.findIndex((g,i)=>sampleGeosetAnimation(m,i,c+1,bo).alpha>.5);
+      const lying=skinGeoset(m.Geosets[corpse],sampleNodeMatrices(m,a+167,fl));
+      for(const t of [c,(c+e)/2,e-1])assert.ok(skinGeoset(m.Geosets[corpse],sampleNodeMatrices(m,t,bo)).every((v,i)=>Math.abs(v-lying[i])<.01),'the corpse lies still in Decay Bone');
+      assert.ok(sampleGeosetAnimation(m,corpse,e-1,bo).alpha>.5,'the corpse shows until the last frame of Decay Bone');
+      const {sampleTrack}=await import('../src/animation.js'),fade=t=>sampleTrack(m.Materials[m.Geosets[corpse].MaterialID].Layers[0].Alpha,t,{interval:[c,e],fallback:1});
+      assert.ok(fade(e-1667)>.99&&fade(e-1)<.05,'the corpse fades out over the end of Decay Bone like native corpses');
+      checks.push('Saved '+format+': the corpse lies still through Decay Bone and fades out at its end, as on Blizzard units');fs.unlinkSync(saved);
     }
     assert.deepEqual(fs.readFileSync(fixture),original);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,fixture,hidden:true,geosetsBefore:before.model.Geosets.length,geosetsAfter:after.model.Geosets.length},null,2));

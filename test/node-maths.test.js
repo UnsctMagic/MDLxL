@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, composeNodeMatrices, inheritedParentMatrix, keysInInterval, nodePivot, sampleNodeMatrices, sampleNodeProperty, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from '../src/animation.js';
+import { allNodes, compileTrackSampler, composeNodeMatrices, inheritedParentMatrix, keysInInterval, nodePivot, sampleNodeMatrices, sampleNodeProperty, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from '../src/animation.js';
 import { movementParentMatrix, sampleMovement } from '../src/movement.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
@@ -118,4 +118,57 @@ test('node property sampling, pivots and interval keys match the inline copies',
   assert.deepEqual(worldPivot({ PivotPoints: { 2: [1, 1, 1] } }, 2, matrices).toArray(), [2, 3, 4]);
   assert.deepEqual(worldPivot({}, 5, matrices, { PivotPoint: [1, 0, 0] }).toArray(), [1, 0, 0]);
   assert.ok(Object.isFrozen(TRANSFORM_DEFAULTS.Rotation));
+});
+
+
+test('compiled tracks match the shared sampler bit for bit across domains and controls',()=>{
+  const model=withFlags(knight());
+  for(const node of allNodes(model))for(const property of ['Translation','Rotation','Scaling'])for(let sequence=0;sequence<model.Sequences.length;sequence++){
+    const interval=model.Sequences[sequence].Interval,options={interval,globalSequences:model.GlobalSequences,globalTime:17,fallback:TRANSFORM_DEFAULTS[property],quaternion:property==='Rotation'};
+    const compiled=compileTrackSampler(node[property],options);
+    for(let i=0;i<=8;i++){
+      const frame=interval[0]+(interval[1]-interval[0])*i/8;
+      assert.deepEqual(compiled(frame),sampleTrack(node[property],frame,options));
+    }
+  }
+  for(const GlobalSeqId of [0,8,-1,null]){
+    const track={GlobalSeqId,LineType:3,Keys:[{Frame:0,Vector:[0,0,0,1],OutTan:[0,.6,0,.8]},{Frame:100,Vector:[0,0,.6,.8],InTan:[.6,0,0,.8]}]};
+    for(const quaternion of [false,true]){
+      const options={interval:[20,100],globalSequences:[100],fallback:[0,0,0,1],quaternion};
+      const compiled=compileTrackSampler(track,options);
+      for(let frame=0;frame<=220;frame+=.25)assert.deepEqual(compiled(frame),sampleTrack(track,frame,options));
+    }
+  }
+});
+
+test('pooled node matrices preserve arithmetic, flags, cycles and explicit subtree revisions',()=>{
+  for(const model of [knight(),withFlags(knight())]){
+    const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),ids=nodes.map(n=>n.ObjectId),scratch={};
+    const local=(node,frame)=>({t:new Vector3().fromArray(sampleNodeProperty(model,node,'Translation',frame,0)),r:new Quaternion().fromArray(sampleNodeProperty(model,node,'Rotation',frame,0)),s:new Vector3().fromArray(sampleNodeProperty(model,node,'Scaling',frame,0))});
+    for(const frame of [0,200,100,200])sameMaps(composeNodeMatrices(model,ids,n=>local(n,frame),byId,scratch),composeNodeMatrices(model,ids,n=>local(n,frame),byId));
+    let revision=0,calls=0;const fixed={version:()=>revision},sample=n=>{calls++;return local(n,200);};
+    sameMaps(composeNodeMatrices(model,ids,sample,byId,fixed),composeNodeMatrices(model,ids,n=>local(n,200),byId));
+    const count=calls;composeNodeMatrices(model,ids,sample,byId,fixed);assert.equal(calls,count);
+    revision++;sameMaps(composeNodeMatrices(model,ids,sample,byId,fixed),composeNodeMatrices(model,ids,n=>local(n,200),byId));
+    const parented=nodes.filter(n=>byId.has(n.Parent));if(parented.length){byId.get(parented[0].Parent).Parent=parented[0].ObjectId;
+      sameMaps(composeNodeMatrices(model,ids,n=>local(n,200),byId,{}),composeNodeMatrices(model,ids,n=>local(n,200),byId));}
+  }
+});
+
+
+test('matrix revisions resample only the edited subtree and retain ancestor entries',()=>{
+ const model={Sequences:[{Interval:[0,10]}],Bones:[{ObjectId:0},{ObjectId:1,Parent:0},{ObjectId:2,Parent:0}]};
+ const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),revision=new Map(),calls=new Map(),translations=new Map(nodes.map(n=>[n.ObjectId,new Vector3()]));
+ const scratch={version:n=>revision.get(n.ObjectId)||0},sample=n=>{calls.set(n.ObjectId,(calls.get(n.ObjectId)||0)+1);return {t:translations.get(n.ObjectId),r:new Quaternion(),s:new Vector3(1,1,1)};};
+ const check=()=>sameMaps(composeNodeMatrices(model,[1,2],sample,byId,scratch),composeNodeMatrices(model,[1,2],n=>({t:translations.get(n.ObjectId),r:new Quaternion(),s:new Vector3(1,1,1)}),byId));
+ check();translations.get(1).x=7;revision.set(1,1);check();assert.equal(calls.get(0),1);assert.equal(calls.get(1),2);assert.equal(calls.get(2),1);
+ translations.get(0).y=3;for(const n of nodes)revision.set(n.ObjectId,(revision.get(n.ObjectId)||0)+1);check();
+ assert.equal(calls.get(0),2);assert.equal(calls.get(1),3);assert.equal(calls.get(2),2);
+});
+
+
+test('pooled cyclic graphs keep traversal-dependent identity edges when requested roots change',()=>{
+ const model={Bones:[{ObjectId:0,Parent:1},{ObjectId:1,Parent:0}]},byId=new Map(model.Bones.map(n=>[n.ObjectId,n])),scratch={version:()=>0};
+ const local=n=>({t:new Vector3(n.ObjectId+1,1,0),r:new Quaternion(),s:new Vector3(1,1,1)});
+ for(const ids of [[0],[1],[0,1],[1,0],[1]])sameMaps(composeNodeMatrices(model,ids,local,byId,scratch),composeNodeMatrices(model,ids,local,byId));
 });

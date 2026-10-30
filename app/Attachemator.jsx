@@ -68,7 +68,8 @@ export default function Attachemator({ doc, modelPath, textureAssets, teamColor,
     try { if (onCommit({ rows: plan.rows, chosen, pivots: pivots.current, parents }) !== false) onClose(); }
     catch (cause) { setError(cause.message); }
   };
-  useWindowKeyClaim(({event, localWindow}) => localWindow === root.current && event.key === 'Escape' && !!picking);
+  // Escape leaves bone picking (and nothing else) before the window's Close takes the key.
+  useWindowKeyClaim(({event, localWindow}) => { if (localWindow !== root.current || event.key !== 'Escape' || !picking) return false; setPicking(null); return true; });
 
   return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" windowRef={root} onClose={onClose} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
     caption={<><strong title="Places the standard attachment points where Blizzard's own units have them, on the right bones.">Attachemator</strong><span className="atm-spacer"/></>}>

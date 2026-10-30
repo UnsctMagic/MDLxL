@@ -23,13 +23,14 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
    const { runtime: r, props } = mdlxlProbe(root); if(!r||!props)return null;return {frame:r.native.getFrame(),sequence:r.native.getSequence(),globalTime:props.playbackGlobalTime,hovered:props.hoveredGeoset,matrices:r.native.rendererData.nodes.map(n=>n?.matrix?Array.from(n.matrix):null)};
   });});
   const details=p.locator('.ox-review');assert.equal(await details.getAttribute('open'),null,'Review details start collapsed');await details.locator('summary').click();
-  const rows=details.locator('.ox-review-row');assert.equal(await rows.count(),10);assert.equal(await rows.first().textContent(),'Geoset 18');
+  // Geoset 41 left the list in PR #383: near-match welding now keeps it (it protects small holes).
+  const rows=details.locator('.ox-review-row');assert.equal(await rows.count(),9);assert.equal(await rows.first().textContent(),'Geoset 18');
   assert.ok((await rows.allTextContents()).every(s=>/^Geoset \d+$/.test(s)),'Duplicate review lists only geosets');assert.equal(await details.getByRole('button').count(),0);
   await rows.first().hover();await p.waitForFunction(()=>reviewState().every(s=>s?.hovered===17)&&document.querySelectorAll('[data-geoset-overlay]').length===2);
   assert.ok(await p.locator('[data-geoset-overlay]').evaluateAll(canvases=>canvases.every(c=>{const ctx=c.getContext('2d'),d=ctx.getImageData(0,0,c.width,c.height).data;return ctx.fillStyle==='#ff9900'&&d.some((v,i)=>i%4===3&&v>0);})));await p.screenshot({path:path.join(out,'01-duplicate-guidance-hover.png')});
   await details.locator('summary').click();await p.waitForFunction(()=>reviewState().every(s=>s?.sequence===1&&s.frame===2000));await p.getByRole('heading',{name:'OptimizeXL',exact:true}).hover();
   await p.getByRole('button',{name:'Animation optimization',exact:true}).click();await p.getByLabel('Strength',{exact:true}).fill('40');await ready();await details.locator('summary').click();
-  assert.equal(await rows.count(),0);assert.deepEqual(await details.getByRole('button').allTextContents(),['2 changes to animation Attack - 1','12 changes to animation Death','4 changes to animation Attack - Slam','1 change to animation Dissipate']);
+  assert.equal(await rows.count(),0);assert.deepEqual(await details.getByRole('button').allTextContents(),['2 changes to animation Attack - 1','14 changes to animation Death','4 changes to animation Attack - Slam','1 change to animation Dissipate']);
   await details.getByRole('button',{name:'4 changes to animation Attack - Slam',exact:true}).click();await p.waitForFunction(()=>reviewState().every(s=>s?.sequence===9&&s.frame===171063));await p.screenshot({path:path.join(out,'02-animation-guidance.png')});
   await details.locator('summary').click();await p.waitForFunction(()=>reviewState().every(s=>s?.sequence===1&&s.frame===2000));await details.locator('summary').click();await details.getByRole('button',{name:'4 changes to animation Attack - Slam',exact:true}).click();
   await p.getByRole('button',{name:'Unused data',exact:true}).click();await ready();await p.waitForFunction(()=>reviewState().every(s=>s?.sequence===1&&s.frame===2000));await details.locator('summary').click();assert.deepEqual(await rows.allTextContents(),['Helper: Axe','Global sequence 2']);await p.screenshot({path:path.join(out,'05-unused-data.png')});

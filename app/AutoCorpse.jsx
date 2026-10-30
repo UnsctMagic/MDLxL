@@ -6,11 +6,15 @@ import { createVisibilityGeosetAnimation } from '../src/geoset-animation-default
 import { updateBounds } from '../src/mesh-tools.js';
 import { BLOOD_KINDS, BLOOD_RACES, deathBlood, isBloodSpray, parseSplat, splatCode, sprayKind } from '../src/corpse-blood.js';
 import { loadEventCatalog } from './node-event-data.js';
+import { resolveGameFiles } from './desktop.js';
+import { gamePathKey } from '../src/game-path.js';
 import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
 import { RangeField } from './Fields.jsx';
 import ToolWindow from './ToolWindow.jsx';
+import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { windowCommandActions } from '../src/commands.js';
 
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
@@ -57,6 +61,19 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   const current = useMemo(() => structuredClone(doc.model), [doc.revision]);
   const [size, setSize] = useState(100), [height, setHeight] = useState(100), [rgb, setRgb] = useState([255, 255, 255]);
   const [pieces, setPieces] = useState(null), [selected, setSelected] = useState(null), [outline, setOutline] = useState(true), [withBody, setWithBody] = useState(false), [error, setError] = useState(''), [snapshot, setSnapshot] = useState(null);
+  const [corpseAssets, setCorpseAssets] = useState(new Map());
+  const previewAssets = useMemo(() => new Map([...corpseAssets, ...(textureAssets instanceof Map ? textureAssets : Object.entries(textureAssets || {}))]), [corpseAssets, textureAssets]);
+  // The draft can introduce gutz even when the source model never used it.
+  // Resolve it through the same game-data loader as the other native previews.
+  useEffect(() => {
+    const assets = textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {}));
+    if ([...assets.keys()].some(name => gamePathKey(name).split('\\').at(-1) === 'gutz.blp')) return;
+    let active = true;
+    resolveGameFiles(['Textures\\gutz.blp'], modelPath).then(records => {
+      if (active) setCorpseAssets(new Map(records.filter(record => record.bytes).map(record => [gamePathKey(record.logicalName || record.texturePath || record.name), record])));
+    }).catch(cause => { if (active) setError(cause.message); });
+    return () => { active = false; };
+  }, [modelPath, textureAssets]);
   // Blood tab: null means the Death animation's own blood is left untouched.
   const deathIndex = useMemo(() => current.Sequences.findIndex(seq => /(?:^|\s)death(?:\s|$)/i.test(seq.Name)), [current]);
   const ownBlood = useMemo(() => deathIndex >= 0 ? deathBlood(current, deathIndex) : [], [current, deathIndex]);
@@ -150,12 +167,16 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
     try { if (onCommit(options)) onClose(); else setError('This exact corpse is already in the model.'); }
     catch (cause) { setError(cause.message); }
   };
-  const keys = event => {
-    event.stopPropagation();
-    const typing = event.target.matches?.('input[type=number],input[type=text],textarea');
-    if ((event.ctrlKey || event.metaKey) && !typing && /^[zy]$/i.test(event.key)) { event.preventDefault(); if (event.key.toLowerCase() === 'y' || event.shiftKey) step(future, past); else step(past, future); return; }
-    // Delete works wherever focus is (preview, handles, buttons), except in form fields.
-    if (event.key === 'Delete' && !event.target.closest?.('input,textarea,select')) { if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); } };
+  // Undo, Redo and Delete go through the shared window keys like AnimXL and
+  // EMTR, so they work wherever focus is in this window, also after the
+  // focused handle or × button disappears with the deleted piece.
+  useWindowHotkeys('autoCorpse', windowCommandActions('autoCorpse', 'Auto Corpse', { undo: () => step(past, future), redo: () => step(future, past) }));
+  useWindowKeyClaim(({ event, localWindow }) => {
+    if (localWindow !== root.current || event.key !== 'Delete' || event.target.closest?.('input,textarea,select')) return false;
+    if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); else return false;
+    return true;
+  });
+  const keys = event => event.stopPropagation();
   // Double-click a body part (or blood) in the preview to grab it; double-click empty ground to let go.
   const pick = event => {
     const marks = snapshot?.marks, box = event.currentTarget.getBoundingClientRect();
@@ -221,7 +242,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           <button disabled={!changed} title="Back to the fitted corpse" onClick={reset}>Reset</button>
         </div>}
         <section className="atm-preview acp-preview" aria-label="Auto Corpse preview" onDoubleClick={pick}>
-          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor}
+          <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={previewAssets} modelPath={modelPath} teamColor={teamColor}
             sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
           {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>
