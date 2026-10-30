@@ -101,7 +101,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
     const text=page.getByRole('region',{name:'Text',exact:true});await text.getByRole('button',{name:'Add',exact:true}).click();
     const content=page.getByLabel('Text content');await content.fill('UNDO THIS TEXT');await undo();assert.equal(await content.inputValue(),'Your text');await redo();assert.equal(await content.inputValue(),'UNDO THIS TEXT');
     await page.getByRole('button',{name:'Bold',exact:true}).click();await undo();assert.equal(await page.getByRole('button',{name:'Bold',exact:true}).getAttribute('aria-pressed'),'false');await redo();
-    const textSize=page.getByLabel('Text size',{exact:true});await textSize.fill('72');await undo();assert.equal(await textSize.inputValue(),'48');await redo();assert.equal(await textSize.inputValue(),'72');
+    const textSize=page.getByLabel('Text size',{exact:true});await textSize.fill('72');await textSize.press('Enter');await undo();assert.equal(await textSize.inputValue(),'48');await redo();assert.equal(await textSize.inputValue(),'72');
     const layer=page.locator('.showcase-layer-selection'),layerBox=await layer.boundingBox(),beforeRect=await page.evaluate(()=>window.showcaseState().layers[0].rect);
     await page.mouse.move(layerBox.x+layerBox.width*.5,layerBox.y+layerBox.height*.5);await page.mouse.down();await page.mouse.move(layerBox.x+layerBox.width*.5+70,layerBox.y+layerBox.height*.5+35,{steps:6});await page.mouse.up();await settle(page, 100);
     assert.notDeepEqual(await page.evaluate(()=>window.showcaseState().layers[0].rect),beforeRect);await undo();assert.deepEqual(await page.evaluate(()=>window.showcaseState().layers[0].rect),beforeRect);
@@ -138,7 +138,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
     console.log('PASS model loading undo restores the actual preview model');
     const animations=page.getByRole('list',{name:'Animation sequence'});await animations.locator('li').first().click();
     const dialog=page.getByRole('dialog',{name:'Edit animation',exact:true}),extra=dialog.getByLabel('Animation Extra Time');
-    await extra.fill('5');await undo();assert.equal(await extra.inputValue(),'0');await redo();assert.equal(await extra.inputValue(),'5');await dialog.getByRole('button',{name:'OK',exact:true}).click();
+    await extra.fill('5');await extra.press('Enter');await undo();assert.equal(await extra.inputValue(),'0');await redo();assert.equal(await extra.inputValue(),'5');await dialog.getByRole('button',{name:'OK',exact:true}).click();
     await page.getByRole('group',{name:'GIF quality',exact:true}).getByRole('button',{name:'High',exact:true}).click();assert.equal(await page.locator('.showcase-error').count(),0);assert.ok(!(await page.locator('.showcase-export-note').innerText()).includes('5s'));
     const events=()=>app.evaluate(()=>global.captureEvents),reset=()=>app.evaluate(()=>{global.captureEvents=[];});
     const stop=page.getByRole('button',{name:'STOP',exact:true}),record=page.getByRole('button',{name:'RECORD',exact:true});

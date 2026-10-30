@@ -1,3 +1,4 @@
+import { translate } from '../src/localization.js';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
@@ -52,7 +53,7 @@ function DifferenceLine({ kind, line }) {
 }
 function Records({ records }) {
   return records.map((record, i) => <li key={i}>{record.type === 'texture'
-    ? <><span translate="no">{record.name}</span>{` is imported ${record.textures.length} times: textures ${list(record.textures)}`} <span className="smm-muted">{record.identical ? '(identical)' : '(wrapping or flags differ)'}</span></>
+    ? <><span translate="no">{record.name}</span>{translate(` is imported ${record.textures.length} times: textures ${list(record.textures)}`)} <span className="smm-muted">{record.identical ? '(identical)' : '(wrapping or flags differ)'}</span></>
     : <span>{`Materials ${list(record.materials)} are identical`}</span>}</li>);
 }
 function Proposal({ group }) {

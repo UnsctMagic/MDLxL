@@ -1,4 +1,4 @@
-# MDLxL 0.35.0
+# MDLxL 0.36.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.35.0 shows bone pivots: a double-click on any part selects its bones in Focused Skeleton with an axis cross through each pivot. Zoom gets Align (Shift+1) to flatten a selection as seen from the camera, Controller type moves into the Controller heading with multiselect always on, Glow Up gets Pause/Play, and Save as can set the model name. First launch greets you with a themed welcome window, Help > About is a real About, the empty Check model entry is gone, and Spanish, Russian and Chinese translations are caught up.
+Version 0.36.0 gives Rotate one Along the ring rule in every editor, Smooth edges in every 3D view with sharp editor lines, and shared window keys, sliders and number boxes. Citadel Paint follows the same camera and mouse settings; Inspector rebuilds SD-style normals. Showcase adds recording quality levels, shorter endings and custom fonts. Auto Corpse gains corpse and blood editors, Library previews and AI chats are more reliable, and MDX saves omit empty animation tracks rejected by War3 Model Editor 1.07. The codebase audit also replaces duplicated helpers and makes the packaged tests use the packaged app.
 
 ## Releases
 
@@ -51,6 +51,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.36.0](docs/RELEASE-0.36.0.md) ([ES](docs/RELEASE-0.36.0-ES.md), [RU](docs/RELEASE-0.36.0-RU.md), [ZH-CN](docs/RELEASE-0.36.0-ZH-CN.md))
 - [0.35.0](docs/RELEASE-0.35.0.md) ([ES](docs/RELEASE-0.35.0-ES.md), [RU](docs/RELEASE-0.35.0-RU.md), [ZH-CN](docs/RELEASE-0.35.0-ZH-CN.md))
 - [0.34.0](docs/RELEASE-0.34.0.md) ([ES](docs/RELEASE-0.34.0-ES.md), [RU](docs/RELEASE-0.34.0-RU.md), [ZH-CN](docs/RELEASE-0.34.0-ZH-CN.md))
 - [0.33.0](docs/RELEASE-0.33.0.md) ([ES](docs/RELEASE-0.33.0-ES.md), [RU](docs/RELEASE-0.33.0-RU.md), [ZH-CN](docs/RELEASE-0.33.0-ZH-CN.md))

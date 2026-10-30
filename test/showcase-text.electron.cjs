@@ -1,5 +1,6 @@
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {pathToFileURL}=require('node:url');
 
 (async()=>{
   const root=process.cwd(),out=path.join(root,'out/showcase-text');fs.mkdirSync(out,{recursive:true});
@@ -40,11 +41,10 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
     const transform=await page.locator('.showcase-layer-selection').evaluate(element=>getComputedStyle(element).transform);assert.notEqual(transform,'none');
     await page.getByText('Fades',{exact:true}).click();
     await page.getByLabel('Fade in start').fill('1');await page.getByLabel('Fade in length').fill('2');
-    await page.getByLabel('Fade out start').fill('5');await page.getByLabel('Fade out length').fill('1.5');
+    await page.getByLabel('Fade out start').fill('5');await page.getByLabel('Fade out length').fill('1.5');await page.getByLabel('Fade out length').press('Enter');
     await page.locator('.showcase-font-grid').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'controls.png')});
-    // showcase-text.js imports its rich-text runs helper since 97fabb9e; inline both sources.
-    const textSource=fs.readFileSync(path.join(root,'app/showcase-rich-text.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app/showcase-text.js'),'utf8').replace(/^import \{[^}]*\} from '\.\/showcase-rich-text\.js';$/m,'').replace(/^import \{[^}]*\} from '\.\/showcase-custom-fonts\.js';$/m,'const customFontFamily=()=>undefined;');
-    await page.evaluate(source=>{window.textModule=new Function(source.replaceAll('export ','')+';return {SHOWCASE_FONTS,TEXT_EFFECTS,paintShowcaseText,textFadeOpacity};')();},textSource);
+    // Import the real module and its dependencies; keep every pixel/fade assertion.
+    await page.evaluate(async url=>{window.textModule=await import(url);},pathToFileURL(path.join(root,'app/showcase-text.js')).href);
     const report=await page.evaluate(async()=>{
       const {SHOWCASE_FONTS,TEXT_EFFECTS,paintShowcaseText:paint,textFadeOpacity}=window.textModule;
       await Promise.all(SHOWCASE_FONTS.map(font=>document.fonts.load('48px "'+font.family+'"')));

@@ -1179,7 +1179,7 @@ export default function GamePreview(inputProps) {
       } catch (cause) { failures.push(`${info.Image}: ${cause.message}`); }
       finally { texture?.dispose(); if (!disposed) invalidate(); }
     });
-    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved Â· load the model's texture files`] : []), ...failures]); });
+    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved · load the model's texture files`] : []), ...failures]); });
     let reportAt = performance.now(), activeSequence = -99, externalFrame, reportedFrame, lastPlaying = false, globalClock = 0, playbackStopped = false;
     let showcaseSample, recordingSink = null;
     let footprintTime = 0, footprintSegment = 0, footprintRangeKey = '';
