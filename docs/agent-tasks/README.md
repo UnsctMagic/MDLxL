@@ -10,7 +10,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | --- | --- | --- |
 | AI chat loop fixes; context diet follow-up | Completed; context diet ready to test | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
-| Codebase audit: seven area reports and 24-package repair plan; plan final, wave 0 running | Plan final; wave 0 running | [Codebase audit](codebase-audit.md) / Claude Code |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed
