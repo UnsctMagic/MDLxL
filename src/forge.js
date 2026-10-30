@@ -9,6 +9,7 @@ import { booleanContours, exteriorFrame, triangulateContours, signedArea as area
 import { createNode, recalculateNormals, recalculateExtents } from './editor-document.js';
 import { fillSequenceExtents } from './sequence-editor.js';
 import { ensureDummyBone } from './dummy-bone.js';
+import { FORGE_ITEM_KEY, NO_MATERIAL } from './forge-clay.js';
 export { ensureDummyBone } from './dummy-bone.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -204,15 +205,21 @@ export function buildForgeMesh({ mask, width, height, detail = 35, size = 100, t
 }
 /** Stock Reforged neutral maps (in the game's HD module). */
 export const HD_NEUTRAL_MAPS = { normal: 'Textures\\normal.dds', orm: 'Textures\\orm.dds', emissive: 'Textures\\black32.dds' };
-/** Resolve the shared role at the moment an operation commits, never in a preview. */
-export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 0.3] } = {}) {
-  if (!texturePath || !String(texturePath).trim()) throw Error('Choose an image before forging.');
+/** Resolve the shared role at the moment an operation commits, never in a preview.
+ * Without a texturePath (every Forge window item) nothing is added to Textures or
+ * Materials: the geosets show as clay until the user assigns a material, and
+ * saving waits for it (forge-clay.js). SD kit parts pass their own painted texture.
+ */
+export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 0.3], name = 'Forge item' } = {}) {
+  const clay = texturePath == null;
+  if (!clay && !String(texturePath).trim()) throw Error('Choose an image before forging.');
   if (!mesh?.geosets?.length || mesh.geosets.some(g => !g.Faces?.length || g.Vertices.length / 3 > 65536)) throw Error('Generate a valid preview before forging.');
-  if (!Array.isArray(trimColor) || trimColor.length !== 3 || trimColor.some(v => !Number.isFinite(v) || v < 0 || v > 1)) throw Error('Trim color must contain three values from 0 to 1.');
+  if (!clay && (!Array.isArray(trimColor) || trimColor.length !== 3 || trimColor.some(v => !Number.isFinite(v) || v < 0 || v > 1))) throw Error('Trim color must contain three values from 0 to 1.');
   const hd = (model.Geosets || []).some(g => g.SkinWeights?.length), extraAssets = [];
   if (hd && model.Version < 900) throw Error('Weighted Forge geometry requires model format 900 or newer.');
   const bone = ensureDummyBone(model, { weighted: hd });
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
+  if (clay) return addForgeGeosets(model, mesh, bone, hd, i => ({ MaterialID: NO_MATERIAL, [FORGE_ITEM_KEY]: i ? `${name} trim` : name }), { textureId: null, extraAssets });
   let textureId = model.Textures.findIndex(t => gamePathKey(t.Image) === gamePathKey(texturePath));
   if (textureId < 0) { textureId = model.Textures.length; model.Textures.push({ Image: texturePath, ReplaceableId: 0, Flags: 0 }); }
   const auxiliary = image => {
@@ -239,18 +246,23 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
     if (white < 0) { white = model.Textures.length; model.Textures.push({ Image: 'Textures\\white.blp', ReplaceableId: 0, Flags: 0 }); }
     trimMaterialId = model.Materials.length; model.Materials.push(material(white, 0));
   }
+  const result = addForgeGeosets(model, mesh, bone, hd, i => ({ MaterialID: i ? trimMaterialId : materialId }), { textureId, extraAssets });
+  for (const index of result.geosetIndices.slice(1)) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(trimColor) });
+  if (model.Info) model.Info.NumGeosetAnims = model.GeosetAnims.length;
+  return result;
+}
+function addForgeGeosets(model, mesh, bone, hd, surface, extra) {
   const geosetIndices = [];
   for (const [i, source] of mesh.geosets.entries()) {
-    const index = model.Geosets.length, g = { ...structuredClone(source), VertexGroup: new Uint8Array(source.Vertices.length / 3), Groups: [[bone.ObjectId]], TotalGroupsCount: 1, MaterialID: i ? trimMaterialId : materialId, SelectionGroup: 0, Unselectable: false, Anims: [] };
+    const index = model.Geosets.length, g = { ...structuredClone(source), VertexGroup: new Uint8Array(source.Vertices.length / 3), Groups: [[bone.ObjectId]], TotalGroupsCount: 1, ...surface(i), SelectionGroup: 0, Unselectable: false, Anims: [] };
     // The codec's missing-LOD default becomes -1 on MDX save; the native
     // renderer displays LOD0. Preserve Forge visibility across reopening.
     if (model.Version >= 900) g.LevelOfDetail = 0;
     if (hd) { g.SkinWeights = new (model.Version >= 1400 ? Uint16Array : Uint8Array)(g.Vertices.length / 3 * 8); for (let v = 0; v < g.Vertices.length / 3; v++) g.SkinWeights.set([bone.ObjectId, 0, 0, 0, 255, 0, 0, 0], v * 8); g.Tangents = forgeTangents(g); }
     model.Geosets.push(g); geosetIndices.push(index);
-    if (i) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(trimColor) });
   }
   recalculateExtents(model, geosetIndices);
   for (const i of geosetIndices) fillSequenceExtents(model, model.Geosets[i]);
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length; }
-  return { geosetIndices, boneId: bone.ObjectId, textureId, extraAssets };
+  return { geosetIndices, boneId: bone.ObjectId, ...extra };
 }

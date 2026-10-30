@@ -1,11 +1,12 @@
 import { MODEL_COMMENTS_KEY } from './model-comments.js';
 import { equivalentGeosetColorDefaults } from './geoset-animation-defaults.js';
+import { FORGE_ITEM_KEY } from './forge-clay.js';
 
 // Compare values the user actually owns, not just record counts. Float32 is
 // the file format's precision; no decimal epsilon may hide changed key values.
 // Header comments have a separate MDL save/reopen check in EditorDocument;
 // they are not native model fields and MDX cannot represent them.
-const ignored = new Set([MODEL_COMMENTS_KEY,'_GeosetTabId','_AnimationSpeed','_AnimationSpeedFrame','_AnimationSpeedEvents','Nodes','PivotPoint','TotalGroupsCount','NumGeosets','NumGeosetAnims','NumBones','NumHelpers','NumLights','NumAttachments','NumEvents','NumParticleEmitters','NumParticleEmitters2','NumRibbonEmitters']);
+const ignored = new Set([MODEL_COMMENTS_KEY,FORGE_ITEM_KEY,'_GeosetTabId','_AnimationSpeed','_AnimationSpeedFrame','_AnimationSpeedEvents','Nodes','PivotPoint','TotalGroupsCount','NumGeosets','NumGeosetAnims','NumBones','NumHelpers','NumLights','NumAttachments','NumEvents','NumParticleEmitters','NumParticleEmitters2','NumRibbonEmitters']);
 const defaults = { AnimationFile:'',Path:'',PriorityPlane:0,Gravity:0,SyncPoint:0,Flags:0,SelectionFlags:0,Variant:0,Shader:'',Name:'',LevelOfDetail:0,Alpha:1,EmissiveGain:1,FresnelOpacity:0,FresnelTeamColor:0,ShaderTypeId:0,ShadowIntensity:0,ShadowCasting:0,ShadowCastingStart:0,ShadowCastingEnd:0,QuadraticFalloff:0.0005,LinearFalloff:0,Damping:0.00001,_MdxTextureId:0 };
 // Signed zero is the same coordinate; record reuse and MDL text can change its sign.
 // Keep float32 comparisons exact so genuinely different values still fail verification.

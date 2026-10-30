@@ -16,9 +16,8 @@ function minimalCylinder(cone) {
   geometry.setAttribute('position', new Float32BufferAttribute(p, 3)); geometry.setAttribute('normal', new Float32BufferAttribute(n, 3)); geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2)); geometry.setIndex(faces); return geometry;
 }
 
-export const PRIMITIVE_TEXTURE = 'ReplaceableTextures\\CommandButtons\\BTNTemp.blp';
 // The UV triangle contains the complete unit square. With Warcraft's clamped
-// sampler, each triangle shows the whole portrait once (including its frame).
+// sampler, each triangle shows the whole image the user assigns once.
 export const TRIANGLE_ICON_UV = [-.5, 0, 1.5, 0, .5, 2];
 function fullIconPerTriangle(source) {
   const geometry = source.index ? source.toNonIndexed() : source;

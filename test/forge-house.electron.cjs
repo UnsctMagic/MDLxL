@@ -2,8 +2,9 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 // Acceptance proof: an empty file becomes a house through public UI input only.
 // Every change is made with the mouse and keyboard (Forge buttons, dimension and
 // coordinate fields, double-click, viewport drags, Save). React state is read only
-// to find where on screen a face or handle is, as the other Forge tests do; no mesh
-// is injected and no private editing call is made.
+// to find where on screen a face or handle is and to read the built house, as the
+// other Forge tests do; no mesh is injected and no private editing call is made.
+// Forge items have no material yet, so Save must wait and name them.
 // Run against a packaged app using MDLXL_TEST_EXE and MDLXL_PLAYWRIGHT_MODULE.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -113,13 +114,11 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
 
     await click('Add to model'); await d.waitFor({ state: 'hidden' }); await capture('added-to-model');
     await page.keyboard.press('Control+s');
-    for (let tries = 0; tries < 200 && fs.readFileSync(modelPath).equals(emptyBytes); tries++) await settle(page, 50);
-    await settle(page, 500); await capture('saved');
+    await page.getByText('Give these Forge items a material and texture before saving', { exact: false }).first().waitFor();
+    await settle(page, 500); await capture('save-waits-for-material');
+    assert.ok(fs.readFileSync(modelPath).equals(emptyBytes), 'nothing is saved while Forge items have no material');
 
-    const { openDocument } = await import('../src/editor-document.js');
-    const document = openDocument(fs.readFileSync(modelPath), 'Forge House.mdl');
-    assert.deepEqual(document.diagnostics.filter(diagnostic => diagnostic.severity === 'error'), []);
-    const geosets = document.model.Geosets;
+    const geosets = (await page.evaluate(readView, '.classic-view')).model.Geosets;
     assert.equal(geosets.length, 6);
     for (const geoset of geosets) {
       assert.ok([...geoset.Vertices, ...geoset.Normals, ...geoset.TVertices[0]].every(Number.isFinite));
@@ -135,7 +134,7 @@ eval(cuts.slice(cuts.indexOf('function readDraft'), cuts.indexOf('(async()=>{', 
     assert.equal(triangles, 88);
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, modelPath, construction: 'Public mouse/keyboard controls only, from an empty model', steps, geosets: geosets.length, triangles, rendererErrors: errors }, null, 2));
-    console.log(`PASS: mouse-built house (${geosets.length} geosets, ${triangles} triangles) saved to ${modelPath}`);
+    console.log(`PASS: mouse-built house (${geosets.length} geosets, ${triangles} triangles); Save waits for materials`);
   } catch (error) { if (page) await capture('failure').catch(() => {}); throw error; }
   finally{if(app)await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
