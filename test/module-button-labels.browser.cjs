@@ -16,7 +16,8 @@ const ready=new Promise((resolve,reject)=>{
   preview.once('exit',(code,signal)=>stop(Error(`Vite preview exited before ready (${signal||code}): ${output}`)));
   preview.stdout.on('data',chunk=>{
     output+=chunk.toString();
-    const url=output.match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+    // Vite colours the port in a terminal; strip the colour codes before reading the URL.
+    const url=output.replace(/\u001b\[[0-9;]*m/g,'').match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
     if(url){clearTimeout(timer);resolve(url);}
   });
 });
