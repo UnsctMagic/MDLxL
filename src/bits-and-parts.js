@@ -116,6 +116,25 @@ export function partTextureIndices(model) {
   return [...indices];
 }
 
+/** Texture files a Bit import carries beside the saved model. Only the Bit's
+ * own custom files travel: a path the target already uses is reused, and a
+ * path Warcraft III provides (asset.native) stays a path-only texture entry. */
+export function partTextureFiles(target, source, assets) {
+  const owned = new Set((target.Textures || []).filter(texture => !texture.ReplaceableId && texture.Image).map(texture => partPathKey(texture.Image)));
+  const files = [];
+  for (const index of partTextureIndices(source)) {
+    const texture = source.Textures[index];
+    if (texture.ReplaceableId || !texture.Image || /\.w3mod:/i.test(texture.Image)) continue;
+    const key = partPathKey(texture.Image);
+    if (owned.has(key)) continue;
+    const asset = assets.get(key);
+    if (!asset) throw Error(`Missing texture: ${texture.Image}. Place it beside the source part or configure its Warcraft data folder.`);
+    owned.add(key);
+    if (!asset.native) files.push({ name: texture.Image, asset });
+  }
+  return files;
+}
+
 /** Isolated bind-pose geometry preview. No destination role is created. */
 export function previewPart(source) {
   const model = structuredClone(source);
@@ -141,7 +160,7 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
   if (replacement) removePartSelection(next, replacement);
   for (const key of ['Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'Geosets', 'GeosetAnims']) next[key] ||= [];
   const { globalRef: remapGlobals, materialRef, maps } = createResourceImporter(staged, next, {
-    reuseTextures: 'partKey', reuseGlobals: true,
+    reuseTextures: 'partPath', reuseGlobals: true,
     validGlobalId: (id, model) => Number.isFinite(model.GlobalSequences?.[id]) && model.GlobalSequences[id] > 0,
     keyArrayType: 'int32', fingerprint, reuseMaterials: true, reuseTextureAnims: true,
     materialKey: material => partMaterialKey(next, material),
