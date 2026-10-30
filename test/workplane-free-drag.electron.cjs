@@ -1,7 +1,7 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/workplane-free-drag.electron.cjs
-// Set MDLXL_EXE to a packaged MDLxL.exe to drive the packaged app instead.
+// Set MDLXL_TEST_EXE to a packaged MDLxL.exe to drive the packaged app instead.
 // Workplane off frees a Move drag to the screen plane; Shift or Workplane on keeps it in XY.
 const fs = require('node:fs');
 const path = require('node:path');

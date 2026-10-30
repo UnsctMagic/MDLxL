@@ -1,7 +1,7 @@
 const { stubDialogs } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
-// Run after building. MDLXL_ELECTRON_PATH selects an isolated portable build;
+// Run after building. MDLXL_TEST_EXE selects an isolated portable build;
 // MDLXL_INPUT_PATH optionally exercises an existing model without editing it.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');

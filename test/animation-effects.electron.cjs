@@ -1,6 +1,6 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
-// Run against rebuilt dist; MDLXL_ELECTRON_PATH can point to a packaged MDLxL.exe.
+// Run against rebuilt dist; MDLXL_TEST_EXE can point to a packaged MDLxL.exe.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');

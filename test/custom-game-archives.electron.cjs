@@ -1,6 +1,6 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
-// Run after building; MDLXL_ELECTRON_PATH selects an isolated portable package.
+// Run after building; MDLXL_TEST_EXE selects an isolated portable package.
 // MDLXL_TEST_CASC optionally exercises a real, read-only CASC storage.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
