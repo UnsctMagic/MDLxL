@@ -10,6 +10,7 @@ Fix `particle-prototype` and `module-button-labels.browser` on the 0.37.0 releas
 
 ## Revision and fixtures
 
+- PR: [#450](https://github.com/UnsctMagic/MDLxL/pull/450), open into `claude/release-0.36.1`, unmerged. Implementation commit: `06402a19d12d19948945a49618e496e929cbd5d4`.
 - Branch: `codex/037-test-fixes`, based on `778518263cc2ba5b6e36d7b7d3d096f0458c0066`.
 - Separate checkout: `D:\Codex\mdlxl-037-tests`; dependencies junction to `D:\Claude\MDLxL\node_modules`.
 - User-specified fixture directories, `profile/particles`, `out/suite-env.sh`, and FFmpeg binaries copied from the release worktree. Source the environment file before each run; all scratch data stays on D:.
@@ -31,4 +32,4 @@ Fix `particle-prototype` and `module-button-labels.browser` on the 0.37.0 releas
 
 ## Handoff
 
-Implementation and required packaged verification are complete. Push/open the PR into `claude/release-0.36.1`; do not merge. Keep only the small report and the supplied-failure / successful-Escape screenshots after verification; remove the disposable checkout and its junction after pushing. No excluded feature files or product code were changed.
+Implementation and required packaged verification are complete. PR #450 is open and mergeable into `claude/release-0.36.1`; do not merge. Await owner review. Keep only the small report and the supplied-failure / successful-Escape screenshots after verification; remove the disposable checkout and its junction after pushing. No excluded feature files or product code were changed.
