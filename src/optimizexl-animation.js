@@ -12,7 +12,7 @@ export const trackValueError=(a,b,rotation)=>{
  const dot=Math.abs(a.reduce((n,v,i)=>n+v*b[i],0)/(Math.hypot(...a)*Math.hypot(...b)||1));
  return 2*Math.acos(Math.min(1,dot))*180/Math.PI;
 };
-function constantSegment(t,a,b,rotation){
+export function constantSegment(t,a,b,rotation){
  if(!same(a.Vector,b.Vector))return false;
  if(t.LineType<2)return true;
  return rotation||t.LineType===3?same(a.OutTan,a.Vector)&&same(b.InTan,b.Vector):zero(a.OutTan)&&zero(b.InTan);
@@ -131,4 +131,27 @@ export function reduceAnimationTrack(model,track,property,tolerance,onRemove,{re
   for(const removal of removals)if(!kept.has(removal.frame)){removed++;onRemove(removal);}
  }
  return removed;
+}
+
+/** The existing component/turn protection, reused by the opt-in world reducer.
+ * Probes are sampled from its immutable stage input; this never edits a track. */
+export function animationMotionGuard(original, property, interval, {reach=0,worldBudget=Infinity}={}) {
+ const rotation=property==='Rotation',fallback=rotation?[0,0,0,1]:property==='Scaling'?[1,1,1]:[0,0,0];
+ const sample=(track,frame)=>Array.from(sampleTrack(track,frame,{interval,fallback,quaternion:rotation}));
+ const spatial=property==='Translation'?1:rotation?reach*Math.PI/180:reach;
+ const keys=original.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]),probes=[];
+ for(let i=0;i<keys.length;i++){
+  const start=keys[i].Frame,end=keys[i+1]?.Frame??start;
+  for(let j=0;j<(end>start?32:1);j++){const frame=start+(end-start)*j/32;probes.push({frame,value:sample(original,frame)});}
+ }
+ motionBudgets(probes,rotation);
+ return (track,from=-Infinity,to=Infinity)=>probes.every(p=>{
+  if(p.frame<from||p.frame>to)return true;
+  const actual=sample(track,p.frame);
+  // Only the opt-in world mode delegates large excursions to its direct mesh
+  // bound. Keep the existing 10% limit when that budget could erase a small
+  // component or local turn. Reach selects the guard; it never accepts a key.
+  if(rotation)return p.motionLimits[0]*10*spatial>worldBudget||trackValueError(p.value,actual,true)<=p.motionLimits[0]*.95+p.roundoff[0];
+  return p.value.every((v,axis)=>p.motionLimits[axis]*10*spatial>worldBudget||Math.abs(v-actual[axis])<=p.motionLimits[axis]*.95+p.roundoff[axis]);
+ });
 }

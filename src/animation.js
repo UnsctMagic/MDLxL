@@ -25,12 +25,15 @@ export function sampleTrack(track, frame, options = {}) {
   const keys = track.Keys || [];
   // Tracks are ordered by Frame (as required by the interpolation search
   // below). Locate this clip without walking keys from every other animation.
-  let lo = 0, hi = keys.length;
-  while (lo < hi) { const mid = (lo + hi) >>> 1; if (keys[mid].Frame < from) lo = mid + 1; else hi = mid; }
-  const first = lo;
-  hi = keys.length;
-  while (lo < hi) { const mid = (lo + hi) >>> 1; if (keys[mid].Frame <= to) lo = mid + 1; else hi = mid; }
-  const last = lo - 1;
+  let first,last;
+  if(options.prepared){({first,last}=options.prepared);}
+  else {
+    let lo=0,hi=keys.length;
+    while(lo<hi){const mid=(lo+hi)>>>1;if(keys[mid].Frame<from)lo=mid+1;else hi=mid;}
+    first=lo;hi=keys.length;
+    while(lo<hi){const mid=(lo+hi)>>>1;if(keys[mid].Frame<=to)lo=mid+1;else hi=mid;}
+    last=lo-1;
+  }
   if (first > last) return fallback;
   let left = keys[first], right = left;
   if (frame >= keys[last].Frame) left = right = keys[last];
@@ -44,13 +47,15 @@ export function sampleTrack(track, frame, options = {}) {
   if (left === right || track.LineType === 0) return scalar ? a[0] : Array.from(a);
   const t = Math.max(0, Math.min(1, (frame - left.Frame) / (right.Frame - left.Frame)));
   if (quaternion) {
-    const qa = new Quaternion().fromArray(a).normalize(), qb = new Quaternion().fromArray(b).normalize();
+    const prepared=options.prepared;
+    const qa = prepared ? prepared.qa.copy(prepared.rotations.get(left).Vector) : new Quaternion().fromArray(a).normalize();
+    const qb = prepared ? prepared.rotations.get(right).Vector : new Quaternion().fromArray(b).normalize();
     if ((track.LineType === 2 || track.LineType === 3) && left.OutTan && right.InTan) {
-      const outer = qa.clone().slerp(qb, t);
-      const inner = new Quaternion().fromArray(left.OutTan).normalize().slerp(new Quaternion().fromArray(right.InTan).normalize(), t);
-      return outer.slerp(inner, 2 * t * (1 - t)).normalize().toArray();
+      const outer = (prepared ? prepared.outer.copy(qa) : qa.clone()).slerp(qb, t);
+      const inner = prepared ? prepared.inner.copy(prepared.rotations.get(left).OutTan).slerp(prepared.rotations.get(right).InTan,t) : new Quaternion().fromArray(left.OutTan).normalize().slerp(new Quaternion().fromArray(right.InTan).normalize(), t);
+      return outer.slerp(inner, 2 * t * (1 - t)).normalize().toArray(prepared?.output);
     }
-    return qa.slerp(qb, t).normalize().toArray();
+    return qa.slerp(qb, t).normalize().toArray(prepared?.output);
   }
   const result = Array.from(a, (v, i) => {
     if ((track.LineType === 2 || track.LineType === 3) && left.OutTan && right.InTan) {
@@ -61,6 +66,23 @@ export function sampleTrack(track, frame, options = {}) {
     return v + (b[i] - v) * t;
   });
   return scalar ? result[0] : result;
+}
+
+/** Compile immutable track bounds and normalized quaternion controls. The
+ * returned sample lives until the next call; rebuild after track/domain edits. */
+export function compileTrackSampler(track, options={}) {
+ const globalId=loopId(track?.GlobalSeqId,options.globalSequences||[]);
+ const [from,to]=globalId!==null?[0,options.globalSequences[globalId]]:options.interval||[-Infinity,Infinity];
+ const keys=track?.Keys||[];
+ let first=0;while(first<keys.length&&keys[first].Frame<from)first++;
+ let last=keys.length-1;while(last>=first&&keys[last].Frame>to)last--;
+ const prepared={first,last,qa:new Quaternion(),outer:new Quaternion(),inner:new Quaternion(),output:[],rotations:new Map()};
+ if(options.quaternion)for(let i=first;i<=last;i++){
+  const key=keys[i],controls={};for(const field of ['Vector','InTan','OutTan'])if(key[field])controls[field]=new Quaternion().fromArray(key[field]).normalize();
+  prepared.rotations.set(key,controls);
+ }
+ const compiled={...options,prepared};
+ return frame=>sampleTrack(track,frame,compiled);
 }
 
 // Every model collection that holds animated nodes. Later collections win when
@@ -132,20 +154,44 @@ export function inheritedParentMatrix(parent, flags) {
 
 /** World matrices from each node's local `{ t, r, s }` (Vector3, Quaternion,
  * Vector3), turned about its pivot and composed down the parent chain.
- * Parent loops resolve to identity. */
-export function composeNodeMatrices(model, ids, localTRS, byId = new Map(allNodes(model).map(n => [n.ObjectId, n]))) {
+ * Parent loops resolve to identity. Optional scratch retains matrices with identical
+ * local inputs and parent results; returned matrices live until the next call.
+ * A scratch.version(node) callback may bypass input sampling: its revision MUST
+ * change for edits to that node or any ancestor, including hierarchy/pivots. */
+export function composeNodeMatrices(model, ids, localTRS, byId = new Map(allNodes(model).map(n => [n.ObjectId, n])), scratch) {
   const matrices = new Map(), visiting = new Set();
+  const pool = scratch && !scratch.cyclic ? (scratch.nodes ||= new Map()) : undefined;
+  const pivotWork = scratch && (scratch.pivot ||= new Vector3());
+  const rotatedWork = scratch && (scratch.rotated ||= new Vector3());
+  const positionWork = scratch && (scratch.position ||= new Vector3());
   function resolve(id) {
     if (matrices.has(id)) return matrices.get(id);
     const node = byId.get(id);
-    if (!node || visiting.has(id)) return new Matrix4();
+    if (!node) return new Matrix4();
+    if (visiting.has(id)) { if(scratch)scratch.cyclic=true;return new Matrix4(); }
+    let entry = pool?.get(id);
+    const revision = scratch?.version?.(node);
+    if (entry && revision !== undefined && entry.revision === revision) {
+      visiting.add(id);
+      if(node.Parent!=null&&byId.has(node.Parent))resolve(node.Parent);
+      visiting.delete(id);matrices.set(id,entry.matrix);return entry.matrix;
+    }
     visiting.add(id);
+    // Resolve parents before using shared scratch vectors. Cycles retain the
+    // same identity edge and traversal order as the uncached owner.
+    const parent = node.Parent != null && byId.has(node.Parent) ? resolve(node.Parent) : null;
     const { t, r, s } = localTRS(node);
-    const pivot = new Vector3().fromArray(nodePivot(model, node, id));
-    const matrix = new Matrix4().compose(t, r, s);
-    const rotatedPivot = pivot.clone().applyMatrix4(matrix).sub(t);
-    matrix.setPosition(t.clone().add(pivot).sub(rotatedPivot));
-    if (node.Parent != null && byId.has(node.Parent)) matrix.premultiply(inheritedParentMatrix(resolve(node.Parent), node.Flags));
+    const pivot = (pivotWork || new Vector3()).fromArray(nodePivot(model, node, id));
+    const input = pool && [t.x,t.y,t.z,r.x,r.y,r.z,r.w,s.x,s.y,s.z,pivot.x,pivot.y,pivot.z,node.Flags];
+    const parentVersion = parent && pool?.get(node.Parent)?.version;
+    if (entry && entry.parent === parent && entry.parentVersion === parentVersion && input.every((v,i)=>Object.is(v,entry.input[i]))) {
+      entry.revision=revision; visiting.delete(id); matrices.set(id,entry.matrix); return entry.matrix;
+    }
+    const matrix = (entry?.matrix || new Matrix4()).compose(t, r, s);
+    const rotatedPivot = (rotatedWork || new Vector3()).copy(pivot).applyMatrix4(matrix).sub(t);
+    matrix.setPosition((positionWork || new Vector3()).copy(t).add(pivot).sub(rotatedPivot));
+    if (parent) matrix.premultiply(inheritedParentMatrix(parent, node.Flags));
+    if (pool) pool.set(id,{matrix,input,parent,parentVersion,revision,version:(entry?.version || 0)+1});
     visiting.delete(id); matrices.set(id, matrix); return matrix;
   }
   for (const id of ids) resolve(id);

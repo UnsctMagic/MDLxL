@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import useDismiss from './useDismiss.js';
 
 const explanations={
+ 'Reduction method':'Local tracks keeps the established reduction. World-space bound measures the posed mesh against the stage input every millisecond. Slow animations get tighter limits from their measured speed. Small components and turns keep their 10% protection when the mesh budget could flatten them. Global tracks, camera-facing parts and overlapping spans keep their current handling.',
+ 'World-space tolerance':'Maximum sampled vertex difference in model units for fast animations. Slow animations use one quarter of this amount, with intermediate limits based on measured speed. First and last poses stay exact. Zero performs exact key cleanup and proven quaternion conversion. The Simple strength slider changes this value.',
  'Position tolerance':'The farthest apart two vertices may be and still merge, in model units. A near match merges only when its gap is under 2% of the edges around it, so small holes, slits and stacked layers stay. Zero requires identical positions.',
  'UV tolerance':'How close texture coordinates may be before vertices can merge. Higher values can shift texture details. Zero preserves exact texture coordinates.',
  'Normal angle (degrees)':'The largest difference between surface directions that may merge. Higher angles can soften sharp edges. Zero requires identical normals.',
