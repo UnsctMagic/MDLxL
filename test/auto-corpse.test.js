@@ -123,12 +123,13 @@ test('corpse ribs are one flat native rectangle on a level above the ground, and
   assert.ok(Math.max(...ribs)-Math.min(...ribs)<1e-6&&Math.min(...ribs)>=2,'It lies flat, on a level above the ground');
   assert.ok(Math.max(...ribs)<top,'It stays below the body surface');
 });
+// Legs (not arms): native arms get no long bone, and the overlap check needs overlapping limb bones.
 test('a body without a recognized head still gets ribs, and overlapping pieces never share a height',()=>{
   const d=fixture();d.apply('Headless',[],m=>{
     const root=m.Bones[0];root.Name='Bone_Root';delete root.Translation;
     const chest=createNode(m,'Bone');chest.Name='Bone_Chest';chest.Parent=root.ObjectId;chest.PivotPoint.set([0,10,0]);
     const g=m.Geosets[0];g.Vertices=g.Vertices.map((v,i)=>v*[1,2,.6][i%3]);g.Groups=[[chest.ObjectId]];
-    for(const side of [-1,1]){let parent=chest;for(const [name,x] of [['Arm1',20],['Arm2',40],['Hand',60]]){
+    for(const side of [-1,1]){let parent=chest;for(const [name,x] of [['Leg1',20],['Leg2',40],['Foot',60]]){
       const bone=createNode(m,'Bone');bone.Name=`Bone_${name}_${side<0?'L':'R'}`;bone.Parent=parent.ObjectId;bone.PivotPoint.set([x*side,10,0]);parent=bone;
       const h=structuredClone(g);h.Vertices=h.Vertices.map((v,i)=>v*[.4,.2,.5][i%3]+[(x-10)*side,10,0][i%3]);h.Groups=[[bone.ObjectId]];m.Geosets.push(h);m.GeosetAnims.push(createVisibilityGeosetAnimation(m.Geosets.length-1));
     }}
@@ -254,5 +255,15 @@ test('the skull has the native gutz skull proportions and rests near the ground'
     assert.ok(Math.abs((Math.max(...z)-Math.min(...z))/length-.42)<.01,'skull height is 0.42 of its length');
     assert.ok(Math.abs(Math.min(...z)/length-.218)<.01,'skull rests 0.22 of its length above the ground');
   }
+  }
+});
+test('like native corpses, arms get only the hand and each leg two long bones',{skip:!footmanModel()&&!flailModel()&&'no SD Footman or flail on this machine'},async()=>{
+  // Blizzard (386 arms on the 206 SD units): most arms get no long bone, only the hand over the forearm.
+  const {openDocument}=await import('../src/editor-document.js');
+  for(const file of [footmanModel(),flailModel()].filter(Boolean)) {
+    const r=apply(openDocument(new Uint8Array(readFileSync(file)),'model.mdx')).corpses[0],count=kind=>r.pieces.filter(p=>p.kind===kind).length;
+    assert.equal(count('arm'),0,'no long bones on the arms');
+    assert.ok(count('hand')>=2,'the hands stay');
+    assert.ok(count('leg')>=4&&count('leg')%2===0,'two long bones per leg');
   }
 });
