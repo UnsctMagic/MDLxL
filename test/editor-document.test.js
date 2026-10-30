@@ -371,6 +371,19 @@ test('an edit during asynchronous save remains dirty against the bytes that reac
   assert.deepEqual(doc.serialize(), inFlight);
 });
 
+test('degenerate face-normal sums reset every component to exactly positive Z', () => {
+  for (const faces of [[0, 1, 2], [0, 2, 1], []]) {
+    // Both X and Y have a tiny nonzero sum; the fourth vertex is unreferenced.
+    const geoset = {
+      Vertices: new Float32Array([0, 0, 0, 1e-7, 1e-7, 0, 1e-7, 0, 1e-7, 2, 2, 2]),
+      Faces: new Uint16Array(faces),
+    };
+    const normals = recalculateNormals(geoset);
+    assert.equal(normals, geoset.Normals);
+    assert.deepEqual([...normals], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  }
+});
+
 test('normal recomputation and mirrored transforms keep winding consistent and values finite', () => {
   const g = { Vertices: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), Faces: new Uint16Array([0, 1, 2]) };
   recalculateNormals(g);

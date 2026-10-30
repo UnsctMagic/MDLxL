@@ -90,26 +90,43 @@ function imageParts(images = [], kind = 'openai') {
     return providerImage({ mimeType: match[1], data: match[2] }, kind);
   });
 }
-// A tool call's input for the console's activity rows: `detail`, the input as
-// JSON up to 4000 characters, and `line`, the one name or label shown on the
-// row, taken from the whole input. Long strings are shortened first, so a long
-// plan or script still reads as JSON.
+// A tool call's display copy, not the arguments passed to the tool. Preserve
+// valid JSON when shortening strings or replacing trailing entries with a count.
 const DETAIL_LIMIT = 4000;
 function toolDetail(input) {
   try {
-    let value = input;
+    let value = input, json = typeof input !== 'string';
     if (typeof input === 'string')
       try {
-        value = JSON.parse(input);
+        value = JSON.parse(input); json = true;
       } catch {
         value = null;
       }
     const named = value && typeof value === 'object' ? value.label || value.id || value.action || value.query || value.name : '',
       line = typeof named === 'string' ? named.slice(0, 200) : '';
     let text = typeof input === 'string' ? input : JSON.stringify(input, null, 1);
-    for (let cap = 1000; text.length > DETAIL_LIMIT && value && typeof value === 'object' && cap >= 60; cap = Math.floor(cap / 2))
+    for (let cap = 1000; text.length > DETAIL_LIMIT && json && cap >= 60; cap = Math.floor(cap / 2))
       text = JSON.stringify(value, (key, item) => (typeof item === 'string' && item.length > cap ? item.slice(0, cap) + '…' : item), 1);
-    if (text.length > DETAIL_LIMIT) text = text.slice(0, DETAIL_LIMIT) + '…';
+    if (text.length > DETAIL_LIMIT && json) {
+      const preview = JSON.parse(text), omitted = new WeakMap();
+      const trimList = node => {
+        if (!node || typeof node !== 'object') return false;
+        if (!Array.isArray(node)) return Object.values(node).some(trimList);
+        const previous = omitted.get(node) || 0, count = node.length - (previous ? 1 : 0);
+        if (!count) return false;
+        const keep = Math.floor(count / 2), dropped = previous + count - keep;
+        node.splice(keep, node.length - keep, `+${dropped} more`);
+        omitted.set(node, dropped);
+        return true;
+      };
+      while (text.length > DETAIL_LIMIT && trimList(preview)) text = JSON.stringify(preview, null, 1);
+      // Records without lists can also exceed the display budget. Keep their
+      // leading fields rather than cutting a key or value in half.
+      const entries = Object.entries(preview);
+      for (let keep = Math.floor(entries.length / 2); text.length > DETAIL_LIMIT; keep = Math.floor(keep / 2))
+        text = JSON.stringify({ ...Object.fromEntries(entries.slice(0, keep)), [`+${entries.length - keep} more`]: true }, null, 1);
+    }
+    if (text.length > DETAIL_LIMIT && !json) text = text.slice(0, DETAIL_LIMIT) + '…';
     return line ? { detail: text, line } : { detail: text };
   } catch {
     return { detail: '' };

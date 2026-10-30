@@ -39,6 +39,9 @@ folded into **Thought process**; click to read it again) and each editor step it
 takes with a spinner, check mark or cross. Click a step to see what it sent and
 what came back. Providers that do not expose thinking simply show their text and
 steps. Claude API models from 4.6 on show a summary of their thinking.
+Long plan previews shorten text and replace trailing entries with “+N more” while
+keeping readable plan lines. Older cut-off plans show their saved short line or
+“plan too long to show”. This affects only the display copy; tools receive the full arguments.
 
 You can keep typing while it works: **Enter** sends the message into the running
 task (the button becomes **Steer**) and it appears in the chat where you sent it,
