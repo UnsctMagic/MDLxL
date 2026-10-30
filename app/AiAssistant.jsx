@@ -522,14 +522,23 @@ function AiAssistant({ bridge, visUI }) {
     setOpen(!open);
     if (!open && !anyBusy && !authBusy && native && window.desktop?.aiAuth) authenticate('status');
   }
-  async function loadModels() {
+  // An API key connection lists its models as soon as a key is saved, the
+  // way a signed-in Codex or Claude Code does, so the Model box is a dropdown.
+  const listedKey = useRef('');
+  useEffect(() => {
+    const keyed = settingsOpen && !native && settings.hasKey && !models.length && !anyBusy && !authBusy && window.desktop?.aiModels;
+    if (!keyed || listedKey.current === settings.provider) return;
+    listedKey.current = settings.provider;
+    loadModels(true);
+  }, [settingsOpen, settings.provider, settings.hasKey, native]);
+  async function loadModels(quiet) {
     setAuthBusy(true);
     setError('');
     try {
-      await saveSettings();
+      if (quiet !== true) await saveSettings();
       setModels(await window.desktop.aiModels());
       setSettings(await window.desktop.aiStatus());
-      setStatus('Available models loaded.');
+      if (quiet !== true) setStatus('Available models loaded.');
     } catch (reason) {
       setError(reason.message);
     } finally {

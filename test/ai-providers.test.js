@@ -86,6 +86,49 @@ test('OpenAI-compatible provider drives a real streamed tool loop with fragmente
     'I can see the selected mesh.',
   );
 });
+test('OpenAI API runs tools with a thinking effort through the Responses API', async t => {
+  const server = await fixture(t, (data, res, round) => {
+    if (round === 1) {
+      event(res, { type: 'response.output_item.added', item: { type: 'function_call', call_id: 'call1', name: 'mdlxl_read', arguments: '' } });
+      event(res, { type: 'response.output_item.done', item: { type: 'function_call', call_id: 'call1', name: 'mdlxl_read', arguments: '{"path":"/Geosets/0/Vertices"}' } });
+      event(res, { type: 'response.completed', response: { usage: { input_tokens: 50, output_tokens: 5 } } });
+    } else {
+      const [user, toolCall, toolResult] = data.input;
+      assert.deepEqual(user.content[0], { type: 'input_text', text: 'Inspect these' });
+      assert.equal(user.content[1].type, 'input_image');
+      assert.deepEqual(toolCall, { type: 'function_call', call_id: 'call1', name: 'mdlxl_read', arguments: '{"path":"/Geosets/0/Vertices"}' });
+      assert.equal(toolResult.type, 'function_call_output');
+      assert.match(toolResult.output, /Float32Array/);
+      event(res, { type: 'response.output_text.delta', delta: 'I can see ' });
+      event(res, { type: 'response.output_text.delta', delta: 'the mesh.' });
+      event(res, { type: 'response.completed', response: { usage: { input_tokens: 80, output_tokens: 9 } } });
+    }
+    res.end();
+  });
+  const events = [],
+    conversation = { messages: [] };
+  await runApi({
+    settings: { provider: 'openai', baseUrl: server.url, model: 'gpt-6-astra', effort: 'high' },
+    key: 'k',
+    tools: AI_TOOLS,
+    call: async () => ({ value: { $type: 'Float32Array', $data: [1, 2, 3] } }),
+    prompt: 'Inspect these',
+    system: 'editor system',
+    conversation,
+    images: ['data:image/png;base64,iVBORw0KGgo='],
+    signal: new AbortController().signal,
+    event: e => events.push(e),
+  });
+  const first = server.requests[0].data;
+  assert.equal(first.instructions, 'editor system');
+  assert.deepEqual(first.reasoning, { effort: 'high' });
+  assert.equal(first.reasoning_effort, undefined);
+  assert.equal(first.tools[0].type, 'function');
+  assert.equal(first.tools[0].strict, false);
+  assert.equal(server.requests.length, 2);
+  assert.equal(events.filter(e => e.type === 'text').map(e => e.text).join(''), 'I can see the mesh.');
+  assert.equal(conversation.messages.at(-1).content, 'I can see the mesh.');
+});
 test('Claude API preserves tool IDs and returns tool errors for correction', async t => {
   const server = await fixture(t, (data, res, round) => {
     if (round === 1) {

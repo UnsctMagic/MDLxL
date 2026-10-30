@@ -6,9 +6,15 @@ const EFFORT_TIP =
 const OUTSIDE_CHECK_TIP =
   'Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.';
 
+// The Model dropdown's last entry, which switches to typing a model ID.
+const OTHER = '\u0000other';
+
 export default function AiConnectionSettings({ settings, setSettings, authBusy, anyBusy, models, providers: PROVIDERS, saveSettings, authenticate, loadModels, apiKey, setApiKey, signedIn, changeProvider, action, setStatus }) {
   const provider = PROVIDERS.find(p => p.id === settings.provider) || {},
-    native = !!provider.native;
+    native = !!provider.native,
+    [typing, setTyping] = React.useState(false);
+  // A fresh model list goes back to the dropdown.
+  React.useEffect(() => setTyping(false), [models]);
   return (<>
                     <label title="Which AI service to use.">
                       AI provider
@@ -72,22 +78,31 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                         />
                       </label>
                     )}
-                    <label title="Which model to use.">
+                    <label title="Which model to use. Pick one from the list, or choose Other model ID to type one.">
                       Model
-                      <input
-                        aria-label="Model" data-hotkey="model"
-                        list="mdlxl-ai-models"
-                        value={settings.model || ''}
-                        placeholder={native ? 'Provider default' : 'Choose or enter a model ID'}
-                        onChange={event => setSettings(previous => ({ ...previous, model: event.target.value }))}
-                      />
-                      <datalist id="mdlxl-ai-models">
-                        {models.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                          </option>
-                        ))}
-                      </datalist>
+                      {models.length && !typing ? (
+                        <select
+                          aria-label="Model" data-hotkey="model"
+                          value={settings.model || ''}
+                          onChange={event => event.target.value === OTHER ? setTyping(true) : setSettings(previous => ({ ...previous, model: event.target.value }))}
+                        >
+                          {(native || !settings.model) && <option value="">{native ? 'Provider default' : 'Choose a model'}</option>}
+                          {settings.model && !models.some(model => model.id === settings.model) && <option value={settings.model}>{settings.model}</option>}
+                          {models.map(model => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                            </option>
+                          ))}
+                          <option value={OTHER}>{'Other model ID…'}</option>
+                        </select>
+                      ) : (
+                        <input
+                          aria-label="Model" data-hotkey="model"
+                          value={settings.model || ''}
+                          placeholder={native ? 'Provider default' : 'Enter a model ID, or press Load models'}
+                          onChange={event => setSettings(previous => ({ ...previous, model: event.target.value }))}
+                        />
+                      )}
                     </label>
                     {!!settings.lighterModels?.length && (<>
                       <label title="Use a lighter available model for exact value changes and factual reports. Shape or motion work asks first. Failed reviews hand over to the chosen model.">
