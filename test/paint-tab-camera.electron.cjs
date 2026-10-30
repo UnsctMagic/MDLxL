@@ -8,11 +8,10 @@ if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE to the original Classic Footman
 fs.mkdirSync(out,{recursive:true});const first=path.join(out,'FirstFootman.mdx'),second=path.join(out,'SecondFootman.mdx');fs.copyFileSync(fixture,first);fs.copyFileSync(fixture,second);
 const result={checks:[],errors:[]};let app,page;
 const settle=()=>settlePage(page, 250),shot=name=>page.screenshot({path:path.join(out,name+'.png')});
-// Paint owns a Three viewport; the ordinary editor now uses GamePreview's native canvas.
-const viewCanvas=()=>page.locator('.paint-model-view .viewport canvas:visible, .classic-view [data-clean-model-canvas]:visible, .classic-view .viewport canvas:visible');
+// A tab/editor switch replaces the renderer canvas after the surrounding UI commits.
+const viewCanvas=()=>page.locator('.classic-view .viewport canvas:visible');
 const camera=()=>viewCanvas().evaluate(canvas=>{
-  const native=canvas.closest('.game-preview-root');
-  const state=native?mdlxlProbe(native).runtime:findFiberState(canvas.closest('.viewport'),s=>s?.renderer&&s?.controls);
+  const state=findFiberState(canvas.closest('.viewport'),s=>s?.renderer&&s?.controls);
   if(!state?.controls?.object)throw Error('Active viewport camera not found.');
   const active=state.controls.object,r=v=>v.toArray().map(x=>Math.round(x*1000)/1000);
   return {position:r(active.position),target:r(state.controls.target),zoom:active.zoom};
