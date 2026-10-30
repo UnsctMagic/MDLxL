@@ -412,3 +412,37 @@ test('replacing an organiser carries its own references without changing another
  assert.equal(bridge.chats.get(a.id),'earlier-a');
  assert.deepEqual(bridge.references().map(d=>d.id),[earlier.id]);
 });
+
+
+test('a cancelled display tool releases its queue and cannot advance a target when it eventually answers', async t => {
+  const { a, bridge } = editor(), host = bridge.host();
+  const { target } = bridge.context();
+  host.commands = () => [{ id: 'showAllGeosets', enabled: true }];
+  let release;
+  host.command = () => new Promise(resolve => { release = resolve; });
+  t.after(() => release?.());
+  const controller = new AbortController();
+  const pending = bridge.call('mdlxl_command', { target, id: 'showAllGeosets' }, { signal: controller.signal });
+  pending.catch(() => {});
+  while (!release) await new Promise(resolve => setImmediate(resolve));
+  controller.abort(Error('The editor tool timed out.'));
+  const outcome = await Promise.race([pending.then(() => 'resolved', () => 'rejected'), new Promise(resolve => setTimeout(() => resolve('hung'), 250))]);
+  assert.equal(outcome, 'rejected');
+  const next = bridge.call('mdlxl_context', { target });
+  assert.equal((await next).documentId, a.id);
+  a.doc.apply('User change', ['Geosets'], m => { m.Geosets[0].Vertices[0] += 1; });
+  release();
+  await new Promise(resolve => setTimeout(resolve, 90));
+  assert.throws(() => bridge.requireTarget(target), /model or selection changed/, 'late display reply must not adopt a user change');
+});
+
+test('background display-only commands report a tool error instead of waiting for the user tab', async t => {
+  const { a, b, bridge, show } = editor();
+  const { target } = bridge.context();
+  show(b);
+  t.after(() => show(a));
+  const pending = bridge.call('mdlxl_command', { target, id: 'showAllGeosets' });
+  const outcome = await Promise.race([pending.then(() => 'resolved', e => e.message), new Promise(resolve => setTimeout(() => resolve('hung'), 250))]);
+  assert.match(outcome, /display.*capture|capture.*display/i);
+  assert.equal(bridge.waiters.size, 0);
+});

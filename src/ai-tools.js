@@ -24,10 +24,12 @@ const tool = (name, description, properties, required = [], readOnlyHint = true)
 // | aiToolRunsUnqueued      | May it run beside the model's queued edits?               |
 // For example mdlxl_assets is not read-only for MCP, yet a helper may search,
 // preview and load with it; mdlxl_context is read-only but waits in the queue.
+// These existing display commands never change model data.
+export const AI_DISPLAY_COMMANDS = new Set(['showAllGeosets', 'clearDisplay']);
 export const aiToolEditsModel = (name, args) =>
   name === 'mdlxl_patch' ||
   (name === 'mdlxl_script' && args.edit === true) ||
-  name === 'mdlxl_command' ||
+  (name === 'mdlxl_command' && !AI_DISPLAY_COMMANDS.has(args.id)) ||
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
   (name === 'mdlxl_view' && !!args.mode) ||
   (name === 'mdlxl_versions' && args.action === 'use');

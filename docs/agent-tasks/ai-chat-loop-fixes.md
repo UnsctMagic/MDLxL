@@ -33,6 +33,7 @@ Fix the five failures from the owner's 0.35.0 chat in the existing chat and Undo
 
 - Bug 1 implemented: keep user references and worker captures, send original/edited pairs before optional views, preserve the existing 12-picture budget, classify evidence omissions as notes, and remove the outside-round forced block. Both new owner replay regressions failed before the patch; workflow and picture tests now pass (32 tests).
 - Bug 2 implemented: explicit delivery in direct, Offload and steering completes through review finish; existing concerns stay in the reply. Acceptance makes no new model edit/provider call and does not silently overwrite a source. Three acceptance regressions failed before the patch. Workflow, picture and Offload tests pass.
+- Bug 3 implemented: showAllGeosets/clearDisplay are display-only, so their failure cannot become an unresolved model edit. In a background tab they return a tool error with the existing capture mechanism instead of waiting for the user to return. Cancelled display calls release the renderer queue, and late replies cannot adopt a user change. IPC settlement is idempotent. Three new regressions failed before the patch; fresh-after-Stop already passed. The fake native CLI also receives the accelerated existing timeout, continues reading, and completes two consecutive turns with neither parent signal aborted.
 - Baseline full source suite at d1dc4ffe: 2353 pass, 27 fail, 23 skip; compare these failures after the patch.
 
 ## Blockers and next action

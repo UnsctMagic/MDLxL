@@ -326,8 +326,10 @@ class AiService {
             : Error(CANCELLED),
         );
       };
-      let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+      let settled = false, timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
       const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         requestSignal.removeEventListener('abort', cancel);
         this.pending.delete(id);
@@ -338,6 +340,7 @@ class AiService {
         signal: requestSignal,
         cancel: () => controller.abort(Error('Editor closed.')),
         waiting: waiting => {
+          if (settled) return;
           clearTimeout(timer);
           if (!waiting) timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
         },

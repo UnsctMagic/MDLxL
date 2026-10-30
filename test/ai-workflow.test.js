@@ -800,3 +800,22 @@ test('accepting the current result also works with the New job route selected', 
     assert.equal(conversation.task.status, 'complete');
   }
 });
+
+test('a failed visibility command is a tool error, not an unfinished edit that poisons the job', async t => {
+  const replies = [tool('mdlxl_command', { target: 'selected', id: 'showAllGeosets' }), done()];
+  const f = await setup(t, () => replies.shift() || done());
+  const call = f.service.call;
+  f.service.call = (name, ...args) => name === 'mdlxl_command' ? Promise.reject(Error('The display tool timed out.')) : call(name, ...args);
+  assert.equal((await f.service.send({ id: 'test', text: ownerTurns.turns['35'].text, context })).ok, true);
+  assert.ok(f.events.some(e => e.type === 'tool-result' && e.error && /display tool timed out/.test(e.summary)));
+  assert.equal((await f.service.taskInfo('test')).status, 'complete');
+});
+
+test('a new owner turn has a fresh abort signal after Stop', async t => {
+  let f, requests = 0;
+  f = await setup(t, () => { if (++requests === 1) f.service.cancel('test'); return done(); });
+  const first = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
+  assert.equal(first.cancelled, true);
+  assert.equal((await f.service.send({ id: 'test', text: ownerTurns.turns['35'].text, context })).ok, true);
+  assert.equal((await f.service.taskInfo('test')).status, 'complete');
+});
