@@ -235,7 +235,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     results.checks.push('Existing handles reopen for editing; bending joints and End are editable, pins survive same-end edits, and retargeting removes stale mappings');
     await setup();await bound('Start');await pickBone(OTHER_BRANCH);await page.getByRole('button',{name:'Cancel',exact:true}).click();
     assert.deepEqual((await configNow()).chains.find(c=>c.end===END).joints,LIMB);
-    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Handles',exact:true}).click();await page.getByRole('button',{name:'Edit Hand: '+names.get(END),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
+    // Cancel clears the edited target, so reopening Setup shows the handle list; edit the hand from there.
+    await closeSetup();await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Edit Hand: '+names.get(END),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
     assert.equal((await configNow()).chains.length,baseline.chains.length-1);
     await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(END);
     await shot('04-new-chain');assert.deepEqual((await configNow()).inspectIds,LIMB);
