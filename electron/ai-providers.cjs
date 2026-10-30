@@ -52,9 +52,15 @@ async function requestJson(url, body, key, signal, headers = {}) {
     try {
       detail = await response.json();
     } catch {}
-    throw Error(
-      `AI provider returned HTTP ${response.status}: ${String(detail?.error?.message || detail?.message || response.statusText).slice(0, 1500)}`,
-    );
+    const message = String(detail?.error?.message || detail?.message || response.statusText).slice(0, 1500);
+    // A restricted OpenAI key lacks a permission; say which switch to turn on.
+    const scope = /Missing scopes?: *(\w+(?:\.\w+)*)/i.exec(message)?.[1],
+      hint = scope && new URL(url).hostname === 'api.openai.com'
+        ? key?.startsWith('sk-admin-')
+          ? ' This is an OpenAI Admin key (sk-admin-…), which can only manage your organization and cannot run models. On platform.openai.com/api-keys, create a normal secret key (sk-proj-…) and paste that instead.'
+          : ` Your API key is not allowed to do this (missing "${scope}"). On platform.openai.com/api-keys, edit the key, set Permissions to All, save, and try again. If it still fails, your role in that OpenAI project may be Reader; ask the owner to make you Member.`
+        : '';
+    throw Error(`AI provider returned HTTP ${response.status}: ${message}${hint}`);
   }
   return response;
 }
@@ -1179,7 +1185,13 @@ async function providerModels(settings, key, signal, { directory } = {}) {
     settings.provider === 'anthropic' ? ANTHROPIC_HEADERS : {},
   );
   const data = await response.json();
-  return (data.data || data.models || []).map(item => ({
+  let items = data.data || data.models || [];
+  // OpenAI also lists speech, image and embedding models; keep the chat ones, newest first.
+  if (settings.provider === 'openai' && !settings.baseUrl)
+    items = items
+      .filter(item => /^(?:gpt-|o\d|chatgpt-)/.test(item.id) && !/audio|realtime|transcribe|tts|image|search|embedding|instruct/.test(item.id))
+      .sort((a, b) => (b.created || 0) - (a.created || 0));
+  return items.map(item => ({
     id: item.id || item.name,
     name: item.display_name || item.id || item.name,
   }));
