@@ -116,6 +116,12 @@ const path = require('node:path');
     await dialog.getByLabel('Bone for Hand Right Ref').selectOption({ label: 'Bone_Chest' });
     assert.equal(await boneText('Hand Right Ref'), 'Bone_Chest');
 
+    // The Pick tooltip promises "Esc cancels": Escape leaves picking and keeps the window open.
+    await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).click();
+    assert.equal(await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).getAttribute('aria-pressed'), 'true');
+    await page.keyboard.press('Escape');await settlePage(page, 200);
+    assert.equal(await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).getAttribute('aria-pressed'), 'false', 'Esc cancels bone picking');
+    assert.equal(await page.getByRole('dialog', { name: 'Attachemator', exact: true }).count(), 1, 'Esc during picking keeps Attachemator open');
     // Pick: click a bone in the preview, like Bones mode's Attach.
     await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).click();
     await settlePage(page, 500);

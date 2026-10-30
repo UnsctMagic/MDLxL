@@ -11,6 +11,8 @@ import './particle-editor.css';
 import './auto-corpse.css';
 import { RangeField } from './Fields.jsx';
 import ToolWindow from './ToolWindow.jsx';
+import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { windowCommandActions } from '../src/commands.js';
 
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
@@ -150,13 +152,16 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
     try { if (onCommit(options)) onClose(); else setError('This exact corpse is already in the model.'); }
     catch (cause) { setError(cause.message); }
   };
-  const keys = event => {
-    event.stopPropagation();
-    const typing = event.target.matches?.('input[type=number],input[type=text],textarea');
-    if ((event.ctrlKey || event.metaKey) && !typing && /^[zy]$/i.test(event.key)) { event.preventDefault(); if (event.key.toLowerCase() === 'y' || event.shiftKey) step(future, past); else step(past, future); return; }
-    // Delete works wherever focus is (preview, handles, buttons), except in form fields.
-    // The deleted piece's handle disappears; keep focus in this window so Ctrl+Z still undoes here.
-    if (event.key === 'Delete' && !event.target.closest?.('input,textarea,select')) { if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); else return; root.current?.focus(); } };
+  // Undo, Redo and Delete go through the shared window keys like AnimXL and
+  // EMTR, so they work wherever focus is in this window, also after the
+  // focused handle or × button disappears with the deleted piece.
+  useWindowHotkeys('autoCorpse', windowCommandActions('autoCorpse', 'Auto Corpse', { undo: () => step(past, future), redo: () => step(future, past) }));
+  useWindowKeyClaim(({ event, localWindow }) => {
+    if (localWindow !== root.current || event.key !== 'Delete' || event.target.closest?.('input,textarea,select')) return false;
+    if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); else return false;
+    return true;
+  });
+  const keys = event => event.stopPropagation();
   // Double-click a body part (or blood) in the preview to grab it; double-click empty ground to let go.
   const pick = event => {
     const marks = snapshot?.marks, box = event.currentTarget.getBoundingClientRect();

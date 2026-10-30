@@ -35,14 +35,34 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     // The user's way: double-click a generated piece in the preview (focus
     // stays on the preview), press Delete; Ctrl+Z brings it back.
     const corpseVertices=()=>scoped().then(s=>s.model.Geosets.reduce((n,g)=>n+g.Vertices.length,0));
-    const whole=await corpseVertices(),box=(await scoped()).rect;
+    const whole=await corpseVertices(),box=(await scoped()).rect,corpseGeosets=async()=>JSON.stringify((await scoped()).model.Geosets.map(g=>Array.from(g.Vertices)));
     await page.mouse.dblclick(box.x+box.width*.5,box.y+box.height*.55);await settlePage(page, 300);
-    await window_.getByRole('slider',{name:'Move this piece',exact:true}).waitFor();
+    const handle=window_.getByRole('slider',{name:'Move this piece',exact:true});await handle.waitFor();
+    const dragFrom=async()=>{const h=await handle.boundingBox();return [h.x+h.width/2,h.y+h.height/2];};
+    // Escape during a real handle drag cancels the drag and keeps the window open.
+    const unmoved=await corpseGeosets();let [hx,hy]=await dragFrom();
+    await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(hx+40,hy+25,{steps:6});await settlePage(page, 200);
+    assert.notEqual(await corpseGeosets(),unmoved,'dragging the handle moves the piece');
+    await page.keyboard.press('Escape');await page.mouse.up();await settlePage(page, 300);
+    assert.equal(await window_.count(),1,'Escape during a drag does not close Auto Corpse');
+    assert.equal(await corpseGeosets(),unmoved,'Escape during a drag puts the piece back');
+    checks.push('Escape during a handle drag cancels the drag and keeps the window open');
+    // The reported path: drag the handle, then Delete, then Ctrl+Z.
+    [hx,hy]=await dragFrom();await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(hx+30,hy+20,{steps:6});await page.mouse.up();await settlePage(page, 300);
+    const dragged=await corpseVertices();
     await page.keyboard.press('Delete');await settlePage(page, 300);
-    assert.ok(await corpseVertices()<whole,'Delete removes a generated piece picked in the preview');
+    assert.ok(await corpseVertices()<dragged,'Delete removes a dragged generated piece');
     await page.keyboard.press('Control+z');await settlePage(page, 300);
-    assert.equal(await corpseVertices(),whole,'Ctrl+Z brings the deleted piece back');
-    checks.push('Delete removes a generated piece double-clicked in the preview; Ctrl+Z restores it');
+    assert.equal(await corpseVertices(),dragged,'Ctrl+Z brings the deleted piece back');
+    assert.ok(whole>0);checks.push('Double-click a piece, drag its handle, Delete removes it; Ctrl+Z restores it');
+    // Blood: the × button removes itself with focus; Ctrl+Z still undoes inside the window.
+    await window_.getByRole('tab',{name:'Blood Editor'}).or(window_.getByRole('button',{name:'Blood Editor',exact:true})).first().click();await settlePage(page, 300);
+    await window_.getByRole('button',{name:'+ Splat',exact:true}).click();await settlePage(page, 300);
+    const removeButtons=window_.getByRole('button',{name:/^Remove /});const rows=await removeButtons.count();assert.ok(rows>0,'+ Splat adds a blood row');
+    await removeButtons.last().click();await settlePage(page, 300);assert.equal(await removeButtons.count(),rows-1,'× removes the blood');
+    await page.keyboard.press('Control+z');await settlePage(page, 300);assert.equal(await removeButtons.count(),rows,'Ctrl+Z after × brings the blood back');
+    checks.push('Blood ×, then Ctrl+Z, restores the blood');
+    await window_.getByRole('tab',{name:'Corpse Editor'}).or(window_.getByRole('button',{name:'Corpse Editor',exact:true})).first().click();await settlePage(page, 200);
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
