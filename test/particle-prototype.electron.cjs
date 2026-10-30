@@ -53,14 +53,24 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize));
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'One undo restores whole stage gesture');
-    if(await page.getByRole('button',{name:'Pause',exact:true}).count())await page.getByRole('button',{name:'Pause',exact:true}).click();
+    const transport=page.locator('.pe-window .pe-transport');
+    if(await transport.getByRole('button',{name:'Pause',exact:true}).count())await transport.getByRole('button',{name:'Pause',exact:true}).click();
+    await transport.getByRole('button',{name:'Play',exact:true}).waitFor();
+    // Pausing can publish one last particle snapshot. Hover waits for the actual
+    // visible handle to settle before measuring it; a stale point can miss it.
+    await handle.locator('circle').hover();
     const cancelPoint=await handle.locator('circle').boundingBox();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2,cancelPoint.y+cancelPoint.height/2);await page.mouse.down();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2+50,cancelPoint.y+cancelPoint.height/2-20);
+    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
+    assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize),'The drag changes the size before Escape');
     await page.keyboard.press('Escape');await page.mouse.up();
+    await page.screenshot({path:path.join(out,'escape-cancel.png')});
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Escape restores value');
     assert.equal(await page.getByRole('dialog',{name:'Particle Editor',exact:true}).isVisible(),true,'Escape cancels gesture without closing editor');
-    await page.locator('.pe-window').getByRole('button',{name:'Play',exact:true}).click();
+    assert.equal(await transport.getByRole('button',{name:'Play',exact:true}).isVisible(),true,'Escape leaves the editor paused');
+    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Halfway','Escape releases the pinned sample');
+    await transport.getByRole('button',{name:'Play',exact:true}).click();
     console.log('Stage gesture: pinned, committed in one undo, cancelled without document change');
     const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+5));await size.press('Enter');
     await settle(page, 200);
