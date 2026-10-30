@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH, normalizeChord } from '../src/preferences.js';
+import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, isTypingTarget, MAX_HOTKEY_ID_LENGTH, normalizeChord } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyHint } from '../src/hotkey-badge.js';
-import { controlKind } from '../src/hotkey-allocation.js';
+import { controlKind, isCloseControl } from '../src/hotkey-allocation.js';
 import { translate } from '../src/localization.js';
 import './settings.css';
 import './hotkey-sequences.css';
@@ -230,7 +230,10 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         // A dialog's local button owns its availability (and its own history).
         // The main document may have nothing to undo while Forge has edits.
         if (action.accepts && !action.accepts(event)) return null;
-        if (!canHandleHotkeyEvent(event, localWindow && target ? { ...action, enabled: true } : action)) return null;
+        // A window's Close also works while typing. Number Escape restores the
+        // draft first; ranges, pickers and inner-state claims keep their own keys.
+        const closeWhileTyping = target && isCloseControl(action.id, action.label) && isTypingTarget(event.target) && !(chord === 'Escape' && event.target?.matches?.('input[type="number"]'));
+        if (!canHandleHotkeyEvent(event, localWindow && target ? { ...action, enabled: true, allowInInput: action.allowInInput || closeWhileTyping } : action)) return null;
         const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (localWindow ? action.allowInModal === true || action.scope === modalScope : !action.scope || scopes.includes(action.scope) || action.scope === 'global');
         return target || canRun ? { action, target } : null;
       }).filter(Boolean);
