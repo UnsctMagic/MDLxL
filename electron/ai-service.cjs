@@ -922,6 +922,9 @@ class AiService {
       }
       finally { callsInFlight--; }
     };
+    // Keep the evidence the worker actually saw, also across Resume and native
+    // provider turns (whose picture history lives outside our messages array).
+    if (images.length) conversation.referenceImages = [...new Set([...images, ...(conversation.referenceImages || [])])];
     let workerImages = images,
       lastInspect = null;
     const performCall = async (name, args, callSignal) => {
@@ -1028,17 +1031,12 @@ class AiService {
         // The outside check: a separate AI that never saw this work judges the result
         // before it counts as verified; a doubtful result goes back with its reasons.
         if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !organiser && lastInspect) {
-          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: lastInspect, settings, contract, signal, conversation, recorder });
+          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: { ...lastInspect, images: [...lastInspect.images, ...(task.evidenceImages || []), ...(conversation.referenceImages || task.images || []).map((image, i) => ({ role: 'reference', group: 'reference ' + i, label: 'User reference ' + (i + 1), image }))] }, settings, contract, signal, conversation, recorder });
           if (verdict) {
             task.outsideCheck = verdict;
-            if (verdict.verdict !== 'good') {
-              const said = `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ') || 'no reason given'}.`;
-              if ((task.outsideRounds = (task.outsideRounds || 0) + 1) <= 2)
-                throw Error(`${said} Correct what is real, run mdlxl_review inspect again, then finish.`);
-              // Running out of rounds never turns a rejection into a pass.
-              throw Error(
-                `${said} This was round ${task.outsideRounds}; the result cannot be marked passed. Keep the edit and call mdlxl_review finish with outcome blocked, saying in one short plain sentence what the review could not confirm (for example that it could not compare matching poses).`,
-              );
+            if (verdict.verdict !== 'good' && verdict.problems.length) {
+              const said = `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ')}.`;
+              throw Error(`${said} Correct what is real, run mdlxl_review inspect again, then finish. Missing evidence is a note, not a reason to block delivery.`);
             }
           }
         }
@@ -1057,7 +1055,27 @@ class AiService {
           requestSignal,
         );
         // What the outside check will judge: the latest inspected checks and pictures.
-        if (edit) lastInspect = null;
+        if (edit) {
+          lastInspect = null;
+          // Earlier after-images no longer show the current result; originals stay.
+          task.evidenceImages = (task.evidenceImages || []).filter(p => p.role === 'original');
+        }
+        if (name === 'mdlxl_capture' && result) {
+          const original = !task.checkpoint?.review?.changed;
+          const captures = result.images || (result.image ? [{ image: result.image }] : []);
+          const saved = task.evidenceImages || [];
+          captures.forEach((picture, i) => {
+            const sample = args.samples?.[i] || {},
+              group = 'capture ' + JSON.stringify(sample),
+              role = original ? 'original' : 'edited',
+              entry = { ...picture, role, group, label: `${original ? 'Original before the task' : 'Edited target'}; ${picture.label || JSON.stringify(sample)}` };
+            const previous = saved.findIndex(p => p.group === group && p.role === role);
+            if (previous < 0) saved.push(entry);
+            else if (!original) saved[previous] = entry;
+          });
+          task.evidenceImages = choosePictures(saved).pictures;
+          await this.persistConversation(conversation);
+        }
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
           lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [] };
         // The review judges the plan's keep list along with the request.
@@ -1468,8 +1486,9 @@ class AiService {
         confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0)),
         problems: (Array.isArray(found.problems) ? found.problems : []).map(String).slice(0, 8),
         strengths: (Array.isArray(found.strengths) ? found.strengths : []).map(String).slice(0, 8),
+        notes: (Array.isArray(found.notes) ? found.notes : []).map(String),
       };
-      const text = `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}`;
+      const text = `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}${verdict.notes.length ? '. Note: ' + verdict.notes.join('; ') : ''}`;
       recorder.event({ type: 'tool-result', name: 'outside_check', callId, error: verdict.verdict !== 'good', summary: text });
       recorder.event({ type: 'notice', text });
       return verdict;
@@ -1934,12 +1953,17 @@ function choosePictures(images, limit = 12) {
   const chosen = new Set();
   let room = limit;
   const take = group => {
-    if (group.items.length > room) return;
+    if (chosen.has(group) || group.items.length > room) return;
     chosen.add(group);
     room -= group.items.length;
   };
   const phases = groups.filter(g => /^frame /.test(g.key));
   groups.filter(g => g.key === 'still').forEach(take);
+  groups.filter(g => g.items.some(p => p.role === 'reference')).forEach(take);
+  // Reserve a matching captured comparison (e.g. wireframe) before animation
+  // phases consume the budget. Whole groups always survive or leave together.
+  const captured = groups.filter(g => g.key.startsWith('capture ') && g.items.some(p => p.role === 'original'));
+  captured.forEach(take);
   for (let count = phases.length; count > 0; count--) {
     const spread = [...new Set(Array.from({ length: count }, (_, i) => Math.round(count === 1 ? (phases.length - 1) / 2 : (i * (phases.length - 1)) / (count - 1))))].map(i => phases[i]);
     if (spread.reduce((n, g) => n + g.items.length, 0) <= room) {

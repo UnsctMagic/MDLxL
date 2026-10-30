@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import ownerTurns from './fixtures/ai-chat-loop-turns.json' with { type: 'json' };
 import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -275,30 +276,21 @@ test('the outside check judges a finished edit from the request and pictures onl
   assert.equal(saved.filter(p => p.type === 'tool' && p.name === 'outside_check').length, 2, 'the steps are kept in the transcript');
 });
 
-test('doubt that outlasts the correction rounds never becomes a pass', async t => {
-  const toolMessages = [];
+test('visible outside-check concerns remain correctable without a forced blocked round', async t => {
   let round = 0;
-  const f = await setup(t, ({ data }) => {
-    const last = data.messages.at(-1);
-    if (last.role === 'tool') toolMessages.push(last.content);
-    if (last.role === 'tool' && /cannot be marked passed/.test(last.content))
-      return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The review could not compare matching Walk poses.' });
+  const f = await setup(t, () => {
     round++;
     if (round === 1) return plan();
     if (round === 2) return edit();
-    if (round % 2 === 1 && round < 9) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
-    if (round < 9) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim hammered.' });
+    if (round % 2 === 1 && round < 11) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' });
+    if (round < 11) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim hammered.' });
     return done();
   });
-  for (let i = 0; i < 3; i++) f.verdicts.push({ verdict: i === 2 ? 'wrong' : 'doubtful', confidence: 0.5, problems: ['the baseline shows another animation'], strengths: [] });
+  for (let i = 0; i < 3; i++) f.verdicts.push({ verdict: 'wrong', confidence: 0.8, problems: ['a visible gap at the rim in picture 1'], strengths: [] });
   const result = await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context });
-  assert.equal(f.checks.length, 3);
-  assert.equal(result.ok, false, 'the task does not complete');
-  assert.match(toolMessages.find(m => /cannot be marked passed/.test(m)), /round 3.*outcome blocked/);
-  assert.equal(result.error, 'The edit is kept but not verified.\nThe review could not compare matching Walk poses.');
-  const task = (await f.service.conversation('test', 'compatible')).task;
-  assert.notEqual(task.phase, 'verified');
-  assert.equal(task.outsideCheck.verdict, 'wrong');
+  assert.equal(result.ok, true);
+  assert.equal(f.checks.length, 4);
+  assert.equal((await f.service.conversation('test', 'compatible')).task.phase, 'verified');
 });
 
 test('the outside check can be switched off in connection settings', async t => {
@@ -702,4 +694,48 @@ test('embedded routines reuse bodies with parameters and remain isolated from ot
   assert.deepEqual(task.routines.measure,{tool:'mdlxl_script',code});
   const restored=JSON.parse(JSON.stringify(task)); assert.match(expandRoutine(restored,'mdlxl_script',{routine:'measure'}).code,/parameters.value/);
   assert.ok(JSON.stringify({routine:'measure',parameters:{value:8}}).length < JSON.stringify({routine:'measure',code:code.repeat(100),parameters:{value:8}}).length);
+});
+
+
+test('owner replay: outside check receives references, baseline and wireframe pairs inside its picture budget', async t => {
+  const image = n => 'data:image/png;base64,' + Buffer.from(n).toString('base64');
+  const reference = image('reference'), baseline = image('baseline'), wire = image('wire-before'), after = image('after'), wireAfter = image('wire-after');
+  const actions = [
+    plan(),
+    tool('mdlxl_capture', { target: 'selected', samples: [{ view: 'front' }] }),
+    edit(),
+    tool('mdlxl_capture', { target: 'selected', samples: [{ view: 'front' }] }),
+    tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }),
+    tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Compared the weld pattern.' }),
+  ];
+  const f = await setup(t, () => actions.shift() || done());
+  const original = f.service.call;
+  let captures = 0;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_capture') return { images: [{ label: 'front wireframe', image: captures++ ? wireAfter : wire }] };
+    const result = await original(name, args, ...rest);
+    if (name === 'mdlxl_review' && args.action === 'inspect') result.images = [
+      { role: 'original', group: 'still', label: 'Baseline before the task', image: baseline },
+      { role: 'edited', group: 'still', label: 'Edited target', image: after },
+      ...Array.from({ length: 14 }, (_, n) => ({ role: 'edited', group: 'side ' + n, label: 'side ' + n, image: image('side ' + n) })),
+    ];
+    return result;
+  };
+  assert.equal((await f.service.send({ id: 'test', text: ownerTurns.turns['27'].text, images: [reference], context })).ok, true);
+  const packet = f.checks[0].messages.at(-1).content;
+  const pictures = packet.filter(p => p.type === 'image_url').map(p => p.image_url.url);
+  assert.ok(pictures.length <= 12);
+  for (const required of [reference, baseline, after, wire, wireAfter]) assert.ok(pictures.includes(required), 'missing ' + required);
+  assert.match(JSON.stringify(packet), /User reference|Owner reference/);
+});
+
+test('owner replay: absent comparison evidence is a note and does not block finish or require Resume', async t => {
+  const actions = [edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Welds applied.' })];
+  const f = await setup(t, () => actions.shift() || done());
+  f.verdicts.push({ verdict: 'doubtful', confidence: 0.4, problems: [], notes: [ownerTurns.turns['32'].text], strengths: [] });
+  assert.equal((await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context })).ok, true);
+  const task = (await f.service.conversation('test', 'compatible')).task;
+  assert.equal(task.status, 'complete');
+  assert.ok(f.events.some(e => e.type === 'notice' && /baseline.*wireframe/.test(e.text)));
+  assert.match(f.checks[0].messages[0].content, /missing.*notes|notes.*missing/i);
 });

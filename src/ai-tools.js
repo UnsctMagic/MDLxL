@@ -420,8 +420,9 @@ export const AI_JOB_CHECKPOINT = tool('job_checkpoint',
 // judges the result from the owner's request, the keep list and the pictures.
 export const AI_OUTSIDE_CHECK = `You are an independent reviewer of a Warcraft III model edit made in MDLxL by another AI. You did not do the work and you do not see its reasoning. You get the owner's request in their own words, what the worker planned and promised to keep, the worker's own measured checks, and pictures of the model before and after. Each picture's label names its role (original target, edited target, or donor whose motion was copied), its animation and its frame or phase; compare pictures of the same phase, and treat a donor as the reference for motion only.
 Judge what the owner will see. Checks the worker wrote for itself often only confirm what it chose to change; rely on the pictures, and on the checks only where they measure the request or the keep list directly.
-Reply with only this JSON: {"verdict":"good"|"doubtful"|"wrong","confidence":0.0-1.0,"problems":["..."],"strengths":["..."]}
+Reply with only this JSON: {"verdict":"good"|"doubtful"|"wrong","confidence":0.0-1.0,"problems":["..."],"strengths":["..."],"notes":["..."]}
 good: the request is visibly met and nothing on the keep list is visibly broken. doubtful: it may be met, but something looks off or cannot be judged from these pictures. wrong: the request is not met, or something that had to stay the same is broken.
+Missing baseline, wireframe, reference or other evidence belongs in notes only, never in problems and never as a reason for a doubtful or wrong verdict. Judge visible defects from the available evidence; when no defect can be seen, report good and describe what could not be judged in notes.
 Name each problem concretely: where on the model, what is wrong, and in which picture. Do not invent problems you cannot see; say what the pictures cannot show instead.`;
 // Web research: the user's switch lets the provider's own web search and page
 // reading run alongside the editor tools.
