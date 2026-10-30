@@ -1,6 +1,6 @@
 # MDLxL 0.36.0 release preparation
 
-Status: active; final package/suite waits for owner merge of Escape PR #432
+Status: active; final integrated package and preflight passed; full hidden suite starting
 Owner / consolidator: Codex
 Updated: 2026-10-30
 
@@ -15,21 +15,22 @@ No real profile or installed application changes.
 ## Current state
 
 - D:\Codex\mdlxl-release-0.36.0, branch codex/release-0.36.0.
-- Main through #425, #426, #427, #428, #429 and #430 is integrated (56fb26c8).
+- Main through #425–#432 is integrated; #432 merged as 0541756b.
 - Release history was consolidated onto that main to split the Escape repair.
   Original unpublished history is protected by codex/release-0.36.0-pre-escape-split.
 - Escape is separate PR https://github.com/UnsctMagic/MDLxL/pull/432,
   branch codex/uv-library-escape, 03b248b1, cut from current main. It changes
   only Hotkeys.jsx and adds escape-input.electron.cjs. No duplicate Escape
-  source/test diff remains on the release branch. Merge main after owner merges
-  #432. Its disposable worktree/package/profile/junction were removed.
+  source/test diff remains on the release branch. The repair arrived through main, with no duplicate release commit. Its
+  disposable worktree/package/profile/junction were removed.
 - All tools use MDLXL_TEMP, TEMP and TMP = this worktree's out/tmp.
   out/tmp/package.json must remain {"type":"commonjs"}. D: began at 39.86 GB,
   above the owner's 25 GB minimum; it later had over 50 GB free.
 - Dependency junction: D:\Claude\MDLxL\node_modules. Never pnpm scripts here.
 - Final checker is out/final-checks.ps1. Current PID is out/final-checks.pid.
   Consult out/release-run-state.json and stdout/stderr logs before acting.
-  An interrupted partial out/pkg was deleted. No final suite has run yet.
+  An interrupted partial package was deleted. The final package is verified
+  (1,336 runtime/asset files, 55 locales); only 0.36.0 feature PDFs ship.
 
 ## Release changes
 
@@ -119,3 +120,22 @@ publish. Reply with release PR URL and release branch revision. Remove disposabl
 packages/profiles/runtimes and unused processes, preserve small report and
 requested external guide sources/captures, unlink node_modules then remove and
 prune finished worktree after push. Preserve unpushed history and user inputs.
+
+## Final integrated preflight
+
+Build source: b4324f57 (main through #432); later changes are harness/docs only.
+Compatibility: 57 passed. Source: 2429 passed, 14 skipped, zero failures.
+AI must-pass preflight: ai-console passed (59s), ai-editor passed (20s; 70
+assertions), using the repaired harnesses on the #430 release package.
+All five updated harnesses passed. The first preflight preserved two setup
+failures: Showcase used Classic, and the tilted curved panel centre projected
+below its model canvas. The repeat explicitly selects Smooth, retains the
+80/15-pixel real Alt orbit, and places on a visible upper point of that same
+curved surface. All coverage, exact texel/Undo, geometry and render assertions
+remain. The final obsolete private fiber walk uses the shared probe with the
+same target-ID check. Real ESM text import passed every pixel/fade assertion.
+Showcase sampled model targets: High 4, Medium 4, Low 0; default canvas 0;
+resolution ratios 2, 1.5, 1. Live video trim and real 10-second GIF passed.
+Evidence: suite-ai-guard.json; ai-guard/*.log; suite-harness-preflight-initial.json
+and suite-harness-preflight-retry.json; harness-preflight/ initial logs plus
+suite/default current logs. Preserve those before the full run overwrites logs.

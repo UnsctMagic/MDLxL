@@ -17,7 +17,7 @@ const {execFileSync}=require('node:child_process');
   execFileSync(ffmpeg,['-v','error','-f','lavfi','-i','testsrc2=size=160x120:rate=20','-f','lavfi','-i','sine=frequency=440:sample_rate=44100','-t','4','-c:v','libopenh264','-c:a','aac','-y',videoFile],{windowsHide:true});
   const entry=path.join(out,'main.cjs');
   fs.writeFileSync(entry,'const {app}=require("electron");app.getAppPath=()=>'+JSON.stringify(root)+';require('+JSON.stringify(path.join(root,'electron/main.cjs'))+');');
-  const launched = await launchApp({ out, fixture, entry, timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 15000 }); const app = launched.app;
+  const launched = await launchApp({ out, fixture, entry, settings: { preferences: { rendererRevision: 3, graphics: { antialias: true }, updateOfferAnswered: true } }, timeout: 60000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'hide', pageTimeout: 15000 }); const app = launched.app;
   const errors=launched.errors;
   try{
     const page=launched.page;
