@@ -76,7 +76,14 @@ const path = require('node:path');
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.getByLabel('Bones controller').waitFor();
     await page.getByLabel('Grabthrough', { exact: true }).uncheck();
-    const previewState = () => page.locator('.game-preview-root').evaluate(element=>{const props=findFiberState(element,p=>p?.model&&p?.preferences,{props:true,current:true});if(!props)throw Error('GamePreview props not found');return {mode:props.mode,grabThrough:props.grabThrough,xrayVertices:props.preferences.viewportAppearance.xrayVertices};});
+    const previewState = () => page.locator('.game-preview-root').evaluate(element => {
+      const props = mdlxlProbe(element).props;
+      if (props?.model && props.preferences) return {
+        mode: props.mode, grabThrough: props.grabThrough,
+        xrayVertices: props.preferences.viewportAppearance.xrayVertices,
+      };
+      throw Error('GamePreview props not found');
+    });
     assert.deepEqual(await previewState(), { mode: 'textured', grabThrough: false, xrayVertices: false });
     const bonesOccluded = await selectedPixels(page.locator('.game-preview-root'), 'bones-grabthrough-off.png');
     await page.getByLabel('Grabthrough', { exact: true }).check();

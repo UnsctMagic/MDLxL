@@ -25,7 +25,8 @@ const path = require('node:path');
         const runtime=mdlxlProbe(".game-preview-root").runtime;if(runtime)return runtime;throw Error('Preview runtime not found');
       };
       window.previewProps = () => {
-        const props=findFiberProps('.game-preview-surface',p=>p.model&&p.preferences);if(props)return props;
+        const preview = mdlxlProbe();
+        if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview props not found');
       };
     });

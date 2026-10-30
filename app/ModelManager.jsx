@@ -11,7 +11,7 @@ const previewOverlays = { bones: false, nodes: false, attachments: false, partic
 const sections = ['CollisionShapes', 'Nodes', 'PivotPoints'];
 const visible = point => point?.every(Number.isFinite) && point[2] >= -1 && point[2] <= 1;
 
-export default function ModelManager({ doc, edit, assets, preferences, teamColor }) {
+export default function ModelManager({ doc, edit, assets, teamColor }) {
   const model = doc.model;
   const [selectedId, setSelectedId] = useState(model.CollisionShapes[0]?.ObjectId);
   const [draft, setDraft] = useState(null), [stage, setStage] = useState(null);
@@ -86,7 +86,7 @@ export default function ModelManager({ doc, edit, assets, preferences, teamColor
   });
   return <div className="model-manager" onKeyDown={event => { if (event.key === 'Escape' && pending.current) { cancel(); event.stopPropagation(); } }}>
     <div className="mm-stage">
-      <Suspense fallback={<div className="classic-empty-view">Loading model…</div>}><GamePreview model={model} revision={doc.revision} textureAssets={assets} preferences={preferences} teamColor={teamColor} presentation="preview" sequenceIndex={-1} time={0} playing={false} preserveCameraView showGrid={false} showAxes={false} showParticles={false} mode="textured" view={view} overlays={previewOverlays} collisionShapes={shapes} collisionSelectedId={selectedId} onCollisionStage={setStage}/></Suspense>
+      <Suspense fallback={<div className="classic-empty-view">Loading model…</div>}><GamePreview model={model} revision={doc.revision} textureAssets={assets} teamColor={teamColor} presentation="preview" sequenceIndex={-1} time={0} playing={false} preserveCameraView showGrid={false} showAxes={false} showParticles={false} mode="textured" view={view} overlays={previewOverlays} collisionShapes={shapes} collisionSelectedId={selectedId} onCollisionStage={setStage}/></Suspense>
       <div className="mm-view-controls"><select aria-label="Collision view" value={view} onChange={event => setView(event.target.value)}>{['perspective', 'front', 'side', 'top'].map(item => <option key={item}>{item}</option>)}</select></div>
       {stage && <svg className="mm-overlay" viewBox={`0 0 ${stage.width} ${stage.height}`} aria-label="Collision shapes" onPointerMove={drag}>
         {stage.rows.map(row => <g key={row.id} className={row.id === selectedId ? 'mm-selected' : ''}>

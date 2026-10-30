@@ -4,7 +4,7 @@ import { collectedPartModel, previewPart, serializeCollectedPart } from '../src/
 import PartAnimations from './PartAnimations.jsx';
 import { validateModel } from '../src/editor-document.js';
 
-export default function CollectBit({ source, preferences, textureAssets, teamColor, onClose, onSaved }) {
+export default function CollectBit({ source, textureAssets, teamColor, onClose, onSaved }) {
   const [name, setName] = useState(''), [sequence, setSequence] = useState(''), [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const preview = useMemo(() => previewPart(source), [source]);
@@ -25,7 +25,7 @@ export default function CollectBit({ source, preferences, textureAssets, teamCol
       <label className="parts-collect-name">Bit name<input autoFocus aria-label="Bit name" value={name} onChange={event => setName(event.target.value)}/></label>
       <p className="parts-note">{source.Geosets.length} geosets · {source.Geosets.reduce((count, geoset) => count + geoset.Vertices.length / 3, 0)} selected vertices</p>
       <PartAnimations model={source} sequence={sequence} onPreview={value => { setSequence(value); setPlaying(false); }} busy={busy} collecting/>
-    </aside><main><div className="parts-preview"><Viewport presentation="preview" model={preview} preferences={preferences} revision={0} textureAssets={textureAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={sequence === '' ? -1 : Number(sequence)} time={sequence === '' ? 0 : interval?.[0] || 0} playing={playing} shaded/></div>
+    </aside><main><div className="parts-preview"><Viewport presentation="preview" model={preview} revision={0} textureAssets={textureAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={sequence === '' ? -1 : Number(sequence)} time={sequence === '' ? 0 : interval?.[0] || 0} playing={playing} shaded/></div>
       <button disabled={sequence === ''} onClick={() => setPlaying(value => !value)}>{playing ? 'Pause preview' : 'Play preview'}</button>
     </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer><span>Saved in BitsAndParts with original texture paths.</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving…' : 'Save Bit'}</button></footer>
   </section></div>;

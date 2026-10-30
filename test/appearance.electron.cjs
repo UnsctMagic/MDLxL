@@ -79,7 +79,9 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
         throw Error('Settings owner not found');
       };
       window.auditPreview = () => {
-        const props=findFiberProps('.game-preview-root',p=>p.model&&p.preferences);if(props)return props;
+        const host = document.querySelector('.game-preview-root');
+        const preview = mdlxlProbe(host);
+        if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview owner not found');
       };
     });

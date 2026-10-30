@@ -1,3 +1,4 @@
+import { usePreferencesContext } from './PreferencesContext.jsx';
 import { createModelSmoothing, MODEL_LAYER } from './model-smoothing.js';
 export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
@@ -48,7 +49,8 @@ const sameCompassAxes = (left, right) => left?.length === right?.length && left.
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 const isIdentityMatrix = matrix => matrix.elements.every((value, index) => Math.abs(value - identityMatrix[index]) < 1e-10);
 export default function Viewport(inputProps) {
-  const props = previewPresentationProps(inputProps);
+  const { preferences } = usePreferencesContext();
+  const props = previewPresentationProps({ ...inputProps, preferences: inputProps.preferences === undefined ? preferences : inputProps.preferences });
   const { model, revision = 0, selectedGeoset = 0, selectedVertices = [], hiddenGeosets, mode = 'vertices', shaded = true, showSkeleton = false, showGrid = true, view = 'front', cameraMode = 'work', workplane = 'xy', transformMode = 'select', sequenceIndex = -1, time = 0, playing = false, teamColor = '#ff0000', textureAssets } = props;
   const host = useRef(null), runtime = useRef(null), latest = useRef(props);
   latest.current = { ...props, selectedGeoset, selectedVertices, mode, showSkeleton, showGrid, view, cameraMode, workplane, transformMode, sequenceIndex, time, playing, teamColor };
