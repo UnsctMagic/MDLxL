@@ -25,7 +25,11 @@ export function copyEffectGraph(target, source, ids, { parent = null, sourceInte
   const byId = new Map(Object.values(NODE_TYPES).flatMap(([key]) => source[key] || []).map(node => [node.ObjectId, node]));
   for (const id of selected) if (!effectNodes(source).some(item => item.node.ObjectId === id)) throw Error('Selected effect no longer exists.');
   const { requireNode, requiredNodes: needed, globalRef: tracks, textureRef: texture, materialRef: material, maps } = createResourceImporter(source, target, {
-    reuseTextures: 'never', reuseGlobals: false,
+    // Reuse the model's identical pictures, materials, texture animations and global
+    // loops; add only what is missing. A picture's file is keyed by its game path, and
+    // prepareParticlePlacementAssets never overwrites a target file, so one path is one
+    // texture entry (with the same replaceable ID and flags).
+    reuseTextures: 'partKey', reuseGlobals: true, reuseMaterials: true, reuseTextureAnims: true,
     validGlobalId: (id, model) => Number.isFinite(model.GlobalSequences[id]) && model.GlobalSequences[id] >= 0,
     keyArrayType: 'int32', nodeForId: id => byId.get(id),
     localTrack: value => {
