@@ -42,7 +42,7 @@ function readView(selector='.forge-dialog .forge-editor'){
     await page.keyboard.press('Control+s');await page.getByText('Give these Forge items a material and texture before saving',{exact:false}).first().waitFor();await settle(page, 300);assert.equal(savedGeosets(),startCount,'nothing is saved while Forge items have no material');
     // The user gives each new item a material in the Geoset Manager, then Save works.
     await clickMenu(app,'Geoset Manager…');await page.getByRole('dialog',{name:'Geoset Manager',exact:true}).waitFor();
-    for(const n of [main.model.Geosets.length+1,main.model.Geosets.length+2]){await page.locator('[aria-label="Geosets list"] [role="option"]').filter({hasText:new RegExp('^Geoset '+n+'\\b')}).first().click();await page.getByLabel('Material',{exact:true}).selectOption({label:'Material 1'});await settle(page, 200);}
+    for(const n of [main.model.Geosets.length+1,main.model.Geosets.length+2]){await page.locator('[aria-label="Geosets list"] [role="option"]').nth(n-1).click();await page.getByLabel('Material',{exact:true}).selectOption({label:'Material 1'});await settle(page, 200);}
     await page.getByRole('button',{name:/^Close .*Manager$/}).click();await settle(page, 200);
     await page.keyboard.press('Control+s');for(let tries=0;tries<60&&savedGeosets()!==main.model.Geosets.length+2;tries++)await settle(page, 100);
     assert.equal(savedGeosets(),main.model.Geosets.length+2);checks.push('Add to model preserves authored shape; Save waits for materials, then saves');
