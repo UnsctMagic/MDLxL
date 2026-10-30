@@ -54,6 +54,14 @@ separate and are not a shared handover.
   where the app already drags). In EMTR, emitters are moved and resized by
   dragging handles in the preview, so ribbons, glows and anything else placed
   there are dragged the same way. Users learn one way, not one per feature.
+- Reuse, never create unasked. Features work with what already exists: first
+  the model's own geosets, materials, textures and other parts, then Blizzard's
+  native game files. A feature may create new model content (a custom texture,
+  a new geoset, material, texture slot or similar) only when the owner
+  explicitly requested that creating behaviour. Neither Codex nor Claude may
+  infer permission to create from words such as add, fix, improve or "make it
+  look like"; when a request can be met either way, reuse. If nothing existing
+  fits, ask the owner instead of making something.
 - Complicated or ambiguous controls need a short plain-language tooltip when
   hovering either the control or label. For example, `Billboarded` explains that
   the bone and attached parts turn toward the viewer as the camera moves.
