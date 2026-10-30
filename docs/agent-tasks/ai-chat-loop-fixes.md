@@ -32,6 +32,7 @@ Fix the five failures from the owner's 0.35.0 chat in the existing chat and Undo
 ## Changes and verification
 
 - Bug 1 implemented: keep user references and worker captures, send original/edited pairs before optional views, preserve the existing 12-picture budget, classify evidence omissions as notes, and remove the outside-round forced block. Both new owner replay regressions failed before the patch; workflow and picture tests now pass (32 tests).
+- Bug 2 implemented: explicit delivery in direct, Offload and steering completes through review finish; existing concerns stay in the reply. Acceptance makes no new model edit/provider call and does not silently overwrite a source. Three acceptance regressions failed before the patch. Workflow, picture and Offload tests pass.
 - Baseline full source suite at d1dc4ffe: 2353 pass, 27 fail, 23 skip; compare these failures after the patch.
 
 ## Blockers and next action

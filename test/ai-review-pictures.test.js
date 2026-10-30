@@ -153,3 +153,15 @@ test('the kept original is encoded with the checkpoint and restored on resume', 
   assert.deepEqual(saved.review.sequences, [1]);
   assert.deepEqual(saved.baseline, encodeAiValue(bridge.targets.get('t').review.before));
 });
+
+
+test('explicit owner acceptance uses the same review completion path after a blocked inspection', async () => {
+  const { bridge, target, edit } = editor();
+  await edit();
+  await inspect(bridge);
+  await reviewAiModel(bridge, { target: 't', action: 'finish', outcome: 'blocked', summary: 'Missing pictures.' }, {});
+  const result = await reviewAiModel(bridge, { target: 't', action: 'finish', outcome: 'passed', acceptedByUser: true, summary: 'Owner accepted the current result; missing pictures remain a note.' }, {});
+  assert.equal(result.phase, 'verified');
+  assert.match(result.summary, /Owner accepted/);
+  assert.equal(target.review.acceptedByUser, true);
+});

@@ -69,7 +69,7 @@ async function setup(t, respond) {
           ...(args.includeBaseline ? { baseline: { Geosets: [] } } : {}),
         };
       if (name === 'mdlxl_patch') {
-        const saved = JSON.parse(await fs.readFile(path.join(profile, 'ai/chat-test.json'), 'utf8'));
+        const saved = JSON.parse(await fs.readFile(service.chatFile([...service.conversations.values()].find(c => c.task?.steps.at(-1)?.status === 'pending').id), 'utf8'));
         assert.equal(saved.task.steps.at(-1).status, 'pending');
         assert.equal(saved.task.checkpoint.fingerprint, fingerprint);
         edits++;
@@ -86,7 +86,7 @@ async function setup(t, respond) {
           };
         }
         if (args.action === 'finish') {
-          assert.equal(phase, 'inspected');
+          assert.ok(args.acceptedByUser || phase === 'inspected');
           phase = args.outcome === 'blocked' ? 'blocked' : 'verified';
           if (args.outcome === 'blocked') summary = args.summary;
         }
@@ -738,4 +738,65 @@ test('owner replay: absent comparison evidence is a note and does not block fini
   assert.equal(task.status, 'complete');
   assert.ok(f.events.some(e => e.type === 'notice' && /baseline.*wireframe/.test(e.text)));
   assert.match(f.checks[0].messages[0].content, /missing.*notes|notes.*missing/i);
+});
+
+
+for (const offload of [false, true]) test(`owner replay: explicit delivery completes the kept result without another provider call (${offload ? 'offload' : 'direct'})`, async t => {
+  const actions = [plan(), edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The picture packet omits baseline and wireframe.' })];
+  const f = await setup(t, () => actions.shift() || done());
+  const id = offload ? (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id : 'test';
+  assert.equal((await f.service.send({ id, text: ownerTurns.turns['27'].text, context })).ok, false);
+  const owner = await f.service.conversation(id, 'compatible');
+  const bird = offload ? await f.service.conversation(owner.currentWorker, 'compatible') : owner;
+  bird.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
+  const before = f.counts();
+  assert.equal(before.edits, 1);
+  assert.equal((await f.service.send({ id, text: ownerTurns.turns['33'].text, context })).ok, true);
+  assert.deepEqual(f.counts(), before, 'acceptance performs no edit and makes no provider request');
+  assert.equal(owner.task.status, 'complete');
+  assert.equal(bird.task.status, 'complete');
+  assert.equal(bird.task.phase, 'verified');
+  assert.equal(bird.task.acceptedByUser, true);
+  assert.match(owner.transcript.at(-1).text, /accepted|accepting/i);
+  assert.match(owner.transcript.at(-1).text, /wireframe/);
+  assert.equal((await f.service.taskInfo(id)).canResume, false);
+});
+
+
+test('delivery sent while working accepts the result and keeps the outside concern as a note', async t => {
+  let f, steered;
+  const actions = [edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' })];
+  f = await setup(t, () => {
+    if (actions.length) return actions.shift();
+    if (!steered) {
+      f.service.conversations.get('test').task.outsideCheck = { problems: ['wireframe missing'], notes: [] };
+      steered = f.service.steer({ id: 'test', text: 'deliver anyway' });
+    }
+    return done();
+  });
+  assert.equal((await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context })).ok, true);
+  await steered;
+  assert.equal((await f.service.taskInfo('test')).status, 'complete');
+  assert.match((await f.service.conversation('test', 'compatible')).transcript.at(-1).text, /Note: wireframe missing/);
+});
+
+test('negated and conditional delivery wording leaves an incomplete task for the provider', async t => {
+  const f = await setup(t, () => done());
+  const conversation = await f.service.conversation('test', 'compatible');
+  conversation.task = { status: 'incomplete', checkpoint: { review: { changed: true } } };
+  for (const text of ["don't deliver it", 'deliver it after checking the bottom', 'if it passes, deliver it', '"deliver anyway" was the bad reply']) {
+    assert.equal(await f.service.acceptDelivery({ conversation, text, context }), false, text);
+    assert.equal(conversation.task.status, 'incomplete');
+  }
+});
+
+
+test('accepting the current result also works with the New job route selected', async t => {
+  const f = await setup(t, () => { throw Error('Acceptance does not need a provider'); });
+  for (const text of ['accept current result', 'I accept this result', 'deliver it anyway']) {
+    const conversation = await f.service.conversation('test', 'compatible');
+    conversation.task = { status: 'incomplete', checkpoint: { review: { changed: true } } };
+    assert.equal((await f.service.send({ id: 'test', text, context, route: 'new' })).ok, true, text);
+    assert.equal(conversation.task.status, 'complete');
+  }
 });

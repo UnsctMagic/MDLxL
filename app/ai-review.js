@@ -287,7 +287,7 @@ export async function reviewAiModel(bridge, args, options) {
   if (args.action === 'finish') {
     if (typeof args.summary !== 'string' || !args.summary.trim()) throw Error('Explain the review result.');
     if (
-      args.outcome === 'passed' &&
+      args.outcome === 'passed' && !args.acceptedByUser &&
       (review.phase !== 'inspected' ||
         (target.region ? review.inspectedRegion !== regionSignature(bridge.env(target).model, target.region) : review.inspectedRevision !== bridge.env(target).doc.revision) ||
         !review.passed)
@@ -296,6 +296,7 @@ export async function reviewAiModel(bridge, args, options) {
     review.phase =
       args.outcome === 'passed' ? 'verified' : args.outcome === 'needs-correction' ? 'correcting' : 'blocked';
     review.summary = args.summary;
+    if (args.acceptedByUser) review.acceptedByUser = true;
     if (Array.isArray(args.criteria)) review.criteria = args.criteria;
     return reviewStatus(review);
   }
