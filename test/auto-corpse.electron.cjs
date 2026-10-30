@@ -95,6 +95,11 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
     await page.locator('[data-clean-model-canvas]').waitFor();await settlePage(page, 700);
     const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Bones?/i);
+    // Blizzard's way: the body itself decays, CORP adds only the corpse.
+    const made=after.model.Bones.filter(n=>/^MDLxL /.test(n.Name));
+    assert.deepEqual(made.map(n=>n.Name).filter(n=>!/^MDLxL Corpse /.test(n)),[],'no bone for a frozen copy of the body');
+    assert.equal(after.model.Geosets.length-before.model.Geosets.length,made.length,'one corpse geoset per Death and no copy of the body');
+    checks.push('Create adds only the corpse; the body is not copied');
     assert.equal(after.frame,after.model.Sequences[after.sequence].Interval[0]);
     assert.equal(after.playing,false);
     await settlePage(page, 200);
@@ -104,7 +109,11 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     async function seek(time){await input.fill(String(time));await input.press('Enter');await page.waitForFunction(t=>Math.abs(window.corpseRuntime().frame-t)<1,time);await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}
     for(const label of ['Bones','Skeleton','Nodes','Emitters','Events','Sounds']) {const box=page.getByRole('checkbox',{name:label,exact:true});if(await box.count())await box.uncheck();}
     const fi=after.model.Sequences.findIndex(s=>/^Decay Flesh$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(fi));
-    const s=after.model.Sequences[fi];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
+    const s=after.model.Sequences[fi];
+    // Decay Flesh start, middle and end from the side, where the sink shows.
+    await page.getByLabel('View direction',{exact:true}).selectOption('front');await page.getByRole('button',{name:'Fit',exact:true}).click();
+    for(const [name,t] of [['flesh-start',0],['flesh-middle',.5],['flesh-end',.98]]){await seek(Math.round(s.Interval[0]+t*(s.Interval[1]-s.Interval[0])));await capture(name);}
+    await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
     const bi=after.model.Sequences.findIndex(s=>/^Decay Bones?$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(bi));await seek(after.model.Sequences[bi].Interval[0]);await capture('corpse');
     console.log('Body and corpse captured at the same camera scale.');
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;
@@ -125,7 +134,20 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
       for(let n=0;n<100&&!fs.existsSync(saved);n++)await settlePage(page, 100);
       const reopened=new EditorDocument(fs.readFileSync(saved),saved);assert.equal(reopened.readOnly,false);assert.equal(reopened.model.Geosets.length,after.model.Geosets.length);
-      assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');fs.unlinkSync(saved);
+      assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');
+      // The saved body lies in its last Death pose at the start of Decay
+      // Flesh, stays visible through it, and is underground and gone at the end.
+      const {sampleNodeMatrices,skinGeoset,sampleGeosetAnimation}=await import('../src/animation.js'),m=reopened.model;
+      const di=m.Sequences.findIndex(x=>/^Death$/i.test(x.Name)),fl=m.Sequences.findIndex(x=>/^Decay Flesh$/i.test(x.Name)),[a,b]=m.Sequences[fl].Interval,end=m.Sequences[di].Interval[1];
+      const body=m.Geosets.map((g,i)=>i).filter(i=>sampleGeosetAnimation(m,i,end-1,di).alpha>.5&&!m.Geosets[i].Groups.flat().some(o=>m.Bones.find(n=>n.ObjectId===o)?.Name.startsWith('MDLxL')));
+      assert.ok(body.length>0);
+      for(const id of body) {
+        const dead=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,end,di)),start=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,a,fl)),last=skinGeoset(m.Geosets[id],sampleNodeMatrices(m,b-1,fl));
+        assert.ok(dead.every((v,i)=>Math.abs(v-start[i])<.05),'Decay Flesh starts from the last Death frame');
+        assert.ok(sampleGeosetAnimation(m,id,(a+b)/2,fl).alpha>.5,'the body shows in Decay Flesh');assert.equal(sampleGeosetAnimation(m,id,b,fl).alpha,0);
+        assert.ok(Math.max(...last.filter((_,i)=>i%3===2))<0,'the body is underground at the end of Decay Flesh');
+      }
+      checks.push('Saved '+format+': the body itself holds the last Death pose, shows through Decay Flesh and sinks underground');fs.unlinkSync(saved);
     }
     assert.deepEqual(fs.readFileSync(fixture),original);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,fixture,hidden:true,geosetsBefore:before.model.Geosets.length,geosetsAfter:after.model.Geosets.length},null,2));

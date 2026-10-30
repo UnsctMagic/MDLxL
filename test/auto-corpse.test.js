@@ -22,18 +22,27 @@ const posed=(m,id,seq,time)=>skinGeoset(m.Geosets[id],sampleNodeMatrices(m,time,
 const alpha=(m,id,seq,time)=>sampleGeosetAnimation(m,id,time,seq).alpha;
 const near=(a,b,e=1e-4)=>{assert.equal(a.length,b.length);for(let i=0;i<a.length;i++)assert.ok(Math.abs(a[i]-b[i])<e,`${i}: ${a[i]} != ${b[i]}`);};
 
-test('one edit freezes the literal last Death pose, then sinks flesh and bones completely',()=>{
-  const d=fixture({globalMotion:true}),before=structuredClone(d.model),r=apply(d).corpses[0],m=d.model,fs=m.Sequences[r.flesh],bs=m.Sequences[r.bone];
-  near(posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[0]),posed(before,0,r.death,r.sourceFrame));
+// Keys of a track outside the given frame intervals.
+const outside=(value,intervals)=>value?.Keys?{...value,Keys:value.Keys.filter(k=>!intervals.some(([a,b])=>k.Frame>=a&&k.Frame<=b))}:value;
+test('the body itself holds the last Death pose in Decay Flesh and sinks; only the corpse is added',()=>{
+  const d=fixture(),before=structuredClone(d.model),r=apply(d).corpses[0],m=d.model,fs=m.Sequences[r.flesh],bs=m.Sequences[r.bone];
+  assert.equal(m.Geosets.length,before.Geosets.length+1,'no copy of the body, only the corpse');
+  assert.deepEqual(r.bodyGeosets,[0]);assert.deepEqual(m.Geosets[0],before.Geosets[0]);
+  near(posed(m,0,r.flesh,fs.Interval[0]),posed(before,0,r.death,r.sourceFrame));
   assert.ok(Array.from(posed(m,r.corpseGeoset,r.bone,bs.Interval[0])).filter((_,i)=>i%3===2).every(z=>z>0),'Corpse starts above the terrain even where the Death body intersects it');
-  assert.deepEqual(m.Bones.slice(0,before.Bones.length),before.Bones);
+  // Blizzard: one key holds the pose, the top bone sinks in a straight line.
+  const decay=[Array.from(fs.Interval),Array.from(bs.Interval)];
+  for(const [i,bone] of before.Bones.entries())for(const property of ['Translation','Rotation','Scaling'])assert.deepEqual(outside(m.Bones[i][property],decay),outside(bone[property],decay),`${bone.Name} ${property} outside decay`);
+  assert.deepEqual(m.GlobalSequences,before.GlobalSequences);
+  for(const [seq,s] of before.Sequences.entries())for(const t of [0,.5,1])assert.equal(alpha(m,0,seq,s.Interval[0]+t*(s.Interval[1]-s.Interval[0])),alpha(before,0,seq,s.Interval[0]+t*(s.Interval[1]-s.Interval[0])));
   for(const t of [0,.25,.5,.75,1]) {
     const p=posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[0]+t*(fs.Interval[1]-fs.Interval[0])),base=posed(before,0,r.death,r.sourceFrame);
     near(p,base.map((v,i)=>v-(i%3===2?r.sinkDistance*t:0)),.001);
   }
   assert.ok(Math.max(...Array.from(posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[1])).filter((_,i)=>i%3===2))<0);
   assert.ok(Math.max(...Array.from(posed(m,r.corpseGeoset,r.bone,bs.Interval[1])).filter((_,i)=>i%3===2))<0);
-  assert.equal(alpha(m,0,r.flesh,fs.Interval[0]),0);
+  for(const time of [fs.Interval[0],(fs.Interval[0]+fs.Interval[1])/2,fs.Interval[1]-1])assert.equal(alpha(m,0,r.flesh,time),1,'the body shows through Decay Flesh');
+  assert.equal(alpha(m,0,r.flesh,fs.Interval[1]),0);
   assert.equal(alpha(m,r.corpseGeoset,r.flesh,fs.Interval[0]),0);
   assert.equal(alpha(m,r.corpseGeoset,r.flesh,fs.Interval[0]+167),1);
   assert.equal(alpha(m,r.corpseGeoset,r.bone,bs.Interval[0]),1);
@@ -41,8 +50,19 @@ test('one edit freezes the literal last Death pose, then sinks flesh and bones c
   assert.equal(alpha(m,r.bodyGeosets[0],r.bone,bs.Interval[0]),0);
   for(const seq of [0,1])for(const time of [before.Sequences[seq].Interval[0],before.Sequences[seq].Interval[1]]) {
     near(posed(m,0,seq,time),posed(before,0,seq,time));assert.equal(alpha(m,0,seq,time),alpha(before,0,seq,time));
-    assert.equal(alpha(m,r.corpseGeoset,seq,time),0);assert.equal(alpha(m,r.bodyGeosets[0],seq,time),0);
+    assert.equal(alpha(m,r.corpseGeoset,seq,time),0);
   }
+});
+test('global loops keep running in decay like Blizzard units; a globally moving top bone is refused',()=>{
+  const d=fixture({globalMotion:true}),before=structuredClone(d.model),r=apply(d).corpses[0],m=d.model;
+  assert.deepEqual(m.Bones[0].Rotation,before.Bones[0].Rotation,'the global rotation loop is untouched');
+  assert.equal(m.Geosets.length,before.Geosets.length+1);
+  // The loop spins the body around Z, so heights still sink exactly.
+  const fs=m.Sequences[r.flesh],z=a=>Array.from(a).filter((_,i)=>i%3===2);
+  near(z(posed(m,0,r.flesh,fs.Interval[1])),z(posed(before,0,r.death,r.sourceFrame)).map(v=>v-r.sinkDistance),.001);
+  const g=fixture();g.apply('Global slide',[],x=>{x.GlobalSequences=[500];x.Bones[0].Translation.GlobalSeqId=0;});
+  const kept=structuredClone(g.model);
+  assert.throws(()=>apply(g),/global loop/);assert.deepEqual(g.model,kept);
 });
 test('save/reopen in MDX and MDL retains corpse visibility, motion and a single undo/redo',()=>{
   const d=fixture(),before=structuredClone(d.model),r=apply(d).corpses[0],after=structuredClone(d.model);
