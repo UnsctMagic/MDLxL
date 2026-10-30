@@ -178,6 +178,7 @@ to every Electron launch.
 | The owner's `WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx` (private; the byte-exact `_Before` copy in `D:/MDLxL-Reviews/OptimizeXL-geosets-20260928/portable-proofs/optimizexl-proof/`) | `out/optimizexl/` | `MDLXL_OPTIMIZEXL_MODEL` | optimizexl, optimizexl-geosets, optimizexl-inspection |
 | The owner's `WH_WOC_KnightKhorneFlail07.mdx` and `WH_WOC_KnightKhorneFlail03.mdx` (private; `_Before` copies in `D:/MDLxL-Reviews/OptimizeXL-expression-20260929/packaged-proofs/expression-ui/`) | `out/optimizexl-expression/` | `MDLXL_EXPRESSION_MODEL` (list separated by `;`) | optimizexl-expression |
 | The owner's `WH_VC_NecrarchLord3.mdx` (private, from Downloads) | `out/pose-complex-fixtures/` | `MDLXL_POSE_FIXTURE` | pose-complex, pose-performance |
+| The owner's flail model `Fx_original.mdx` (private; `D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/`) | `out/pose-flail/` | `MDLXL_FLAIL_MODEL` | pose-one-head |
 | Two Khorne knights with an `Attack - 1` animation (the owner's `WH_WOC_KnightKhorneFlail03.mdx` and `WH_WOC_KnightKhorneAxe03.mdx` from Downloads), plus `profile/game-data-discovery.json` | `out/showcase-queue/` | `MDLXL_QUEUE_MODEL_A`, `MDLXL_QUEUE_MODEL_B` | showcase-queue |
 
 The pose Footman can be read from the game with `electron/casc.cjs`:

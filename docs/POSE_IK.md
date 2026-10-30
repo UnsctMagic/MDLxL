@@ -209,6 +209,19 @@ Real anatomical joints precede same-named mesh children; unused branches, cloth
 and rigid props do not become inferred limbs. Ships keep their local body driver
 without turning imported hand/foot attachment names into human anatomy.
 
+Bodies come first, names second. The bodies are found from their limbs; a bone
+named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
+only when it hangs from a found body, or from a joint that body rides on and
+that moves or carries skin (a mount under its rider, a beast's root above its
+legs). A static, skinless container root, a separate skeleton (a flail, loose
+birth/death debris, an effect dummy) and a rigid prop in a found hand (a
+wrench) become `Object`, the same role as **Object** in setup. A wing may grow
+from a hand. Pieces inside a head (meshes, flaps, eyelids, a beak) still belong
+to the head but get no head handle of their own. So a body has one head unless
+its structure carries more: two-headed ogres, the hydra, the chimaera, a rider
+and mount, a mortar team. Only models with recognised limbs are affected.
+Evidence and the per-model change list: `node scripts/pose-head-census.mjs`.
+
 This is a reusable recognition pass, not per-file presets or background learning.
 No supplied filenames or object IDs enter the runtime rules. The model examples
 are local regression fixtures, not redistributed program assets. Recognition is
