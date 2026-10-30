@@ -1,7 +1,9 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const root=process.cwd(), out=path.join(root,'out/portrait-background/ui'); fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
@@ -15,32 +17,32 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     model.Cameras=[]; createPortraitCamera(model,framePortraitSubject(model,null,3000,1));
   });
   const fixture=path.join(out,'portrait-no-background.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
-  const packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH || path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(packaged?[]:[root]),fixture],cwd:root,env:{...process.env,MDLXL_PROFILE:path.join(out,'profile-'+Date.now()),MDLVIS_HEADLESS:'1'},timeout:60000});
-  const errors=[];let page;
+  const packaged=appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: out, profile: path.join(out,'profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, show: 'inactive' });
+
   const snap=async name=>{const png=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage({},{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name),Buffer.from(png,'base64'));};
   // Share of clearly lit pixels inside the preview canvas (the portrait background is black without a backdrop).
   const litShare=async()=>{const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox();return app.evaluate(async ({BrowserWindow},box)=>{const w=BrowserWindow.getAllWindows()[0];const image=await w.capturePage({x:Math.round(box.x),y:Math.round(box.y),width:Math.round(box.width),height:Math.round(box.height)},{stayHidden:true,stayAwake:true});const {width,height}=image.getSize(),bitmap=image.toBitmap();let lit=0,count=0;for(let y=0;y<height;y+=3)for(let x=0;x<width;x+=3){const i=(y*width+x)*4;count++;if(bitmap[i]+bitmap[i+1]+bitmap[i+2]>120)lit++;}return lit/count;},box);};
   try {
-    page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.showInactive();});
+
     await page.getByRole('button',{name:'Movement',exact:true}).click();
     const add=page.getByRole('button',{name:'Add Background',exact:true});
     await add.waitFor(); assert.match(await add.getAttribute('title'),/team-color background/);
     await page.getByRole('button',{name:'Portrait Frame View',exact:true}).click();
     await page.getByRole('button',{name:'Full Model View',exact:true}).waitFor();
-    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');let fiber=el[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state.controls)return state;}throw Error('No preview runtime');};});
+    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');{ const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native&&state.controls) return state; }
+throw Error('No preview runtime');};});
     await page.waitForFunction(()=>portraitRuntime().portraitActive);
-    await page.getByRole('button',{name:'Stop',exact:true}).click();await page.waitForTimeout(600);
+    await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 600);
     const before=await litShare();await snap('1-before.png');
     await add.click();
-    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await page.waitForTimeout(800);
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await settlePage(page, 800);
     const after=await litShare();await snap('2-added.png');
     assert.ok(after>before+.3,`the backdrop lights the portrait (${before.toFixed(2)} -> ${after.toFixed(2)})`);
     console.log('PASS Add Background in Movement fills the portrait',before.toFixed(2),'->',after.toFixed(2));
     // Animations shows real textures; Movement's Bone influence view greys meshes.
     await page.getByRole('button',{name:'Animations',exact:true}).click();
-    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await page.waitForTimeout(800);
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await settlePage(page, 800);
     const fill=await litShare();await snap('3-animations.png');
     console.log('PASS Refresh Background in Animations',fill.toFixed(2));
     assert.equal(await page.getByRole('dialog',{name:'Background options',exact:true}).count(),0,'no options panel until ▾ is clicked');
@@ -49,13 +51,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(Number(await page.getByLabel('Background size',{exact:true}).inputValue()).toFixed(2),'3.50','opens with the current look');
     await page.getByLabel('Background size',{exact:true}).fill('1.6');await page.getByLabel('Background height',{exact:true}).fill('-0.6');
     await snap('3b-options.png');
-    await options.getByRole('button',{name:'Refresh Background',exact:true}).click();await options.waitFor({state:'hidden'});await page.waitForTimeout(800);
+    await options.getByRole('button',{name:'Refresh Background',exact:true}).click();await options.waitFor({state:'hidden'});await settlePage(page, 800);
     const spotlight=await litShare();await snap('3c-spotlight.png');
     assert.ok(spotlight<fill-.15,`Spotlight keeps black around the portrait (${fill.toFixed(2)} -> ${spotlight.toFixed(2)})`);
     await page.getByRole('button',{name:'Background options',exact:true}).click();await options.waitFor();
     assert.equal(Number(await page.getByLabel('Background size',{exact:true}).inputValue()).toFixed(1),'1.6','reopens with the placed look');
     await page.getByRole('button',{name:'Close background options',exact:true}).click();await options.waitFor({state:'hidden'});
-    await page.getByRole('button',{name:'Refresh Background',exact:true}).click();await page.waitForTimeout(800);
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).click();await settlePage(page, 800);
     const kept=await litShare();assert.ok(Math.abs(kept-spotlight)<.05,`plain Refresh keeps the look (${spotlight.toFixed(2)} vs ${kept.toFixed(2)})`);
     console.log('PASS Background options: Spotlight',spotlight.toFixed(2),'kept by Refresh',kept.toFixed(2));
     await page.getByRole('button',{name:'Movement',exact:true}).click();
@@ -67,7 +69,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.ok(Math.hypot(...turned.position.map((n,i)=>n-view.position[i]))>1,'mouse drag still rotates the portrait camera');
     await page.getByRole('button',{name:'Set Current View *',exact:true}).waitFor();await snap('4-rotated.png');
     console.log('PASS mouse rotation still works');
-    const output=path.join(out,'with-background.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
+    const output=path.join(out,'with-background.mdx');await stubDialogs(app, { save: (output) });
     await page.keyboard.press('Escape');await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
     await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
     const saved=openDocument(fs.readFileSync(output),output).model,index=findPortraitBackground(saved);
@@ -76,5 +78,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.log('PASS saved backdrop, Portrait-only');
     assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged,before,after,errors},null,2));
-  } finally { await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{}); }
+  } finally { await closeApp(app).catch(()=>{}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

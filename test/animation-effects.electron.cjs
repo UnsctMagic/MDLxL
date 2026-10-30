@@ -1,9 +1,10 @@
-// Run against rebuilt dist; MDLXL_ELECTRON_PATH can point to a packaged MDLxL.exe.
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+// Run against rebuilt dist; MDLXL_TEST_EXE can point to a packaged MDLxL.exe.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'animation-effects', String(Date.now()));
@@ -32,20 +33,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await fs.writeFile(texturePath, texture.bytes);
   // Also prove Animations works when the graphics effect preference is disabled.
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { particles: false }, emitterMarker: 'pentagram' } }));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '0' }, timeout: 60000 });
-  const errors = [];
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '0' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   const screenshot = async name => {
     const png = await app.evaluate(async ({ BrowserWindow }) =>
       (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
-  let page;
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     await page.getByText('Opened animation-effects.mdx', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
@@ -68,10 +67,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
-      let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state.controls) {
+
+      { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) {
           const native = state.native;
           return { frame: native.getFrame(), ready: state.captureApi?.isReady,
             particles: native.particlesController.emitters.map(emitter => emitter.particles.filter(particle => particle.lifeSpan > 0).length),
@@ -79,13 +76,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
             nodes: el.querySelectorAll('[data-node-overlay]').length,
             markerTriangles: el.querySelector('[data-node-overlay]') ? window.markerTriangles || 0 : 0,
             camera: state.controls.object.position.toArray(), geosets: native.model.Geosets.length };
-        }
-      }
+        } }
+
       return null;
     });
     const waitFor = async (predicate, label) => {
       const end = Date.now() + 20000;
-      while (Date.now() < end) { const state = await readRuntime(); if (state && predicate(state)) return state; await page.waitForTimeout(100); }
+      while (Date.now() < end) { const state = await readRuntime(); if (state && predicate(state)) return state; await settlePage(page, 100); }
       throw Error(label + ': ' + JSON.stringify(await readRuntime()));
     };
     const command = action => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), action);
@@ -110,12 +107,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const toggled = await waitFor(state => state.particles[0] > 0 && state.ribbons[0] > 1, 'Effects run with the display switch on');
     assert.equal(toggled.nodes, 0);
-    await page.getByLabel('Select node Visible sparks', { exact: true }).check(); await page.waitForTimeout(300);
+    await page.getByLabel('Select node Visible sparks', { exact: true }).check(); await settlePage(page, 300);
     await waitFor(state => state.nodes === 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
       'Selecting an emitter shows no marker with Nodes off; both effects keep rendering');
     // The pentagram mesh size is not fixed any more, so the two emitter pentagrams are measured as what the
     // Emitters switch adds to the GL marker draw.
-    await symbols.check(); await page.waitForTimeout(300);
+    await symbols.check(); await settlePage(page, 300);
     const selected = await waitFor(state => state.nodes === 1 && state.markerTriangles > 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
       'Nodes shows the effect symbols; both effects keep rendering');
     const withEmitters = selected.markerTriangles; assert.equal(withEmitters % 2, 0, 'two identical emitter pentagrams');
@@ -126,7 +123,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await emitters.check();
     await waitFor(state => state.markerTriangles === withEmitters && state.particles[0] > 0 && state.ribbons[0] > 1,
       'Switching Emitters back on restores both pentagrams and resumes the authored effects');
-    await page.getByLabel('Select node Visible sparks', { exact: true }).uncheck(); await page.waitForTimeout(300);
+    await page.getByLabel('Select node Visible sparks', { exact: true }).uncheck(); await settlePage(page, 300);
     await waitFor(state => state.markerTriangles === withEmitters && state.particles[0] > 0 && state.ribbons[0] > 1,
       'Emitter symbols do not depend on node selection');
     await symbols.uncheck();
@@ -142,7 +139,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await command('camera:rotate');
     // The menu command reaches the renderer asynchronously; drag only once Camera rotation is the active tool.
-    await page.locator('button[data-hotkey="camera:rotate"][aria-pressed="true"]').first().waitFor();
+    await page.waitForFunction(() => mdlxlProbe().props.cameraMode === 'rotate');
     const cameraBefore = (await readRuntime()).camera, canvas = await page.locator('[data-clean-model-canvas]').boundingBox();
     await page.mouse.move(canvas.x + canvas.width * .75, canvas.y + canvas.height * .75);
     await page.mouse.down();
@@ -155,7 +152,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), sidebarWidth);
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     // Movement also draws focused bone markers with the same GL program, so measure what its Emitters switch adds.
-    if (!await emitters.isChecked()) await emitters.check(); await page.waitForTimeout(300);
+    if (!await emitters.isChecked()) await emitters.check(); await settlePage(page, 300);
     const movementOn = (await waitFor(state => state.nodes === 1 && state.markerTriangles > 0, 'Movement markers drawn')).markerTriangles;
     await emitters.uncheck();
     const movementOff = (await waitFor(state => state.markerTriangles !== movementOn, 'Movement Emitters switch removes emitter markers')).markerTriangles;
@@ -169,5 +166,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1200)); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

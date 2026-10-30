@@ -1,15 +1,15 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/light-dark-shortcut.electron.cjs
 // Presses the real Shift+F1 / Shift+F2 keys and checks the interface, the
 // saved preferences and the Keyboard Shortcuts list. MDLXL_TEST_EXE runs a package.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out/light-dark-shortcut');
   fs.mkdirSync(out, { recursive: true });
   const profile = path.join(out, 'profile-' + Date.now()); fs.mkdirSync(profile);
   // Start from a customized Durotar: the switch must bring that exact look back.
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, theme: 'gruvbox-dark', accent: '#123456', viewportPreset: 'custom' } }));
-  const launch = () => _electron.launch({ executablePath: process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [root]), path.join(root, 'fixtures/demo.mdx')], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+  const launch = () => launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: path.join(root, 'test/fixtures/demo.mdx') }).then(({ app }) => app);
   const errors = [];
   const open = async app => {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
@@ -18,7 +18,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     return page;
   };
   const look = page => page.evaluate(() => ({ scheme: document.documentElement.dataset.theme, panel: getComputedStyle(document.documentElement).getPropertyValue('--ui-panel').trim(), accent: getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim(), status: document.querySelector('.classic-status [role=status], .classic-status span')?.textContent || '' }));
-  const press = async (page, key) => { await page.locator('canvas').first().hover(); await page.keyboard.press(key); await page.waitForTimeout(250); return look(page); };
+  const press = async (page, key) => { await page.locator('canvas').first().hover(); await page.keyboard.press(key); await settlePage(page, 250); return look(page); };
   let app = await launch();
   try {
     let page = await open(app);
@@ -40,7 +40,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(listed, /Darker interface[\s\S]*Shift\+F1|Shift\+F1[\s\S]*Darker interface/);
     assert.match(listed, /Lighter interface[\s\S]*Shift\+F2|Shift\+F2[\s\S]*Lighter interface/);
     await page.keyboard.press('Escape');
-    await app.close();
+    await closeApp(app, { keepProfile: true });
     // The remembered dark look survives a restart.
     app = await launch(); page = await open(app);
     assert.equal((await look(page)).panel, '#eee8d5', 'Silvermoon kept after restart');
@@ -49,5 +49,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.screenshot({ path: path.join(out, 'dark.png') });
     assert.deepEqual(errors, []);
     console.log('light/dark shortcut ok');
-  } finally { await app.close().catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exit(1); });

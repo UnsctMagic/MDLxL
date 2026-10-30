@@ -1,7 +1,9 @@
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'sequence-reorder-ui');
@@ -19,32 +21,29 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const global = createNode(model, 'EventObject', 'SNDxGlobal'); global.GlobalSeqId = 0; global.EventTrack = new Uint32Array([100]);
   });
   const fixture = path.join(out, 'reorder-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
-  const app = await _electron.launch({ executablePath, args: [fixture], cwd: root, env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  let page; const errors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+
   const screenshot = async name => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].capturePage({}, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'));
     await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     const choose = page.getByLabel('Choose animation sequence', { exact: true }), button = page.getByRole('button', { name: 'Reorder', exact: true });
     await choose.selectOption('2');
     const readRuntime = () => page.evaluate(() => {
       const element = document.querySelector('.game-preview-root');
-      let fiber = element?.[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) };
-      }
+
+      { const state = mdlxlProbe(element?.closest('.game-preview-root') || null).runtime; if (state?.native && state.controls) return { ready: state.captureApi?.isReady, frame: state.native.getFrame(), camera: state.controls.object.position.toArray(), names: state.native.model.Sequences.map(sequence => sequence.Name), intervals: state.native.model.Sequences.map(sequence => Array.from(sequence.Interval)) }; }
+
       return null;
     });
     const waitFor = async (predicate, label) => {
       const until = Date.now() + 20000;
-      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await page.waitForTimeout(100); }
+      while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await settlePage(page, 100); }
       throw Error(label + ': ' + JSON.stringify(await readRuntime()));
     };
     await waitFor(state => state.ready, 'Preview ready');
@@ -105,7 +104,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(saved.model.TextureAnims[0].Translation.GlobalSeqId, 1);
       assert.equal(saved.model.EventObjects[1].GlobalSeqId, 1);
       assert.deepEqual(Array.from(saved.model.EventObjects[0].EventTrack), [777, 3777, 6777]);
-      await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(out, 'saved.' + format));
+      await stubDialogs(app, { open: [(path.join(out, 'saved.' + format))] });
       await page.keyboard.press('Control+o');
       await page.getByRole('tab', { name: 'saved.' + format, exact: true, selected: true }).waitFor();
       await page.getByRole('button', { name: 'Animations', exact: true }).click(); await choose.selectOption('0');
@@ -125,5 +124,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1400)); }
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

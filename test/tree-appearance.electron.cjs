@@ -1,7 +1,7 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { BUILT_IN_VIEWPORT_PRESETS: presets } = await import('../src/viewport-appearance.js');
@@ -10,11 +10,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const profile = path.join(root, 'out/tree-appearance/profile-' + Date.now());
   const file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
   const original = fs.readFileSync(file), errors = [];
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: [root, file], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile } });
+  const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, fixture: file , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.setSize(1600, 1000); w.setPosition(-3000, 0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
+
     await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
     const menu = command => app.evaluate(({ BrowserWindow }, c) => BrowserWindow.getAllWindows()[0].webContents.send('menu', c), command);
     // Appearance shows one page at a time and reopens on the last page used.
@@ -89,5 +87,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(fs.readFileSync(file), original, 'model bytes unchanged');
     assert.deepEqual(errors, []);
     console.log('PASS categories, all palettes, custom controls, font sizes, preset switching and persisted settings');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

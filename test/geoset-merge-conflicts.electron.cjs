@@ -1,8 +1,9 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against rebuilt dist or set MDLXL_TEST_PACKAGE to a packaged app directory.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), output = path.join(root, 'out/geoset-merge-conflicts');
@@ -24,15 +25,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const bytes = fs.readFileSync(source), initial = openDocument(bytes, path.basename(source)).model;
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const app = await _electron.launch({
-    executablePath: packaged ? path.join(packaged, 'MDLxL.exe') : path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [root]), source], cwd: packaged || root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-  });
-  let page;
+  const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, cwd: packaged || root, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: source , pageTimeout: 15000 });
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     await page.waitForFunction(count => document.title.includes('.mdx') && document.querySelectorAll('.classic-geoset-list [role="option"]').length === count, initial.Geosets.length);
     const screenshot = async name => {
       await app.evaluate(async ({ BrowserWindow }) => { await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true }); });
@@ -43,20 +39,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.mergeState = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.doc?.apply) return current;
-        }
+
+        { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return current; }
+
         throw Error('Editor state missing');
       };
       window.mergeViewport = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const current = hook.memoizedState?.current;
-          if (current?.controls?.object) return current;
-        }
+
+        { const current = findFiberState(host, current => current?.controls?.object); if (current?.controls?.object) return current; }
+
         throw Error('Viewport state missing');
       };
     });
@@ -81,7 +73,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await screenshot('popup.png');
     await popup.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
-    await openMerge(); await popup.waitFor(); await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
+    await openMerge(); await popup.waitFor(); await popup.getByRole('button', { name: 'Cancel', exact: true }).focus(); await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
     await openMerge(); await popup.waitFor();
     await popup.getByRole('combobox', { name: 'RGB resolution for geosets 5, 28', exact: true }).selectOption('27');
@@ -121,6 +113,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.log('PASS: centered conflict popup, explicit independent choices, cancel/Escape, merge, MDX reopen, undo/redo, material warning, sidebar preservation, actual mouse rotation, original file unchanged');
   } finally {
     if (page && !page.isClosed()) await page.evaluate(() => { const state = typeof mergeState === 'function' && mergeState(); if (state) Object.defineProperty(state.doc, 'dirty', { get: () => false }); window.desktop?.setDirty({ dirty: false, saved: true }); });
-    await app.close();
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

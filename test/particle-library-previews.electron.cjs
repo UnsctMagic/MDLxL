@@ -9,6 +9,11 @@ const {particleSourceState}=require('../electron/particle-source.cjs');
  const sourceKey=(await particleSourceState(async()=>({cascFolders:[folder]}))).sourceKey,cache=path.join(directory,sourceKey);await fs.mkdir(cache,{recursive:true});
  await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({gameData:folder,preferences:{checkUpdatesOnStartup:false}}));
  const {createStarterRecipe}=await import('../src/particle-starters.js'),{stringifyParticleData}=await import('../src/particle-data.js'),recipe=createStarterRecipe(),items=[];
+ // The installation above is a synthetic catalog identity, not a readable CASC.
+ // Keep the preview self-contained with a valid 1x1 TGA carried by the preset.
+ const picture='preview-fixture.tga',bytes=Buffer.alloc(22,255);bytes.fill(0,0,18);bytes[2]=2;bytes.writeUInt16LE(1,12);bytes.writeUInt16LE(1,14);bytes[16]=32;bytes[17]=0x28;
+ recipe.native.Textures[0].Image=picture;recipe.dependencies=recipe.dependencies.map(dep=>({...dep,path:picture}));
+ recipe.embeddedAssets=[{path:picture,data:bytes.toString('base64')}];
  for(let n=1;n<=72;n++){const id='wc3-'+n.toString(16).padStart(24,'0');await fs.writeFile(path.join(cache,id+'.json'),stringifyParticleData({...recipe,id,name:'Cached effect '+n}));items.push({id,name:'Cached effect '+n,collection:'Warcraft',categories:['Sparks'],tags:[],unsupported:[]});}
  await fs.writeFile(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));await fs.writeFile(path.join(cache,'catalog.json'),JSON.stringify(items));await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({schema:3,sourceKey,processed:[],failures:[],missingDependencies:[],unsupported:[],recipeCount:72,extractionComplete:true}));
  const store=new ParticleLibrary({directory,discover:async()=>({cascFolders:[folder]})}),png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';

@@ -1,7 +1,8 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), variant = process.env.MDLXL_VARIANT_CPU ? 'slow-cpu' : 'default';
@@ -13,26 +14,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'playback.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_PLAYBACK_EXE || path.join(root, 'out', 'pkg', 'MDLxL-win32-x64', 'MDLxL.exe');
-  const app = await _electron.launch({ executablePath, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const samples = [], errors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 900 }, show: 'inactive' });
+  const samples = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); w.setSize(1600, 900); w.showInactive(); });
+
     await page.waitForFunction(() => document.querySelector('.model-tabs')?.textContent.includes('playback.mdx'));
     const click = async locator => { const box = await locator.boundingBox(); assert.ok(box); await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); };
     await click(page.locator('button[data-hotkey="animation"]:visible').first());
     await page.getByLabel('Movement current sequence', { exact: true }).selectOption('0');
     await page.locator('.game-preview-root canvas[data-clean-model-canvas]').waitFor();
     await page.evaluate(() => {
-      const host = document.querySelector('.game-preview-root');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))], runtime;
-      for (; fiber && !runtime; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const value = hook.memoizedState?.current;
-        if (value?.native && value?.controls) { runtime = value; break; }
-      }
+      const runtime=mdlxlProbe().runtime;
       if (!runtime) throw Error('Main viewport runtime not found');
       const probe = window.__playbackCost = { runtime, sample: null };
       const render = runtime.native.render;
@@ -69,7 +62,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await click(page.locator('.learn-menu [data-hotkey="show-hotkeys"]'));
         await page.keyboard.press('Escape'); shown = on;
       }
-      await page.waitForTimeout(1000);
+      await settlePage(page, 1000);
       const sample = await page.evaluate(ms => new Promise(resolve => {
         const probe = window.__playbackCost, start = performance.now();
         probe.sample = { frames: 0, gaps: [], last: start, rects: 0, hintRects: 0, hintStyles: 0, cursorWrites: 0 };
@@ -100,7 +93,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }
     assert.deepEqual(errors, []);
   } finally {
-    await app.close();
+    await closeApp(app);
     await fs.rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   }
 })().then(() => process.exit(0), error => { console.error(error); process.exit(1); });

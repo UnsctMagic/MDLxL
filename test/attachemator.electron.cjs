@@ -1,3 +1,7 @@
+const { fixturePath } = require('./helpers/fixtures.cjs');
+const { stubDialogs } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Attachemator in the rebuilt Electron bundle: node test/attachemator.electron.cjs
 // Needs an SD unit with standard attachment points (default out/pose/Footman.mdx,
 // or MDLXL_ATTACHEMATOR_MODEL). Its Weapon and Chest points are removed and its
@@ -5,10 +9,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
-  const source = path.resolve(process.env.MDLXL_ATTACHEMATOR_MODEL || 'out/pose/Footman.mdx');
+  const source = path.resolve(process.env.MDLXL_ATTACHEMATOR_MODEL || fixturePath('footman'));
   if (!fs.existsSync(source)) { console.log(`Skipped: ${source} is missing.`); return; }
   const output = path.resolve('out/attachemator-ui'); fs.mkdirSync(output, { recursive: true });
   const { openDocument } = await import('../src/editor-document.js');
@@ -27,12 +30,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   if (fs.existsSync(path.join(path.dirname(source), 'Textures'))) fs.cpSync(path.join(path.dirname(source), 'Textures'), path.join(output, 'Textures'), { recursive: true });
   const errors = [];
-  const executablePath = process.env.MDLXL_TEST_EXE ? path.resolve(process.env.MDLXL_TEST_EXE) : path.resolve('node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath, args: [...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]), '--disable-backgrounding-occluded-windows', fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 60000 });
+  const executablePath = appTarget().executablePath;
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1500, height: 950 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1500, 950); window.showInactive(); });
+
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({ timeout: 60000 });
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.getByLabel('Bones controller').waitFor({ timeout: 60000 });
@@ -49,7 +50,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const dialog = page.getByRole('dialog', { name: 'Attachemator' });
     await dialog.waitFor();
     await page.locator('.atm-preview canvas').first().waitFor();
-    await page.waitForTimeout(1500);
+    await settlePage(page, 1500);
     const rowOf = name => page.locator('.atm-row').filter({ has: page.locator('span[role=cell]:nth-child(2)', { hasText: new RegExp(`^${name}`) }) });
     const boneText = name => dialog.getByLabel(new RegExp(`^Bone for ${name}`)).evaluate(select => select.selectedOptions[0].textContent);
     assert.equal(await page.locator('.atm-row').count(), doc.model.Attachments.length + 2, 'every point is listed, plus the two missing ones');
@@ -64,14 +65,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     const runtime = () => page.evaluate(() => {
       const host = document.querySelector('.atm-preview .game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native && state?.controls) {
+
+      { const state = mdlxlProbe(host?.closest('.game-preview-root') || null).runtime; if (state?.native && state?.controls) {
           window.__atm = state;
           return { position: state.controls.object.position.toArray(), quaternion: state.controls.object.quaternion.toArray() };
-        }
-      }
+        } }
+
       throw Error('Preview camera not found');
     });
     const project = point => page.evaluate(point => {
@@ -88,30 +87,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.ok(before.position.some((value, i) => Math.abs(value - turned.position[i]) > 1), 'left drag on empty space turns the camera');
 
     // Clicking a point on the model selects its row.
-    const pointOf = name => page.evaluate(name => {
-      const host = document.querySelector('.atm-preview .game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Attachments && fiber.memoizedProps?.selectedNodeIds) {
-        const node = fiber.memoizedProps.model.Attachments.find(item => item.Name.startsWith(name));
+    const pointOf = name => page.evaluate(name => { const props = findFiberProps('.atm-preview .game-preview-surface', props => props?.model?.Attachments && props?.selectedNodeIds); if (props) {
+        const node = props.model.Attachments.find(item => item.Name.startsWith(name));
         return node ? Array.from(node.PivotPoint) : null;
       }
       return null;
-    }, name);
+     }, name);
     const handPoint = await project(await pointOf('Hand Left'));
     await page.mouse.click(handPoint.x, handPoint.y);
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     assert.match(await page.locator('.atm-row.is-selected').innerText(), /Hand Left/, 'clicking a point in the preview selects it');
     await page.screenshot({ path: path.join(output, '2b-clicked.png') });
 
     // Drag: select Chest Ref and drag its point with the mouse.
     await rowOf('Chest Ref').locator('span').nth(1).click();
-    await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await page.waitForTimeout(300);
+    await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await settlePage(page, 300);
     const pivotNow = await pointOf('Chest Ref');
     assert.ok(pivotNow, 'the chest point is in the preview');
     const start = await project(pivotNow);
     await page.mouse.move(start.x, start.y); await page.mouse.down();
     await page.mouse.move(start.x + 30, start.y - 25, { steps: 10 }); await page.mouse.up();
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const dragged = await pointOf('Chest Ref');
     assert.ok(dragged.some((value, i) => Math.abs(value - pivotNow[i]) > 1), 'dragging moves the point');
     await page.screenshot({ path: path.join(output, '3-adjusted.png') });
@@ -122,19 +118,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // Pick: click a bone in the preview, like Bones mode's Attach.
     await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).click();
-    await page.waitForTimeout(500);
-    const headBone = await page.evaluate(() => {
-      const host = document.querySelector('.atm-preview .game-preview-surface');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Bones && fiber.memoizedProps?.attachSourceIds) {
-        const node = fiber.memoizedProps.model.Bones.concat(fiber.memoizedProps.model.Helpers || []).find(item => item.Name === 'Bone_Head');
+    await settlePage(page, 500);
+    const headBone = await page.evaluate(() => { const props = findFiberProps('.atm-preview .game-preview-surface', props => props?.model?.Bones && props?.attachSourceIds); if (props) {
+        const node = props.model.Bones.concat(props.model.Helpers || []).find(item => item.Name === 'Bone_Head');
         return node ? Array.from(node.PivotPoint) : null;
       }
       return null;
-    });
+     });
     const headPoint = await project(headBone);
     await page.mouse.click(headPoint.x, headPoint.y);
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const pickedBone = await boneText('Weapon Ref');
     assert.notEqual(pickedBone, 'Mesh02', 'picking a bone in the preview re-attaches the point');
     assert.equal(await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).getAttribute('aria-pressed'), 'false');
@@ -145,7 +138,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(() => /Attachemator placed/.test(document.body.innerText));
     await page.screenshot({ path: path.join(output, '4-committed.png') });
 
-    await app.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, savedPath);
+    await stubDialogs(app, { save: (savedPath) });
     await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
     await page.waitForFunction(() => !document.title.startsWith('* '));
@@ -162,5 +155,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(saved.Attachments.length, doc.model.Attachments.length + 2);
     assert.deepEqual(errors, []);
     console.log('Attachemator passed.');
-  } catch (error) { try { const page = await app.firstWindow(); await page.screenshot({ path: path.join(output, 'failure.png') }); } catch { /* window gone */ } throw error; } finally { const child = app.process(); await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 3000))]); child?.kill(); }
+  } catch (error) { try {  await page.screenshot({ path: path.join(output, 'failure.png') }); } catch { /* window gone */ } throw error; } finally { await closeApp(app); }
 })().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });

@@ -94,7 +94,7 @@ The prior After canvas started at a half screen pixel: its native render matched
 
 Every Advanced numeric/checkbox option has a hover explanation and a clickable information button. The UI test covers 22 settings, pinned help, Escape dismissal, the actual bounds warning's Preview fix button, approval clearing the warning, and navigation to redundant-key cleanup. Existing stage layout, geoset selection, shared playback/camera and exclusive approved-only paired saving remain.
 
-Reproduce native Footman checks with `node test/optimizexl-footman.mjs "path/to/Footman (Unoptimized).mdx" "path/to/Footman (Original).mdx"`. Set `MDLXL_FOOTMAN_REPORT` for a JSON report. The new Electron check is `node test/optimizexl-footman.electron.cjs`, with optional `MDLXL_FOOTMAN_MODEL` and `MDLXL_TEST_DPR=1.25`, plus the common packaged-test environment variables below.
+Reproduce native Footman checks with `node test/manual/optimizexl-footman.mjs "path/to/Footman (Unoptimized).mdx" "path/to/Footman (Original).mdx"`. Set `MDLXL_FOOTMAN_REPORT` for a JSON report. The new Electron check is `node test/optimizexl-footman.electron.cjs`, with optional `MDLXL_FOOTMAN_MODEL` and `MDLXL_TEST_DPR=1.25`, plus the common packaged-test environment variables below.
 
 ## Automated checks
 
@@ -179,7 +179,7 @@ Before editing the algorithm, output hashes were captured from accepted commit `
 
 Native Electron checks pass for checkbox subsets, Select all/Clear all, combined preview/approval/Back, unchanged original Before data and size, automatic next-finding selection after Approve/Skip, animation/finding/preset wheel selection, and playback continuing when choosing another animation. Existing flail inspection restoration, concise guidance/common endpoint repair, global playback, Footman motion approval and green-star tests also pass. The default checkbox list stays collapsed and the center column remains 255 pixels wide. All model inputs remain untouched. The separate review package verifies 573 runtime/asset files and 55 locales. Its selection and motion interaction tests also pass, including previewing the complete selected queue.
 
-New reproduction commands: `node --test test/optimizexl-snaps.test.js`; `node test/optimizexl-snaps-reference.mjs <unoptimized-footman> <original-footman> <flail03> <optimized-flail>`; `node test/optimizexl-flail-regression.mjs <flail03> <optimized-flail>`; and `node test/optimizexl-selection.electron.cjs`. The Electron test accepts the same EXE, Playwright and proof-root environment variables as the earlier scripts. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-selected-fixes-20260928`, including `snap-reference.json`, `footman-regression.json`, `selection-ui` and `source-proofs`.
+New reproduction commands: `node --test test/optimizexl-snaps.test.js`; `node test/manual/optimizexl-snaps-reference.mjs <unoptimized-footman> <original-footman> <flail03> <optimized-flail>`; `node test/manual/optimizexl-flail-regression.mjs <flail03> <optimized-flail>`; and `node test/optimizexl-selection.electron.cjs`. The Electron test accepts the same EXE, Playwright and proof-root environment variables as the earlier scripts. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-selected-fixes-20260928`, including `snap-reference.json`, `footman-regression.json`, `selection-ui` and `source-proofs`.
 
 ## Fifteenth review addition: context from the model's own animations
 
@@ -191,7 +191,7 @@ The damaged Footman retains all 21 established motion/snap plans and gains two i
 
 Rebuilt-source and packaged Electron selection tests verify red/orange details only after selection, seeking an inspection-only finding without enabling Approve, exclusion of disabled findings from Select all, combined supported corrections, approval/Back, automatic next selection, wheel navigation, playback and pinned original Before data/size. The packaged motion/star check also passes. The checkbox list remains collapsed by default and the center column remains 255 pixels wide. Screenshots were inspected. The separate review package verifies 574 runtime/asset files and 55 locales. These are finite regression results, not a claim of perfect detection or reconstruction of every damaged animation; user visual acceptance and Warcraft runtime testing remain outstanding.
 
-New commands: `node --test test/optimizexl-motion-context.test.js` and `node test/optimizexl-context-models.mjs <unoptimized-footman> <original-footman> <flail03> <optimized-flail>`. Existing flail, snap-reference and Electron commands remain applicable. Current source and packaged UI evidence is under `D:\MDLxL-Reviews\OptimizeXL-context-review-20260928`.
+New commands: `node --test test/optimizexl-motion-context.test.js` and `node test/manual/optimizexl-context-models.mjs <unoptimized-footman> <original-footman> <flail03> <optimized-flail>`. Existing flail, snap-reference and Electron commands remain applicable. Current source and packaged UI evidence is under `D:\MDLxL-Reviews\OptimizeXL-context-review-20260928`.
 
 ## Integration with current main for the authorized merge
 
@@ -209,7 +209,7 @@ All 52 previously accepted flail MDX outputs remain byte-identical, and every ac
 
 Source and packaged Electron checks pass for finding selection, animation seeking, preview, approval, cleared severe count, retained unused records, pinned original Before and Back. Input bytes remain unchanged. The review package verifies 609 runtime/asset files and 55 locales. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-opening-20260928\source-proofs` and `packaged-proofs`. Native renderer sampling and packaged UI tests do not substitute for user visual acceptance or Warcraft runtime testing.
 
-Reproduce with `node --test test/optimizexl-opening-tracks.test.js`, `node test/optimizexl-opening-models.mjs <flail02> <flail02-after>` and `node test/optimizexl-opening.electron.cjs`. The Electron test accepts the existing Playwright, EXE and proof-root environment variables and optional `MDLXL_OPENING_MODEL` input.
+Reproduce with `node --test test/optimizexl-opening-tracks.test.js`, `node test/manual/optimizexl-opening-models.mjs <flail02> <flail02-after>` and `node test/optimizexl-opening.electron.cjs`. The Electron test accepts the existing Playwright, EXE and proof-root environment variables and optional `MDLXL_OPENING_MODEL` input.
 
 ## Unused-key cleanup, attached glow visibility and Footman spheres
 
@@ -219,7 +219,7 @@ The visible Portrait glow is an additive geoset, not the already-hidden fire emi
 
 30 focused tests pass. They cover unchanged native interpolation, retained setup/global keys, stale plans, glow inference without names, unrelated/distant geometry, visible carriers, cubic visibility excursions and overlapping intervals. Supplied-model tests verify all original data except approved tracks, full-interval glow visibility, zero Hive findings even after the glow correction, and exact equality of the Standard unit preset with both authored Footman sphere centers/radii. Source and packaged Electron checks cover selected cleanup approval, empty Hive results, glow Before/After preview, three selected visibility fixes, pinned original data, and the two-sphere preview. Source and package evidence is under `D:\MDLxL-Reviews\OptimizeXL-cleanup-20260928`. User visual acceptance and Warcraft runtime testing remain pending.
 
-Reproduce with `node --test test/optimizexl-cleanup-visibility.test.js`, `node test/optimizexl-cleanup-models.mjs <flail02> <flail02-after>` and `node test/optimizexl-cleanup.electron.cjs`. Set `MDLXL_FOOTMAN_REFERENCE` for the exact preset comparison. The Electron test uses the same environment overrides as the opening-track test.
+Reproduce with `node --test test/optimizexl-cleanup-visibility.test.js`, `node test/manual/optimizexl-cleanup-models.mjs <flail02> <flail02-after>` and `node test/optimizexl-cleanup.electron.cjs`. Set `MDLXL_FOOTMAN_REFERENCE` for the exact preset comparison. The Electron test uses the same environment overrides as the opening-track test.
 
 ## Checker-driven classification and redundant keys
 
@@ -231,7 +231,7 @@ The new diagnostic classifier consumes actual flattened Hive output and assigns 
 
 The supplied clean Flail05 yields no new proposals. All 52 previously accepted flail MDX outputs still match the immutable regression baseline. Source and packaged Electron tests verify the five notices in Unused data, direct per-notice repair links, combined preview/approval, zero findings afterwards, pinned Before and Back restoring the five notices. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-diagnostics-20260929` and ignored `out/diagnostics-*.log` / `out/diagnostics-*.json`.
 
-Reproduce with `node --test test/optimizexl-diagnostics.test.js`, `node test/optimizexl-diagnostics-models.mjs <axe02> <clean-flail05>` and `node test/optimizexl-diagnostics.electron.cjs`. The Electron test accepts `MDLXL_DIAGNOSTICS_MODEL` and the usual Playwright, EXE and proof-root overrides.
+Reproduce with `node --test test/optimizexl-diagnostics.test.js`, `node test/manual/optimizexl-diagnostics-models.mjs <axe02> <clean-flail05>` and `node test/optimizexl-diagnostics.electron.cjs`. The Electron test accepts `MDLXL_DIAGNOSTICS_MODEL` and the usual Playwright, EXE and proof-root overrides.
 
 ## Preserving small authored motion during animation reduction
 
@@ -247,7 +247,7 @@ Preserving motion can reduce size savings. The unoptimized Footman maximum dupli
 
 Source and packaged Electron tests on 07 and Flail03 pass for maximum-strength paired native jaw movement, all seven retained keys, Advanced hover help, pinned Before, approval, two-copy saving and Back. Saved After bytes match the approved reduction and retain the speech track; source files stay unchanged. The packaged five-notice Axe cleanup also passes. The first test attempt needed to dismiss each hover tooltip before moving to the next; no production tooltip change was needed. User visual acceptance and Warcraft runtime testing remain pending.
 
-Reproduce with `node --test test/optimizexl-motion-preservation.test.js`, `node test/optimizexl-expression-models.mjs <06> <07>`, the existing flail regression, and `node test/optimizexl-expression.electron.cjs`. The desktop test accepts `MDLXL_EXPRESSION_MODEL` and the existing EXE, Playwright and proof-root overrides. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-expression-20260929` and ignored `out/motion-preservation-*` files.
+Reproduce with `node --test test/optimizexl-motion-preservation.test.js`, `node test/manual/optimizexl-expression-models.mjs <06> <07>`, the existing flail regression, and `node test/optimizexl-expression.electron.cjs`. The desktop test accepts `MDLXL_EXPRESSION_MODEL` and the existing EXE, Playwright and proof-root overrides. Evidence is under `D:\MDLxL-Reviews\OptimizeXL-expression-20260929` and ignored `out/motion-preservation-*` files.
 
 ## Strigoi sequence order, constant visibility and preserved facial turns
 
@@ -263,7 +263,7 @@ Generated regressions cover real fades, small intentional turns, roundoff, const
 
 All 122 optimizer/model-optimizer tests and 57 compatibility tests pass. The isolated packaged executable verifies all 13 animations at their starts, midpoints and ends in the paired preview, then all endpoints after approval. Native bone matrices match exactly at the inspected poses; real mouse dragging rotates both cameras together and playback advances. Existing compact controls and collapsed default details remain intact. Saving an unapproved proposal produces the original After, approving saves the exact audited result, and Back restores the original findings and saved bytes. Before stays pinned throughout. Inspected screenshots show the textured model in both views. No installed application or existing profile was modified. The package verifies 540 runtime/asset files and 55 locales. Earlier UI-test attempts exposed test-helper mistakes: the camera lives on `controls.object`, and floating playback frame comparisons require a small numeric tolerance. The actual pose assertions still require exact native matrix equality.
 
-Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.js`, `node test/optimizexl-format-models.mjs <private-model>` and `node test/optimizexl-format.electron.cjs`. The desktop test uses `MDLXL_FORMAT_MODEL`, `MDLXL_OPTIMIZEXL_EXE`, `MDLXL_PLAYWRIGHT_MODULE` and `MDLXL_OPTIMIZEXL_PROOF_ROOT`. User model bytes and generated review copies remain outside Git.
+Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.js`, `node test/manual/optimizexl-format-models.mjs <private-model>` and `node test/optimizexl-format.electron.cjs`. The desktop test uses `MDLXL_FORMAT_MODEL`, `MDLXL_OPTIMIZEXL_EXE`, `MDLXL_PLAYWRIGHT_MODULE` and `MDLXL_OPTIMIZEXL_PROOF_ROOT`. User model bytes and generated review copies remain outside Git.
 
 For the PR handoff, concurrent main `10644470` (selected-emitter markers in Animations) was integrated into the feature branch. Conflicts were confined to generated assets, which were regenerated from the combined source. All 134 optimizer/shared-preview tests pass, and the separately repackaged combined executable repeats the complete 13-animation pose, rotation, playback, approval, save and Back proof. Evidence is under ignored `out/strigoi-proof/`; the user model and installed profile remain unchanged.
 
@@ -295,7 +295,7 @@ Current main `08ec7592` (v0.23.0 and viewport cadence correction) was subsequent
 
 For the authorized merge, main `8457ea9f` introduced source-only Git tracking and CI builds. Rebase conflicts were confined to generated `dist/` files, which were removed from the feature's tracked changes under the new policy. Optimizer source and tests are identical to the packaged-tested revision. A fresh renderer build on D: and all 207 tests pass; the private model audit repeats the same output hash, 594 matching native poses and byte-identical non-GEOS chunks. Disposable build output and its workspace junction were removed immediately after verification. The superseded first package and duplicate baseline source copy were also removed; model files, test results and the requested current review executable remain available. No new C: package, release or installed-app replacement was created.
 
-Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.js tests/*.test.js`, `node test/optimizexl-bounds-models.mjs <private-model>` and `node test/optimizexl-bounds.electron.cjs`. The desktop test accepts `MDLXL_BOUNDS_MODEL`, `MDLXL_OPTIMIZEXL_EXE`, `MDLXL_PLAYWRIGHT_MODULE` and `MDLXL_OPTIMIZEXL_PROOF_ROOT`. Earlier evidence and review copies are in ignored `out/extent-proof/`; the preceding separate package is in `out/extent-package/`. User model assets remain outside Git.
+Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.js tests/*.test.js`, `node test/manual/optimizexl-bounds-models.mjs <private-model>` and `node test/optimizexl-bounds.electron.cjs`. The desktop test accepts `MDLXL_BOUNDS_MODEL`, `MDLXL_OPTIMIZEXL_EXE`, `MDLXL_PLAYWRIGHT_MODULE` and `MDLXL_OPTIMIZEXL_PROOF_ROOT`. Earlier evidence and review copies are in ignored `out/extent-proof/`; the preceding separate package is in `out/extent-package/`. User model assets remain outside Git.
 
 ## Reproducing
 
@@ -313,11 +313,11 @@ A separately packaged executable passes native-window checks for 22 original not
 
 These checks do not establish Warcraft runtime acceptance, user visual acceptance or continuous world-space equivalence. The bundled checker was exercised locally; a submission to Hive's live website was not performed.
 
-Reproduce with `node --test test/optimizexl-spline-tracks.test.js`, `node test/optimizexl-spline-models.mjs <private-model>` and `node test/optimizexl-spline.electron.cjs` with `MDLXL_SPLINE_MODEL`, `MDLXL_OPTIMIZEXL_EXE` and `MDLXL_PLAYWRIGHT_MODULE`. For the historical Flail03 exception, set `MDLXL_FLAIL_MOUNTED_REFERENCE` to the exact pre-canonical mounted-sphere output; its SHA-256 must match the unchanged baseline before semantic comparison is allowed.
+Reproduce with `node --test test/optimizexl-spline-tracks.test.js`, `node test/manual/optimizexl-spline-models.mjs <private-model>` and `node test/optimizexl-spline.electron.cjs` with `MDLXL_SPLINE_MODEL`, `MDLXL_OPTIMIZEXL_EXE` and `MDLXL_PLAYWRIGHT_MODULE`. For the historical Flail03 exception, set `MDLXL_FLAIL_MOUNTED_REFERENCE` to the exact pre-canonical mounted-sphere output; its SHA-256 must match the unchanged baseline before semantic comparison is allowed.
 
 ```powershell
 node --test test/optimizexl-review.test.js test/optimizexl-exclusions.test.js test/optimizexl-nuclear.test.js test/optimizexl.test.js test/model-optimizer.test.js test/preview-presentation.test.js test/preview-blend-order.test.js test/game-preview-capture.test.js test/global-sequence-preview.test.js test/viewport-performance.test.js tests/*.test.js
-node test/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
+node test/manual/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
 node node_modules/vite/bin/vite.js build
 node scripts/package.mjs --out out/optimizexl-save-review
 ```
@@ -342,7 +342,7 @@ Defect: `WH_WOC_WarriorNurgle01.mdx` looked correct in MDLxL but stretched into 
 
 Rule: `src/optimizexl-skin-collapse.js`, joined to the Sanity catalog as an inspection-only `skinCollapse` finding per geoset. Each sequence is sampled at its ends, seven interior points and every scale key of the group members and their ancestors. Selecting the finding moves the timeline to the first occurrence and shows the explanation in the existing status line. Applying it is refused. Stage availability ignores it, as for other inspection-only findings.
 
-Tests: `node --test test/optimizexl-skin-collapse.test.js` covers the positive case, inherited parent collapse, blink/partial/whole-part counterexamples, the apply refusal and stage availability. Set `MDLXL_SKIN_COLLAPSE_BROKEN` and `MDLXL_SKIN_COLLAPSE_REBUILT` to the private pair to assert one finding on the broken file (2 vertices, repeated `Chest_Attack2`) and none on the rebuilt one. The full sweep flagged no Blizzard-style blink (gnome, bat) or other model. `node test/optimizexl-flail-regression.mjs <flail03> <flail01>` reports the same `animation` hash drift on unmodified `main` (`3920de51…` against the recorded `084d34e0…`); this change does not alter it.
+Tests: `node --test test/optimizexl-skin-collapse.test.js` covers the positive case, inherited parent collapse, blink/partial/whole-part counterexamples, the apply refusal and stage availability. Set `MDLXL_SKIN_COLLAPSE_BROKEN` and `MDLXL_SKIN_COLLAPSE_REBUILT` to the private pair to assert one finding on the broken file (2 vertices, repeated `Chest_Attack2`) and none on the rebuilt one. The full sweep flagged no Blizzard-style blink (gnome, bat) or other model. `node test/manual/optimizexl-flail-regression.mjs <flail03> <flail01>` reports the same `animation` hash drift on unmodified `main` (`3920de51…` against the recorded `084d34e0…`); this change does not alter it.
 
 Not established: Warcraft III runtime behavior for each variant of the structure (duplicate entry alone, zero scale alone, enlarged partner).
 

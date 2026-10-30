@@ -1,3 +1,4 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Native Windows regression: a locked portable EXE is reported and preserved, and the
 // installer waits for real Electron processes of this installation before replacing it.
 const assert = require('node:assert/strict');
@@ -6,7 +7,6 @@ const path = require('node:path');
 const os = require('node:os');
 const {execFile, spawn} = require('node:child_process');
 const {promisify} = require('node:util');
-const {_electron} = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const {digest} = require('../electron/updater.cjs');
 const run = promisify(execFile);
 const ps = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
@@ -41,7 +41,7 @@ async function waitForFile(file) {
   const install = () => run(ps, ['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',installer,planFile], {windowsHide:true,env});
   let holder, starting;
   try {
-    remaining = await _electron.launch({executablePath:exe,env:{...env,MDLXL_PROFILE:path.join(root,'remaining-profile')}});
+    remaining = (await launchApp({ out: root, profile: path.join(root,'remaining-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
     await remaining.firstWindow();
     // The installer publishes files with an atomic replace, which Windows allows for a
     // running EXE (the editor's own processes are waited for instead). A handle without
@@ -58,7 +58,7 @@ async function waitForFile(file) {
     assert.match(failed.error,/being used by another process/);
     assert.equal(await digest(exe),before,'Rejected replacement preserves the original EXE and records the failure');
     await fs.rm(result);
-    await remaining.evaluate(({app}) => app.exit(0)); remaining = null;
+    await closeApp(remaining); remaining = null;
     // Pause only the test copy at verification, after the owner's exit check.
     // This reproduces a desktop relaunch during the real verification delay.
     const marker = '    # Recheck every destination after the editor has flushed and exited.';
@@ -66,7 +66,7 @@ async function waitForFile(file) {
     await fs.writeFile(installer,installerSource.replace(marker,`    [IO.File]::WriteAllText((Join-Path $stage 'verification-started'), '')
     while (!(Test-Path -LiteralPath (Join-Path $stage 'continue-verification'))) { Start-Sleep -Milliseconds 20 }
 ${marker}`));
-    owner = await _electron.launch({executablePath:exe,env:{...env,MDLXL_PROFILE:path.join(root,'owner-profile')}});
+    owner = (await launchApp({ out: root, profile: path.join(root,'owner-profile'), target: { executablePath: exe, args: [], packaged: true }, env: { ...env } })).app;
     await owner.firstWindow();
     plan.pid = await owner.evaluate(() => process.pid);
     await fs.writeFile(planFile,JSON.stringify(plan));
@@ -75,7 +75,7 @@ ${marker}`));
     await fs.mkdir(lock); await fs.writeFile(path.join(lock,'owner.json'),JSON.stringify({planFile,pid:plan.pid}));
     const installing = install();
     await pause(500);
-    await owner.evaluate(({app}) => app.exit(0)); owner = null;
+    await closeApp(owner); owner = null;
     await waitForFile(path.join(root,'verification-started'));
     // A desktop relaunch during installation leaves through the startup guard without
     // opening the editor (the installation lock is present).
@@ -100,7 +100,7 @@ ${marker}`));
     if (starting) starting.kill();
     // Never leave the paused test installer waiting after a failure.
     await fs.writeFile(path.join(root,'continue-verification'),'').catch(() => {});
-    for (const app of [owner,remaining]) if (app) await app.evaluate(({app}) => app.exit(0)).catch(() => {});
+    for (const app of [owner,remaining]) if (app) await closeApp(app).catch(() => {});
     // Only processes launched from this disposable test installation are owned here.
     const cleanup = path.join(root,'close.ps1');
     await fs.writeFile(cleanup, "param($Executable)\nGet-Process MDLxL -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Executable } | Stop-Process\n");

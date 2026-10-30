@@ -1,14 +1,13 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async()=>{
  const {openDocument}=await import('../src/editor-document.js');
  const root=process.cwd(), file=process.env.MDLXL_TEST_MODEL || 'C:\\Users\\PC\\Desktop\\WIP\\graveguard_Optimized Weapon (1).mdx';
  const original=fs.readFileSync(file), out=process.env.MDLXL_SCREENSHOTS || path.join(root,'out/managers-v3'); fs.mkdirSync(out,{recursive:true});
- const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:[root,file],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(root,'out/managers-v3/profile-'+Date.now())}});
- let page;const errors=[];
+ const { app, page, errors } = await launchApp({ out: root, profile: path.join(root,'out/managers-v3/profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, fixture: file , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
+
  try{
-  page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1600,1000);w.setPosition(-3000,0);w.webContents.setBackgroundThrottling(false);w.showInactive();});
+
   await page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
   const menu=command=>app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
   for(const mode of ['Vertices','Bones','Movement','Animations']){
@@ -25,7 +24,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
   await page.getByLabel('Choose animation sequence',{exact:true}).selectOption({label:'Spell Slam'});
   await page.getByLabel('Select node SoulFountain',{exact:true}).check();
   await menu('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();
-  await page.evaluate(()=>{const el=document.querySelector('.re-window');let fiber=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)if(fiber.memoizedProps?.doc?.serialize){window.testDoc=fiber.memoizedProps.doc;break;}});
+  await page.evaluate(()=> { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) {window.testDoc=props.doc;}  });
   assert.equal(await page.locator('.re-visibility-timeline').count(),0);
   assert.equal(await page.getByLabel('Manager mode').count(),0);
   assert.equal(await page.locator('.re-properties .key-list').count(),0,'emitter visual fields are owned by EMTR');
@@ -105,18 +104,14 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
       };
     });
     await page.getByText('Preview geoset', { exact: true }).click(); await page.locator('.re-model-stage canvas[data-clean-model-canvas]').waitFor();
-    const isolation = await page.evaluate(() => {
-      const el = document.querySelector('.re-model-stage .game-preview-root'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.isolatedGeosets) return { fit: fiber.memoizedProps.isolatedGeosets, hidden: [...fiber.memoizedProps.hiddenGeosets], count: fiber.memoizedProps.model.Geosets.length };
-    });
+    const isolation = await page.evaluate(() => { const props = findFiberProps('.re-model-stage .game-preview-root', props => props?.isolatedGeosets); if (props) return { fit: props.isolatedGeosets, hidden: [...props.hiddenGeosets], count: props.model.Geosets.length };
+     });
     assert.deepEqual(isolation.fit, [0]); assert.equal(isolation.hidden.length, isolation.count - 1);
     const drawnIds = await page.evaluate(() => {
       const el = document.querySelector('.re-model-stage .game-preview-root'), canvas = el.querySelector('canvas[data-clean-model-canvas]');
-      let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.native?.indexBuffer) return state.native.indexBuffer.flatMap((buffer, i) => window.meshDraws.get(canvas)?.has(buffer) ? [i] : []);
-      }
+
+      { const state = findFiberState(el, state => state?.native?.indexBuffer); if (state?.native?.indexBuffer) return state.native.indexBuffer.flatMap((buffer, i) => window.meshDraws.get(canvas)?.has(buffer) ? [i] : []); }
+
     });
     assert.deepEqual(drawnIds, [0], 'actual GL draws must contain only the isolated mesh');
     await page.screenshot({ path: path.join(out, 'isolated-geoset.png') });
@@ -124,15 +119,13 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
     await page.getByText('Preview geoset',{exact:true}).click();
     await page.locator('.re-model-stage canvas[data-clean-model-canvas]').waitFor();
     const pose=await page.locator('.re-model-stage .game-preview-root').evaluate(el=>{
-      let fiber=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const runtime=hook.memoizedState?.current;if(!runtime?.native?.indexBuffer)continue;
+      const runtime=mdlxlProbe(el?.closest('.game-preview-root') || null).runtime;if(!runtime?.native?.indexBuffer)return;
         const native=runtime.native, geo=native.model.Geosets[13], matrix=native.rendererData.nodes[geo.Groups[0][0]].matrix;
         const low=[Infinity,Infinity,Infinity],high=[-Infinity,-Infinity,-Infinity];
         for(let i=0;i<geo.Vertices.length;i+=3)for(let axis=0;axis<3;axis++){const v=matrix[axis]*geo.Vertices[i]+matrix[axis+4]*geo.Vertices[i+1]+matrix[axis+8]*geo.Vertices[i+2]+matrix[axis+12];low[axis]=Math.min(low[axis],v);high[axis]=Math.max(high[axis],v);}
         const center=low.map((v,i)=>(v+high[i])/2),target=runtime.controls.target.toArray(),camera=runtime.controls.object,canvas=el.querySelector('canvas[data-clean-model-canvas]');
         const points=[];for(let i=0;i<geo.Vertices.length;i+=3){const point=runtime.controls.target.clone().set(geo.Vertices[i],geo.Vertices[i+1],geo.Vertices[i+2]);const world=camera.matrixWorld.clone().fromArray(matrix);point.applyMatrix4(world).project(camera);points.push(point.toArray());}
         return {center,target,points,aspect:camera.aspect,displayAspect:canvas.clientWidth/canvas.clientHeight,frame:native.getFrame()};
-      }
     });
     assert.equal(pose.frame,6720);assert.ok(pose.center.every((v,i)=>Math.abs(v-pose.target[i])<.001),'camera targets the drawn animated mesh');
     assert.ok(pose.points.every(([x,y,z])=>Math.abs(x)<1&&Math.abs(y)<1&&z>-1&&z<1),'whole posed geoset fits without clipping');
@@ -162,5 +155,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
   assert.deepEqual(fs.readFileSync(file),original);assert.deepEqual(errors,[]);
   console.log('PASS original editor pickers; shared visibility checkbox; sound playback; event creation/save; managers without duplicate visibility tracks or filler.');
  }catch(error){if(page)await page.screenshot({path:path.join(out,'failure.png')});throw error;}
- finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{await closeApp(app).catch(()=>{});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,14 +1,14 @@
 // Optional private teaching pair: damaged 06, authored restoration 07.
 // No model names, bone identities or counterpart data enter runtime reduction.
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { ModelRenderer } from 'war3-model';
 import { Matrix4 } from 'three';
-import { openDocument } from '../src/editor-document.js';
-import { skinGeoset } from '../src/animation.js';
-import { runOptimizeStage, simpleSettings, findIrregularities, sanityProposals } from '../src/optimizexl.js';
+import { openDocument } from '../../src/editor-document.js';
+import { skinGeoset } from '../../src/animation.js';
+import { runOptimizeStage, simpleSettings, findIrregularities, sanityProposals } from '../../src/optimizexl.js';
 
 const paths=process.argv.slice(2);assert.equal(paths.length,2,'Supply damaged and restored model paths');
 const bytes=paths.map(p=>new Uint8Array(fs.readFileSync(p))),models=bytes.map(b=>openDocument(b,'input.mdx').model);

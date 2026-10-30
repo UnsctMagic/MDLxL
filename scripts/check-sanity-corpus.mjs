@@ -1,15 +1,16 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import vm from 'node:vm';
+import {repoRoot} from './lib/paths.mjs';
+import {loadHiveViewer} from '../test/helpers/hive.mjs';
 import { CascReader } from '../electron/casc.cjs';
 import { openDocument } from '../src/editor-document.js';
 import { checkSanity } from '../src/sanity-check.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 const [game, output] = process.argv.slice(2);
 if (!game || !output) throw Error('Usage: node scripts/check-sanity-corpus.mjs GAME OUTPUT.json');
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
+loadHiveViewer();
 const hive = async bytes => { const m = new ModelViewer.parsers.mdlx.Model(); m.load(bytes.slice().buffer); const r = ModelViewer.utils.mdlx.sanityTest(m); return { ...r, findings: flattenHiveFindings(r.nodes) }; };
-const reader = new CascReader(game, process.cwd()), rows = [];
+const reader = new CascReader(game, repoRoot), rows = [];
 try {
   const { names } = await reader.list('models');
   const families = ['units', 'buildings', 'doodads', 'abilities', 'ui'];

@@ -5,13 +5,7 @@ module.exports = async function rotationLocal({ app, page, check, settle, snap, 
   const { projectPoseHandles } = await import('../../app/pose-overlay.js');
   const { rotationRingTangent } = await import('../../src/rotation-drag.js');
   await page.evaluate(() => {
-    window.rotationController = () => {
-      const el = document.querySelector('.movement-controller');
-      for (let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
-        if (fiber.memoizedProps?.onTransformSpace) return fiber.memoizedProps;
-      }
-      throw Error('Movement controller missing');
-    };
+    window.rotationController = ()=>{const props=findFiberProps('.movement-controller',p=>p.onTransformSpace);if(!props)throw Error('Movement controller missing');return props;};
   });
   // Local has no visible switch. Use its existing controller setter only for
   // setup; all measured rotations below use real canvas pointer gestures.

@@ -1,7 +1,8 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // Learn's keycap reminders in the real app: a mouse click on a button with a key shows
 // just that key; using the key closes it; five real uses quiet that key only; holding a key
@@ -14,17 +15,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'learn.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_TEST_EXE || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath,
-    args: process.env.MDLXL_TEST_EXE ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const errors = [], checks = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 800 } });
+  const checks = [];
   const check = message => { checks.push(message); console.log('✓ ' + message); };
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
+
     await page.clock.install();
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 800); });
+
     await page.locator('.classic-view canvas').first().waitFor();
     const { LEARN_TEST_VERSION } = await import('../src/learn-keycaps.js');
     const popup = page.locator('.learn-keycap');
@@ -60,7 +58,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await learner.click();
     await page.locator('.learn-menu [data-hotkey="mode"]').click();
     assert.equal(await learner.getAttribute('aria-pressed'), 'false');
-    await move.click(); await page.waitForTimeout(200);
+    await move.click(); await settlePage(page, 200);
     assert.equal(await popup.count(), 0, 'LER off stops reminders');
     await learner.click(); await page.locator('.learn-menu [data-hotkey="mode"]').click(); await move.click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['M']); await clickPopup(); await gone();
@@ -72,7 +70,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await learningToggle.check();
     assert.equal(await learner.getAttribute('aria-pressed'), 'true', 'Settings and LER share one value');
     // A window's own buttons get keys from their names; Learn teaches only command keys.
-    await page.locator('#settings-tab-configuration').click(); await page.waitForTimeout(200);
+    await page.locator('#settings-tab-configuration').click(); await settlePage(page, 200);
     assert.equal(await popup.count(), 0, 'clicking a Settings page tab shows no reminder');
     await closeSettings();
     if (await popup.count()) await clickPopup();
@@ -127,15 +125,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // 3. Holding a key down and typing in a field do not count; five real uses quiet M only.
     await page.locator('.classic-view canvas').first().hover();
-    await page.keyboard.down('m'); await page.waitForTimeout(700); await page.keyboard.up('m');
+    await page.keyboard.down('m'); await settlePage(page, 700); await page.keyboard.up('m');
     const uses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1') || '{"keys":{}}').keys.translate?.uses || 0);
     assert.equal(await uses(), 2, 'one press plus one held press: ' + await uses());
     await settings();
     await page.locator('input[data-hotkey="hotkeys:search"]').click(); await page.keyboard.type('mmmm');
     await closeSettings();
+    // Closing Settings now teaches Escape. Dismiss that earlier control's reminder
+    // before proving a learned Move click creates no new reminder.
+    await popup.waitFor(); assert.deepEqual(await caps(), ['Escape']);
+    await clickPopup(); await gone();
     assert.equal(await uses(), 2, 'typing in a field does not count');
     for (let press = 0; press < 3; press++) await pressInView('m');
-    await move.click(); await page.waitForTimeout(400);
+    await move.click(); await settlePage(page, 400);
     assert.equal(await popup.count(), 0, 'M is quiet after five uses');
     // Learned key uses renew quiet time in the actual app too.
     const quietBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.translate.quietUntil);
@@ -164,7 +166,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(await popup.getAttribute('title'), /Right-click to mute/);
     await clickPopup('right'); await gone();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.rotate.silenced), true);
-    await rotate.click(); await page.waitForTimeout(300);
+    await rotate.click(); await settlePage(page, 300);
     assert.equal(await popup.count(), 0, 'muted R stays quiet on later clicks');
     await page.locator('button[data-hotkey="scale"]:visible').first().click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['Z'], 'muting R does not mute other shortcuts');
@@ -192,7 +194,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press(hotkeysTabKey);
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Bring back learned keys (2)'));
     assert.equal(await page.evaluate(() => window.__notebookEvents), 1, 'learning broadcasts once');
-    await page.waitForTimeout(20); await page.keyboard.press(hotkeysTabKey);
+    await settlePage(page, 20); await page.keyboard.press(hotkeysTabKey);
     assert.equal(await page.evaluate(() => window.__notebookEvents), 2, 'renewing quiet time broadcasts');
     check('Settings learned count updates live; ordinary uses emit no notebook event');
     await page.locator('select[aria-label="Learn mode: Where"]').selectOption('bottom');
@@ -207,11 +209,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const style = await popup.evaluate(element => ({ position: element.dataset.position, size: element.dataset.size, look: element.dataset.style, font: parseFloat(getComputedStyle(element).fontSize), box: element.getBoundingClientRect().toJSON() }));
     assert.deepEqual([style.position, style.size, style.look], ['bottom', 'large', 'flash']);
     assert.ok(style.font >= 28 && Math.abs(style.box.x + style.box.width / 2 - 640) < 20, JSON.stringify(style));
-    await page.waitForTimeout(6000);
+    await settlePage(page, 6000);
     assert.equal(await popup.count(), 1, '"Until used or clicked" keeps it up');
     await snap(path.join(out, 'keycap-bottom-large.png'));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(760, 560));
-    await page.waitForTimeout(200);
+    await settlePage(page, 200);
     assert.ok(await popup.evaluate(element => {
       const box = element.getBoundingClientRect();
       return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
@@ -226,11 +228,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // The overlay must leave the existing camera mouse controls usable.
     const camera = () => page.evaluate(() => {
       const host = document.querySelector('[aria-label="3D model viewport"]');
-      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const state = hook.memoizedState?.current;
-        if (state?.renderer && state?.entries) return state.camera.quaternion.toArray();
-      }
+
+      { const state = findFiberState(host, state => state?.renderer && state?.entries); if (state?.renderer && state?.entries) return state.camera.quaternion.toArray(); }
+
       throw Error('Viewport runtime not found');
     });
     const beforeRotation = await camera(), canvasBox = await page.locator('.classic-view canvas').first().boundingBox();
@@ -277,9 +277,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       };
     });
     await rotate.click(); await popup.waitFor(); await clickPopup('right'); await gone();
-    await rotate.click(); await page.waitForTimeout(200);
+    await rotate.click(); await settlePage(page, 200);
     assert.equal(await popup.count(), 0, 'mute survives a failed write while reads still return stale data');
-    await move.click(); await page.waitForTimeout(200);
+    await move.click(); await settlePage(page, 200);
     assert.equal(await popup.count(), 0, 'failed mute write preserves learned M');
     await page.evaluate(() => {
       Storage.prototype.getItem = function(key) {
@@ -294,7 +294,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(await restoreLearned.textContent(), /\(1\)/, 'restoring muted keys preserves learned keys');
     await closeSettings();
     await rotate.click(); await popup.waitFor(); await clickPopup(); await gone();
-    await move.click(); await page.waitForTimeout(200);
+    await move.click(); await settlePage(page, 200);
     assert.equal(await popup.count(), 0, 'session learning survives Settings restore');
     await settings(); await restoreLearned.click(); await closeSettings();
     await move.click(); await popup.waitFor(); await clickPopup(); await gone();
@@ -333,11 +333,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Color', exact: true }).click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'B');
     await clickPopup(); await gone();
-    await page.getByRole('button', { name: 'Color', exact: true }).click(); await page.waitForTimeout(400);
+    await page.getByRole('button', { name: 'Color', exact: true }).click(); await settlePage(page, 400);
     await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'B', 'Paint dismissal also allows later reminders');
     await clickPopup('right'); await gone();
-    await page.getByRole('button', { name: 'Color', exact: true }).click(); await page.waitForTimeout(300);
+    await page.getByRole('button', { name: 'Color', exact: true }).click(); await settlePage(page, 300);
     assert.equal(await popup.count(), 0, 'Paint B is muted by right-click');
     await page.locator('input[type="range"][aria-label="Opacity"]').click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), '− +');
@@ -348,8 +348,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // 9. Turning the mode off stops it; the Settings menu command toggles it.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'learn'));
-    await page.waitForTimeout(300);
-    await page.getByRole('button', { name: 'Erase', exact: true }).click(); await page.waitForTimeout(400);
+    await settlePage(page, 300);
+    await page.getByRole('button', { name: 'Erase', exact: true }).click(); await settlePage(page, 400);
     assert.equal(await popup.count(), 0, 'off');
     check('Settings → Learn mode turns the mode off');
 
@@ -357,7 +357,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
   } finally {
     // Unsaved Paint work makes the window ask before closing; don't wait for it.
-    await Promise.race([app.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 10000))]);
+    await Promise.race([closeApp(app).catch(() => {}), new Promise(resolve => setTimeout(resolve, 10000))]);
     // Kill the whole Electron process tree (renderer and GPU too), not just its main process.
     try { const pid = app.process().pid; if (process.platform === 'win32') require('node:child_process').spawnSync('taskkill', ['/pid', String(pid), '/T', '/F']); else app.process().kill(); } catch {}
     await fs.rm(profile, { recursive: true, force: true }).catch(() => {});

@@ -1,8 +1,9 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against the rebuilt portable app with MDLXL_TEST_EXE; all fixtures/profiles use D:.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { buildSync } = require('esbuild');
 (async () => {
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_OBJECT_TEST_OUT || 'out/object-types');
@@ -22,8 +23,8 @@ const { buildSync } = require('esbuild');
   const errors = [], result = { palettes: [], drags: [] };
   let app, page;
   const launch = async () => {
-    const exe = process.env.MDLXL_TEST_EXE;
-    app = await _electron.launch({ executablePath: exe || path.resolve('node_modules/electron/dist/electron.exe'), args: exe ? [fixture, '--disable-backgrounding-occluded-windows'] : [root, fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    const exe = appTarget().executablePath;
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => { const w=BrowserWindow.getAllWindows()[0]; w.setSize(1600,1000); w.setPosition(-3000,0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
     await page.locator('[data-hotkey="bones"]').first().click();
@@ -32,10 +33,9 @@ const { buildSync } = require('esbuild');
     await page.evaluate(() => {
       window.rigState = () => {
         const host = document.querySelector('.game-preview-root'); let runtime, props;
-        for (let fiber=host?.[Object.keys(host).find(k=>k.startsWith('__reactFiber'))]; fiber; fiber=fiber.return) {
-          // The shared latest-props ref stays current across React's alternate fibers.
-          for (let hook=fiber.memoizedState; hook; hook=hook.next) { const v=hook.memoizedState?.current; if (v?.native && v?.controls) runtime=v; if (v?.model && v?.overlays && v?.onSelectNodes) props=v; }
-        }
+        { const v = findFiberState(host, v => v?.native && v?.controls, { last: true }); if (v?.native && v?.controls) runtime=v; }
+{ const v = findFiberState(host, v => v?.model && v?.overlays && v?.onSelectNodes, { last: true }); if (v?.model && v?.overlays && v?.onSelectNodes) props=v; }
+
         if (!runtime || !props) throw Error('Rig runtime not ready'); return { runtime, props };
       };
       window.objectWorld = id => { const node=rigState().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id), m=node.matrix, [x,y,z]=node.node.PivotPoint; return [0,1,2].map(i=>m[i]*x+m[4+i]*y+m[8+i]*z+m[12+i]); };
@@ -44,8 +44,8 @@ const { buildSync } = require('esbuild');
     });
     await page.waitForFunction(() => { try { return !!rigState().runtime.captureApi?.isReady; } catch { return false; } });
   };
-  const close = async () => { if(app){ await app.evaluate(({app})=>app.exit(0)).catch(()=>{}); await app.close().catch(()=>{}); app=null; } };
-  const idle = () => page.waitForTimeout(220);
+  const close = async (keepProfile = false) => { if(app){ await closeApp(app, { keepProfile }); app=null; } };
+  const idle = () => settlePage(page, 220);
   const checks = () => page.locator('.movement-object-filters input').evaluateAll(es=>es.map(e=>e.checked));
   const menu = command => app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
   const settings = async tab => { await menu('appearanceSettings'); await page.locator('.settings-appearance-nav').getByRole('button',{name:tab,exact:true}).click(); };
@@ -148,7 +148,7 @@ const { buildSync } = require('esbuild');
     await page.locator('.quick-display').getByRole('button',{name:'Clear',exact:true}).click(); await idle();
     vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.helpers,vis.attachments],[true,true,true],'VIS keeps all three enabled');
     await page.locator('.vis-toggle').click(); await idle(); assert.deepEqual(await checks(),[false,true,true],'XL choices survive VIS switch');
-    await close(); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
+    await close(true); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
     const restored=await page.evaluate(()=>objectColors()); assert.equal(restored.find(c=>c.id===helper.ObjectId).color,'#b940ff'); assert.equal(restored.find(c=>c.id===ref.ObjectId).color,'#ff22aa');
     assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#1b6837','#7123ad','#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
     // After Clear, the top row's Bones chip turns bones back on (the side filter follows).

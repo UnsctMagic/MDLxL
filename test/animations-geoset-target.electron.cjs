@@ -1,7 +1,8 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // A bone picked in Movement or Bones must not take Visibility & Color away from
 // the checked geosets in Animations, and it must be there again on return.
@@ -10,13 +11,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await fs.mkdir(out, { recursive: true }); const profile = await fs.mkdtemp(path.join(out, 'profile-'));
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'animations-geoset-target.mdx'); await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const errors = [], checks = []; let page;
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+  const checks = [];
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
+
     const tab = name => page.getByRole('button', { name, exact: true }).click();
     const picker = page.getByRole('combobox', { name: 'Movement bone or node', exact: true });
     const visible = page.getByRole('checkbox', { name: 'Visible at current frame', exact: true });
@@ -74,7 +74,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (page) console.error('page text:', await page.evaluate(() => document.body.innerText.slice(0, 600)).catch(cause => cause.message));
     console.error(error); console.log(JSON.stringify({ ok: false, checks, errors }, null, 2)); process.exitCode = 1;
   } finally {
-    await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 10000))]);
+    await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 10000))]);
     process.exit();
   }
 })();

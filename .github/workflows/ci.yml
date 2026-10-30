@@ -14,17 +14,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: 22
-      - run: npm install -g pnpm@10.28.0
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        env:
-          # Tests do not launch Electron, so skip its large runtime download.
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - run: pnpm run fetch-ffmpeg
-      - run: pnpm run build
+          # Source tests do not launch Electron.
+          skip-electron-download: '1'
       - name: Compatibility tests
         run: pnpm test
       - name: Full test suite

@@ -8,8 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = (...parts) => path.join(root, 'out', ...parts);
+import { repoRoot as root, outDir as out } from './lib/paths.mjs';
 // The app under test: MDLXL_SUITE_PKG (e.g. the unzipped official release) or out/pkg. Every test gets its
 // MDLxL.exe as MDLXL_TEST_EXE, the one variable test/helpers/app.cjs reads, except DEV_ONLY below.
 const pkg = path.resolve(process.env.MDLXL_SUITE_PKG || out('pkg/MDLxL-win32-x64')), exe = path.join(pkg, 'MDLxL.exe');
@@ -59,9 +58,11 @@ for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor',
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
+SPECIAL['ai-parallel'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
 // packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
-export const DEV_ONLY = ['close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];
+export const DEV_ONLY = ['welcome-prompt', 'close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];
 // Never run: manual tools, or private models and archives that are not generally available.
 export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',

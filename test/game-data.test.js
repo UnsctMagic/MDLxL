@@ -64,8 +64,13 @@ test('discovery shares concurrent work, skips inaccessible directories and enfor
   assert.equal(registryCalls, 1); assert.equal(first, second); assert.equal(first.directoriesChecked, 2); assert.ok(first.folders.includes(folder));
   const limited = await discovery({ appFolders: [folder], maxDirectories: 1 }).discover();
   assert.equal(limited.directoriesChecked, 1); assert.equal(limited.truncated, true);
+  // Advance the budget clock at the blocked read, independently of CI scheduling.
+  // The real deadline timer still has to reject the never-resolving operation.
+  let now = 0;
+  t.mock.method(Date, 'now', () => now);
   const began = Date.now();
-  const slow = await discovery({ appFolders: [folder], maxMilliseconds: 25, readdir: () => new Promise(() => {}) }).discover();
+  const slow = await discovery({ appFolders: [folder], maxMilliseconds: 25, readdir: () => { now = 25; return new Promise(() => {}); } }).discover();
+  assert.equal(slow.directoriesChecked, 1);
   assert.ok(Date.now() - began < 1000); assert.equal(slow.truncated, true);
 });
 

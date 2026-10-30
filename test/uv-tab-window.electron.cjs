@@ -7,7 +7,7 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 (async () => {
   const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/uv-tab-window');
   fs.mkdirSync(out, { recursive: true });
-  const first = path.join(root, 'fixtures/demo.mdx'), second = path.join(root, 'fixtures/demo.mdl');
+  const first = path.join(root, 'test/fixtures/demo.mdx'), second = path.join(root, 'test/fixtures/demo.mdl');
   const originals = [first, second].map(file => fs.readFileSync(file));
   const { app, page: launchedPage, errors } = await launchApp({ fixture: first, args: [second], out, pageTimeout: 15000, settings: { preferences: { graphics: { pauseWhenHidden: false } } }, bounds: { x: -3000, y: 0, width: 1440, height: 1000 } });
   let page;
@@ -47,10 +47,10 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     };
     await page.getByRole('tab', { name: 'demo.mdx', exact: true }).click();
     const before = await page.evaluate(() => uvTestModel());
-    await page.locator('[data-hotkey="camera:rotate"]').click();
+    await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+E');
     const angle = page.getByLabel('Camera Z coordinate', { exact: true });
     await angle.fill('90'); await angle.press('Enter');
-    await page.locator('[data-hotkey="camera:work"]').click();
+    await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+Q');
     await openUV();
     await page.waitForFunction(() => document.querySelectorAll('.classic-view > .viewport').length === 1);
     assert.equal(app.windows().length, 1, 'UV stays inside the model tab');
@@ -142,6 +142,12 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     checks.push('Repeated minimize/restore/expand and title-bar dragging remain usable inside the tab');
     await page.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
     await page.locator('.uv-tab-window [aria-modal="true"]').waitFor();
+    // Window keys register after the modal mounts; wait for its actual Escape
+    // binding and focused input before sending the keyboard event.
+    await page.waitForFunction(() => {
+      const modal = document.querySelector('.uv-tab-window [aria-modal="true"]');
+      return modal?.contains(document.activeElement) && modal.querySelector('[aria-label="Close texture library"]')?.getAttribute('data-hotkey-shortcuts') === 'Escape';
+    });
     await page.keyboard.press('Escape');
     await page.locator('.uv-tab-window [aria-modal="true"]').waitFor({ state: 'hidden' });
     checks.push('Texture Library opens and closes inside the UV window');

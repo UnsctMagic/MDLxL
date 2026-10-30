@@ -1,7 +1,7 @@
 // Hidden first-run prompt: native style, four languages, real choices and persisted preferences.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const root = path.resolve(__dirname, '..');
 (async () => {
   const output = path.join(root, 'out/welcome-prompt'), shots = path.join(root, 'out/wp-3-10-shots');
@@ -26,10 +26,8 @@ const root = path.resolve(__dirname, '..');
         fs.writeFileSync(${JSON.stringify(path.join(run, 'done.txt'))}, answer);
       }).catch(error => { fs.writeFileSync(${JSON.stringify(path.join(run, 'error.txt'))}, error.stack); });
     `);
-    const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: [entry], cwd: root,
-      env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(run, 'profile') }, timeout: 30000 });
+    const { app, page: prompt } = await launchApp({ out: run, profile: path.join(run, 'profile'), entry, env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, pageTimeout: 10000, show: 'hide', bounds: null });
     try {
-      const prompt = await app.firstWindow(); prompt.setDefaultTimeout(10000);
       await prompt.waitForSelector('[data-action="yes"]');
       const layout = await prompt.evaluate(() => ({ width: document.querySelector('img').getBoundingClientRect().width, color: getComputedStyle(document.querySelector('h1')).color }));
       assert.ok(layout.width >= 90); assert.equal(layout.color, 'rgb(23, 74, 161)');
@@ -50,8 +48,7 @@ const root = path.resolve(__dirname, '..');
       if (language !== 'old') { assert.equal(saved.graphics.antialias, choice === 'smooth'); assert.equal(saved.modelLookAnswered, true); }
       console.log('PASS ' + language + '/' + choice + ': native welcome layout and persisted choice');
     } finally {
-      await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
-      await app.close().catch(() => {}); fs.rmSync(run, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      await closeApp(app); fs.rmSync(run, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

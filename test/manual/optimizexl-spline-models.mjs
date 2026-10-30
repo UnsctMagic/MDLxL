@@ -1,13 +1,13 @@
 // Private fixtures stay outside Git. Supply the encountered model path.
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import { comparePoses } from './helpers/pose-compare.mjs';
-import {openDocument} from '../src/editor-document.js';
-import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
-import {assertRoundTripFields} from '../src/model-optimizer.js';
-import {flattenHiveFindings} from '../app/optimizexl-hive.js';
+import { comparePoses } from '../helpers/pose-compare.mjs';
+import {openDocument} from '../../src/editor-document.js';
+import {sanityProposals,runOptimizeStage} from '../../src/optimizexl.js';
+import {assertRoundTripFields} from '../../src/model-optimizer.js';
+import {flattenHiveFindings} from '../../app/optimizexl-hive.js';
 const at=(m,p)=>p.reduce((v,k)=>v[k],m),hash=b=>createHash('sha256').update(b).digest('hex');
 const hive=bytes=>{const r=sanityTest(bytes);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused,findings:flattenHiveFindings(r.nodes)};};
 for(const path of process.argv.slice(2)){

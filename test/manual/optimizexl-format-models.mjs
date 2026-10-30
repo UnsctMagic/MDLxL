@@ -1,14 +1,14 @@
 // Private fixtures and repaired models remain outside Git.
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {ModelRenderer} from 'war3-model';
-import {openDocument} from '../src/editor-document.js';
-import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
-import {assertRoundTripFields} from '../src/model-optimizer.js';
-import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
-import {flattenHiveFindings} from '../app/optimizexl-hive.js';
+import {openDocument} from '../../src/editor-document.js';
+import {sanityProposals,runOptimizeStage} from '../../src/optimizexl.js';
+import {assertRoundTripFields} from '../../src/model-optimizer.js';
+import {classifyHiveFindings} from '../../src/optimizexl-diagnostics.js';
+import {flattenHiveFindings} from '../../app/optimizexl-hive.js';
 const hash=b=>createHash('sha256').update(b).digest('hex'),local=t=>t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff;
 const hive=bytes=>{const r=sanityTest(bytes);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused,findings:flattenHiveFindings(r.nodes)};};
 function entries(m){const out=[];function walk(v,path=[]){if(!v||typeof v!=='object'||ArrayBuffer.isView(v))return;

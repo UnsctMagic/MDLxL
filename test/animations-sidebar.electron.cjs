@@ -1,7 +1,8 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // Camera rotation mode chosen on another tab must not hide the Animations controls.
 (async () => {
@@ -9,18 +10,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await fs.mkdir(out, { recursive: true }); const profile = await fs.mkdtemp(path.join(out, 'profile-'));
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'animations-sidebar.mdx'); await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH;
-  const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const errors = [], checks = []; let page;
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000 });
+  const checks = [];
   const capture = async rect => {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     return app.evaluate(async ({ BrowserWindow }, rect) => (await BrowserWindow.getAllWindows()[0].capturePage(rect, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'), rect);
   };
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
     const toolbox = page.getByRole('region', { name: 'Animations toolbox', exact: true });
     const anglePanel = page.locator('.camera-angle-panel');
     const tab = name => page.getByRole('button', { name, exact: true }).click();
@@ -48,7 +47,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.mouse.move(preview.x + preview.width * 0.5, preview.y + preview.height * 0.5);
     await page.mouse.down(); await page.mouse.move(preview.x + preview.width * 0.75, preview.y + preview.height * 0.45, { steps: 14 });
     await page.mouse.up();
-    await page.waitForTimeout(300);
+    await settlePage(page, 300);
     const after = await capture(clip);
     assert.notEqual(after, before, 'mouse drag rotates the preview camera');
     checks.push('Mouse drag rotates the Animations preview camera');
@@ -65,7 +64,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (page) console.error('page text:', await page.evaluate(() => document.body.innerText.slice(0, 600)).catch(cause => cause.message));
     console.error(error); console.log(JSON.stringify({ ok: false, checks, errors }, null, 2)); process.exitCode = 1;
   } finally {
-    await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 10000))]);
+    await Promise.race([closeApp(app), new Promise(resolve => setTimeout(resolve, 10000))]);
     process.exit();
   }
 })();

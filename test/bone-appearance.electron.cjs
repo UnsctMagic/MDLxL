@@ -1,41 +1,31 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building; MDLXL_PLAYWRIGHT_MODULE can point to shared Playwright.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = process.cwd(), output = path.resolve(process.env.MDLXL_APPEARANCE_OUTPUT || 'out/bone-appearance');
   fs.mkdirSync(output, { recursive: true });
   const profile = fs.mkdtempSync(path.join(output, 'profile-'));
-  const fixture = path.join(root, 'fixtures/demo.mdx'), original = fs.readFileSync(fixture);
+  const fixture = path.join(root, 'test/fixtures/demo.mdx'), original = fs.readFileSync(fixture);
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, language: 'en', checkUpdatesOnStartup: false, graphics: { pauseWhenHidden: false } } }));
   const errors = [], result = { combinations: [], rotation: null, persisted: null };
   let app;
   const launch = async () => {
-    app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, fixture], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.locator('.game-preview-surface canvas').first().waitFor();
     await page.evaluate(() => {
-      window.currentFiber = host => {
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))], top = fiber;
-        while (top.return) top = top.return;
-        return top.stateNode.current === top ? fiber : fiber.alternate || fiber;
-      };
+
       window.previewRuntime = () => {
-        for (let fiber = currentFiber(document.querySelector('.game-preview-surface')); fiber; fiber = fiber.return) {
-          for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-            const state = hook.memoizedState?.current;
-            if (state?.native && state?.controls) return state;
-          }
-        }
-        throw Error('Preview runtime not found');
+        const runtime=mdlxlProbe(".game-preview-root").runtime;if(runtime)return runtime;throw Error('Preview runtime not found');
       };
       window.previewProps = () => {
-        const preview = window.__mdlxl.preview();
+        const preview = mdlxlProbe();
         if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview props not found');
       };
@@ -85,7 +75,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(before => previewRuntime().controls.object.position.toArray().some((value, index) => Math.abs(value - before[index]) > .01), before);
     result.rotation = { before, after: await page.evaluate(() => previewRuntime().controls.object.position.toArray()) };
     assert.equal(await page.evaluate(() => JSON.stringify(previewProps().model)), modelBefore, 'appearance and camera must not mutate model');
-    await app.close(); app = null;
+    await closeApp(app, { keepProfile: true }); app = null;
     page = await launch();
     await settings(page);
     result.persisted = { style: await page.getByLabel('Bone style', { exact: true }).inputValue(), connector: await page.getByLabel('Skeleton style', { exact: true }).inputValue() };
@@ -95,7 +85,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify({ ...result, errors }, null, 2));
     console.log(JSON.stringify(result, null, 2));
   } finally {
-    if (app) await app.close();
+    if (app) await closeApp(app);
     fs.rmSync(profile, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

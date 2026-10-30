@@ -1,14 +1,14 @@
 // Private examples stay outside Git; this audit accepts arbitrary model paths.
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {ModelRenderer} from 'war3-model';
-import {openDocument} from '../src/editor-document.js';
-import {assertRoundTripFields} from '../src/model-optimizer.js';
-import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
-import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
-import {flattenHiveFindings} from '../app/optimizexl-hive.js';
+import {openDocument} from '../../src/editor-document.js';
+import {assertRoundTripFields} from '../../src/model-optimizer.js';
+import {sanityProposals,runOptimizeStage} from '../../src/optimizexl.js';
+import {classifyHiveFindings} from '../../src/optimizexl-diagnostics.js';
+import {flattenHiveFindings} from '../../app/optimizexl-hive.js';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const chunks=bytes=>{const result=new Map(),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(let i=4;i<bytes.length;){const name=String.fromCharCode(...bytes.slice(i,i+4)),size=view.getUint32(i+4,true);result.set(name,bytes.slice(i,i+8+size));i+=8+size;}return result;};
 const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};

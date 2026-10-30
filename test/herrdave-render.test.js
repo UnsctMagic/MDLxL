@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { OrthographicCamera, Vector3, HemisphereLight, DirectionalLight, Matrix4 } from 'three';
 import { TEAM_COLORS } from '../src/team-colors.js';
 import { visualOptions } from '../src/preferences.js';
-import { renderFixture } from '../fixtures/herrdave-render.js';
+import { renderFixture } from './fixtures/herrdave-render.js';
 import { gridSegments } from '../app/viewport-grid.js';
 import { depthClipRange, screenPlaneTranslation } from '../app/viewport-math.js';
 import { nativeTeamColor, viewportPixelRatio } from '../app/viewport-quality.js';

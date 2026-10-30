@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {outDir} from './lib/paths.mjs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {GameDataDiscovery} from '../electron/game-data.cjs';
@@ -7,7 +8,7 @@ import {decodeDds} from '../src/dds.js';
 import {encodePaintPng} from '../src/paint-project.js';
 
 // Read-only source audit; native files remain local ignored test inputs.
-const directory=path.resolve('out/citadel-audit/sources');
+const directory=outDir('citadel-audit/sources');
 await fs.mkdir(directory,{recursive:true});
 const discovered=await new GameDataDiscovery().discover();
 const casc=new CascTextures({cacheDirectory:path.join(directory,'cache')});

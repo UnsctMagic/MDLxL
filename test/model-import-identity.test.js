@@ -11,7 +11,7 @@ import { captureNodeSelection, pasteNodesToDummy } from '../src/node-clipboard.j
 import { commitPart } from '../src/bits-and-parts.js';
 import { extractParticleRecipe, copyEffectGraph, placeParticleRecipe } from '../src/particle-recipes.js';
 import { CascReader } from '../electron/casc.cjs';
-import { tempDir } from './helpers/fixtures.cjs';
+import { tempDir, gameFolder } from './helpers/fixtures.cjs';
 import { importGeosets as beforeGeosets } from './fixtures/model-import-baseline/editor-document.js';
 import { pasteNodesToDummy as beforeNodes } from './fixtures/model-import-baseline/node-clipboard.js';
 import { commitPart as beforePart } from './fixtures/model-import-baseline/bits-and-parts.js';
@@ -106,7 +106,7 @@ async function callerTests(t, input) {
 test('WP-3.3 origin/main identity: demo model', async t => callerTests(t, createDemoDocument().model));
 
 test('WP-3.3 origin/main identity: CASC Footman', async t => {
-  const game = process.env.MDLXL_GAME_FOLDER || 'D:/Warcraft III';
+  const game = await gameFolder();
   if (!fs.existsSync(path.join(game, '.build.info'))) { t.skip('Requires a local Warcraft III CASC installation'); return; }
   const directory = tempDir('model-import-casc-'), reader = new CascReader(game, directory);
   try {

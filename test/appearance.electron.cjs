@@ -1,9 +1,9 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building: node test/appearance.electron.cjs
 // Set MDLXL_PLAYWRIGHT_MODULE when Playwright is provided outside this checkout.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
 
 (async () => {
@@ -12,14 +12,12 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
   const profile = path.join(out, 'profile-' + Date.now());
   fs.mkdirSync(profile);
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { rendererRevision: 3, graphics: { pauseWhenHidden: false } } }));
-  const modelPath = path.join(root, 'fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
+  const modelPath = path.join(root, 'test/fixtures/demo.mdx'), modelBytes = fs.readFileSync(modelPath);
   const bundle = buildSync({ stdin: { contents: `export { drawPreviewGeometryOverlay } from './app/preview-overlays.js'; export { drawPreviewBackground } from './app/game-preview-capture.js'; export { normalizePreferences } from './src/preferences.js'; export { exportConfiguration, importConfiguration } from './src/portable-settings.js'; export { BUILT_IN_VIEWPORT_PRESETS, backgroundImageRect } from './src/viewport-appearance.js'; export { OrthographicCamera, Vector3 } from 'three';`, resolveDir: root }, bundle: true, format: 'iife', globalName: 'appearanceAudit', write: false }).outputFiles[0].text;
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'), args: ['--disable-backgrounding-occluded-windows', root, modelPath], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
-  const result = { raster: null, presets: [], gaps: [] }, errors = [];
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: modelPath , pageTimeout: 20000 });
+  const result = { raster: null, presets: [], gaps: [] };
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false); });
+
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured');
     await page.locator('.game-preview-root').waitFor();
@@ -75,16 +73,14 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
     await menu('appearanceSettings');
     await page.getByRole('dialog', { name: 'Settings' }).waitFor();
     await page.evaluate(() => {
-      window.currentFiber = host => { let f = host[Object.keys(host).find(k => k.startsWith('__reactFiber'))], top=f; while(top.return)top=top.return; return top.stateNode.current===top?f:f.alternate||f; };
+
       window.auditSettings = () => {
-        const host = document.querySelector('.settings-window');
-        let fiber = currentFiber(host);
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.preferences && fiber.memoizedProps.onChange) return fiber.memoizedProps;
+        const props=findFiberProps('.settings-window',p=>p.preferences&&p.onChange);if(props)return props;
         throw Error('Settings owner not found');
       };
       window.auditPreview = () => {
         const host = document.querySelector('.game-preview-root');
-        const preview = window.__mdlxl.preview(host);
+        const preview = mdlxlProbe(host);
         if (preview?.props?.model && preview.props.preferences) return preview.props;
         throw Error('Preview owner not found');
       };
@@ -139,5 +135,5 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
     if (!process.argv.includes('--audit-before-fixes')) assert.deepEqual(result.gaps, []);
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

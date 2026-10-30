@@ -3,6 +3,7 @@
 // MDLxL-win32-x64 folder), else the development Electron with this repo's dist/.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { PROBE_SOURCE } = require('./fiber-probe.cjs');
+const childProcess = require('node:child_process');
 
 const root = path.resolve(__dirname, '../..');
 const devElectron = () => { try { return require('electron'); } catch { return path.join(root, 'node_modules/electron/dist/electron.exe'); } };
@@ -32,21 +33,21 @@ const loadPlaywright = () => require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'pla
 // show: 'inactive' shows the window without focus (default), 'hide' keeps it hidden.
 // settings: optional settings.json written into the new profile before start.
 // entry: a DEV_ONLY wrapper; profile/errors: retain a harness's seeded fixture profile and error collection.
-async function launchApp({ fixture, out, entry, profile: seededProfile, errors = [], args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
+async function launchApp({ fixture, out, entry, target = appTarget(), cwd, profile: seededProfile, errors = [], args = [], env = {}, playwright, settings, bounds = { x: -3000, y: 0, width: 1280, height: 920 }, show = 'inactive', timeout = 60000, pageTimeout = 20000 } = {}) {
   if (!out) throw Error('launchApp needs an out folder for its profile');
-  const target = appTarget(), { _electron } = playwright || loadPlaywright();
+  const { _electron } = playwright || loadPlaywright();
   if (entry && target.packaged) throw Error('A wrapper entry needs a DEV_ONLY harness');
   const profile = seededProfile ? path.resolve(seededProfile) : path.join(path.resolve(out), `profile-${Date.now()}-${process.pid}`);
   if (!profile.startsWith(path.resolve(out) + path.sep)) throw Error('Test profiles must be inside out');
   fs.mkdirSync(profile, { recursive: true });
   if (settings) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
   const app = await _electron.launch({
-    executablePath: target.executablePath,
+    executablePath: target.executablePath, cwd,
     args: [...(entry ? [entry] : target.args), ...(fixture ? [fixture] : []), '--disable-backgrounding-occluded-windows', ...args],
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: profile, ...env },
     timeout,
   });
-  profiles.set(app, profile);
+  profiles.set(app, { profile, child: app.process?.() });
   const page = await app.firstWindow();
   await prepareWindow(app, page, { bounds, show, pageTimeout, errors });
   return { app, page, errors, profile, target };
@@ -57,7 +58,7 @@ async function prepareWindow(app, page, { bounds = { x: -3000, y: 0, width: 1280
   page.setDefaultTimeout(pageTimeout); page.on('pageerror', error => errors.push(error.message));
   await app.evaluate(({ BrowserWindow }, { bounds, show }) => {
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.setBackgroundThrottling(false); win.setBounds(bounds);
+      win.webContents.setBackgroundThrottling(false); if (bounds) win.setBounds(bounds);
       if (show === 'hide') win.hide(); else win.showInactive();
     }
   }, { bounds, show });
@@ -90,9 +91,23 @@ const settle = (page, ms = 150) => page.waitForTimeout(ms);
 // Quits the app and removes the throwaway profile launchApp created.
 // keepProfile is only for a test that immediately restarts with the same disposable draft/library.
 async function closeApp(app, { keepProfile = false } = {}) {
-  const profile = profiles.get(app), child = app.process?.();
+  const { profile, child } = profiles.get(app);
   try { await app.evaluate(({ app }) => app.exit(0)); } catch { /* the connection closes as the app exits */ }
-  if (child && child.exitCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 10000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
+  const exited = () => !child || child.exitCode !== null || !!child.signalCode;
+  const waitForExit = () => exited() ? Promise.resolve(true) : new Promise(resolve => {
+    const done = () => { clearTimeout(timer); child.removeListener('exit', done); resolve(true); };
+    const timer = setTimeout(() => { child.removeListener('exit', done); resolve(false); }, 10000);
+    child.once('exit', done);
+  });
+  if (!await waitForExit()) {
+    // Playwright's Windows child is a cmd wrapper. Stop its whole owned tree
+    // before removing a profile that Chromium can still have open.
+    console.warn('Test app did not exit; stopping its launched process tree.');
+    let failure;
+    if (process.platform === 'win32') failure = await new Promise(resolve => childProcess.execFile('taskkill', ['/T', '/F', '/PID', String(child.pid)], { windowsHide: true }, error => resolve(error)));
+    else child.kill('SIGKILL');
+    if (!await waitForExit()) throw failure || Error('Test app process did not exit.');
+  }
   if (profile && !keepProfile) {
     // Particle fixtures can contain junctions to read-only source libraries. Remove links before the tree.
     const unlink = directory => {

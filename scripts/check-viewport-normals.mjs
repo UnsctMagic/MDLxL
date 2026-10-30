@@ -5,8 +5,7 @@ import path from 'node:path';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {fileURLToPath} from 'node:url';
-const root=fileURLToPath(new URL('../',import.meta.url));
+import {repoRoot as root} from './lib/paths.mjs';
 const require=createRequire(process.env.PLAYWRIGHT_MODULE || import.meta.url);
 const {chromium}=require('playwright');
 // Exercise the actual owning material factory, without exporting a test-only app API.

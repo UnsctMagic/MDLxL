@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import {repoRoot} from './lib/paths.mjs';
 import {PAINT_ASSET_MANIFEST} from '../src/paint-assets.js';
 // The native collection contains source recipes only. Never synthesize pixels
 // or bundle game bytes to replace an unavailable local Warcraft installation.
-await fs.mkdir('public/paint-assets',{recursive:true});
-await fs.writeFile('public/paint-assets/manifest.json',JSON.stringify(PAINT_ASSET_MANIFEST,null,2)+'\n');
+await fs.mkdir(path.join(repoRoot, 'public/paint-assets'),{recursive:true});
+await fs.writeFile(path.join(repoRoot, 'public/paint-assets/manifest.json'),JSON.stringify(PAINT_ASSET_MANIFEST,null,2)+'\n');

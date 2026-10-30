@@ -1,8 +1,8 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building dist; uses a hidden Electron window and a synthetic model.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 (async () => {
@@ -16,9 +16,7 @@ const root = path.resolve(__dirname, '..');
   });
   const fixture = path.join(run, 'dense.mdx'), original = Buffer.from(doc.serialize('mdx'));
   fs.writeFileSync(fixture, original);
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', root, fixture], cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(run, 'profile') }, timeout: 60000 });
+  const app = (await launchApp({ out: run, show: 'hide', profile: path.join(run, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture })).app;
   try {
     const page = await app.firstWindow(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -65,5 +63,5 @@ const root = path.resolve(__dirname, '..');
     assert.deepEqual(fs.readFileSync(fixture), original);
     assert.deepEqual(errors, []);
     console.log('PASS: lower click snapping in both directions, dense lower-area drag, drag cleanup, Shift range, upper key clicks, unchanged fixture, hidden window');
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

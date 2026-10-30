@@ -22,6 +22,7 @@ const check = (name, condition, detail) => {
 const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n');
 (async () => {
   fs.mkdirSync(out, { recursive: true });
+  fs.rmSync(path.join(out, 'AI-export.mdx'), { force: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
   const doc = createStarterDocument();
   doc.apply('AI fixture', ['Geosets', 'Sequences', 'Bones'], model => {
@@ -61,16 +62,20 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
     }
     const data = JSON.parse(body);
     requests++;
-    const user = [...data.messages]
-      .reverse()
-      .find(
-        m =>
-          m.role === 'user' &&
-          Array.isArray(m.content) &&
-          m.content[0]?.text?.includes('MDLxL context captured'),
-      );
-    const text = user.content[0].text,
-      context = JSON.parse(text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1]);
+    // The app now asks a separate, tool-free reviewer after the editor checks.
+    if (String(data.messages[0]?.content).includes('independent reviewer')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, { choices: [{ delta: { content: JSON.stringify({ verdict: 'good', confidence: 0.9, problems: [], strengths: ['Selected faces mirrored; protected geometry preserved'] }) }, finish_reason: 'stop' }] });
+      res.end(); return;
+    }
+    // Only owner prompts carry the captured editor context. Image evidence and
+    // awareness updates are also user-role messages in the provider protocol.
+    const promptText = message => Array.isArray(message.content) ? message.content[0]?.text : message.content;
+    const user = [...data.messages].reverse().find(message => message.role === 'user' &&
+      /MDLxL context (?:captured when this prompt was sent|for this prompt:)/.test(promptText(message) || ''));
+    const text = promptText(user);
+    // Later turns send a context delta; target is always included (ai-service.cjs).
+    const context = JSON.parse(text.slice(text.lastIndexOf('\n') + 1));
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const turnMessages = data.messages.slice(data.messages.lastIndexOf(user) + 1);
     const previousCall = turnMessages
@@ -93,12 +98,28 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
       });
       res.end();
     };
+    // The current agent protocol requires inspection and a recorded plan before edits.
+    const called = turnMessages.flatMap(message => message.tool_calls || []).map(call => call.function.name);
+    if (!called.includes('mdlxl_context')) return emitTool('mdlxl_context', {});
+    if (!called.includes('mdlxl_plan')) return emitTool('mdlxl_plan', {
+      cause: text.startsWith('slow') ? 'The first vertex needs the timed +5 X test edit.' : 'The selected faces need their mirrored counterpart across X=0.',
+      reach: 'Selected faces in geoset 0.',
+      keep: ['Other geometry, rig, materials and textures'],
+      options: [
+        { fix: text.startsWith('slow') ? 'Move the first vertex +5 X after the requested delay' : 'Mirror selected faces and weld the compatible seam', cost: 'Changes only the requested geometry' },
+        { fix: 'Duplicate and mirror the whole geoset', cost: 'Also duplicates unselected faces' },
+      ],
+      choice: 0,
+      why: 'Preserves unselected geometry.',
+      checks: ['Mirrored selection and welded seam', 'Other mesh and rig unchanged', 'MDX and MDL save/reopen preserve the result'],
+    });
     if (previousCall?.name === 'mdlxl_script' && previousResult?.includes('"applied":true'))
       return emitTool('mdlxl_review', {
         target: context.target,
         action: 'inspect',
-        checksCode:
-          'return [{name:"Mirrored selected faces",passed:model.Geosets[0].Vertices.length===12&&model.Geosets[0].Faces.length===6},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];',
+        checksCode: text.startsWith('slow')
+          ? 'return [{name:"Timed vertex edit",passed:model.Geosets[0].Vertices[0]===before.Geosets[0].Vertices[0]+5},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];'
+          : 'return [{name:"Mirrored selected faces",passed:model.Geosets[0].Vertices.length===12&&model.Geosets[0].Faces.length===6},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];',
       });
     if (previousCall?.name === 'mdlxl_review') {
       if (JSON.parse(previousCall.arguments).action === 'inspect')
@@ -122,7 +143,7 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
       res.end();
       return;
     }
-    if (data.messages.at(-1).role === 'tool') {
+    if (previousCall?.name === 'mdlxl_script' && data.messages.at(-1).role === 'tool') {
       const result = JSON.parse(data.messages.at(-1).content);
       sse(res, {
         choices: [
@@ -182,6 +203,7 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
   check('AI panel is closed by default', (await page.locator('.ai-assistant').count()) === 0);
   // Exercise the native sign-in UI through real provider child processes. The
   // browser launch is intercepted, so this never opens a window on the desktop.
+  fs.writeFileSync(path.join(out, 'package.json'), '{"type":"commonjs"}');
   const authScript = path.join(out, 'auth-fixture.js'),
     authExecutable = path.join(out, 'auth-bin', 'codex.cmd'),
     authDirectory = path.join(profile, 'ai');
@@ -211,7 +233,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   fs.mkdirSync(path.dirname(authExecutable), { recursive: true });
   // Run the stand-in with this Node, not whatever program .js files open with on this PC.
-  fs.writeFileSync(authExecutable, `@"${process.execPath}" "%~dp0..\\auth-fixture.js" %*\r\n`);
+  fs.writeFileSync(authExecutable, `@"${process.execPath}" "%~dp0\\..\\auth-fixture.js" %*\r\n`);
   await page.evaluate(
     executable => window.desktop.aiConfigure({ provider: 'codex', executable }),
     authExecutable,
@@ -308,7 +330,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page
     .locator('.classic-view canvas')
     .first()
-    .click({ position: { x: 20, y: 120 } });
+    .click({ position: { x: 120, y: 180 } });
   await page.keyboard.press('Control+A');
   await settle(page, 150);
   context = await tool('mdlxl_context');
@@ -474,7 +496,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page
     .locator('.classic-view canvas')
     .first()
-    .click({ position: { x: 20, y: 120 } });
+    .click({ position: { x: 120, y: 180 } });
   await page.keyboard.press('Control+A');
   await settle(page, 120);
   await assert.rejects(
@@ -593,12 +615,14 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     },
     true,
   );
+  // Each of three phases now has both its original and edited picture.
   const reviewReport = JSON.parse(reviewImages[0].text).review;
   check(
     'animation verification samples intermediate poses and returns before/after images',
     reviewReport.passed &&
       reviewReport.poses.length === 1 &&
-      reviewImages.filter(x => x.type === 'image').length === 5,
+      reviewImages.filter(x => x.type === 'image').length === 6,
+    { report: reviewReport, imageCount: reviewImages.filter(x => x.type === 'image').length },
   );
   check(
     'animation verification restores the playhead',
@@ -612,7 +636,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   check(
     'the review can show the result from the front, back, left and right',
-    turned.filter(x => x.type === 'image').length === 9 &&
+    turned.filter(x => x.type === 'image').length === 10 &&
       ['front', 'back', 'left', 'right'].every(side => turned.some(x => x.type === 'text' && x.text.includes(`${side} view`))),
     turned.filter(x => x.type === 'text').map(x => x.text.slice(0, 60)),
   );
@@ -838,8 +862,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   const generated = await tool('mdlxl_assets', {
     target: context.target,
     source: 'model',
-    query: 'Particle_SoftDisc',
+    query: 'AI_Disc_Test',
   });
+  check('the compound script registers its generated Forge texture', generated.items.length === 1 && generated.items[0].Image.includes('AI_Disc_Test'));
   const textureImage = await tool('mdlxl_assets', {
     target: context.target,
     source: 'model',
@@ -949,6 +974,7 @@ return {duration:end-start,loop:!model.Sequences[sequence].NonLooping,keys:anim.
       'AI-assets.mdx',
       'MDLxL_Forge',
       'auth-fixture.js',
+      'package.json',
       'auth-bin',
     ])
       fs.rmSync(path.join(out, name), { recursive: true, force: true });

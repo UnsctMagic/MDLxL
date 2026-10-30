@@ -1,8 +1,9 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async()=>{
   const root=process.cwd(),out=path.join(root,'out','node-effect-controls',String(Date.now())),profile=path.join(out,'profile');
@@ -37,23 +38,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await write('Splats\\SplatData.slk',slk(blood));await write('Splats\\UberSplatData.slk',slk({...blood,BirthTime:.2,PauseTime:.2,Decay:.4}));
   const blp=Buffer.alloc(148+16*16*4);blp.write('BLP2');blp.writeUInt32LE(1,4);blp[8]=3;blp[9]=8;blp.writeUInt32LE(16,12);blp.writeUInt32LE(16,16);blp.writeUInt32LE(148,20);blp.writeUInt32LE(1024,84);for(let i=148;i<blp.length;i+=4){blp[i]=blp[i+1]=blp[i+2]=255;blp[i+3]=200;}await write('ReplaceableTextures\\Splats\\NodePreviewTest.blp',blp);
   await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false,maxFps:30,pauseWhenHidden:false},emitterMarker:'pentagram'}}));
-  const executablePath=process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=await _electron.launch({executablePath,args:['--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-background-timer-throttling','--mute-audio',...(packaged?[fixture]:[root,fixture])],cwd:root,env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:'1'},timeout:60000});
-  let page;const errors=[];
+  const executablePath=appTarget().executablePath,packaged=appTarget().packaged;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), show: 'hide', profile: profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--mute-audio'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
+
   const grab=clip=>app.evaluate(async({BrowserWindow},clip)=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(clip||undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'),clip);
   const screenshot=async name=>fs.writeFile(path.join(out,name),Buffer.from(await grab(),'base64'));
   try{
-    page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+
     await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];if(win.isVisible())throw Error('Test window must remain hidden');win.setSize(1700,1050);win.webContents.setBackgroundThrottling(false);});
     await page.addInitScript(()=>{window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=clearTimeout;});await page.reload();
     await page.getByText('Opened node-controls.mdx',{exact:true}).waitFor();
     await page.evaluate(()=>{window.testAudio=[];const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(...args){const record={audio:this,decoded:false,ended:false};this.addEventListener('playing',()=>{record.decoded=this.duration>0&&!this.error;},{once:true});this.addEventListener('ended',()=>{record.ended=true;},{once:true});window.testAudio.push(record);return play.apply(this,args);};});
     const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
     const read=()=>page.evaluate(()=>{
-      const el=document.querySelector('.game-preview-root');let fiber=el?.[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state.controls){window.testRuntime=state;return{frame:state.native.getFrame(),ready:state.captureApi?.isReady,particles:state.native.particlesController.emitters.map(e=>e.particles.length),ribbons:state.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:el.querySelectorAll('[data-node-overlay]').length,pulse:state.nodeEffects?.active,decal:state.eventPreview?.active,camera:state.controls.object.position.toArray(),decals:state.testDecalDraws||0,audio:window.testAudio.map(r=>({decoded:r.decoded,ended:r.ended,paused:r.audio.paused,src:r.audio.getAttribute('src')}))};}}return null;
+      const el=document.querySelector('.game-preview-root');
+      { const state = mdlxlProbe(el?.closest('.game-preview-root') || null).runtime; if (state?.native&&state.controls) {window.testRuntime=state;return{frame:state.native.getFrame(),ready:state.captureApi?.isReady,particles:state.native.particlesController.emitters.map(e=>e.particles.length),ribbons:state.native.ribbonsController.emitters.map(e=>e.creationTimes.length),nodes:el.querySelectorAll('[data-node-overlay]').length,pulse:state.nodeEffects?.active,decal:state.eventPreview?.active,camera:state.controls.object.position.toArray(),decals:state.testDecalDraws||0,audio:window.testAudio.map(r=>({decoded:r.decoded,ended:r.ended,paused:r.audio.paused,src:r.audio.getAttribute('src')}))};} }
+return null;
     });
-    const wait=async(predicate,label)=>{const end=Date.now()+20000;while(Date.now()<end){const state=await read();if(state&&predicate(state))return state;await page.waitForTimeout(30);}throw Error(label+': '+JSON.stringify(await read()));};
+    const wait=async(predicate,label)=>{const end=Date.now()+20000;while(Date.now()<end){const state=await read();if(state&&predicate(state))return state;await settlePage(page, 30);}throw Error(label+': '+JSON.stringify(await read()));};
     const clickNode=async(id,button='right')=>{
       await read();const point=await page.evaluate(id=>{const state=window.testRuntime,camera=state.controls.object,node=state.native.model.Nodes[id],v=camera.position.clone().fromArray(node.PivotPoint||state.native.model.PivotPoints[id]),mat=state.native.rendererData.nodes[id]?.matrix;if(mat)v.applyMatrix4(camera.matrixWorld.clone().fromArray(mat));v.project(camera);const canvas=document.querySelector('[data-clean-model-canvas]'),rect=canvas.getBoundingClientRect();return{x:rect.x+(v.x+1)*rect.width/2,y:rect.y+(1-v.y)*rect.height/2};},id);console.log(JSON.stringify({click:id,button,point}));await page.mouse.click(point.x,point.y,{button});return point;
     };
@@ -84,12 +86,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       for(const id of [ids.blood,ids.foot,ids.uber]){
         await seek(0);await page.evaluate(()=>window.testRuntime.eventPreview.cancelTests());
         await wait(s=>s.decals===0,'Before one-shot decal');
-        await page.waitForTimeout(200);
+        await settlePage(page, 200);
         const before=PNG.sync.read(Buffer.from(await grab(),'base64'));
         const point=await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Manual decal draws');
-        await page.waitForTimeout(120);const paintedStainPixels=stainPixels(before,PNG.sync.read(Buffer.from(await grab(),'base64')),point);
+        await settlePage(page, 120);const paintedStainPixels=stainPixels(before,PNG.sync.read(Buffer.from(await grab(),'base64')),point);
         assert.ok(paintedStainPixels>0,'The pixel sample sees the actual playing decal');
-        await page.waitForTimeout(1300);const state=await read(),after=PNG.sync.read(Buffer.from(await grab(),'base64')),remainingStainPixels=stainPixels(before,after,point);
+        await settlePage(page, 1300);const state=await read(),after=PNG.sync.read(Buffer.from(await grab(),'base64')),remainingStainPixels=stainPixels(before,after,point);
         observations.push({mode,id,frame:state.frame,manual:state.decal,draws:state.decals,paintedStainPixels,remainingStainPixels});
         if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.ok(!state.decal&&state.decals===0,'One visual cycle removes its decal without accelerating the test clock: '+JSON.stringify(state));
         if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal(remainingStainPixels,0,'The displayed frame contains no remaining stain pixels');
@@ -100,7 +102,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await wait(s=>s.decals===3,'Paused timeline displays three authored decals');
       await clickNode(id);await wait(s=>s.decal,'Manual preview starts on paused authored decal');
       if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal((await read()).decals,3,'Manual preview replaces the matching authored decal');
-      await page.waitForTimeout(1300);const paused=await read();observations.push({mode,id,pausedAfterPreview:true,manual:paused.decal,draws:paused.decals});
+      await settlePage(page, 1300);const paused=await read();observations.push({mode,id,pausedAfterPreview:true,manual:paused.decal,draws:paused.decals});
       if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal(paused.decals,2,'Completed manual decal is not re-created by the frozen event key');
       await screenshot(mode+'-decal-paused-after-'+id+'.png');
       await seek(301);await wait(s=>s.decals===3,'Moving the timeline restores normal authored events');
@@ -115,7 +117,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
       await page.getByRole('button',{name:'Movement',exact:true}).click();await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Zoom proof ready');
       for(const name of ['Emitters','Events','Sounds','Attachment','Focused Skeleton'])await quick.getByLabel(name,{exact:true}).check();
-      await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(120);
+      await page.getByRole('button',{name:'Fit',exact:true}).click();await settlePage(page, 120);
       const layout=()=>page.evaluate(ids=>{
         const state=window.testRuntime,camera=state.controls.object,rect=document.querySelector('[data-clean-model-canvas]').getBoundingClientRect(),vector=camera.position.clone();
         const nodes=Object.fromEntries(Object.entries(ids).map(([name,id])=>{vector.fromArray(state.native.model.Nodes[id].PivotPoint).project(camera);return[name,{x:rect.x+(vector.x+1)*rect.width/2,y:rect.y+(1-vector.y)*rect.height/2}];}));
@@ -123,11 +125,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         return {nodes,modelHeight:Math.max(...ys)-Math.min(...ys),zoom:camera.zoom,canvas:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
       },ids);
       await read();let fitted=await layout();const box=fitted.canvas;await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);
-      let far=fitted;for(let i=0;i<45&&far.modelHeight>130;i++){await page.mouse.wheel(0,70);await page.waitForTimeout(60);far=await layout();}
+      let far=fitted;for(let i=0;i<45&&far.modelHeight>130;i++){await page.mouse.wheel(0,70);await settlePage(page, 60);far=await layout();}
       assert.ok(far.modelHeight>=90&&far.modelHeight<=130,'Reproduce the reported small-model zoom');assert.ok(far.zoom<fitted.zoom,'Normal mouse wheel zooms out');
       const colors={particle:[76,255,89],ribbon:[32,201,255],attachment:[255,57,207],sound:[255,229,43],blood:[255,23,77],foot:[35,255,177],uber:[255,57,184]};
       const capture=async(name)=>{
-        await page.waitForTimeout(220);
+        await settlePage(page, 220);
         const current=await layout(),png=Buffer.from(await grab(),'base64'),image=PNG.sync.read(png),metrics={};await fs.writeFile(path.join(out,name+'.png'),png);
         for(const [kind,p] of Object.entries(current.nodes)){
           const rgb=colors[kind],xs=[],ys=[],search=name==='zoom-close'?64:16;
@@ -142,10 +144,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       };
       const farProof=await capture('zoom-far');
       if(process.env.MDLXL_NODE_ZOOM_PROOF!=='before')for(const [kind,metric] of Object.entries(farProof.metrics)){assert.ok(metric.width>=18&&metric.height>=18,kind+' remains readable in the rendered screenshot: '+JSON.stringify(metric));assert.ok(metric.width<=30&&metric.height<=30,kind+' stays compact');assert.ok(metric.pixels>=45,kind+' retains visible symbol detail');}
-      let close=far;for(let i=0;i<60&&close.modelHeight<600;i++){await page.mouse.wheel(0,-70);await page.waitForTimeout(60);close=await layout();}
+      let close=far;for(let i=0;i<60&&close.modelHeight<600;i++){await page.mouse.wheel(0,-70);await settlePage(page, 60);close=await layout();}
       assert.ok(close.zoom>far.zoom,'Normal mouse wheel zooms back in');const closeProof=await capture('zoom-close');for(const [kind,metric] of Object.entries(closeProof.metrics)){assert.ok(metric.width>=18&&metric.height>=18,kind+' renders at close zoom');assert.ok(metric.width<=30&&metric.height<=30,kind+' retains the close-up size cap');}
       if(process.env.MDLXL_NODE_ZOOM_PROOF!=='before'){
-        await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);for(let i=0;i<60&&(await layout()).modelHeight>130;i++){await page.mouse.wheel(0,70);await page.waitForTimeout(60);}const current=await layout(),p=current.nodes.particle;
+        await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);for(let i=0;i<60&&(await layout()).modelHeight>130;i++){await page.mouse.wheel(0,70);await settlePage(page, 60);}const current=await layout(),p=current.nodes.particle;
         await page.mouse.click(p.x+8,p.y,{button:'right'});await wait(s=>s.pulse&&s.particles[0]>0,'Zoomed-out symbol remains clickable');await wait(s=>!s.pulse&&s.particles[0]===0,'Zoomed-out preview cleans up');
         const sound=current.nodes.sound;await page.mouse.click(sound.x+8,sound.y);assert.equal(await page.getByLabel('Movement bone or node',{exact:true}).inputValue(),String(ids.sound),'Left click still selects the visible symbol');
       }
@@ -162,19 +164,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await wait(s=>s.nodes>0,'Bones symbols');await installDecalProbe();
     assert.deepEqual((await read()).particles,[0]);assert.deepEqual((await read()).ribbons,[0]);
     await screenshot('bones-symbols.png');const frame=(await read()).frame;
-    await clickNode(ids.particle);await wait(s=>s.particles[0]>0&&s.pulse,'Particle right click fires');await screenshot('bones-particle-test.png');await page.waitForTimeout(650);assert.ok((await read()).particles[0]>0,'Particles complete their lifespan after emission stops');await wait(s=>s.particles[0]===0&&!s.pulse,'Particle test cleans up');assert.equal((await read()).frame,frame);
+    await clickNode(ids.particle);await wait(s=>s.particles[0]>0&&s.pulse,'Particle right click fires');await screenshot('bones-particle-test.png');await settlePage(page, 650);assert.ok((await read()).particles[0]>0,'Particles complete their lifespan after emission stops');await wait(s=>s.particles[0]===0&&!s.pulse,'Particle test cleans up');assert.equal((await read()).frame,frame);
     await page.evaluate(()=>{
       const props=window.testRuntime.native.particlesController.emitters[0].props;
       window.testParticleProps={Visibility:props.Visibility,EmissionRate:props.EmissionRate,Squirt:props.Squirt};
       Object.assign(props,{Visibility:0,Squirt:true,EmissionRate:{LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array([12])}]}});
     });
     await clickNode(ids.particle);await wait(s=>s.particles[0]===12&&s.pulse,'Authored squirt emits exactly one complete burst');
-    await page.waitForTimeout(650);assert.equal((await read()).particles[0],12,'Squirt does not repeat while its particles are alive');
+    await settlePage(page, 650);assert.equal((await read()).particles[0],12,'Squirt does not repeat while its particles are alive');
     await wait(s=>s.particles[0]===0&&!s.pulse,'Squirt particles finish and clean up');
     assert.equal(await page.evaluate(()=>{const props=window.testRuntime.native.particlesController.emitters[0].props;return props.Squirt&&props.Visibility===0&&props.EmissionRate.Keys[0].Vector[0]===12;}),true,'Manual burst preserves the authored properties');
     await page.evaluate(()=>Object.assign(window.testRuntime.native.particlesController.emitters[0].props,window.testParticleProps));
-    await clickNode(ids.ribbon);await wait(s=>s.ribbons[0]>1&&s.pulse,'Ribbon right click fires');await page.waitForTimeout(650);assert.ok((await read()).ribbons[0]>0,'Ribbon tail survives the old cutoff');await wait(s=>s.ribbons[0]===0&&!s.pulse,'Ribbon test cleans up');assert.equal((await read()).frame,frame);
-    const audioBefore=(await read()).audio.length;await clickNode(ids.sound);await wait(s=>s.audio.length===audioBefore+1&&s.audio.at(-1).decoded,'Sound right click decodes and plays once');await page.waitForTimeout(1200);assert.ok(!(await read()).audio.at(-1).ended&&!(await read()).audio.at(-1).paused,'The full sound continues past one second');await wait(s=>s.audio.at(-1).ended&&s.audio.at(-1).paused&&!s.audio.at(-1).src,'Sound ends and releases playback');
+    await clickNode(ids.ribbon);await wait(s=>s.ribbons[0]>1&&s.pulse,'Ribbon right click fires');await settlePage(page, 650);assert.ok((await read()).ribbons[0]>0,'Ribbon tail survives the old cutoff');await wait(s=>s.ribbons[0]===0&&!s.pulse,'Ribbon test cleans up');assert.equal((await read()).frame,frame);
+    const audioBefore=(await read()).audio.length;await clickNode(ids.sound);await wait(s=>s.audio.length===audioBefore+1&&s.audio.at(-1).decoded,'Sound right click decodes and plays once');await settlePage(page, 1200);assert.ok(!(await read()).audio.at(-1).ended&&!(await read()).audio.at(-1).paused,'The full sound continues past one second');await wait(s=>s.audio.at(-1).ended&&s.audio.at(-1).paused&&!s.audio.at(-1).src,'Sound ends and releases playback');
     for(const id of [ids.blood,ids.foot,ids.uber]){
       const started=Date.now();
       await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Decal manual cycle draws');await screenshot('bones-decal-'+id+'.png');
@@ -193,7 +195,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal((await read()).audio.length,audioBefore+1);
     await quick.getByLabel('Events',{exact:true}).check();await quick.getByLabel('Sounds',{exact:true}).check();await installDecalProbe();await wait(s=>s.decals>0&&s.audio.length>audioBefore+1,'Movement Events and Sounds activate');
     await quick.getByLabel('Events',{exact:true}).uncheck();await quick.getByLabel('Sounds',{exact:true}).uncheck();await wait(s=>s.decals===0&&s.audio.every(a=>a.paused),'Movement controls turn effects off');
-    await page.getByRole('button',{name:'Stop',exact:true}).click();await page.waitForTimeout(180);await screenshot('movement-toggled-off.png');
+    await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 180);await screenshot('movement-toggled-off.png');
     await page.getByRole('button',{name:'Animations',exact:true}).click();await wait(s=>s.ready,'Animations ready');
     assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),false);
     for(const name of ['Emitters','Events','Sounds'])assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),true);
@@ -205,7 +207,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await wait(s=>s.particles[0]===0&&s.ribbons[0]===0&&s.decals===0&&s.nodes===0&&s.audio.every(a=>a.paused),'Disabled categories hide effects and symbols while Nodes remains on');
     await screenshot('animations-all-off.png');await quick.getByLabel('Sounds',{exact:true}).check();await wait(s=>s.nodes>0,'Sounds alone restores its symbols');
     await quick.getByLabel('Nodes',{exact:true}).uncheck();await wait(s=>s.nodes===0,'Nodes off hides symbols without disabling Sounds');assert.equal(await quick.getByLabel('Sounds',{exact:true}).isChecked(),true);
-    await page.getByRole('button',{name:'Stop',exact:true}).click();await page.waitForTimeout(180);await command('camera:rotate');const cameraBefore=(await read()).camera,canvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width*.6,canvas.y+canvas.height*.5,{steps:12});await page.mouse.up();await wait(s=>s.camera.some((v,i)=>Math.abs(v-cameraBefore[i])>1),'Actual mouse rotation');
+    await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 180);await command('camera:rotate');const cameraBefore=(await read()).camera,canvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width*.6,canvas.y+canvas.height*.5,{steps:12});await page.mouse.up();await wait(s=>s.camera.some((v,i)=>Math.abs(v-cameraBefore[i])>1),'Actual mouse rotation');
     await page.getByRole('button',{name:'Vertices',exact:true}).click();await absent(['Bones','Nodes','Emitters','Events','Sounds','Attachment']);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
     await command('camera:work');
     assert.equal(await page.locator('.classic-sidebar [data-hotkey="Delete vertices"]').isDisabled(),true,'Vertices cannot delete the retained hidden rig selection');for(const input of await page.locator('.classic-coordinates input').all())assert.equal(await input.isDisabled(),true,'Vertex coordinates cannot move hidden rig selections');
@@ -218,12 +220,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();await absent(['Events','Sounds']);assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1);assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),false);
     const nativeView=await app.evaluate(async({Menu})=>{const end=Date.now()+5000;let labels;do{labels=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label);if(labels.includes('Nodes')&&!labels.includes('Events')&&!labels.includes('Sounds'))return labels;await new Promise(resolve=>setTimeout(resolve,20));}while(Date.now()<end);return labels;});assert.ok(nativeView.includes('Nodes'));assert.ok(!nativeView.includes('Events')&&!nativeView.includes('Sounds'));
     await app.evaluate(({Menu})=>{const view=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu;for(const label of ['Bones','Attachment']){const item=view.items.find(item=>item.label===label);if(!item)throw Error('Missing View '+label);if(!item.checked)item.click();}});await quick.getByLabel('Nodes',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
-    await clickNode(ids.particle);await page.waitForTimeout(650);assert.equal((await read()).pulse,false,'VIS right click retains original camera behavior');assert.deepEqual((await read()).particles,[0]);
+    await clickNode(ids.particle);await settlePage(page, 650);assert.equal((await read()).pulse,false,'VIS right click retains original camera behavior');assert.deepEqual((await read()).particles,[0]);
     const visCameraBefore=(await read()).camera,visCanvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(visCanvas.x+visCanvas.width*.8,visCanvas.y+visCanvas.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(visCanvas.x+visCanvas.width*.68,visCanvas.y+visCanvas.height*.52,{steps:12});await page.mouse.up({button:'right'});await wait(s=>s.camera.some((v,i)=>Math.abs(v-visCameraBefore[i])>1),'VIS normal mouse rotation');
     await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();await absent(['Nodes']);assert.deepEqual(await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked())),xlChecks,'XL category choices are restored');await read();assert.equal(await page.evaluate(()=>window.testRuntime.native===window.testVISNative),true,'VIS toggle preserves the live model and timeline');
     await page.locator('.vis-toggle').click();assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),true,'VIS choices are retained separately');await page.locator('.vis-toggle').click();
     assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false,'All desktop verification stays hidden');assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
     console.log(JSON.stringify({passed:true,packaged,executablePath,out,ids,fixtureSha256:createHash('sha256').update(bytes).digest('hex')}));
   }catch(error){if(page){await screenshot('failure.png').catch(()=>{});console.error((await page.locator('body').innerText()).slice(-1800));}throw error;}
-  finally{if(process.env.MDLXL_KEEP_TEST!=='1')await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+  finally{if(process.env.MDLXL_KEEP_TEST!=='1')await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

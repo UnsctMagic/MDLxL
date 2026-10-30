@@ -1,10 +1,11 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // node test/startup-benchmark.electron.cjs [app directory or exe] [runs=5] [profile to copy]
 // Measures hidden viewport readiness and a real Grid toggle, not a splash screen.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { performance } = require('node:perf_hooks');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 (async () => {
@@ -27,16 +28,9 @@ const root = path.resolve(__dirname, '..');
   const rows = [];
   for (let index = 0; index < runs; index++) {
     const began = performance.now();
-    const app = await _electron.launch({
-      executablePath: packaged ? target : path.join(root, 'node_modules/electron/dist/electron.exe'),
-      args: ['--disable-backgrounding-occluded-windows', ...(packaged ? [] : [target])], cwd: root,
-      env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 30000,
-    });
+    const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, show: 'hide', target: process.argv[2] ? (packaged ? { executablePath: target, args: [], packaged: true } : { ...appTarget({}), args: [target] }) : appTarget() });
     try {
-      const page = await app.firstWindow();
-      const errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+
       await page.waitForFunction(() => !!document.querySelector('[aria-label="3D model viewport"] canvas'), null, { polling: 20, timeout: 30000 });
       const viewportMs = performance.now() - began;
       const grid = page.locator('[data-hotkey="grid"]');
@@ -54,7 +48,7 @@ const root = path.resolve(__dirname, '..');
       // The untitled model has never been saved, so a normal close asks "Save model?" (3e5a069b); a headless run
       // would wait on that native box forever. Destroy this test process's window, then let Electron exit.
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy()));
-      await app.close();
+      await closeApp(app, { keepProfile: index + 1 < runs });
     }
   }
   const times = rows.map(row => row.responsiveMs).sort((a, b) => a - b);

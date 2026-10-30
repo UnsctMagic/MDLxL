@@ -19,7 +19,7 @@ function install() {
   const elementOf = selector => typeof selector === 'string' ? document.querySelector(selector) : selector;
   // Resolve the host in React's committed tree; its DOM fiber may point at an older alternate.
   window.findFiberProps = (selector, predicate) => {
-    const element = document.querySelector(selector);
+    const element = elementOf(selector);
     let fiber = fiberOf(element);
     if (!fiber) return null;
     let top = fiber; while (top.return) top = top.return;

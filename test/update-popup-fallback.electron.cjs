@@ -1,8 +1,8 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Hidden packaged regression: optional eye rendering must not take down either popup.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 (async () => {
   const output = path.join(root, 'out/update-popup-fallback');
@@ -24,7 +24,7 @@ const root = path.resolve(__dirname, '..');
     const profile = path.join(run, 'profile');
     await fs.mkdir(profile);
     await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({preferences:{language:'en',checkUpdatesOnStartup:false,disableSounds:true}}));
-    app = await _electron.launch({executablePath:path.join(fixture,'MDLxL.exe'),args:['--disable-backgrounding-occluded-windows'],env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:''},timeout:30000});
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, target: { executablePath: path.join(fixture,'MDLxL.exe'), args: [], packaged: true }, env: { MDLVIS_HEADLESS:'' }, timeout: 30000 })).app;
     const page = await app.firstWindow(), errors = [];
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
@@ -74,7 +74,7 @@ const root = path.resolve(__dirname, '..');
     await welcome(true);
     console.log('PASS packaged static update fallback, editor stays mounted, welcome fits with no WebGL and with failed effects bundle');
   } finally {
-    if(app) { await app.evaluate(({app})=>app.exit(0)).catch(()=>{}); await app.close().catch(()=>{}); }
+    if(app) { await closeApp(app).catch(()=>{}); }
     if(path.dirname(run)!==output) throw Error('Unexpected test directory');
     await fs.rm(run,{recursive:true,force:true});
   }

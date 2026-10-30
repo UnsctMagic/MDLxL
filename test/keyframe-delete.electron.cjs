@@ -1,8 +1,8 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance for direct Movement keyframe deletion.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
@@ -21,9 +21,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   });
   fs.writeFileSync(fixture, doc.serialize('mdx'));
 
-  const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'), args: [cwd, fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: {  }, timeout: 60000, fixture: fixture , pageTimeout: 15000 });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+
     await page.locator('[data-hotkey="animation"]').click();
     const reel = page.locator('.classic-reel-track'), frameInput = page.getByLabel('Current animation frame');
     const marker = frame => page.locator(`.classic-reel-key[data-frame="${frame}"]`);
@@ -44,7 +44,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     let saved = openDocument(fs.readFileSync(fixture), 'keyframe-delete.mdx').model;
     assert.equal(saved.Bones[0].Translation.Keys.some(key => key.Frame === 377), false);
     assert.equal(saved.Bones[0].Rotation.Keys.some(key => key.Frame === 377), false);
-    assert.equal(saved.Bones[1].Translation.Keys.some(key => key.Frame === 377), false);
+    assert.equal(saved.Bones[1].Translation, undefined, 'Deleting the sole key removes the empty channel');
     assert.equal(saved.GeosetAnims[4].Alpha.Keys.some(key => key.Frame === 377), false);
 
     await page.getByLabel('Movement bone or node').selectOption('0');
@@ -64,6 +64,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await reel.count(), 1);
     console.log('PASS: exact click, Del, Highlight KF scope, Select tool, and saved MDX');
   } finally {
-    await app.evaluate(({ app }) => app.exit(0));
+    await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

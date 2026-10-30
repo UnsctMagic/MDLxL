@@ -1,10 +1,11 @@
-// Run after building; MDLXL_ELECTRON_PATH selects an isolated portable package.
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+// Run after building; MDLXL_TEST_EXE selects an isolated portable package.
 // MDLXL_TEST_CASC optionally exercises a real, read-only CASC storage.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const { hash, decrypt, Mpq } = require('../electron/mpq.cjs');
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -55,11 +56,11 @@ function archive(name, bytes) {
   const modelPath = path.join(out, 'custom-archive-model.mdx');
   await fs.writeFile(modelPath, doc.serialize('mdx'));
   const originalHashes = await Promise.all([...files, modelPath].map(async file => digest(await fs.readFile(file))));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const packaged = !!process.env.MDLXL_ELECTRON_PATH, errors = [], result = { packaged, mpq: false, restart: false, removal: false, mouseRotation: false, casc: null };
+  const executablePath = appTarget().executablePath;
+  const packaged = appTarget().packaged, errors = [], result = { packaged, mpq: false, restart: false, removal: false, mouseRotation: false, casc: null };
   let app, page;
   async function launch() {
-    app = await _electron.launch({ executablePath, args: packaged ? [modelPath] : [root, modelPath], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000 });
+    app = (await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: modelPath })).app;
     page = await app.firstWindow(); page.setDefaultTimeout(25000);
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
@@ -107,7 +108,7 @@ function archive(name, bytes) {
     await capture('settings.png');
     const savedSources = (await settings()).gameDataSources;
     assert.equal((await settings()).gameData, null);
-    await app.close(); app = null; await launch(); await menu('gameDataSettings');
+    await closeApp(app, { keepProfile: true }); app = null; await launch(); await menu('gameDataSettings');
     await page.getByRole('button', { name: 'Add MPQ files…', exact: true }).waitFor();
     assert.deepEqual((await settings()).gameDataSources, savedSources);
     assert.equal(digest(Buffer.from((await asset())[0])), digest(png)); result.restart = true;
@@ -122,19 +123,10 @@ function archive(name, bytes) {
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured');
     await page.locator('.game-preview-root').waitFor();
     await page.evaluate(() => {
-      window.archivePreview = () => {
-        const host = document.querySelector('.game-preview-root');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        let top = fiber; while (top.return) top = top.return;
-        if (top.stateNode.current !== top) fiber = fiber.alternate || fiber;
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets && fiber.memoizedProps.textureAssets) {
-          let camera;
-          for (let hook = fiber.memoizedState; hook; hook = hook.next) if (hook.memoizedState?.current?.controls) camera = hook.memoizedState.current.controls.object.matrixWorld.elements;
-          const asset = fiber.memoizedProps.textureAssets.get('textures\\mdlxlcustomarchiveproof.png');
-          return { camera: camera && Array.from(camera), texturePath: fiber.memoizedProps.model.Textures[0].Image, asset: asset && Array.from(asset.bytes), assetKeys: [...fiber.memoizedProps.textureAssets.keys()] };
-        }
-        throw Error('Archive preview owner was not found.');
-      };
+      window.archivePreview = ()=>{const host=document.querySelector('.game-preview-root');const props=findFiberProps('.game-preview-root',p=>p.model?.Geosets&&p.textureAssets);if(!props)throw Error('Archive preview owner was not found.');          const camera=findFiberState(host,s=>s?.controls,{current:true,last:true})?.controls.object.matrixWorld.elements;
+          const asset = props.textureAssets.get('textures\\mdlxlcustomarchiveproof.png');
+          return { camera: camera && Array.from(camera), texturePath: props.model.Textures[0].Image, asset: asset && Array.from(asset.bytes), assetKeys: [...props.textureAssets.keys()] };
+};
     });
     await page.waitForFunction(() => !!archivePreview().camera && !!archivePreview().asset);
     const preview = await page.evaluate(() => archivePreview()); assert.equal(preview.texturePath, name);
@@ -151,5 +143,5 @@ function archive(name, bytes) {
     assert.deepEqual(await Promise.all([...files, modelPath].map(async file => digest(await fs.readFile(file)))), originalHashes);
     await fs.writeFile(path.join(out, 'result.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
-  } finally { await app?.close(); }
+  } finally { if (app) await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

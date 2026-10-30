@@ -1,8 +1,8 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Run after building dist: node test/localization.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const { translate } = await import('../src/localization.js');
@@ -26,12 +26,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const profile = path.join(output, `profile-${language}-${Date.now()}`);
     fs.mkdirSync(profile, { recursive: true });
     fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { language } }));
-    const app = await _electron.launch({
-      executablePath: process.env.MDLXL_ELECTRON_PATH || path.resolve('node_modules/electron/dist/electron.exe'),
-      args: ['--disable-backgrounding-occluded-windows', process.cwd(), file],
-      env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
-    });
-    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
+    const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: file , pageTimeout: 15000 });
+
     page.on('pageerror', error => failures.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
@@ -45,14 +41,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('.language-trigger').waitFor();
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor();
     await page.evaluate(() => {
-      window.testDocument = () => {
-        const root = document.querySelector('.classic-app');
-        let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          if (hook.memoizedState?.current?.doc?.model) return hook.memoizedState.current.doc;
-        }
-        throw Error('Document unavailable');
-      };
+      window.testDocument = ()=>{const state=findFiberState('.classic-app',s=>s?.doc?.model);if(!state)throw Error('Document unavailable');return state.doc;};
     });
     await page.waitForFunction(() => testDocument().name === 'Materials.mdx');
     const before = await page.evaluate(() => JSON.stringify(testDocument().model));
@@ -90,9 +79,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await dialog.getByLabel(translate('Particle context', locale), { exact: true }).selectOption('On model');
         assert.ok((await dialog.getByLabel(translate('Effect ingredient', locale), { exact: true }).locator('option').allTextContents()).some(text => text.includes('Materials')), 'user emitter names stay literal');
         const transport = dialog.locator('.pe-transport button').first();
-        assert.equal(await transport.textContent(), translate('Pause', locale));
+        assert.equal(await transport.evaluate(button => [...button.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('')), translate('Pause', locale));
         await transport.click();
-        assert.equal(await transport.textContent(), translate('Play', locale));
+        assert.equal(await transport.evaluate(button => [...button.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('')), translate('Play', locale));
         // The reworked Emitter Editor: Look tab, life table and Adjust Manually.
         const ingredient = dialog.getByLabel(translate('Effect ingredient', locale), { exact: true });
         await ingredient.selectOption({ index: await ingredient.evaluate(select => [...select.options].findIndex(option => option.textContent.includes('Materials'))) });
@@ -113,7 +102,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before);
       }
     }
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 
   for (const locale of ['ru', 'es']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
@@ -127,7 +116,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await dialog.locator('[data-geoset-tint="0"]').selectOption('0');
       assert.equal(await dialog.getByRole('button', { name: translate('Fix', locale), exact: true }).isEnabled(), true);
       await repairPage.screenshot({ path: path.join(output, `${locale}-repair.png`) });
-    } finally { await repairApp.close(); }
+    } finally { await closeApp(repairApp); }
   }
   assert.deepEqual(fs.readFileSync(fixture), original);
   assert.deepEqual(fs.readFileSync(repairFixture), repairOriginal);

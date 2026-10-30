@@ -1,19 +1,14 @@
+const { gameFolder } = require('./helpers/fixtures.cjs');
+const { stubDialogs } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Real production bundle, hidden window, isolated profile. No desktop input.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/auto-corpse'),fixture=process.env.MDLXL_CORPSE_FIXTURE;
 if(!fixture)throw Error('Set MDLXL_CORPSE_FIXTURE to a model with Death.');
-function runtime(scope) {
-  const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');
-  if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];
-  // A scoped preview is found from its own element upward; otherwise the first in the app.
-  const ancestors=[];if(scope)for(let f=top;f;f=f.return)ancestors.push(f);else{while(top.return)top=top.return;}
-  const stack=scope?ancestors.reverse():[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}if(!scope)for(let c=f.child;c;c=c.sibling)stack.push(c);}
-  throw Error('Missing viewport runtime');
-}
+function runtime(scope){const el=scope?document.querySelector(scope+' .game-preview-root'):document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');if(!el)throw Error('Missing viewport');let p;const s=findFiberState(el,(s,props)=>{if(props?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){p=props;return true;}return false;},{tree:!scope});if(!s)throw Error('Missing viewport runtime');const c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}
 (async()=>{
-  fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(out,'profile-'));fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({gameData:'D:\\Warcraft III',preferences:{language:'en'}}));
-  const original=fs.readFileSync(fixture),app=await _electron.launch({executablePath:process.env.MDLXL_TEST_EXE||require('electron'),args:[...(process.env.MDLXL_TEST_EXE?[]:[root]),fixture,'--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-background-timer-throttling'],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+  fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(out,'profile-'));fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({gameData:await gameFolder(),preferences:{language:'en'}}));
+  const original=fs.readFileSync(fixture),app=(await launchApp({ out: path.dirname(profile), profile: profile, show: 'hide', args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: fixture })).app;
   const appPid=await app.evaluate(()=>process.pid),errors=[],checks=[];
   try {
     const page=await app.firstWindow();page.setDefaultTimeout(25000);page.on('pageerror',e=>errors.push(e.message));
@@ -26,20 +21,20 @@ function runtime(scope) {
     async function capture(name){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}).then(i=>i.toPNG().toString('base64')));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64'));}
     // CORP opens a preview first. Size/Height and Close leave the model alone.
     const window_=page.getByRole('dialog',{name:'Auto Corpse',exact:true});
-    await button.click();await window_.waitFor();await window_.locator('.game-preview-root').waitFor();await page.waitForTimeout(700);
+    await button.click();await window_.waitFor();await window_.locator('.game-preview-root').waitFor();await settlePage(page, 700);
     const scoped=()=>page.evaluate(runtime,'[aria-label="Auto Corpse preview"]'),preview=await scoped(),pr=preview.rect;assert.ok(preview.model.Geosets.length>before.model.Geosets.length,'The preview shows the corpse');
-    await page.mouse.move(pr.x+pr.width*.6,pr.y+pr.height*.5);await page.mouse.down();await page.mouse.move(pr.x+pr.width*.6+70,pr.y+pr.height*.5+35,{steps:8});await page.mouse.up();await page.waitForTimeout(100);
+    await page.mouse.move(pr.x+pr.width*.6,pr.y+pr.height*.5);await page.mouse.down();await page.mouse.move(pr.x+pr.width*.6+70,pr.y+pr.height*.5+35,{steps:8});await page.mouse.up();await settlePage(page, 100);
     assert.notDeepEqual((await scoped()).quaternion,preview.quaternion);checks.push('Auto Corpse preview turns with a normal mouse drag');
     const size=window_.getByRole('slider',{name:'Size',exact:true});await size.focus();for(let n=0;n<10;n++)await page.keyboard.press('ArrowRight');
-    await page.waitForFunction(()=>document.querySelector('[aria-label="Auto Corpse"] output')?.textContent==='150%');await page.waitForTimeout(500);await capture('window-size-150');
+    await page.waitForFunction(()=>document.querySelector('[aria-label="Auto Corpse"] output')?.textContent==='150%');await settlePage(page, 500);await capture('window-size-150');
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,before.model);checks.push('Closing the preview leaves the model unchanged');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await window_.waitFor({state:'hidden'});
-    await page.locator('[data-clean-model-canvas]').waitFor();await page.waitForTimeout(700);
+    await page.locator('[data-clean-model-canvas]').waitFor();await settlePage(page, 700);
     const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Bones?/i);
     assert.equal(after.frame,after.model.Sequences[after.sequence].Interval[0]);
     assert.equal(after.playing,false);
-    await page.waitForTimeout(200);
+    await settlePage(page, 200);
     assert.equal((await page.evaluate(runtime)).frame,after.frame);
     checks.push('One compact button beside VIS; Create immediately displays the first Bone Decay frame, paused');
     const input=page.getByLabel('Current animation frame',{exact:true});
@@ -53,19 +48,19 @@ function runtime(scope) {
     // Normal camera tool plus actual pointer drag through Chromium on the
     // hidden window, never OS-level input on the user's desktop.
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.keyboard.press('Shift+E');
-    const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await page.waitForTimeout(100);assert.notDeepEqual((await page.evaluate(runtime)).quaternion,view.quaternion);checks.push('Normal mouse camera rotation remains functional');
-    await page.keyboard.press('Control+z');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.keyboard.press('Control+y');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
-    await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await page.waitForTimeout(150);
+    const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await settlePage(page, 100);assert.notDeepEqual((await page.evaluate(runtime)).quaternion,view.quaternion);checks.push('Normal mouse camera rotation remains functional');
+    await page.keyboard.press('Control+z');await settlePage(page, 120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.keyboard.press('Control+y');await settlePage(page, 120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
+    await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await settlePage(page, 150);
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('Repeat Create adds no duplicate corpse, mesh, material or key');
     console.log('Camera, Undo, Redo and repeat click passed.');
     const {EditorDocument}=await import('../src/editor-document.js');
     for(const format of ['MDX','MDL']) {
       const saved=path.join(out,'saved.'+format.toLowerCase());
-      await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},saved);
+      await stubDialogs(app, { save: (saved) });
       await page.keyboard.press('F12');await page.getByRole('button',{name:'Save '+format+'…',exact:true}).click();
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
-      for(let n=0;n<100&&!fs.existsSync(saved);n++)await page.waitForTimeout(100);
+      for(let n=0;n<100&&!fs.existsSync(saved);n++)await settlePage(page, 100);
       const reopened=new EditorDocument(fs.readFileSync(saved),saved);assert.equal(reopened.readOnly,false);assert.equal(reopened.model.Geosets.length,after.model.Geosets.length);
       assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');fs.unlinkSync(saved);
     }
@@ -77,7 +72,7 @@ function runtime(scope) {
     // owned process tree as well as its hidden window; never leave helpers.
     if(process.platform==='win32') {
       try{require('node:child_process').execFileSync('taskkill',['/PID',String(appPid),'/T','/F'],{windowsHide:true,stdio:'ignore'});}catch(error){let exited=false;try{process.kill(appPid,0);}catch(probe){if(probe.code!=='ESRCH')throw probe;exited=true;}if(!exited)throw error;}
-    } else await app.close();
+    } else await closeApp(app);
     fs.rmSync(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});
   }
 })().catch(e=>{console.error(e);process.exitCode=1;});

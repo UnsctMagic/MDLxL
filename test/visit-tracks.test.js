@@ -81,7 +81,7 @@ function models() {
   busy.TextureAnims = [{ Translation: track(1, 0, 900) }];
   busy.Materials[0].Layers[0].Alpha = track(null, 0, 100);
   const list = [['demo', demo], ['busy', busy]];
-  for (const file of ['fixtures/demo.mdx', 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx'])
+  for (const file of ['test/fixtures/demo.mdx', 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx'])
     if (fs.existsSync(file)) list.push([file, openDocument(new Uint8Array(fs.readFileSync(file)), file).model]);
   return list;
 }

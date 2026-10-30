@@ -1,24 +1,12 @@
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
-  const root = process.cwd(), fixture = path.join(root, 'fixtures', 'demo.mdx');
-  const app = await _electron.launch({
-    executablePath: path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', root, fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(root, 'out', 'resource-numbering-profile') },
-    timeout: 60000,
-  });
+  const root = process.cwd(), fixture = path.join(root, 'test/fixtures', 'demo.mdx');
+  const { app, page } = await launchApp({ out: path.dirname(path.join(root, 'out', 'resource-numbering-profile')), profile: path.join(root, 'out', 'resource-numbering-profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow();
-    page.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false);
-      window.setPosition(-3000, 0);
-      window.showInactive();
-    });
+
     await page.getByLabel('Select geoset 1', { exact: true }).waitFor({ timeout: 60000 });
 
     const openManager = async (command, title, list) => {
@@ -42,6 +30,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(await material.locator('option:checked').textContent(), /^Material 1(?: · .+)?$/);
     console.log('Resource managers show one-based Material and Geoset numbers while their underlying references remain unchanged');
   } finally {
-    await app.close().catch(() => {});
+    await closeApp(app).catch(() => {});
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

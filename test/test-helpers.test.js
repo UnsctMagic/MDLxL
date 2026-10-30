@@ -12,7 +12,7 @@ import { comparePoses, maxNodeMatrixDifference } from './helpers/pose-compare.mj
 import { createDemoDocument } from '../src/editor-document.js';
 
 const require = createRequire(import.meta.url);
-const { root, appTarget, appDist, sha256File, launchApp, closeApp } = require('./helpers/app.cjs');
+const { root, appTarget, appDist, sha256File, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 const { fixturePath, tempDir } = require('./helpers/fixtures.cjs');
 const { PROBE_SOURCE } = require('./helpers/fiber-probe.cjs');
 
@@ -104,7 +104,8 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
   fs.symlinkSync(library, path.join(profile, 'particles'), process.platform === 'win32' ? 'junction' : 'dir');
   fs.writeFileSync(path.join(profile, 'draft.json'), 'draft');
   const launches = [], errors = [], page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
-  const app = { async firstWindow() { return page; }, async evaluate() {} };
+  let connected = true;
+  const app = { process() { assert.equal(connected, true, 'capture the process before disconnect'); return { exitCode: 0 }; }, async firstWindow() { return page; }, async evaluate() {} };
   const playwright = { _electron: { async launch(options) { launches.push(options); return app; } } };
   const saved = { exe: process.env.MDLXL_TEST_EXE, pkg: process.env.MDLXL_SUITE_PKG };
   delete process.env.MDLXL_TEST_EXE; delete process.env.MDLXL_SUITE_PKG;
@@ -113,9 +114,17 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
     const launched = await launchApp({ out, profile, entry, fixture: 'fixture.mdx', errors, playwright });
     assert.equal(launched.errors, errors); assert.equal(launches[0].args[0], entry);
     assert.equal(launches[0].args[1], 'fixture.mdx'); assert.equal(launches[0].env.MDLXL_PROFILE, profile);
+    connected = false;
     await closeApp(app, { keepProfile: true });
     assert.equal(fs.readFileSync(path.join(profile, 'draft.json'), 'utf8'), 'draft');
-    await launchApp({ out, profile, entry, playwright }); await closeApp(app);
+    connected = true;
+    const target = { executablePath: path.join(out, 'installed', 'MDLxL.exe'), args: [], packaged: true };
+    await launchApp({ out, profile, target, cwd: out, playwright });
+    assert.equal(launches[1].executablePath, target.executablePath);
+    assert.equal(launches[1].cwd, out);
+    assert.equal(launches[1].args[0], '--disable-backgrounding-occluded-windows');
+    connected = false;
+    await closeApp(app);
     assert.equal(fs.existsSync(profile), false);
     assert.equal(fs.readFileSync(path.join(library, 'source.json'), 'utf8'), 'source');
   } finally {
@@ -123,6 +132,26 @@ test('wrapper launches keep seeded profiles across restart and remove library ju
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
   }
+});
+
+test('closeApp stops only its captured process tree before deleting a locked profile', async t => {
+  const out = tempDir('launcher-shutdown-'), profile = path.join(out, 'profile');
+  t.after(() => fs.rmSync(out, { recursive: true, force: true }));
+  const { EventEmitter } = require('node:events'), child = new EventEmitter();
+  child.pid = 43210; child.exitCode = null; child.signalCode = null;
+  const page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
+  const app = { process: () => child, async firstWindow() { return page; }, async evaluate() {} };
+  const playwright = { _electron: { async launch() { return app; } } };
+  let stopped = false;
+  const stop = () => { assert.equal(fs.existsSync(profile), true, 'profile is kept until the process stops'); stopped = true; child.exitCode = 0; child.emit('exit', 0); };
+  if (process.platform === 'win32') t.mock.method(require('node:child_process'), 'execFile', (command, args, options, callback) => {
+    assert.equal(command, 'taskkill'); assert.deepEqual(args, ['/T', '/F', '/PID', '43210']); assert.equal(options.windowsHide, true); stop(); callback(null);
+  });
+  else child.kill = signal => { assert.equal(signal, 'SIGKILL'); stop(); return true; };
+  await launchApp({ out, profile, playwright, target: { executablePath: 'fixture', args: [], packaged: false } });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const closing = closeApp(app); await Promise.resolve(); t.mock.timers.tick(10000); await closing;
+  assert.equal(stopped, true); assert.equal(fs.existsSync(profile), false);
 });
 
 test('Forge detail probes can retain the last matching preview after the canonical draft', () => {
@@ -183,6 +212,20 @@ test('owner props probe reads the committed host rather than its stale DOM fiber
   const window = {}, document = { querySelector: selector => selector === '.owner' ? element : null };
   vm.runInNewContext(PROBE_SOURCE, { window, document });
   assert.equal(window.findFiberProps('.owner', props => !!props.value), currentProps);
+  assert.equal(window.findFiberProps(element, props => !!props.value), currentProps);
   assert.equal(window.findFiberProps('.owner', props => !!props.missing), null);
   assert.equal(window.findFiberProps('.missing', () => true), null);
+});
+
+
+test('native prompt bounds can be preserved while shared window setup stays hidden', async () => {
+  const bounds = [], events = [];
+  const win = { webContents: { setBackgroundThrottling(value) { events.push(['throttle', value]); } }, setBounds(value) { bounds.push(value); }, hide() { events.push(['hide']); }, showInactive() { events.push(['inactive']); } };
+  const app = { async evaluate(fn, args) { return fn({ BrowserWindow: { getAllWindows: () => [win] } }, args); } };
+  const page = { setDefaultTimeout() {}, on() {}, async addInitScript() {}, async evaluate() {} };
+  await prepareWindow(app, page, { bounds: null, show: 'hide' });
+  assert.deepEqual(bounds, []);
+  assert.deepEqual(events, [['throttle', false], ['hide']]);
+  await prepareWindow(app, page);
+  assert.deepEqual(bounds, [{ x: -3000, y: 0, width: 1280, height: 920 }]);
 });

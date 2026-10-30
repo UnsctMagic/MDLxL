@@ -1,7 +1,8 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 // Real wheel input must change the sequence without scrolling its sidebar,
 // including at the end of the list and over the editable animation name.
@@ -18,19 +19,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   document.model.GlobalSequences = [];
   const fixture = path.join(out, 'dropdown-wheel.mdx');
   await fs.writeFile(fixture, document.serialize('mdx'));
-  const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
-  const app = await _electron.launch({ executablePath,
-    args: process.env.MDLXL_ELECTRON_PATH ? [fixture] : [root, fixture], cwd: root,
-    env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '1' }, timeout: 60000 });
-  const errors = [], checks = [], consoleErrors = [];
+  const executablePath = appTarget().executablePath;
+  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1100, height: 480 } });
+  const checks = [], consoleErrors = [];
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
+
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false); window.setSize(1100, 480);
-    });
+
     const sidebar = page.locator('.classic-sidebar'); await sidebar.waitFor();
     const select = page.locator('[data-hotkey="animationSequence"]');
     const scrollState = () => page.evaluate(() => ({
@@ -41,7 +36,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await field.hover(); const before = await scrollState();
       await page.mouse.wheel(0, deltaY);
       await page.waitForFunction(expected => document.querySelector('[data-hotkey="animationSequence"]').value === expected, expected);
-      await page.waitForTimeout(200);
+      await settlePage(page, 200);
       assert.equal(await select.inputValue(), expected);
       assert.deepEqual(await scrollState(), before, 'wheel must not scroll the page or sidebar');
     };
@@ -64,7 +59,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await wheel(field, '63'); await wheel(field, '62', -120);
       checks.push(`${tab}: wheel stays contained at the end of the animation list`);
       await select.selectOption('0'); await select.click();
-      await page.mouse.wheel(0, 480); await page.waitForTimeout(200);
+      await page.mouse.wheel(0, 480); await settlePage(page, 200);
       assert.deepEqual((await scrollState()).sidebar, [[0, 0]], 'opened dropdown wheel must not scroll its sidebar');
       await page.keyboard.press('Escape');
       checks.push(`${tab}: wheel over the opened dropdown stays contained`);
@@ -89,8 +84,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     console.error(error); console.log(JSON.stringify({ ok: false, checks, errors, consoleErrors }, null, 2));
     process.exitCode = 1;
   } finally {
-    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
-    await app.close().catch(() => {});
+    await closeApp(app).catch(() => {});
     await fs.rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

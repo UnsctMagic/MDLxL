@@ -1,40 +1,38 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/model-tabs.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/model-tabs');
   fs.mkdirSync(out, { recursive: true });
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const firstPath = path.join(root, 'fixtures/demo.mdx'), secondPath = path.join(root, 'fixtures/demo.mdl'), executablePath = path.join(root, 'node_modules/electron/dist/electron.exe');
+  const firstPath = path.join(root, 'test/fixtures/demo.mdx'), secondPath = path.join(root, 'test/fixtures/demo.mdl'), executablePath = appTarget().executablePath;
   const env = { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile };
-  const app = await _electron.launch({ executablePath, args: ['--disable-backgrounding-occluded-windows', root], cwd: root, env, timeout: 60000 });
+  const { app, page, errors } = await launchApp({ out: path.resolve('out'), profile: profile, env: env, timeout: 60000 , pageTimeout: 30000 });
   const launchAgain = (...files) => new Promise((resolve, reject) => {
-    const child=spawn(executablePath,[root,...files],{cwd:root,env,stdio:'ignore'}),timer=setTimeout(()=>{child.kill();reject(Error('Secondary MDLxL process did not hand off to the primary instance.'));},15000);
+    const child=spawn(executablePath,[...appTarget().args,...files],{cwd:root,env,stdio:'ignore'}),timer=setTimeout(()=>{child.kill();reject(Error('Secondary MDLxL process did not hand off to the primary instance.'));},15000);
     child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);code===0?resolve():reject(Error(`Secondary MDLxL exited with ${code}.`));});
   });
-  const errors = [];
+
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
+
     await page.getByRole('tab', { name: 'Untitled.mdl' }).waitFor();
     await launchAgain(firstPath);
     await page.getByRole('tab', { name: 'demo.mdx' }).waitFor();
     assert.equal(await page.getByRole('tab').count(), 1, 'the first externally opened model replaces only the pristine starter tab');
     await page.evaluate(() => {
-      window.modelTabSummary = () => {
-        const host = document.querySelector('.viewport');
-        let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets && fiber.memoizedProps?.model?.Nodes) {
-          const model = fiber.memoizedProps.model, nodes = model.Nodes.filter(Boolean);
+      window.modelTabSummary = () => { const props = findFiberProps('.viewport', props => props?.model?.Geosets && props?.model?.Nodes); if (props) {
+          const model = props.model, nodes = model.Nodes.filter(Boolean);
           const dummy = model.Bones.find(node => node.Name === 'DummyBone');
           return { geosets: model.Geosets.length, nodes: nodes.length, dummy: dummy ? 1 : 0, dummyId: dummy?.ObjectId ?? null, lastGroups: model.Geosets.at(-1)?.Groups };
         }
         throw Error('Active model props were not found.');
-      };
+       };
     });
     const firstBefore = await page.evaluate(() => modelTabSummary()), canvases = await page.locator('.viewport canvas').count();
     await launchAgain(secondPath);
@@ -48,7 +46,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('tab', { name: 'demo.mdx' }).click();
     await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('demo.mdx'));
     await page.keyboard.press('Control+c');
-    await page.waitForTimeout(250);
+    await settlePage(page, 250);
     const copyState=await page.evaluate(()=>({status:document.querySelector('.classic-status')?.textContent,copyDisabled:document.querySelector('[data-hotkey="copy"]')?.disabled,active:document.querySelector('.model-tab.active [role="tab"]')?.textContent,focus:document.activeElement?.outerHTML?.slice(0,240)}));
     assert.match(copyState.status||'',/Copied/,`Ctrl+C did not reach the active model: ${JSON.stringify(copyState)}`);
     await page.getByRole('tab', { name: 'demo.mdl' }).click();
@@ -80,5 +78,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(await page.evaluate(() => modelTabSummary()), firstBefore);
     assert.deepEqual(errors, []);
     console.log('PASS single-instance desktop handoff, model tabs, suspended inactive renderer, cross-tab geometry/node paste, Ctrl+P, DummyBone binding, and close prompt');
-  } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
+  } finally { await closeApp(app).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

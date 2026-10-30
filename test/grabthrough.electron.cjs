@@ -1,7 +1,7 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const output = path.resolve('out/grabthrough-ui'); fs.mkdirSync(output, { recursive: true });
@@ -11,14 +11,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   [[0, 20, -18], [0, 28, -18], [0, 20, -10], [0, 28, -10]].forEach((point, index) => fixtureVertices.set(point, [0, 3, 4, 7][index] * 3));
   fixtureGeoset.Faces = new Uint32Array([1, 2, 6, 1, 6, 5]);
   fs.writeFileSync(fixture, Buffer.from(fixtureDocument.serialize('mdx')));
-  const app = await _electron.launch({
-    executablePath: path.resolve('node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_TEST_HOOK: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) },
-    timeout: 60000,
-  });
+  const { app, page } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000);
+
     const marqueeAll = async locator => {
       const box = await locator.boundingBox(); assert.ok(box);
       await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10);
@@ -28,7 +23,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     };
     const selectedCount = async () => Number(await page.locator('.classic-counts>div').nth(1).locator('span').textContent());
     const selectedPixels = async (locator, name) => {
-      await page.waitForTimeout(100);
+      await settlePage(page, 100);
       const png = await locator.screenshot({ path: path.join(output, name) });
       return page.evaluate(async source => {
         const bytes = Uint8Array.from(atob(source), value => value.charCodeAt(0));
@@ -41,7 +36,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         return count;
       }, png.toString('base64'));
     };
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     const vertexToggle = page.getByLabel('Grabthrough', { exact: true });
     assert.equal(await vertexToggle.isChecked(), true, 'Vertex Grabthrough defaults on');
@@ -82,7 +77,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Bones controller').waitFor();
     await page.getByLabel('Grabthrough', { exact: true }).uncheck();
     const previewState = () => page.locator('.game-preview-root').evaluate(element => {
-      const props = window.__mdlxl.preview(element)?.props;
+      const props = mdlxlProbe(element).props;
       if (props?.model && props.preferences) return {
         mode: props.mode, grabThrough: props.grabThrough,
         xrayVertices: props.preferences.viewportAppearance.xrayVertices,
@@ -100,5 +95,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     assert.equal(await page.getByLabel('Grabthrough', { exact: true }).count(), 0, 'Grabthrough stays scoped to Vertex and Bones');
     console.log('Grabthrough is visible in Vertex and Bones, defaults on in Vertex and off in Bones, toggles on, and stays out of Movement.');
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

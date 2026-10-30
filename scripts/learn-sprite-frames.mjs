@@ -3,12 +3,13 @@
 // Writes src/sprite-sheet-frames.json. Only facts (grids, frame numbers, model names) are kept; no game files.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {repoRoot as root} from './lib/paths.mjs';
+import {gameFolder} from '../test/helpers/fixtures.cjs';
 import {createRequire} from 'node:module';
 import {openDocument} from '../src/editor-document.js';
 const require=createRequire(import.meta.url);
 const {CascReader}=require('../electron/casc.cjs');
-const root=path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1')),'..');
-const folder=process.argv[2]||'D:/Warcraft III';
+const folder=process.argv[2]||await gameFolder();
 const key=name=>String(name||'').replaceAll('/','\\').toLowerCase();
 const range=value=>Array.from(value||[0,0,1]);
 

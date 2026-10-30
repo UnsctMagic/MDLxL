@@ -1,18 +1,12 @@
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building dist. Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 
 async function launch(entry, profile, model) {
-  return _electron.launch({
-    executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: ['--disable-backgrounding-occluded-windows', entry, ...(model ? [model] : [])],
-    cwd: root,
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile },
-    timeout: 30000,
-  });
+  return launchApp({ out: path.dirname(profile), profile: profile, entry: entry, args: [...model ? [model] : []], env: { MDLVIS_HEADLESS: '1' }, timeout: 30000 }).then(({ app }) => app);
 }
 
 (async () => {
@@ -41,6 +35,7 @@ async function launch(entry, profile, model) {
     const closed = clean.waitForEvent('close');
     await page.evaluate(() => window.desktop.close());
     await closed;
+    await closeApp(clean);
     assert.equal(fs.existsSync(promptLog), false);
     console.log('PASS a clean saved model closes without prompting');
   }
@@ -50,7 +45,7 @@ async function launch(entry, profile, model) {
     const page = await unsaved.firstWindow();
     await page.waitForFunction(() => !!document.querySelector('.classic-app'));
     await page.evaluate(() => window.desktop.close());
-    await page.waitForTimeout(100);
+    await settlePage(page, 100);
     const prompt = await unsaved.evaluate(() => modelCloseTest.prompts[0]);
     assert.deepEqual(prompt.buttons, ['Save', 'Cancel', 'Close']);
     assert.equal(prompt.cancelId, 1);
@@ -64,6 +59,6 @@ async function launch(entry, profile, model) {
     assert.equal(JSON.parse(fs.readFileSync(promptLog, 'utf8')).length, 2, 'successful Save closes without a second prompt');
     console.log('PASS a never-saved model offers Save, Cancel, Close and Save completes before exit');
   } finally {
-    if (unsaved.windows().length) await unsaved.close().catch(() => {});
+    await closeApp(unsaved);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

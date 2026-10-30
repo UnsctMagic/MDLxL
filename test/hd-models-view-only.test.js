@@ -95,7 +95,7 @@ test('built-in demo, starter and converted models are never HD', () => {
     assert.deepEqual(hdContentIssues(doc.model), []);
     for (const format of ['mdx', 'mdl']) assert.equal(openDocument(doc.serialize(format), `x.${format}`).readOnly, false);
   }
-  for (const name of ['demo.mdx', 'demo.mdl']) assert.equal(openDocument(readFileSync(new URL(`../fixtures/${name}`, import.meta.url)), name).readOnly, false);
+  for (const name of ['demo.mdx', 'demo.mdl']) assert.equal(openDocument(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)), name).readOnly, false);
 });
 
 // Owner decision: only a shader name or HD lighting values is "borderline" and

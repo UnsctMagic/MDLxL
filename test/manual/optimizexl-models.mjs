@@ -1,14 +1,14 @@
 // Optional integration check against user-supplied files; never rewrites them.
-// node test/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
+// node test/manual/optimizexl-models.mjs path/to/flail.mdx path/to/axe.mdx
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import { ModelRenderer } from 'war3-model';
 import { Matrix4 } from 'three';
-import { openDocument } from '../src/editor-document.js';
-import { skinGeoset } from '../src/animation.js';
-import { findIrregularities, runOptimizeStage, simpleSettings, SPHERE_PRESETS } from '../src/optimizexl.js';
-import { prepareNuclearReduction } from '../src/optimizexl-geometry.js';
+import { openDocument } from '../../src/editor-document.js';
+import { skinGeoset } from '../../src/animation.js';
+import { findIrregularities, runOptimizeStage, simpleSettings, SPHERE_PRESETS } from '../../src/optimizexl.js';
+import { prepareNuclearReduction } from '../../src/optimizexl-geometry.js';
 await prepareNuclearReduction();
 
 function sanity(bytes){const {errors,severe,warnings,unused}=sanityTest(bytes);return {errors,severe,warnings,unused};}

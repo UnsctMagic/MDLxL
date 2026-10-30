@@ -1,10 +1,11 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/workplane-free-drag.electron.cjs
-// Set MDLXL_EXE to a packaged MDLxL.exe to drive the packaged app instead.
+// Set MDLXL_TEST_EXE to a packaged MDLxL.exe to drive the packaged app instead.
 // Workplane off frees a Move drag to the screen plane; Shift or Workplane on keeps it in XY.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
   const out = path.resolve('out/workplane-free-drag'); fs.mkdirSync(out, { recursive: true });
@@ -12,15 +13,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const doc = createDemoDocument();
   const fixture = path.join(out, 'workplane-drag.mdx'); fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   const errors = [];
-  const packaged = process.env.MDLXL_EXE && path.resolve(process.env.MDLXL_EXE);
-  const app = await _electron.launch({
-    executablePath: packaged || path.resolve('node_modules/electron/dist/electron.exe'),
-    args: packaged ? [fixture, '--disable-backgrounding-occluded-windows'] : ['--disable-backgrounding-occluded-windows', process.cwd(), fixture],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000,
-  });
+  const packaged = appTarget().packaged;
+  const { app, page } = await launchApp({ out: out, profile: path.join(out, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: fixture , errors, pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
   try {
-    const page = await app.firstWindow(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
-    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
+
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     const viewport = page.getByLabel('3D model viewport', { exact: true }); await viewport.waitFor();
     await page.locator('[data-hotkey="geosetsClear"]').click(); await page.getByLabel('Select geoset 0', { exact: true }).check();
@@ -28,10 +24,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.viewportState = (scope = '') => {
         const host = document.querySelector(scope + ' [aria-label="3D model viewport"]');
-        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const value = hook.memoizedState?.current; if (value?.renderer && value?.entries) return value;
-        }
+
+        { const value = findFiberState(host, value => value?.renderer && value?.entries); if (value?.renderer && value?.entries) return value; }
+
         throw Error('Viewport runtime not found');
       };
       // The Move gizmo's arrows and squares, in page coordinates.
@@ -57,7 +52,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.displayedCoords = (scope = '.classic-sidebar') => Array.from(document.querySelectorAll(scope + ' .classic-coordinates input'), input => Number(input.value));
       window.cameraFacing = () => { const s = viewportState(); return s.camera.getWorldDirection(s.controls.target.clone()).toArray(); };
     });
-    const idle = () => page.waitForTimeout(180);
+    const idle = () => settlePage(page, 180);
     const expectCoords = (actual, expected, label) => assert.ok(actual.length === 3 && actual.every((value, axis) => Math.abs(value - expected[axis]) < .0002), label + ': ' + actual + ' != ' + expected);
     await page.getByLabel('View direction', { exact: true }).selectOption('front'); await idle();
     await viewport.focus(); const box = await viewport.boundingBox();
@@ -171,9 +166,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(() => {
       window.previewRuntime = () => {
         const root = document.querySelector('.game-preview-root');
-        for (let fiber = root?.[Object.keys(root).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const ref = hook.memoizedState?.current; if (ref?.native && ref?.controls) return ref;
-        }
+        { const ref = mdlxlProbe(root?.closest('.game-preview-root') || null).runtime; if (ref?.native && ref?.controls) return ref; }
+
         throw Error('Preview runtime not ready');
       };
       window.boneWorld = id => {
@@ -188,7 +182,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     const previewReady = () => page.waitForFunction(() => { try { return !!previewRuntime().captureApi?.isReady; } catch { return false; } });
     // Bones is on by default and shared by Bones/Movement/Animations (PR #238), so switch it on rather than toggling it.
-    const showBones = async () => { const bones = page.getByRole('checkbox',{name:'Bones',exact:true}); if (!await bones.isChecked()) await bones.check(); assert.equal(await bones.isChecked(), true, 'Bones display on'); };
+    const showBones = async () => { const bones = page.getByRole('group',{name:'Quick display',exact:true}).getByRole('checkbox',{name:'Bones',exact:true}); if (!await bones.isChecked()) await bones.check(); assert.equal(await bones.isChecked(), true, 'Bones display on'); };
     const rotatePreview = async () => {
       await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); await page.getByRole('button', { name: 'Fit', exact: true }).click(); await idle();
       const canvas = await page.locator('[data-clean-model-canvas]').boundingBox(), before = await page.evaluate(() => previewFacing());
@@ -233,5 +227,5 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.screenshot({ path: path.join(out, 'vertices-free-drag.png') });
     assert.deepEqual(errors, []);
     console.log('PASS Workplane off: free drag in Vertices, Bones, Movement; Move gizmo arrows and squares in Vertices and Forge; Shift and Workplane on keep the plane');
-  } finally { await app.close(); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

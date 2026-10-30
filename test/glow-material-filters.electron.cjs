@@ -1,12 +1,14 @@
+const { sha256File } = require('./helpers/app.cjs');
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Test the UV filter dropdown against an isolated rebuilt Windows package.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'out', 'glow-material-filters-' + Date.now());
-const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const hash = sha256File;
 
 (async () => {
   fs.mkdirSync(out, { recursive: true });
@@ -27,42 +29,18 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   });
   const input = path.join(out, 'TwoPassGlow.mdx'); fs.writeFileSync(input, doc.serialize('mdx'));
   const beforeHash = hash(input), textureHash = hash(texture), original = doc.model.Materials[0];
-  const exe = path.resolve(process.argv[2] || process.env.MDLXL_TEST_EXE);
-  const app = await _electron.launch({ executablePath: exe, args: ['--disable-backgrounding-occluded-windows', input],
-    env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile') }, timeout: 60000 });
-  let main, uv;
+  const exe = appTarget().executablePath;
+  const { app, page: main } = await launchApp({ out: out, profile: path.join(out, 'profile'), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: input , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1400, height: 900 }, show: 'inactive' });
+  let uv;
   try {
-    main = await app.firstWindow(); main.setDefaultTimeout(20000);
-    await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows()[0]; w.webContents.setBackgroundThrottling(false);
-      w.setBounds({ x: -3000, y: 0, width: 1400, height: 900 }); w.showInactive();
-    });
+
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
     uv = main; const uvw = main.locator('.uv-tab-window'); await main.locator('[data-hotkey="uv"]').click();
     await uvw.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
     // The UV Wrapper is an in-app dialog of the main window (f7316110).
     await uv.evaluate(() => {
-      window.glowState = () => {
-        const element = document.querySelector('.uv-workspace');
-        let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; while (fiber.return) fiber = fiber.return;
-        const state = {};
-        const find = (node, inside) => { // only the UV Wrapper dialog's subtree
-          inside = inside || !!node.stateNode?.classList?.contains?.('uv-tab-window');
-          if (inside) {
-            if (node.memoizedProps?.materialModel) state.material = node.memoizedProps.materialModel.Materials[0];
-            if (node.memoizedProps?.textureUrl) state.textureUrl = node.memoizedProps.textureUrl;
-            for (let hook = node.memoizedState; hook; hook = hook.next) {
-              const runtime = hook.memoizedState?.current;
-              if (runtime?.native && runtime.controls) {
-                state.native = runtime.native.model.Materials[0]; state.camera = Array.from(runtime.controls.object.matrixWorld.elements);
-              }
-            }
-          }
-          for (let child = node.child; child; child = child.sibling) find(child, inside);
-        };
-        find(fiber.stateNode.current); return state;
-      };
+      window.glowState = ()=>{const selector='.uv-tab-window',state={};const material=findFiberState(selector,p=>p?.materialModel,{tree:true,props:true});if(material)state.material=material.materialModel.Materials[0];const texture=findFiberState(selector,p=>p?.textureUrl,{tree:true,props:true});if(texture)state.textureUrl=texture.textureUrl;const runtime=mdlxlProbe(selector+' .game-preview-root').runtime;if(runtime){state.native=runtime.native.model.Materials[0];state.camera=Array.from(runtime.controls.object.matrixWorld.elements);}return state;};
     });
     const dropdown = uvw.getByLabel('Material Properties', { exact: true });
     await uv.waitForFunction(() => glowState().textureUrl && glowState().native?.Layers.length === 2);
@@ -110,10 +88,9 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await uv.waitForFunction(before => glowState().camera.some((value, index) => Math.abs(value - before[index]) > .01), camera);
     assert.equal((await uvw.locator('.uv-side-panel').boundingBox()).width, sidebar.width);
     const bytes = await main.evaluate(() => {
-      const element = document.querySelector('.classic-app'); let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
-      for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-        const doc = hook.memoizedState?.doc; if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx'));
-      }
+      const element = document.querySelector('.classic-app');
+      { const doc = mdlxlProbe().session?.doc; if (typeof doc?.serialize === 'function') return Array.from(doc.serialize('mdx')); }
+
       throw Error('Missing document');
     });
     assert.deepEqual(openDocument(Uint8Array.from(bytes), 'reopened.mdx').model.Materials[0], original);
@@ -122,5 +99,5 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   } catch (error) {
     if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(out, 'failure.png') });
     throw error;
-  } finally { await app.evaluate(({ app }) => app.exit(0)); }
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

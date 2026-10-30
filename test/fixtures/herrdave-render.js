@@ -1,4 +1,4 @@
-import { createStarterDocument } from '../src/starter-model.js';
+import { createStarterDocument } from '../../src/starter-model.js';
 
 /** Deterministic geometry; no external knight assets or textures are required. */
 export function renderFixture(kind = 'triangle') {

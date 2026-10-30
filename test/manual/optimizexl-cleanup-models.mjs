@@ -1,11 +1,11 @@
 import fs from 'node:fs';
-import { sanityTest } from './helpers/hive.mjs';
+import { sanityTest } from '../helpers/hive.mjs';
 import assert from 'node:assert/strict';
-import { comparePoses } from './helpers/pose-compare.mjs';
-import { openDocument } from '../src/editor-document.js';
-import { sampleTrack } from '../src/animation.js';
-import { sanityProposals, runOptimizeStage, SPHERE_PRESETS } from '../src/optimizexl.js';
-import { effectVisibilityProposals } from '../src/optimizexl-effect-visibility.js';
+import { comparePoses } from '../helpers/pose-compare.mjs';
+import { openDocument } from '../../src/editor-document.js';
+import { sampleTrack } from '../../src/animation.js';
+import { sanityProposals, runOptimizeStage, SPHERE_PRESETS } from '../../src/optimizexl.js';
+import { effectVisibilityProposals } from '../../src/optimizexl-effect-visibility.js';
 const sanity = bytes => {const r=sanityTest(bytes);return {errors:r.errors,severe:r.severe,warnings:r.warnings,unused:r.unused};};
 const read = bytes => openDocument(bytes,'x.mdx').model;
 const batch = (source,stage,fixes) => runOptimizeStage(source,stage,{}, {kind:'batch',stage,entries:fixes.map(fix=>({fix,settings:{}}))}).bytes;

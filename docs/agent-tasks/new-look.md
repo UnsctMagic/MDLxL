@@ -70,7 +70,7 @@ Updated: 2026-10-24 (complete pass)
   image tiles (`:has(>img)`), list rows and the `!important` Record button keep
   their own look. Main-window chrome rules use `!important`, so they still win.
 - Survey script for every screen: kept in the session scratchpad (`survey.cjs`),
-  pattern: launch packaged exe with `fixtures/demo.mdx`, send `menu` ids through
+  pattern: launch packaged exe with `test/fixtures/demo.mdx`, send `menu` ids through
   `webContents.send('menu', id)`, close with dialog-scoped `[aria-label^=Close]`
   (never the model tab's close). Paint needs an MDX800 model with a texture;
   "New base coat" opens the studio without game data.

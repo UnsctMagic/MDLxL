@@ -1,5 +1,6 @@
+const { appTarget } = require('./helpers/app.cjs');
+const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), zlib = require('node:zlib');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 function png(rgba) {
   const crc = bytes => { let value = -1; for (const byte of bytes) { value ^= byte; for (let i = 0; i < 8; i++) value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0); } return (value ^ -1) >>> 0; };
   const chunk = (tag, data) => { const name = Buffer.from(tag), size = Buffer.alloc(4), checksum = Buffer.alloc(4); size.writeUInt32BE(data.length); checksum.writeUInt32BE(crc(Buffer.concat([name, data]))); return Buffer.concat([size, name, data, checksum]); };
@@ -27,24 +28,22 @@ function png(rgba) {
     model.GeosetAnims = model.Geosets.map((_, GeosetId) => ({ GeosetId, Alpha: GeosetId === 2 ? steps([2100, 0]) : 1, Flags: GeosetId === 2 ? 2 : 0, Color: new Float32Array(GeosetId === 2 ? [1, 0, 0] : [1, 1, 1]) }));
   });
   const modelFile = path.join(output, 'sort-fixture.mdx'); fs.writeFileSync(modelFile, doc.serialize('mdx')); const source = fs.readFileSync(modelFile);
-  const exe = process.env.MDLXL_TEST_EXE || path.join(root, 'out/sort-my-mess-native/MDLxL-win32-x64/MDLxL.exe');
+  const exe = appTarget().executablePath;
   // Without a display the compositor runs at about 1 fps; these flags restore real playback timing.
-  const app = await _electron.launch({ executablePath: exe, args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', modelFile], cwd: root, env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, 'profile-' + Date.now()) }, timeout: 90000 });
-  const errors = []; let page;
+  const { app, page, errors } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'], env: { MDLVIS_HEADLESS: '1' }, timeout: 90000, fixture: modelFile , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1500, height: 980 }, show: 'inactive' });
+
   try {
-    page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', cause => errors.push(cause.message));
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.setSize(1500, 980); win.webContents.setBackgroundThrottling(false); win.showInactive(); });
+
     await page.getByText('Opened sort-fixture.mdx', { exact: true }).waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Materials'));
     await page.getByRole('dialog', { name: 'Material Manager', exact: true }).waitFor();
-    await page.evaluate(() => { const root = document.querySelector('.re-window'); for (let fiber = root[Object.keys(root).find(k => k.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) if (fiber.memoizedProps?.doc?.serialize) { window.sortDoc = fiber.memoizedProps.doc; break; } });
+    await page.evaluate(() => { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) { window.sortDoc = props.doc;  }   });
     const originalState = await page.evaluate(() => JSON.stringify(sortDoc.model));
     assert.equal(await page.locator('.smm-window').count(), 0);
     await page.getByRole('button', { name: 'Sort My Mess', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Sort My Mess' }); await dialog.waitFor();
     await page.evaluate(() => { window.sortPreview = () => [...document.querySelectorAll('.smm-previews .game-preview-root')].map(root => {
-      let props, runtime;
-      for (let fiber = root[Object.keys(root).find(k => k.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const value = hook.memoizedState?.current; if (value?.native && value?.controls) runtime = value; if (value?.model?.Geosets && value?.compareCamera) props = value; }
+      const {props,runtime}=mdlxlProbe(root);
       if (!runtime || !props) return null;
       return { ids: props.isolatedGeosets || null, geosets: props.model.Geosets.length, position: runtime.controls.object.position.toArray(), frame: runtime.native.getFrame() };
     }); });
@@ -95,7 +94,7 @@ function png(rgba) {
     await page.getByRole('slider', { name: 'Comparison frame' }).fill('0');
     await page.waitForFunction(() => sortPreview().every(preview => preview.frame < 5));
     await page.getByRole('button', { name: 'Play comparison', exact: true }).click();
-    const began = Date.now(); await page.waitForTimeout(700);
+    const began = Date.now(); await settlePage(page, 700);
     await page.getByRole('button', { name: 'Pause comparison', exact: true }).click();
     const elapsed = Date.now() - began; previews = await page.evaluate(() => sortPreview());
     assert.ok(previews[0].frame > elapsed * .6 && previews[0].frame <= elapsed + 50, `played ${previews[0].frame} ms of animation in ${elapsed} ms`);
@@ -129,9 +128,6 @@ function png(rgba) {
     console.log(JSON.stringify({ packagedExecutable: exe, groups: ['smm-other', 'smm-skin'], geosets: '5 -> 2', mapping: '2→1 3→1 4→deleted 5→2', choicesPersist: true, cameraSynchronized: true, playbackMsPerMs: +(previews[0].frame / elapsed).toFixed(2), saveReopen: true, undoRedo: true, sourceUnchanged: true, screenshots: output }));
   } catch (cause) { if (page) await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {}); throw cause; }
   finally {
-    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
-    // A packaged close can hang; never leave the test build running.
-    await Promise.race([app.close(), new Promise(resolve => setTimeout(resolve, 8000))]);
-    try { app.process().kill(); } catch {}
+    await closeApp(app);
   }
 })().catch(cause => { console.error(cause); process.exitCode = 1; });

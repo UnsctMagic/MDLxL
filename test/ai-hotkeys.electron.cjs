@@ -49,7 +49,10 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
         for (const chord of row.keys.split(' / ')) {
           assert.ok(!chord.includes('>') && chord.split('+').length <= 2, `${row.id}: ${chord}`);
           assert.ok(!used.has(chord), `${place}: duplicate ${chord}`); used.add(chord);
-          if (chord !== 'Escape') assert.ok(row.label.toUpperCase().includes(chord.split('+').at(-1)), `${row.id}: ${chord} is not from ${row.label}`);
+          // HOTKEYS.md permits other letters after a name's letters are occupied.
+          const paletteFallback = { 'color:green': 'Q', 'color:blue': 'Z' }[row.id];
+          if (paletteFallback) assert.equal(chord, paletteFallback, row.id + ' keeps its distinct palette key');
+          else if (chord !== 'Escape') assert.ok(row.label.toUpperCase().includes(chord.split('+').at(-1)), row.id + ': ' + chord + ' is not from ' + row.label);
         }
       }
       rows.push(...found.map(row => ({ place, ...row })));
@@ -60,13 +63,17 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     await audit('AI console');
     const width = await ai.evaluate(e => e.getBoundingClientRect().width);
     assert.equal(width, 400);
-    await local('tool:marker').click(); await popup.waitFor();
+    await local('tool:marker').click();
+    assert.equal(await popup.count(), 0, 'contextual console keys are not Learn command reminders');
     const markerKey = await key(local('tool:marker'));
-    assert.equal((await popup.textContent()).trim(), markerKey.replace('Control+', 'Ctrl + ').replace('Shift+', 'Shift + '));
     await page.keyboard.press(markerKey); await popup.waitFor({ state: 'detached' });
     assert.equal(await local('tool:marker').getAttribute('aria-pressed'), 'false');
     assert.equal((await page.evaluate(() => window.__used)).at(-1), 'ai:tool:marker');
-    await page.locator('button[data-hotkey="translate"]:visible').first().click(); await page.keyboard.press('m');
+    await page.locator('button[data-hotkey="translate"]:visible').first().click();
+    await popup.waitFor();
+    const moveKey = await key(page.locator('button[data-hotkey="translate"]:visible').first());
+    assert.equal((await popup.textContent()).trim(), moveKey.replace('Control+', 'Ctrl + ').replace('Shift+', 'Shift + '));
+    await page.keyboard.press('m'); await popup.waitFor({ state: 'detached' });
     assert.equal((await page.evaluate(() => window.__used)).at(-1), 'translate', 'editor M remains editor M beside the console');
     await run(local('prompt')); await page.keyboard.type('mrz hello');
     assert.equal(await local('prompt').inputValue(), 'mrz hello');
@@ -91,6 +98,7 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     await local('prompt').fill('fixture message'); await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('.ai-user-text')?.textContent === 'fixture message');
     await local('prompt').fill('shortcut message'); await run(local('send'));
+    await page.waitForFunction(() => document.querySelector('.ai-assistant [data-hotkey="prompt"]')?.value === '');
     assert.equal(await app.evaluate(() => global.__aiShortcutCalls['ai:send']), 2);
     await page.evaluate(fixture => window.dispatchEvent(new CustomEvent('mdlxl-model-saved', { detail: { documentId: 'fixture', path: fixture, previousPath: fixture, name: 'shortcuts.mdx' } })), fixture);
     const cleanup = page.getByRole('dialog', { name: 'Tidy up AI chats', exact: true }); await cleanup.waitFor();
@@ -107,6 +115,10 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     assert.equal(await local('color').getAttribute('aria-label'), 'Color: ' + colorName);
     // A modal must own its keys even when focus is still in the AI console.
     await ai.focus(); await page.keyboard.press('Control+Comma'); await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor();
+    // HOTKEYS.md: cancel the active drawing tool before dismissing a window.
+    await page.keyboard.press('Escape');
+    assert.equal(await local('tool:marker').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).isVisible(), true);
     await page.keyboard.press('Escape'); await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor({ state: 'detached' });
     await ai.focus(); await page.keyboard.press('Escape'); await ai.waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);

@@ -33,7 +33,7 @@ test('native question reaches organiser and bird; selected and custom answers re
   const { service, events, chat } = await setup(t);
   const parent = chat('organiser'), bird = chat('crow');
   service.tasks.set('organiser', { id: 'organiser', recorder: parent.recorder, workers: new Map([['crow', {}]]), controller: new AbortController() });
-  await fs.copyFile(new URL('../fixtures/ai-question-agent.cjs', import.meta.url), path.join(service.directory, 'agent.js'));
+  await fs.copyFile(new URL('./fixtures/ai-question-agent.cjs', import.meta.url), path.join(service.directory, 'agent.js'));
   await fs.mkdir(path.join(service.directory, 'bin'));
   const executable = path.join(service.directory, 'bin', process.platform === 'win32' ? 'codex.cmd' : 'codex');
   if (process.platform === 'win32') await fs.writeFile(executable, '@"%dp0%\\..\\agent.js" %*\r\n');
