@@ -904,7 +904,7 @@ export default function App() {
       const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
       if (staged !== target.doc) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       const unfinished = forgeSaveBlock(staged.model);
-      if (unfinished) { say(unfinished, true); setNotice({ message: unfinished }); return false; }
+      if (unfinished) { say(unfinished, true); setNotice({ title: 'Save', message: unfinished }); return false; }
       // Save As must bring reopened Forge textures along, even before preview
       // resolution completes or when texture rendering is disabled.
       const missing = missingForgeAssetPaths(target.assets, staged.model);
