@@ -290,16 +290,21 @@ export default function AnimationController({
     }, inlineColorTargets.length ? 'Inline color tint updated.' : 'Color tint keyframe updated.');
   }
 
+  // RGB and visibility bake separately; baking one never rewrites the other.
   function bakeRgb(all) {
-    let value, visibility;
-    try {
-      value = rgbValue();
-      if (alpha.trim() === '' || !Number.isFinite(Number(alpha))) throw new Error('Alpha must be a number from 0 to 100.');
-      visibility = Math.max(0, Math.min(100, Number(alpha))) / 100;
-    } catch (failure) { setError(failure.message); setNotice(''); return; }
+    let value;
+    try { value = rgbValue(); } catch (failure) { setError(failure.message); setNotice(''); return; }
     commit(all ? 'Bake RGB in all sequences' : 'Bake RGB in selected sequence', ['GeosetAnims', 'Info'],
-      current => bakeGeosetAnimationSettings(current, { geosetIds, alpha: visibility, color: value, sequenceIndices: all ? null : [sequenceIndex] }),
+      current => bakeGeosetAnimationSettings(current, { geosetIds, color: value, sequenceIndices: all ? null : [sequenceIndex] }),
       all ? 'RGB baked at the beginning and end of every sequence.' : 'RGB baked at the beginning and end of this sequence.');
+  }
+
+  function bakeVisibility() {
+    if (alpha.trim() === '' || !Number.isFinite(Number(alpha))) { setError('Alpha must be a number from 0 to 100.'); setNotice(''); return; }
+    const visibility = Math.max(0, Math.min(100, Number(alpha))) / 100;
+    commit('Bake visibility in all sequences', ['GeosetAnims', 'Info'],
+      current => bakeGeosetAnimationSettings(current, { geosetIds, alpha: visibility }),
+      'Visibility baked at the beginning and end of every sequence.');
   }
 
   function toggleMoveSpeed(checked) {
@@ -371,6 +376,7 @@ export default function AnimationController({
     </div>
     <button disabled={nodeSelection || noLocalSequence || !geosetIds.length} onClick={() => bakeRgb(false)}>Bake Sequence RGB</button>
     <button disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
+    <button disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length || colorBlocked} title="Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed." onClick={bakeVisibility}>Bake All Visibility</button>
     </SidebarSection>
     {error && !speedMenu && !reorder && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
     {reorder && <Dialog title="Reorder Animations" onClose={() => setReorder(null)} overlayClass="ac-reorder-menu" footer={<><button onClick={() => setReorder(null)}>Cancel</button><button disabled={disabled || reorder.order.every((index, position) => index === position)} onClick={applyReorder}>Apply</button></>}>

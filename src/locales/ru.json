@@ -7355,5 +7355,9 @@
   "Fix glow ({0})": "Исправить свечение ({0})",
   "Geoset {0} is a Forge item without a material yet.": "Геосет {0} — предмет Forge, у которого ещё нет материала.",
   "Give this Forge item a material and texture before saving: {0}.": "Дайте этому предмету Forge материал и текстуру перед сохранением: {0}.",
-  "Give these Forge items a material and texture before saving: {0}.": "Дайте этим предметам Forge материал и текстуру перед сохранением: {0}."
+  "Give these Forge items a material and texture before saving: {0}.": "Дайте этим предметам Forge материал и текстуру перед сохранением: {0}.",
+  "Bake All Visibility": "Применить видимость ко всем",
+  "Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed.": "Ставит указанную выше прозрачность (Alpha) в начале и в конце каждой анимации для отмеченных геосетов. Цвет не меняется.",
+  "Bake visibility in all sequences": "Запечь видимость во всех последовательностях",
+  "Visibility baked at the beginning and end of every sequence.": "Видимость запечена в начале и в конце каждой последовательности."
 }

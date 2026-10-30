@@ -7235,5 +7235,9 @@
   "Fix glow ({0})": "修复辉光（{0}）",
   "Geoset {0} is a Forge item without a material yet.": "几何组 {0} 是尚无材质的 Forge 物件。",
   "Give this Forge item a material and texture before saving: {0}.": "保存前请为此 Forge 物件指定材质和贴图：{0}。",
-  "Give these Forge items a material and texture before saving: {0}.": "保存前请为这些 Forge 物件指定材质和贴图：{0}。"
+  "Give these Forge items a material and texture before saving: {0}.": "保存前请为这些 Forge 物件指定材质和贴图：{0}。",
+  "Bake All Visibility": "烘焙全部可见性",
+  "Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed.": "为勾选的几何组在每个动画的开头和结尾设置上方的 Alpha。颜色不变。",
+  "Bake visibility in all sequences": "在所有序列中烘焙可见性",
+  "Visibility baked at the beginning and end of every sequence.": "已在每个序列的开头和结尾烘焙可见性。"
 }

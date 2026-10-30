@@ -7371,5 +7371,9 @@
   "Fix glow ({0})": "Corregir brillo ({0})",
   "Geoset {0} is a Forge item without a material yet.": "El geoset {0} es un objeto de Forge que aún no tiene material.",
   "Give this Forge item a material and texture before saving: {0}.": "Da a este objeto de Forge un material y una textura antes de guardar: {0}.",
-  "Give these Forge items a material and texture before saving: {0}.": "Da a estos objetos de Forge un material y una textura antes de guardar: {0}."
+  "Give these Forge items a material and texture before saving: {0}.": "Da a estos objetos de Forge un material y una textura antes de guardar: {0}.",
+  "Bake All Visibility": "Aplicar visibilidad a todas",
+  "Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed.": "Pone el Alpha de arriba al principio y al final de cada animación en los geosets marcados. El color no cambia.",
+  "Bake visibility in all sequences": "Fijar la visibilidad en todas las secuencias",
+  "Visibility baked at the beginning and end of every sequence.": "Visibilidad fijada al principio y al final de cada secuencia."
 }
