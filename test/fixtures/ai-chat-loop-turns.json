@@ -1,0 +1,69 @@
+{
+  "source": "Anonymised 0.35.0 owner chat, transcript turn numbers (not provider request numbers).",
+  "turns": {
+    "5": {
+      "role": "user",
+      "text": "make them a bit less high poly"
+    },
+    "7": {
+      "role": "user",
+      "text": "No, reduce it to around 8"
+    },
+    "19": {
+      "role": "user",
+      "text": "As you can see I simplified the helm a bit, you made it rather complex for no reason - please adjust it and make it less complex, you must also adjust the breathing holes slightly to acoomadate - the same look with less polygons.\n\nfinally, make all the breathing holes the same size and make sure they are CENTERED, right now its off center."
+    },
+    "21": {
+      "role": "user",
+      "text": "i reversed your changes, you changed the apppearance of the helmet too much - I said simplifty, you changed textures, shape etc - dont do that!"
+    },
+    "23": {
+      "role": "user",
+      "text": "Now I want you to simplify the whole mesh while keeping the appearance - that means, some of the points can be joined together WITHOUT changing how things look. \ngeoset 1 for sure but I can also see parts of geoset 5.\n\nYour acceptance gate is 6 pictures - from every angle and a 99% identical shape and look as well as texture wrap"
+    },
+    "25": {
+      "role": "user",
+      "text": "Resume task"
+    },
+    "26": {
+      "role": "assistant",
+      "text": "Automatic review rejected completion because the picture packet omits baseline, wireframe or reference comparisons. The applied edit remains blocked."
+    },
+    "27": {
+      "role": "user",
+      "text": "You misunderstood me, I asked you to weld points that are needlessly complicated - Look at the right side of geoset 1 - I welded the bottom right part, vissualy it looks the same - please give this treatment to the whole helmet."
+    },
+    "28": {
+      "role": "assistant",
+      "text": "Automatic review rejected completion because the picture packet omits baseline, wireframe or reference comparisons. The applied edit remains blocked."
+    },
+    "29": {
+      "role": "user",
+      "text": "Resume task"
+    },
+    "30": {
+      "role": "assistant",
+      "text": "Automatic review rejected completion because the picture packet omits baseline, wireframe or reference comparisons. The applied edit remains blocked."
+    },
+    "31": {
+      "role": "user",
+      "text": "Resume task"
+    },
+    "32": {
+      "role": "assistant",
+      "text": "Automatic review rejected completion because the picture packet omits baseline, wireframe or reference comparisons. The applied edit remains blocked."
+    },
+    "33": {
+      "role": "user",
+      "text": "just fucking deliver it i dont care about the pictures "
+    },
+    "35": {
+      "role": "user",
+      "text": "What the fuck are you talking about you moron? you didnt do any changes in the bottom like i asked you idiot"
+    },
+    "36": {
+      "role": "assistant",
+      "text": "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint."
+    }
+  }
+}

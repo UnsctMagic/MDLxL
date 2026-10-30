@@ -326,8 +326,10 @@ class AiService {
             : Error(CANCELLED),
         );
       };
-      let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+      let settled = false, timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
       const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         requestSignal.removeEventListener('abort', cancel);
         this.pending.delete(id);
@@ -338,6 +340,7 @@ class AiService {
         signal: requestSignal,
         cancel: () => controller.abort(Error('Editor closed.')),
         waiting: waiting => {
+          if (settled) return;
           clearTimeout(timer);
           if (!waiting) timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
         },
@@ -500,6 +503,10 @@ class AiService {
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
+      if (!resume && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal, worker, route })) {
+        recorder.event({ type: 'done' });
+        return { ok: true };
+      }
       const offload = conversation.kind === 'organiser' && config.offload !== false;
       const run = offload ? this.runOffload.bind(this) : this.runTask.bind(this);
       await run({
@@ -543,6 +550,36 @@ class AiService {
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     }
+  }
+  // This is the owner's acceptance, not another model's judgement. Reuse finish
+  // so the review, saved task and organiser all leave the blocked state together.
+  async acceptDelivery({ conversation, recorder, text, context, signal, worker, route }) {
+    if (!acceptsDelivery(text)) return false;
+    const bird = conversation.kind === 'organiser'
+      ? conversation.workers?.find(w => w.status !== 'retired' && !w.helperOnly && (worker ? w.id === worker || w.name === worker : w.id === conversation.currentWorker))
+      : null;
+    const owner = bird ? await this.conversation(bird.id, conversation.provider) : conversation,
+      task = owner.task;
+    if (!task || task.status === 'complete' || !task.checkpoint?.review?.changed) return false;
+    await this.call('mdlxl_checkpoint', { target: context.target, baseline: task.baseline, restoreReview: task.checkpoint.review }, signal);
+    const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
+    const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + [...new Set(concerns)].join('; ') : '');
+    const review = await this.call('mdlxl_review', { target: context.target, action: 'finish', outcome: 'passed', acceptedByUser: true, summary }, signal);
+    Object.assign(task, { acceptedByUser: true, status: 'complete', phase: review.phase, summary });
+    delete task.unresolvedEditError;
+    delete task.baseline;
+    delete task.images;
+    recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
+    recorder.event({ type: 'text', text: summary });
+    if (owner !== conversation) {
+      const ownRecorder = this.recorder(owner, value => this.emit({ id: owner.id, ...value }));
+      ownRecorder.start({ role: 'user', text });
+      ownRecorder.event({ type: 'text', text: summary });
+      ownRecorder.finish();
+      Object.assign(conversation.task, { status: 'complete', phase: review.phase, summary, acceptedByUser: true });
+      await this.persistConversation(owner);
+    }
+    return true;
   }
   // The organiser is a local ledger. Only unaddressed automatic routing asks a model.
   async runOffload({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser: active, policy, route, worker, job }) {
@@ -922,6 +959,9 @@ class AiService {
       }
       finally { callsInFlight--; }
     };
+    // Keep the evidence the worker actually saw, also across Resume and native
+    // provider turns (whose picture history lives outside our messages array).
+    if (images.length) conversation.referenceImages = [...new Set([...images, ...(conversation.referenceImages || [])])];
     let workerImages = images,
       lastInspect = null;
     const performCall = async (name, args, callSignal) => {
@@ -1010,7 +1050,7 @@ class AiService {
       } else if (name === 'mdlxl_review') {
         // SD Brain review: a pass needs a verdict per criterion, and a criterion
         // that keeps failing stops blind revisions.
-        if (sd.enabled) {
+        if (sd.enabled && !task.acceptedByUser) {
           const problem = sdReviewProblem(args);
           if (problem) throw Error(problem);
           if (args.action === 'finish' && args.outcome === 'needs-correction') {
@@ -1027,18 +1067,13 @@ class AiService {
         }
         // The outside check: a separate AI that never saw this work judges the result
         // before it counts as verified; a doubtful result goes back with its reasons.
-        if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !organiser && lastInspect) {
-          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: lastInspect, settings, contract, signal, conversation, recorder });
+        if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !task.acceptedByUser && !organiser && lastInspect) {
+          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: { ...lastInspect, images: [...lastInspect.images, ...(task.evidenceImages || []), ...(conversation.referenceImages || task.images || []).map((image, i) => ({ role: 'reference', group: 'reference ' + i, label: 'User reference ' + (i + 1), image }))] }, settings, contract, signal, conversation, recorder });
           if (verdict) {
             task.outsideCheck = verdict;
-            if (verdict.verdict !== 'good') {
-              const said = `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ') || 'no reason given'}.`;
-              if ((task.outsideRounds = (task.outsideRounds || 0) + 1) <= 2)
-                throw Error(`${said} Correct what is real, run mdlxl_review inspect again, then finish.`);
-              // Running out of rounds never turns a rejection into a pass.
-              throw Error(
-                `${said} This was round ${task.outsideRounds}; the result cannot be marked passed. Keep the edit and call mdlxl_review finish with outcome blocked, saying in one short plain sentence what the review could not confirm (for example that it could not compare matching poses).`,
-              );
+            if (verdict.verdict !== 'good' && verdict.problems.length) {
+              const said = `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ')}.`;
+              throw Error(`${said} Correct what is real, run mdlxl_review inspect again, then finish. Missing evidence is a note, not a reason to block delivery.`);
             }
           }
         }
@@ -1051,13 +1086,34 @@ class AiService {
           name,
           {
             ...args,
+            ...(name === 'mdlxl_review' && args.action === 'finish' && task.acceptedByUser ? { outcome: 'passed', acceptedByUser: true } : {}),
             ...(name === 'mdlxl_help' ? {} : { target: context.target }),
             ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
           },
           requestSignal,
         );
         // What the outside check will judge: the latest inspected checks and pictures.
-        if (edit) lastInspect = null;
+        if (edit) {
+          lastInspect = null;
+          // Earlier after-images no longer show the current result; originals stay.
+          task.evidenceImages = (task.evidenceImages || []).filter(p => p.role === 'original');
+        }
+        if (name === 'mdlxl_capture' && result) {
+          const original = !task.checkpoint?.review?.changed;
+          const captures = result.images || (result.image ? [{ image: result.image }] : []);
+          const saved = task.evidenceImages || [];
+          captures.forEach((picture, i) => {
+            const sample = args.samples?.[i] || {},
+              group = 'capture ' + JSON.stringify(sample),
+              role = original ? 'original' : 'edited',
+              entry = { ...picture, role, group, label: `${original ? 'Original before the task' : 'Edited target'}; ${picture.label || JSON.stringify(sample)}` };
+            const previous = saved.findIndex(p => p.group === group && p.role === role);
+            if (previous < 0) saved.push(entry);
+            else if (!original) saved[previous] = entry;
+          });
+          task.evidenceImages = choosePictures(saved).pictures;
+          await this.persistConversation(conversation);
+        }
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
           lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [] };
         // The review judges the plan's keep list along with the request.
@@ -1151,6 +1207,12 @@ class AiService {
           continue;
         }
         attempt++;
+        if (task.acceptedByUser && task.steps.length) {
+          const concerns = [...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])];
+          const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + concerns.join('; ') : '');
+          await this.call('mdlxl_review', { target: context.target, action: 'finish', outcome: 'passed', acceptedByUser: true, summary }, signal);
+          recorder.event({ type: 'text', text: '\n\n' + summary });
+        }
         const review = task.steps.length
           ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, signal)
           : { changed: false };
@@ -1468,8 +1530,9 @@ class AiService {
         confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0)),
         problems: (Array.isArray(found.problems) ? found.problems : []).map(String).slice(0, 8),
         strengths: (Array.isArray(found.strengths) ? found.strengths : []).map(String).slice(0, 8),
+        notes: (Array.isArray(found.notes) ? found.notes : []).map(String),
       };
-      const text = `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}`;
+      const text = `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}${verdict.notes.length ? '. Note: ' + verdict.notes.join('; ') : ''}`;
       recorder.event({ type: 'tool-result', name: 'outside_check', callId, error: verdict.verdict !== 'good', summary: text });
       recorder.event({ type: 'notice', text });
       return verdict;
@@ -1729,6 +1792,7 @@ class AiService {
     // Steering the organiser reaches the worker it is waiting on; steering a
     // running worker directly goes only to that worker.
     const deliver = w => {
+      if (acceptsDelivery(text)) { const task = this.conversations.get(w.id)?.task; if (task) task.acceptedByUser = true; }
       if (w.light && !simpleJob(text)) { w.escalation = text; w.controller.abort(Error('Complex steering requires the chosen model.')); }
       else w.steering.push(text, message);
       this.emit({ id: w.id, type: 'steer', text });
@@ -1755,6 +1819,7 @@ class AiService {
     if (active.id !== id) return { queued: false };
     const only = active.workers?.size === 1 ? [...active.workers.values()][0] : null;
     if (only?.light && !simpleJob(text)) { active.recorder.split(text); deliver(only); return { queued: true }; }
+    if (acceptsDelivery(text)) { const task = this.conversations.get(active.worker?.id || id)?.task; if (task) task.acceptedByUser = true; }
     active.steering.push(text, message);
     this.emit({ id, type: 'steer', text });
     if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
@@ -1919,6 +1984,11 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   return service;
 }
+// Only an explicit instruction in the owner's own message can accept a result.
+// Negated, quoted or conditional requests must not silently finish a task.
+function acceptsDelivery(text) {
+  return /^(?:(?:please|just|fucking)\s+)*(?:i\s+)?(?:deliver|accept)(?:\s+(?:it|this(?:\s+(?:result|edit|model))?|(?:the\s+)?(?:current\s+)?(?:result|edit|model)))?(?:\s+(?:anyway|now|as[ -]is))?(?:\s*$|[,.!;]|\s+i (?:don['’]?t|do not) care)/i.test(String(text || '').trim());
+}
 // The outside check gets a bounded but complete comparison set: whole groups only,
 // so the original, edited and donor pictures of one phase stay together. The still
 // comparison comes first, then as many phases as fit, spread over the animation,
@@ -1934,12 +2004,17 @@ function choosePictures(images, limit = 12) {
   const chosen = new Set();
   let room = limit;
   const take = group => {
-    if (group.items.length > room) return;
+    if (chosen.has(group) || group.items.length > room) return;
     chosen.add(group);
     room -= group.items.length;
   };
   const phases = groups.filter(g => /^frame /.test(g.key));
   groups.filter(g => g.key === 'still').forEach(take);
+  groups.filter(g => g.items.some(p => p.role === 'reference')).forEach(take);
+  // Reserve a matching captured comparison (e.g. wireframe) before animation
+  // phases consume the budget. Whole groups always survive or leave together.
+  const captured = groups.filter(g => g.key.startsWith('capture ') && g.items.some(p => p.role === 'original'));
+  captured.forEach(take);
   for (let count = phases.length; count > 0; count--) {
     const spread = [...new Set(Array.from({ length: count }, (_, i) => Math.round(count === 1 ? (phases.length - 1) / 2 : (i * (phases.length - 1)) / (count - 1))))].map(i => phases[i]);
     if (spread.reduce((n, g) => n + g.items.length, 0) <= room) {

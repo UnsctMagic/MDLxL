@@ -1,4 +1,4 @@
-import { AI_TOOLS, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
+import { AI_TOOLS, AI_DISPLAY_COMMANDS, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
 import {
   aiSelectionSignature,
   checkAiTarget,
@@ -324,6 +324,17 @@ export class AiEditorBridge {
   advance(id, viewChanged = false) {
     const target = this.targets.get(id),
       s = this.state();
+    // A prompt may already be captured while this AI operation is committing.
+    // Advance only tokens for the same chat and exact pre-operation state.
+    const peers = [...this.targets.values()].filter(other => other !== target && !other.region &&
+      other.documentId === target.documentId && other.chatId === target.chatId &&
+      other.revision === target.revision && other.selectionSignature === target.selectionSignature);
+    const advancePeers = () => {
+      for (const other of peers) {
+        for (const key of ['revision', 'selectionSignature', 'selection', 'offscreen']) other[key] = structuredClone(target[key]);
+        for (const key of ['selection', 'selectedNodeIds', 'checkedGeosets', 'activeGeoset', 'uvSet']) other.restore[key] = structuredClone(target.restore[key]);
+      }
+    };
     if (target.region) {
       const env = this.env(target); target.revision = env.doc.revision; target.regionKey = regionSignature(env.model, target.region);
       return;
@@ -332,6 +343,7 @@ export class AiEditorBridge {
       const session = s.sessions.find(x => x.id === target.documentId);
       if (session) target.revision = session.doc.revision;
       target.offscreen = true;
+      advancePeers();
       return;
     }
     target.offscreen = false;
@@ -348,6 +360,7 @@ export class AiEditorBridge {
         workplane: s.workplane,
         view: s.view,
       });
+    advancePeers();
   }
   async regions(args, options) {
     this.batches ||= new Map();
@@ -393,6 +406,10 @@ export class AiEditorBridge {
   async call(name, args = {}, options = {}) {
     const key = (args.target && this.targets.get(args.target)?.documentId) || '',
       run = async () => {
+      if (options.signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
+      const display = (name === 'mdlxl_command' && AI_DISPLAY_COMMANDS.has(args.id)) || (name === 'mdlxl_view' && !args.mode);
+      if (display && name === 'mdlxl_command' && this.env(this.targets.get(args.target)).live === false)
+        throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
       if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
@@ -408,11 +425,20 @@ export class AiEditorBridge {
         revision = current()?.doc.revision;
         paint = current()?.session.paintWorkingRevision;
       }
-      let result;
+      let result, cancel;
       try {
-        result = await this.dispatch(name, args, options);
+        // Display work can wait on a UI paint that never arrives. Cancellation
+        // must release this call's queue so the next read/edit can still run.
+        const cancelled = display && options.signal ? new Promise((_, reject) => {
+          cancel = () => reject(options.signal.reason || Error('AI display request cancelled.'));
+          options.signal.addEventListener('abort', cancel, { once: true });
+          if (options.signal.aborted) cancel();
+        }) : null;
+        const operation = this.dispatch(name, args, options);
+        result = await (cancelled ? Promise.race([operation, cancelled]) : operation);
         return result;
       } finally {
+        if (cancel) options.signal.removeEventListener('abort', cancel);
         const env = review && current();
         if (env && (env.doc.revision !== revision || env.session.paintWorkingRevision !== paint))
           recordAiChange(review, result, env.model);
@@ -648,7 +674,9 @@ export class AiEditorBridge {
       const command = host.commands().find(c => c.id === args.id);
       if (!command?.enabled) throw Error('This editor command is unavailable: ' + args.id);
       await host.command(args.id);
+      active();
       await settle();
+      active();
       // A save runs on after the command returns; report only once it is written.
       for (let i = 0; i < 1000 && this.state().saving; i++) await settle();
       if (this.state().session.id !== target.documentId)
@@ -681,7 +709,9 @@ export class AiEditorBridge {
         return this.contextFor(args.target);
       }
       await host.view(args);
+      active();
       await settle();
+      active();
       this.advance(args.target, true);
       return this.contextFor(args.target);
     }
