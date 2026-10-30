@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
-import { addHeroGlow, glowLayout, hasHeroGlow, originGlowSize, weaponCandidates, weaponChoices, weaponLine } from '../src/glow-up.js';
+import { addHeroGlow, findHeroGlow, glowLayout, glowStart, glowUp, hasHeroGlow, heroGlowFaults, originGlowSize, repairHeroGlow, weaponCandidates, weaponChoices, weaponLine } from '../src/glow-up.js';
+import { bindVertices } from '../src/editor-commands.js';
 import { sampleGeosetAnimation, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { samplePreviewMatrices } from '../app/preview-pose.js';
 
@@ -232,4 +233,113 @@ test('TextureID tracks count as hero glow while each glow filter rule stays loca
   layer.FilterMode = 0;
   assert.equal(hasHeroGlow(model), false, 'visible hero glow still requires additive filtering');
   assert.equal(originGlowSize(model), size, 'body sizing still ignores glow regardless of filter');
+});
+
+// A model that already glows: Glow Up adjusts its glow and offers repairs (docs/GLOW_UP.md).
+const glowed = (options = {}) => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  addHeroGlow(m, { origin: true, weapon: true, weaponIds: [sword.ObjectId], weaponFrom: .5, weaponTo: .9, ...options });
+  return { m, sword };
+};
+const counts = m => [m.Geosets.length, m.Bones.length, m.Materials.length, m.GeosetAnims.length];
+const ownOptions = (m, change = {}) => ({ ...glowStart(m), ...change });
+
+test('on a model that glows, Glow Up starts from its own glow and an unchanged Apply changes nothing', () => {
+  const { m } = glowed({ originOffset: [10, 5], originSize: 1.2, brightness: .6 }), found = findHeroGlow(m), start = glowStart(m);
+  assert.equal(found.origin.pieces.length, 3); assert.ok(found.weapon.pieces.length > 1); assert.equal(m.Bones.find(b => b.ObjectId === found.weapon.anchor).Name, 'Sword');
+  assert.deepEqual([start.origin, start.weapon, start.originBrightness, start.weaponBrightness], [true, true, .6, .6]);
+  near(start.originOffset, [10, 5]);
+  const layout = glowLayout(m, start), widest = found.origin.pieces.reduce((a, b) => b.width > a.width ? b : a);
+  near(layout.origin.center, widest.center); near([layout.origin.half * 2], [widest.width]);
+  near(layout.weapons[0].start, found.weapon.start); near(layout.weapons[0].end, found.weapon.end);
+  const before = structuredClone(m);
+  glowUp(m, start);
+  assert.deepEqual(m, before, 'adjusting nothing leaves the model alone');
+  assert.deepEqual(heroGlowFaults(m), [], 'Glow Up’s own glow is built like Blizzard’s');
+});
+
+test('Glow Up moves, resizes and brightens the model’s own glow without adding any', () => {
+  const { m, sword } = glowed(), found = findHeroGlow(m), was = counts(m), start = glowStart(m);
+  const plane = found.origin.pieces[1], bone = m.Nodes[plane.bones[0]], width = plane.width;
+  glowUp(m, { ...start, originOffset: [start.originOffset[0] + 20, start.originOffset[1] - 8], originSize: start.originSize * 1.5, weaponSize: .5, weaponTo: [.95, 0, 0], originBrightness: .4, weaponBrightness: .4 });
+  assert.deepEqual(counts(m), was, 'no new geosets, bones, materials or geoset animations');
+  const moved = findHeroGlow(m), after = moved.origin.pieces.find(p => p.bones[0] === bone.ObjectId);
+  near([after.width], [width * 1.5]); near(after.center.slice(0, 2), [plane.center[0] + 20, plane.center[1] - 8]);
+  near(Array.from(bone.PivotPoint), after.center, 1e-3);
+  assert.ok(moved.weapon.half < found.weapon.half * .6, 'weapon squares shrink about their centres');
+  near(moved.weapon.end, weaponLine(m, { weaponId: sword.ObjectId, from: found.weapon.from, to: [.95, 0, 0] }).end);
+  near(moved.weapon.start, found.weapon.start);
+  assert.equal(m.Materials[m.Geosets[plane.geoset].MaterialID].Layers[0].Alpha, .4);
+});
+
+test('a brightness change on a shared glow material splits it, reusing an identical material', () => {
+  const { m } = glowed(), was = m.Materials.length, found = findHeroGlow(m), [origin, weapon] = [found.origin.pieces[0], found.weapon.pieces[0]].map(p => m.Geosets[p.geoset]);
+  assert.equal(origin.MaterialID, weapon.MaterialID);
+  const apart = structuredClone(m); glowUp(apart, ownOptions(apart, { originBrightness: .5 }));
+  assert.equal(apart.Materials.length, was + 1); assert.equal(apart.Materials[apart.Geosets.at(-2).MaterialID].Layers[0].Alpha, .5); assert.equal(apart.Materials[apart.Geosets.at(-1).MaterialID].Layers[0].Alpha, .75);
+  const reuse = structuredClone(m), copy = structuredClone(reuse.Materials[origin.MaterialID]); copy.Layers[0].Alpha = .5; reuse.Materials.push(copy);
+  glowUp(reuse, ownOptions(reuse, { originBrightness: .5 }));
+  assert.equal(reuse.Materials.length, was + 1, 'the identical material already in the model is used');
+});
+
+test('a glow kind the model lacks is added only when ticked, on the same team-glow material', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  addHeroGlow(m, { origin: true });
+  const start = glowStart(m), materials = m.Materials.length, geosets = m.Geosets.length;
+  assert.deepEqual([start.origin, start.weapon], [true, false]);
+  glowUp(m, start); assert.equal(m.Geosets.length, geosets);
+  glowUp(m, { ...start, weapon: true, weaponIds: [sword.ObjectId] });
+  assert.equal(m.Geosets.length, geosets + 1); assert.equal(m.Materials.length, materials, 'identical team-glow material reused');
+  assert.equal(findHeroGlow(m).origin.pieces.length, 3, 'the ground glow is not added twice');
+});
+
+test('ground glow without a global animation gets the Paladin pulse on its own bones', () => {
+  const { m } = glowed(), bones = findHeroGlow(m).origin.pieces.map(p => m.Nodes[p.bones[0]]), count = m.Bones.length;
+  for (const bone of bones) delete bone.Scaling;
+  assert.deepEqual(heroGlowFaults(m).map(f => [f.key, f.count]), [['pulse', 3]]);
+  assert.equal(repairHeroGlow(m), 3);
+  assert.equal(m.Bones.length, count, 'the planes’ own bones are reused');
+  for (const bone of bones) assert.ok(m.GlobalSequences[bone.Scaling.GlobalSeqId] > 1000);
+  assert.deepEqual(heroGlowFaults(m), []);
+});
+
+test('ground glow on the body’s bone or on no bone gets bones of its own', () => {
+  for (const fault of ['ground-bone', 'unbound']) {
+    const { m } = glowed(), found = findHeroGlow(m), g = m.Geosets[found.origin.pieces[0].geoset], body = m.Bones.find(b => b.Name === 'Bone_Root');
+    if (fault === 'unbound') g.Groups = g.Groups.map(() => [999]);
+    else bindVertices(m, g, found.origin.pieces.flatMap(p => p.vertices), body.ObjectId);
+    assert.deepEqual(heroGlowFaults(m).map(f => [f.key, f.count]), [[fault, 3]], fault);
+    repairHeroGlow(m);
+    const fixed = findHeroGlow(m).origin.pieces.map(p => m.Nodes[p.bones[0]]);
+    assert.ok(fixed.every(b => b.Parent === null && b.Scaling.GlobalSeqId != null && /^Glow Origin \d+$/.test(b.Name)), fault);
+    assert.deepEqual(heroGlowFaults(m), [], fault);
+  }
+});
+
+test('glow squares that are not billboarded, not on own bones or not facing +X are repaired to face the camera', () => {
+  // Not billboarded: the squares' own bones are reused.
+  const flat = glowed().m, squares = findHeroGlow(flat).weapon.pieces, count = flat.Bones.length;
+  for (const p of squares) flat.Nodes[p.bones[0]].Flags = 256;
+  assert.deepEqual(heroGlowFaults(flat).map(f => f.key), ['billboard']);
+  repairHeroGlow(flat);
+  assert.equal(flat.Bones.length, count); assert.ok(squares.every(p => flat.Nodes[p.bones[0]].Flags & 8));
+  // On the sword's own bone, laid along XZ: each square gets a Billboarded bone under the sword and is laid in YZ.
+  const { m, sword } = glowed(), weapon = findHeroGlow(m).weapon, g = m.Geosets[weapon.pieces[0].geoset];
+  for (const p of weapon.pieces) for (const v of p.vertices) { const [x, y, z] = [0, 1, 2].map(a => g.Vertices[v * 3 + a]); g.Vertices.set([p.center[0] + (y - p.center[1]), p.center[1], z], v * 3); }
+  bindVertices(m, g, weapon.pieces.flatMap(p => p.vertices), sword.ObjectId);
+  assert.deepEqual(heroGlowFaults(m).map(f => [f.key, f.count]), [['billboard', weapon.pieces.length]]);
+  repairHeroGlow(m);
+  const fixed = findHeroGlow(m).weapon;
+  assert.equal(fixed.anchor, sword.ObjectId, 'the squares still follow the sword');
+  for (const p of fixed.pieces) {
+    const bone = m.Nodes[p.bones[0]];
+    assert.ok(bone.Flags & 8 && bone.Parent === sword.ObjectId && /^Glow Weapon \d+$/.test(bone.Name));
+    near(Array.from(bone.PivotPoint), p.center); assert.ok(Math.abs(p.normal[0]) > .99, 'built facing +X');
+  }
+  assert.deepEqual(heroGlowFaults(m), []);
+  m.Sequences = [{ Name: 'Stand', Interval: new Uint32Array([0, 1000]) }];
+  const p = fixed.pieces[0], expected = new Vector3().fromArray(m.Nodes[p.bones[0]].PivotPoint), camera = new PerspectiveCamera();
+  camera.up.set(0, 0, 1); camera.position.set(-130, 90, 150); camera.lookAt(expected); camera.updateMatrixWorld();
+  const points = skinGeoset(m.Geosets[p.geoset], samplePreviewMatrices(m, 0, 0, 1000, camera)), [a, b, c] = p.vertices.slice(0, 3).map(v => new Vector3().fromArray(points, v * 3));
+  assert.ok(Math.abs(b.clone().sub(a).cross(c.clone().sub(a)).normalize().dot(camera.position.clone().sub(expected).normalize())) > .99, 'faces the camera');
 });

@@ -19,6 +19,56 @@ under the preview, or Space, keeps it still across several drags until **Play**)
 view once and then keeps the user's camera. Create is one undo step; Cancel or
 Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
 
+## A model that already glows
+
+When the model already has visible hero glow, Glow Up adjusts that glow instead
+of adding another: the panel says *Adjusts this model's own glow.* and **Create**
+becomes **Apply** (`glowUp`, `glowStart`). `findHeroGlow` splits the glow
+geosets into connected pieces. Ground planes (flat squares facing up within
+25°, below mid-body or lower than a fifth of their width, not on a billboarded
+bone) are the origin glow; every other glow square is the weapon glow. Other
+glow shapes (slash planes, streaks) and glow hidden throughout are left as the
+author made them.
+
+- The parts the model has start ticked at their own place, size and brightness;
+  unticking leaves a part alone. A kind it lacks starts unticked and is added as
+  for a new glow only when ticked.
+- Move and the edge handle move and scale the ground planes (heights scale with
+  them, as in the template) and the pivots of bones holding only them.
+- The weapon handles sit on the squares when they all follow one weapon bone:
+  the ends move the first and last square, the squares between keep their share
+  of the stretch; the corners scale each square about its centre. Squares that
+  follow different bones keep the corners only. The weapon picker is hidden.
+- Brightness sets the glow material's alpha (an animated alpha is scaled). A
+  material other geosets use is copied for the changed part, or an identical
+  material already in the model reused; both sliders set to the same value keep
+  one material.
+
+When the glow is built unlike Blizzard's, a small **Fix glow (n)** button
+appears. Clicking it lists the faults (each with a tooltip) with **Fix** and
+**Not now**; Not now hides the button until Glow Up opens again. Fix is its own
+undo step (`repairHeroGlow`), and Glow Up then starts from the repaired glow.
+
+| Fault (`heroGlowFaults`) | Fix |
+| --- | --- |
+| Glow is attached to no bone (no or missing bone) | ground plane: its own pulsing bone; square: its own Billboarded bone under the bone of the nearest body vertex |
+| Ground glow moves with the body (its bone also holds other geometry) | its own unparented bone at the plane's centre with the template pulse |
+| Ground glow doesn't pulse (no global-sequence track on its bones or their parents, its geoset alpha or material alpha) | the template pulse, lowest plane first |
+| Glow squares don't face the camera (bone not Billboarded or also holding other geometry, or the square not built facing +X) | Billboarded on a glow-only bone without rotation or scaling (pivot to the centre), otherwise a new Billboarded bone under the bone it followed; the square is laid in YZ at the same size |
+
+A glow-only bone serves its first piece; new bones (`Glow Origin n`, `Glow
+Weapon n`) are made only where a piece has no bone of its own, and bones left
+empty stay.
+
+Calibrated on the 86 SD models with team glow (82 with visible glow): an
+unchanged Apply leaves every one untouched and Fix clears every fault. Natives
+keep glow on in Death (most), leave it lit (Sylvanas and five others), share one
+billboarded bone between squares (Archmage) and pivot off-centre (Paladin), so
+none of those is flagged. Offers remain on 13: 11 ground glows without a pulse
+(Archmage, Lady Vashj, Illidan, Anub'arak…), a fault by the owner's decision;
+the Forsaken Paladin's glow on its root joint; and the Chaos Blademaster's spin
+slashes on a shared, unbillboarded bone.
+
 ## How heroes glow
 
 Measured from every classic (SD) Warcraft III unit model with team glow (80
@@ -64,7 +114,8 @@ Visibility: the glow geosets go dark in Death, Decay and Dissipate (Dissipate on
 ## What Glow Up writes
 
 - One material per brightness (team glow, Additive, Unshaded + TwoSided, alpha =
-  Brightness); origin and weapon share it when their brightness matches.
+  Brightness); origin and weapon share it when their brightness matches, and an
+  identical team-glow material already in the model is reused.
 - Origin: one geoset with three quads on bones `Glow Origin 1–3`, Scaling tracks
   as above on reused or new global sequences.
 - Weapon: one geoset of 1–10 squares built in YZ (Warcraft billboards face +X)
@@ -100,7 +151,14 @@ Goblin Tinker camera, a quote in Malfurion's sequence name).
 
 - `test/glow-up.test.js`: origin template and pulse, visibility keys, sword
   detection and line, mirrored pairs and marked polygons, billboard orientation
-  under orbit, MDL/MDX round trip, one-step undo.
+  under orbit, MDL/MDX round trip, one-step undo. On a glowed model: start from
+  the own glow, unchanged Apply, move/resize/brighten without new content,
+  material split and reuse, a missing kind added only when ticked, and each
+  repair (pulse, ground on the body's bone or none, squares not billboarded, on
+  the weapon's bone and not facing +X).
+- Native calibration (not in CI, needs the game's CASC): every SD unit model
+  with visible team glow, checking that an unchanged Apply changes nothing and
+  Fix leaves no fault.
 - `test/glow-up.electron.cjs`: packaged app, hidden desktop. Glow Up beside Add
   ribbon, trim default panel, real mouse drags on every handle (and Escape),
   wheel zoom, camera kept during handle drags, real mouse orbit, Create,

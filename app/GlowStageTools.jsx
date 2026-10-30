@@ -17,7 +17,8 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
   },0);
   if(!marks||!layout)return null;
   const {width,height}=snapshot;
-  const weapon=glow.weapon&&marks.start&&marks.end&&marks.butt&&marks.tip&&marks.mid;
+  // A model's own weapon glow that follows no single weapon bone keeps its corners but has no ends.
+  const weapon=glow.weapon&&marks.mid,ends=weapon&&marks.start&&marks.end&&marks.butt&&marks.tip;
   // Latched screen-space mappings, taken when the drag starts.
   function mapping(kind) {
     if(kind==='move'){const ex=[marks.originX[0]-marks.origin[0],marks.originX[1]-marks.origin[1]],ey=[marks.originY[0]-marks.origin[0],marks.originY[1]-marks.origin[1]],det=ex[0]*ey[1]-ex[1]*ey[0];return Math.abs(det)>1e-6?{ex,ey,det}:null;}
@@ -66,8 +67,8 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
       <g className="pe-move-emitter">{handle(marks.origin,'move','Move origin glow')}<text x={marks.origin[0]+12} y={marks.origin[1]+20}>Move</text></g>
     </>}
     {weapon&&<g>
-      <line x1={marks.start[0]} y1={marks.start[1]} x2={marks.end[0]} y2={marks.end[1]}/>
-      {handle(marks.start,'weaponFrom','Weapon glow start')}{handle(marks.end,'weaponTo','Weapon glow end')}
+      {ends&&<><line x1={marks.start[0]} y1={marks.start[1]} x2={marks.end[0]} y2={marks.end[1]}/>
+      {handle(marks.start,'weaponFrom','Weapon glow start')}{handle(marks.end,'weaponTo','Weapon glow end')}</>}
       <polygon points={square.map(p=>p.join(',')).join(' ')}/>
       {square.map((point,index)=><React.Fragment key={index}>{handle(point,'weaponSize',index===2?'Resize weapon glow':'Resize weapon glow corner '+(index+1))}</React.Fragment>)}
       <text x={square[0][0]} y={square[0][1]-8}>Size</text>
