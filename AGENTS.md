@@ -68,6 +68,10 @@ separate and are not a shared handover.
 - Every 3D preview must allow normal mouse camera rotation unless explicitly
   requested otherwise. Verify actual mouse drags in the packaged app;
   programmatic camera changes do not verify the user's controls.
+- Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
+  animation or frame changes keep the camera exactly where the user left it.
+  Frame automatically only when the user opens something new to look at (a
+  different model, group or part), or asks for it (Fit/frame commands).
 - Show only the smallest relevant indicator by default. Explanations/editing
   controls appear after a deliberate click, remain dismissible and stay out of
   the normal layout. Verify both the uncluttered default and opened details.

@@ -90,17 +90,27 @@ function png(rgba) {
     await page.waitForFunction(old => Math.hypot(...sortPreview()[0].position.map((v, i) => v - old[i])) > 1, start);
     previews = await page.evaluate(() => sortPreview()); previews[0].position.forEach((value, i) => assert.ok(Math.abs(value - previews[1].position[i]) < 1e-6));
 
+    // 4b. Choices keep the user's camera: the After preview rebuilds without reframing.
+    const rotated = previews[0].position, color = page.getByRole('radiogroup', { name: 'Color for geoset 1' }).getByRole('radio');
+    const cameraKept = async label => { await settlePage(page, 300); const now = await page.evaluate(() => sortPreview()); for (const preview of now) assert.ok(Math.hypot(...preview.position.map((v, i) => v - rotated[i])) < 1e-3, `${label}: camera moved to ${preview.position}`); };
+    await color.first().click(); await cameraKept('another color');
+    await color.filter({ hasText: '255,0,0' }).click(); await cameraKept('color back');
+
     // 5. Playback runs at real speed and both previews stay on the same frame.
     await page.getByRole('slider', { name: 'Comparison frame' }).fill('0');
     await page.waitForFunction(() => sortPreview().every(preview => preview.frame < 5));
     await page.getByRole('button', { name: 'Play comparison', exact: true }).click();
     const began = Date.now(); await settlePage(page, 700);
     await page.getByRole('button', { name: 'Pause comparison', exact: true }).click();
-    const elapsed = Date.now() - began; previews = await page.evaluate(() => sortPreview());
+    const elapsed = Date.now() - began;
+    // Both previews stop on the same paused frame once each has drawn the pause.
+    await page.waitForFunction(() => { const [a, b] = sortPreview(); return Math.abs(a.frame - b.frame) < 2; }, null, { timeout: 3000 }).catch(() => {});
+    previews = await page.evaluate(() => sortPreview());
     assert.ok(previews[0].frame > elapsed * .6 && previews[0].frame <= elapsed + 50, `played ${previews[0].frame} ms of animation in ${elapsed} ms`);
-    assert.ok(Math.abs(previews[0].frame - previews[1].frame) < 2);
+    assert.ok(Math.abs(previews[0].frame - previews[1].frame) < 2, `frames ${previews[0].frame} vs ${previews[1].frame}`);
     await page.locator('.smm-check').getByRole('button', { name: 'Portrait', exact: true }).click();
     await page.waitForFunction(() => sortPreview().every(preview => Math.abs(preview.frame - 2100) < 2));
+    await cameraKept('Check chip');
 
     // 6. Apply: one undoable edit, mapping summary, refreshed list.
     await page.getByRole('button', { name: 'Apply 1 selected', exact: true }).click();

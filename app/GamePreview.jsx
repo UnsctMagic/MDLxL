@@ -134,7 +134,7 @@ export default function GamePreview(inputProps) {
   const portraitFrame = useRef({ status: 'idle', canvas: null, url: '', error: '', promise: Promise.resolve() });
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
-  const cameraMemory = useRef(null), glidedKey = useRef(undefined);
+  const cameraMemory = useRef(null), glidedKey = useRef(undefined), framedKey = useRef(undefined);
   const rendererSource = useRef({ input: null, build: null, revision: null });
   if (rendererSource.current.input !== model) {
     // UV Wrapper fingerprints material and texture contents. A temporary
@@ -1328,7 +1328,11 @@ export default function GamePreview(inputProps) {
         applyRestPoseMatrices(native.rendererData, p.restPose);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
         soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },p.overlays?.sounds ?? false);
-        if (p.isolatedGeosets && (sequenceChanged || userSeek)) {
+        // frameKey: isolated parts are framed once per key. Edits, rebuilds,
+        // seeks and animation changes keep the user's camera.
+        const reframe = p.frameKey === undefined || p.frameKey !== framedKey.current;
+        if (p.isolatedGeosets && (sequenceChanged || userSeek) && reframe) {
+          framedKey.current = p.frameKey;
           const matrices = new Map((native.rendererData.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
           bounds.makeEmpty();
           for (const index of p.isolatedGeosets) {
