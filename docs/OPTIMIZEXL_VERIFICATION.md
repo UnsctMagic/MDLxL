@@ -379,74 +379,73 @@ Not adopted here, each needing owner approval because it changes accepted output
 
 ## Fx world-space per-animation teaching case (2026-10-30)
 
-Added an opt-in World-space bound method inside the existing Animation optimization stage, Simple slider, Advanced help and Before/After approval history. Local tracks stays the default. Only unexcluded node transforms receive approximate world changes; geometry, UVs, materials, original color tracks, rig, effects, sequence metadata and non-TRS data remain unchanged apart from the serializer's already verified atomic ID ordering. The original private input is unchanged (158,969 bytes, SHA-256 f799c8f4afc935297a7b759891ae1728c2f5dcb98ad040469f4454ac7fa30b4c).
+World-space bound is opt-in in the existing Animation optimization stage. Local tracks remains the default. The private original remains unchanged: 158,969 B, SHA-256 f799c8f4afc935297a7b759891ae1728c2f5dcb98ad040469f4454ac7fa30b4c. Only unexcluded node TRS and the existing exact cleanup owners change; geometry, materials/color, effects, rig and sequence metadata are preserved apart from the established atomic serializer ID mapping. The reference is test data only and supplies no runtime keys.
 
-The world bound compares the full candidate against an immutable stage input, never the previous deletion. Parents run first, and every influenced skinned vertex (including descendants and blended groups) must fit at each integer millisecond between retained keys. Start/end poses are exact. Peak local mesh speed and the widest bind dimension derive each sequence budget without names. At strength 100 on this input, slow domains receive 0.481437 units, Walk's measured motion receives 1.411892, and fast domains receive 1.925749. The 10% component/turn guard remains for excursions the world budget could flatten; reach only estimates that guard's excursion. Direct skin displacement supersedes the local/reach acceptance metric for larger excursions in this mode. No existing Local tracks tolerance or result was changed.
+### Owner decision
 
-Existing zero-tolerance interior cleanup and the unused-local-key owner run first. Constant terminal holds own only a final boundary record. Quaternion controls equal to their keys have identical squad slerps; generated tests check 11,920 shared-sampler values within 1e-12 and 802 native renderer pose pairs within 1e-6 per matrix component. A Hermite vector counterexample with equal values/controls is retained. Other local cubic tracks use adaptive linear refitting only if smaller and all their animations fit. Existing redundant-key and Remaining cubic redundancy checker plans keep their own approvals and stale-evidence validation; no new checker proposal competes with them.
+Local tracks is still the default; it checks each track’s movement separately.
+World-space bound checks the model’s posed vertices and saves more on Fx; the owner will choose after reviewing it.
 
-### Private measurement
+### Measurement and timings
 
-Every animation is measured every 1 ms: 134,009 poses and 1,478 vertices per candidate. Mean is over all vertices and frames, including hidden geometry. Percentages use the same 192.574920654-unit widest bind-mesh dimension for every candidate. Peak velocity error is the maximum vector difference of successive one-millisecond vertex displacements, in units/ms. TRS key bytes exclude shared track headers and keys outside that animation; file bytes are listed separately.
+The exhaustive comparison uses 134,009 millisecond poses and all 1,478 vertices, including hidden geometry, per candidate. Mean is over every vertex/frame; percentages use the same 192.574920654-unit widest bind dimension. Peak velocity error compares successive one-millisecond displacement vectors. TRS key bytes exclude shared headers. The unchanged reference and Local bytes reused their prior dense measurements by exact SHA; all three new World candidates were measured again.
 
-The manual file is a test reference only, never a runtime input or source of copied keys. Its unaccepted constant-color change is not adopted. Its raw file saving includes 1,380 bytes of non-node-TRS changes; the node-TRS-only equivalent is computed from record sizes while retaining all original non-TRS data (no reference keys are copied). Each produced candidate's computed equivalent exactly equals its actual serialized file size.
+| Candidate | File bytes | Saved | Node-TRS-only equivalent | Before time | After time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Manual reference | 130,225 | 18.08% | 131,605 | reference | reference |
+| Local 100 | 151,241 | 4.86% | 151,241 | 0.64 s | unchanged |
+| World 60 | 144,465 | 9.12% | 144,465 | 63.44 s | 3.49 s |
+| World 80 | 139,489 | 12.25% | 139,489 | 61.66 s | 3.93 s |
+| World 100 | 135,993 | 14.45% | 135,993 | 98.01 s | 4.77 s |
 
-| Candidate | File bytes | Saved | Node-TRS-only equivalent bytes | Reduction time |
-| --- | ---: | ---: | ---: | ---: |
-| Manual reference | 130,225 | 18.08% | 131,605 | reference |
-| Local 100 | 151,241 | 4.86% | 151,241 | 0.64 s |
-| World 60 | 144,453 | 9.13% | 144,453 | 63.44 s |
-| World 80 | 139,281 | 12.38% | 139,281 | 61.66 s |
-| World 100 | 136,097 | 14.39% | 136,097 | 98.01 s |
+Before times are the original PR measurements during other verification. A fresh same-PC profiled World 100 baseline was 60.830 s with the original 136,097-byte hash. Three isolated final-order fresh processes took 4.580 / 4.545 / 4.565 s; the ancestor-map regression check took 4.615 s and the final cyclic-cache checks took 4.736 / 4.767 s, with the same 135,993-byte output. The under-5-second target passes on this PC; the under-2-second stretch does not. No persistent cross-request cache or warmed candidate is needed. A simultaneous build made the dense replay’s World 80 reduction take 5.54 s; the isolated 3.93 s table value is the performance measurement.
 
-At 100 the new mode saves 22,872 bytes (14.39%), versus legacy's 7,728 (4.86%). It does **not** reach the raw manual reference's 18.08% (17.21% when only node TRS record changes are counted). There are 260 more retained node keys than in the manual reference, including small foot and secondary-motion excursions guarded by this mode. This is a remaining saving gap, not a claim that the manual target was achieved. No tolerance was loosened to close it.
-
-All three strengths fit their derived original-input budgets and every accepted per-animation maximum; all 33 start/end pairs are exactly zero. Durations are this PC's finite wall times during other verification, not portable performance claims.
+World 100 now saves 22,976 B (14.45%), 104 B more than the prior 14.39% result. Its hash is 829b7b3ed972d5a0b73475af5b6aca0777c00bf9859a0b4e3edac5b5c18a7c3d. Largest-gap ordering changes 60/80 output sizes by +12/+208 B; both still fit the same bounds. All 33 animation start/end pairs remain exactly zero. Every measured maximum fits the unchanged original-input budget and the accepted per-animation maximum. The manual raw file includes 1,380 B of unrelated non-node-TRS savings that are not adopted.
 
 | Animation | Candidate | TRS key bytes | Max units | Mean units | Max % | Mean % | Start / end units | Peak velocity error (units/ms) |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Stand - 1 | Manual reference | 2,000 | 0.499955 | 0.178160 | 0.259616 | 0.092515 | 0 / 0 | 0.034167 |
 | Stand - 1 | Local 100 | 2,396 | 0.450243 | 0.009046 | 0.233801 | 0.004697 | 0 / 0 | 0.007629 |
-| Stand - 1 | World 60 | 2,240 | 0.164105 | 0.002910 | 0.085216 | 0.001511 | 0 / 0 | 0.019779 |
-| Stand - 1 | World 80 | 2,108 | 0.299093 | 0.005709 | 0.155313 | 0.002964 | 0 / 0 | 0.033517 |
-| Stand - 1 | World 100 | 2,056 | 0.423593 | 0.017546 | 0.219963 | 0.009111 | 0 / 0 | 0.033517 |
+| Stand - 1 | World 60 | 2,240 | 0.164105 | 0.003789 | 0.085216 | 0.001968 | 0 / 0 | 0.019779 |
+| Stand - 1 | World 80 | 2,108 | 0.293423 | 0.006847 | 0.152368 | 0.003556 | 0 / 0 | 0.033517 |
+| Stand - 1 | World 100 | 2,056 | 0.423593 | 0.017562 | 0.219963 | 0.009119 | 0 / 0 | 0.033517 |
 | Attack - 1 | Manual reference | 4,688 | 1.999779 | 0.583409 | 1.038442 | 0.302952 | 0 / 0 | 1.628599 |
 | Attack - 1 | Local 100 | 7,584 | 0.912507 | 0.016610 | 0.473845 | 0.008625 | 0 / 0 | 0.101390 |
-| Attack - 1 | World 60 | 6,400 | 0.692850 | 0.049830 | 0.359782 | 0.025876 | 0 / 0 | 0.144036 |
-| Attack - 1 | World 80 | 5,960 | 1.185917 | 0.087443 | 0.615821 | 0.045407 | 0 / 0 | 0.196694 |
-| Attack - 1 | World 100 | 5,596 | 1.924696 | 0.463226 | 0.999453 | 0.240543 | 0 / 0 | 0.359747 |
+| Attack - 1 | World 60 | 6,416 | 0.689492 | 0.055526 | 0.358038 | 0.028834 | 0 / 0 | 0.114985 |
+| Attack - 1 | World 80 | 6,000 | 1.212794 | 0.091819 | 0.629778 | 0.047680 | 0 / 0 | 0.129195 |
+| Attack - 1 | World 100 | 5,564 | 1.921252 | 0.486466 | 0.997664 | 0.252611 | 0 / 0 | 0.359747 |
 | Attack - 2 | Manual reference | 6,008 | 1.997994 | 0.389066 | 1.037515 | 0.202034 | 0 / 0 | 1.779686 |
 | Attack - 2 | Local 100 | 9,344 | 0.882617 | 0.026703 | 0.458324 | 0.013866 | 0 / 0 | 0.133451 |
-| Attack - 2 | World 60 | 7,976 | 0.686972 | 0.042463 | 0.356730 | 0.022050 | 0 / 0 | 0.197127 |
-| Attack - 2 | World 80 | 7,352 | 1.226379 | 0.126967 | 0.636832 | 0.065931 | 0 / 0 | 0.155480 |
-| Attack - 2 | World 100 | 6,764 | 1.911871 | 0.312061 | 0.992793 | 0.162046 | 0 / 0 | 0.177952 |
+| Attack - 2 | World 60 | 7,996 | 0.688083 | 0.049730 | 0.357307 | 0.025824 | 0 / 0 | 0.197127 |
+| Attack - 2 | World 80 | 7,352 | 1.226379 | 0.127716 | 0.636832 | 0.066320 | 0 / 0 | 0.155480 |
+| Attack - 2 | World 100 | 6,784 | 1.918422 | 0.305092 | 0.996195 | 0.158427 | 0 / 0 | 0.155661 |
 | Walk | Manual reference | 4,252 | 1.498797 | 0.302113 | 0.778293 | 0.156881 | 0 / 0 | 0.279541 |
 | Walk | Local 100 | 5,956 | 0.943399 | 0.049394 | 0.489887 | 0.025649 | 0 / 0 | 0.094364 |
-| Walk | World 60 | 5,272 | 0.494972 | 0.049356 | 0.257028 | 0.025630 | 0 / 0 | 0.118177 |
-| Walk | World 80 | 4,876 | 0.879637 | 0.125477 | 0.456776 | 0.065157 | 0 / 0 | 0.133041 |
-| Walk | World 100 | 4,704 | 1.409402 | 0.119172 | 0.731872 | 0.061883 | 0 / 0 | 0.126406 |
+| Walk | World 60 | 5,272 | 0.494972 | 0.049417 | 0.257028 | 0.025661 | 0 / 0 | 0.118177 |
+| Walk | World 80 | 4,936 | 0.901801 | 0.132311 | 0.468286 | 0.068707 | 0 / 0 | 0.141318 |
+| Walk | World 100 | 4,720 | 1.409402 | 0.169032 | 0.731872 | 0.087774 | 0 / 0 | 0.161696 |
 | Death | Manual reference | 8,232 | 1.998030 | 0.314404 | 1.037534 | 0.163263 | 0 / 0 | 0.381115 |
 | Death | Local 100 | 9,932 | 1.140073 | 0.079951 | 0.592015 | 0.041517 | 0 / 0 | 0.122537 |
-| Death | World 60 | 9,452 | 0.675982 | 0.092837 | 0.351023 | 0.048208 | 0 / 0 | 0.122537 |
-| Death | World 80 | 8,948 | 1.223643 | 0.143834 | 0.635411 | 0.074690 | 0 / 0 | 0.171399 |
-| Death | World 100 | 8,372 | 1.911771 | 0.225680 | 0.992741 | 0.117191 | 0 / 0 | 0.276973 |
-| Decay Flesh | Manual reference | 1,132 | 1.41e-06 | 1.64e-07 | 7.31e-07 | 8.50e-08 | 0 / 0 | 1.41e-06 |
-| Decay Flesh | Local 100 | 1,508 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
-| Decay Flesh | World 60 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
-| Decay Flesh | World 80 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
-| Decay Flesh | World 100 | 1,292 | 8.64e-14 | 1.29e-15 | 4.49e-14 | 6.72e-16 | 0 / 0 | 1.17e-13 |
-| Decay Bone | Manual reference | 632 | 4.52e-06 | 4.03e-07 | 2.35e-06 | 2.09e-07 | 0 / 0 | 4.52e-06 |
-| Decay Bone | Local 100 | 732 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
-| Decay Bone | World 60 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
-| Decay Bone | World 80 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
-| Decay Bone | World 100 | 652 | 9.35e-14 | 9.75e-16 | 4.85e-14 | 5.06e-16 | 0 / 0 | 1.80e-13 |
+| Death | World 60 | 9,452 | 0.675982 | 0.094519 | 0.351023 | 0.049082 | 0 / 0 | 0.122537 |
+| Death | World 80 | 8,948 | 1.215757 | 0.143834 | 0.631316 | 0.074690 | 0 / 0 | 0.171399 |
+| Death | World 100 | 8,336 | 1.915127 | 0.265681 | 0.994484 | 0.137962 | 0 / 0 | 0.276973 |
+| Decay Flesh | Manual reference | 1,132 | 0.000001 | 0.000000 | 0.000001 | 0.000000 | 0 / 0 | 0.000001 |
+| Decay Flesh | Local 100 | 1,508 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Flesh | World 60 | 1,292 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Flesh | World 80 | 1,292 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Flesh | World 100 | 1,292 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Bone | Manual reference | 632 | 0.000005 | 0.000000 | 0.000002 | 0.000000 | 0 / 0 | 0.000005 |
+| Decay Bone | Local 100 | 732 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Bone | World 60 | 652 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Bone | World 80 | 652 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
+| Decay Bone | World 100 | 652 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
 | Portrait | Manual reference | 928 | 0.499954 | 0.191341 | 0.259616 | 0.099359 | 0 / 0 | 0.034167 |
-| Portrait | Local 100 | 1,208 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Portrait | Local 100 | 1,208 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
 | Portrait | World 60 | 1,128 | 0.164105 | 0.000168 | 0.085216 | 0.000087 | 0 / 0 | 0.019779 |
 | Portrait | World 80 | 1,016 | 0.291516 | 0.000441 | 0.151378 | 0.000229 | 0 / 0 | 0.033517 |
 | Portrait | World 100 | 980 | 0.435965 | 0.004960 | 0.226387 | 0.002576 | 0 / 0 | 0.033517 |
 | Portrait Talk | Manual reference | 1,108 | 0.499705 | 0.188622 | 0.259486 | 0.097948 | 0 / 0 | 0.025512 |
-| Portrait Talk | Local 100 | 1,368 | 0 | 0 | 0 | 0 | 0 / 0 | 0 |
+| Portrait Talk | Local 100 | 1,368 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 0 / 0 | 0.000000 |
 | Portrait Talk | World 60 | 1,288 | 0.164107 | 0.000168 | 0.085217 | 0.000087 | 0 / 0 | 0.015038 |
 | Portrait Talk | World 80 | 1,176 | 0.291516 | 0.000441 | 0.151378 | 0.000229 | 0 / 0 | 0.025358 |
 | Portrait Talk | World 100 | 1,160 | 0.308169 | 0.000474 | 0.160026 | 0.000246 | 0 / 0 | 0.025358 |
@@ -454,27 +453,80 @@ All three strengths fit their derived original-input budgets and every accepted 
 | Stand Ready | Local 100 | 2,884 | 0.452348 | 0.008528 | 0.234894 | 0.004428 | 0 / 0 | 0.008414 |
 | Stand Ready | World 60 | 2,704 | 0.169112 | 0.002046 | 0.087816 | 0.001062 | 0 / 0 | 0.014372 |
 | Stand Ready | World 80 | 2,508 | 0.264942 | 0.007273 | 0.137579 | 0.003777 | 0 / 0 | 0.015424 |
-| Stand Ready | World 100 | 2,408 | 0.473675 | 0.014623 | 0.245969 | 0.007593 | 0 / 0 | 0.015424 |
+| Stand Ready | World 100 | 2,428 | 0.412502 | 0.016783 | 0.214203 | 0.008715 | 0 / 0 | 0.015424 |
 | Attack Slam | Manual reference | 9,616 | 1.996021 | 0.796469 | 1.036491 | 0.413589 | 0 / 0 | 1.060960 |
 | Attack Slam | Local 100 | 15,864 | 1.707975 | 0.227708 | 0.886914 | 0.118244 | 0 / 0 | 0.851880 |
-| Attack Slam | World 60 | 15,368 | 0.692500 | 0.268678 | 0.359600 | 0.139518 | 0 / 0 | 0.304170 |
-| Attack Slam | World 80 | 12,712 | 1.232110 | 0.393399 | 0.639808 | 0.204283 | 0 / 0 | 0.851880 |
-| Attack Slam | World 100 | 11,432 | 1.921238 | 0.584003 | 0.997657 | 0.303260 | 0 / 0 | 0.824886 |
+| Attack Slam | World 60 | 15,344 | 0.692500 | 0.249346 | 0.359600 | 0.129480 | 0 / 0 | 0.304170 |
+| Attack Slam | World 80 | 12,820 | 1.231794 | 0.374807 | 0.639644 | 0.194629 | 0 / 0 | 0.851880 |
+| Attack Slam | World 100 | 11,340 | 1.919025 | 0.501965 | 0.996509 | 0.260660 | 0 / 0 | 1.164893 |
 
-### Regression and packaged verification
+### Performance mechanism and bound proof
 
-- Source: node --test test/optimizexl*.test.js tests/*.test.js test/localization-catalogs.test.js test/localization-current.test.js: 251 passed, 2 intentionally skipped. The private Fx unit test skips without its environment path; the dedicated private replay above exercised all three strengths. Generated tests cover positive reduction, parent/child accumulation, small speech/scale/rotation cycles, non-unit influence chains, long reach, global tracks and global-influenced skin, overlapping sequences, exclusions, camera-dependent skin, vector cubic counterexamples, native quaternion identity, exact prerequisites, selected-batch stale evidence, stable exact rescans, other-stage pipelines and Back.
-- Frozen flails: 56 recorded comparisons pass (25 Flail03, 31 Flail01), using both exact source hashes. Golden files are unchanged. Existing authored-key retention and approved welding exceptions retain their exact checks. Flail03's historical mounted-sphere output was reproduced using accepted Git source c6dc15ce0253355f6ef212d18c99157d48e80d37 and required to match the unchanged 084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a hash before the existing serializer-permutation comparison passed.
-- Build: npx vite build passes. A disposable package verifies 1,343 runtime/asset files and 55 locales.
-- Full selected hidden suite: 4 passed (new world workflow, existing workflow, paired preview, Flail03 playback), 1 pre-existing failure, 13 private-only skips by runner policy. The existing review test still hard-codes 10 Duplicate-data rows but receives 9. Unmodified base aa668982 produces the identical bytes and review list (SHA-256 6b775e0458d1ca1c7656dbe2133fa2b3df3693b8bef5ac0defe74d732859d248). That unrelated assertion was not weakened.
-- The final rebuilt package repeats all three generated harnesses successfully. The world harness checks the collapsed default, method/tooltip, existing strength slider restoring source detail, eight native before/after matrices, actual mouse rotation from either pane with paired cameras, approval, pinned Before, Back restoring method/history and exact approved-only saving. No page errors occurred.
+The original profile spends about 14.8 s measuring speed and 31.6 s resampling original poses inside refits. The selected implementation compiles immutable sequence bounds and normalized quaternion controls through the shared sampler; caches bind data by influence group and immutable original samples by frame/subtree; reuses world-matrix scratch; and invalidates the edited node and descendants after both accepted and rejected trials. Original matrices do not invalidate. Approximate trials still inspect only the span between neighbouring kept keys, against the immutable stage input, with 1 ms samples and the existing quarter probes for sub-ms spans. A zero/one-key refit domain is unchanged by interpolation type. A self-controlled quaternion domain uses the already established squad identity; vector Hermite curves do not share it.
 
-Current main de36134b (the AI motion-measurement work) was integrated into the feature branch. The only conflict was the task-index insertion; both tasks remain. Animation, hierarchy, serialization and optimizer owners are unchanged by that main update. The integrated branch repeats 251 focused source/compatibility/localization passes (2 private skips), 12 AI motion/optimizer integration passes, all 56 frozen comparisons, and all three generated hidden packaged checks. The rebuilt package verifies 1,339 runtime/asset files and 55 locales. Final Fx 100 serialization exactly matches the measured 136,097-byte candidate, SHA-256 466ff32a1dd342dd46c26bf0a32e1fc53526fe8ff1b4e10c95ca675ce85c1867. Detailed benchmark diagnostics are returned separately from the compact visible key-count statistic.
+The speed shortcut is a conservative certificate, not coarser displacement sampling. It applies only to acyclic, ordinary inherit-flag chains with constant scale/rotation and piecewise linear translation, at most 16 equal-weight influences. Frozen globals are constants; invalid global IDs follow actual local playback. Changing rotation/scale, translation cubics, steps with jumps, inheritance flags, malformed rotations or a failed certificate use the full millisecond speed scan.
 
-Release main 4681688e (0.36.0) subsequently landed and was integrated without changing its version, release files, existing controls or translations. Only the exact catalog-count assertion conflicted; the final counts include main plus this feature's six entries per language: 7,271 / 7,287 / 7,151. On that combined source, 251 focused tests pass (2 private skips), 28 AI/number-field integration tests pass, Vite builds, and the three generated hidden packaged harnesses pass again. The final package verifies 1,343 runtime/asset files and 55 locales. Optimizer algorithms, hierarchy and serialization owners did not change in this release integration; the Fx measurements remain applicable.
+For the certified domain, ideal world vertices are piecewise affine. In infinity norm, compose local constant linear-part norm A, maximum translation slope V and positional magnitude T down the hierarchy: A_world = A_parent A_local; V_world = A_parent V_local + V_parent; T_world = A_parent T_local + T_parent. Matrix/pivot composition itself remains owned by animation.js. The raw-versus-normalized constant quaternion difference is included in the local matrix error radius; repeated normalized lerps/squad use the same constant quaternion, with no varying-angle trigonometric branch. A 1024 Number.EPSILON envelope per local operation block covers normalization, pivot arithmetic, matrix multiplication and the limited equal-weight accumulation; radii propagate with each parent, including products of parent/child errors. For a bind vertex of infinity norm R, the adjacent-frame Euclidean speed is at most sqrt(3) times [V_world + 2(A_error R + T_error)], plus both skinning-roundoff radii. This includes raw quaternion endpoints and arithmetic variation. Nonfinite/uncertified bounds fall back to dense sampling.
 
-### Remaining limits and reproduction
+Use this bound only if it is at most 0.5 * meshSize / 1000. The budget formula is exactly flat below that threshold, so the certified and fully sampled speeds choose the identical quarter-budget; the shortcut cannot enlarge a budget. On Fx the certificates are 0.00691630 / 0.00276139 units/ms for Decay Flesh/Bone, below the 0.09628746 threshold; the independently measured dense peaks are 0.00083253 / 0.00014841. All other Fx budgets retain their exact measured speeds. The diagnostic peakSpeed field holds the conservative ceiling for a certified slow clip; it is not a claimed exact measured speed there. Dense independent replay verifies the actual candidate errors.
 
-The new mode remains selectable, with Local tracks as default: it costs roughly one minute on this example, does not reach the manual saving target, and is supported only for ordinary Classic/SD skin transforms. Global or camera-facing/anchored influence and overlapping spans retain their established handling. The guarantee is finite sampled displacement, not an analytic continuous-time or velocity bound. A later approved stage can spend a new budget or change geometry; the stage does not retroactively constrain other operations. Shader effects, camera-dependent appearance, external checker websites, user visual acceptance and Warcraft III playback were not exercised.
+Squared distance is only a cheap screen well inside a bound (1e-12 relative margin); hypot still owns boundary acceptance and every possible speed maximum, including ties, underflow, overflow and nonfinite values. Tests compare compiled/default sampling bit for bit and pooled/default node matrices through parents, all inherit flags and cycles, plus selective descendant invalidation and changing cyclic roots. Cyclic influence checks retain the full playback root order, including unskinned reference nodes. Generated dense hierarchies with pivots, blends, constant non-unit quaternion endpoints and scaling verify the certificate dominates actual one-millisecond speeds and selects the identical budget.
 
-Private files stay outside Git. Read input files as data and never execute downloaded research scripts. Reproduce with the new test/manual/optimizexl-world-budget.mjs using original, accepted-reference and output-directory arguments; set MDLXL_FX_RESUME=1 only to reuse already measured original/reference/legacy bytes with identical hashes. MDLXL_FX_MODEL opts into the separate private unit case. The hidden runner command is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview,optimizexl-playback,optimizexl-review (set the normal private fixture path for the last two). No visible desktop takeover, release, version bump, merge, installed-app or real-profile modification occurred. Disposable packages, profiles, runtime/source copies and processes are removed after verification, retaining only the small report/logs and needed capture.
+Measured experiments: original subtree sampling/unmodified-domain refit checks alone reduce 60.83 s to 27.24 s with identical bytes; pooled poses/domain descriptors give 20.63 s; held-group skin reuse and cheap distance screens give 9.83 s; dense matrix speed screening gives 7.98 s; descendant revisions 7.47 s; compiled quaternion controls 7.29 s; the affine slow-speed certificate gives 4.37 s before the selected key order. Sharing a full original vertex buffer across subtree checks worsened timing to 10.41 s and was discarded. Binary run deletion was 8.34 s versus 7.98 s on that same intermediate engine and added 100 B; it was discarded. No binary acceptance, loosened guard, or enlarged budget ships.
+
+### Remaining node-TRS gap
+
+The gap falls from 4,492 to 4,388 B (255 extra keys versus 260). It is fully accounted for by these animation key records; there is no hidden non-TRS saving in this comparison.
+
+| Animation | Manual key bytes | Prior World 100 | New World 100 | Remaining gap |
+| --- | ---: | ---: | ---: | ---: |
+| Stand - 1 | 2,000 | 2,056 | 2,056 | 56 |
+| Attack - 1 | 4,688 | 5,596 | 5,564 | 876 |
+| Attack - 2 | 6,008 | 6,764 | 6,784 | 776 |
+| Walk | 4,252 | 4,704 | 4,720 | 468 |
+| Death | 8,232 | 8,372 | 8,336 | 104 |
+| Decay Flesh | 1,132 | 1,292 | 1,292 | 160 |
+| Decay Bone | 632 | 652 | 652 | 20 |
+| Portrait | 928 | 980 | 980 | 52 |
+| Portrait Talk | 1,108 | 1,160 | 1,160 | 52 |
+| Stand Ready | 2,328 | 2,408 | 2,428 | 100 |
+| Attack Slam | 9,616 | 11,432 | 11,340 | 1,724 |
+
+Largest track differences (including a track’s shared header):
+
+| Node / property | Manual bytes | New bytes | Gap | Manual / new keys |
+| --- | ---: | ---: | ---: | ---: |
+| Bone_Foot_R / Translation | 128 | 768 | 640 | 7 / 47 |
+| Bone_Foot_L / Translation | 80 | 672 | 592 | 4 / 41 |
+| BellyGut / Translation | 336 | 656 | 320 | 20 / 40 |
+| BellyGut / Scaling | 800 | 1,088 | 288 | 49 / 67 |
+| Flail_Root / Translation | 1,856 | 2,080 | 224 | 115 / 129 |
+| Flail_Root / Rotation | 2,076 | 2,256 | 180 | 103 / 112 |
+| AxHandle01 / Translation | 576 | 752 | 176 | 35 / 46 |
+| Flail_Link_01 / Translation | 256 | 432 | 176 | 15 / 26 |
+| Bone_Leg1_L / Rotation | 1,436 | 1,536 | 100 | 71 / 76 |
+| Bone_Hand_R / Rotation | 896 | 996 | 100 | 44 / 49 |
+| Bone_Arm1_L / Rotation | 1,256 | 1,356 | 100 | 62 / 67 |
+| Cape 2 / Rotation | 956 | 1,056 | 100 | 47 / 52 |
+
+Levers and their costs:
+
+- Deletion order: ascending original output 136,097 B; reverse 136,021 B; largest neighbour gap 135,993 B (selected); smallest gap 136,657 B. Refitting first gives 136,041 B; combining it with largest-gap order gives 136,021 B. This is a greedy search, not proof of a global optimum. The selected change recovers only 104 B.
+- Refit: disabling it leaves 140,969 B in the original-order experiment, costing 4,872 B. The two accepted linear tracks already remove that representation overhead. The remaining BellyGut translation/scaling differences are 320/288 B, with both manual and generated tracks already linear. Reordering refit does not eliminate this gap.
+- Small-motion guard: the manual curves fail the unchanged guard in 88 track/animation pairs, 19 in Attack Slam. The two foot translations alone account for 1,232 of Slam’s remaining 1,724 B (71.5%). Their authored Slam ranges are about [0.388,0.247,0.840] and [0.306,0.211,0.258] units. The manual right-foot translation is constant; the left-foot component ranges shrink to about [0.189,0.151,0.175]. These discard excursions the component guard preserves. This is evidence against adopting those curves, not proof that every retained key is minimal. Relaxing the guard would spend protected secondary motion and was not done.
+- Budget formula: nine moving manual domains exceed the current derived budgets: roughly 0.5 versus 0.481437 for slow clips, 1.498797 versus 1.411892 for Walk and about 2 versus 1.925749 for fast clips. Spending the full manual maxima would enlarge existing budgets and is outside this request. The formulas and strength values are unchanged.
+- Exact endpoints/holds: the 180 B decay gap is nine additional linear quaternion records. Their raw constant quaternions are not exactly unit, so holding one raw value is not bit-identical to interpolation’s normalized interior. The manual reference tolerates tiny decay deviations; the new reducer retains these records and its exact endpoint contract.
+
+The manual 131,605 B / 17.21% node-TRS target remains unmet. The tested order/refit choices do not close it without further algorithm work; neither guard nor budgets were loosened to chase that number.
+
+### Verification and limits
+
+- 301 source/compatibility/localization/shared-animation/AI/UI checks pass; 2 intentional private skips. Tests cover the previous world cases plus compiled sampler arithmetic, globals/invalid IDs, pooled flags/cycles and selective subtree revisions, and dense speed-certificate counterexamples.
+- Full source checkpoint: 2,473 pass / 24 skip / 0 fail; baseline gate passes without exceptions. The final added cyclic-influence case also passes in the focused suite; PR CI runs the exact final source.
+- Frozen flail: 56 comparisons pass (25 Flail03, 31 Flail01), with unchanged original golden files and only the existing authored-key/weld/serializer exceptions. The historical mounted reference is reconstructed from accepted Git source and checked against its original 084d34e0… hash before use.
+- Vite and packaging pass: 1,343 runtime/asset files and 55 locales. The requested hidden packaged world-budget/workflow/preview harnesses pass 3/3, including native pose comparisons, actual paired mouse camera drags, Local default, strength restoration, tooltip, pinned Before, approval, Back and approved-only save. A representative capture is retained in the D: report folder.
+- No visible desktop control, installed-app/profile change, version bump, merge or release. Private inputs are unchanged. Disposable packages, profiles, historical sources and generated model candidates are removed after checks; small reports/logs and one capture remain.
+
+This is sampled skin-displacement acceptance, not continuous-time/velocity acceptance, external checker acceptance or Warcraft III playback. The speed certificate only selects the unchanged slow budget; it does not replace deletion/refit verification. Classic/SD skin, global/camera-facing exclusions and overlapping-domain handling retain their existing scope. User visual acceptance and Warcraft III remain untested.
+
+Reproduce with node test/manual/optimizexl-world-budget.mjs ORIGINAL ACCEPTED OUTPUT_DIRECTORY. MDLXL_FX_RESUME=1 reuses only previously measured identical reference/legacy bytes. The hidden command for this follow-up is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview. PR #437 remains open; do not merge.

@@ -1,5 +1,5 @@
 # OptimizeXL world-space animation reduction
-Status: ready for review; awaiting merge approval
+Status: ready for review; awaiting owner inspection and merge approval
 Owner / consolidator: Codex
 Updated: 2026-10-30
 
@@ -9,7 +9,7 @@ Add a selectable world-space animation reducer in the existing stage; retain the
 ## Revision and local state
 - Branch: codex/optimizexl-world-budget; D:/Codex/mdlxl-optimizexl-world-budget.
 - Original base: aa6689820ca49fd9c48a029b71959d8bcb097ca0. Integrated main de36134b1c9653dd5500533b5c6b88a956baa3e7, then release main 4681688ec4d01ba98c5aa9acf63f31d7f39d44eb. Conflicts were limited to the task index and exact translation counts; all concurrent release controls/translations are preserved. The PR does not change the version relative to current main.
-- Implementation: 4c9e14b4fdedafe8e7584e4662ba2b1d6e225b3c. PR: https://github.com/UnsctMagic/MDLxL/pull/437 (open, unmerged).
+- Original implementation: 4c9e14b4fdedafe8e7584e4662ba2b1d6e225b3c. Reviewer follow-up is at the current PR head. PR: https://github.com/UnsctMagic/MDLxL/pull/437 (open, unmerged).
 - Private input/reference: owner's D:/Claude/research/fx-optimization-2026-10-30 folder; never commit or execute its scripts.
 - Results: D:/Codex/mdlxl-optimizexl-world-budget-results.
 
@@ -26,9 +26,11 @@ Add a selectable world-space animation reducer in the existing stage; retain the
 - No new checker proposals: existing redundant-key and remaining-cubic owners retain their repair workflows.
 
 ## Changes and verification
-Implemented selectable world mode, reused exact owners and small-motion guard, bounded cubic refits and quaternion identity. Fx: 144,453 / 139,281 / 136,097 bytes at 60/80/100 (9.13/12.38/14.39%); all derived bounds and accepted per-animation maxima pass, with exact endpoints. Raw manual target 18.08% is not achieved; its node-TRS-only equivalent is 17.21%. Full evidence and 55 per-animation rows are in docs/OPTIMIZEXL_VERIFICATION.md.
+World mode remains opt-in; Local defaults and frozen legacy results remain intact. Reviewer follow-up compiles immutable quaternion/clip sampling, pools shared node matrices with edited-subtree invalidation, reuses original pose samples/bind data and proves the constant-rotation/linear-translation slow-budget certificate. Approximate error checks remain 1 ms. Largest-gap greedy order is selected after measuring alternatives; guards and budgets are unchanged.
 
-251 source/compatibility/localization tests pass, 2 private skips. Frozen flail: 56 comparisons pass with unchanged golden files and existing exceptions. Vite and packaging pass (1,343 runtime/assets; 55 locales). Final generated hidden package checks pass 3/3, with native poses, actual paired mouse drags, strength restoration, approval, Back and save. The fuller selection adds Flail03 playback passing; 13 private-policy skips and an untouched stale review assertion remain (unmodified base also gives identical 9 rows where the test expects 10).
+Final Fx 60/80/100: 144,465 / 139,489 / 135,993 B (9.12 / 12.25 / 14.45%). Isolated times: 3.49 / 3.93 / 4.77 s. Three prior fresh final-order World 100 processes: 4.580 / 4.545 / 4.565 s; the ancestor-map check is 4.615 s and final cycle-cache checks are 4.736 / 4.767 s. Before same-PC profile: 60.830 s (published prior 98.01 s during other checks). All derived and manual maxima pass on dense independent replay, with exact endpoints. The 2 s stretch is unmet. Manual node-TRS gap shrinks 4,492 to 4,388 B; Attack Slam gap is 1,724 B, including 1,232 B of guarded foot translations. Detailed track/animation tables, order/refit experiments and speed proof: docs/OPTIMIZEXL_VERIFICATION.md.
 
-## Blockers and next action
-PR #437 is open and attached. Integrated-main verification is complete, including 28 AI/number-field integration checks and exact final Fx bytes. Remote CI is visible on the PR. The disposable checkout is removed after pushing this handover; the small report and one screenshot remain in D:/Codex/mdlxl-optimizexl-world-budget-results. Do not merge; awaiting owner approval.
+301 source/compatibility/localization/shared-animation/AI/UI checks pass, 2 private skips. Frozen flail: 56 comparisons pass with unchanged goldens and existing exceptions. Vite/package verification passes (1,343 runtime/assets, 55 locales); final hidden world-budget/workflow/preview harnesses pass 3/3, including actual paired mouse drags, approval, Back and save. Warcraft III and owner visual acceptance remain untested.
+
+## Handover
+Continue the same codex/optimizexl-world-budget branch and PR #437. No default, version, budget, guard or installed profile changes. PR body contains the two-line owner decision note and refreshed timing/Fx tables. The manual saving target is still unmet; the 5 s target is met on this PC. Do not merge. Disposable task data and checkout are removed after push, retaining the small D:/Codex/mdlxl-optimizexl-world-budget-results/followup report/logs and capture.

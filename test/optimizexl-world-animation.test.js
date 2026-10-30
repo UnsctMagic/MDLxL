@@ -5,8 +5,8 @@ import { ModelRenderer } from 'war3-model';
 import { Quaternion, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
-import { sampleTrack, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
-import { exactLinearQuaternion, sequenceWorldBudget } from '../src/optimizexl-world-animation.js';
+import { sampleTrack, sampleNodeMatrices, skinGeoset, allNodes } from '../src/animation.js';
+import { exactLinearQuaternion, sequenceWorldBudget, slowSpeedBound, reduceWorldAnimation } from '../src/optimizexl-world-animation.js';
 import { runOptimizeStage, simpleSettings, dimensions, sanityProposals } from '../src/optimizexl.js';
 import { OptimizeXLSession } from '../src/optimizexl-session.js';
 const key=(Frame,Vector,cubic=false)=>({Frame,Vector:new Float32Array(Vector),...(cubic?{InTan:new Float32Array(Vector),OutTan:new Float32Array(Vector)}:{})});
@@ -153,4 +153,38 @@ test('a non-unit rotation in an influence chain protects its other local transfo
  const bytes=fixture(m=>m.Bones[0].Rotation=track([key(0,[0,0,.5,2]),key(100,[0,0,.5,2])])),a=openDocument(bytes,'a.mdx').model;
  const result=runOptimizeStage(bytes,'animation',{mode:'world',worldTolerance:100}),b=openDocument(result.bytes,'b.mdx').model;
  assert.deepEqual(b.Bones[0].Translation,a.Bones[0].Translation);
+});
+
+
+test('constant-rotation speed certificate dominates dense skin speed and retains the slow budget',()=>{
+ for(let variant=0;variant<6;variant++){
+  const bytes=fixture(m=>{
+   const root=m.Bones[0];root.Translation=track([key(0,[0,0,0]),key(100,[.01,.02,-.03])]);
+   root.Rotation=track([key(0,[.3,.4,0,Math.sqrt(.75)],true),key(100,[.3,.4,0,Math.sqrt(.75)],true)],variant%2?2:3);
+  });
+  const model=openDocument(bytes,'speed.mdx').model,root=model.Bones[0];let parent=root;
+  for(let i=0;i<3;i++){const child=createNode(model,'Bone');child.Parent=parent.ObjectId;child.PivotPoint.set([i*2,3,-1]);child.Translation=track([key(0,[0,0,0]),key(100,[.01,0,.01])]);child.Scaling=track([key(0,[1.01,.99,1]),key(100,[1.01,.99,1])]);parent=child;}
+  model.Geosets[0].Groups=[[parent.ObjectId],[root.ObjectId,parent.ObjectId]];model.Geosets[0].VertexGroup.forEach((_,i,a)=>a[i]=i%2);
+  const ids=new Set(allNodes(model).map(n=>n.ObjectId));
+  let peak=0,previous;
+  for(let frame=0;frame<=100;frame++){
+   const current=model.Geosets.map(g=>skinGeoset(g,sampleNodeMatrices(model,frame,0,0),new Float64Array(g.Vertices.length)));
+   if(previous)for(let gi=0;gi<current.length;gi++)for(let i=0;i<current[gi].length;i+=3)peak=Math.max(peak,Math.hypot(current[gi][i]-previous[gi][i],current[gi][i+1]-previous[gi][i+1],current[gi][i+2]-previous[gi][i+2]));
+   previous=current;
+  }
+  for(const mesh of model.Geosets){const bound=slowSpeedBound(model,mesh,0,ids,dimensions(model));assert.ok(bound!==null);assert.ok(bound>=peak);assert.equal(sequenceWorldBudget(bound,dimensions(model),1),sequenceWorldBudget(peak,dimensions(model),1));}
+  for(const change of [m=>m.Bones[0].Flags|=2,m=>m.Bones[0].Rotation.Keys[1].Vector[0]+=.01,m=>m.Bones[0].Translation.LineType=2,m=>{m.Bones[0].Rotation.GlobalSeqId=9;m.Bones[0].Rotation.Keys[1].Vector[0]+=.01;}]){
+   const unsupported=structuredClone(model);change(unsupported);assert.equal(slowSpeedBound(unsupported,unsupported.Geosets[0],0,ids,dimensions(model)),null);
+  }
+ }
+});
+
+
+test('cyclic influence checks use the same identity-edge traversal as full-model playback',()=>{
+ const before=openDocument(fixture(),'cycle.mdx').model,root=before.Bones[0],child=createNode(before,'Bone');
+ root.ObjectId=1;child.ObjectId=2;root.Parent=child.ObjectId;child.Parent=root.ObjectId;child.Translation=structuredClone(root.Translation);
+ before.Helpers.push({ObjectId:0,Parent:2,Name:'unskinned reference',PivotPoint:new Float32Array(3),Flags:0});
+ before.Geosets[0].Groups=[[child.ObjectId],[root.ObjectId,child.ObjectId]];before.Geosets[0].VertexGroup.forEach((_,i,a)=>a[i]=i%2);
+ const after=structuredClone(before),stats=reduceWorldAnimation(after,{worldTolerance:1},{size:dimensions(after)}),error=compare(before,after,.25);
+ assert.ok(error.max<=stats.sequences[0].budget+1e-12);assert.equal(error.endpoints,0);
 });
