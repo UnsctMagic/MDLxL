@@ -83,10 +83,15 @@ removes the old copies.
   0.57; a broad body widens them up to 0.8, never further, since a wider
   rectangle squashes the bone picture into strings). Sizes come from the
   unit's typical limb bone (joint to joint), which predicted the native sizes
-  most steadily: ribs 2.57 and skull 1.18 limb bones long, a hand 1.62 of its
+  most steadily: ribs 2.57 and skull 1.27 limb bones long, a hand 1.62 of its
   forearm, and each bone reaching 1.6x its own joints. Heights are shares of
   the dead body's height: legs, arms, hands and ribs on fixed levels from
-  12% up in 4% steps, the skull's crown at 43%; overlapping pieces of one
+  12% up in 4% steps. The skull follows its own length instead: every native
+  skull is one mesh scaled evenly (87 SD units with a gutz skull), 0.72 of its
+  length wide and 0.42 tall, resting 0.22 of its length above the ground. A
+  crown tied to the body's height floated 6 units too high and came out flat
+  (re-measured 30 Oct 2026; per unit the skull now matches the native one in
+  length 1.00x, width 0.92x and crown 1.03x, medians); overlapping pieces of one
   kind are lifted a quarter level apart and no overlapping pair shares a
   height. Measured against the native corpses on the same models, piece
   lengths, widths and heights match within about 10% (medians), and ours
@@ -124,10 +129,12 @@ animations, Death and keys elsewhere stay as they are. Existing corpse meshes
 are hidden so they do not overlap the fitted corpse.
 
 Bones switch on at 167 ms into Decay Flesh, matching the studied Footman. They
-remain covered by the body, which moves vertically underground. Bone decay then
-lowers the fitted corpse. Each burial distance is calculated from the highest
-posed vertex and a size-dependent clearance; both phases hide their geometry on
-the final frame. Corpse vertices start above the ground even when the original
+remain covered by the body, which moves vertically underground. The burial
+distance is calculated from the highest posed vertex and a size-dependent
+clearance. In Decay Bone the corpse lies completely still where Decay Flesh left
+it and shows until the last frame, exactly as on all 206 SD units that have a
+corpse (measured frame by frame, 30 Oct 2026); the game itself sinks the remains
+afterwards. Both phases hide their geometry on the final frame. Corpse vertices start above the ground even when the original
 Death mesh penetrates the floor, so limbs are not buried before decay begins.
 Effects and attachments are masked in those decay intervals;
 ordinary Death events and original transform animation are retained.
