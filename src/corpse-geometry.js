@@ -97,7 +97,9 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // anatomical joints own no vertices. Attribute that skin to the nearest
   // recognized joint. Measuring only directly bound skin turns full bodies
   // into arbitrarily thin centerlines.
-  const landmarks=new Set([rig.body,...rig.nodes,...chains.flatMap(poseChainIds)]),regions=new Map(),candidates=new Map();
+  // POSE can expose only the terminal tail joint as a handle. The other
+  // recognized tail joints still own their skin; it is not root/torso skin.
+  const landmarks=new Set([rig.body,...rig.nodes,...chains.flatMap(poseChainIds),...nodes.filter(n=>role(n.ObjectId)==='Tail').map(n=>n.ObjectId)]),regions=new Map(),candidates=new Map();
   const ownerOf=id=>ancestors(id).find(i=>landmarks.has(i))??id;
   for(const {g,vertices} of meshes) {
     const owners=Array.from({length:g.Vertices.length/3},(_,i)=>[...new Set(influences(g,i).filter(id=>!ancestors(id).some(a=>accessory(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''))).map(ownerOf))]);
@@ -188,10 +190,11 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const segmentLengths=limbs.flatMap(({joints,segments})=>segments.map(([from,to])=>distance(joints[from],joints[to]))).filter(v=>v>span*.01);
   let unit=segmentLengths.length?quantile(segmentLengths,.5):0;
   for(const {chain,ids,joints,segments} of limbs) {
-    // Native arms (386 on the 206 SD units) mostly get no long bone, only the
-    // hand over the forearm; legs get one long bone per half.
+    // Legs get one long bone per half. A normal articulated arm gets an
+    // upper-arm bone and the native hand picture over its forearm.
     if(chain.kind!=='arm')segments.forEach(([from,to],k)=>{const [a,b]=reach(joints[from],joints[to],NATIVE.legReach),bones=ids.slice(from,to+1);strip(chain.kind,a,b,fit(a,b,NATIVE.bone,bones),k?[.006,.505,.31,.995]:[.006,.005,.31,.495],bones);});
     if(chain.kind==='arm') {
+      if(segments.length>1){const [from,to]=segments[0],bones=ids.slice(from,to+1),[a,b]=reach(joints[from],joints[to],NATIVE.boneReach);strip('arm',a,b,fit(a,b,NATIVE.bone,bones),[.006,.005,.31,.495],bones);}
       const elbow=joints[segments.at(-1)[0]],wrist=joints.at(-1),forearm=distance(elbow,wrist);
       // Like the native hands, centred over the end of the forearm: a third
       // of the palm overlaps the forearm, the rest reaches past the wrist.

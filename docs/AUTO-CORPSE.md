@@ -69,8 +69,12 @@ removes the old copies.
   panels and boots); keeping only the patch nearest a joint produced tiny parts.
   Hands keep the closest palm component so a club or shield sharing the binding
   cannot set their size. A hand reference without skin uses its lower-arm skin.
-  Arms get only hands, with native reach of 1.62 forearms; each leg gets two long
-  bones, with its lower part including the foot skin. No copied body is made.
+  Following the owner's correction, a normal articulated arm gets an upper-arm
+  bone plus the native hand picture over its forearm (reach 1.62 forearms).
+  A chain with no separate upper-arm segment keeps its hand piece. Each leg
+  gets two long bones, with its lower part including the foot skin. No copied
+  body is made. Recognized tail joints own their skin even when POSE exposes
+  only the terminal tail handle; tail skin cannot lengthen the rib cage.
 
   The automatic fit measures the union of the projected corpse meshes and targets
   0.826 of the chalk-outline area: the median measured on 206 Blizzard SD units
@@ -176,7 +180,8 @@ including explicit errors. It waits for the draft gutz asset to resolve before
 recording the preview; Krell reproduces the old missing-texture failure.
 Run via the existing hidden packaged runner.
 Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
-`MDLXL_CORPSE_FLAIL` (the owner's Fx model) and `MDLXL_CORPSE_DETACHED` (Ratling).
+`MDLXL_CORPSE_FLAIL` (the owner's Fx model), `MDLXL_CORPSE_DETACHED` (Ratling),
+and `MDLXL_CORPSE_TAILED` (Skink).
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
 an isolated profile. Set `MDLXL_CORPSE_FIXTURE`, `MDLXL_TEST_OUT`, and optionally

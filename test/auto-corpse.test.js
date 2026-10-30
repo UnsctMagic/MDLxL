@@ -257,12 +257,12 @@ test('the skull has the native gutz skull proportions and rests near the ground'
   }
   }
 });
-test('like native corpses, arms get only the hand and each leg two long bones',{skip:!footmanModel()&&!flailModel()&&'no SD Footman or flail on this machine'},async()=>{
-  // Blizzard (386 arms on the 206 SD units): most arms get no long bone, only the hand over the forearm.
+test('normal arms get an upper-arm bone plus a forearm hand, and legs get two bones',{skip:!footmanModel()&&!flailModel()&&'no SD Footman or flail on this machine'},async()=>{
+  // Owner correction: normal arms need two pieces, including their upper arm.
   const {openDocument}=await import('../src/editor-document.js');
   for(const file of [footmanModel(),flailModel()].filter(Boolean)) {
     const r=apply(openDocument(new Uint8Array(readFileSync(file)),'model.mdx')).corpses[0],count=kind=>r.pieces.filter(p=>p.kind===kind).length;
-    assert.equal(count('arm'),0,'no long bones on the arms');
+    assert.equal(count('arm'),count('hand'),'one upper-arm bone accompanies each forearm/hand piece');
     assert.ok(count('hand')>=2,'the hands stay');
     assert.ok(count('leg')>=4&&count('leg')%2===0,'two long bones per leg');
   }
@@ -312,5 +312,24 @@ test('native hand pieces retain forearm-scale reach instead of shrinking to palm
     assert.ok(length>=forearm,`hand length ${length.toFixed(2)} must cover its ${forearm.toFixed(2)} forearm (native hands reach 1.62x)`);
     assert.ok(length<=forearm*2.1,`hand length ${length.toFixed(2)} must not include held equipment beyond its ${forearm.toFixed(2)} forearm`);
   }
+  }
+});
+
+
+test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!process.env.MDLXL_CORPSE_TAILED&&'set MDLXL_CORPSE_TAILED to the owner Skink fixture'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {suggestPoseRig}=await import('../src/pose-ik.js');
+  const {allNodes,nodePivot}=await import('../src/animation.js');
+  const {Vector3}=await import('three');
+  const file=process.env.MDLXL_CORPSE_TAILED;assert.ok(existsSync(file),'prepare the owner Skink fixture');
+  const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
+  const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
+  const at=id=>new Vector3().fromArray(nodePivot(m,nodes.get(id),id)).applyMatrix4(M.get(id));
+  const head=r.pieces.find(p=>p.kind==='skull'),rib=r.pieces.find(p=>p.kind==='torso');assert.ok(head&&rib);
+  const neck=at(head.ids[0]),hips=rig.chains.filter(c=>c.kind==='leg').map(c=>at(c.root));assert.ok(hips.length);
+  const pelvis=hips.reduce((sum,p)=>sum.addScaledVector(p,1/hips.length),new Vector3()),dx=pelvis.x-neck.x,dy=pelvis.y-neck.y,length2=dx*dx+dy*dy;
+  for(const p of [rib.start,rib.end]){
+    const along=((p[0]-neck.x)*dx+(p[1]-neck.y)*dy)/length2;
+    assert.ok(along>=-.5&&along<=1.5,`rib endpoint ${along.toFixed(2)} torso lengths from the neck must stay around the chest/pelvis, not follow the tail`);
   }
 });
