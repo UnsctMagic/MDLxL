@@ -32,6 +32,7 @@
 - **Ventana de bienvenida:** **Desactivar sonidos** está en la primera ventana, y **Smooth** / **Classic MDLVis** son botones compactos con su explicación al pasar el ratón.
 - **Fijar toda la visibilidad:** un botón nuevo junto a **Bake All RGB** pone el Alpha al principio y al final de cada animación en los geosets marcados. **Bake All RGB** ahora solo cambia el color, así que fijar uno ya no sobrescribe el otro.
 - **Correcciones menores:** la ventana de bienvenida muestra el logotipo de MDLxL; OptimizeXL guarda bien después de volver **Atrás** una etapa, y sus vistas Antes y Después tienen exactamente el mismo tamaño; las listas de los gestores siguen tus colores del árbol.
+- **POSE y los cadáveres siguen las extremidades:** POSE encuentra el cuerpo a partir de brazos y piernas, así que un modelo tiene una sola cabeza y un arma o un mangual nunca se toma por cabeza. Una pieza de Death que sustituye a una parte viva conserva su función. Auto Corpse coloca sus piezas sobre las partes POSE del cuerpo en pose y conserva el tronco de las criaturas.
 
 **Showcase**
 - **Tiempo extra** admite negativos para la toma y cada animación. Las colas de efectos de Death se cortan a los 10 segundos; se conserva el movimiento más largo y no se alargan muertes cortas. Añade tiempo extra para conservar más.

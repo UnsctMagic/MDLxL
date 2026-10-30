@@ -32,6 +32,7 @@
 - **Welcome window:** your **Disable sounds** choice is right in the first window, and **Smooth** / **Classic MDLVis** are compact buttons with their explanation on hover.
 - **Bake All Visibility:** a new button next to **Bake All RGB** sets the Alpha at the start and end of every animation for the checked geosets. **Bake All RGB** now changes only colour, so baking one no longer overwrites the other.
 - **Smaller fixes:** the welcome window shows the MDLxL logo; OptimizeXL saves correctly after you go **Back** a stage, and its Before and After previews are exactly the same size; manager lists follow your Tree colours.
+- **POSE and corpses follow the limbs:** POSE finds the body from its arms and legs, so a model gets one head, and a weapon or flail is never taken for a head. A Death piece that swaps with a living part keeps that part's role. Auto Corpse places its pieces on the POSE parts of the posed body and keeps creature trunks.
 
 **Showcase**
 - **Extra Time** accepts negative values for the whole take or individual animations. Death effect tails stop after 10 seconds by default; longer motion is kept and short deaths are not padded. Add Extra Time to keep more.
