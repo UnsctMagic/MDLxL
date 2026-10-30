@@ -29,39 +29,42 @@ const ACCEPTED_RULE = 'When the user reports a problem in a result, first measur
 // Research §6.5: two sentences each, added deliberately to both editing prompts.
 const TOLERANCE_RULE = "When a request combines a size or count target with keeping the look or motion, state 'the same' as measured tolerances for each animation, keep first and last poses exact, try more than one tolerance as saved versions, and report each candidate's size and measured difference. If the target cannot be met within the tolerance, show the numbers and let the user choose.";
 const REJECTION_RULE = 'When the user rejects a result that your measurements show is close to the accepted version, show where and how much it differs and ask what they see before changing direction. Do not switch to the opposite extreme.';
-const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text);
+// AGENTS.md "Reuse, never create unasked": the model's own data, then native game
+// files; new textures, materials or geosets only when the user asks for new.
+const REUSE_RULE = "Reuse before creating: for textures, materials and geosets use what the model already has first, then Blizzard's native game files (mdlxl_assets source textures or game). Create a new texture, material or geoset only when the user's request explicitly asks for something new; if nothing existing fits, say what you checked and ask first.";
+const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text);
 const EXPECTED = {
   "editing plain": [
-    "906a52906d47bb8c1636512e0379e69dcb35cdc86a381709296cdd8d9c824cce",
-    8477
+    "6fe5691ae601f02e805f267cdc2ece134450f5c00afa32da2d03640a7db8583c",
+    8815
   ],
   "worker plain": [
-    "a6247ae1cca3e9d97f4dd3e157f95694ee84d72438437ddbae535d12007f5fae",
-    9633
+    "468fb1f61de0cee18a8b72ef9eb3c0e7c4d2953c033c899bc41f96b75c4aa078",
+    9971
   ],
   "editing plain+web": [
-    "d444afbafc604957bba7e438f4028a190a077b50c33451c8104ca4a46bd78e42",
-    8979
+    "79ca23e64faf9faf0bc2a1b0b6fb731751f1bd5ac71d81ffc8c624172853c6bf",
+    9317
   ],
   "worker plain+web": [
-    "835a8be67d5c933fdec5ecb9c9ace09d6899d63de8af5299da5f10229ef6d188",
-    10135
+    "4fd4f79c64b61b338c211a69c714cfd9b77ef76ac0902e8ada204350e7278ac8",
+    10473
   ],
   "editing handbook": [
-    "f45566bf91ce437f2d7d7af78554181a6e5f4c731ffd6246b651ac28949b7ee6",
-    11484
+    "a1bcd6388631ee3049919be467f5c6bb8ad06132c4f03b1ec94159de4aef2b2d",
+    11822
   ],
   "worker handbook": [
-    "d6552682a2c5893cc9f09fd00438a544084a556a4635b0fa9787de0d08ebae88",
-    12640
+    "2ff5ec382fe2f8bbfe61397f4b3228292cce17af80ceda0b8b71eedddc346b6d",
+    12978
   ],
   "editing handbook+web": [
-    "89a4814543261a3a14e2b53f11e5681d056b7ce2e31c23b2cd24bad10aeb2125",
-    11986
+    "87782c5014f329adaf66e67fa9b1088b06fab280c36a6705f053984963548447",
+    12324
   ],
   "worker handbook+web": [
-    "e4e6f6c3446025e6390a52bfb3819274b8ef85646fe4d7192833b3a9d0529b3b",
-    13142
+    "f3e39054878111260460aac018a154fcd483dd7455822d05d4c348d4f82deda9",
+    13480
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -102,6 +105,17 @@ test('owner example and keep-look replays receive the structural example rule in
 
 test('the context rule explains omitted values and when a full snapshot returns', () => {
   assert.ok(contract.AI_EDITING_BODY.includes(CONTEXT_AFTER));
+});
+
+test('direct and worker jobs reuse model and native textures before creating new ones', async () => {
+  const { AI_SD_BRAIN } = await import('../src/ai-sd-rules.js');
+  for (const worker of [false, true]) assert.ok(editingPrompt(contract, { worker }).includes(REUSE_RULE));
+  const description = name => contract.AI_TOOLS.find(t => t.name === 'mdlxl_' + name).description;
+  assert.match(description('script'), /model’s own textures first, then a native game texture.*Only when the user explicitly asks for a new texture/);
+  assert.match(description('assets'), /native game textures here before making a new texture/);
+  assert.match(AI_SD_BRAIN, /reuse the model's own textures first, then Blizzard's native game textures/);
+  assert.match(AI_SD_BRAIN, /painted texture is the fallback/);
+  assert.doesNotMatch(AI_SD_BRAIN, /do not search for, load or copy .* textures/);
 });
 
 test('accepted references, tolerance ladders and rejection questions reach direct and worker jobs', () => {
