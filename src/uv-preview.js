@@ -151,18 +151,18 @@ function remapTextureRefs(model, remap) {
   for (const emitter of model.ParticleEmitters2 || []) if (typeof emitter.TextureID === 'number') emitter.TextureID = remap(emitter.TextureID);
 }
 
-function usedTextures(model) {
+export function usedTextures(model) {
   const used = new Set();
   remapTextureRefs(model, id => { if (id >= 0) used.add(Math.round(id)); return id; });
   return used;
 }
 
-const usedMaterials = model => new Set(materialOwners(model).map(owner => owner.MaterialID).filter(id => Number.isSafeInteger(id) && id >= 0));
+export const usedMaterials = model => new Set(materialOwners(model).map(owner => owner.MaterialID).filter(id => Number.isSafeInteger(id) && id >= 0));
 
 // Drop only the materials and textures this replacement stopped using, so
 // repeated replacements never accumulate entries. A new image takes over the
 // slot its predecessor freed; entries that were already unused stay as authored.
-function releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture) {
+export function releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture) {
   const liveMaterials = usedMaterials(model);
   const droppedMaterials = new Set([...materialsBefore].filter(id => !liveMaterials.has(id)));
   if (droppedMaterials.size) {

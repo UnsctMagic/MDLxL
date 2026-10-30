@@ -3,7 +3,7 @@ import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
-import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
+import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs,adoptCommittedPaintMaterials} from '../src/paint-model-integration.js';
 import Addons from './Addons.jsx';
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
@@ -580,7 +580,7 @@ export default function App() {
     document.activeElement?.blur?.();
     if (mode === 'showcase') { const pending = []; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures', { detail: pending })); await Promise.all(pending); }
     if (mode === 'paint') { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); if (session.paintProject && !await applyPaintToModel()) return; setRenderMode('textured'); setSelectable(new Set(visiblePaintGeosets(paintOriginalModel, activeGeoset))); setShowAllGeosets(false); }
-    if (next === 'paint' && session.paintAppliedRevision !== undefined) { session.paintWorkingModel = structuredClone(doc.model); session.paintWorkingRevision++; }
+    if (next === 'paint' && session.paintAppliedRevision !== undefined) { session.paintWorkingModel = structuredClone(doc.model); adoptCommittedPaintMaterials(session.paintProject, session.paintWorkingModel); session.paintWorkingRevision++; }
     if (next === 'uv' && uvWindow) { setUVWindow(previous => ({ ...previous, minimized: false })); setUVFocused(true); return; }
     if (next === 'uv') {
       const entry = captureUVSelection(model, validSelection, selectable), eligible = Object.keys(entry)[0];
@@ -962,7 +962,7 @@ export default function App() {
       for(const asset of prepared.assets){if(!asset.bytes?.byteLength)throw Error('A painted texture is empty.');assets.set(gamePathKey(asset.name),asset);assets.set(gamePathKey(asset.name.split(/[\\/]/).at(-1)),asset);}
       commitPaintModel(doc,prepared);
       nextTextureResolution(session);session.assets=assets;adoptCommittedPaintUVs(value);
-      session.paintWorkingModel=structuredClone(doc.model);session.paintWorkingRevision++;
+      session.paintWorkingModel=structuredClone(doc.model);adoptCommittedPaintMaterials(value,session.paintWorkingModel);session.paintWorkingRevision++;
       session.paintAppliedRevision=value.revision;refresh();
       say('Paint applied to the model. Save the model to keep its BLP textures beside it.');return true;
     }catch(error){say('Could not apply paint: '+error.message,true);return false;}

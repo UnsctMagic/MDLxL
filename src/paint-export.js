@@ -7,7 +7,8 @@ import { encodePaintBlp1, PAINT_BLP_ENCODER } from './paint-blp.js';
 import { compositePaintTarget, paintProjectArchive } from './paint-project.js';
 import { findTextureAsset } from './paint-targets.js';
 import { paintProjectModel } from './paint-view.js';
-import { toForwardSlashes } from './game-path.js';
+import { gamePathKey, toForwardSlashes } from './game-path.js';
+import { currentPaintTargetEdited, settleCurrentPaintMaterials } from './paint-current-materials.js';
 
 const encoder = new TextEncoder();
 const safeBase = value => String(value || 'model').replace(/\.(?:mdl|mdx)$/i,'').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,80) || 'model';
@@ -24,6 +25,17 @@ function uniqueTexturePath(model, base, number, reserved) {
   let suffix = number + 1, path;
   do { path = `MDLxL_Forge/${base}_paint_${suffix}.blp`; suffix++; } while (used.has(path.toLowerCase()) || reserved.has(path.toLowerCase()));
   reserved.add(path.toLowerCase()); return path;
+}
+
+// An edited skin never takes a path the model already uses: an unpainted
+// part or emitter showing the original must keep showing it.
+function currentTexturePath(model, target, reserved) {
+  const used = new Set((model.Textures || []).map(texture => gamePathKey(texture.Image || ''))), stem = String(target.paintName || target.label).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_');
+  const path = value => 'Textures/' + value + '.blp', taken = value => used.has(gamePathKey(path(value))) || reserved.has(path(value).toLowerCase());
+  if (reserved.has(path(stem).toLowerCase())) throw Error('Two paint textures have the same filename. Rename one before exporting.');
+  let name = stem, suffix = 2;
+  if (taken(name)) { name = /Citadel$/i.test(stem) ? stem : stem + 'Citadel'; const first = name; while (taken(name)) name = first + ' ' + suffix++; }
+  reserved.add(path(name).toLowerCase()); return path(name);
 }
 
 function validateBlp(bytes, expected) {
@@ -52,12 +64,18 @@ export async function buildPaintExportArtifact(doc, project, assets, originalMod
   if (!project?.targets?.length) throw Error('Paint at least one texture target before exporting.');
   if (doc.model.Version !== 800) throw Error('Texture Painter v1 exports Classic Warcraft III SD / v800 models only.');
   const staged = EditorDocument.restoreRecoveryState(doc.captureRecoveryState({includeHistory:false})), base = safeBase(doc.name), reserved = new Set(), textures = [];
+  const source=staged.model,current=!!(project.materialMode&&project.preserveMaterials),paths=new Map();
   staged.model=exportPaintModel(staged.model,project,originalModelBytes,doc.name);
   for (let index=0;index<project.targets.length;index++) {
-    const target=project.targets[index];if(project.materialMode&&!target.bindings.length)continue;const raster=compositePaintTarget(project,target.id), bytes=await encodePaintBlp1(raster,{jpegQuality:90}); validateBlp(bytes,raster);
+    const target=project.targets[index];if(project.materialMode&&!target.bindings.length)continue;const raster=compositePaintTarget(project,target.id);
+    // Edit the texture: untouched skins keep their original file and material.
+    if(current&&!currentPaintTargetEdited(target,raster))continue;
+    const bytes=await encodePaintBlp1(raster,{jpegQuality:90}); validateBlp(bytes,raster);
+    if(current){const name=currentTexturePath(source,target,reserved);paths.set(target.id,name.replaceAll('/','\\'));textures.push({name,bytes});continue;}
     const texture=staged.model.Textures?.[target.textureId]; if(!texture)throw Error(`Paint target ${target.label} no longer exists in the model.`);
     const name=project.materialMode?'Textures/'+String(target.paintName||target.label).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.blp':uniqueTexturePath(staged.model,target.paintName?safeBase(target.paintName):base,index,reserved);if(reserved.has(name.toLowerCase())&&project.materialMode)throw Error('Two paint textures have the same filename. Rename one before exporting.');reserved.add(name.toLowerCase()); texture.Image=name.replaceAll('/','\\'); texture.ReplaceableId=0; texture.Flags=target.flags||0; textures.push({name,bytes});
   }
+  if(current)staged.model=settleCurrentPaintMaterials(staged.model,source,project,paths,()=>openDocument(originalModelBytes,doc.name).model);
   const format=doc.format,modelName=`${base}-painted.${format}`,modelBytes=staged.serialize(format),paintBlob=await buildPaintProjectArtifact(doc,project,assets,originalModelBytes),paintBytes=new Uint8Array(await paintBlob.arrayBuffer()),projectName=`${base}.mdlxlpaint`;
   const exportInfo={schema:'mdlxl-paint-export',version:1,model:modelName,project:projectName,textureEncoder:PAINT_BLP_ENCODER,textures:textures.map(item=>item.name),createdAt:new Date().toISOString()};
   const originals = [], used = new Set(textures.map(texture => texture.name.toLowerCase()));
