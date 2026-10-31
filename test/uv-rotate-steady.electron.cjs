@@ -47,10 +47,20 @@ const assert = require('node:assert/strict');
       return { swept, onScreen: turnsSeen.reduce((a, b) => a + b, 0) / turnsSeen.length, spread: Math.max(...turnsSeen) - Math.min(...turnsSeen), count: before.ids.length };
     };
     const wrap = degrees => ((degrees % 360) + 540) % 360 - 180;
-    for (const [name, radius, turns, start, fromCentre] of [['near', 40, .25, 0], ['far', 300, .25, 2], ['pressed on the centre', 40, .375, .5, true], ['clockwise full turn and a quarter', 120, 1.25, 1], ['counter-clockwise two full turns', 200, -2, -1]]) {
-      const result = await circle(radius, turns, start, fromCentre), expected = turns * 360;
+    for (const [name, radius, turns, start, fromCentre] of [['near', 60, .25, 0], ['far', 300, .25, 2], ['pressed on the centre', 60, .375, .5, true], ['small circle over the piece', 12, .25, 0], ['clockwise full turn and a quarter', 120, 1.25, 1], ['counter-clockwise two full turns', 200, -2, -1]]) {
+      // Within 48 px of the centre a turn goes by distance moved, so it cannot snap.
+      const result = await circle(radius, turns, start, fromCentre), expected = turns * 360 * Math.min(1, radius / 48);
       check(`${name}: the selection follows the mouse (${expected}°)`, result.count > 0 && Math.abs(result.swept - expected) < 2 && Math.abs(wrap(result.onScreen - expected)) < 2 && result.spread < 1, result);
     }
+    // Sliding the mouse straight across the piece must not snap it to one side.
+    { await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+      const pivot = await page.evaluate(() => uvRotate().state.drag.pivotScreen); await page.mouse.up(); await idle();
+      const cx = box.x + pivot[0], cy = box.y + pivot[1];
+      await page.mouse.move(cx - 20, cy + 1); await page.mouse.down();
+      for (let i = 1; i <= 40; i++) await page.mouse.move(cx - 20 + i, cy + 1 - (i % 2));
+      const turn = await page.evaluate(() => uvRotate().state.drag.turn * 180 / Math.PI);
+      await page.mouse.up(); await idle(); await canvas.focus(); await page.keyboard.press('Control+z'); await idle();
+      check('sliding across the piece does not snap it', Math.abs(turn) < 15, { turn }); }
     check('no renderer errors', errors.length === 0, errors);
   } finally {
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ checks, errors }, null, 2));
