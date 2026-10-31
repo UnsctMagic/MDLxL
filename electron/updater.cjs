@@ -40,7 +40,8 @@ function externalURL(value) { return websiteURL(value) || value === 'https://www
 function releaseMetadata(release, current) {
   if (!release || release.draft || release.prerelease || !newerVersion(release.tag_name, current)) return null;
   const version = release.tag_name.replace(/^v/, '');
-  const asset = release.assets?.find(item => item.name === `MDLxL-${version}-win32-x64.zip`);
+  // Releases up to 0.38 name the ZIP by version; later ones use one fixed name.
+  const asset = release.assets?.find(item => item.name === `MDLxL-${version}-win32-x64.zip`) || release.assets?.find(item => item.name === 'MDLxL-win32-x64.zip');
   if (!asset || !releaseURL(asset.browser_download_url) || !releaseURL(release.html_url)) throw Error('The update package is unavailable.');
   const notes = {};
   for (const [, label, url] of (release.body || '').matchAll(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g)) {
