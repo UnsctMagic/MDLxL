@@ -63,9 +63,9 @@
 :root[data-theme=light] :is(.classic-keyframe-reel,.animation-preview-tools,.classic-sequence-picker,.uv-preview-title){background:var(--ui-panel)}
 
 /* High-definition, modern-retro replacements for the active classic icon set. */
-.modern-retro-icon{display:block;width:20px;height:20px;flex:0 0 20px;pointer-events:none;fill:#dcecff66;stroke:#064b9e;filter:drop-shadow(0 1px 0 #fff) drop-shadow(0 1px 1px #001a44aa);shape-rendering:geometricPrecision}
-.modern-retro-gold{fill:#ffd64d77;stroke:#805500}.modern-retro-danger{fill:#ff5e4b55;stroke:#a1160a}.modern-retro-blue{fill:#5aa7ff55;stroke:#075ab5}
+.modern-retro-icon{display:block;width:20px;height:20px;flex:0 0 20px;pointer-events:none;color:#064b9e;fill:#dcecff66;stroke:#064b9e;filter:drop-shadow(0 1px 0 #fff) drop-shadow(0 1px 1px #001a44aa);shape-rendering:geometricPrecision}
 .classic-tool:disabled .modern-retro-icon,.movement-tools button:disabled .modern-retro-icon{filter:grayscale(1);opacity:.38}
+button:disabled>.tool-icon{filter:grayscale(1);opacity:.4}
 .pressed-keys-tool{position:relative!important;width:25px!important;min-width:25px!important;padding:1px!important;overflow:hidden}
 .pressed-keys-tool>img{display:block;width:21px;height:21px;object-fit:cover;image-rendering:auto}
 .pressed-keys-tool>span{position:absolute;left:1px;right:1px;bottom:1px;height:50%;display:flex;align-items:center;justify-content:center;background:#070b12bb;font:900 9px/1 Tahoma,Arial,sans-serif;text-shadow:0 1px #000}
