@@ -1,7 +1,7 @@
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
-const { fixturePath } = require('./helpers/fixtures.cjs');
+const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
 (async () => {
   const { ObjectLoader, Vector3 } = await import('three');
@@ -10,7 +10,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const { allNodes, sampleNodeMatrices, skinGeoset } = await import('../src/animation.js');
   const { samplePreviewMatrices } = await import('../app/preview-pose.js');
   const { assertModelEquivalent } = await import('../src/save-equivalence.js');
-  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-setup-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx');
+  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-setup-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || testModel('pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx'));
   // Default fixture: LowPolyWorks WH_VC_VonCarsteinLord07.mdx (out/pose-setup-fixture, textures from the game, docs/PACKAGED-TESTS.md).
   // Measured with out/fixture-scan/pose-rig.mjs (src/pose-ik.js suggestPoseRig at the first Stand frame, suggestPickedPoseChain
   // and poseChainBetween as the Setup's End/Start picks use them): picking End 16 (L_Hand) suggests the four-joint limb

@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -8,7 +9,7 @@ const path = require('node:path');
   const root = process.cwd(), out = process.env.MDLXL_SCREENSHOTS || path.join(root, 'out/tree-appearance');
   fs.mkdirSync(out, { recursive: true });
   const profile = path.join(root, 'out/tree-appearance/profile-' + Date.now());
-  const file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
+  const file = process.env.MDLXL_TEST_MODEL || testModel('graveguard/graveguard_Optimized Weapon (1).mdx');
   const original = fs.readFileSync(file), errors = [];
   const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, fixture: file , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {

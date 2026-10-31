@@ -6,6 +6,8 @@ import { Quaternion, Vector3 } from 'three';
 import { openDocument } from '../src/editor-document.js';
 import { allNodes } from '../src/animation.js';
 import { suggestPoseRig, poseRole } from '../src/pose-ik.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 // Body parts follow the bodies POSE finds from their limbs, never a bone name
 // alone: a part must hang from a found body (or the moving trunk it rides on).
@@ -74,7 +76,7 @@ test('a severed head shown while the living head is hidden stands in for it; a f
   }
 });
 
-const ratlings = ['ratling_unit.mdx', 'ratling_hero.mdx'].map(name => path.join(process.env.MDLXL_RATLING_DIR || 'D:/Claude/LowPolyWorks/dist/models/gluma/313020', name)).filter(file => fs.existsSync(file));
+const ratlings = ['ratling_unit.mdx', 'ratling_hero.mdx'].map(name => path.join(process.env.MDLXL_RATLING_DIR || testModel('corpse-fixtures'), name)).filter(file => fs.existsSync(file));
 test('the owner\'s ratlings keep their Death head and chest', { skip: !ratlings.length && 'ratling models not present' }, () => {
   for (const file of ratlings) {
     const model = openDocument(fs.readFileSync(file)).model, death = model.Sequences.findIndex(s => /^death/i.test(s.Name)), rig = suggestPoseRig(model, model.Sequences[death].Interval[1], death), role = named(model, rig);
@@ -91,7 +93,7 @@ test('a static container root is no trunk: a weapon branch beside the body has n
   assert.notEqual(role('Bone Weapon Head'), 'Head');
 });
 
-const flails = [process.env.MDLXL_FLAIL_MODEL, 'D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/Fx_original.mdx', 'C:/Users/PC/Downloads/Fx_v4_clipfix_1.mdx'].filter(file => file && fs.existsSync(file));
+const flails = [process.env.MDLXL_FLAIL_MODEL, testModel('pose-flail/Fx_original.mdx'), testModel('pose-flail/Fx_v4_clipfix_1.mdx')].filter(file => file && fs.existsSync(file));
 test('the owner\'s flail model has one head and one body', { skip: !flails.length && 'flail model not present' }, () => {
   for (const file of flails) {
     const model = openDocument(fs.readFileSync(file)).model, sequence = Math.max(0, model.Sequences.findIndex(s => /^stand(?:\s|$)/i.test(s.Name))), rig = suggestPoseRig(model, model.Sequences[sequence].Interval[0], sequence), nodes = allNodes(model);
@@ -105,7 +107,7 @@ test('the owner\'s flail model has one head and one body', { skip: !flails.lengt
 // Blizzard SD references (extracted from the game; absent in CI). Legitimate
 // several-head structures keep every head handle; pieces of a head get none;
 // bones that belong to no body become Object.
-const corpus = process.env.MDLXL_SD_CORPUS || 'out/corpus-sd';
+const corpus = process.env.MDLXL_SD_CORPUS || testModel('corpus-sd');
 const expected = {
   'creeps__ogre.mdx': { keep: ['Bone_Head', 'Bone_Head01'] },
   'creeps__hydra.mdx': { keep: ['HeadL', 'HeadM', 'HeadR'] },

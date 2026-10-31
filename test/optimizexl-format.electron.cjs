@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('./helpers/app.cjs');
 
@@ -21,7 +22,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   // Vile Knight and SteamTank are the same or have no Portrait), so the authored portrait-particle check is not coverable
   // here; the paired portrait frame is still required. Set MDLXL_FORMAT_PORTRAIT_PARTICLES=1 for a fixture that has them.
   const PORTRAIT_PARTICLES=process.env.MDLXL_FORMAT_PORTRAIT_PARTICLES==='1';
-  const file=process.env.MDLXL_FORMAT_MODEL;if(!file)throw Error('Set MDLXL_FORMAT_MODEL to the private review fixture.');
+  const file=process.env.MDLXL_FORMAT_MODEL||testModel('optimizexl-format/KnightOfTheBlazingSun.mdx');
   const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','format-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
   const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js');
   const before=openDocument(new Uint8Array(source),'x.mdx').model,fixes=sanityProposals(before).filter(f=>!f.inspectionOnly);

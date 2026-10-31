@@ -4,16 +4,20 @@ const fs = require('node:fs'), path = require('node:path');
 
 const root = path.resolve(__dirname, '../..');
 const out = (...parts) => path.join(root, 'out', ...parts);
+// The permanent test-model collection, kept outside Git (Blizzard, LowPolyWorks and the owner's own models; its
+// README lists them). Every real model a test opens comes from here, never from Downloads, Desktop or out/.
+const modelsRoot = (env = process.env) => path.resolve(env.MDLXL_TEST_MODELS || 'D:/Claude/MDLxL-TestModels');
+const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
-  footman: ['MDLXL_SUITE_FOOTMAN', out('pose/Footman.mdx')], // SD Footman 1800 with Textures/ beside it
-  'citadel-footman': ['MDLXL_SUITE_CITADEL_FOOTMAN', out('citadel-fixture/Footman.mdx')], // classic MDX800 Footman
+  footman: ['MDLXL_SUITE_FOOTMAN', testModel('pose/Footman.mdx')], // SD Footman 1800 with Textures/ beside it
+  'citadel-footman': ['MDLXL_SUITE_CITADEL_FOOTMAN', testModel('citadel-fixture/Footman.mdx')], // classic MDX800 Footman
   'particle-index': ['MDLXL_PARTICLE_INDEX', out('particle-index/particles')],
-  'optimizexl-review': ['MDLXL_OPTIMIZEXL_REVIEW_MODEL', out('optimizexl-review/WH_WOC_KnightKhorneFlail03.mdx')],
-  archer: ['MDLXL_SUITE_ARCHER', null],
-  effect: ['MDLXL_EFFECT_MODEL', null],
-  hoofprint: ['MDLXL_SUITE_HOOFPRINT', null],
+  'optimizexl-review': ['MDLXL_OPTIMIZEXL_REVIEW_MODEL', testModel('optimizexl-review/WH_WOC_KnightKhorneFlail03.mdx')],
+  archer: ['MDLXL_SUITE_ARCHER', testModel('material-fixture/Mecha-CL.mdx')], // geoset 4 uses Materials[4] (3 layers), 11+ textures
+  effect: ['MDLXL_EFFECT_MODEL', testModel('effect-fixture/WH_WOC_KnightKhorneFlail03.mdx')],
+  hoofprint: ['MDLXL_SUITE_HOOFPRINT', testModel('corpus-sd/human__knight.mdx')],
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.
@@ -47,4 +51,4 @@ function tempDir(prefix = 'mdlxl-', env = process.env) {
   return fs.mkdtempSync(path.join(base, prefix));
 }
 
-module.exports = { FIXTURES, fixturePath, gameFolder, tempDir };
+module.exports = { FIXTURES, fixturePath, testModel, modelsRoot, gameFolder, tempDir };

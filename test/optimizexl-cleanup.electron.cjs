@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 
@@ -13,7 +14,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   // finding, so that block is not coverable with an available model (docs/PACKAGED-TESTS.md). It runs when
   // MDLXL_CLEANUP_GLOW is set to "<label>|<animation index>|<geoset id>|<frame>|<sequence name>,<sequence name>,...".
   const glow=process.env.MDLXL_CLEANUP_GLOW?.split('|')||null;
-  const model=process.env.MDLXL_OPENING_MODEL||path.resolve('out/optimizexl-opening/Spanish_Halberdier.mdx'),source=fs.readFileSync(model);
+  const model=process.env.MDLXL_OPENING_MODEL||testModel('optimizexl-opening/Spanish_Halberdier.mdx'),source=fs.readFileSync(model);
   const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','cleanup-ui');fs.mkdirSync(out,{recursive:true});
   const exe=appTarget().packaged;
   const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });

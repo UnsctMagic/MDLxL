@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
 
@@ -10,7 +11,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
  const {OrthographicCamera,Matrix4}=await import('three');
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','optimizexl-geosets-proof'),run=path.join(out,'run-'+Date.now());fs.mkdirSync(out,{recursive:true});
  const preferences={wheelMode:'scroll',viewportAppearance:{geosetHighlight:{color:'#ff00ff',type:'fill',viaView:true,viaSelection:true}}};
- const file=process.env.MDLXL_OPTIMIZEXL_MODEL||'C:/Users/PC/Documents/ChatGPT/MDLxL/out/Khorne_Optimized_Review/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx';
+ const file=process.env.MDLXL_OPTIMIZEXL_MODEL||testModel('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
  const source=fs.readFileSync(file),model=openDocument(new Uint8Array(source),'fixture.mdx').model,packaged=appTarget().packaged;
  const expected=runOptimizeStage(new Uint8Array(source),'nuclear',simpleSettings('nuclear',100,model)),reduced=openDocument(expected.bytes,'after.mdx').model;
  const chosen=model.Geosets.findIndex((g,i)=>g.Faces.length>reduced.Geosets[i].Faces.length&&sampleGeosetAnimation(model,i,1667,1,0).alpha>.001);assert.ok(chosen>=0);

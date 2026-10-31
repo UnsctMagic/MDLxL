@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
 
@@ -14,7 +15,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
  // (out/fixture-scan/spheres.mjs), so they are valid. Playback must pass frame 34938, 83 frames after the finding, as 250 was
  // 83 after 167 in the original.
  const KB='123.74 KB',warning='Death: irregular movement (Flail_Head)',ID='motion:4:21:Rotation',SEQUENCE='4',FRAME='34855',NODE='Flail_Head',PROPERTY='Rotation',CHANGED=[34856],PLAYED=34938;
- const model=process.env.MDLXL_FOOTMAN_MODEL||path.resolve('out/optimizexl-motion/WH_WOC_WarriorNurgle_Flail12_Optimized.mdx'),source=fs.readFileSync(model);
+ const model=process.env.MDLXL_FOOTMAN_MODEL||testModel('optimizexl-motion/WH_WOC_WarriorNurgle_Flail12_Optimized.mdx'),source=fs.readFileSync(model);
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','motion-ui');fs.mkdirSync(out,{recursive:true});
  const exe=appTarget().packaged;
  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });

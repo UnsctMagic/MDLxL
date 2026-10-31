@@ -10,6 +10,8 @@ import { projectPoseSkeleton, pickPoseHandle, drawPoseOverlay } from '../app/pos
 import { openDocument } from '../src/editor-document.js';
 import { applyMovementPose } from '../src/movement.js';
 import { suggestPoseRig, samplePoseChain, solvePoseLimb, poseTrackScope, poseChainIds } from '../src/pose-ik.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 test('each appearance includes controllers; mixed sets and custom shapes survive configuration export', () => {
   const looks = new Set();
@@ -52,8 +54,8 @@ test('pose skeleton connects controls and joints without native mesh/weapon bran
   assert.equal(pickPoseHandle([square], 122, 122, null, [], false), square, 'square corners are pickable');
 });
 
-test('Restrict switches body lead off for hands and feet, retaining native limb edits and exact Undo', { skip: !fs.existsSync('out/pose/Footman.mdx') }, () => {
-  const doc = openDocument(fs.readFileSync('out/pose/Footman.mdx')), before = structuredClone(doc.model);
+test('Restrict switches body lead off for hands and feet, retaining native limb edits and exact Undo', { skip: !fs.existsSync(testModel('pose/Footman.mdx')) }, () => {
+  const doc = openDocument(fs.readFileSync(testModel('pose/Footman.mdx'))), before = structuredClone(doc.model);
   const rig = { ...suggestPoseRig(doc.model, 500, 0), pins: [] };
   for (const kind of ['arm', 'leg']) for (const restrict of [false, true, undefined]) {
     const config = { ...rig, restrict }, chain = rig.chains.find(chain => chain.kind === kind), pose = samplePoseChain(doc.model, chain, 500, 0);

@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 
@@ -9,7 +10,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   // 'preview'; 25 automatic proposals (0 inspection-only); the first finding's fix is redundant:GeosetAnims.1.Alpha:6
   // (sequence 6, Decay Flesh); one approved batch leaves 0 notices.
   const NOTICES=25,AUTOMATIC=25,FIRST_SEQUENCE='6';
-  const model=process.env.MDLXL_DIAGNOSTICS_MODEL||path.resolve('out/optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),source=fs.readFileSync(model);
+  const model=process.env.MDLXL_DIAGNOSTICS_MODEL||testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),source=fs.readFileSync(model);
   const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','diagnostics-ui');fs.mkdirSync(out,{recursive:true});
   const exe=appTarget().packaged;
   const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });
