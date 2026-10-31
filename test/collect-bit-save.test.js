@@ -46,3 +46,25 @@ for (const image of ['Textures\\Native.blp', 'Custom/My Skin.PNG', '_hd.w3mod:Te
   assert.equal(roundtrip.Textures[imported.textureMap[0]].Image, image);
   assert.deepEqual(source, before);
 });
+
+test('Collect Bit asks to fix values Warcraft III keeps only as keyframes, then saves', async t => {
+  const directory = tempDir('mdlxl-collect-fix-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const library = new BitsAndPartsLibrary(directory), doc = createStarterDocument();
+  doc.model.TextureAnims = [{ Translation: Float32Array.of(0.5, 0, 0) }]; doc.model.Materials[0].Layers[0].TVertexAnimId = 0;
+  const source = collectPart(doc.model, Object.fromEntries(doc.model.Geosets.map((g, i) => [i, Array.from({ length: g.Vertices.length / 3 }, (_, v) => v)])));
+  const state = [], module = { exports: {} };
+  let cursor = 0, saved;
+  const react = { ...React, useState(initial) { const index = cursor++; if (!(index in state)) state[index] = index === 0 ? 'Collected' : initial; return [state[index], value => { state[index] = value; }]; }, useMemo: fn => fn() };
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(id => id === 'react' ? react : /\/(Viewport|PartRgb)\.jsx$/.test(id) ? () => null : require(id), module, module.exports);
+  const previous = globalThis.window;
+  t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
+  globalThis.window = { desktop: { savePart: value => library.save(value) } };
+  const render = () => { cursor = 0; return module.exports.default({ source, textureAssets: new Map(), teamColor: '#ff0000', onClose() {}, onSaved: entry => { saved = entry; } }); };
+  const button = (node, label) => { if (!node || typeof node !== 'object') return null; if (node.type === 'button' && node.props.children === label) return node; return React.Children.toArray(node.props?.children).map(child => button(child, label)).find(Boolean); };
+  await button(render(), 'Save Bit').props.onClick();
+  assert.equal(saved, undefined); assert.deepEqual(state[5].labels, ['Texture animation 1 · Translation']);
+  await button(render(), 'Fix and save').props.onClick();
+  assert.ok(saved, state[4]);
+  assert.deepEqual(openDocument((await library.read(saved.id)).bytes).model.TextureAnims[0].Translation.Keys.map(key => Array.from(key.Vector)), [[0.5, 0, 0]]);
+});

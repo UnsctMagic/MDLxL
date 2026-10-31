@@ -12,6 +12,7 @@ import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
 import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
+import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { standardVisibility } from './auto-corpse.js';
 
@@ -94,8 +95,11 @@ export function collectedPartModel(source, { name, animations = null, keepGlobal
   if (!String(name || '').trim()) throw Error('Name the Bit before saving.');
   const model = selectPartAnimations(source, animations);
   if (!keepGlobals) {
-    for (const owner of ['GeosetAnims', 'Materials', 'TextureAnims']) freezeTracks(model[owner], track => isGlobalTrack(track), 0, undefined, source.GlobalSequences);
+    const frozen = [];
+    for (const owner of ['GeosetAnims', 'Materials', 'TextureAnims']) freezeTracks(model[owner], track => isGlobalTrack(track), 0, undefined, source.GlobalSequences, frozen);
     model.GlobalSequences = [];
+    // A frozen texture animation stays a track: Warcraft III has no plain value for it.
+    fixPlainTrackValues(model, plainTrackValues(model).filter(item => frozen.some(entry => entry.owner === item.owner && entry.property === item.property)));
   }
   model.Info.Name = name.trim();
   return model;
@@ -274,6 +278,10 @@ export function commitPart(target, source, { animations = null, look = null, rep
     for (const owner of owners) if (owner.MaterialID > id) owner.MaterialID--;
     for (const [sourceId, targetId] of maps.materials) if (targetId > id) maps.materials.set(sourceId, targetId - 1);
   }
+  // A look freezes the part's texture animations; keep them tracks over the
+  // target's animations, since Warcraft III has no plain value for them.
+  const imported = new Set([...maps.textureAnims.values()].map(index => next.TextureAnims[index]));
+  fixPlainTrackValues(next, plainTrackValues(next).filter(item => imported.has(item.owner)));
   recalculateExtents(next);
   for (const index of geosetIndices) fillSequenceExtents(next, next.Geosets[index]);
   if (next.Info) Object.assign(next.Info, { NumGeosets: next.Geosets.length, NumGeosetAnims: next.GeosetAnims.length, NumBones: next.Bones.length });
@@ -370,15 +378,16 @@ export function positionPart(source, target, selection) {
 }
 
 // Replace each keyed track `pick` accepts with its value at `frame`; global
-// loops freeze at their first frame.
-function freezeTracks(owner, pick, frame, interval, globalSequences) {
+// loops freeze at their first frame. `frozen` collects the replaced fields.
+function freezeTracks(owner, pick, frame, interval, globalSequences, frozen = []) {
   if (!owner || typeof owner !== 'object' || ArrayBuffer.isView(owner)) return;
   for (const [field, value] of Object.entries(owner)) {
-    if (!value?.Keys) { freezeTracks(value, pick, frame, interval, globalSequences); continue; }
+    if (!value?.Keys) { freezeTracks(value, pick, frame, interval, globalSequences, frozen); continue; }
     if (!pick(value)) continue;
     const width = value.Keys[0]?.Vector?.length || 1;
     const fallback = owner._MdxDefaults?.[field] ?? (width === 1 ? field === 'Alpha' ? 1 : 0 : Array.from({ length: width }, (_, axis) => field === 'Scaling' || field === 'Color' || field === 'Rotation' && axis === 3 ? 1 : 0));
     owner[field] = sampleTrack(value, frame, { interval, globalSequences, globalTime: 0, fallback, quaternion: field === 'Rotation' });
+    frozen.push({ owner, property: field });
     if (TEXTURE_SLOTS.includes(field)) owner[field] = Math.round(owner[field]);
     if (owner._MdxDefaults) {
       delete owner._MdxDefaults[field];

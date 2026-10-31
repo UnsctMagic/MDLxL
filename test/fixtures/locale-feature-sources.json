@@ -1429,7 +1429,14 @@
     "Answer each required question before sending.",
     "This question is no longer waiting for an answer.",
     "This input page is no longer waiting for you.",
-    "Invalid input page URL."
+    "Invalid input page URL.",
+    "Fix model",
+    "Warcraft III needs keyframes for these values:",
+    "Until they are fixed, the model cannot be saved and the Warcraft preview cannot show it. The fix keeps how the model looks, and Undo reverses it.",
+    "Fix and save",
+    "Fix keyframe values",
+    "Turn single animation values into keyframes.",
+    "{0} is a single value; Warcraft III needs keyframes here."
   ],
   "paint": [
     "Citadel Paint",
