@@ -33,7 +33,11 @@ GitHub Actions builds the package. Bump the version (see AGENTS.md), merge to
 `main`, then push a tag that matches `package.json`, for example `v0.22.2`. The
 **Draft release** workflow fetches the pinned FFmpeg, builds, tests, packages,
 zips the result and creates a **draft** release with
-`MDLxL-<version>-win32-x64.zip` and its `.zip.sha256`. Drafts are invisible to
+`MDLxL-<version>-win32-x64.zip` and its `.zip.sha256`, plus an identical copy
+named `MDLxL-win32-x64.zip`. That fixed name keeps one permanent download link
+working for the website and XGM:
+<https://github.com/UnsctMagic/MDLxL/releases/latest/download/MDLxL-win32-x64.zip>.
+The updater only uses the versioned ZIP. Drafts are invisible to
 the updater and do not trigger the Discord announcement, so nothing reaches
 users until you publish by hand. Before publishing, run the release gate in
 [UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach

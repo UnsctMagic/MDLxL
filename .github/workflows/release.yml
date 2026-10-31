@@ -48,6 +48,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "tar failed with exit code $LASTEXITCODE" }
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+          # Same ZIP under a fixed name, so releases/latest/download/MDLxL-win32-x64.zip
+          # is one link that never changes (website, XGM). The updater ignores it.
+          Copy-Item $zip MDLxL-win32-x64.zip
           "{0:N1} MB  {1}" -f ((Get-Item $zip).Length / 1MB), $zip
           Get-Content "$zip.sha256"
 
@@ -60,7 +63,7 @@ jobs:
           zip="MDLxL-${VERSION}-win32-x64.zip"
           notes="docs/RELEASE-${VERSION}.md"
           if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
+          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" MDLxL-win32-x64.zip \
             --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "MDLxL ${VERSION}" "${notes_args[@]}"
           {
