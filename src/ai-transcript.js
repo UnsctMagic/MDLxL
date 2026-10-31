@@ -92,6 +92,7 @@ function reduce(messages, event, copy) {
     case 'worker': {
       const at = find(p => p.type === 'worker' && p.workerId === event.workerId && p.status === 'working');
       if (at && event.status !== 'working') update(at, { status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light });
+      else if (at && event.job && event.job !== at.job) update(at, { job: event.job });
       else if (!at) reply().parts.push({ type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light });
       break;
     }
