@@ -7379,9 +7379,9 @@
   "Nuclear": "Полное",
   "Splits the selected geometry into one geoset per separate piece.": "Разделяет выбранную геометрию: каждая отдельная часть становится своим геосетом.",
   "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.": "Полное: разделяет выбранную геометрию везде, где треугольники не имеют общих вершин, даже внутри одной части.",
-  "Weld selected duplicates": "Сварить выбранные дубликаты",
-  "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.": "Объединяет выбранные вершины, которые находятся точно в одной точке одного геосета. Копии с другими UV, нормалями или костями остаются раздельными, поэтому текстуры и жёсткие рёбра выглядят как прежде.",
-  "No exact duplicates found in the selection.": "В выделении нет точных дубликатов.",
-  "Welded {0} duplicate vertex.": "Сварено дубликатов вершин: {0}.",
-  "Welded {0} duplicate vertices.": "Сварено дубликатов вершин: {0}."
+  "Nuclear Weld": "Ядерная сварка",
+  "Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL.": "Быстрая чистка: выбранные вершины точно в одной точке сливаются в одну, если у них один материал, даже в разных геосетах (такие геосеты объединяются). Первая вершина сохраняет свои UV, нормаль и кости. Для аккуратной версии используйте OptimizeXL.",
+  "Nuclear Weld found no selected vertices on the same spot.": "Ядерная сварка не нашла выбранных вершин в одной точке.",
+  "Nuclear Weld: vertices welded: {0}.": "Ядерная сварка: сварено вершин: {0}.",
+  "Nuclear Weld: vertices welded: {0}, geosets merged: {1}.": "Ядерная сварка: сварено вершин: {0}, объединено геосетов: {1}."
 }

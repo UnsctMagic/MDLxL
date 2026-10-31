@@ -1440,11 +1440,11 @@
     "Nuclear",
     "Splits the selected geometry into one geoset per separate piece.",
     "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.",
-    "Weld selected duplicates",
-    "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.",
-    "No exact duplicates found in the selection.",
-    "Welded {0} duplicate vertex.",
-    "Welded {0} duplicate vertices."
+    "Nuclear Weld",
+    "Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL.",
+    "Nuclear Weld found no selected vertices on the same spot.",
+    "Nuclear Weld: vertices welded: {0}.",
+    "Nuclear Weld: vertices welded: {0}, geosets merged: {1}."
   ],
   "paint": [
     "Citadel Paint",

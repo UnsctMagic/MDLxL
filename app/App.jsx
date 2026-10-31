@@ -73,11 +73,11 @@ import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, p
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
-import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
+import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
 import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
-import { detachFaces, extrudeFaces, weldVertices } from '../src/mesh-tools.js';
+import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
 import { captureNodeSelection } from '../src/node-clipboard.js';
 import { prepareClipboardPaste } from '../src/clipboard-paste.js';
@@ -1613,23 +1613,23 @@ export default function App() {
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
     say(`Deleted ${result.removedVertices} free ${result.removedVertices === 1 ? 'vertex' : 'vertices'} from selected geosets.`);
   };
-  // Exact duplicates only: same geoset, same spot, same UVs, normals and
-  // bones, so the model looks the same afterwards. Seams stay open.
-  const weldSelectedDuplicates = () => {
-    const updated = {}; let merged = 0;
-    try { edit('Weld selected duplicates', ['Geosets'], current => {
-      for (const [key, ids] of Object.entries(validSelection)) {
-        const gi = Number(key), g = current.Geosets[gi];
-        if (ids.length < 2 || !g?.Faces?.length) continue;
-        const outcome = weldVertices(g, ids, 0);
-        if (outcome.merged) { merged += outcome.merged; updated[gi] = outcome.selection; }
-      }
-      return merged ? undefined : false;
-    }, { rethrow: true }); }
+  // Quick cleaner: same spot + same material welds, even across geosets.
+  // OptimizeXL is the careful option.
+  const nuclearWeld = () => {
+    let result;
+    try { result = edit('Nuclear Weld', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => nuclearWeldVertices(current, validSelection), { rethrow: true }); }
     catch { return; }
-    if (!merged) { say('No exact duplicates found in the selection.'); return; }
-    setSelection(previous => ({ ...previous, ...updated }));
-    say(`Welded ${merged} duplicate ${merged === 1 ? 'vertex' : 'vertices'}.`);
+    if (result === false) { say('Nuclear Weld found no selected vertices on the same spot.'); return; }
+    const remap = index => result.oldToNew[index];
+    setSelection(previous => {
+      const next = {};
+      for (const [index, ids] of Object.entries(previous)) if (!(index in validSelection) && remap(index) != null && !(remap(index) in result.selection)) next[remap(index)] = ids;
+      return { ...next, ...result.selection };
+    });
+    setSelectable(previous => new Set([...previous].map(remap).filter(index => index != null)));
+    setVisibleOnly(previous => new Set([...previous].map(remap).filter(index => index != null)));
+    setActiveGeoset(previous => remap(previous) ?? -1); clearZoomAnchor();
+    say(result.geosetsMerged ? `Nuclear Weld: vertices welded: ${result.welded}, geosets merged: ${result.geosetsMerged}.` : `Nuclear Weld: vertices welded: ${result.welded}.`);
   };
   const commitUVChanges = (changes, label = 'Edit UV coordinates') => {
     setLiveUV(null);
@@ -1781,7 +1781,7 @@ export default function App() {
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
         setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time
       }}/>
-      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><div className="classic-geoset-split"><button disabled={!editable || !selectionCount} title="Splits the selected geometry into one geoset per separate piece." onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} title="Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece." onClick={() => separateSelectedGeosets(true)}>Nuclear</button></div><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button><button disabled={!editable || !selectionCount} title="Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look." onClick={weldSelectedDuplicates}>Weld selected duplicates</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button></div>}
+      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><div className="classic-geoset-split"><button disabled={!editable || !selectionCount} title="Splits the selected geometry into one geoset per separate piece." onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} title="Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece." onClick={() => separateSelectedGeosets(true)}>Nuclear</button></div><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button><button disabled={!editable || !selectionCount} title="Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL." onClick={nuclearWeld}>Nuclear Weld</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
