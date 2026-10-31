@@ -50,12 +50,14 @@ function accountKey(settings) {
   return settings.provider + ':' + (settings.executable || '');
 }
 // The editing instructions, with the handbook and web research when they are on.
-// A worker bird gets its own note in place of the opening line.
-function editingPrompt(contract, { handbook, web, worker }) {
+// A worker bird gets its own note in place of the opening line. `functions` is the
+// fixed list of common editor functions, the same on every turn so it stays cached.
+function editingPrompt(contract, { handbook, web, worker, functions }) {
   return (
     (worker ? contract.AI_WORKER_NOTE + '\n' + contract.AI_EDITING_BODY : contract.AI_SYSTEM_PROMPT) +
     (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
-    (web ? '\n' + contract.AI_WEB_RESEARCH : '')
+    (web ? '\n' + contract.AI_WEB_RESEARCH : '') +
+    (functions ? '\n' + functions : '')
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
@@ -123,6 +125,24 @@ class AiService {
       });
     }
     return this.contract;
+  }
+  // The editor functions handed to the AI (the common list and per-job pages),
+  // read once from the same src files its scripts load.
+  async functionCards() {
+    this.cards ||= (async () => {
+      const capabilities = await import(pathToFileURL(path.join(this.root, 'src/ai-capabilities.js')).href);
+      const modules = [...new Set([...Object.keys(capabilities.AI_COMMON_FUNCTIONS), ...capabilities.AI_AREAS.flatMap(area => area.modules)])];
+      const sources = Object.fromEntries(
+        await Promise.all(modules.map(async module => [module, await fs.readFile(path.join(this.root, 'src', module + '.js'), 'utf8').catch(() => '')])),
+      );
+      return {
+        common: capabilities.aiCommonFunctionsText(sources),
+        areas: capabilities.AI_AREAS.map(area => area.id),
+        areasForRequest: capabilities.areasForRequest,
+        pages: areas => capabilities.aiToolPages(sources, areas),
+      };
+    })();
+    return this.cards;
   }
   // A recorder for a chat; init() has loaded the transcript rules by then.
   recorder(conversation, emit) {
@@ -625,7 +645,7 @@ class AiService {
       settings = { ...settings, autoRouting: true, jobModel: args.tiny && settings.lightJobModel || settings.model };
     }
     const continuing = args.worker && workers.find(w => w.name === args.worker);
-    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job, tiny: args.tiny }];
+    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job, tiny: args.tiny, tools: args.tools }];
     const previousNote = conversation.modelKey ? (await this.registry.model(conversation.modelKey)).note : null;
     conversation.task = { prompt: text, context, status: 'running', phase: 'inspecting', steps: [], sdBrain: policy };
     conversation.messages ||= [];
@@ -744,6 +764,9 @@ class AiService {
       prompt: JSON.stringify(input),
       conversation: routing, signal,
     };
+    // Function areas the bird is handed; an unknown name is dropped, not a retry.
+    const { areas } = await this.functionCards();
+    const toolsOf = tools => (Array.isArray(tools) ? [...new Set(tools.filter(area => areas.includes(area)))].slice(0, 3) : []);
     const jobOf = args => {
       if (!args || typeof args !== 'object' || typeof args.job !== 'string' || !args.job.trim()) throw Error('Each job needs a short title.');
       if (args.worker != null && typeof args.worker !== 'string') throw Error('The worker must be a bird name or id.');
@@ -751,7 +774,7 @@ class AiService {
       const destination = (args.worker || '').trim().toLowerCase();
       const selected = workers.find(w => w.name.toLowerCase() === destination || w.id.toLowerCase() === destination);
       if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
-      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks) } : {}) };
+      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, tools: toolsOf(args.tools), ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks) } : {}) };
     };
     for (let attempt = 0; attempt < 2; attempt++) {
       const reply = await this.askOnce({ ...options, meter: this.measureUsage(routing, recorder, 'router') });
@@ -769,8 +792,8 @@ class AiService {
           if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
           return { jobs };
         }
-        const { job, worker, tiny, helper, checks } = jobOf(args);
-        return { job, worker, tiny, helper, checks };
+        const { job, worker, tiny, helper, checks, tools } = jobOf(args);
+        return { job, worker, tiny, helper, checks, tools };
       } catch (error) {
         if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
         options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
@@ -813,7 +836,7 @@ class AiService {
   }
   // One task on one conversation: the provider turn, edit checkpoints, verification
   // and steering. The organiser and each of its workers run through this.
-  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry, policy, helper, checks, requestText, canHandover = false }) {
+  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry, policy, helper, checks, toolAreas, requestText, canHandover = false }) {
     const {
       AI_TOOLS,
       AI_JOB_TOOLS,
@@ -869,6 +892,7 @@ class AiService {
       // Reconstruct a fresh turn from durable editor checkpoints, never replay it.
       conversation.messages = [];
       delete conversation.threadId;
+      delete conversation.sentToolAreas;
     } else
       task = conversation.task = {
         prompt: text,
@@ -938,6 +962,17 @@ class AiService {
           // A guide that cannot be read leaves the job as it was.
         }
       }
+    // The functions this job needs, from the areas the organiser picked or else the
+    // request's words, go with the job once per conversation; capabilities finds the rest.
+    const cards = await this.functionCards();
+    if (!organiser && !conversation.toolsOff && !conversation.helperOnly) {
+      // The pages sent earlier are gone once the provider history restarts.
+      const sent = conversation.sentContext ? conversation.sentToolAreas || [] : [];
+      const areas = (toolAreas?.length ? toolAreas : cards.areasForRequest(text)).filter(area => !sent.includes(area));
+      const pages = cards.pages(areas);
+      if (pages) prompt += '\n\n' + pages;
+      conversation.sentToolAreas = [...sent, ...areas];
+    }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!organiser && !conversation.toolsOff && !conversation.helperOnly && conversation.modelKey) {
       const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
@@ -1195,7 +1230,7 @@ class AiService {
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
       : conversation.helperOnly ? AI_HELPER_NOTE
-      : editingPrompt(contract, { handbook: sd.handbook === true, web, worker: conversation.kind === 'worker' });
+      : editingPrompt(contract, { handbook: sd.handbook === true, web, worker: conversation.kind === 'worker', functions: cards.common });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
@@ -1433,7 +1468,7 @@ class AiService {
       let status = 'done',
         error;
       try {
-        await this.runTask({ conversation, recorder, steering, text, images, context, resume: !!args.resumeTask, settings: { ...settings, model: worker.model }, contract, signal, policy, helper: args.helper, checks: args.checks, requestText: userText, canHandover: !args.helperOnly, entry: { from: 'organiser', job: args.job } });
+        await this.runTask({ conversation, recorder, steering, text, images, context, resume: !!args.resumeTask, settings: { ...settings, model: worker.model }, contract, signal, policy, helper: args.helper, checks: args.checks, toolAreas: args.tools, requestText: userText, canHandover: !args.helperOnly, entry: { from: 'organiser', job: args.job } });
       } catch (reason) {
         if (signal.aborted && !runningWorker.escalation) throw reason;
         if (runningWorker.escalation) userText += '\n\nUser steering: ' + runningWorker.escalation;
