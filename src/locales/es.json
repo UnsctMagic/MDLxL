@@ -7384,5 +7384,12 @@
   "No RGB": "Sin RGB",
   "Apply its global animations?": "¿Aplicar sus animaciones globales?",
   "Keep global animations?": "¿Conservar las animaciones globales?",
-  "Bit RGB": "RGB del Bit"
+  "Bit RGB": "RGB del Bit",
+  "Fix model": "Corregir modelo",
+  "Warcraft III needs keyframes for these values:": "Warcraft III necesita fotogramas clave para estos valores:",
+  "Until they are fixed, the model cannot be saved and the Warcraft preview cannot show it. The fix keeps how the model looks, and Undo reverses it.": "Hasta que se corrijan, el modelo no se puede guardar y la vista previa de Warcraft no puede mostrarlo. La corrección mantiene el aspecto del modelo y Deshacer la revierte.",
+  "Fix and save": "Corregir y guardar",
+  "Fix keyframe values": "Corregir valores de fotogramas clave",
+  "Turn single animation values into keyframes.": "Convertir los valores de animación únicos en fotogramas clave.",
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} es un valor único; Warcraft III necesita fotogramas clave aquí."
 }

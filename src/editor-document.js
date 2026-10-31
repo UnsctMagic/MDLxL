@@ -8,6 +8,7 @@ import { parseMDL, generateMDL } from 'war3-model';
 import { parseCompatibleMdx as parseMDX, generateCompatibleMdx as generateMDX, omitEmptyMdxNodeTracks } from './mdx-compatibility.js';
 import { prepareCompatibleMdl, finishCompatibleMdl, formatGeneratedMdl, readMdlPivotPoints } from './mdl-compatibility.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes, SERIALIZED_NODE_COLLECTIONS } from './node-id-order.js';
+import { plainTrackValues } from './plain-track-values.js';
 import { assertModelEquivalent, formatSaveIssues } from './save-equivalence.js';
 import { preserveMdxRecords, preserveMdlRecords } from './record-preservation.js';
 import { parseMdx, SUPPORTED_FORMAT_VERSIONS } from './mdx-container.js';
@@ -521,7 +522,9 @@ export class EditorDocument {
     if (!savedModel || savedModel.Version !== doc.version || ![800,1000,doc.version].includes(recovered.Version)) throw new Error('Recovery model version does not match its original file.');
     normalizeModel(recovered);
     const existingErrors = new Set(validateModel(doc.model).filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));
-    const errors = validateModel(recovered).filter((d) => d.severity === 'error' && !existingErrors.has(`${d.code}:${d.path}`));
+    // Drafts from before the keyframe check can hold plain track values; they
+    // restore as they were and the Fix model prompt repairs them.
+    const errors = validateModel(recovered).filter((d) => d.severity === 'error' && d.code !== 'PLAIN_TRACK_VALUE' && !existingErrors.has(`${d.code}:${d.path}`));
     if (errors.length) throw new Error(`Recovery model is invalid: ${errors[0].message}`);
     doc.model = recovered; doc.version = recovered.Version; doc._committedModel = clone(recovered);
     doc._recoverySavedChanges = state.version === 2 ? clone(state.savedChanges) : createChanges(doc._savedModel, savedModel, { ignore: ignoreHistoryAlias });
@@ -772,6 +775,7 @@ export function validateModel(model, { numericSections = null, previousDiagnosti
   for (const [i, sequence] of (model.Sequences || []).entries()) if (!sequence.Interval || sequence.Interval.length !== 2 || sequence.Interval[0] >= sequence.Interval[1]) add('error', 'SEQUENCE_INTERVAL', `Sequence ${sequence.Name || i} must end after it starts.`, `Sequences[${i}]`);
   for (const [i, duration] of (model.GlobalSequences || []).entries()) if (!Number.isInteger(duration) || duration <= 0) add('error', 'GLOBAL_SEQUENCE_DURATION', `Global sequence ${i} needs a positive integer duration.`, `GlobalSequences[${i}]`);
   for (const event of model.EventObjects || []) if (event.GlobalSeqId != null && event.GlobalSeqId !== -1 && (!Number.isInteger(event.GlobalSeqId) || event.GlobalSeqId < 0 || model.GlobalSequences?.[event.GlobalSeqId] === undefined)) add('error', 'GLOBAL_SEQUENCE_REFERENCE', `Event ${event.Name} references missing global sequence ${event.GlobalSeqId}.`, `Nodes[${event.ObjectId}].GlobalSeqId`);
+  for (const item of plainTrackValues(model)) add('error', 'PLAIN_TRACK_VALUE', `${item.label} is a single value; Warcraft III needs keyframes here.`, item.path);
   const visited = new Set();
   const valuePath = ['Model'];
   const location = () => valuePath.join('.');
