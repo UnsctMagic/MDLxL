@@ -297,12 +297,14 @@ test('a detached Death chest with a POSE head keeps its skull, while the separat
   assert.equal(byId.get(skulls[0].ids[0]).Name,'gore_head','the skull belongs to the final Death head, not the hidden living head');
 });
 
-test('native hand pieces retain forearm-scale reach instead of shrinking to palm vertices',{skip:!flailModel()&&'set MDLXL_CORPSE_FLAIL to the owner flail fixture'},async()=>{
+test('native hand pieces retain forearm-scale reach instead of shrinking to palm vertices',{skip:!flailModel()&&'set MDLXL_CORPSE_FLAIL to the owner flail fixture'},async t=>{
   const {openDocument}=await import('../src/editor-document.js');
   const {suggestPoseRig,poseChainIds}=await import('../src/pose-ik.js');
   const {allNodes,nodePivot}=await import('../src/animation.js');
   const {Vector3}=await import('three');
-  for(const file of [flailModel(),new URL('../out/pose/Ogre.mdx',import.meta.url)]){
+  // The SD Ogre is optional (out/pose); without it only the flail is checked.
+  const ogre=new URL('../out/pose/Ogre.mdx',import.meta.url);if(!existsSync(ogre))t.diagnostic('SD Ogre not prepared; checked the flail only');
+  for(const file of [flailModel(),ogre].filter(existsSync)){
   const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
   const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
   for(const hand of r.pieces.filter(p=>p.kind==='hand')){

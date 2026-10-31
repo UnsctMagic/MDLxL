@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 const require = createRequire(import.meta.url);
 const { PreviewRecordingStore, timeline, bitmap, gifSizeLimit, GIF_LEVELS } = require('../electron/preview-ffmpeg.cjs');
 const { validateGIFFile, MAX_CAPTURE_BYTES } = require('../electron/preview-capture.cjs');
@@ -36,17 +38,31 @@ function frame(index, width = 16, height = 8) {
   }
   return bytes;
 }
+// FFmpeg is fetched, not committed. A fresh worktree without it borrows the
+// pinned copy from the main checkout; encoding tests skip only if neither has one.
+function findFFmpeg() {
+  const own = path.resolve('electron/ffmpeg/ffmpeg.exe');
+  if (existsSync(own)) return own;
+  try {
+    const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', windowsHide: true }).trim();
+    const main = path.join(path.dirname(common), 'electron', 'ffmpeg', 'ffmpeg.exe');
+    if (existsSync(main)) return main;
+  } catch {}
+  return null;
+}
+const ffmpeg = findFFmpeg();
+const encodes = process.platform !== 'win32' || (!ffmpeg && 'FFmpeg not fetched; run pnpm run fetch-ffmpeg');
 async function fixture(t, options = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-gif-test-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  return new PreviewRecordingStore({ temporaryRoot: path.join(root,'frames'), destination: path.join(root,'Screenshots'), ...options });
+  return new PreviewRecordingStore({ temporaryRoot: path.join(root,'frames'), destination: path.join(root,'Screenshots'), ...(ffmpeg && { executable: ffmpeg }), ...options });
 }
 
-test('recording uses the destination drive even when the system temporary drive is full', { skip: process.platform !== 'win32' }, async t => {
+test('recording uses the destination drive even when the system temporary drive is full', { skip: encodes }, async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-gif-drive-test-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const destination = path.join(root, 'Showcase Recordings');
-  const store = new PreviewRecordingStore({ destination });
+  const store = new PreviewRecordingStore({ destination, executable: ffmpeg });
   const diskChecks = [];
   t.mock.method(fs, 'statfs', async directory => {
     diskChecks.push(directory);
@@ -85,7 +101,7 @@ test('lossless BMP writes correct red/blue order and top-down dimensions', () =>
   assert.deepEqual([...result.subarray(54)],[3,17,255,255]);
   assert.equal(result.readInt32LE(22),-1);
 });
-test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops, save/retry', { skip: process.platform !== 'win32' }, async t => {
+test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops, save/retry', { skip: encodes }, async t => {
   const store=await fixture(t);
   for (const [fps,loop,level] of [[24,true,'medium'],[30,false,'high'],[1,false,'low']]) {
     const {jobId}=await store.begin(1,{width:16,height:8,level,loop});
@@ -112,14 +128,15 @@ test('real bundled FFmpeg: 24/30 FPS, irregular frames, one-frame capture, loops
   await store.save(1,jobId);
 });
 test('native boundary rejects malformed/stale/foreign frames, handles storage budget and missing binary', async t => {
-  const store=await fixture(t,{maxTempBytes:16*8*4+54+512});
+  // Frame checks never run FFmpeg, so any existing file stands in for it.
+  const store=await fixture(t,{maxTempBytes:16*8*4+54+512,executable:process.execPath});
   const {jobId}=await store.begin(1,{width:16,height:8,level:'low',loop:false});
   assert.throws(()=>store.frame(2,{jobId}));
   assert.throws(()=>store.frame(1,{jobId,width:16,height:8,time:0,buffer:new Uint8Array(1)}));
   await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
   store.get(1,jobId).budget=store.get(1,jobId).bytes;
   assert.equal((await store.frame(1,{jobId,width:16,height:8,time:40,buffer:frame(1)})).limit,true);
-  await store.finish(1,{jobId,time:100}); await store.save(1,jobId);
+  await store.discard(1,jobId);
   assert.throws(()=>store.get(1,jobId));
   const missing=await fixture(t,{executable:path.join(os.tmpdir(),'no-such-ffmpeg-mdlxl.exe')});
   await assert.rejects(missing.begin(1,{width:16,height:8,level:'medium',loop:false}),/missing/);
@@ -140,7 +157,7 @@ test('each quality level has one file-size budget; the fixed main picture has no
 });
 
 
-test('export profiles cap dimensions and preserve frame timing beyond five seconds', { skip: process.platform !== 'win32' }, async t => {
+test('export profiles cap dimensions and preserve frame timing beyond five seconds', { skip: encodes }, async t => {
   const store=await fixture(t);
   for(const [level,width,height] of [['medium',800,800],['high',1000,500],['low',500,1000],['best',1600,900],['low',300,200]]){
     const {jobId}=await store.begin(1,{width,height,level,loop:true});
@@ -165,7 +182,7 @@ test('export profiles cap dimensions and preserve frame timing beyond five secon
   }
 });
 
-test('complex local GIF fits 20 MiB while keeping every frame, duration and loop', { skip: process.platform !== 'win32' }, async t => {
+test('complex local GIF fits 20 MiB while keeping every frame, duration and loop', { skip: encodes }, async t => {
   const store=await fixture(t),width=864,height=864,count=40;
   const {jobId}=await store.begin(1,{width,height,level:'high',loop:true});
   for(let index=0;index<count;index++){
