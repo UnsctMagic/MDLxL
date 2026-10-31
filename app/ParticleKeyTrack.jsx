@@ -1,4 +1,5 @@
-import React,{useRef,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {createFrameCoalescer} from './viewport-performance.js';
 import useDismiss from './useDismiss.js';
 import {emitterSpans,ribbonSizeKeys,addSpan} from '../src/emitter-timing.js';
 
@@ -22,7 +23,10 @@ const left=(frame,start,span)=>`calc(6px + (100% - 12px) * ${(frame-start)/span}
  */
 export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,start,end,frame,disabled,onScrub,onSpans,onSmoothSize,onRemoveSizeKey}){
  const box=useRef(null),drag=useRef(null),[draft,setDraft]=useState(null),[menu,setMenu]=useState(null),span=Math.max(1,end-start);
- const menuBox=useRef(null);
+ const menuBox=useRef(null),follow=useRef(null),moveFrame=useRef(null);
+ // Each diamond move scrubs the preview: follow the pointer once per frame.
+ moveFrame.current||=createFrameCoalescer(()=>follow.current?.());
+ useEffect(()=>()=>moveFrame.current.cancel(),[]);
  useDismiss(menu,[menuBox],()=>setMenu(null),{stopEscape:false});
  const range=<input aria-label="Particle preview playhead" type="range" min={start} max={end} step="1" value={frame} onChange={e=>onScrub(Number(e.target.value))}/>;
  const timing=timed&&model.Sequences[sequence]?emitterSpans(model,emitter.ObjectId,sequence):null;
@@ -35,11 +39,13 @@ export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,st
  const otherKeys=emitterKeyFrames(emitter,start,end).map(item=>({...item,fields:item.fields.filter(field=>!['Visibility','HeightAbove','HeightBelow'].includes(field))})).filter(item=>item.fields.length);
  const frameAt=clientX=>{const rect=box.current.getBoundingClientRect();return Math.round(start+Math.min(1,Math.max(0,(clientX-rect.left-6)/Math.max(1,rect.width-12)))*span);};
  const limits=(list,index,side)=>{const [a,b]=list[index];return side?[a+1,list[index+1]?.[0]??end]:[list[index-1]?.[1]??start,b-1];};
- const move=event=>{
-  const d=drag.current;if(!d)return;const next=d.spans.map(part=>[...part]),[low,high]=limits(next,d.index,d.side);
-  next[d.index][d.side]=Math.max(low,Math.min(high,frameAt(event.clientX)));d.spans=next;setDraft(next);onScrub(next[d.index][d.side]);
+ const move=event=>{const d=drag.current;if(!d)return;d.clientX=event.clientX;moveFrame.current.schedule();};
+ const applyMove=()=>{
+  const d=drag.current;if(!d||d.clientX==null)return;const next=d.spans.map(part=>[...part]),[low,high]=limits(next,d.index,d.side);
+  next[d.index][d.side]=Math.max(low,Math.min(high,frameAt(d.clientX)));d.spans=next;setDraft(next);onScrub(next[d.index][d.side]);
  };
- const release=event=>{const d=drag.current;if(!d)return;drag.current=null;event.currentTarget.releasePointerCapture?.(event.pointerId);setDraft(null);if(JSON.stringify(d.spans)!==JSON.stringify(timing.spans))onSpans(d.spans);};
+ follow.current=applyMove;
+ const release=event=>{moveFrame.current.flush();const d=drag.current;if(!d)return;drag.current=null;event.currentTarget.releasePointerCapture?.(event.pointerId);setDraft(null);if(JSON.stringify(d.spans)!==JSON.stringify(timing.spans))onSpans(d.spans);};
  const context=(event,item)=>{event.preventDefault();event.stopPropagation();if(!disabled)setMenu({x:event.clientX,y:event.clientY,...item});};
  // Any point on the track can get a size key, independent of the on/off diamonds.
  return <><div className="pe-key-track ribbon" ref={box} title={ribbon?"Right-click anywhere on the track for Smooth Size at that frame.":undefined} onContextMenu={event=>{if(ribbon)context(event,{frame:frameAt(event.clientX)});}}>
@@ -49,7 +55,7 @@ export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,st
   {spans.flatMap(([a,b],index)=>[a,b].map((at,side)=><div key={index+':'+side} role="slider" tabIndex={0} aria-label={(side?(ribbon?'Ribbon':'Emitter')+' hides at frame ':(ribbon?'Ribbon':'Emitter')+' shows at frame ')+at} aria-valuenow={at} aria-valuemin={start} aria-valuemax={end}
    className={'pe-key-diamond'+(side?' hides':' shows')} style={{left:left(at,start,span)}} title={(side?'Hides':'Shows')+' at frame '+at+'. Drag to change when.'+(ribbon?' Right-click for Smooth Size.':' Right-click to remove this pair.')}
    onPointerDown={event=>{if(disabled||event.button!==0)return;event.preventDefault();event.stopPropagation();event.currentTarget.setPointerCapture(event.pointerId);drag.current={index,side,spans:spans.map(part=>[...part])};setDraft(drag.current.spans);onScrub(at);}}
-   onPointerMove={move} onPointerUp={release} onPointerCancel={()=>{drag.current=null;setDraft(null);}}
+   onPointerMove={move} onPointerUp={release} onPointerCancel={()=>{moveFrame.current.cancel();drag.current=null;setDraft(null);}}
    onContextMenu={event=>context(event,{frame:at,part:index})}
    onKeyDown={event=>{if(disabled||!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const next=spans.map(part=>[...part]),[low,high]=limits(next,index,side);next[index][side]=Math.max(low,Math.min(high,at+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?10:1)));onSpans(next);onScrub(next[index][side]);}}/>))}
   {sizeKeys.map(at=><div key={'k'+at} role="button" tabIndex={0} aria-label={'Size key at frame '+at} className="pe-key-size" style={{left:left(at,start,span)}} title={'Size key at frame '+at+'. Right-click for Smooth Size.'}

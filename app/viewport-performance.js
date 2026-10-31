@@ -166,7 +166,21 @@ export function createRenderScheduler({ render, continuous, paused, maxFps, requ
   return { invalidate, resize, sync, dispose };
 }
 
-export const sensitivityIndicatorStyle = { position: 'absolute', top: 32, left: 5, padding: '4px 7px', background: '#f1f5ed', border: '1px solid #527742', color: '#215316', fontSize: 11, pointerEvents: 'none', zIndex: 2 };
+/**
+ * Live drags call `schedule()` on every pointer event; `run` happens at most
+ * once per display frame. `flush()` runs a pending call now (pointer up),
+ * `cancel()` drops it. See docs/ARCHITECTURE.md "Only do work someone can see".
+ */
+export function createFrameCoalescer(run, { request = callback => requestAnimationFrame(callback), cancel: cancelFrame = id => cancelAnimationFrame(id) } = {}) {
+  let frame = null;
+  function tick() { frame = null; run(); }
+  function schedule() { if (frame === null) frame = request(tick); }
+  function flush() { if (frame === null) return; cancelFrame(frame); tick(); }
+  function cancel() { if (frame !== null) cancelFrame(frame); frame = null; }
+  return { schedule, flush, cancel, get pending() { return frame !== null; } };
+}
+
+export const sensitivityIndicatorStyle ={ position: 'absolute', top: 32, left: 5, padding: '4px 7px', background: '#f1f5ed', border: '1px solid #527742', color: '#215316', fontSize: 11, pointerEvents: 'none', zIndex: 2 };
 
 
 export function watchContextLoss(canvas, onLost) {

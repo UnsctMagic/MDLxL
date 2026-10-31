@@ -2,6 +2,7 @@ import MaterialProperties from './MaterialProperties.jsx';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import UVEditor from './UVEditor.jsx';
 import useStoredState from './useStoredState.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
@@ -53,9 +54,14 @@ function UVGridControls({ value, onChange, children }) {
 }
 
 function Splitter({ orientation, label, value, minimum, maximum, defaultValue, onPointerValue, onValue }) {
-  const pointer = useRef(null), vertical = orientation === 'vertical';
+  // A drag records the pointer; the resize (and its saved layout) applies once per frame. Keys stay immediate.
+  const pointer = useRef(null), point = useRef(null), report = useRef(onPointerValue), frame = useRef(null), vertical = orientation === 'vertical';
+  report.current = onPointerValue;
+  frame.current ||= createFrameCoalescer(() => { if (point.current) report.current(point.current); });
+  useEffect(() => () => frame.current.cancel(), []);
   const stop = event => {
     if (pointer.current !== event.pointerId) return;
+    frame.current.flush(); // cancel too: the splitter keeps where it was dragged, as before
     pointer.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
@@ -74,7 +80,7 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
     aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={Math.round(value)} tabIndex={0} title={`${label} · drag or use arrow keys · double-click to reset`}
     onDoubleClick={() => onValue(defaultValue)} onKeyDown={keyDown}
     onPointerDown={event => { pointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); event.currentTarget.focus(); event.preventDefault(); }}
-    onPointerMove={event => { if (pointer.current === event.pointerId) { onPointerValue(event); event.preventDefault(); } }} onPointerUp={stop} onPointerCancel={stop}><span/></div>;
+    onPointerMove={event => { if (pointer.current === event.pointerId) { point.current = { clientX: event.clientX, clientY: event.clientY }; frame.current.schedule(); event.preventDefault(); } }} onPointerUp={stop} onPointerCancel={stop}><span/></div>;
 }
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,

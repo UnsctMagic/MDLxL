@@ -31,6 +31,7 @@ import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
 import { applyAiEvent } from '../src/ai-transcript.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 
 // What a connection supports decides which settings rows it shows.
 const providerInfo = id => PROVIDERS.find(p => p.id === id) || {};
@@ -578,11 +579,17 @@ function AiAssistant({ bridge, visUI }) {
       startWidth = width,
       handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
+    // A drag records the pointer; the width (and the console re-render) updates once per frame.
+    let pointerX = startX;
+    const frame = createFrameCoalescer(() =>
+      setWidth(Math.round(Math.max(300, Math.min(window.innerWidth * 0.6, startWidth + pointerX - startX)))),
+    );
     const move = moveEvent => {
-      const next = Math.round(Math.max(300, Math.min(window.innerWidth * 0.6, startWidth + moveEvent.clientX - startX)));
-      setWidth(next);
+      pointerX = moveEvent.clientX;
+      frame.schedule();
     };
     const end = () => {
+      frame.flush();
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', end);
       handle.removeEventListener('pointercancel', end);

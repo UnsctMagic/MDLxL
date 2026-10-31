@@ -14,6 +14,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
+| Live drags once per frame (UV lag; sweep of every drag) | First PR in progress; rest listed | [Live drag lag](live-drag-lag.md) / Claude Code |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed

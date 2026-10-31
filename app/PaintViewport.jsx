@@ -23,7 +23,7 @@ import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { decodePaintBlp } from '../src/paint-blp.js';
 import { allNodes, sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
-import { watchContextLoss, bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
+import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 
@@ -87,7 +87,10 @@ export default function PaintViewport(inputProps) {
     state.teamGlow = makeTeamGlow();
     state.globalTime = 0;
     state.textureSources = new Map();
-    const invalidate = () => { latest.current.onCameraAnglesChange?.(editorCameraAngles(camera)); state.scheduler?.invalidate(); };
+    // The app's camera angles follow once per frame, not per pointer event.
+    let reportedAngles = null;
+    const cameraReport = createFrameCoalescer(() => latest.current.onCameraAnglesChange?.(reportedAngles));
+    const invalidate = () => { reportedAngles = editorCameraAngles(camera); cameraReport.schedule(); state.scheduler?.invalidate(); };
     const markerTexture = style => {
       if (style === 'square') return null;
       if (!state.markerTextures.has(style)) state.markerTextures.set(style, pointMarkerTexture(style));
@@ -257,6 +260,14 @@ export default function PaintViewport(inputProps) {
       }
       down.action = 'select';
     }
+    // Lamp drags and face sweeps update Paint and the app once per frame. A sweep
+    // still raycasts every recorded point, so a fast drag skips no face.
+    const dragFrame = createFrameCoalescer(applyDrag);
+    function applyDrag() {
+      if (!down) return;
+      if(down.action==='paintLamp'&&down.pendingLamp){const {dx,dy,width,height}=down.pendingLamp;down.pendingLamp=null;latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,width,height,down.lampMode,down.shift?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}
+      if(down.action==='paintPick'&&down.pendingPicks?.length){const hits=down.pendingPicks.map(sample=>paintHit(sample)).filter(Boolean);down.pendingPicks=[];if(hits.length)latest.current.onPaintPick?.({...hits.at(-1),continueSelection:true,sweep:hits});}
+    }
     function pointerMove(event) {
       if (latest.current.paintMode && paintCursor.current) {
         const cursor = point(event), decal=latest.current.paintDecal, width=decal?.width||Math.max(1,Number(latest.current.paintBrushSize)||1),height=decal?.height||width;
@@ -272,8 +283,8 @@ export default function PaintViewport(inputProps) {
       // The stroke already owns a fixed camera/depth projection. Pointer motion
       // needs screen coordinates only, not another full-model raycast.
       if (down.action === 'paint') { if (down.paintHit) latest.current.onPaintMove?.({ screen: { x: rawEnd.x, y: rawEnd.y } }); return; }
-      if(down.action==='paintLamp'){latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,rawEnd.width,rawEnd.height,down.lampMode,down.shift?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}
-      if (down.action === 'paintPick') { if(latest.current.paintSelectFaces){const hit=paintHit(event);if(hit)latest.current.onPaintPick?.({...hit,continueSelection:true});} return; }
+      if(down.action==='paintLamp'){down.pendingLamp={dx,dy,width:rawEnd.width,height:rawEnd.height};dragFrame.schedule();return;}
+      if (down.action === 'paintPick') { if(latest.current.paintSelectFaces){(down.pendingPicks||=[]).push({clientX:event.clientX,clientY:event.clientY,ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey});dragFrame.schedule();} return; }
       if (down.action === 'zoom') {
         const factor = Math.exp(-dy * .01);
         controls.zoomView(factor / down.zoomFactor); down.zoomFactor = factor;
@@ -282,6 +293,7 @@ export default function PaintViewport(inputProps) {
       if (down.action === 'select') { if (Math.hypot(dx, dy) > 5) setBox({ left: Math.min(down.x, end.x), top: Math.min(down.y, end.y), width: Math.abs(dx), height: Math.abs(dy) }); return; }
     }
     function pointerUp(event) {
+      dragFrame.flush();
       if(latest.current.paintWorkspace)latest.current.onPaintInteractionChange?.(false);
       rotating = false; latest.current.onCameraGestureChange?.(false);
       state.refreshCursor();
@@ -341,6 +353,7 @@ export default function PaintViewport(inputProps) {
       if (hit) p.onSelectGeoset?.(hit.object.userData.geosetIndex);
     }
     function cancelGesture() {
+      dragFrame.cancel();
       if(latest.current.paintWorkspace)latest.current.onPaintInteractionChange?.(false);
       if(down?.action==='paintLamp')latest.current.onPaintLampChange?.(down.lamp.id,{position:down.lamp.position,target:down.lamp.target});
       rotating = false; latest.current.onCameraGestureChange?.(false);
@@ -570,7 +583,7 @@ export default function PaintViewport(inputProps) {
       state.paintRegion?.geometry.dispose();state.paintRegion?.material.dispose();state.partColors?.geometry.dispose();state.partColors?.material.dispose();
       if(state.lampMarkers)clearGroup(state.lampMarkers);
       renderer.domElement.removeEventListener('dragover',paintDragOver);renderer.domElement.removeEventListener('drop',paintDrop);renderer.domElement.removeEventListener('pointerleave',paintLeave);
-      state.disposed = true; state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); unbindScroll(); resizeObserver.disconnect(); controls.removeEventListener('change', cameraChanged); controls.dispose();
+      state.disposed = true; cameraReport.cancel(); dragFrame.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); unbindScroll(); resizeObserver.disconnect(); controls.removeEventListener('change', cameraChanged); controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove); renderer.domElement.removeEventListener('pointerup', pointerUp); unwatchContext();
       renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey);

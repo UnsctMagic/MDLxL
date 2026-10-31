@@ -16,6 +16,7 @@ import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { moveDragPoint } from './classic-gestures.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import { loopEffectTiming, timeShowcasePlaylist, showcaseEmitters } from './showcase-effects.js';
 import { remapShowcasePlaylist, remapShowcaseTake, snapshotShowcaseModel, hydrateShowcaseModel } from './showcase-model.js';
 import { alignShowcaseText } from './showcase-text.js';
@@ -178,11 +179,19 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     const box=event.currentTarget.getBoundingClientRect(),point=moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},event.shiftKey);
     return {x:(point.x-box.left)/box.width,y:(point.y-box.top)/box.height};
   }
+  // A crop drag records the point; the crop state (and preview re-render) updates once per frame.
   function moveCrop(event) {
     if (!cropDrag.current) return;
-    const selection = cropBetween(cropDrag.current.start, cropMotionPoint(event));
+    cropDrag.current.next = { point: moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},event.shiftKey), target: event.currentTarget };
+    cropFrame.current.schedule();
+  }
+  function applyCropMove() {
+    const next = cropDrag.current?.next; if (!next) return;
+    const box = next.target.getBoundingClientRect(), selection = cropBetween(cropDrag.current.start, {x:(next.point.x-box.left)/box.width,y:(next.point.y-box.top)/box.height});
     if (selection.width >= .05 && selection.height >= .05) { setCropPreset('free'); setCrop(selection); }
   }
+  const cropFrame = useRef(null); cropFrame.current ||= createFrameCoalescer(() => applyCropMove());
+  useEffect(() => () => cropFrame.current.cancel(), []);
   useEffect(()=>{
     const shift=event=>{if(event.key==='Shift'&&cropDrag.current)moveDragPoint(cropDrag.current.motion,cropDrag.current.motion.pointer,event.shiftKey);};
     window.addEventListener('keydown',shift);window.addEventListener('keyup',shift);
@@ -190,6 +199,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   },[]);
   function finishCrop(event) {
     if (!cropDrag.current) return;
+    cropFrame.current.flush();
     const selection = cropBetween(cropDrag.current.start, cropMotionPoint(event));
     if (selection.width >= .05 && selection.height >= .05) { setCropPreset('free'); setCrop(selection); }
     else { setCropPreset(cropDrag.current.previousPreset); setCrop(cropDrag.current.previous); }

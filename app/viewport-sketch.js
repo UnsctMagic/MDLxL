@@ -1,4 +1,5 @@
 import { MODEL_LAYER } from './model-smoothing.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -137,12 +138,18 @@ export function createViewportSketch({ parent, entries, invalidate }) {
     stroke.points.push(...hit.point.toArray());
     stroke.normals.push(...hit.normal.toArray());
     stroke.onSurface.push(hit.surface);
+    lineFrame.schedule();
+  }
+  // Every sample stays in the stroke; the visible line is rebuilt once per frame.
+  const lineFrame = createFrameCoalescer(() => {
+    if (!gesture?.stroke) return;
     if (live) dispose(live);
-    live = lineFor(stroke);
+    live = lineFor(gesture.stroke);
     group.add(live);
     invalidate();
-  }
+  });
   function finishStroke() {
+    lineFrame.cancel();
     const current = gesture;
     gesture = null;
     if (live) {
@@ -158,6 +165,7 @@ export function createViewportSketch({ parent, entries, invalidate }) {
     sketchStore.add(stroke);
   }
   function cancelStroke() {
+    lineFrame.cancel();
     gesture = null;
     if (live) {
       dispose(live);

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useDismiss from './useDismiss.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
 import { timelineTracks, timelineKeys, timelineSections, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys } from '../src/keyframe-timeline.js';
 import { animationMarkerTimes } from '../src/animation-markers.js';
@@ -197,11 +198,15 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     let dragging = upper;
     if (upper) seek(at(event), extend, anchor);
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    // Scrubbing seeks the whole editor; follow the pointer once per frame.
+    let latest = null;
+    const scrubFrame = createFrameCoalescer(() => seek(latest.frame, latest.extend, anchor), { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) });
     const move = pointer => {
       if (!dragging && Math.abs(pointer.clientX - event.clientX) <= 4) return;
-      dragging = true; seek(at(pointer), extend || pointer.shiftKey, anchor);
+      dragging = true; latest = { frame: at(pointer), extend: extend || pointer.shiftKey }; scrubFrame.schedule();
     };
     const end = pointer => {
+      if (pointer.type === 'pointerup') scrubFrame.flush(); else scrubFrame.cancel();
       cleanup.current?.(); cleanup.current = null;
       if (!dragging && pointer.type === 'pointerup') {
         if (at(event) < frame) previous(extend); else next(extend);
@@ -209,7 +214,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     };
     cleanup.current?.();
     ownerWindow.addEventListener('pointermove', move); ownerWindow.addEventListener('pointerup', end, { once: true }); ownerWindow.addEventListener('pointercancel', end, { once: true });
-    cleanup.current = () => { ownerWindow.removeEventListener('pointermove', move); ownerWindow.removeEventListener('pointerup', end); ownerWindow.removeEventListener('pointercancel', end); };
+    cleanup.current = () => { scrubFrame.cancel(); ownerWindow.removeEventListener('pointermove', move); ownerWindow.removeEventListener('pointerup', end); ownerWindow.removeEventListener('pointercancel', end); };
   }
   function keyboard(event) {
     if (event.target.matches('input,textarea,select,button')) return;

@@ -3,11 +3,14 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react
 import { moveDragPoint } from './classic-gestures.js';
 import { scaleTextRuns } from './showcase-rich-text.js';
 import { createAnimatedPreviewBackground } from './animated-preview-background.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import { paintShowcaseText, textFonts } from './showcase-text.js';
 
 export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeId,editing,onSelect,onChange,onError,onInvalidate,grid=false,gridDensity=5,crop},ref) {
   const root=useRef(null),canvas=useRef(null),records=useRef(new Map()),drag=useRef(null),lastTime=useRef(0),lastCinematic=useRef({enabled:false,time:0}),latest=useRef();
   latest.current={preferences,layers,activeId,editing,onSelect,onChange,onError,onInvalidate};
+  const moveFrame=useRef(null);moveFrame.current||=createFrameCoalescer(()=>applyMove());
+  useEffect(()=>()=>moveFrame.current.cancel(),[]);
   function paint(context,width,height,time=lastTime.current,cinematic=lastCinematic.current){
     for(const layer of latest.current.layers){
       context.save();context.globalAlpha=layer.opacity??1;
@@ -71,27 +74,31 @@ export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeI
     drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...rotationOptions(latest.current.preferences,'showcase'),x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY},axis:[0,0,-1]})};
     event.currentTarget.setPointerCapture(event.pointerId);event.stopPropagation();event.preventDefault();
   }
+  // A move only records the point; the layer change (and canvas redraw) runs once per frame.
   function move(event){
-    const row=drag.current;if(!row)return;const point=moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;
+    const row=drag.current;if(!row)return;row.next={point:moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),clientX:event.clientX,clientY:event.clientY};moveFrame.current.schedule();event.stopPropagation();
+  }
+  function applyMove(){
+    const row=drag.current;if(!row?.next)return;const {point,clientX,clientY}=row.next,dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;
     if(row.rotate){
-      const angle=row.angle+rotationDragDegrees(row.rotationDrag,event.clientX-row.x,event.clientY-row.y)*Math.PI/180;
+      const angle=row.angle+rotationDragDegrees(row.rotationDrag,clientX-row.x,clientY-row.y)*Math.PI/180;
       const rotation=((Math.round(angle*180/Math.PI)+180)%360+360)%360-180;
-      latest.current.onChange?.(row.id,{rotation});event.stopPropagation();return;
+      latest.current.onChange?.(row.id,{rotation});return;
     }
     const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
     const c=Math.cos(row.angle),s=Math.sin(row.angle),localX=(c*dx*row.width+s*dy*row.height)/row.width,localY=(-s*dx*row.width+c*dy*row.height)/row.height;
     const next=row.resize?{...rect,width:clamp(rect.width+localX,.03,2),height:clamp(rect.height+localY,.03,2)}:
       {...rect,x:clamp(rect.x+dx,-rect.width+.01,.99),y:clamp(rect.y+dy,-rect.height+.01,.99)};
     if(row.resize){const dw=(next.width-rect.width)*row.width,dh=(next.height-rect.height)*row.height;next.x+=((c-1)*dw-s*dh)/2/row.width;next.y+=(s*dw+(c-1)*dh)/2/row.height;}
-    latest.current.onChange?.(row.id,{rect:next,...(row.resize&&row.size?{size:Math.max(6,Math.min(300,Math.round(row.size*next.width/rect.width))),runs:scaleTextRuns(row.layer,next.width/rect.width)}:{})});event.stopPropagation();
+    latest.current.onChange?.(row.id,{rect:next,...(row.resize&&row.size?{size:Math.max(6,Math.min(300,Math.round(row.size*next.width/rect.width))),runs:scaleTextRuns(row.layer,next.width/rect.width)}:{})});
   }
   useEffect(()=>{
     const shift=event=>{if(event.key==='Shift'&&drag.current)moveDragPoint(drag.current.motion,drag.current.motion.pointer,event.shiftKey);};
-    const cancel=()=>{drag.current=null;};
+    const cancel=()=>{moveFrame.current.cancel();drag.current=null;};
     window.addEventListener('keydown',shift);window.addEventListener('keyup',shift);window.addEventListener('blur',cancel);
     return()=>{window.removeEventListener('keydown',shift);window.removeEventListener('keyup',shift);window.removeEventListener('blur',cancel);};
   },[]);
-  function end(event){drag.current=null;event.stopPropagation();}
+  function end(event){moveFrame.current.flush();drag.current=null;event.stopPropagation();}
   const selected=layers.find(layer=>layer.id===activeId),frame=crop||{x:0,y:0,width:1,height:1},divisions=3+Math.max(1,Math.min(99,gridDensity));
   const gridPath=Array.from({length:divisions+1},(_,i)=>{const n=i*100/divisions;return `M${n} 0V100M0 ${n}H100`;}).join(' ');
   return <div className="showcase-layer-stage" ref={root}><canvas ref={canvas} aria-label="Showcase image and text layers"/>

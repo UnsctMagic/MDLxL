@@ -135,10 +135,12 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const placeRepeat = (state,ghost,magnet=state.magnet) => changeRepeat({...state,ids:ghost.faces.map(f=>f.id),magnet,placed:{...ghost,id:state.source.id,faces:[...state.source.faces.filter(face=>!state.originalIds.includes(face.id)),...ghost.faces]}});
   const constrainRepeatTransform = payload => {
     if(!repeat?.magnet||payload.modelPositions)return payload;
-    const gi=entries.length-1,ghost=repeatResult.ghost,mesh=structuredClone(entries[gi].mesh.geosets[0]),vertexIds=entries[gi].mesh.vertexIds,indices=payload.selections?.[gi]||selection[gi];
+    const gi=entries.length-1,ghost=repeatResult.ghost,vertexIds=entries[gi].mesh.vertexIds,indices=payload.selections?.[gi]||selection[gi];
     let shape,surface=repeat.magnet;
     if(payload.translation&&!payload.rotation&&!payload.scale)shape=moveMagnetizedDetail(ghost,surface,payload.translation);
     else {
+      // Only a turn or resize needs the scratch geoset; a magnet move skips the clone.
+      const mesh=structuredClone(entries[gi].mesh.geosets[0]);
       mesh.Vertices=Float64Array.from(vertexIds.flatMap(id=>ghost.vertices[id]));
       transformVertices(mesh,indices,payload.translation,payload.scale,payload.rotation,payload.pivot,{allowSingularScale:payload.allowSingularScale===true});
       const moved=structuredClone(ghost);vertexIds.forEach((id,i)=>{moved.vertices[id]=Array.from(mesh.Vertices.slice(i*3,i*3+3));});
