@@ -500,6 +500,9 @@ export default function Viewport(inputProps) {
       if (!state.drag) return;
       // Forge double-clicks tolerate a little hand movement without moving the piece.
       if (latest.current.onDoubleClickParts && !down.traveled) return;
+      // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
+      // turn between frames cannot flip direction. Repeating the last point adds nothing.
+      if (state.drag.rotationDrag) rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y);
       transformMove = { down, rawEnd, end, dx, dy, shiftKey: event.shiftKey }; transformFrame.schedule();
     }
     // Hover picking projects every visible vertex and updates Forge cut previews; once per frame.
@@ -704,7 +707,9 @@ export default function Viewport(inputProps) {
     const gestureKey = event => {
       if(event.key==='Shift') {
         const shift=event.type==='keydown';
-        if(down?.action==='parts'&&down.traveled)down.parts?.update({...down.partsEnd,shift});
+        // A frame still waiting from the last move carries the old Shift; replace it now.
+        if(down?.action==='parts'&&down.traveled){partsFrame.cancel();partsMove=null;down.parts?.update({...down.partsEnd,shift});}
+        else if(!down&&hoverMove){hoverMove.event.shiftKey=shift;hoverFrame.flush();}
         else if(!down&&partHover)latest.current.onHoverParts?.({...partHover,end:{...partHover.end,shift}});
       }
       if (!quad) return;

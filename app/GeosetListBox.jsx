@@ -5,8 +5,11 @@ import './geoset-list-box.css';
 export default function GeosetListBox({ children, overlay }) {
   const list = useRef(null), drag = useRef(null);
   const [height, setHeight] = useState(null), frame = useRef(null);
-  // A drag records the pointer; the list height changes once per frame.
-  frame.current ||= createFrameCoalescer(() => { const d = drag.current; if (d?.to !== undefined) setHeight(Math.max(d.minimum, d.height + d.to - d.y)); });
+  // A drag records the pointer; the list height changes once per frame. Frames come from
+  // the list's own window: OptimizeXL shows it in a separate window.
+  const owner = () => list.current?.ownerDocument.defaultView || window;
+  frame.current ||= createFrameCoalescer(() => { const d = drag.current; if (d?.to !== undefined) setHeight(Math.max(d.minimum, d.height + d.to - d.y)); },
+    { request: callback => owner().requestAnimationFrame(callback), cancel: id => owner().cancelAnimationFrame(id) });
   useEffect(() => () => frame.current.cancel(), []);
   const stop = event => {
     if (drag.current?.pointerId !== event.pointerId) return;

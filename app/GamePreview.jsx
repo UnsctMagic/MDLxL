@@ -711,6 +711,13 @@ export default function GamePreview(inputProps) {
       if (event.pointerId !== nodeGesture.id) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (nodeGesture.adjusted) return;
+      // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
+      // turn between frames cannot flip direction. Repeating the last point adds nothing.
+      if (nodeGesture.rotationDrag) {
+        const rect = canvas.getBoundingClientRect(), dx = event.clientX - rect.left - nodeGesture.x, dy = event.clientY - rect.top - nodeGesture.y;
+        const [turnX, turnY] = !nodeGesture.pose && nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
+        movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY);
+      }
       nodeMove = { gesture: nodeGesture, event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey } }; nodeFrame.schedule();
     };
     // The marquee box re-renders the preview; once per frame.

@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createFrameCoalescer } from '../app/viewport-performance.js';
+import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
+import { uvTurn } from '../src/uv-tools.js';
 
 function manualFrames() {
   let next = 1; const queued = new Map();
@@ -36,6 +38,34 @@ test('pointer up flushes the pending move; cancel drops it', () => {
   assert.equal(runs, 1);
 });
 
+// Pivot turns sum wrapped angle steps. Fed every pointer sample they follow a fast
+// spin; sampled only once per frame, a step past 180° wraps and turns backwards.
+test('a fast pivot turn keeps its direction when every sample feeds the angle', () => {
+  const pivot = { x: 0, y: 0 }, radius = 100, at = degrees => ({ x: Math.cos(degrees * Math.PI / 180) * radius, y: Math.sin(degrees * Math.PI / 180) * radius });
+  const start = at(0), samples = Array.from({ length: 8 }, (_, i) => at((i + 1) * 30)); // 240° in one frame
+  const everySample = beginRotationDrag({ x: start.x, y: start.y, pivot, behavior: 'pivot' });
+  for (const point of samples) rotationDragDegrees(everySample, point.x - start.x, point.y - start.y);
+  const last = samples.at(-1), total = rotationDragDegrees(everySample, last.x - start.x, last.y - start.y);
+  assert.ok(Math.abs(Math.abs(total) - 240) < 1e-6, `turned ${total}°`);
+  const frameOnly = beginRotationDrag({ x: start.x, y: start.y, pivot, behavior: 'pivot' });
+  assert.ok(Math.abs(Math.abs(rotationDragDegrees(frameOnly, last.x - start.x, last.y - start.y)) - 120) < 1e-6, 'one sample per frame wraps to the short way round');
+  const uv = { pivotScreen: [0, 0] }; uvTurn(uv, start.x, start.y);
+  for (const point of samples) uvTurn(uv, point.x, point.y);
+  assert.ok(Math.abs(uvTurn(uv, last.x, last.y) - 240 * Math.PI / 180) < 1e-6, 'UV turn follows every sample');
+});
+
+// Every handler that feeds a turn does it in the per-event code, before scheduling.
+for (const { name, file, from, feed } of [
+  { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
+  { name: 'UV rotate', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', feed: 'uvTurn(s.drag' },
+  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY)' },
+  { name: 'Showcase text rotate', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', feed: 'rotationDragDegrees(row.rotationDrag' },
+]) test(`${name} feeds every sample to the turn`, () => {
+  const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const start = source.indexOf(from), body = source.slice(start, source.indexOf('.schedule()', start));
+  assert.ok(start >= 0 && body.includes(feed), `${feed} runs before the frame is scheduled`);
+});
+
 // Live drags must not redraw, rebuild previews or lift state on every pointer
 // event. Each listed per-event code path only records the point and schedules
 // a frame; `forbidden` is the expensive work that moved into the frame callback.
@@ -51,7 +81,7 @@ const coalescedDrags = [
   { name: 'Forge part drags', file: 'app/Viewport.jsx', from: "if (down.action === 'parts') {", to: "if (down.action === 'normalizer')", forbidden: /\.update\(/ },
   { name: 'Zoom anchor marquee', file: 'app/Viewport.jsx', from: "if (down.action === 'anchor') {", to: "if (down.action === 'zoom')", forbidden: /anchorVertexInMarquee|showBox|setBox/ },
   { name: 'AI sketch line', file: 'app/viewport-sketch.js', from: 'stroke.onSurface.push(hit.surface);', to: 'const lineFrame', forbidden: /lineFor\(|dispose\(/ },
-  { name: 'Preview bone and POSE drag', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;\n      nodeMove', to: 'const applyNodeMove', forbidden: /applyMovementTransform|previewPoseGesture\(nodeGesture|setGestureLabel/ },
+  { name: 'Preview bone and POSE drag', file: 'app/GamePreview.jsx', from: 'nodeMove = { gesture: nodeGesture', to: 'const applyNodeMove', forbidden: /applyMovementTransform|previewPoseGesture\(nodeGesture|setGestureLabel/ },
   { name: 'Preview marquee', file: 'app/GamePreview.jsx', from: 'if (selectionGesture?.id === event.pointerId) {\n        const rect', to: 'event.preventDefault(); event.stopImmediatePropagation(); return;', forbidden: /setSelectionBox/ },
   { name: 'Preview hover', file: 'app/GamePreview.jsx', from: 'const hoverGeoset = event =>', to: 'const leaveGeoset', forbidden: /projectPreviewGeosets|onHoverGeoset/ },
   { name: 'Glow Up handle drag', file: 'app/GlowStageTools.jsx', from: 'function move(event)', to: 'function applyMove()', forbidden: /\bset\(|onChange|next\(/ },
@@ -61,7 +91,7 @@ const coalescedDrags = [
   { name: 'EMTR placement ghost drag', file: 'app/ParticlePlacementStage.jsx', from: 'onPointerMove={', to: 'onPointerUp={stop}', forbidden: /onPosition/ },
   { name: 'EMTR ribbon diamond drag', file: 'app/ParticleKeyTrack.jsx', from: 'const move=event=>', to: 'const applyMove=', forbidden: /setDraft|onScrub|frameAt|getBoundingClientRect/ },
   { name: 'AnimXL strip drag', file: 'app/AnimXL.jsx', from: 'const stripMove = event => {', to: 'stripApply.current = () => {', forbidden: /\bupdate\(|setSettings|setTime|setDraft|stripTime/ },
-  { name: 'Showcase layer drag', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', to: 'function applyMove(){', forbidden: /onChange|scaleTextRuns|rotationDragDegrees/ },
+  { name: 'Showcase layer drag', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', to: 'function applyMove(){', forbidden: /onChange|scaleTextRuns/ },
   { name: 'Showcase crop drag', file: 'app/ShowcaseWorkspace.jsx', from: 'function moveCrop(event) {', to: 'function applyCropMove() {', forbidden: /setCrop|cropBetween|getBoundingClientRect/ },
   { name: 'Model Manager collision drag', file: 'app/ModelManager.jsx', from: 'const drag = event => {', to: 'function applyDrag() {', forbidden: /structuredClone|previewDraft|setDraft|moveCollision|resizeCollision/ },
   { name: 'UV splitters', file: 'app/UVWorkspace.jsx', from: 'onPointerMove={event => { if (pointer.current === event.pointerId) {', to: 'onPointerUp={stop}', forbidden: /onPointerValue|report\.current\(/ },

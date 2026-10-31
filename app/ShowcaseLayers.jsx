@@ -76,7 +76,10 @@ export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeI
   }
   // A move only records the point; the layer change (and canvas redraw) runs once per frame.
   function move(event){
-    const row=drag.current;if(!row)return;row.next={point:moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),clientX:event.clientX,clientY:event.clientY};moveFrame.current.schedule();event.stopPropagation();
+    const row=drag.current;if(!row)return;
+    // Turning sums wrapped angle steps: feed every sample; repeating the last point adds nothing.
+    if(row.rotate)rotationDragDegrees(row.rotationDrag,event.clientX-row.x,event.clientY-row.y);
+    row.next={point:moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),clientX:event.clientX,clientY:event.clientY};moveFrame.current.schedule();event.stopPropagation();
   }
   function applyMove(){
     const row=drag.current;if(!row?.next)return;const {point,clientX,clientY}=row.next,dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;

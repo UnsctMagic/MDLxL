@@ -166,7 +166,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
     function pointerMove(event) {
       if (!s.drag) return;
-      s.pendingMove = { rawEnd: point(event), shiftKey: event.shiftKey }; moveFrame.schedule();
+      const rawEnd = point(event);
+      // Turning sums wrapped angle steps; feed every sample so a fast turn between
+      // frames cannot flip direction. Repeating the last point adds nothing.
+      if (s.drag.type === 'rotate') uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
     }
     function applyMove() {
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
