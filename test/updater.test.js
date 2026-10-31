@@ -54,6 +54,14 @@ test('0.21.1 offers the 0.21.2 full portable ZIP without downloading it during t
   assert.equal(requested.some(url => url.endsWith('.zip')), false);
   assert.equal(releaseMetadata(release, '0.21.2'), null);
 });
+test('releases after 0.38 offer the fixed-name ZIP and its checksum', () => {
+  const release = metadata('0.39.0');
+  release.assets = release.assets.map(item => ({ ...item, name: item.name.replace('MDLxL-0.39.0-', 'MDLxL-'), browser_download_url: item.browser_download_url.replace('MDLxL-0.39.0-', 'MDLxL-') }));
+  release.assets.push({ name: 'MDLxL-win32-x64.zip.sha256', browser_download_url: 'https://github.com/UnsctMagic/MDLxL/releases/download/v0.39.0/MDLxL-win32-x64.zip.sha256' });
+  const offered = releaseMetadata(release, '0.38.0');
+  assert.equal(offered.asset.name, 'MDLxL-win32-x64.zip');
+  assert.equal(offered.checksum.name, 'MDLxL-win32-x64.zip.sha256');
+});
 test('release links use the existing three logs and reject arbitrary targets', () => {
   assert.deepEqual(Object.keys(releaseMetadata(metadata(),'0.18.8').notes),['en','ru','zh']);
   assert.deepEqual(summaryLines('# Update\n- **One** [change](https://example.com)\n- Second\nDownload now'),['One change','Second']);
