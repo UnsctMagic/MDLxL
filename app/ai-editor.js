@@ -258,6 +258,7 @@ export class AiEditorBridge {
       },
       geosets: model.Geosets.map((g, index) => ({
         index,
+        shown: index + 1,
         vertices: g.Vertices.length / 3,
         triangles: g.Faces.length / 3,
         material: g.MaterialID,
