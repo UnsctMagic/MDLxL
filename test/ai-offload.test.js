@@ -863,6 +863,17 @@ test('resuming an interrupted bird preserves its job title rather than its plan 
  assert.equal(org.workers.length,1);
 });
 
+test('a bird names its job in its plan instead of echoing the request', async t=>{
+ let turn=0;
+ const f=await setup(t,{organiser:()=>assert.fail('No organiser'),worker:async()=>++turn===1?jobTool('mdlxl_plan',jobPlan({title:'Copy trim to geoset 4'})):say('Done.')});
+ const {id}=await f.service.organiser({modelKey});
+ assert.equal((await f.service.send({id,text:'Geoset 6 creates a trim between geoset 8 and 13, make the same between 8 and 4',context,route:'new'})).ok,true);
+ const org=await f.service.readConversation(id);
+ assert.equal(org.workers[0].job,'Copy trim to geoset 4');
+ const working=f.events.filter(e=>e.type==='worker'&&e.status==='working').map(e=>e.job);
+ assert.deepEqual(working,['Geoset 6 creates a trim between…','Copy trim to geoset 4']);
+});
+
 
 test('region routing rejects the same bird named by both name and id before dispatch',async t=>{
  let existing;

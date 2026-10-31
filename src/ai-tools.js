@@ -388,6 +388,7 @@ export const AI_PLAN_TOOL = {
   inputSchema: {
     ...object({
       target,
+      title: string('Short name for this job as the user sees it in the chat, 2-6 words, like "Copy trim to geosets 8 and 4". Never the request copied word for word.'),
       cause: string('What is actually wrong or needed, as measured in the model, not guessed.'),
       reach: string('How far the cause reaches: which parts, vertices, bones or animations it really involves, beyond or within what the user marked.'),
       keep: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' }, description: 'What must stay the same; the review checks these.' },

@@ -614,7 +614,9 @@ class AiService {
     if (worker && !named) throw Error('That bird is no longer available. Choose a current bird.');
     recorder.start({ role: 'user', text, document: context.name, selection: context.selection, drawings: context.annotations?.strokes?.length || 0 });
     active.cost = {};
-    let args = { job: job || text.trim().split(/\s+/).slice(0, 6).join(' ') };
+    // Until the bird's plan names the job, it shows a marked excerpt of the request.
+    const words = text.trim().split(/\s+/);
+    let args = { job: job || words.slice(0, 6).join(' ') + (words.length > 6 ? '…' : '') };
     if (named) args.worker = named.name;
     else if (route === 'tiny') args.tiny = true;
     else if (route === 'continue' && current) { args.worker = current.name; args.job = current.job; }
@@ -1023,6 +1025,7 @@ class AiService {
         const replaces = !!task.plan;
         task.plan = { cause: args.cause, reach: args.reach, keep: args.keep, options, choice: args.choice, why: args.why, checks, afterStep: task.steps.length };
         await this.persistConversation(conversation);
+        if (typeof args.title === 'string' && args.title.trim()) await this.retitleWorker(conversation, args.title.trim().slice(0, 80));
         return {
           recorded: true,
           ...(replaces ? { replaced: 'the previous plan' } : {}),
@@ -1588,6 +1591,16 @@ class AiService {
   }
   emitRoster(organiser) {
     this.emit({ id: organiser.id, type: 'roster', workers: organiser.workers || [] });
+  }
+  // A bird's plan names its job; that title replaces the excerpt of the request.
+  async retitleWorker(conversation, title) {
+    const organiser = conversation.kind === 'worker' && this.conversations.get(conversation.organiserId);
+    const worker = organiser?.workers?.find(w => w.id === conversation.id);
+    if (!worker || worker.tiny || worker.helperOnly || worker.job === title) return;
+    worker.job = title;
+    await this.persistConversation(organiser);
+    this.emitRoster(organiser);
+    if (worker.status === 'working') this.tasks.get(organiser.id)?.recorder?.event({ type: 'worker', workerId: worker.id, name: worker.name, job: title, model: worker.model, light: worker.light, status: 'working' });
   }
   async markActivity(modelKey) {
     const entry = await this.registry.model(modelKey);
