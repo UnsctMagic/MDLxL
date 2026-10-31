@@ -35,39 +35,40 @@ const REUSE_RULE = "Reuse before creating: for textures, materials and geosets u
 // Geosets list numbers from 1: replies name geosets by that number, not /Geosets/ paths.
 const NUMBER_BEFORE = "All IDs are zero-based; explain visible labels clearly.";
 const NUMBER_AFTER = "All IDs and paths are zero-based, but the Geosets list numbers geosets from 1: /Geosets/0 is geoset 1 and /Geosets/32 is geoset 33. A geoset number from the user means that list number. When writing to the user, name geosets by the list number (for example \"geoset 33\"), never by a /Geosets/ path or zero-based index, and name bones by name.";
-const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text).replace(NUMBER_AFTER, NUMBER_BEFORE);
+const SWEEP_RULE = "When a requirement must hold in all animations, everywhere or always, use a mdlxl_sample sweep and inspect its worst clip and frame. Include the same sweep in the plan check so review measures it again after edits.";
+const stripMotionRules = text => [SWEEP_RULE, ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text).replace(NUMBER_AFTER, NUMBER_BEFORE);
 const EXPECTED = {
   "editing plain": [
-    "bc33dc1cb95094e031782f8a99cb21a8f3dc8de5007c71cc951779d2b6843504",
-    9101
+    "e9f2d8bb9bd55c19db6f72174bfbcdfa8075d53f3a86bbbe51795b77e8abde06",
+    9316
   ],
   "worker plain": [
-    "8cbf2c3391f8c876707c015e6ae1a169157e65042bd848f33a9da5c12878b258",
-    10257
+    "1c9a8b70866ab4b7aedcc18fe1a71286ccb808373a20e3d5ce3e07f1934603e6",
+    10472
   ],
   "editing plain+web": [
-    "c57abee71ff629b8d0eee928aae3e66b7132eaf7021747ca3dd04386620288ad",
-    9603
+    "1e620a34bf2eca9cede547cb4664433ba37c7c525417354abf5bcfcf457cac27",
+    9818
   ],
   "worker plain+web": [
-    "834f9f3c5dbe00d806bd38c783273e35b26acdfb043ed227cd7eb57a8b3d8b70",
-    10759
+    "aee874d849b77f79c86f64d7302f5db23a2a572c0c5329664e33cfe23980d2b9",
+    10974
   ],
   "editing handbook": [
-    "5dad8f8a22853ce8f4d082c8c8efcb03bb50cc8d7961e0d3e5513ab6b662a849",
-    12108
+    "8692708d4e8b6dca4cc3c0608f7d0257558c0580e47623f4c52ab890185b5e63",
+    12323
   ],
   "worker handbook": [
-    "d147f2ce4740d8610a5adba5eae23e23867b7bad1cc2d6a5f1dfe87643f09fd0",
-    13264
+    "81b74967f8e042f64158ce28f9ea04bce066b187fce2dca3d44e20bbb0133f30",
+    13479
   ],
   "editing handbook+web": [
-    "3bd685db2e29da379ebf32827d4bbcc5f3d221e8e2d75d9666a99a50d7e3dbb7",
-    12610
+    "18ba6c2d33e8d2430f44bd33b95c9487aff7fe9466a2efc9448992225e5a71e7",
+    12825
   ],
   "worker handbook+web": [
-    "76792acbe4bc7ae11ec3cfecf26818ed4b687e6c7956841c9ce8524047dfa06e",
-    13766
+    "ff09cf191c2db98defcc7a2dee24506181d333b95db02cae774f162d8c25526a",
+    13981
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];

@@ -774,7 +774,7 @@ class AiService {
       const destination = (args.worker || '').trim().toLowerCase();
       const selected = workers.find(w => w.name.toLowerCase() === destination || w.id.toLowerCase() === destination);
       if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
-      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, tools: toolsOf(args.tools), ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks) } : {}) };
+      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, tools: toolsOf(args.tools), ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks, contract.AI_SWEEP_SCHEMA) } : {}) };
     };
     for (let attempt = 0; attempt < 2; attempt++) {
       const reply = await this.askOnce({ ...options, meter: this.measureUsage(routing, recorder, 'router') });
@@ -1046,7 +1046,7 @@ class AiService {
         if (options.length < 2 && !simpleJob(task.request || text, images))
           throw Error('Give at least two genuinely different fixes with what each costs, then choose one.');
         if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
-        const checks = acceptanceChecks(args.checks);
+        const checks = acceptanceChecks(args.checks, contract.AI_SWEEP_SCHEMA);
         const requestedHelper = helperSpec(args.helper);
         const findings = await helperFindings();
         if (findings) return { recorded: false, helper: findings };
@@ -1119,7 +1119,11 @@ class AiService {
         // The outside check: a separate AI that never saw this work judges the result
         // before it counts as verified; a doubtful result goes back with its reasons.
         if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !task.acceptedByUser && !organiser && lastInspect) {
-          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: { ...lastInspect, images: [...lastInspect.images, ...(task.evidenceImages || []), ...(conversation.referenceImages || task.images || []).map((image, i) => ({ role: 'reference', group: 'reference ' + i, label: 'User reference ' + (i + 1), image }))] }, settings, contract, signal, conversation, recorder });
+          const sweepChecks = (task.plan?.checks || []).filter(c => c.sweep);
+          const sweeps = sweepChecks.length ? (await this.call('mdlxl_review', {
+            target: context.target, action: 'status', baseline: lastInspect.baseline, sweepChecks,
+          }, requestSignal)).sweeps : undefined;
+          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: { ...lastInspect, sweeps, images: [...lastInspect.images, ...(task.evidenceImages || []), ...(conversation.referenceImages || task.images || []).map((image, i) => ({ role: 'reference', group: 'reference ' + i, label: 'User reference ' + (i + 1), image }))] }, settings, contract, signal, conversation, recorder });
           if (verdict) {
             task.outsideCheck = verdict;
             if (verdict.verdict !== 'good' && verdict.problems.length) {
@@ -1139,6 +1143,7 @@ class AiService {
             ...args,
             ...(name === 'mdlxl_review' && args.action === 'finish' && task.acceptedByUser ? { outcome: 'passed', acceptedByUser: true } : {}),
             ...(name === 'mdlxl_help' ? {} : { target: context.target }),
+            ...(name === 'mdlxl_review' && args.action === 'inspect' ? { sweepChecks: (task.plan?.checks || []).filter(c => c.sweep) } : {}),
             ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
           },
           requestSignal,
@@ -1178,7 +1183,7 @@ class AiService {
           await this.persistConversation(conversation);
         }
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
-          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [], motion: result.review?.motion };
+          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [], motion: result.review?.motion, baseline: args.baseline };
         // The review judges the plan's keep list along with the request.
         if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
           result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, checks: task.plan.checks, check: 'Confirm each keep item with a measured check or a visible comparison.' };
@@ -1573,9 +1578,10 @@ class AiService {
       prompt: [
         `The owner's request, exactly as written:\n${request}`,
         plan
-          ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).join('; ')}.`
+          ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).map(c => c.name ?? c).join('; ')}.`
           : 'The worker recorded no plan (an exact value edit).',
         `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
+        ...(inspect.sweeps?.length ? [`MDLxL plan sweep measurements:\n${JSON.stringify(inspect.sweeps)}`] : []),
         ...(inspect.motion ? [`MDLxL's own measurement, not written by the worker:\n${JSON.stringify(inspect.motion)}`] : []),
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
         ...(left.length ? [`Not sent, to keep the set small (the worker saw them): ${left.join('; ')}.`] : []),

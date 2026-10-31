@@ -1,7 +1,7 @@
 # AI every-frame checks: MDLxL sweeps a rule over every animation
 
-Status: plan approved by the owner 1 Nov 2026; implementation not started
-Owner / consolidator: Codex (gpt-6-astra) implements; plan by Claude Code
+Status: ready for review; awaiting merge approval
+Implementation by Codex. Plan by Claude Code.
 Updated: 2026-11-01
 
 ## Goal and completion criteria
@@ -36,11 +36,11 @@ This is idea 2 (fact 12) of [AI hook learning facts](ai-hook-learning-facts.md#1
   `D:\Codex\mdlxl-every-frame` with a `node_modules` junction to
   `D:\Claude\MDLxL\node_modules`.
 - Plan written against `origin/main` `eb364705`.
-- Uncommitted changes: none. Fixtures: generated in tests only, with no private models.
+- Implementation base: `f254e39b` (merged plan PR #486). Generated fixtures are committed as test code. The timing run reads a real model from the permanent test collection.
 
 ## Relevant owners
 
-- Frame walk to copy: `compareMotion` in [ai-motion-compare.js](../../src/ai-motion-compare.js).
+- Shared frame walk: `compareMotion` in [ai-motion-compare.js](../../src/ai-motion-compare.js).
   It already samples every frame of a clip (step 1 ms, or 10 ms above 5 s, both
   endpoints), handles global sequences through `isolateGlobalSequence`, skips
   invisible geosets (alpha < 0.01) and reports p50/p95/shares. Reuse its
@@ -123,8 +123,22 @@ This is idea 2 (fact 12) of [AI hook learning facts](ai-hook-learning-facts.md#1
 - After a fix, rerun only the failed and related tests, not the whole suite.
 - No live AI quality claim from an inert provider. Owner testing comes after.
 
-## Blockers and next action
+## Implementation and measurements
 
-- None. Next: Codex implements on `codex/ai-every-frame-checks`, opens a PR into
-  `main` with a `Session: codex …` line, updates this note, and reports
-  `ready for review; awaiting merge approval`. Do not merge or bump versions.
+- Supply `sweep: {kind, a, b?, reference?, sequences?, globalSequence?, limit?}` to `mdlxl_sample`. A point is `{nodeId}` or `{geoset, vertices}`, using zero-based IDs. Omitting both selectors walks every local clip and each positive-duration global clock. Explicit local and global selectors can be combined.
+- `attached` compares the centroid offset in B’s own space to its reference pose. For a vertex group, B’s origin is its posed centroid and its axes are its mean skin transform. `clear` measures the closest pair of named vertices or pivots. `level` measures signed Z, selects the largest absolute excursion, and returns min, max and spread. The optional share counts visible, measurable frames strictly below the clearance limit or strictly above the drift/absolute-height limit.
+- The table declares its columns once. Each row includes the visit count, step in ms, number measured, worst value and absolute frame, p50 and p95. Invisible geosets and singular attached bases contribute no measurements. Empty rows have null statistics. Camera-dependent nodes are listed as in the frame sampler. Each sweep snapshots the named points, their bone hierarchies, clips and visibility before yielding to the editor.
+- Existing string plan checks still work. A check of the form `{name, sweep}` supplies the app-owned rule for inspection. Both sides are measured on each revision, against the job start or named baseline. Cache identity includes the revision, baseline and actual checklist. The independent reviewer requests the latest plan’s evidence against that inspection baseline. It reuses the cached table when it still matches. A missing ID on one side is identified on that side.
+- A `sampleAiModel` run under Node 22.23.3 on Windows took **4.00 s** on `pose-complex-fixtures/Current_VampireDragon.mdx` (263 nodes, 2,849 vertices). The attached sweep used vertices 0–5 of geoset index 8 against node 3, limit 1. It visited **76,272 timestamps in 29 local and 6 global clips**, measured 70,271 visible samples and returned 2,255 UTF-8 bytes. The largest drift was 150.703 model units in Death Alternate at frame 171566. The walk yields to the event loop during long clips.
+
+## Verification results
+
+- [Sweep regressions](../../test/ai-relation-sweep.test.js) found a single 3-unit slip at frame 223 in the third clip. The old 32-frame sampler reported minimum clearance 11 on the fixture's first clip. The sweep found contact at frame 24. Further checks cover rotation, a grouped anchor, an explicit reference, isolated globals, off-grid endpoints, visibility, billboards, invalid IDs, percentiles and limit shares. A moving 30-clip level sweep stayed below 2,048 UTF-8 bytes.
+- Before implementation, the sampler returned no worst value, the review had no sweep evidence and the hidden packaged MCP rejected the new argument with `Unknown argument: sweep`. Replacing a plan after inspection also reproduced a stale outside check. The corrected reviewer reads the latest plan and named baseline from the same revision cache. The focused review and workflow rerun passed 50/50 and the strengthened measurement tests passed 6/6.
+- AI suite 314 passed, 0 failed, 1 Windows SIGTERM skip. Full source suite 2,618 passed, 0 failed, 10 skipped. The CI baseline has no failure entries and remained unchanged. Compatibility 57 passed, 0 failed, 0 skipped.
+- The 10 full-source skips comprise the POSIX SIGTERM check, Windows symlink privilege, unavailable 8.3 short names on the volume, and optional input fixtures for archer armor, the broken/rebuilt skinning pair, private Fx, two pose-corpus manifest checks, the dense twin-head rider and the Tinker/Brown Magnataur replay.
+- Rebuilt and packaged on Windows. The final hidden `ai-editor` test passed **72/72** checks in 28 s. The real MCP call measured Z = 40 at 1,001 timestamps in each of Stand and Attack. Owner playback, a live AI provider and Warcraft III were not exercised.
+
+## Next action
+
+Review the feature branch and its evidence. Merge requires owner approval.

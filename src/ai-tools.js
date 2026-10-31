@@ -9,6 +9,22 @@ const target = string(
 );
 const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'] };
 const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
+const sweepPoint = {
+  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1 } }),
+  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based).',
+};
+export const AI_SWEEP_SCHEMA = {
+  ...object({
+    kind: { enum: ['attached', 'clear', 'level'] },
+    a: sweepPoint, b: sweepPoint,
+    sequences: { ...indices, minItems: 1 },
+    globalSequence: { type: 'integer', minimum: 0 },
+    reference: { ...object({ sequence: { type: 'integer', minimum: 0 }, frame: { type: 'number' } }), description: 'Attached reference pose. Defaults to the Stand sequence start.' },
+    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it.' },
+  }),
+  required: ['kind', 'a'],
+  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
+};
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,
   description,
@@ -231,11 +247,12 @@ export const AI_TOOLS = [
   ),
   tool(
     'sample',
-    'Measure actual hierarchy and skinned geometry at up to 32 animation frames in one call. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
+    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
     {
       target,
       sequence: { type: 'integer', minimum: -1 },
       globalSequence: { type: ['integer', 'null'], minimum: 0 },
+      sweep: AI_SWEEP_SCHEMA,
       frames: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' } },
       nodeIds: indices,
       geosetIds: indices,
@@ -333,6 +350,7 @@ export const AI_TOOLS = [
 // that a worker bird gets after its own note (AI_WORKER_NOTE).
 export const AI_EDITING_INTRO = `You are connected inside MDLxL, a Warcraft III model editor. Use its tools to accomplish the user's prompts, including arbitrary surgical model and animation edits. You can inspect the complete model and run general JavaScript with the editor's own libraries; you are not limited to canned operations.`;
 export const AI_EDITING_BODY = `Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts carry the target and only changed fields, including selection, view and sequence. Omitted fields keep their last value. The full snapshot returns after a reset, compaction or model replacement. Call mdlxl_context when you need the full lists or editor commands. "These", "this", and "selected" mean the marked vertices/bones/keyframes in THAT context, not every vertex in checked geosets. Inspect the selection and relevant data before editing. All IDs and paths are zero-based, but the Geosets list numbers geosets from 1: /Geosets/0 is geoset 1 and /Geosets/32 is geoset 33. A geoset number from the user means that list number. When writing to the user, name geosets by the list number (for example "geoset 33"), never by a /Geosets/ path or zero-based index, and name bones by name. Use the target supplied with this turn. If it becomes stale, stop and explain the conflict; do not take a fresh target and silently retarget the work.
+When a requirement must hold in all animations, everywhere or always, use a mdlxl_sample sweep and inspect its worst clip and frame. Include the same sweep in the plan check so review measures it again after edits.
 When the user points to an example they made, first read or sample the referenced area with mdlxl_read or mdlxl_sample and inspect its structure before planning edits. Copy that example's pattern and apply it across the full requested scope, including less visible regions; do not substitute your own picks. "Keep the look" means preserve the geometry silhouette and texture appearance, including UV mapping and material/texture assignments; reducing polygons does not authorize changing them.
 Work as an active modeling assistant: inspect, perform the requested work, verify and correct it before reporting completion. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. For visual tasks inspect a viewport image before editing and after editing; for animation use sample across intermediate frames and capture multiple poses. Iterate on a failed result within the requested scope. If clarification is needed, keep it short and specific. Do not stop at advice when an edit was requested.
 Reuse signatures and source already inspected in this conversation; look up only unfamiliar APIs needed for this task. Simple coordinate edits do not need library discovery. api.source returns a paginated object: read its .text field. Geoset color/alpha tracks are in model.GeosetAnims by GeosetId, not Geosets[i].Anims (sequence extents). Generated asset names must exactly match the full relative model texture path, for example MDLxL_Forge/UniqueName.tga. assets is an output list for the current script, not a registry of existing textures. Do related operations in one script/Undo step. Set a narrow scope and protectedPaths for surgical edits; include each canonical collection changed by a library call. Derived Info.Num* counts follow those collection edits automatically. For changes limited to particular animations, also specify their exact animationRanges so keys outside them are checked. Preserve authored geometry, UVs, bindings, texture paths, materials and other animations unless requested. Never shrink a body to conceal clipping. Prefer sparse keys to baked tracks. Reference models are available by document ID in references. Do not assume a donor has the same rig.
@@ -401,7 +419,10 @@ export const AI_PLAN_TOOL = {
       },
       choice: { type: 'integer', minimum: 0, description: 'Index of the chosen option.' },
       why: string('Why this option over the others.'),
-      checks: { type: 'array', minItems: 1, maxItems: 20, items: string('Concrete completion criterion, including protected data and relevant interactions.') },
+      checks: { type: 'array', minItems: 1, maxItems: 20, items: {
+        anyOf: [string('Concrete completion criterion, including protected data and relevant interactions.'),
+          { ...object({ name: string('Criterion measured by this sweep.'), sweep: AI_SWEEP_SCHEMA }), required: ['name', 'sweep'] }],
+      } },
       helper: { ...object({ job: string('Short helper job.'), instructions: string('Independent read-only reference analysis or measurements needed for this job, under 2000 characters.') }), required: ['job', 'instructions'] },
     }),
     required: ['cause', 'reach', 'keep', 'options', 'choice', 'why', 'checks'],

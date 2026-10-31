@@ -1,3 +1,5 @@
+const { validateArguments } = require('./ai-mcp.cjs');
+
 // Per-job orchestration state. No editor mutations or provider calls live here.
 function helperSpec(value) {
   if (value == null) return null;
@@ -6,10 +8,17 @@ function helperSpec(value) {
   if (value.job.length > 160 || value.instructions.length > 2000) throw Error('Keep helper instructions under 2000 characters and its title under 160.');
   return { job: value.job.trim(), instructions: value.instructions.trim() };
 }
-function acceptanceChecks(value) {
-  if (!Array.isArray(value) || !value.length || value.length > 20 || value.some(v => typeof v !== 'string' || !v.trim() || v.length > 500))
+function acceptanceChecks(value, sweepSchema) {
+  if (!Array.isArray(value) || !value.length || value.length > 20)
     throw Error('List 1–20 concrete completion checks in checks, covering the requested result and protected data.');
-  return value.map(v => v.trim());
+  return value.map(check => {
+    const name = typeof check === 'string' ? check : check?.name;
+    if (typeof name !== 'string' || !name.trim() || name.length > 500)
+      throw Error('Give each completion check a name of 1–500 characters.');
+    if (typeof check === 'string') return name.trim();
+    validateArguments(sweepSchema, check.sweep, 'check.sweep');
+    return { name: name.trim(), sweep: check.sweep };
+  });
 }
 function expandRoutine(task, name, args) {
   if (!['mdlxl_script', 'mdlxl_review'].includes(name) || !args.routine) return args;
