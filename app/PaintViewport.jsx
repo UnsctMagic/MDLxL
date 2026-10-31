@@ -262,7 +262,7 @@ export default function PaintViewport(inputProps) {
     }
     // Lamp drags and face sweeps update Paint and the app once per frame. A sweep
     // still raycasts every recorded point, so a fast drag skips no face.
-    const dragFrame = createFrameCoalescer(applyDrag);
+    const dragFrame = createFrameCoalescer(applyDrag, { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) });
     function applyDrag() {
       if (!down) return;
       if(down.action==='paintLamp'&&down.pendingLamp){const {dx,dy,width,height}=down.pendingLamp;down.pendingLamp=null;latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,width,height,down.lampMode,down.shift?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}

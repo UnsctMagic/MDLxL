@@ -505,6 +505,8 @@ export default function Viewport(inputProps) {
       if (state.drag.rotationDrag) rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y);
       transformMove = { down, rawEnd, end, dx, dy, shiftKey: event.shiftKey }; transformFrame.schedule();
     }
+    // These run at the start of the next drawn frame, so the drag is drawn in that frame.
+    const drawFrames = { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) };
     // Hover picking projects every visible vertex and updates Forge cut previews; once per frame.
     let hoverMove = null;
     const hoverFrame = createFrameCoalescer(() => {
@@ -512,7 +514,7 @@ export default function Viewport(inputProps) {
       if (move.pane) bindPane(move.pane);
       hoverParts(move.event); inspectHoveredGeoset(move.event);
       if (move.pane) bindPane(activePane);
-    });
+    }, drawFrames);
     // The zoom-anchor marquee searches every vertex; once per frame with the latest point.
     let anchorMove = null;
     const anchorFrame = createFrameCoalescer(() => {
@@ -522,13 +524,13 @@ export default function Viewport(inputProps) {
         showBox({ left: Math.min(down.x, rawEnd.x), top: Math.min(down.y, rawEnd.y), width: Math.abs(rawEnd.x - down.x), height: Math.abs(rawEnd.y - down.y) });
         down.anchorCandidate = anchorVertexInMarquee(latest.current, down, rawEnd); state.anchorCandidate = down.anchorCandidate; invalidate();
       } else { setBox(null); down.anchorCandidate = state.anchorCandidate = null; invalidate(); }
-    });
+    }, drawFrames);
     // Forge part drags (mold, extrude, cut) rebuild their meshes; once per frame.
     let partsMove = null;
-    const partsFrame = createFrameCoalescer(() => { const move = partsMove; partsMove = null; move?.parts.update(move.end); });
+    const partsFrame = createFrameCoalescer(() => { const move = partsMove; partsMove = null; move?.parts.update(move.end); }, drawFrames);
     // Vertex transforms rebuild wires and update Coords; run them once per frame with the latest point.
     let transformMove = null;
-    const transformFrame = createFrameCoalescer(applyTransformMove);
+    const transformFrame = createFrameCoalescer(applyTransformMove, drawFrames);
     function applyTransformMove() {
       const drag = state.drag, move = transformMove; transformMove = null; if (!drag || !move) return;
       const { down, rawEnd, end, dx, dy } = move, event = move;

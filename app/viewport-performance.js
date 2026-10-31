@@ -136,13 +136,18 @@ export function bindScrollSensitivity(element, options) {
 /** No frame callbacks remain queued while static or suspended. */
 export function createRenderScheduler({ render, continuous, paused, maxFps, request = requestAnimationFrame, cancel = cancelAnimationFrame }) {
   let frame = null, disposed = false, dirty = 1, previous = null, deadline = null, previousInterval = null, idle = true;
-  function schedule() { if (!disposed && frame === null && !paused() && (dirty || continuous())) frame = request(tick); }
+  // Live-drag work queued with beforeRender runs at the start of the next drawn
+  // frame, so the change is drawn in that same frame rather than one frame later.
+  const beforeRender = new Map(); let nextBefore = 1, preparing = false;
+  function schedule() { if (!disposed && !preparing && frame === null && !paused() && (dirty || continuous())) frame = request(tick); }
   function tick(now) {
     frame = null;
     if (disposed || paused()) { previous = deadline = null; idle = true; return; }
     const interval = 1000 / (maxFps() || 60), elapsed = previous === null ? interval : now - previous;
     if (interval !== previousInterval) { deadline = previous === null ? null : previous + interval; previousInterval = interval; }
     if (deadline === null || now >= deadline - .5) {
+      // Their invalidate() calls are this frame's draw, not a reason for another frame.
+      if (beforeRender.size) { const callbacks = [...beforeRender.values()]; beforeRender.clear(); preparing = true; try { for (const callback of callbacks) callback(now); } finally { preparing = false; } }
       dirty = Math.max(0, dirty - 1);
       // Keep the cap's cadence when display refreshes fall between deadlines.
       // Restarting the interval at each late frame can halve the frame rate.
@@ -150,6 +155,7 @@ export function createRenderScheduler({ render, continuous, paused, maxFps, requ
       deadline = deadline === null ? now + interval : deadline + Math.max(1, Math.floor((now - deadline + .5) / interval) + 1) * interval;
       const delta = idle || previous === null ? 0 : Math.min(100, elapsed); previous = now; idle = false;
       if (render(now, delta) === false) { dispose(); return; }
+      if (beforeRender.size) dirty = Math.max(dirty, 1);
     }
     schedule();
     if (frame === null) idle = true;
@@ -162,8 +168,13 @@ export function createRenderScheduler({ render, continuous, paused, maxFps, requ
     if (paused()) { if (frame !== null) cancel(frame); frame = null; previous = deadline = null; idle = true; dirty = Math.max(dirty, 1); }
     else invalidate();
   }
-  function dispose() { disposed = true; if (frame !== null) cancel(frame); frame = null; }
-  return { invalidate, resize, sync, dispose };
+  function dispose() { disposed = true; beforeRender.clear(); if (frame !== null) cancel(frame); frame = null; }
+  // `request`/`cancel` for createFrameCoalescer inside a view with this scheduler.
+  const frames = {
+    request: callback => { const id = nextBefore++; beforeRender.set(id, callback); invalidate(); return id; },
+    cancel: id => { beforeRender.delete(id); },
+  };
+  return { invalidate, resize, sync, dispose, frames };
 }
 
 /**

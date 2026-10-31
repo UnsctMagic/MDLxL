@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createFrameCoalescer } from '../app/viewport-performance.js';
+import { createFrameCoalescer, createRenderScheduler } from '../app/viewport-performance.js';
 import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
 import { uvTurn } from '../src/uv-tools.js';
 
 function manualFrames() {
-  let next = 1; const queued = new Map();
+  let next = 1, now = 0; const queued = new Map();
   return {
     request: callback => { const id = next++; queued.set(id, callback); return id; },
     cancel: id => { queued.delete(id); },
-    run() { const callbacks = [...queued.values()]; queued.clear(); for (const callback of callbacks) callback(); },
+    run() { now += 1000 / 60; const callbacks = [...queued.values()]; queued.clear(); for (const callback of callbacks) callback(now); },
     get size() { return queued.size; },
   };
 }
@@ -36,6 +36,20 @@ test('pointer up flushes the pending move; cancel drops it', () => {
   assert.equal(runs, 1); assert.equal(frames.size, 0); assert.equal(coalescer.pending, false);
   coalescer.schedule(); coalescer.cancel(); frames.run();
   assert.equal(runs, 1);
+});
+
+test('drag work queued on a 3D view is drawn in the same frame, not the next one', () => {
+  const frames = manualFrames(), order = [];
+  const scheduler = createRenderScheduler({ render: () => { order.push('draw'); }, continuous: () => false, paused: () => false, maxFps: () => 0, request: frames.request, cancel: frames.cancel });
+  frames.run(); order.length = 0;
+  const drag = createFrameCoalescer(() => { order.push('drag'); scheduler.invalidate(); }, scheduler.frames);
+  drag.schedule(); drag.schedule();
+  frames.run();
+  assert.deepEqual(order, ['drag', 'draw'], 'one drag step, then the draw that shows it');
+  frames.run(); frames.run();
+  assert.deepEqual(order, ['drag', 'draw'], 'no extra draw afterwards');
+  drag.schedule(); drag.flush(); frames.run();
+  assert.deepEqual(order, ['drag', 'draw', 'drag', 'draw'], 'pointer up applies at once and still draws');
 });
 
 // Pivot turns sum wrapped angle steps. Fed every pointer sample they follow a fast

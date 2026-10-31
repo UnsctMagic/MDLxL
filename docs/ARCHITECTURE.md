@@ -24,6 +24,10 @@ windows, splitters, camera turning, timeline scrubbing, hover highlights):
    [viewport-performance.js](../app/viewport-performance.js).
 2. The frame callback does the real work **once**, with the newest position:
    the maths, the redraw, the live preview, any React state or parent callback.
+   Inside a 3D view (Viewport, GamePreview, PaintViewport) pass the view's
+   `scheduler.frames` to the coalescer: the work then runs at the start of the
+   view's next draw, so it is drawn in that same frame. With a plain animation
+   frame it would land just after a draw and show one frame late.
 3. Pointer up calls `flush()` first, so the final result is exactly where the
    hand stopped. Cancel and unmount call `cancel()`.
 4. A live preview updates **only what the drag changed**, not the whole model

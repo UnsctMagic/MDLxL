@@ -731,7 +731,7 @@ export default function GamePreview(inputProps) {
     const nodeFrame = createFrameCoalescer(() => {
       const move = nodeMove; nodeMove = null;
       if (move && move.gesture === nodeGesture && !nodeGesture.adjusted) applyNodeMove(move.event);
-    }, { request: requestPreviewFrame, cancel: cancelPreviewFrame });
+    }, { request: callback => scheduler.frames.request(callback), cancel: id => scheduler?.frames.cancel(id) });
     const applyNodeMove = event => {
       const p = latest.current;
       if (nodeGesture.pose) {
