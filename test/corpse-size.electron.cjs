@@ -65,9 +65,16 @@ function snapshot(scope='[aria-label="Auto Corpse preview"]'){
    await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeRaise);
    const lifted=await page.evaluate(()=>{const p=findFiberProps('[aria-label="Corpse piece handles"]',p=>p.snapshot&&p.pieces);return {raise:p.pieces[p.selected]?.raise,others:p.pieces.filter((_,i)=>i!==p.selected).every(piece=>!piece.raise)};});
    assert.ok(lifted.raise>0&&lifted.others,`Dragging the up handle raises only the grabbed part: ${JSON.stringify(lifted)}`);row.raise=lifted.raise;await capture('3-raised');
+   // At Size 200% the grabbed part still stays under the mouse while it is dragged.
+   const beforeSize=await vertexState(),size=dialog.getByRole('slider',{name:'Size',exact:true});await size.click();await page.keyboard.press('End');
+   await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeSize);
+   const settled=async(from,moved)=>{let last=await handle.boundingBox(),still=0;for(let i=0;i<150&&still<20;i++){await page.waitForTimeout(100);const now=await handle.boundingBox();still=Math.hypot(now.x-last.x,now.y-last.y)<.5&&(!moved||Math.hypot(now.x-from.x,now.y-from.y)>2)?still+1:0;last=now;}return last;};
+   {const a=await settled(await handle.boundingBox(),false),x=a.x+a.width/2,y=a.y+a.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+40,y+20,{steps:8});await page.mouse.up();
+    const b=await settled(a,true);row.sizeFollowError=Math.hypot(b.x-a.x-40,b.y-a.y-20);}
+   assert.ok(row.sizeFollowError<6,`At Size 200% the part stays under the mouse (off by ${row.sizeFollowError.toFixed(1)} px)`);
    const count=await vertexCount();await page.keyboard.press('Delete');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)<count,count);
    await page.keyboard.press('Control+z');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)===count,count);
-   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, raise, Delete, Ctrl+Z, Escape close';
+   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, raise, Size 200% drag, Delete, Ctrl+Z, Escape close';
   }
   row.result='captured';results.push(row);console.log('captured',tag);
  }catch(error){row.error=error.stack;results.push(row);console.log('FAILED',tag,error.message);if(!captureOnly)process.exitCode=1;}

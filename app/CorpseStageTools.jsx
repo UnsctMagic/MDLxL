@@ -25,7 +25,7 @@ export const pieceMarks=(pieces,selected,show)=>{
   return marks;
 };
 // moveOnly (Blood): points with only the move handle; others show as dots.
-export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveOnly=false,onSelect,onChange,onDrag}) {
+export default function CorpseStageTools({snapshot,pieces,selected,moveOnly=false,onSelect,onChange,onDrag}) {
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),raw=snapshot?.marks;
   // Each piece change rebuilds the corpse: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
@@ -58,12 +58,13 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveO
   let raised=null;
   for(let d=48;up&&d<=192&&!raised;d+=24)if(grips.every(g=>!g||Math.hypot(g[0]-above(d)[0],g[1]-above(d)[1])>=30))raised=above(d);
   if(up&&!raised)raised=above(48);
-  // Screen movement for one model unit along X and Y on the ground, latched
-  // when the drag starts; the drag inverts it into a ground-plane move.
+  // Screen movement for one piece unit along X and Y on the ground (Size is
+  // already in the marks), latched when the drag starts; the drag inverts it
+  // into a ground-plane move, so the piece stays under the pointer.
   function basis(){if(!marks.mid||!marks.midX||!marks.midY)return null;const ex=sub(marks.midX,marks.mid),ey=sub(marks.midY,marks.mid),det=ex[0]*ey[1]-ex[1]*ey[0];return Math.abs(det)>1e-6?{ex,ey,det}:null;}
   function next(d,dx,dy) {
     if(d.kind==='raise')return {...d.before,raise:(d.before.raise||0)+movementDragAmount(d.axis,dx,dy,'move')};
-    const m=d.basis,wx=(dx*m.ey[1]-dy*m.ey[0])/m.det/scale,wy=(m.ex[0]*dy-m.ex[1]*dx)/m.det/scale,b=d.before,shift=p=>[p[0]+wx,p[1]+wy,p[2]];
+    const m=d.basis,wx=(dx*m.ey[1]-dy*m.ey[0])/m.det,wy=(m.ex[0]*dy-m.ex[1]*dx)/m.det,b=d.before,shift=p=>[p[0]+wx,p[1]+wy,p[2]];
     if(d.kind==='move')return {...b,start:shift(b.start),end:shift(b.end)};
     if(d.kind==='start')return {...b,start:shift(b.start)};
     if(d.kind==='end')return {...b,end:shift(b.end)};
