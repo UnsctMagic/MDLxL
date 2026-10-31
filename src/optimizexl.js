@@ -22,6 +22,7 @@ import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
 import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { fitCollisionShapes } from './model-collisions.js';
 
 export const STAGES = [
   // Repairs come first: later reductions refuse models with broken references.
@@ -37,7 +38,16 @@ export const SPHERE_PRESETS = [
   {name:'Large unit',spheres:[[0,0,60,60]],source:'Community collision-shape tutorial: radius 60 example.'},
   {name:'Tall unit',spheres:[[0,0,60,60],[0,0,140,60]],source:'Community collision-shape tutorial: two radius-60 spheres, upper Z 140.'},
   {name:'Mounted rider',spheres:[[0,0,45,55],[35,0,95,55],[-15,0,75,55]],source:'The reviewed Khorne rider: three radius-55 spheres.'},
+  {name:'Cavalry',spheres:[[-65.35050201416016,-29.100200653076172,0,65.35050201416016,29.100200653076172,81.75420379638672],[31.295000076293945,-0.17952799797058105,96.80269622802734,45.902000427246094]],source:'Knight: a box around the horse and a radius-45.9 sphere around the rider.'},
+  {name:'Flying mount',spheres:[[-37.774600982666016,-90.4446029663086,0,37.774600982666016,90.4446029663086,46.44029998779297],[-63.58060073852539,-23.553300857543945,0,63.58060073852539,23.553300857543945,38.283199310302734]],source:'Gryphon Rider: two crossed boxes, one along the wings and one along the body.'},
+  {name:'Small building',spheres:[[-56.55099868774414,-64.06929779052734,0,56.55099868774414,64.06929779052734,113.10199737548828]],source:'Farm: one box standing on the ground.'},
+  {name:'Large building',spheres:[[-141.6280059814453,-133.8040008544922,0,141.6280059814453,133.8040008544922,162.7550048828125]],source:'Human Barracks: one box standing on the ground.'},
+  {name:'Tower',spheres:[[-57.05039978027344,-57.05030059814453,0,57.05039978027344,57.05030059814453,72.54550170898438]],source:'Scout Tower: one low box around the base; the tall top is not clickable.'},
+  {name:'Fit to model (spheres)',fit:'spheres',spheres:[],source:'Spheres stacked along the model in its Stand pose, the way Blizzard stacks them on units.'},
+  {name:'Fit to model (box)',fit:'box',spheres:[],source:'One box around the model in its Stand pose, standing on the ground like Blizzard buildings.'},
 ];
+/** A preset's shapes for this model: four numbers make a sphere (x, y, z, radius), six a box (two corners). */
+export const presetShapes=(index,model)=>{const p=SPHERE_PRESETS[index]||SPHERE_PRESETS[1];return p.fit?fitCollisionShapes(model,p.fit):structuredClone(p.spheres);};
 const collections = Object.values(NODE_TYPES).map(([key])=>key);
 const sections = ['Info','Sequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences','PivotPoints',...collections];
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
@@ -238,9 +248,9 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
   repairBounds(m,current);return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
-function spheres(m,settings){const chosen=settings.spheres||SPHERE_PRESETS[settings.preset||0].spheres,size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
+function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset||0,m),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');
- for(let i=0;i<chosen.length;i++){const [x,y,z,r]=chosen[i];if(![x,y,z,r].every(Number.isFinite)||r<=0)throw Error('Sphere coordinates must be finite and radius must be positive.');let n=old[i];if(!n)n=createNode(m,'CollisionShape');Object.assign(n,{Shape:2,Name:`OptimizeXL Sphere ${i+1}`,Parent:null,Vertices:new Float32Array([x*size,y*size,z*size]),BoundsRadius:r*size});for(const k of ['Translation','Rotation','Scaling'])delete n[k];}
+ for(let i=0;i<chosen.length;i++){const row=chosen[i],box=row.length===6;if(!row.every(Number.isFinite))throw Error('Collision shape coordinates must be finite.');if(!box&&!(row[3]>0))throw Error('Sphere radius must be positive.');if(box&&[0,1,2].some(a=>!(row[a+3]>row[a])))throw Error('A box needs each maximum corner value above its minimum.');let n=old[i];if(!n)n=createNode(m,'CollisionShape');Object.assign(n,box?{Shape:0,Name:`OptimizeXL Box ${i+1}`,Parent:null,Vertices:new Float32Array(row.map(v=>v*size))}:{Shape:2,Name:`OptimizeXL Sphere ${i+1}`,Parent:null,Vertices:new Float32Array(row.slice(0,3).map(v=>v*size)),BoundsRadius:row[3]*size});if(box)delete n.BoundsRadius;for(const k of ['Translation','Rotation','Scaling'])delete n[k];}
  const removed=new Set(m.CollisionShapes.slice(chosen.length).map(n=>n.ObjectId));if(removed.size)remapNodes(m,removed);rebuildNodes(m);
 }
 export function runOptimizeStage(bytes,stage,settings={},fix=null){const doc=openDocument(new Uint8Array(bytes),'working.mdx');supported(doc);const baseline=validateModel(doc.model).filter(d=>d.severity==='error').map(d=>d.code+':'+d.path),stats={},skipped=new Set(),changes=[],reviewBase=['duplicates','animation','unused'].includes(stage)?structuredClone(doc.model):null;let animationMetrics;
