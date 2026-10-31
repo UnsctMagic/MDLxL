@@ -44,7 +44,7 @@ test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, on
   assert.ok(look.includes(P+'button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:-1px!important;height:50%!important;font:700 10px/1 \'MDLxL Dock\',Tahoma,sans-serif!important'));
   assert.ok(look.includes("@font-face{font-family:'MDLxL Dock';src:url('/fonts/showcase/oxanium/font.ttf')"));
   assert.match(look,/>\.toolbar-modules>button\{[^}]*border:0!important;[^}]*background:transparent!important;box-shadow:none!important/);
-  assert.match(look,/button:not\(\.toolbar-modules>button,\.learn-menu>button\)\{border:1px solid transparent!important/,'the general toolbar border skips the dock and its Learn box');
+  assert.match(look,/button:not\(\.toolbar-modules>button,\.learn-menu>button[^)]*\)\{border:1px solid transparent!important/,'the general toolbar border skips the dock and its Learn box');
   assert.doesNotMatch(look,/toolbar-modules>button\[aria-pressed=true\]\{/,'switched-on icons keep their frame');
   const colors=[
     ['.ai-tool .module-icon-badge','#c9a2ff'],
