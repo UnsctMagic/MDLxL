@@ -13,6 +13,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
 | AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
+| Top bar layout: status items up, model tabs down, warning toasts | Contract ready; not started | [Top bar layout](top-bar-layout.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 | Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
