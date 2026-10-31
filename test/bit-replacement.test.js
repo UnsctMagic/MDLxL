@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNode, openDocument, validateModel } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
-import { collectPart, collectedPartModel, commitPart, partRgbSnapshot, positionPart, previewPartReplacement, serializeCollectedPart, transformPart } from '../src/bits-and-parts.js';
+import { collectPart, collectedPartModel, commitPart, partHasGlobalAnimations, partLook, partRgbOptions, positionPart, previewPartReplacement, serializeCollectedPart, transformPart } from '../src/bits-and-parts.js';
 import { transformVertices } from '../src/editor-commands.js';
 import { sampleGeosetAnimation } from '../src/animation.js';
 import { selectedVertexCenter } from '../src/bone-tools.js';
@@ -114,7 +114,7 @@ test('placement transforms the whole Bit around one pivot and errors are atomic'
   assert.deepEqual(doc.model, before);
 });
 
-test('saved RGB palettes retain all tracks; selecting Red or Blue imports the correct static color in WC3 byte order', () => {
+test('saved RGB palettes retain all tracks; choosing the Red or Blue RGB imports the correct static color in WC3 byte order', () => {
   for (const version of [800, 1000]) {
     const source = createStarterDocument(version).model;
     source.Sequences = ['Red', 'Blue'].map((Name, index) => ({ Name, Interval: Uint32Array.of(1000 + index * 2000, 1900 + index * 2000), MoveSpeed: 0, NonLooping: false, Rarity: 0, MinimumExtent: source.Info.MinimumExtent.slice(), MaximumExtent: source.Info.MaximumExtent.slice(), BoundsRadius: source.Info.BoundsRadius }));
@@ -125,11 +125,14 @@ test('saved RGB palettes retain all tracks; selecting Red or Blue imports the co
     const saved = openDocument(savedBytes).model, before = structuredClone(saved);
     assert.deepEqual(saved.Sequences.map(sequence => sequence.Name), ['Red', 'Blue']);
     assert.equal(saved.GeosetAnims[0].Color.Keys.length, 4);
-    for (const [sequenceIndex, expected] of [[0, [1, 0, 0]], [1, [0, 0, 1]]]) {
-      const snapshot = partRgbSnapshot(saved, sequenceIndex);
+    const options = partRgbOptions(saved);
+    assert.deepEqual(options.map(option => option.label), ['No RGB', '255/0/0', '0/0/255']);
+    for (const [index, expected] of [[1, [1, 0, 0]], [2, [0, 0, 1]]]) {
+      const snapshot = partLook(saved, options[index]);
       assert.deepEqual([...snapshot.GeosetAnims[0].Color], expected); assert.equal(snapshot.Sequences.length, 0);
-      const target = createStarterDocument(version), result = target.apply('Replace with RGB', [], model => commitPart(model, saved, { replacement: all(model), rgbSequence: sequenceIndex }));
-      assert.equal(target.model.Sequences.length, 0); assert.equal(target.model.GeosetAnims[0].Alpha, .75);
+      const target = createStarterDocument(version), result = target.apply('Replace with RGB', [], model => commitPart(model, saved, { replacement: all(model), look: options[index] }));
+      // The Bit's own .75 alpha stays behind: the replaced geoset had no visibility of its own.
+      assert.equal(target.model.Sequences.length, 0); assert.equal(target.model.GeosetAnims[0].Alpha, 1);
       const mdx = Buffer.from(target.serialize('mdx')), offset = mdx.indexOf(Buffer.from('GEOA'));
       assert.deepEqual([20, 24, 28].map(index => mdx.readFloatLE(offset + index)), expected, 'static imported color uses RGB in GEOA');
       assert.equal(mdx.indexOf(Buffer.from('KGAC')), -1);
@@ -147,7 +150,81 @@ test('saved RGB palettes retain all tracks; selecting Red or Blue imports the co
 test('a part without animations keeps geosets whose animated alpha has a hidden zero base visible', () => {
   const source = createStarterDocument(800).model;
   source.GeosetAnims = [{ GeosetId: 0, Flags: 0, Alpha: { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: Float32Array.of(1) }] }, Color: Float32Array.of(1, 1, 1), _MdxDefaults: { Alpha: 0 } }];
-  assert.equal(partRgbSnapshot(source, -1).GeosetAnims[0].Alpha, 1);
+  assert.equal(partLook(source).GeosetAnims[0].Alpha, 1);
+});
+
+const sequence = (Name, start, end) => ({ Name, Interval: Uint32Array.of(start, end), MoveSpeed: 0, NonLooping: false, Rarity: 0, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), BoundsRadius: 0 });
+const alphaTrack = pairs => ({ LineType: 0, GlobalSeqId: null, Keys: pairs.map(([Frame, value]) => ({ Frame, Vector: Float32Array.of(value) })) });
+const shownIn = (model, geoset) => model.Sequences.map((item, index) => [item.Name, sampleGeosetAnimation(model, geoset, item.Interval[0], index).alpha, sampleGeosetAnimation(model, geoset, item.Interval[1], index).alpha]);
+
+test('a replacement shows exactly where the replaced part showed; the Bit\'s own leftover keys never travel', () => {
+  const doc = createStarterDocument(), bit = createStarterDocument().model;
+  doc.model.Sequences = [sequence('Stand', 0, 1000), sequence('Attack', 2000, 3000)];
+  doc.model.GeosetAnims = [{ GeosetId: 0, Flags: 0, Color: Float32Array.of(1, 1, 1), Alpha: alphaTrack([[0, 1], [2000, 0]]) }];
+  // Like SlaanBlade: no animations, keys left behind by the models it came from.
+  bit.GeosetAnims = [{ GeosetId: 0, Flags: 26, Color: Float32Array.of(1, 1, 1), Alpha: alphaTrack([[0, 1], [2500, 0], [48886, 0]]) }];
+  const result = commitPart(doc.model, bit, { replacement: all(doc.model), look: partRgbOptions(bit)[0] });
+  assert.deepEqual(shownIn(doc.model, result.geosetIndices[0]), [['Stand', 1, 1], ['Attack', 0, 0]]);
+  assert.equal(doc.model.GeosetAnims.find(item => item.GeosetId === result.geosetIndices[0]).Flags, 24, 'No RGB clears only the tint flag');
+  assert.deepEqual(errors(doc.model), []);
+});
+
+test('a new part gets CORP\'s standard visibility: body, corpse, or portrait background', () => {
+  const sequences = [sequence('Stand', 0, 1000), sequence('Death', 2000, 3000), sequence('Decay Flesh', 4000, 5000), sequence('Decay Bone', 6000, 7000), sequence('Portrait', 8000, 9000)];
+  const imported = configure => {
+    const target = createStarterDocument().model, bit = createStarterDocument().model;
+    target.Sequences = structuredClone(sequences); configure?.(bit);
+    bit.GeosetAnims = [{ GeosetId: 0, Flags: 0, Color: Float32Array.of(1, 1, 1), Alpha: 0 }];
+    const result = commitPart(target, bit, { look: partRgbOptions(bit)[0] });
+    assert.deepEqual(errors(target), []);
+    return shownIn(target, result.geosetIndices[0]).map(([, start, end]) => [start, end]);
+  };
+  assert.deepEqual(imported(), [[1, 1], [1, 1], [1, 0], [0, 0], [1, 1]], 'a body part lives until the end of Decay Flesh');
+  assert.deepEqual(imported(bit => { bit.Textures[0].Image = 'Textures\\gutz.blp'; }), [[0, 0], [0, 0], [0, 1], [1, 0], [0, 0]], 'a corpse shows only while decaying');
+  assert.deepEqual(imported(bit => { bit.Textures[0] = { Image: '', ReplaceableId: 2, Flags: 0 }; bit.Materials[0].Layers[0].FilterMode = 1; }), [[0, 0], [0, 0], [0, 0], [0, 0], [1, 1]], 'a team-glow background shows only in Portrait');
+  const plain = createStarterDocument().model, bit = createStarterDocument().model;
+  plain.Sequences = [sequence('Stand', 0, 1000)];
+  bit.GeosetAnims = [{ GeosetId: 0, Flags: 0, Color: Float32Array.of(1, 1, 1), Alpha: 0 }];
+  const { geosetIndices } = commitPart(plain, bit, { look: partRgbOptions(bit)[0] });
+  assert.equal(plain.GeosetAnims.find(item => item.GeosetId === geosetIndices[0]).Alpha, 1, 'no decay: simply visible');
+});
+
+test('Bitz lists each distinct RGB once; a Bit with one RGB or none offers no choice', () => {
+  const bit = createStarterDocument().model;
+  bit.Geosets.push(structuredClone(bit.Geosets[0]));
+  bit.Sequences = [sequence('Stand', 0, 1000), sequence('Walk', 2000, 3000), sequence('Attack', 4000, 5000), sequence('Death', 6000, 7000)];
+  const color = pairs => ({ LineType: 0, GlobalSeqId: null, Keys: pairs.map(([Frame, rgb]) => ({ Frame, Vector: Float32Array.from(rgb) })) });
+  bit.GeosetAnims = [
+    { GeosetId: 0, Flags: 2, Alpha: 1, Color: color([[0, [1, 100 / 255, 1]], [2000, [1, 100 / 255, 1]], [4000, [100 / 255, 1, 1]], [6000, [1, 1, 1]]]) },
+    { GeosetId: 1, Flags: 2, Alpha: 1, Color: color([[0, [1, 100 / 255, 1]], [2000, [1, 100 / 255, 1]], [4000, [1, 100 / 255, 1]], [6000, [1, 1, 1]]]) }];
+  const options = partRgbOptions(bit);
+  assert.deepEqual(options.map(option => option.label), ['No RGB', '255/100/255', '100/255/255 · 255/100/255']);
+  assert.deepEqual(options[1].colors.map(rgb => rgb.map(part => Math.round(part * 255))), [[255, 100, 255], [255, 100, 255]]);
+  const look = partLook(bit, options[0]);
+  assert.deepEqual(look.GeosetAnims.map(item => [item.Flags, Array.from(item.Color)]), [[0, [1, 1, 1]], [0, [1, 1, 1]]]);
+  bit.GeosetAnims = [{ GeosetId: 0, Flags: 2, Alpha: 1, Color: Float32Array.of(1, 0, 0) }];
+  assert.deepEqual(partRgbOptions(bit).map(option => option.colors), [[[1, 0, 0], null]], 'one look is imported as is, without a list');
+});
+
+test('global animations: collecting may drop them, importing applies them only when asked', () => {
+  const source = createStarterDocument().model;
+  source.GlobalSequences = [1000];
+  source.Materials[0].Layers[0].Alpha = { LineType: 1, GlobalSeqId: 0, Keys: [{ Frame: 0, Vector: Float32Array.of(.25) }, { Frame: 500, Vector: Float32Array.of(1) }] };
+  const collected = collectPart(source, all(source));
+  assert.equal(partHasGlobalAnimations(collected), true);
+  const kept = collectedPartModel(collected, { name: 'Glow' }), dropped = collectedPartModel(collected, { name: 'Glow', keepGlobals: false });
+  assert.ok(kept.GlobalSequences.length && kept.Materials.some(material => material.Layers[0].Alpha?.Keys));
+  assert.deepEqual(dropped.GlobalSequences, []); assert.equal(partHasGlobalAnimations(dropped), false);
+  assert.equal(dropped.Materials[dropped.Geosets[0].MaterialID].Layers[0].Alpha, .25);
+  assert.deepEqual(errors(dropped), []);
+  for (const globals of [true, false]) {
+    const target = createStarterDocument().model, look = { ...partRgbOptions(kept)[0], globals };
+    const { geosetIndices } = commitPart(target, kept, { look });
+    const alpha = target.Materials[target.Geosets[geosetIndices[0]].MaterialID].Layers[0].Alpha;
+    if (globals) { assert.equal(target.GlobalSequences[alpha.GlobalSeqId], 1000); assert.equal(alpha.Keys.length, 2); }
+    else assert.equal(alpha, .25);
+    assert.deepEqual(errors(target), []);
+  }
 });
 
 const bounds = (model, selection = all(model)) => {

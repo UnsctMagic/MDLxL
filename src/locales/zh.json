@@ -7243,5 +7243,9 @@
   "Installing MDLxL {version}": "正在安装 MDLxL {version}",
   "Restoring MDLxL {version}": "正在恢复 MDLxL {version}",
   "MDLxL restarts by itself when it is done. Please wait.": "完成后 MDLxL 会自动重新启动，请稍候。",
-  "Undoing the update…": "正在撤销更新…"
+  "Undoing the update…": "正在撤销更新…",
+  "No RGB": "无 RGB",
+  "Apply its global animations?": "应用它的全局动画？",
+  "Keep global animations?": "保留全局动画？",
+  "Bit RGB": "Bit 的 RGB"
 }

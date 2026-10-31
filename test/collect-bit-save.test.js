@@ -13,7 +13,7 @@ import { collectPart, commitPart } from '../src/bits-and-parts.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { BitsAndPartsLibrary } = require('../electron/bits-and-parts.cjs');
-const built = await build({ entryPoints: [fileURLToPath(new URL('../app/CollectBit.jsx', import.meta.url))], bundle: true, write: false, format: 'cjs', platform: 'node', packages: 'external', logLevel: 'silent', plugins: [{ name: 'preview-only', setup(build) { build.onResolve({ filter: /\/(Viewport|PartAnimations)\.jsx$/ }, args => ({ path: args.path, external: true })); } }] });
+const built = await build({ entryPoints: [fileURLToPath(new URL('../app/CollectBit.jsx', import.meta.url))], bundle: true, write: false, format: 'cjs', platform: 'node', packages: 'external', logLevel: 'silent', plugins: [{ name: 'preview-only', setup(build) { build.onResolve({ filter: /\/(Viewport|PartRgb)\.jsx$/ }, args => ({ path: args.path, external: true })); } }] });
 
 for (const image of ['Textures\\Native.blp', 'Custom/My Skin.PNG', '_hd.w3mod:Textures\\Native.dds', 'MDLxL_Forge\\custom.tga']) test(`Collect Bit saves and reimports original path without loading texture data: ${image}`, async t => {
   const directory = tempDir('mdlxl-collect-handler-');
@@ -24,7 +24,7 @@ for (const image of ['Textures\\Native.blp', 'Custom/My Skin.PNG', '_hd.w3mod:Te
   const source = collectPart(doc.model, selection), before = structuredClone(source);
   const state = [], module = { exports: {} };
   const react = { ...React, useState(initial) { const index = state.length; state.push(index === 0 ? 'Collected' : initial); return [state[index], value => { state[index] = value; }]; }, useMemo: fn => fn() };
-  const load = id => id === 'react' ? react : /\/(Viewport|PartAnimations)\.jsx$/.test(id) ? () => null : require(id);
+  const load = id => id === 'react' ? react : /\/(Viewport|PartRgb)\.jsx$/.test(id) ? () => null : require(id);
   new Function('require', 'module', 'exports', built.outputFiles[0].text)(load, module, module.exports);
   const previous = globalThis.window;
   t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });

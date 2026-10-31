@@ -1,5 +1,5 @@
 import { isTeamGlowLayer } from './texture-references.js';
-import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence } from './sequence-editor.js';
+import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence, isPortraitSequence } from './sequence-editor.js';
 import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset } from './animation.js';
 import { createRigNode } from './bone-tools.js';
 import { deleteGeoset } from './editor-document.js';
@@ -129,6 +129,21 @@ function decayExtents(model,pair,shown) {
     }
     Object.assign(seq,extent(new Float32Array(cloud)));
   }
+}
+
+/** CORP's visibility for a new mesh, by role. A body part shows everywhere and
+ * through Decay Flesh until its last frame; a corpse (gutz or corpse texture)
+ * shows only while decaying; a team-glow portrait background only in Portrait. */
+export function standardVisibility(model, geosetId) {
+  const g=model.Geosets[geosetId],layers=model.Materials[g.MaterialID]?.Layers||[];
+  const role=corpseTexture(model,g)?'corpse':layers.length&&layers.every(l=>isTeamGlowLayer(model,l))&&!layers.every(l=>[3,4].includes(l.FilterMode))?'portrait':'body';
+  const keys=(model.Sequences||[]).flatMap(s=>{
+    const [a,b]=s.Interval,bone=isDecaySequence(s)&&sequenceWords(s.Name).some(w=>/^bones?$/.test(w));
+    if(role==='portrait')return [[a,isPortraitSequence(s)?1:0]];
+    if(role==='corpse')return !isDecaySequence(s)?[[a,0]]:bone?[[a,1],[b-1,1],[b,0]]:[[a,0],[Math.min(a+167,b-1),1],[b,1]];
+    return !isDecaySequence(s)?[[a,1]]:bone?[[a,0]]:[[a,1],[b-1,1],[b,0]];
+  });
+  return role==='body'&&keys.every(([,v])=>v===1)?1:track(keys);
 }
 
 /** Runs inside EditorDocument.apply: a failure rolls back the complete command.

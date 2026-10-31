@@ -7363,5 +7363,9 @@
   "Installing MDLxL {version}": "Установка MDLxL {version}",
   "Restoring MDLxL {version}": "Восстановление MDLxL {version}",
   "MDLxL restarts by itself when it is done. Please wait.": "MDLxL перезапустится сам, когда всё будет готово. Пожалуйста, подождите.",
-  "Undoing the update…": "Отмена обновления…"
+  "Undoing the update…": "Отмена обновления…",
+  "No RGB": "Без RGB",
+  "Apply its global animations?": "Применить его глобальные анимации?",
+  "Keep global animations?": "Сохранить глобальные анимации?",
+  "Bit RGB": "RGB бита"
 }
