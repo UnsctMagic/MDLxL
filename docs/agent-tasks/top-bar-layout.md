@@ -2,6 +2,8 @@
 
 State: implemented 1 Nov 2026 by Codex; ready to test and awaiting merge approval.
 Owner of implementation: Codex. Branch: `codex/top-bar-layout` from current `main`.
+PR: [#485](https://github.com/UnsctMagic/MDLxL/pull/485), open and unmerged.
+Implementation revision: `5b7ff6a6973394fde73f28c62f27f6ca76e34d64`.
 
 ## Goal (owner's words)
 
