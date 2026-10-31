@@ -289,7 +289,8 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.toolbar-team-color{margin:0!important;padding:0!important;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker{position:relative;display:flex;align-items:center}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker::before{content:'';position:absolute;left:10px;width:12px;height:12px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #00000040;pointer-events:none}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select{width:auto!important;height:34px;min-height:34px;padding:0 8px 0 28px!important;border:0!important;border-radius:7px!important;background-color:transparent!important;color:var(--ui-text)!important;font-size:12.5px!important;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select{width:42px!important;height:34px;min-height:34px;padding:0 8px 0 28px!important;border:0!important;border-radius:7px!important;background-color:transparent!important;color:var(--ui-text)!important;font-size:0!important;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select option{font-size:12.5px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select:hover{background-color:var(--ui-hover)!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .language-switch{margin:0}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .language-trigger{height:34px;min-height:34px;padding:0 8px!important;border:0!important;border-radius:7px!important;background:transparent!important;color:var(--ui-text)!important;font-size:12.5px;gap:6px;cursor:pointer}

@@ -143,6 +143,16 @@ Do not merge without the owner's approval.
   after five seconds. The duplicate-animation repair action remains until
   dismissed. Motion Inspector warnings and their ownership were not changed.
 
+Owner follow-up, 1 Nov: the default top-row team-colour selector shows only its
+swatch and arrow when closed; colour names stay readable in the existing native
+dropdown. This is a scoped CSS change in `new-look.css`; selection, options,
+keyboard behavior and VIS styling stay with their existing owners. The packaged
+workflow now checks compact closed styling, readable option text and real
+click/arrow-key selection. Fail-first on the previous package: closed font
+`12.5px !== 0px`. Focused source checks: 29 pass, zero fail/skip. The complete
+packaged workflow passed in default and 150% DPI; captured the actual native
+colour dropdown and verified arrow-key selection and restoration.
+
 ### Status audit
 
 Reviewed every App `say` call and all `app/` `setStatus` callers. Other
