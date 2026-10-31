@@ -35,6 +35,7 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
+  'surface-effects': { env: { MDLXL_EFFECTS_FIXTURE: process.env.MDLXL_EFFECTS_FIXTURE || footman }, needs: [process.env.MDLXL_EFFECTS_FIXTURE || footman] },
   'ai-real-use': { env: { MDLVIS_HEADLESS: '' }, timeout: Number(process.env.MDLXL_AI_REAL_USE_REPEATS || 3) * (10 + 6 * Number(process.env.MDLXL_AI_REAL_USE_RESUMES || 2)) * (Number(process.env.MDLXL_AI_REAL_USE_TURN_MS || 240000) + 30000) + 120000 },
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },

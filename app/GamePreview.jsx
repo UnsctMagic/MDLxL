@@ -1600,6 +1600,11 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
+      fitGeoset(index) {
+        const geoset=ownedModel.Geosets[index];if(!geoset)return;
+        const matrices=new Map((native.rendererData?.nodes||[]).flatMap((node,id)=>node?.matrix?[[id,new THREE.Matrix4().fromArray(node.matrix)]]:[]));
+        fit({points:latest.current.restPose?geoset.Vertices:skinGeoset(geoset,matrices),exact:true});
+      },
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
       alignModel(crop,x,y) { centerShowcaseModel(crop,false,x,y); },

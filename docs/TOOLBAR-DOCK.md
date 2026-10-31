@@ -38,6 +38,7 @@ labels in [modules.css](../app/modules.css).
 | BITZ | `#ece8de` ivory |
 | OPXL | `#8fe07f` green |
 | EMTR | `#5fe0cf` teal |
+| FX | `#b6f2ff` ice blue |
 | ANIM | `#ff8574` coral |
 | KEY | `#ffa257` orange |
 | LER | `#f2e35c` lemon |
