@@ -64,3 +64,10 @@ test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, on
   // Every new-look rule is scoped away from VIS.
   for(const rule of look.split('}').map(part=>part.trim()).filter(part=>part.startsWith(':root')))assert.match(rule,/:not\(\[data-vis-ui\]\)/);
 });
+
+test('bottom model tabs retain the existing new-look chrome without an empty editor row',()=>{
+  const bar=readFileSync(new URL('../app/AppToolbar.jsx',import.meta.url),'utf8');
+  assert.doesNotMatch(bar,/ModelTabs|module-divider/);
+  assert.match(look,/>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:28px\}/);
+  assert.match(look,/>\.classic-status \.model-tab\.active\{background:var\(--ui-field\)/);
+});

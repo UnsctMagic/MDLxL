@@ -1,0 +1,10 @@
+.warning-toasts{position:absolute;left:8px;bottom:8px;z-index:85;width:min(520px,calc(100% - 16px));display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.warning-toast{display:flex;align-items:center;pointer-events:auto;border:1px solid var(--ui-danger,#a31515);border-radius:7px;padding:5px 8px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 2px 8px #0004;font:12px/1.4 'Segoe UI',Tahoma,sans-serif;white-space:normal;overflow-wrap:anywhere}
+.warning-toast[data-alert]:not(:empty){animation:alert-flash 1.2s step-end,warning-fade .4s 4.6s forwards}
+.warning-toast[data-persistent]:not(:empty){animation:alert-flash 1.2s step-end}
+.warning-toast>button{display:flex;align-items:center;gap:6px;min-width:0;min-height:22px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer}
+.warning-toast>.warning-message{flex:1;white-space:normal;overflow-wrap:anywhere}
+.warning-message svg{flex:none;color:var(--ui-danger,#a31515)}
+.warning-toast>.warning-dismiss{flex:none;margin-left:8px;padding:0 4px;font-size:16px}
+.warning-toast>button:hover{background:var(--ui-hover)}
+@keyframes warning-fade{to{opacity:0}}

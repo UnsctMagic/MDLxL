@@ -1,6 +1,6 @@
 # Top bar layout: status row items up, model tabs down, warning toasts
 
-State: contract written 31 Oct 2026 by Claude Code; implementation not started.
+State: implemented 1 Nov 2026 by Codex; ready to test and awaiting merge approval.
 Owner of implementation: Codex. Branch: `codex/top-bar-layout` from current `main`.
 
 ## Goal (owner's words)
@@ -120,5 +120,80 @@ only; the small arrows pointing at the model's waist are unrelated — ignore th
 
 ## Next action
 
-Codex: implement on `codex/top-bar-layout`, open a PR into `main` with
-`Session: codex <chat name>`, update this note's State line and the README table.
+Review the `codex/top-bar-layout` PR into `main`, then owner/Claude QA click-through.
+Do not merge without the owner's approval.
+
+## Implementation and handoff
+
+- Base: `0cad695887d689d4e7e90aee568b8a1f91ee4b82` (current `main` after #483).
+- MDX and DPI/Scroll now share `toolbar-model` after the existing language,
+  team and Smooth controls. Their behavior, tooltip, disabled rule and input
+  adjustment highlight remain. VIS retains its existing top readout.
+- Settings → Add-ons… in both menus opens the same `Addons` install/list/run
+  panel near the top. Escape and close use the existing panel scope. Outside
+  clicks do not introduce a new dismissal behavior.
+- `ModelTabs` is mounted once in the bottom row, including one model. The
+  module divider and vacated grid rows are gone. Its selection, dirty dot,
+  close, scrolling and overflow logic remain; middle-click closes a tab as
+  required by this contract.
+- `WarningToasts` lives inside `classic-view`, above the timeline. Errors are
+  deduplicated, newest first, capped at two, click-dismissible and fade out
+  after five seconds. The duplicate-animation repair action remains until
+  dismissed. Motion Inspector warnings and their ownership were not changed.
+
+### Status audit
+
+Reviewed every App `say` call and all `app/` `setStatus` callers. Other
+`setStatus` owners (Settings, updates, mesh density) maintain their own panels;
+they do not feed the removed main-window status text. `usePreferences`,
+`usePreviewBackgrounds` and dialog error callbacks already supply `true`.
+
+Reclassified these former info messages as warnings:
+
+- Read-only and HD view-only notices when opening or switching models.
+- HD-to-SD conversion notice (unsupported HD content was converted).
+- No bone moves this part; select nodes / vertices before copying.
+- Bake Text before saving; save/revert temporary UV previews before Undo.
+- Choose a Warcraft III installation in the desktop app (both callers).
+- No compatible geosets to merge (both callers); stale merge selection;
+  model-format limits kept selected geosets separate; no parts to separate.
+- Save-preparation notes, separately from the suppressed Saved/Downloaded text.
+
+The listed source tests were updated, with five failures recorded on the
+unchanged main layout. The additional Smooth toolbar test fixture now supplies
+the model prop required by the moved MDX control. A new packaged
+`top-bar-layout` harness exercises the user path with real models and a
+disposable copy of the owner's settings. Its first run on main failed:
+`MDX conversion belongs to the top model group: 0 !== 1`.
+
+Full source: 2,610 pass / 0 fail / 10 existing conditional skips; compatibility:
+57 pass / 0 fail / 0 skip. The empty known-failure baseline is unchanged.
+Final focused source checks: 33 pass / 0 fail / 0 skip. The packaged
+`top-bar-layout` harness passed on the hidden `MDLxLTests` desktop in default
+and 150% DPI variants (one harness per variant, eight workflow groups each,
+zero page errors and no skips). Both used a disposable copy of the owner's
+real settings and 1280 px window bounds. Captures cover default/VIS one and
+four model layouts, Add-ons, warning/fade/removal and duplicate repair.
+Real Alt+mouse drags changed the camera while a warning remained visible.
+Read-only/HD warnings, MDX disabled state, error deduplication, the two-warning
+cap, tab dirty/Undo, middle/close clicks and overflow wheel scrolling also ran.
+The owner's source settings remained byte-identical. The package and disposable
+profiles were removed. Two reviewed capture sheets, JSON report and logs remain
+at `D:\Codex\mdlxl-top-bar-layout-report`.
+
+### Verification boundary
+
+Native Settings menu contents are read from the packaged app and checked
+against the desktop template. The actual native OS menu click was not
+exercised: keyboard/UI Automation probes on the hidden desktop did not expose
+that menu. Real Settings → Add-ons clicks and the complete panel workflow are
+verified through a packaged renderer without the desktop preload (the existing
+browser fallback). The owner's native-menu click-through remains required.
+
+Several older packaged harnesses still assert removed status chatter or the old
+`.classic-status .status-warning` selector. They were not run as part of this
+layout acceptance and need their assertions migrated to visible effects before
+the next full release suite (not restored product chatter). Examples:
+`alert-ping`, `model-tabs`, `dummy-bone`, `geoset-operations`,
+`geoset-merge-conflicts`, `localization`, `normalizer`, `vis-mdlvis-mode`,
+`uv-preview-edit-constraints`, `pose-complex`, `showcase`.
