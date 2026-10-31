@@ -1,6 +1,7 @@
 import { createChanges, applyChanges } from './history-store.js';
 import { ignoreHistoryAlias, MODEL_COUNT_FIELDS } from './editor-document.js';
 import FORBIDDEN_KEYS from './forbidden-keys.json' with { type: 'json' };
+import { AI_TARGET_STALE } from './ai-tools.js';
 
 const types = {
   Float32Array,
@@ -283,7 +284,5 @@ export function checkAiTarget(target, state) {
     target.revision !== state.doc.revision ||
     target.selectionSignature !== aiSelectionSignature(state)
   )
-    throw Error(
-      'The model or selection changed since this prompt. Nothing was applied. Ask the user to send the request again for the current selection.',
-    );
+    throw Error(AI_TARGET_STALE);
 }

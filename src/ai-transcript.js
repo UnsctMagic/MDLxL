@@ -118,6 +118,10 @@ function reduce(messages, event, copy) {
     case 'error':
       reply().error = event.text;
       break;
+    // MDLxL stopped the job (its tab was closed): one friendly line, not an error.
+    case 'stopped':
+      reply().notice = event.text;
+      break;
   }
   return { list, changed };
 }

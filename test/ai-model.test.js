@@ -133,9 +133,9 @@ test('targets reject changed selections, changed revisions and different tabs', 
   };
   const target = { documentId: 'one', revision: 2, selectionSignature: aiSelectionSignature(state) };
   checkAiTarget(target, state);
-  assert.throws(() => checkAiTarget(target, { ...state, selection: { 0: [2] } }), /selection changed/);
-  assert.throws(() => checkAiTarget(target, { ...state, doc: { revision: 3 } }), /changed/);
-  assert.throws(() => checkAiTarget(target, { ...state, session: { id: 'other' } }), /changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, selection: { 0: [2] } }), /no longer current/);
+  assert.throws(() => checkAiTarget(target, { ...state, doc: { revision: 3 } }), /no longer current/);
+  assert.throws(() => checkAiTarget(target, { ...state, session: { id: 'other' } }), /no longer current/);
 });
 test('mirror only marked triangle, reuse compatible seam and keep another geoset untouched', () => {
   const doc = createStarterDocument(),
@@ -238,6 +238,6 @@ test('an empty timeline mounting or changing controller is not a changed selecti
   const state = { session: { id: 'one' }, doc: { revision: 308 }, selection: { 5: [0, 1, 2] }, selectable: new Set([5]), activeGeoset: 5 };
   const target = { documentId: 'one', revision: 308, selectionSignature: aiSelectionSignature(state) };
   for (const controller of ['rotate', 'move']) checkAiTarget(target, { ...state, keyframes: { controller, range: null, keys: [] } });
-  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: [0, 100], keys: [] } }), /changed/);
-  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: null, keys: [{ frame: 50, trackId: 'node:0:Translation' }] } }), /changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: [0, 100], keys: [] } }), /no longer current/);
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'move', range: null, keys: [{ frame: 50, trackId: 'node:0:Translation' }] } }), /no longer current/);
 });

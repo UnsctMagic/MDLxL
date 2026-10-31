@@ -209,9 +209,35 @@ the first one. The bird has its own environment for its model tab:
 - **Screen-only steps wait.** Editor commands other than Undo/Redo, program
   controls (`mdlxl_ui`) and choosing timeline keys need the bird's tab on screen.
   Such a step waits until you return to that tab.
-- **Changes are checked.** Region birds become stale when their own part or a dependency changes; changes to another independent part do not invalidate them. For ordinary jobs on the tab being shown, if you change that model or its
-  selection while the bird prepares an edit, the edit is refused and the bird asks,
-  as before. Closing the bird's tab stops its task.
+- **Changes are checked.** Region birds become stale when their own part or a dependency changes; changes to another independent part do not invalidate them. Closing the bird's tab stops its task with one short green line
+  ("The model tab was closed. Send again to continue.").
+
+### The AI works on its own copy
+
+A prompt sent from the chat on the model you are looking at works on the AI's own
+copy of that model, taken with your selection and view when you press Send
+(`ownCopy` in `AiEditorBridge.context`, logic in `src/ai-own-copy.js`):
+
+- **Keep working.** Clicking, ticking geosets ("All", "Clear"), selecting, turning
+  the camera, changing animation or frame, and editing never stop the AI. Only real
+  model edits count as changes.
+- **Peek.** While it works, the eye button beside Stop shows the AI's copy, view
+  only. Turning it with the mouse uses its own camera: the AI's view and pictures
+  never change.
+- **When it finishes**, its changes go into your model as one Undo step ("AI: …")
+  when you changed nothing, or only parts the AI did not touch. A part is one item
+  of a model list (a geoset, a bone, an animation) or one field such as the model
+  name; adding or removing items early in a list moves the later ones.
+- **Both changed the same part:** a green question offers **Save as a new file**
+  (the AI result opens in its own tab, yours stays), **Adapt to your changes** (the
+  AI fits its changes onto your latest version as a new job; its result is kept as
+  version "AI result"; editing the same parts again meanwhile brings the question
+  back) and **Compare side by side** (OptimizeXL-style previews, then **Keep AI
+  result**, which takes the AI's version of the shared parts and keeps your other
+  edits, or **Keep yours**).
+- **On its copy** editor commands other than Undo/Redo, program controls and
+  timeline key picking act on your model, so the AI uses scripts and patches.
+  External MCP calls and read-only models keep working on the live editor.
 
 **Several jobs at once.** Each model's chat runs its own job: while a bird works
 on one model, switch to another model's tab and send its chat a prompt; its own

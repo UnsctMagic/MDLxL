@@ -534,6 +534,11 @@ class AiService {
     } catch (error) {
       // A resume that cannot start is refused outright; nothing was recorded.
       if (error.precondition) throw error;
+      if (error.code === 'AI_JOB_STOPPED') {
+        recorder.event({ type: 'stopped', text: error.message });
+        recorder.event({ type: 'done' });
+        return { ok: false, stopped: true };
+      }
       if (controller.signal.aborted) {
         recorder.separate();
         recorder.event({
@@ -647,7 +652,7 @@ class AiService {
       conversation.task.summary = result.report;
     } catch (error) {
       conversation.task.workerId = active.lastWorker || conversation.currentWorker;
-      conversation.task.status = signal.aborted ? 'interrupted' : 'incomplete';
+      conversation.task.status = error.code === 'AI_JOB_STOPPED' ? 'stopped' : signal.aborted ? 'interrupted' : 'incomplete';
       throw error;
     }
   }
@@ -819,6 +824,7 @@ class AiService {
       AI_JOB_TOOLS,
       AI_JOB_CHECKPOINT,
       AI_HELPER_NOTE,
+      AI_TAB_CLOSED,
       AI_PLAN_TOOL,
       guidesForRequest,
       AI_WORKER_TOOL,
@@ -834,7 +840,7 @@ class AiService {
     if (conversation.kind === 'worker' && conversation.model !== undefined) settings = { ...settings, model: conversation.model };
     const lightController = new AbortController();
     signal = AbortSignal.any([signal, lightController.signal]);
-    let lightFailure, workerYield;
+    let lightFailure, workerYield, jobStop;
     const escalate = reason => { lightFailure = Error(reason); lightFailure.code = 'AI_LIGHT_ESCALATE'; lightController.abort(lightFailure); throw lightFailure; };
     const previousTask = conversation.task;
     let task;
@@ -1171,6 +1177,12 @@ class AiService {
         }
         return result;
       } catch (error) {
+        // The job's tab is gone: stop now with one friendly line, never a reply about it.
+        if (error.message === AI_TAB_CLOSED) {
+          jobStop = Object.assign(Error(AI_TAB_CLOSED), { code: 'AI_JOB_STOPPED' });
+          lightController.abort(jobStop);
+          throw jobStop;
+        }
         if (edit) {
           task.unresolvedEditError = error.message;
           Object.assign(task.steps.at(-1), { status: 'failed', error: error.message });
@@ -1225,6 +1237,7 @@ class AiService {
         };
         try { await runProvider(options); }
         catch (error) { delete conversation.sentContext; throw error; }
+        if (jobStop) throw jobStop;
         if (workerYield) throw workerYield;
         if (lightFailure) throw lightFailure;
         const findings = await helperFindings();
@@ -1275,9 +1288,11 @@ class AiService {
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
       );
     } catch (error) {
-      if (workerYield) error = workerYield;
+      if (jobStop) error = jobStop;
+      else if (workerYield) error = workerYield;
       else if (lightFailure) error = lightFailure;
-      task.status = signal.aborted && !lightFailure ? 'interrupted' : 'incomplete';
+      // A stopped job has no tab to resume on; sending again starts it fresh.
+      task.status = jobStop ? 'stopped' : signal.aborted && !lightFailure ? 'interrupted' : 'incomplete';
       task.summary = error.message;
       throw error;
     } finally {
@@ -1435,7 +1450,7 @@ class AiService {
       try {
         await this.runTask({ conversation, recorder, steering, text, images, context, resume: !!args.resumeTask, settings: { ...settings, model: worker.model }, contract, signal, policy, helper: args.helper, checks: args.checks, requestText: userText, canHandover: !args.helperOnly, entry: { from: 'organiser', job: args.job } });
       } catch (reason) {
-        if (signal.aborted && !runningWorker.escalation) throw reason;
+        if (reason.code === 'AI_JOB_STOPPED' || signal.aborted && !runningWorker.escalation) throw reason;
         if (runningWorker.escalation) userText += '\n\nUser steering: ' + runningWorker.escalation;
         status = reason.code === 'AI_WORKER_HANDOVER' ? 'handover' : 'failed';
         error = runningWorker.escalation ? 'The user steered this job into work for the chosen model.' : reason.message;

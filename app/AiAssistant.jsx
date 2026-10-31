@@ -16,6 +16,7 @@ import {
   Paperclip,
   PenLine,
   Pause,
+  ScanEye,
   Settings2,
   Square,
   SquarePen,
@@ -127,7 +128,8 @@ function AiAssistant({ bridge, visUI }) {
     [rememberCleanup, setRememberCleanup] = useState(false),
     [savedChoice, setSavedChoice] = useState('ask'),
     [important, setImportant] = useState(false),
-    [connected, setConnected] = useState(false);
+    [connected, setConnected] = useState(false),
+    [copyNote, setCopyNote] = useState('');
   const id = view;
   // Each model's chat works on its own: this chat is busy while its task or one of
   // its birds runs; other models' AI jobs only block the shared connection settings.
@@ -197,6 +199,7 @@ function AiAssistant({ bridge, visUI }) {
           setSettingsOpen(true);
         }
       }
+      if (event.type === 'stopped') setCopyNote(event.text);
       if (event.type === 'done') setStatus('');
       if (event.type === 'awareness') setSettings(previous => ({ ...previous, awareness: event.enabled }));
       if (event.type === 'task') {
@@ -207,6 +210,12 @@ function AiAssistant({ bridge, visUI }) {
   }, []);
   useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
   const summaryNow = open ? bridge.summary() : null;
+  // The chat job on its own copy of this model: Peek while it works, the question after a clash.
+  const copyKey = useSyncExternalStore(bridge.subscribe, () => {
+    const job = open && bridge.copyJob(bridge.summary().documentId);
+    return job ? [job.target, job.status, job.view || ''].join(':') : '';
+  });
+  const copyJob = copyKey ? bridge.copyJob(summaryNow.documentId) : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
   // Right after a tab switch the console still holds the previous model's chat until
   // this model's chat loads; a prompt then must not reach the other model's job.
@@ -408,19 +417,22 @@ function AiAssistant({ bridge, visUI }) {
       setError(reason.message);
     }
   }
-  async function send(resumeTask = false, lightChoice) {
+  // asked: a prompt MDLxL writes for the user's choice (Adapt to your changes).
+  async function send(resumeTask = false, lightChoice, asked) {
     setModelQuestion(null);
+    if (asked === undefined) setCopyNote('');
     const resume = resumeTask === true;
     if (switching || !id) return;
-    if (!resume && busy) return steer();
-    if ((!resume && !prompt.trim()) || busy || authBusy) return;
+    if (!resume && busy && asked === undefined) return steer();
+    if ((!resume && !(asked ?? prompt).trim()) || busy || authBusy) return;
     if (native && signedIn === false) {
       await authenticate('login');
       return;
     }
-    const text = prompt,
-      attached = images,
-      context = bridge.context();
+    const text = asked ?? prompt,
+      attached = asked === undefined ? images : [],
+      // The AI works on its own copy: the user's clicks and edits never stop it.
+      context = bridge.context(null, undefined, { ownCopy: true });
     let sending = id;
     // The box keeps its draft under the organiser while a live bird is viewed.
     let draftOwner = draftKey;
@@ -454,7 +466,7 @@ function AiAssistant({ bridge, visUI }) {
           }
         }
       }
-      if (!resume) {
+      if (!resume && asked === undefined) {
         updateSendingDraft({ prompt: '', images: [], jobRoute: '' });
       }
       if (activeId.current === sending) setMessages(previous => [
@@ -496,8 +508,28 @@ function AiAssistant({ bridge, visUI }) {
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
     } finally {
+      // What the AI did on its copy goes into the model now, or the user is asked.
+      try {
+        const outcome = await bridge.finishCopy(context.target);
+        if (outcome?.status === 'closed') setCopyNote(outcome.message);
+      } catch (reason) {
+        setError(reason.message);
+      }
       setSendingId(current => (current === id || current === sending ? null : current));
       if (activeId.current === sending) setStatus('');
+    }
+  }
+  async function resolveCopy(choice) {
+    setError('');
+    try {
+      const outcome = await bridge.resolveCopy(copyJob.target, choice);
+      if (outcome?.status === 'closed') setCopyNote(outcome.message);
+      if (outcome?.status === 'adapt') {
+        setCopyNote('The AI is fitting its changes onto your latest version. Wait or keep editing: if you change the same parts again, this choice comes back.');
+        await send(false, 'chosen', outcome.prompt);
+      }
+    } catch (reason) {
+      setError(reason.message);
     }
   }
   async function authenticate(authAction) {
@@ -929,6 +961,11 @@ function AiAssistant({ bridge, visUI }) {
                               {message.error}
                             </p>
                           )}
+                          {message.notice && (
+                            <p className="ai-message-notice ai-good" role="status">
+                              {message.notice}
+                            </p>
+                          )}
                         </article>
                       ))}
                       {status && (
@@ -993,6 +1030,28 @@ function AiAssistant({ bridge, visUI }) {
                   <button data-hotkey="keep-chosen" title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
                   <button data-hotkey="use-lighter" title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
                 </div>}
+                {copyJob?.status === 'clash' && (
+                  <div className="ai-resume ai-good ai-copy-question" role="status">
+                    <span>
+                      {copyJob.clashes.length
+                        ? `You and the AI both changed ${copyJob.clashes.join(', ')}. What should happen with the AI's result?`
+                        : "The AI's result could not be put into your model by itself. What should happen with it?"}
+                    </span>
+                    <span className="ai-copy-choices">
+                      <button title="Open the AI's result in its own tab. Your model stays as it is." onClick={() => resolveCopy('new')}>Save as a new file</button>
+                      <button disabled={busy || authBusy} title="The AI fits its changes onto your latest version; it does not start the job again. If you change the same parts meanwhile, this choice comes back, so you can wait or keep editing." onClick={() => resolveCopy('adapt')}>Adapt to your changes</button>
+                      <button aria-pressed={copyJob.view === 'compare'} title="Show the AI's result next to your version, then pick one." onClick={() => bridge.setCopyView(copyJob.target, 'compare')}>Compare side by side</button>
+                    </span>
+                  </div>
+                )}
+                {copyNote && (
+                  <div className="ai-account ai-good" role="status">
+                    {copyNote}
+                    <button type="button" className="ai-icon-button" aria-label="Dismiss" title="Hide." onClick={() => setCopyNote('')}>
+                      <X size={13} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
                 <div className="ai-composer">
                   {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">
@@ -1223,6 +1282,12 @@ function AiAssistant({ bridge, visUI }) {
                           <span className="ai-task-state">{task.phase === 'verified' ? 'Result verified' : 'Task complete'}</span>
                         )}
                       </span>
+                      {busy && copyJob?.status === 'working' && (
+                        <button type="button" className="ai-peek" aria-pressed={copyJob.view === 'peek'} title="Peek at the AI's copy while it works. View only; looking around never disturbs the AI." onClick={() => bridge.setCopyView(copyJob.target, 'peek')}>
+                          <ScanEye size={13} aria-hidden="true" />
+                          <span className="sr-only">Peek</span>
+                        </button>
+                      )}
                       {busy && (
                         <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop" onClick={() => window.desktop.aiCancel(id)}>
                           <Square size={11} aria-hidden="true" />

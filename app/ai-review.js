@@ -34,7 +34,7 @@ export async function aiCheckpoint(
         workplane: restore.workplane,
         restore: structuredClone(restore),
       });
-      bridge.host().selectIn(target.documentId, {
+      bridge.selectOwn(target, {
         vertices: restore.selection,
         nodeIds: restore.selectedNodeIds,
         geosetIds: restore.checkedGeosets,
