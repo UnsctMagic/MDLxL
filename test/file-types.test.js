@@ -86,3 +86,31 @@ test('registration writes once, then skips until the icon changes', async () => 
   assert.equal(await types.apply('tile'), true);
   assert.equal(await types.apply('tile'), false);
 });
+
+test('another copy leaves the file types alone unless the owner is gone or it claims them', async () => {
+  const registry = new Map(), present = new Set([executable]);
+  const run = async (file, args) => {
+    if (file !== 'reg.exe') return '';
+    const key = args[1] + '|' + (args[2] === '/ve' ? '' : args[3]);
+    if (args[0] === 'add') { registry.set(key, args.includes('/d') ? args[args.indexOf('/d') + 1] : ''); return ''; }
+    if (args[0] === 'delete' || !registry.has(key)) throw Error('not found');
+    return `\r\n${args[1]}\r\n    (Default)    REG_SZ    ${registry.get(key)}\r\n`;
+  };
+  const command = () => registry.get(`HKCU\\Software\\Classes\\${PROG_ID}\\shell\\open\\command|`);
+  const copy = file => new FileTypeRegistration({ executable: file, brandingDirectory, run, exists: candidate => present.has(candidate) });
+  const testBuild = 'D:\\TestBuilds\\MDLxL\\MDLxL.exe';
+  assert.equal(await copy(executable).apply('page'), true);
+  assert.equal(await copy(testBuild).apply('page'), false);
+  assert.equal(command(), `"${executable}" "%1"`);
+  // Picking an icon in the test build, or installing an update there, takes them over.
+  assert.equal(await copy(testBuild).apply('tile', { claim: true }), true);
+  assert.equal(registry.get('HKCU\\Software\\Classes\\Applications\\MDLxL.exe\\shell\\open\\command|'), `"${testBuild}" "%1"`);
+  // After an update the installed copy claims them back from a test build that still exists.
+  present.add(testBuild);
+  assert.equal(await copy(executable).apply('tile'), false);
+  assert.equal(await copy(executable).apply('tile', { claim: true }), true);
+  // A deleted owner hands them to whichever copy starts next.
+  present.delete(executable);
+  assert.equal(await copy(testBuild).apply('tile'), true);
+  assert.equal(command(), `"${testBuild}" "%1"`);
+});
