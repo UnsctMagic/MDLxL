@@ -21,10 +21,11 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   check('global UI defaults to Along the ring',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='ring');
   check('global rotation speed defaults to 1x',await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await idle(); fs.writeFileSync(path.join(out,'mouse-settings.png'),Buffer.from(await app.evaluate(async ({BrowserWindow})=>{const contents=BrowserWindow.getAllWindows()[0].webContents;contents.invalidate();await contents.capturePage(undefined,{stayHidden:true,stayAwake:true});await new Promise(resolve=>setTimeout(resolve,150));return (await contents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64');}),'base64'));await closeSettings();
-  await configure('all','pivot',2);await configure('uv','linear',.5);
-  d=await rotationPage();await d.getByLabel('Rotation editor',{exact:true}).selectOption('uv');
+  await configure('all','pivot',2);await configure('bones','linear',.5);
+  d=await rotationPage();await d.getByLabel('Rotation editor',{exact:true}).selectOption('bones');
   await page.waitForFunction(value=>document.querySelector('[data-hotkey="mouse:rotation-sensitivity"]')?.value===value,'0.5');
-  check('UV overrides persist after reopening Settings',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='linear'&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='0.5');
+  check('Bones overrides persist after reopening Settings',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='linear'&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='0.5');
+  check('Rotation settings do not list the UV map',!(await d.getByLabel('Rotation editor',{exact:true}).locator('option').allTextContents()).some(text=>/UV/.test(text)));
   await d.getByLabel('Rotation editor',{exact:true}).selectOption('forge');
   await page.waitForFunction(value=>document.querySelector('[data-hotkey="mouse:rotation-sensitivity"]')?.value===value,'2');
   check('unmodified editor inherits behavior and speed',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()===''&&await d.getByLabel('Use default rotation sensitivity').isChecked()&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='2');
@@ -79,8 +80,8 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     await page.keyboard.press('Control+z');await idle();
   }
   await configure('vertices','',1);
-  // The UV map is flat: the selection follows the mouse around its centre
-  // whatever the 3D rule setting (test/uv-rotate-steady.electron.cjs measures it fully).
+  // The UV map is flat: the selection follows the mouse around its centre and
+  // has no rotation settings (test/uv-rotate-steady.electron.cjs measures it fully).
   await menu('uv');const uv=page.locator('.uv-tab-window');await uv.waitFor();
   await uv.getByRole('button',{name:'Rotate',exact:true}).click();await idle();
   await page.evaluate(()=>{window.rotationUV=()=>{const el=document.querySelector('.uv-editor'),state=findFiberState(el,v=>v?.uv&&v?.draw,{last:true}),props=findFiberState(el,v=>v?.geoset&&v?.onSelectVertices,{last:true});if(!state||!props)throw Error('UV runtime missing');return {state,props};};});

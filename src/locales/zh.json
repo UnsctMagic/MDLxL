@@ -4553,7 +4553,7 @@
   "All editors (default)": "所有编辑器（默认）",
   "Behavior": "行为",
   "Use default ·": "使用默认 ·",
-  "Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly.": "旋转速度会乘以编辑器的指针或 UV 灵敏度。数值越小，旋转越慢。",
+  "Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse.": "旋转速度会乘以编辑器的指针灵敏度。数值越小，旋转越慢。UV 贴图始终跟随鼠标旋转。",
   "Rotation sensitivity": "旋转灵敏度",
   "Use default rotation sensitivity": "使用默认旋转灵敏度",
   "Use default": "使用默认",
