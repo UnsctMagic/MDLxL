@@ -80,8 +80,9 @@ test('outside check deliberately adds motion measurements alongside still pictur
   assert.match(contract.AI_OUTSIDE_CHECK, /Missing baseline.*notes only/);
 });
 
-test('router is unchanged; editing and worker prompts change only the documented rules', () => {
-  assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT), BEFORE_RULE.router);
+test('router changes only by the tool-areas rule; editing and worker prompts change only the documented rules', () => {
+  assert.ok(contract.AI_ROUTER_PROMPT.endsWith(contract.AI_ROUTER_TOOLS_RULE));
+  assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT.slice(0, -contract.AI_ROUTER_TOOLS_RULE.length)), BEFORE_RULE.router);
   for (const handbook of [false, true])
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
@@ -94,6 +95,14 @@ test('router is unchanged; editing and worker prompts change only the documented
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));
 });
 
+
+test('the router names exactly the function areas the bird can be handed; the common list goes last', async () => {
+  const { AI_AREAS } = await import('../src/ai-capabilities.js');
+  const named = contract.AI_ROUTER_TOOLS_RULE.match(/at most three of ([a-z, ]+) \(/)[1].split(', ');
+  assert.deepEqual(named, AI_AREAS.map(area => area.id));
+  const plain = editingPrompt(contract, { worker: true });
+  assert.equal(editingPrompt(contract, { worker: true, functions: 'LIST' }), plain + '\nLIST');
+});
 
 test('owner example and keep-look replays receive the structural example rule in direct and worker prompts', () => {
   assert.match(turns.turns['27'].text, /welded the bottom right/);

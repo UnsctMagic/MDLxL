@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { AI_AREAS, searchAiCapabilities, aiExportNames } from '../src/ai-capabilities.js';
+import {
+  AI_AREAS,
+  AI_COMMON_FUNCTIONS,
+  aiCommonFunctionsText,
+  aiExportNames,
+  aiFunctionCards,
+  aiToolPages,
+  areasForRequest,
+  searchAiCapabilities,
+} from '../src/ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { createStarterDocument } from '../src/starter-model.js';
 
@@ -38,6 +47,47 @@ test('capability areas point to existing public editor APIs; search and paginati
     ['a', 'other', 'renamed', 'run'],
   );
 });
+test('a function lookup answers with arguments and description in one step', () => {
+  const detach = searchAiCapabilities(sources, { query: 'detach' }).functions[0];
+  assert.deepEqual(detach, {
+    module: 'mesh-tools',
+    name: 'detachFaces',
+    arguments: 'model, geosetIndex, indices',
+    about: 'Detach triangles whose three vertices are selected; keep source loose vertices.',
+  });
+  assert.equal(searchAiCapabilities(sources, { area: 'rig' }).functions, undefined, 'an area listing stays a module list');
+  assert.ok(searchAiCapabilities(sources, { query: 'detach', area: 'rig' }).functions.every(f => AI_AREAS.find(a => a.id === 'rig').modules.includes(f.module)));
+  // Only the comment directly above a function describes it.
+  assert.deepEqual(
+    aiFunctionCards('// Section heading\n\n/** Moves a thing.\n * Second line. */\nexport async function move(a, { b = 1 } = {}) {}\n// One.\n// Two.\nexport function two(x) {}\n'),
+    [
+      { name: 'move', arguments: 'a, { b = 1 } = {}', about: 'Moves a thing. Second line.' },
+      { name: 'two', arguments: 'x', about: 'One. Two.' },
+    ],
+  );
+});
+
+test('the common list names only real functions and stays the same small text', () => {
+  const text = aiCommonFunctionsText(sources);
+  const expected = Object.entries(AI_COMMON_FUNCTIONS).flatMap(([module, names]) => names.map(name => module + '.' + name + '('));
+  for (const line of expected) assert.ok(text.includes('\n' + line), line);
+  assert.equal(text.split('\n').length, expected.length + 1);
+  assert.ok(text.length < 5000, String(text.length));
+  assert.equal(aiCommonFunctionsText(sources), text);
+});
+
+test('request words pick at most two areas; pages skip the common list and repeat no module', () => {
+  assert.deepEqual(areasForRequest('Please reskin the hilt of this blade that I have selected now using the texture I have selected now'), ['materials', 'uv']);
+  assert.deepEqual(areasForRequest('the walk loops badly at frame 400'), ['animation']);
+  assert.deepEqual(areasForRequest('hello'), []);
+  assert.equal(aiToolPages(sources, []), '');
+  assert.equal(aiToolPages(sources, ['made-up']), '');
+  const page = aiToolPages(sources, ['animation', 'inspection']);
+  assert.ok(!page.includes('animation.sampleNodeMatrices('), 'common functions are already in the instructions');
+  assert.equal(page.split('\nanimation also has:').length, 2, 'a module shared by two areas appears once');
+  for (const area of AI_AREAS) assert.ok(aiToolPages(sources, [area.id]).length < 5800, area.id);
+});
+
 test('pose sampling measures interpolated world-space deformation without mutating model data', () => {
   const model = createStarterDocument().model;
   model.Sequences = [{ Name: 'Stand', Interval: new Uint32Array([0, 1000]) }];
