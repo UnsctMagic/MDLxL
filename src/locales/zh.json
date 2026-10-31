@@ -7247,5 +7247,12 @@
   "No RGB": "无 RGB",
   "Apply its global animations?": "应用它的全局动画？",
   "Keep global animations?": "保留全局动画？",
-  "Bit RGB": "Bit 的 RGB"
+  "Bit RGB": "Bit 的 RGB",
+  "Fix model": "修复模型",
+  "Warcraft III needs keyframes for these values:": "Warcraft III 需要为这些值使用关键帧：",
+  "Until they are fixed, the model cannot be saved and the Warcraft preview cannot show it. The fix keeps how the model looks, and Undo reverses it.": "修复之前，模型无法保存，Warcraft 预览也无法显示它。修复会保持模型外观不变，撤销可以还原。",
+  "Fix and save": "修复并保存",
+  "Fix keyframe values": "修复关键帧值",
+  "Turn single animation values into keyframes.": "将单个动画值转换为关键帧。",
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} 是单个值；这里 Warcraft III 需要关键帧。"
 }

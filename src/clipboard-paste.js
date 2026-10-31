@@ -7,6 +7,7 @@ import { applyMeshClipboardColors } from './mesh-clipboard.js';
 import { adaptPasteFormat, convertHDToSD } from './paste-format.js';
 import { hdContentIssues, HD_CONVERT_NOTICE } from './model-version.js';
 import { forgeTangents } from './geoset-tangents.js';
+import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
 
 const validPivot = value => value?.length === 3 && Array.from(value).every(Number.isFinite);
 const identity = () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
@@ -143,6 +144,7 @@ function mergeImportResults(parts) {
  * a document. Committing this model through EditorDocument.apply is one Undo. */
 export function prepareClipboardPaste(model, clipboard, { parent = null, special = false, sameModel = false, targetGeoset = null } = {}) {
   const target = structuredClone(model), repairs = new Set(), source = { ...clipboard, model: structuredClone(clipboard.model) };
+  const plainBefore = new Set(plainTrackValues(target).map(item => item.owner));
   const existingNodes = sameModel ? new Map(serializedNodes(target).map(node => [node.ObjectId, node])) : null;
   if (source.model.Version !== target.Version) repairs.add(`Adapt the copied objects from MDX${source.model.Version} to MDX${target.Version}${target.Version === 800 ? ' using Classic geometry and diffuse materials' : ''}.`);
   source.model = adaptPasteFormat(source.model, target.Version);
@@ -213,5 +215,8 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
     result = parts.length === 1 ? parts[0] : mergeImportResults(parts);
     applyMeshClipboardColors(target, result.geosetMap, source.rgbByGeoset);
   }
+  // Pasted values Warcraft III keeps only as keyframes get keyframes over this model's animations.
+  const plain = plainTrackValues(target).filter(item => !plainBefore.has(item.owner));
+  if (plain.length) { fixPlainTrackValues(target, plain); repairs.add('Turn single animation values into keyframes.'); }
   return { model: target, result, repairs: [...repairs] };
 }

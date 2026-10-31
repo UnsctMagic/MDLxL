@@ -7367,5 +7367,12 @@
   "No RGB": "Без RGB",
   "Apply its global animations?": "Применить его глобальные анимации?",
   "Keep global animations?": "Сохранить глобальные анимации?",
-  "Bit RGB": "RGB бита"
+  "Bit RGB": "RGB бита",
+  "Fix model": "Исправить модель",
+  "Warcraft III needs keyframes for these values:": "Warcraft III нужны ключевые кадры для этих значений:",
+  "Until they are fixed, the model cannot be saved and the Warcraft preview cannot show it. The fix keeps how the model looks, and Undo reverses it.": "Пока они не исправлены, модель нельзя сохранить, и предпросмотр Warcraft не может её показать. Исправление сохраняет вид модели, а «Отменить» возвращает всё как было.",
+  "Fix and save": "Исправить и сохранить",
+  "Fix keyframe values": "Исправить значения ключевых кадров",
+  "Turn single animation values into keyframes.": "Превратить одиночные значения анимации в ключевые кадры.",
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} — одиночное значение; здесь Warcraft III нужны ключевые кадры."
 }

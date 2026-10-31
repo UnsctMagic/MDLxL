@@ -108,6 +108,7 @@ import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
+import { plainTrackValues } from '../src/plain-track-values.js';
 import SidebarResizer from './SidebarResizer.jsx';
 import { exposeAppForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
@@ -574,6 +575,8 @@ export default function App() {
   };
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
+    // Views drawn by the Warcraft preview need keyframe tracks: offer the fix first.
+    if (['bones', 'animation', 'manager', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
     sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
@@ -897,6 +900,7 @@ export default function App() {
     if (savingRef.current) return false;
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
+    if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat } }); return false; }
     savingRef.current = true; setSaving(true);
     const previousPath = target.path;
     try {
