@@ -35,6 +35,8 @@ const root=path.resolve(__dirname,'..');
   const handle=page.getByLabel('Resize Z positive',{exact:true}),at=await handle.boundingBox();
   const height=await page.getByLabel('Height',{exact:true}).inputValue();
   await page.mouse.move(at.x+5,at.y+5);await page.mouse.down();await page.mouse.move(at.x+5,at.y-35,{steps:8});
+  // Live drags update once per frame; wait for that frame instead of the same tick.
+  await page.waitForFunction(before=>document.querySelector('input[aria-label="Height"]')?.value!==before,height,{timeout:2000}).catch(()=>{});
   assert.notEqual(await page.getByLabel('Height',{exact:true}).inputValue(),height,'the drag creates a live draft');
   await page.getByLabel('Collision view',{exact:true}).selectOption('top');
   await handle.waitFor({state:'detached'});await page.mouse.up();

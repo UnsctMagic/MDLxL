@@ -1,5 +1,6 @@
-import React,{useRef} from 'react';
+import React,{useEffect,useRef} from 'react';
 import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {createFrameCoalescer} from './viewport-performance.js';
 // Corpse piece handles in the Auto Corpse preview. Same handles, look and keys
 // as EMTR/Glow Up: the middle moves a piece like an emitter, the two ends
 // stretch it like a ribbon's edges, the side handle sets its width like the
@@ -20,11 +21,14 @@ export const pieceMarks=(pieces,selected,show)=>{
 };
 // moveOnly (Blood): points with only the move handle; others show as dots.
 export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveOnly=false,onSelect,onChange,onDrag}) {
-  const drag=useRef(null),raw=snapshot?.marks;
+  const drag=useRef(null),follow=useRef(null),frame=useRef(null),raw=snapshot?.marks;
+  // Each piece change rebuilds the corpse: follow the pointer once per frame.
+  frame.current||=createFrameCoalescer(()=>follow.current?.());
+  useEffect(()=>()=>frame.current.cancel(),[]);
   // Like Glow Up: Escape during a drag cancels the drag before the window's Close takes it.
   useWindowKeyClaim(({event})=>{
     const d=drag.current;if(event.key!=='Escape'||!d)return false;
-    drag.current=null;onChange(selected,d.before);onDrag?.(false);return true;
+    frame.current.cancel();drag.current=null;onChange(selected,d.before);onDrag?.(false);return true;
   },0);
   if(!raw||!pieces)return null;
   // A just-added piece has no projected marks until the preview draws again.
@@ -60,9 +64,11 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveO
     event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
     drag.current={...d,x:event.clientX,y:event.clientY};onDrag?.(true);
   }
-  function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;set(next(d,dx,dy));}
-  function end(){if(drag.current)onDrag?.(false);drag.current=null;}
-  function abort(){const d=drag.current;drag.current=null;if(d){onChange(selected,d.before);onDrag?.(false);}}
+  function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;d.delta=[dx,dy];frame.current.schedule();}
+  function applyMove(){const d=drag.current;if(d?.delta)set(next(d,...d.delta));}
+  follow.current=applyMove;
+  function end(){frame.current.flush();if(drag.current)onDrag?.(false);drag.current=null;}
+  function abort(){frame.current.cancel();const d=drag.current;drag.current=null;if(d){onChange(selected,d.before);onDrag?.(false);}}
   const handle=(point,kind,label,className)=>point&&<g role="slider" tabIndex={0} aria-label={label} className={className} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(event.key==='Escape'&&drag.current){event.preventDefault();event.stopPropagation();abort();}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}

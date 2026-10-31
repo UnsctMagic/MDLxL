@@ -3,13 +3,17 @@ import React,{useEffect,useRef,useState} from 'react';
 import {particleAimAngles,particleValue} from '../src/particle-bindings.js';
 import {particleAxisMapping,particleSpreadAtPointer} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
+import {createFrameCoalescer} from './viewport-performance.js';
 export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft}) {
-  const drag=useRef(null),[pinned,setPinned]=useState(null);
+  const drag=useRef(null),follow=useRef(null),frame=useRef(null),[pinned,setPinned]=useState(null);
+  // Each change updates the live preview: follow the pointer once per frame.
+  frame.current||=createFrameCoalescer(()=>follow.current?.());
+  useEffect(()=>()=>frame.current.cancel(),[]);
   useWindowKeyClaim(({event})=>{
     if(event.key!=='Escape'||!drag.current)return false;
     abort();return true;
   },0);
-  useEffect(()=>{drag.current=null;setPinned(null);},[emitter?.ObjectId,tool,cancelVersion]);
+  useEffect(()=>{frame.current.cancel();drag.current=null;setPinned(null);},[emitter?.ObjectId,tool,cancelVersion]);
   if(!snapshot||!emitter)return null;
   const {width,height,guide}=snapshot;
   const ribbon=options.family==='RibbonEmitters';
@@ -30,6 +34,11 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
     const d=drag.current;if(!d)return;
     const dx=event.clientX-d.x,dy=event.clientY-d.y;
     if(dx===0&&dy===0)return;
+    d.delta=[dx,dy];frame.current.schedule();
+  }
+  function applyMove() {
+    const d=drag.current;if(!d?.delta)return;
+    const [dx,dy]=d.delta;
     let next;
     if(d.field==='Rotation'){next=[d.angles[0]-dy,d.angles[1]+dx,d.angles[2]];}
     else if(d.field==='Translation'){if(!d.basis)return;next=d.value.map((value,i)=>value+dx*d.basis.dx[i]+dy*d.basis.dy[i]);}
@@ -38,8 +47,9 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
     else {if(!d.basis)return;next=Math.max(0,d.value+movementDragAmount(d.basis,dx,dy,'move'));}
     if(d.size)onSizeDraft(d.field,next);else change(next);
   }
-  function end(){if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();}}
-  function abort(){const size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();}
+  follow.current=applyMove;
+  function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();}}
+  function abort(){frame.current.cancel();const size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();}
   const handle=(point,field,label,basis)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):field==='Rotation'?value(field)+delta:Math.max(0,value(field)+delta));finish();}
   }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;

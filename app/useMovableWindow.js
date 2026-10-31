@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createFrameCoalescer } from './viewport-performance.js';
 
 /** Move the actual dialog by its title bar; controls keep their normal clicks. */
 export default function useMovableWindow(ref, { contained = false, position: suppliedPosition, onPositionChange } = {}) {
@@ -9,6 +10,15 @@ export default function useMovableWindow(ref, { contained = false, position: sup
     const box = ref.current?.getBoundingClientRect(), owner = contained ? ref.current?.offsetParent?.getBoundingClientRect() : ref.current?.ownerDocument.defaultView;
     return box && owner ? { left: Math.max(0, Math.min(left, (contained ? owner.width : owner.innerWidth) - box.width)), top: Math.max(0, Math.min(top, (contained ? owner.height : owner.innerHeight) - box.height)) } : { left, top };
   };
+  // The window follows the pointer once per frame, not on every pointer event.
+  const follow = useRef(null), frame = useRef(null);
+  follow.current = () => {
+    const point = drag.current?.point; if (!point || !ref.current) return;
+    const bounds = contained ? ref.current.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+    setPosition(clamp(point.x - bounds.left - drag.current.x, point.y - bounds.top - drag.current.y));
+  };
+  frame.current ||= createFrameCoalescer(() => follow.current());
+  useEffect(() => () => frame.current.cancel(), []);
   useEffect(() => {
     const owner = ref.current?.ownerDocument.defaultView;
     const resize = () => setPosition(old => old && clamp(old.left, old.top));
@@ -25,9 +35,9 @@ export default function useMovableWindow(ref, { contained = false, position: sup
         drag.current = { x: event.clientX - box.left, y: event.clientY - box.top };
         event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
       },
-      onPointerMove: event => { if (drag.current) { const bounds = contained ? ref.current.offsetParent.getBoundingClientRect() : { left: 0, top: 0 }; setPosition(clamp(event.clientX - bounds.left - drag.current.x, event.clientY - bounds.top - drag.current.y)); } },
-      onPointerUp: event => { drag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); },
-      onPointerCancel: () => { drag.current = null; },
+      onPointerMove: event => { if (drag.current) { drag.current.point = { x: event.clientX, y: event.clientY }; frame.current.schedule(); } },
+      onPointerUp: event => { frame.current.flush(); drag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); },
+      onPointerCancel: () => { frame.current.cancel(); drag.current = null; },
     },
   };
 }

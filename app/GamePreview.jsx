@@ -42,7 +42,7 @@ import { drawPreviewGeometryOverlay, drawPresentationOverlay, previewOverlayOpti
 import { installNodeEffectControls } from './node-effect-controls.js';
 import { createEventSoundPreview } from './event-sound-preview.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
-import { watchContextLoss, bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
+import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
 import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
@@ -392,8 +392,11 @@ export default function GamePreview(inputProps) {
       if (latest.current.portraitMode) state.cameraDetached = !!saved.portraitDetached;
       camera = restorePreviewCamera(saved, perspective, ortho, controls); resize(); reportProjectionView(); invalidate(); syncingCamera = false;
     };
+    // The app's camera angles follow once per frame, not per pointer event.
+    let reportedAngles = null;
+    const cameraReport = createFrameCoalescer(() => latest.current.onCameraAnglesChange?.(reportedAngles), { request: requestPreviewFrame, cancel: cancelPreviewFrame });
     const cameraChanged = () => {
-      latest.current.onCameraAnglesChange?.(editorCameraAngles(camera)); reportProjectionView(); invalidate();
+      reportedAngles = editorCameraAngles(camera); cameraReport.schedule(); reportProjectionView(); invalidate();
       if(latest.current.showcase)latest.current.onShowcaseViewChange?.();
       const bus = latest.current.compareCamera;
       if (bus && compareRegistered && !syncingCamera) { bus.saved = snapshotCamera(); for (const receive of bus.listeners) if (receive !== receiveCamera) receive(bus.saved); }
@@ -692,7 +695,7 @@ export default function GamePreview(inputProps) {
       }
       if (selectionGesture?.id === event.pointerId) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
-        if (Math.hypot(x - selectionGesture.x, y - selectionGesture.y) > 5) setSelectionBox({ left: Math.min(x, selectionGesture.x), top: Math.min(y, selectionGesture.y), width: Math.abs(x - selectionGesture.x), height: Math.abs(y - selectionGesture.y) });
+        if (Math.hypot(x - selectionGesture.x, y - selectionGesture.y) > 5) { selectionMove = { gesture: selectionGesture, box: { left: Math.min(x, selectionGesture.x), top: Math.min(y, selectionGesture.y), width: Math.abs(x - selectionGesture.x), height: Math.abs(y - selectionGesture.y) } }; selectionFrame.schedule(); }
         event.preventDefault(); event.stopImmediatePropagation(); return;
       }
       if (!nodeGesture) {
@@ -708,6 +711,29 @@ export default function GamePreview(inputProps) {
       if (event.pointerId !== nodeGesture.id) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (nodeGesture.adjusted) return;
+      // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
+      // turn between frames cannot flip direction. Repeating the last point adds nothing.
+      if (nodeGesture.rotationDrag) {
+        const rect = canvas.getBoundingClientRect(), dx = event.clientX - rect.left - nodeGesture.x, dy = event.clientY - rect.top - nodeGesture.y;
+        const [turnX, turnY] = !nodeGesture.pose && nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
+        movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY);
+      }
+      nodeMove = { gesture: nodeGesture, event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey } }; nodeFrame.schedule();
+    };
+    // The marquee box re-renders the preview; once per frame.
+    let selectionMove = null;
+    const selectionFrame = createFrameCoalescer(() => {
+      const move = selectionMove; selectionMove = null;
+      if (move && move.gesture === selectionGesture) setSelectionBox(move.box);
+    }, { request: requestPreviewFrame, cancel: cancelPreviewFrame });
+    // Bone transforms, POSE solves and the gesture label run once per frame with the latest point.
+    let nodeMove = null;
+    const nodeFrame = createFrameCoalescer(() => {
+      const move = nodeMove; nodeMove = null;
+      if (move && move.gesture === nodeGesture && !nodeGesture.adjusted) applyNodeMove(move.event);
+    }, { request: callback => scheduler.frames.request(callback), cancel: id => scheduler?.frames.cancel(id) });
+    const applyNodeMove = event => {
+      const p = latest.current;
       if (nodeGesture.pose) {
         const rect = canvas.getBoundingClientRect(), dx = event.clientX - rect.left - nodeGesture.x, dy = event.clientY - rect.top - nodeGesture.y;
         if (Math.hypot(dx, dy) < 2 && !nodeGesture.moved) return;
@@ -740,6 +766,7 @@ export default function GamePreview(inputProps) {
     const finishNodeGesture = event => {
       rotating = false; latest.current.onCameraGestureChange?.(false); canvas.style.cursor = cursorFor(latest.current);
       if (selectionGesture?.id === event.pointerId) {
+        selectionFrame.cancel(); selectionMove = null;
         const start = selectionGesture; selectionGesture = null; setSelectionBox(null); controls.enabled = true;
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
         event.preventDefault(); event.stopImmediatePropagation();
@@ -764,6 +791,7 @@ export default function GamePreview(inputProps) {
       }
       if (!nodeGesture || event.pointerId !== nodeGesture.id) return;
       event.preventDefault(); event.stopImmediatePropagation();
+      if (event.type === 'pointerup') nodeFrame.flush(); else { nodeFrame.cancel(); nodeMove = null; }
       const gesture = nodeGesture; nodeGesture = null; controls.enabled = true; canvas.style.cursor = cursorFor(latest.current); setGestureLabel('');
       posedGeometryCache = null;
       latest.current.onNodePosePreview?.(null);
@@ -847,16 +875,20 @@ export default function GamePreview(inputProps) {
     ownerWindow.addEventListener('blur', previewWindowBlur);
     ownerWindow.addEventListener('mdlxl-cancel-gesture', cancelPreviewCommand);
     let viewHoveredGeoset = null;
-    const hoverGeoset = event => {
+    // Hover picking projects every posed vertex; once per frame with the latest point.
+    let hoverPoint = null;
+    const hoverFrame = createFrameCoalescer(() => {
+      const point = hoverPoint; hoverPoint = null; if (!point) return;
       const p = latest.current;
       const rect = canvas.getBoundingClientRect();
       const hit = p.highlightSelection && !nodeGesture && !selectionGesture && p.onHoverGeoset
-        ? pickPreviewGeoset(projectPreviewGeosets(posedGeosets, camera, rect.width, rect.height), event.clientX - rect.left, event.clientY - rect.top)
+        ? pickPreviewGeoset(projectPreviewGeosets(posedGeosets, camera, rect.width, rect.height), point.clientX - rect.left, point.clientY - rect.top)
         : null;
       const next = hit?.index ?? null;
       if (viewHoveredGeoset !== next) { viewHoveredGeoset = next; p.onHoverGeoset?.(next); }
-    };
-    const leaveGeoset = () => { if (poseHoverTarget !== null) { poseHoverTarget = null; invalidate(); } if (viewHoveredGeoset !== null) { viewHoveredGeoset = null; latest.current.onHoverGeoset?.(null); } };
+    }, { request: requestPreviewFrame, cancel: cancelPreviewFrame });
+    const hoverGeoset = event => { hoverPoint = { clientX: event.clientX, clientY: event.clientY }; hoverFrame.schedule(); };
+    const leaveGeoset = () => { hoverFrame.cancel(); hoverPoint = null; if (poseHoverTarget !== null) { poseHoverTarget = null; invalidate(); } if (viewHoveredGeoset !== null) { viewHoveredGeoset = null; latest.current.onHoverGeoset?.(null); } };
     canvas.addEventListener('pointermove', hoverGeoset); canvas.addEventListener('pointerleave', leaveGeoset);
     const bounds = new THREE.Box3(), point = new THREE.Vector3();
     for (const [index, geo] of ownedModel.Geosets.entries()) if (!props.isolatedGeosets || props.isolatedGeosets.includes(index)) for (let i = 0; i < geo.Vertices.length; i += 3) bounds.expandByPoint(point.fromArray(geo.Vertices, i));
@@ -1031,11 +1063,18 @@ export default function GamePreview(inputProps) {
       cameraChanged();
     }
 
-    function updateUV(nextModel) {
-      const priorBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
+    // A live UV drag replaces only the dragged geosets' arrays; skip the rest.
+    // A new revision re-uploads everything, since history patches arrays in place.
+    const uploadedUV = [];
+    let uploadedRevision;
+    function updateUV(nextModel, revisionKey) {
+      const priorBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING), full = revisionKey !== uploadedRevision;
+      uploadedRevision = revisionKey;
       for (let i = 0; i < ownedModel.Geosets.length; i++) {
         const next = nextModel.Geosets?.[i]?.TVertices, geo = ownedModel.Geosets[i];
         if (!next || next[0]?.length !== geo.TVertices[0]?.length) continue;
+        if (!full && uploadedUV[i]?.length === next.length && next.every((uv, k) => uv === uploadedUV[i][k])) continue;
+        uploadedUV[i] = next.slice();
         geo.TVertices = next.map(uv => new Float32Array(uv));
         const buffer = native.texCoordBuffer?.[i];
         if (buffer) { gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, geo.TVertices[0]); }
@@ -1726,7 +1765,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
-      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
@@ -1755,7 +1794,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => { runtime.current?.drawBackground(); }, [props.preferences?.visuals?.background, props.preferences?.viewportAppearance?.background]);
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
-  useEffect(() => { if (model) runtime.current?.updateUV(model); }, [model, revision, props.uvRevision]);
+  useEffect(() => { if (model) runtime.current?.updateUV(model, `${revision}|${props.uvRevision}`); }, [model, revision, props.uvRevision]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 

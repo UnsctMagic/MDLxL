@@ -84,6 +84,9 @@ separate and are not a shared handover.
   animation or frame changes keep the camera exactly where the user left it.
   Frame automatically only when the user opens something new to look at (a
   different model, group or part), or asks for it (Fit/frame commands).
+- Only do work someone can see: live drags, hovers and previews update at most
+  once per display frame, never per pointer event, and refresh only what changed.
+  Read [MDLxL architecture rules](docs/ARCHITECTURE.md) before adding or changing one.
 - Show only the smallest relevant indicator by default. Explanations/editing
   controls appear after a deliberate click, remain dismissible and stay out of
   the normal layout. Verify both the uncluttered default and opened details.

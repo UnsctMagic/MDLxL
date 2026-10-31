@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
-import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator, wheelZoomFactor } from './viewport-performance.js';
+import { bindScrollSensitivity, createFrameCoalescer, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator, wheelZoomFactor } from './viewport-performance.js';
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
@@ -158,9 +158,23 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x, y); }
       draw();
     }
+    // Pointers report far more often than the display refreshes; the UV math,
+    // the live 3D preview and the redraw run once per frame with the latest point.
+    // A detached window uses a 16 ms timer like GamePreview's detached frames.
+    const moveFrame = createFrameCoalescer(applyMove, ownerDocument === document
+      ? { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) }
+      : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
     function pointerMove(event) {
-      const drag = s.drag, p = current.current; if (!drag) return;
-      const rawEnd = point(event), { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
+      if (!s.drag) return;
+      const rawEnd = point(event);
+      // Turning sums wrapped angle steps; feed every sample so a fast turn between
+      // frames cannot flip direction. Repeating the last point adds nothing.
+      if (s.drag.type === 'rotate') uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
+    }
+    function applyMove() {
+      const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
+      const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
       const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = Math.hypot(dx, dy) > 1;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
@@ -211,6 +225,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       draw();
     }
     function pointerUp(event) {
+      moveFrame.flush();
       const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type) && drag.moved) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
@@ -234,7 +249,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       }
       draw();
     }
-    function cancelGesture() { if (s.drag?.original) s.uv.set(s.drag.original); s.drag = null; current.current.onPreviewChange?.(null); draw(); }
+    function cancelGesture() { moveFrame.cancel(); if (s.drag?.original) s.uv.set(s.drag.original); s.drag = null; current.current.onPreviewChange?.(null); draw(); }
     function fit(event) {
       cancelGesture(); s.zoom = .55; s.panX = s.panY = 0;
       const indices = selection();
@@ -305,7 +320,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     ownerDocument.addEventListener('visibilitychange', draw);
     window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-window-key', nudgeKey);
     return () => {
-      observer.disconnect(); unbindScroll(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
+      observer.disconnect(); unbindScroll(); moveFrame.cancel(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
       window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', nudgeKey);
     };

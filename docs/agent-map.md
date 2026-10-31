@@ -68,6 +68,13 @@ remembered choices in [local-store.js](../src/local-store.js) /
 New IPC channels use `area:verbNoun` with a singular area; the preload key is `verbAreaNoun`.
 New localStorage keys use `mdlxl-<feature>-<thing>`. Existing names stay as they are.
 
+**Live drags** ([why and when not](ARCHITECTURE.md#only-do-work-someone-can-see)). A pointer reports far more often than the display refreshes. A `pointermove`
+handler only records the latest point and calls `schedule()` on a `createFrameCoalescer`
+([viewport-performance.js](../app/viewport-performance.js)); the drag math, 2D redraw, live
+preview and any parent `on…Change`/`set…` call run in its callback, at most once per frame.
+Pointer up calls `flush()` first, cancel calls `cancel()`. Live previews update only what the
+drag changed. Add each new drag handler to [live-drag-frames](../test/live-drag-frames.test.js).
+
 ## Run the relevant verification
 
 Run commands from the repository root with the existing dependencies available.
