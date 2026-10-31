@@ -19,7 +19,7 @@ Owner request (verbatim): "in view points where i see both (e.g optixl) where i 
 ## Revision and local state
 
 - Branch / checkout: `codex/synced-compare-camera`; `D:\Codex\synced-compare-camera`.
-- Base / checked revision: current origin/main at setup, `eb364705a285c9fbd6f0c8b5feadd8f30a5e7d33`.
+- Base / checked revision: current origin/main at setup, `eb364705a285c9fbd6f0c8b5feadd8f30a5e7d33`; regression implementation commit `1308652c`. PR: [#487](https://github.com/UnsctMagic/MDLxL/pull/487), open and unmerged.
 - Scope: packaged camera regression, this note/index, and relevant project-map rows. No product-code edit is warranted by the verified baseline.
 - Fixture: permanent Blizzard classic SD Footman, `test/helpers/fixtures.cjs` `fixturePath('citadel-footman')`, under `D:\Claude\MDLxL-TestModels`. Development dependencies linked by junction to `D:\Claude\MDLxL\node_modules`.
 
@@ -54,5 +54,5 @@ Owner request (verbatim): "in view points where i see both (e.g optixl) where i 
 
 ## Blockers and next action
 
-- No product blocker. Tests are ready for independent review. Open/attach the PR, keep the small result evidence, and remove the pushed disposable checkout. The PR is intentionally tests/docs only because current main already implements the requested behavior.
+- No product blocker. PR #487 is open, attached to this Codex chat and mergeable; CI was running at handover. Tests are ready for independent review; awaiting merge approval. The PR is intentionally tests/docs only because current main already implements the requested behavior. Small result evidence is retained; the pushed disposable checkout is removed at handover.
 - Owner click-through: (1) Open OptimizeXL. (2) Drag its left preview. (3) Watch the right preview follow live. Ready to test after PR handover; awaiting merge approval.
