@@ -608,21 +608,21 @@ test('manual Start/End chains retain any number of native links and selected ben
 });
 
 
-test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync('C:/Users/PC/Desktop/WAG.mdx') }, () => {
-  const path = 'C:/Users/PC/Desktop/WAG.mdx';
-  const model = openDocument(fs.readFileSync(path), 'WAG.mdx').model, original = structuredClone(model);
-  const left = suggestPickedPoseChain(model, 27), right = suggestPickedPoseChain(model, 28);
-  assert.deepEqual(left.joints, [35,42,21,27]);
-  assert.deepEqual(right.joints, [36,14,22,28]);
-  const broadLeft = { ...poseChainBetween(model,2,27), key:'limb:27', kind:'leg' };
-  const broadRight = { ...poseChainBetween(model,2,28), key:'limb:28', kind:'leg' };
+// Mecha-CL (test-model collection): four-joint mech legs that share Bone_Pelvis (6) with each other.
+test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync(testModel('material-fixture/Mecha-CL.mdx')) }, () => {
+  const model = openDocument(fs.readFileSync(testModel('material-fixture/Mecha-CL.mdx')), 'Mecha-CL.mdx').model, original = structuredClone(model);
+  const left = suggestPickedPoseChain(model, 56), right = suggestPickedPoseChain(model, 57);
+  assert.deepEqual(left.joints, [19,23,28,56]);
+  assert.deepEqual(right.joints, [18,22,29,57]);
+  const broadLeft = { ...poseChainBetween(model,6,56), key:'limb:56', kind:'leg' };
+  const broadRight = { ...poseChainBetween(model,6,57), key:'limb:57', kind:'leg' };
   const existing = structuredClone(broadLeft), repair = separatePoseChains(model,broadRight,[broadLeft]);
   assert.deepEqual(repair.draft.joints,right.joints);
   assert.deepEqual(repair.replacements[0].joints,left.joints);
-  assert.equal(repair.replacements[0].key,'limb:27');
+  assert.equal(repair.replacements[0].key,'limb:56');
   assert.deepEqual(broadLeft,existing);
-  const selective = separatePoseChains(model,poseChainBetween(model,2,28,[14]),[broadLeft]);
-  assert.deepEqual(selective.draft.joints,[36,22,28]);
+  const selective = separatePoseChains(model,poseChainBetween(model,6,57,[22]),[broadLeft]);
+  assert.deepEqual(selective.draft.joints,[18,29,57]);
   assert.equal(separatePoseChains(model,broadLeft,[broadLeft]),null);
   assert.deepEqual(model,original);
 });

@@ -33,15 +33,15 @@ function connected(before,after,config,frame,sequence){
 function stripPose(model){const copy=structuredClone(model);for(const key of ['Nodes','Bones','Helpers','Attachments'])for(const node of copy[key]||[])for(const property of ['Translation','Rotation','Scaling'])delete node[property];return copy;}
 const fixtures=[
  ['WH_VC_NecrarchLord3.mdx',92,2],['Current_VampireDragon.mdx',182,8],
- ['WH_DOC_GreatUncleanOneNewV2.mdx',53,4],['WH_WOC_KurganWarlord3.mdx',0,4]
+ ['WH_DOC_GreatUCO4.mdx',60,4],['WH_WOC_KurganWarlord02.mdx',0,4]
 ];
 for(const [name,body,count] of fixtures)test(`${name}: connected controls, native keys, undo and unmodified asset roundtrip`,{skip:!fs.existsSync(path.join(dir,name))},()=>{
  const file=path.join(dir,name),bytes=fs.readFileSync(file),hash=digest(bytes),doc=openDocument(bytes),original=structuredClone(doc.model),sequence=doc.model.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name)),interval=doc.model.Sequences[sequence].Interval,frame=interval[0],config={...suggestPoseRig(doc.model,frame,sequence),pins:[]};
  assert.equal(config.body,body);assert.equal(config.chains.length,count);assert.deepEqual(doc.model,original);
  if(name.includes('Necrarch')){assert.deepEqual(config.chains.map(c=>c.end),[4,7]);assert.equal(poseRole(doc.model,config,1),'Chest');}
  if(name.includes('VampireDragon')){assert.equal(config.chains.filter(c=>c.label==='Wing').length,2);assert.equal(config.carriers[82],230);assert.ok(config.chains.filter(c=>c.kind==='leg'&&c.root>180).every(c=>poseChainIds(c).length===4));assert.equal(poseRole(doc.model,config,216),'Head');assert.equal(poseRole(doc.model,config,229),'Tail');assert.ok(!config.nodes.includes(67)&&!config.nodes.includes(68)&&!config.nodes.includes(91));}
- if(name.includes('Unclean')){assert.deepEqual(config.nodes.filter(id=>poseRole(doc.model,config,id)==='Head'),[68]);}
- if(name.includes('Kurgan'))assert.ok(config.chains.filter(c=>c.kind==='arm').every(c=>poseChainIds(c).length===4));
+ if(name.includes('GreatUCO')){assert.deepEqual(config.nodes.filter(id=>poseRole(doc.model,config,id)==='Head'),[75]);}
+ if(name.includes('Kurgan'))assert.deepEqual(config.chains.filter(c=>c.kind==='arm').map(poseChainIds),[[4,5,6],[8,9,10]]);
  for(const t of [interval[0],Math.round((interval[0]+interval[1])/2),interval[1]]){
   for(const target of [{kind:'body'},...config.nodes.map(id=>({kind:'node',id}))]){
    const before=structuredClone(doc.model),result=solve(doc.model,config,target,[6,0,7],t,sequence),scope=poseTrackScope(config,target,'move',doc.model);
