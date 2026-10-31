@@ -169,6 +169,13 @@ test('edited, added and removed pieces and the corpse tint reach the made corpse
   const added=make({pieces:[...pieces,{kind:'branch',start:[cx+far,cy,0],end:[cx+far+20,cy,0],half:4,rect:[.006,.005,.31,.495],ids:[],free:true}]});
   assert.ok(added.g.Vertices.filter((_,i)=>i%3===0).some(x=>x>cx+far),'An added piece outside the body is not trimmed away');
   const removed=make({pieces:added.r.pieces.slice(1)});assert.equal(removed.r.pieces.length,pieces.length);
+  // Raising or lowering one piece moves only that piece; lowering stops above the ground.
+  const zs=(r,g,k)=>r.parts.find(p=>p.piece===k).vertices.map(i=>g.Vertices[i*3+2]),k=pieces.findIndex(p=>p.kind!=='skull');
+  const raised=make({pieces:pieces.map((p,i)=>i===k?{...p,raise:7}:p)}),sunk=make({pieces:pieces.map((p,i)=>i===k?{...p,raise:-1e4}:p)});
+  near(zs(raised.r,raised.g,k),zs(plain.r,plain.g,k).map(z=>z+7));
+  for(let i=0;i<pieces.length;i++)if(i!==k)assert.deepEqual(zs(raised.r,raised.g,i),zs(plain.r,plain.g,i),'Other pieces keep their height');
+  assert.ok(Math.min(...zs(sunk.r,sunk.g,k))>=1-1e-6&&Math.min(...zs(sunk.r,sunk.g,k))<Math.min(...zs(plain.r,plain.g,k)),'Lowering stops one unit above the ground');
+  assert.equal(raised.r.pieces[k].raise,7,'The raise is kept with the piece');
   const red=make({color:[1,.3,.3]}),anim=red.m.GeosetAnims.find(a=>a.GeosetId===red.r.corpseGeoset);
   assert.deepEqual(Array.from(anim.Color).map(v=>+v.toFixed(2)),[1,.3,.3]);assert.equal(anim.Flags&2,2);
 });

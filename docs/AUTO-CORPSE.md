@@ -14,7 +14,10 @@ follows the body only, not what it holds). **Show body** puts the textured
 body back over the corpse.
 - Double-click a body part in the preview to grab it, then drag the
   EMTR/Glow Up handles (`app/CorpseStageTools.jsx`): the middle moves it,
-  the ends stretch it, the side handle widens it. Double-click empty ground
+  the ends stretch it, the side handle widens it, and the handle on the
+  line above the middle raises or lowers that one part (dragged along the
+  up direction like a ribbon's edge; hidden when the camera looks straight
+  down). Lowering stops one unit above the ground. Double-click empty ground
   to let go. Delete removes the grabbed part. Ctrl+Z / Ctrl+Y undo and redo
   changes inside the window.
 - **+ Skull / + Ribs / + Bone / + Hand** add a part in the middle of the body.

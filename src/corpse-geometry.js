@@ -184,12 +184,12 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   function strip(kind,a,b,half,rect,ids=[]) {if(distance(a,b)<span*.0001)return;const piece={kind,start:a,end:b,half,rect,ids};pieces.push(piece);return piece;}
   // The native gutz standard: each limb bone, hand, foot and rib cage is one
   // flat rectangle showing its whole atlas region, lying at one height.
-  function emitStrip({kind:label,start:a,end:b,half,rect,ids=[],free=false},index) {
+  function emitStrip({kind:label,start:a,end:b,half,rect,ids=[],free=false,raise=0},index) {
     const len=distance(a,b);if(len<span*.0001)return;
     const normal=[(b[1]-a[1])/len,-(b[0]-a[0])/len],first=faces.length;
     const corners=[[a,-1,rect[0],rect[1]],[a,1,rect[2],rect[1]],[b,-1,rect[0],rect[3]],[b,1,rect[2],rect[3]]].map(([p,side,u,v])=>vertex([p[0]+normal[0]*half*side,p[1]+normal[1]*half*side,0],[u,v]));
     faces.push(corners[0],corners[1],corners[2],corners[1],corners[3],corners[2]);
-    parts.push({kind:label,start:a,end:b,length:len,ids,piece:index,free,vertices:corners,faces:[first,faces.length]});
+    parts.push({kind:label,start:a,end:b,length:len,ids,piece:index,free,raise,vertices:corners,faces:[first,faces.length]});
   }
   // Native gutz corpses lay one long-bone rectangle for each upper and lower
   // limb and one palm rectangle for each hand; feet get no piece. A longer
@@ -367,12 +367,12 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   // The native gutz skull occupies the TOP RIGHT of the atlas. Its nine
   // surface landmarks retain a broad cranium and jaw, scaled to head skin.
-  function emitSkull({start,end,half:width,ids=[],free=false},index) {
+  function emitSkull({start,end,half:width,ids=[],free=false,raise=0},index) {
     const length=distance(start,end)||span*.01,axis=[(end[0]-start[0])/length,(end[1]-start[1])/length],side=[axis[1],-axis[0]];
     const shape=[[.489,.014,1,.808594,.21582],[0,.079,.223,.816406,.451172],[.234,.730,0,.910156,.369141],[.787,.737,.15,.917969,.124512],[1,-.091,.427,.789063,.012939],[.915,-.841,.201,.699219,.07373],[.489,-1,.36,.6875,.236328],[.234,-.755,.053,.695313,.376953],[.489,1,.29,.941406,.233398]];
     const skullIds=shape.map(([along,across,z,u,v])=>vertex([start[0]+axis[0]*length*along+side[0]*width*across,start[1]+axis[1]*length*along+side[1]*width*across,z],[u,v]));
     const first=faces.length;for(const k of [0,1,2,3,4,0,5,6,0,7,1,0,2,8,0,0,8,3,0,4,5,0,6,7])faces.push(skullIds[k]);
-    parts.push({kind:'skull',ids,start,end,piece:index,free,vertices:skullIds,faces:[first,faces.length]});
+    parts.push({kind:'skull',ids,start,end,piece:index,free,raise,vertices:skullIds,faces:[first,faces.length]});
   }
   // The chalk outline of the dead body: the body only, without what it holds
   // or wears as equipment.
@@ -479,7 +479,11 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const base=Math.max(1.5,bodyHeight*NATIVE.base),step=Math.max(1.5,bodyHeight*NATIVE.step);
   for(const part of parts) {
     // A skull's height follows its own length, like the native skull mesh.
-    const length=part.kind==='skull'?distance(part.start,part.end):0,z=length?length*NATIVE.skullBase:base+part.level*step,rise=length*NATIVE.skullRise;
+    const length=part.kind==='skull'?distance(part.start,part.end):0,level=length?length*NATIVE.skullBase:base+part.level*step,rise=length*NATIVE.skullRise;
+    // The user's own raise or lower of this piece. Lowering stops one unit
+    // above the ground, so a piece never sinks into the terrain.
+    part.minRaise=Math.min(0,1-level);part.raise=Math.max(part.minRaise,Number(part.raise)||0);
+    const z=level+part.raise;
     for(const id of part.vertices)vertices[id*3+2]=part.kind==='skull'?z+vertices[id*3+2]*rise:z;
     delete part.faces;
   }

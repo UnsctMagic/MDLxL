@@ -59,9 +59,15 @@ function snapshot(scope='[aria-label="Auto Corpse preview"]'){
    const beforeDrag=await vertexState();await startDrag();await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeDrag);
    await page.keyboard.press('Escape');await page.mouse.up();await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))===before,beforeDrag);assert.ok(await dialog.isVisible(),'Escape cancels a drag without closing the window');
    await startDrag();await page.mouse.up();await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeDrag);
+   // Dragging the handle above the middle upward raises only the grabbed part.
+   const raise=dialog.getByRole('slider',{name:'Raise or lower this piece',exact:true});await raise.waitFor();
+   const beforeRaise=await vertexState();{const h=await raise.boundingBox(),x=h.x+h.width/2,y=h.y+h.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x,y-40,{steps:8});await page.mouse.up();}
+   await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeRaise);
+   const lifted=await page.evaluate(()=>{const p=findFiberProps('[aria-label="Corpse piece handles"]',p=>p.snapshot&&p.pieces);return {raise:p.pieces[p.selected]?.raise,others:p.pieces.filter((_,i)=>i!==p.selected).every(piece=>!piece.raise)};});
+   assert.ok(lifted.raise>0&&lifted.others,`Dragging the up handle raises only the grabbed part: ${JSON.stringify(lifted)}`);row.raise=lifted.raise;await capture('3-raised');
    const count=await vertexCount();await page.keyboard.press('Delete');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)<count,count);
    await page.keyboard.press('Control+z');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)===count,count);
-   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, Delete, Ctrl+Z, Escape close';
+   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, raise, Delete, Ctrl+Z, Escape close';
   }
   row.result='captured';results.push(row);console.log('captured',tag);
  }catch(error){row.error=error.stack;results.push(row);console.log('FAILED',tag,error.message);if(!captureOnly)process.exitCode=1;}
