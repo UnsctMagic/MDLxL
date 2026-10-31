@@ -52,9 +52,15 @@ async function requestJson(url, body, key, signal, headers = {}) {
     try {
       detail = await response.json();
     } catch {}
-    throw Error(
-      `AI provider returned HTTP ${response.status}: ${String(detail?.error?.message || detail?.message || response.statusText).slice(0, 1500)}`,
-    );
+    const message = String(detail?.error?.message || detail?.message || response.statusText).slice(0, 1500);
+    // A restricted OpenAI key lacks a permission; say which switch to turn on.
+    const scope = /Missing scopes?: *(\w+(?:\.\w+)*)/i.exec(message)?.[1],
+      hint = scope && new URL(url).hostname === 'api.openai.com'
+        ? key?.startsWith('sk-admin-')
+          ? ' This is an OpenAI Admin key (sk-admin-…), which can only manage your organization and cannot run models. On platform.openai.com/api-keys, create a normal secret key (sk-proj-…) and paste that instead.'
+          : ` Your API key is not allowed to do this (missing "${scope}"). On platform.openai.com/api-keys, edit the key, set Permissions to All, save, and try again. If it still fails, your role in that OpenAI project may be Reader; ask the owner to make you Member.`
+        : '';
+    throw Error(`AI provider returned HTTP ${response.status}: ${message}${hint}`);
   }
   return response;
 }
@@ -81,6 +87,20 @@ function providerImage({ mimeType, data }, kind) {
   if (kind === 'anthropic') return { type: 'image', source: { type: 'base64', media_type: mimeType, data } };
   const url = 'data:' + mimeType + ';base64,' + data;
   return kind === 'codex' ? { type: 'inputImage', imageUrl: url } : { type: 'image_url', image_url: { url } };
+}
+// The chat-format history as OpenAI Responses input: messages, tool calls and their results.
+function responsesInput(history) {
+  const part = c =>
+    c.type === 'image_url' ? { type: 'input_image', image_url: c.image_url.url } : { type: 'input_text', text: c.text };
+  return history.flatMap(m => {
+    if (m.role === 'tool') return [{ type: 'function_call_output', call_id: m.tool_call_id, output: m.content }];
+    if (m.role === 'assistant')
+      return [
+        ...(m.content ? [{ role: 'assistant', content: m.content }] : []),
+        ...(m.tool_calls || []).map(c => ({ type: 'function_call', call_id: c.id, name: c.function.name, arguments: c.function.arguments })),
+      ];
+    return [{ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) }];
+  });
 }
 // Attached images must be plain base64 (no whitespace), stricter than tool captures.
 function imageParts(images = [], kind = 'openai') {
@@ -257,6 +277,54 @@ async function runApi({
         `Stopped at about $${usd.toFixed(2)}, the spending limit for one prompt. Progress is kept; send another prompt to continue, or raise the limit in AI connection settings.`,
       );
   };
+  // Runs chat-format tool calls and adds their results (and any captures) to the history.
+  async function runChatToolCalls(toolCalls) {
+    const imageMessages = [];
+    for (const toolCall of toolCalls) {
+      event({
+        type: 'tool',
+        name: toolCall.function.name,
+        callId: toolCall.id,
+        ...toolDetail(toolCall.function.arguments),
+      });
+      let result;
+      try {
+        result = await callEditorTool(
+          tools,
+          call,
+          toolCall.function.name,
+          JSON.parse(toolCall.function.arguments),
+          signal,
+          awareness,
+        );
+      } catch (error) {
+        result = { isError: true, content: [{ type: 'text', text: error.message }] };
+      }
+      const textContent = result.content
+        .filter(c => c.type === 'text')
+        .map(c => c.text)
+        .join('\n');
+      history.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: textContent || 'Viewport image follows.',
+      });
+      for (const image of result.content.filter(c => c.type === 'image'))
+        imageMessages.push(providerImage(image, 'openai'));
+      event({
+        type: 'tool-result',
+        name: toolCall.function.name,
+        callId: toolCall.id,
+        error: !!result.isError,
+        summary: toolSummary(textContent),
+      });
+    }
+    if (imageMessages.length)
+      history.push({
+        role: 'user',
+        content: [{ type: 'text', text: 'Requested MDLxL viewport captures:' }, ...imageMessages],
+      });
+  }
   let awarenessVersion = awareness?.version;
   const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
   for (let step = 0; step < steps; step++) {
@@ -404,6 +472,57 @@ async function runApi({
         });
       }
       history.push({ role: 'user', content: results });
+    } else if (settings.provider === 'openai') {
+      // OpenAI's newer models take tools together with a thinking effort only
+      // through its Responses API. The chat keeps its usual history format.
+      event({ type: 'request', model: settings.model });
+      const response = await requestJson(
+        base + '/responses',
+        {
+          model: settings.model,
+          instructions: system,
+          input: responsesInput(history),
+          ...(tools.length
+            ? { tools: tools.map(t => ({ type: 'function', name: t.name, description: t.description, parameters: t.inputSchema, strict: false })) }
+            : {}),
+          ...(/^(?:o\d|gpt-[5-9])/.test(settings.model) && effortFor(settings) ? { reasoning: { effort: effortFor(settings) } } : {}),
+          store: false,
+          stream: true,
+        },
+        key,
+        signal,
+      );
+      const calls = [];
+      let text = '',
+        incomplete = null;
+      for await (const data of sseEvents(response)) {
+        if (data.type === 'error' || data.type === 'response.failed')
+          throw Error(data.message || data.response?.error?.message || 'AI stream failed.');
+        if (data.type === 'response.output_text.delta') {
+          text += data.delta;
+          event({ type: 'text', text: data.delta });
+        } else if (data.type === 'response.reasoning_summary_text.delta') event({ type: 'thinking', text: data.delta });
+        else if (data.type === 'response.output_item.done' && data.item?.type === 'function_call')
+          calls.push({ id: data.item.call_id, type: 'function', function: { name: data.item.name, arguments: data.item.arguments || '{}' } });
+        else if (data.type === 'response.completed' || data.type === 'response.incomplete') {
+          const usage = data.response?.usage;
+          if (usage?.input_tokens) {
+            event({ type: 'usage', used: usage.input_tokens, window: 400000 });
+            spent.input += usage.input_tokens;
+            spent.output += usage.output_tokens || 0;
+            charge(null);
+          }
+          incomplete = data.type === 'response.incomplete' ? data.response?.incomplete_details?.reason || 'incomplete' : '';
+        }
+      }
+      if (incomplete === null) throw Error('The provider stream ended before completion.');
+      history.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      if (!calls.length) {
+        if (incomplete === 'max_output_tokens')
+          throw Error('The provider reached its output limit. Continue the conversation to finish.');
+        return;
+      }
+      await runChatToolCalls(calls);
     } else {
       event({ type: 'request', model: settings.model });
       const response = await requestJson(
@@ -419,9 +538,6 @@ async function runApi({
                 })),
               }
             : {}),
-          ...(settings.provider === 'openai' ? { stream_options: { include_usage: true } } : {}),
-          // Only OpenAI's reasoning models take an effort; others would refuse the request.
-          ...(settings.provider === 'openai' && /^(?:o\d|gpt-[5-9])/.test(settings.model) && effortFor(settings) ? { reasoning_effort: effortFor(settings) } : {}),
           stream: true,
         },
         key,
@@ -471,51 +587,7 @@ async function runApi({
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
         return;
       }
-      const imageMessages = [];
-      for (const toolCall of toolCalls) {
-        event({
-          type: 'tool',
-          name: toolCall.function.name,
-          callId: toolCall.id,
-          ...toolDetail(toolCall.function.arguments),
-        });
-        let result;
-        try {
-          result = await callEditorTool(
-            tools,
-            call,
-            toolCall.function.name,
-            JSON.parse(toolCall.function.arguments),
-            signal,
-            awareness,
-          );
-        } catch (error) {
-          result = { isError: true, content: [{ type: 'text', text: error.message }] };
-        }
-        const textContent = result.content
-          .filter(c => c.type === 'text')
-          .map(c => c.text)
-          .join('\n');
-        history.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: textContent || 'Viewport image follows.',
-        });
-        for (const image of result.content.filter(c => c.type === 'image'))
-          imageMessages.push(providerImage(image, 'openai'));
-        event({
-          type: 'tool-result',
-          name: toolCall.function.name,
-          callId: toolCall.id,
-          error: !!result.isError,
-          summary: toolSummary(textContent),
-        });
-      }
-      if (imageMessages.length)
-        history.push({
-          role: 'user',
-          content: [{ type: 'text', text: 'Requested MDLxL viewport captures:' }, ...imageMessages],
-        });
+      await runChatToolCalls(toolCalls);
     }
   }
   throw Error(`The AI used ${steps} tool rounds. Progress is retained; send another prompt to continue.`);
@@ -1179,7 +1251,13 @@ async function providerModels(settings, key, signal, { directory } = {}) {
     settings.provider === 'anthropic' ? ANTHROPIC_HEADERS : {},
   );
   const data = await response.json();
-  return (data.data || data.models || []).map(item => ({
+  let items = data.data || data.models || [];
+  // OpenAI also lists speech, image and embedding models; keep the chat ones, newest first.
+  if (settings.provider === 'openai' && !settings.baseUrl)
+    items = items
+      .filter(item => /^(?:gpt-|o\d|chatgpt-)/.test(item.id) && !/audio|realtime|transcribe|tts|image|search|embedding|instruct/.test(item.id))
+      .sort((a, b) => (b.created || 0) - (a.created || 0));
+  return items.map(item => ({
     id: item.id || item.name,
     name: item.display_name || item.id || item.name,
   }));

@@ -606,6 +606,38 @@ test('automatic organiser corrects an invalid route before any bird runs', async
   assert.equal(cost.tokens, tokens, 'both routing turns contribute their full reported tokens');
 });
 
+test('the organiser picks function areas; the bird gets their pages once and the same common list every turn', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No recap'), worker: data => {
+    if (!data.messages[0].content.startsWith('Route one message')) return say('Done.');
+    assert.match(data.messages[0].content, /"tools":\[\.\.\.\]/);
+    const input = JSON.parse(userText(data));
+    return say(JSON.stringify({ worker: input.current?.id || '', job: 'Reskin the hilt', tiny: false, tools: ['mesh', 'uv', 'materials', 'made-up'] }));
+  }});
+  const { id } = await f.service.organiser({ modelKey });
+  assert.equal((await f.service.send({ id, text: 'reskin the hilt with this texture', route: 'auto', context })).ok, true);
+  const bird = () => f.requests.filter(r => !r.data.messages[0].content.startsWith('Route one message'));
+  const first = userText(bird()[0].data);
+  assert.match(first, /Editor functions for this job/);
+  for (const area of ['mesh', 'uv', 'materials']) assert.ok(first.includes('\n' + area + ' ('), area);
+  assert.ok(!first.includes('made-up'));
+  const system = bird()[0].data.messages[0].content;
+  assert.match(system, /Common editor functions[^]*\nmesh-tools\.detachFaces\(model, geosetIndex, indices\) — Detach triangles/);
+  // The follow-up goes to the same bird: nothing repeated, and the fixed part is unchanged.
+  assert.equal((await f.service.send({ id, text: 'make the new hilt texture brighter', route: 'auto', context })).ok, true);
+  assert.equal(bird().length, 2);
+  assert.ok(!userText(bird()[1].data).includes('Editor functions for this job'));
+  assert.equal(bird()[1].data.messages[0].content, system);
+});
+
+test('without an organiser decision the request words pick the function pages', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No organiser call'), worker: () => say('Done.') });
+  const { id } = await f.service.organiser({ modelKey });
+  await f.service.send({ id, text: 'weld these vertices and fix the UV stretch', route: 'new', context });
+  const prompt = userText(f.requests.at(-1).data);
+  assert.ok(prompt.includes('\nmesh (') && prompt.includes('\nuv ('), prompt.slice(0, 400));
+  assert.ok(!prompt.includes('\nanimation ('));
+});
+
 test('automatic routing reports repeated invalid decisions without dispatching a bird', async t => {
   let routes = 0;
   const f = await setup(t, { organiser: () => assert.fail('No recap'), worker: data => {
@@ -861,6 +893,17 @@ test('resuming an interrupted bird preserves its job title rather than its plan 
  const org=await f.service.readConversation(id);
  assert.equal(org.workers[0].job,'Shoulder inspection');
  assert.equal(org.workers.length,1);
+});
+
+test('a bird names its job in its plan instead of echoing the request', async t=>{
+ let turn=0;
+ const f=await setup(t,{organiser:()=>assert.fail('No organiser'),worker:async()=>++turn===1?jobTool('mdlxl_plan',jobPlan({title:'Copy trim to geoset 4'})):say('Done.')});
+ const {id}=await f.service.organiser({modelKey});
+ assert.equal((await f.service.send({id,text:'Geoset 6 creates a trim between geoset 8 and 13, make the same between 8 and 4',context,route:'new'})).ok,true);
+ const org=await f.service.readConversation(id);
+ assert.equal(org.workers[0].job,'Copy trim to geoset 4');
+ const working=f.events.filter(e=>e.type==='worker'&&e.status==='working').map(e=>e.job);
+ assert.deepEqual(working,['Geoset 6 creates a trim between…','Copy trim to geoset 4']);
 });
 
 

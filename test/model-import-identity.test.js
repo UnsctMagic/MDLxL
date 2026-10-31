@@ -88,7 +88,7 @@ async function callerTests(t, input) {
   });
   await t.test('bits-and-parts import', () => {
     for (const source of [input, withResources(input)]) {
-      for (const options of [{}, { replacement: { 0: [0, 1, 2] } }, { rgbSequence: 0 }, { animations: [{ sequenceIndex: 0, name: 'Imported stand' }] }]) {
+      for (const options of [{}, { replacement: { 0: [0, 1, 2] } }, { animations: [{ sequenceIndex: 0, name: 'Imported stand' }] }]) {
         compare(beforePart, commitPart, source, source, (fn, target, donor) => { fn(target, donor, options); return fn(target, donor, options); }, JSON.stringify(options), Object.keys(options).length === 0);
       }
     }

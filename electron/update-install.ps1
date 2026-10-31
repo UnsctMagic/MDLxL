@@ -49,6 +49,20 @@ function SafePath($root, $relative) {
     }
     return $full
 }
+function Bytes($file) { try { return , ([IO.File]::ReadAllBytes($file)) } catch { return $null } }
+function ShowWindow {
+    # The installing window with the Shredder bird. Only the editor's handoff asks
+    # for it, and installation never depends on it: any failure means no window.
+    if (!$plan.window) { return $null }
+    try {
+        Add-Type -Path (Join-Path $stage 'window.cs') -ReferencedAssemblies System.Windows.Forms, System.Drawing
+        $look = $plan.window
+        $colors = [string[]]@($look.colors.panel, $look.colors.text, $look.colors.muted, $look.colors.border, $look.colors.link, $look.colors.field)
+        # Read the pictures now: their files are replaced during installation.
+        return [MDLxLUpdate.InstallWindow]::Start($look.title, $look.detail, $look.undoing, $colors, (Bytes $look.icon), (Bytes $look.sheet), (Bytes $look.wings))
+    } catch { return $null }
+}
+$window = $null
 try {
     if (!$source.StartsWith($stage + '\', [StringComparison]::OrdinalIgnoreCase) -or $target -eq [IO.Path]::GetPathRoot($target)) { throw 'Invalid update roots.' }
     if ($plan.pid -gt 0) {
@@ -57,6 +71,7 @@ try {
         if ($lockOwner.planFile -ne $PlanFile -or $lockOwner.pid -ne $plan.pid) { throw 'Update installation lock changed.' }
         $ownsLock = $true
         [IO.File]::WriteAllText((Join-Path $stage 'installer-ready'), [string]$PID)
+        $window = ShowWindow
         $owner = Get-Process -Id $plan.pid -ErrorAction SilentlyContinue
         if ($owner -and $owner.Path -ne $plan.executable) { throw 'Update process identity changed.' }
         if ($owner) { $owner.WaitForExit() }
@@ -86,7 +101,9 @@ try {
             if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
         }
     }
+    if ($window) { $window.Total = @($plan.operations).Count }
     foreach ($operation in $plan.operations) {
+        if ($window) { $window.Done = $changed.Count + 1 }
         $destination = SafePath $target $operation.relative
         if ($operation.before) {
             $saved = SafePath $backup $operation.relative
@@ -114,6 +131,7 @@ try {
     [IO.File]::WriteAllText($plan.result, '{"ok":true}')
 } catch {
     $failure = $_.Exception.Message
+    if ($window) { $window.Undoing = $true }
     if ($snapshotWritten) { $null = SafePath $target '.mdlxl-previous/snapshot.json'; Remove-Item -LiteralPath $previous -Recurse -Force }
     if ($snapshotMoved) { Move-Item -LiteralPath $oldSnapshot -Destination $previous }
     for ($index = $changed.Count - 1; $index -ge 0; $index--) {
@@ -140,7 +158,17 @@ if ($ownsLock) {
 if ($ownsLock) { Remove-Item -LiteralPath $lock -Recurse -Force }
 if ($plan.pid -gt 0 -and $ownsLock) {
     $env:MDLXL_PROFILE = $plan.profile
-    Start-Process -FilePath $plan.executable -WorkingDirectory $target -WindowStyle Hidden
+    if ($window) { $window.Finished = $true }
+    $restarted = Start-Process -PassThru -FilePath $plan.executable -WorkingDirectory $target -WindowStyle Hidden
+    # Keep the installing window until MDLxL's own window is up, at most 30 seconds.
+    if ($window) {
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        try {
+            while (!$restarted.HasExited -and $restarted.MainWindowHandle -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 200; $restarted.Refresh() }
+        } catch {}
+        $window.CloseRequested = $true
+        $null = $window.Gone.WaitOne(5000)
+    }
 }
 # Only this updater's verified temporary staging directory is disposable.
 if ((Split-Path -Leaf $stage) -match '^mdlxl-update-' -and $stage -ne $target -and !$target.StartsWith($stage + '\', [StringComparison]::OrdinalIgnoreCase)) {

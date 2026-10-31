@@ -310,9 +310,12 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   }
   function studioPick(hit){
     endStroke();clearHover();
-    const geo=baseModel.Geosets[hit.geosetIndex];
-    const faces=selectionKind==='geoset'?new Set(Array.from({length:geo.Faces.length/3},(_,i)=>i)):selectionKind==='piece'?connectedPaintFaces(geo,hit.triangle):new Set([hit.triangle]);
-    const next=changePaintRegion(region,hit.geosetIndex,faces,hit.subtract?'subtract':hit.add||hit.continueSelection?'add':'replace');
+    // A face sweep arrives once per frame with every face the pointer crossed.
+    let next=region;for(const one of hit.sweep||[hit]){
+      const geo=baseModel.Geosets[one.geosetIndex];
+      const faces=selectionKind==='geoset'?new Set(Array.from({length:geo.Faces.length/3},(_,i)=>i)):selectionKind==='piece'?connectedPaintFaces(geo,one.triangle):new Set([one.triangle]);
+      next=changePaintRegion(next,one.geosetIndex,faces,one.subtract?'subtract':one.add||hit.continueSelection?'add':'replace');
+    }
     setRegion(next);setTargetMode('free');selectGeoset(next.geosetIndex);
   }
   function clearSelection(){endStroke();setRegion(null);setTextureRegion(null);setTargetMode('free');setIsolate(false);}

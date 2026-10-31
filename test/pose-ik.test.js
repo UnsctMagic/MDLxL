@@ -13,6 +13,8 @@ import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
 import { movementRotationAmount, movementRotationGesture, movementWorkplaneHandle } from '../app/movement-overlay.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 const chain = { root: 1, middle: 2, end: 3, kind: 'arm', key: 'a' }, leg1 = { root: 4, middle: 5, end: 6, kind: 'leg', key: 'l' }, leg2 = { root: 7, middle: 8, end: 9, kind: 'leg', key: 'r' };
 const q = (axis, angle) => new Quaternion().setFromAxisAngle(new Vector3(...axis).normalize(), angle).toArray();
@@ -425,8 +427,8 @@ test('body translation stops at the first inner reach boundary and retains a val
   const after=samplePoseChain(m,leg1,500,0); vectorNear(after.end.toArray(),pose.end.toArray());vectorNear(after.lengths,pose.lengths);assert.ok(after.root.distanceTo(after.end)>=8-1e-5);
 });
 
-test('native Footman suggestions include both hands, both feet and the shared whole-body root', {skip:!fs.existsSync('out/pose/Footman.mdx')}, () => {
-  const m=openDocument(fs.readFileSync('out/pose/Footman.mdx'),'Footman.mdx').model, rig=suggestPoseRig(m,500,0);
+test('native Footman suggestions include both hands, both feet and the shared whole-body root', {skip:!fs.existsSync(testModel('pose/Footman.mdx'))}, () => {
+  const m=openDocument(fs.readFileSync(testModel('pose/Footman.mdx')),'Footman.mdx').model, rig=suggestPoseRig(m,500,0);
   assert.deepEqual(rig.chains.map(c=>c.end).sort((a,b)=>a-b),[29,32,38,42]);assert.equal(rig.body,25);assert.ok(rig.nodes.includes(39)&&rig.nodes.includes(33)&&rig.nodes.includes(26));
 });
 
@@ -445,7 +447,7 @@ test('Knight SD arm native solve, atomic Undo/Redo and MDX reopen preserve all o
   assert.equal(createHash('sha256').update(fs.readFileSync(path)).digest('hex'), hash);
 });
 
-const nativeFixture = process.env.MDLXL_POSE_FIXTURE || new URL('../out/pose/Footman.mdx', import.meta.url);
+const nativeFixture = process.env.MDLXL_POSE_FIXTURE || testModel('pose/Footman.mdx');
 test('native SD Footman limb/body preserves both foot pins and all other data through MDL and MDX', { skip: !fs.existsSync(nativeFixture) }, () => {
   const bytes = fs.readFileSync(nativeFixture), hash = createHash('sha256').update(bytes).digest('hex'), doc = openDocument(bytes, 'Footman.mdx'), original = structuredClone(doc.model);
   const arm = { root: 36, middle: 37, end: 38 }, legs = [{ root: 27, middle: 28, end: 29 }, { root: 30, middle: 31, end: 32 }];
@@ -606,21 +608,21 @@ test('manual Start/End chains retain any number of native links and selected ben
 });
 
 
-test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync('C:/Users/PC/Desktop/WAG.mdx') }, () => {
-  const path = 'C:/Users/PC/Desktop/WAG.mdx';
-  const model = openDocument(fs.readFileSync(path), 'WAG.mdx').model, original = structuredClone(model);
-  const left = suggestPickedPoseChain(model, 27), right = suggestPickedPoseChain(model, 28);
-  assert.deepEqual(left.joints, [35,42,21,27]);
-  assert.deepEqual(right.joints, [36,14,22,28]);
-  const broadLeft = { ...poseChainBetween(model,2,27), key:'limb:27', kind:'leg' };
-  const broadRight = { ...poseChainBetween(model,2,28), key:'limb:28', kind:'leg' };
+// Mecha-CL (test-model collection): four-joint mech legs that share Bone_Pelvis (6) with each other.
+test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync(testModel('material-fixture/Mecha-CL.mdx')) }, () => {
+  const model = openDocument(fs.readFileSync(testModel('material-fixture/Mecha-CL.mdx')), 'Mecha-CL.mdx').model, original = structuredClone(model);
+  const left = suggestPickedPoseChain(model, 56), right = suggestPickedPoseChain(model, 57);
+  assert.deepEqual(left.joints, [19,23,28,56]);
+  assert.deepEqual(right.joints, [18,22,29,57]);
+  const broadLeft = { ...poseChainBetween(model,6,56), key:'limb:56', kind:'leg' };
+  const broadRight = { ...poseChainBetween(model,6,57), key:'limb:57', kind:'leg' };
   const existing = structuredClone(broadLeft), repair = separatePoseChains(model,broadRight,[broadLeft]);
   assert.deepEqual(repair.draft.joints,right.joints);
   assert.deepEqual(repair.replacements[0].joints,left.joints);
-  assert.equal(repair.replacements[0].key,'limb:27');
+  assert.equal(repair.replacements[0].key,'limb:56');
   assert.deepEqual(broadLeft,existing);
-  const selective = separatePoseChains(model,poseChainBetween(model,2,28,[14]),[broadLeft]);
-  assert.deepEqual(selective.draft.joints,[36,22,28]);
+  const selective = separatePoseChains(model,poseChainBetween(model,6,57,[22]),[broadLeft]);
+  assert.deepEqual(selective.draft.joints,[18,29,57]);
   assert.equal(separatePoseChains(model,broadLeft,[broadLeft]),null);
   assert.deepEqual(model,original);
 });

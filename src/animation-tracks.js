@@ -251,8 +251,9 @@ export function bakeGeosetAnimationSettings(model, { geosetIds = [], alpha, colo
     throw new Error('Checked geosets have pending text edits. Use Bake Text or Discard text before BAKE or ALL.');
   const targets = property => ids.map(id => ({ kind: 'geoset', id, property }));
   const prepared = [
-    ...prepareSequenceTracks(model, targets('Alpha'), alpha, sequenceIndices),
-    ...prepareSequenceTracks(model, targets('Color'), color, sequenceIndices),
+    // Visibility and colour bake separately: a property left undefined is not touched.
+    ...(alpha === undefined ? [] : prepareSequenceTracks(model, targets('Alpha'), alpha, sequenceIndices)),
+    ...(color === undefined ? [] : prepareSequenceTracks(model, targets('Color'), color, sequenceIndices)),
   ];
   return applyPrepared(model, prepared);
 }

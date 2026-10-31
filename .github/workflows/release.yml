@@ -33,6 +33,14 @@ jobs:
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
+          # From 0.39.0 the ZIP keeps one fixed name, so
+          # releases/latest/download/MDLxL-win32-x64.zip never changes. 0.38's
+          # updater is the first to accept it; earlier releases keep the version.
+          if node -e "const [a,b]=process.argv[1].split('.').map(Number);process.exit(a>0||b>=39?0:1)" "$version"; then
+            echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
+          else
+            echo "ZIP=MDLxL-$version-win32-x64.zip" >> "$GITHUB_ENV"
+          fi
 
       - uses: ./.github/actions/setup-build
       - run: pnpm test
@@ -42,7 +50,7 @@ jobs:
       - name: Zip the portable package
         shell: pwsh
         run: |
-          $zip = "MDLxL-$env:VERSION-win32-x64.zip"
+          $zip = $env:ZIP
           # Windows' bsdtar writes a standard ZIP with forward-slash entry names.
           & "$env:SystemRoot\System32\tar.exe" -a -c -f $zip -C release MDLxL-win32-x64
           if ($LASTEXITCODE -ne 0) { throw "tar failed with exit code $LASTEXITCODE" }
@@ -57,7 +65,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          zip="MDLxL-${VERSION}-win32-x64.zip"
+          zip="$ZIP"
           notes="docs/RELEASE-${VERSION}.md"
           if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
           gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
@@ -77,6 +85,6 @@ jobs:
         with:
           name: MDLxL-${{ env.VERSION }}-win32-x64-dry-run
           path: |
-            MDLxL-*-win32-x64.zip
-            MDLxL-*-win32-x64.zip.sha256
+            ${{ env.ZIP }}
+            ${{ env.ZIP }}.sha256
           retention-days: 3

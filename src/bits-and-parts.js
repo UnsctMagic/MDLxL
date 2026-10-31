@@ -12,6 +12,9 @@ import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
 import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
+import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
+import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { standardVisibility } from './auto-corpse.js';
 
 import { gamePathKey } from './game-path.js';
 export const partPathKey = gamePathKey;
@@ -87,11 +90,54 @@ export function selectPartAnimations(source, animations = null) {
   return model;
 }
 
-export function collectedPartModel(source, { name, animations = null }) {
+/** keepGlobals false freezes global loops at their first frame and drops them. */
+export function collectedPartModel(source, { name, animations = null, keepGlobals = true }) {
   if (!String(name || '').trim()) throw Error('Name the Bit before saving.');
   const model = selectPartAnimations(source, animations);
+  if (!keepGlobals) {
+    const frozen = [];
+    for (const owner of ['GeosetAnims', 'Materials', 'TextureAnims']) freezeTracks(model[owner], track => isGlobalTrack(track), 0, undefined, source.GlobalSequences, frozen);
+    model.GlobalSequences = [];
+    // A frozen texture animation stays a track: Warcraft III has no plain value for it.
+    fixPlainTrackValues(model, plainTrackValues(model).filter(item => frozen.some(entry => entry.owner === item.owner && entry.property === item.property)));
+  }
   model.Info.Name = name.trim();
   return model;
+}
+
+/** True when the Bit's appearance loops on a global animation. */
+export function partHasGlobalAnimations(model) {
+  let found = false;
+  visitPartTracks(model, track => { found ||= isGlobalTrack(track, model); });
+  return found;
+}
+
+const byte = value => Math.round(Math.max(0, Math.min(1, value)) * 255);
+const rgbText = rgb => rgb.map(byte).join('/');
+function geosetTints(model, sequenceIndex) {
+  const frame = model.Sequences?.[sequenceIndex]?.Interval[0] ?? 0;
+  return model.Geosets.map((_, id) => {
+    if (!(model.GeosetAnims?.find(item => item.GeosetId === id)?.Flags & 2)) return null;
+    const rgb = sampleGeosetAnimation(model, id, frame, sequenceIndex).color;
+    return rgb.every(value => byte(value) === 255) ? null : rgb;
+  });
+}
+
+/** Bitz uses a Bit's animations only for RGB. Each distinct look (one RGB or
+ * null per geoset, compared as the 0-255 values shown) is one choice;
+ * animations that look the same are one. A single look is the whole answer;
+ * several start with No RGB. */
+export function partRgbOptions(model) {
+  const looks = new Map();
+  for (const index of model.Sequences?.length ? model.Sequences.keys() : [-1]) {
+    const colors = geosetTints(model, index), key = colors.map(rgb => rgb ? rgbText(rgb) : '').join('|');
+    if (!looks.has(key)) looks.set(key, { colors, sequenceIndex: index });
+  }
+  const found = [...looks.values()];
+  if (found.length < 2) return found;
+  const plain = found.find(look => !look.colors.some(Boolean)) || found[0];
+  return [{ label: 'No RGB', colors: null, sequenceIndex: plain.sequenceIndex },
+    ...found.filter(look => look.colors.some(Boolean)).map(look => ({ ...look, label: [...new Set(look.colors.filter(Boolean).map(rgbText))].join(' · ') }))];
 }
 
 export function serializeCollectedPart(model) {
@@ -148,13 +194,13 @@ export function previewPart(source) {
 
 /** Whole-part import. Prepare on a clone so even callers outside EditorDocument
  * get all-or-nothing data changes; the UI wraps this in one undoable edit. */
-export function commitPart(target, source, { animations = null, rgbSequence = null, replacement = null } = {}) {
+export function commitPart(target, source, { animations = null, look = null, replacement = null } = {}) {
   if (!source?.Geosets?.length) throw Error('This model has no geosets to import.');
   // A part in another model format is converted like a paste (MDX 800 gets
   // Classic geometry and diffuse materials); the target keeps its format.
   source = adaptPasteFormat(source, target.Version);
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Parts with bind-pose matrices require baking before import.');
-  const next = structuredClone(target), staged = rgbSequence === null ? selectPartAnimations(source, animations) : partRgbSnapshot(source, rgbSequence);
+  const next = structuredClone(target), staged = look ? partLook(source, look) : selectPartAnimations(source, animations);
   const donors = replacement ? replacementVertices(target, replacement) : null;
   const replacedMaterials = new Set(donors?.map(vertex => vertex.materialId));
   if (replacement) removePartSelection(next, replacement);
@@ -201,17 +247,28 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
     geoset.MaterialID = materialRef(geoset.MaterialID);
   }
   const bone = replacement ? null : ensureDummyBone(next, { weighted: staged.Geosets.some(geoset => geoset.SkinWeights?.length) });
-  const start = next.Geosets.length, geosetIndices = [];
+  const start = next.Geosets.length, geosetIndices = [], replacedGeosets = [];
   for (const geoset of staged.Geosets) {
     const count = geoset.Vertices.length / 3;
-    if (replacement) inheritPartBindings(geoset, donors, next.Version);
+    if (replacement) replacedGeosets.push(inheritPartBindings(geoset, donors, next.Version));
     else {
       geoset.Groups = [[bone.ObjectId]]; geoset.TotalGroupsCount = 1; geoset.VertexGroup = new Uint8Array(count);
       if (geoset.SkinWeights?.length) { geoset.SkinWeights = new (next.Version >= 1400 ? Uint16Array : Uint8Array)(count * 8); for (let index = 0; index < count; index++) geoset.SkinWeights.set([bone.ObjectId, 0, 0, 0, 255, 0, 0, 0], index * 8); }
     }
     geosetIndices.push(next.Geosets.push(geoset) - 1);
   }
+  if (look) staged.GeosetAnims = staged.Geosets.map((_, id) => staged.GeosetAnims?.find(animation => animation.GeosetId === id) || createVisibilityGeosetAnimation(id));
   for (const animation of staged.GeosetAnims || []) if (Number.isInteger(animation.GeosetId) && staged.Geosets[animation.GeosetId]) { animation.GeosetId += start; remapGlobals(animation); next.GeosetAnims.push(animation); }
+  // A Bit's own visibility never travels. A replacement shows where the part
+  // it replaces showed; a new part gets CORP's standard visibility. A global
+  // loop the user chose to apply keeps playing.
+  if (look) geosetIndices.forEach((index, offset) => {
+    const animation = next.GeosetAnims.find(item => item.GeosetId === index);
+    if (isGlobalTrack(animation.Alpha, next)) return;
+    const replaced = replacement && target.GeosetAnims?.find(item => item.GeosetId === replacedGeosets[offset]);
+    animation.Alpha = replacement ? structuredClone(replaced?.Alpha ?? 1) : standardVisibility(next, index);
+    if (replaced?._MdxDefaults?.Alpha !== undefined) animation._MdxDefaults = { ...animation._MdxDefaults, Alpha: replaced._MdxDefaults.Alpha };
+  });
   // Remove only materials made unused by this replacement. Keep shared and
   // imported matches, including ribbon dependencies, and remap surviving IDs.
   for (const id of [...replacedMaterials].sort((a, b) => b - a)) {
@@ -221,6 +278,10 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
     for (const owner of owners) if (owner.MaterialID > id) owner.MaterialID--;
     for (const [sourceId, targetId] of maps.materials) if (targetId > id) maps.materials.set(sourceId, targetId - 1);
   }
+  // A look freezes the part's texture animations; keep them tracks over the
+  // target's animations, since Warcraft III has no plain value for them.
+  const imported = new Set([...maps.textureAnims.values()].map(index => next.TextureAnims[index]));
+  fixPlainTrackValues(next, plainTrackValues(next).filter(item => imported.has(item.owner)));
   recalculateExtents(next);
   for (const index of geosetIndices) fillSequenceExtents(next, next.Geosets[index]);
   if (next.Info) Object.assign(next.Info, { NumGeosets: next.Geosets.length, NumGeosetAnims: next.GeosetAnims.length, NumBones: next.Bones.length });
@@ -239,7 +300,7 @@ function replacementVertices(model, selection) {
       const skin = geoset.SkinWeights?.length ? Array.from(geoset.SkinWeights.subarray(id * 8, id * 8 + 8)) : null;
       const group = skin ? skin.slice(0, 4).filter((_, slot) => skin[slot + 4] > 0) : geoset.Groups[geoset.VertexGroup[id]];
       if (!group || group.some(boneId => !model.Nodes?.[boneId])) throw Error('The selected part references a missing bone.');
-      vertices.push({ position: Array.from(geoset.Vertices.subarray(id * 3, id * 3 + 3)), group: [...group], skin, materialId: geoset.MaterialID });
+      vertices.push({ position: Array.from(geoset.Vertices.subarray(id * 3, id * 3 + 3)), group: [...group], skin, materialId: geoset.MaterialID, geoset: Number(key) });
     }
   }
   if (!vertices.length) throw Error('Select vertices in the vertex editor before replacing a part.');
@@ -259,8 +320,9 @@ function removePartSelection(model, selection) {
   }
 }
 
+/** Returns the replaced geoset most of this geoset's vertices took their binding from. */
 function inheritPartBindings(geoset, donors, version) {
-  const count = geoset.Vertices.length / 3, weighted = donors.some(vertex => vertex.skin);
+  const count = geoset.Vertices.length / 3, weighted = donors.some(vertex => vertex.skin), sources = new Map();
   geoset.Groups = []; geoset.VertexGroup = new Uint8Array(count);
   if (weighted) geoset.SkinWeights = new (version >= 1400 ? Uint16Array : Uint8Array)(count * 8);
   else delete geoset.SkinWeights;
@@ -270,6 +332,7 @@ function inheritPartBindings(geoset, donors, version) {
       const squared = donor.position.reduce((sum, value, axis) => sum + (value - geoset.Vertices[id * 3 + axis]) ** 2, 0);
       if (squared < distance) { distance = squared; nearest = donor; }
     }
+    sources.set(nearest.geoset, (sources.get(nearest.geoset) || 0) + 1);
     let group = geoset.Groups.findIndex(existing => fingerprint(existing) === fingerprint(nearest.group));
     if (group < 0) {
       if (geoset.Groups.length >= 256) throw Error('The replacement exceeds the 256 vertex group limit.');
@@ -285,6 +348,7 @@ function inheritPartBindings(geoset, donors, version) {
     }
   }
   geoset.TotalGroupsCount = geoset.Groups.reduce((sum, group) => sum + group.length, 0);
+  return [...sources].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0];
 }
 
 export function transformPart(source, payload) {
@@ -309,60 +373,59 @@ export function positionPart(source, target, selection) {
   updateBounds(incoming); updateBounds(outgoing);
   const pivot = Array.from(incoming.MinimumExtent, (value, axis) => (value + incoming.MaximumExtent[axis]) / 2);
   const center = Array.from(outgoing.MinimumExtent, (value, axis) => (value + outgoing.MaximumExtent[axis]) / 2);
-  const scale = Array.from(incoming.MinimumExtent, (value, axis) => {
-    const size = incoming.MaximumExtent[axis] - value;
-    const targetSize = outgoing.MaximumExtent[axis] - outgoing.MinimumExtent[axis];
-    // A flat/point selection cannot define thickness; keep that axis instead
-    // of dividing by zero or flattening a solid Bit into degenerate triangles.
-    return size > 0 && targetSize > 0 ? targetSize / size : 1;
-  });
-  return transformPart(source, { pivot, scale, translation: center.map((value, axis) => value - pivot[axis]) });
+  // The Bit keeps its own size (owner rule); Scale in the vertex editor resizes it.
+  return transformPart(source, { translation: center.map((value, axis) => value - pivot[axis]) });
 }
 
-/** Palette animations stay in the saved Bit. An import takes the displayed
- * appearance at the selected animation's start, in normalized editor RGB. */
-export function partRgbSnapshot(source, sequenceIndex = -1) {
-  const sequence = source.Sequences?.[sequenceIndex];
-  if (sequenceIndex !== -1 && (!Number.isInteger(sequenceIndex) || !sequence)) throw Error('Choose an available RGB animation.');
-  const model = structuredClone(source), frame = sequence?.Interval[0] || 0;
-  for (const animation of model.GeosetAnims || []) {
-    const sampled = sampleGeosetAnimation(source, animation.GeosetId, frame, sequenceIndex);
-    // With no animation chosen, an animated Alpha stays visible as in the
-    // editor's unanimated view; its hidden MDX base is often 0.
-    const animatedAlpha = sequenceIndex === -1 && animation.Alpha?.Keys;
-    animation.Color = new Float32Array(sampled.color); animation.Alpha = animatedAlpha ? 1 : sampled.alpha;
-    if (animation._MdxDefaults) {
-      delete animation._MdxDefaults.Color; delete animation._MdxDefaults.Alpha;
-      if (!Object.keys(animation._MdxDefaults).length) delete animation._MdxDefaults;
+// Replace each keyed track `pick` accepts with its value at `frame`; global
+// loops freeze at their first frame. `frozen` collects the replaced fields.
+function freezeTracks(owner, pick, frame, interval, globalSequences, frozen = []) {
+  if (!owner || typeof owner !== 'object' || ArrayBuffer.isView(owner)) return;
+  for (const [field, value] of Object.entries(owner)) {
+    if (!value?.Keys) { freezeTracks(value, pick, frame, interval, globalSequences, frozen); continue; }
+    if (!pick(value)) continue;
+    const width = value.Keys[0]?.Vector?.length || 1;
+    const fallback = owner._MdxDefaults?.[field] ?? (width === 1 ? field === 'Alpha' ? 1 : 0 : Array.from({ length: width }, (_, axis) => field === 'Scaling' || field === 'Color' || field === 'Rotation' && axis === 3 ? 1 : 0));
+    owner[field] = sampleTrack(value, frame, { interval, globalSequences, globalTime: 0, fallback, quaternion: field === 'Rotation' });
+    frozen.push({ owner, property: field });
+    if (TEXTURE_SLOTS.includes(field)) owner[field] = Math.round(owner[field]);
+    if (owner._MdxDefaults) {
+      delete owner._MdxDefaults[field];
+      if (!Object.keys(owner._MdxDefaults).length) delete owner._MdxDefaults;
     }
   }
-  const freeze = owner => {
-    if (!owner || typeof owner !== 'object' || ArrayBuffer.isView(owner)) return;
-    for (const [field, value] of Object.entries(owner)) {
-      if (value?.Keys) {
-        const width = value.Keys[0]?.Vector?.length || 1;
-        const fallback = owner._MdxDefaults?.[field] ?? (width === 1 ? field === 'Alpha' ? 1 : 0 : Array.from({ length: width }, (_, axis) => field === 'Scaling' || field === 'Color' || field === 'Rotation' && axis === 3 ? 1 : 0));
-        owner[field] = sampleTrack(value, frame, { interval: sequence?.Interval, globalSequences: source.GlobalSequences, fallback, quaternion: field === 'Rotation' });
-        if (TEXTURE_SLOTS.includes(field)) owner[field] = Math.round(owner[field]);
-        if (owner._MdxDefaults) {
-          delete owner._MdxDefaults[field];
-          if (!Object.keys(owner._MdxDefaults).length) delete owner._MdxDefaults;
-        }
-      } else freeze(value);
+}
+
+/** What a Bit import brings: one RGB look from partRgbOptions (null is No RGB),
+ * appearance frozen at that look's animation, and its global loops only when
+ * the user applies them. Visibility is left to commitPart. */
+export function partLook(source, { colors = null, sequenceIndex = -1, globals = false } = {}) {
+  const sequence = source.Sequences?.[sequenceIndex];
+  if (sequenceIndex !== -1 && !sequence) throw Error('Choose an available RGB animation.');
+  const model = structuredClone(source), frame = sequence?.Interval[0] || 0;
+  const kept = value => globals && isGlobalTrack(value, source);
+  for (const animation of model.GeosetAnims || []) {
+    const rgb = colors?.[animation.GeosetId];
+    if (!kept(animation.Color)) {
+      animation.Color = new Float32Array(rgb || [1, 1, 1]);
+      animation.Flags = rgb ? animation.Flags | 2 : animation.Flags & ~2;
+      if (animation._MdxDefaults) delete animation._MdxDefaults.Color;
     }
-  };
-  freeze(model.Materials); freeze(model.TextureAnims);
+    if (!kept(animation.Alpha)) { animation.Alpha = 1; if (animation._MdxDefaults) delete animation._MdxDefaults.Alpha; }
+    if (animation._MdxDefaults && !Object.keys(animation._MdxDefaults).length) delete animation._MdxDefaults;
+  }
+  for (const owner of [model.Materials, model.TextureAnims]) freezeTracks(owner, value => !kept(value), frame, sequence?.Interval, source.GlobalSequences);
   model.Sequences = [];
   for (const geoset of model.Geosets) geoset.Anims = [];
   return model;
 }
 
-export function previewPartReplacement(target, source, selection, rgbSequence = null) {
+export function previewPartReplacement(target, source, selection, look = null) {
   const model = structuredClone(target);
   if (!source) {
     replacementVertices(target, selection); removePartSelection(model, selection); recalculateExtents(model);
     return { model, geosetIndices: [] };
   }
-  const result = commitPart(model, source, { replacement: selection, rgbSequence });
+  const result = commitPart(model, source, { replacement: selection, look });
   return { model, geosetIndices: result.geosetIndices };
 }

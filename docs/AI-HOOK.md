@@ -447,6 +447,21 @@ reference models, and rules you pass on in the chat, are given to the AI as
 evidence about what is common and why, not as orders: it checks that this model
 is like the cases the pattern comes from before applying it.
 
+**Editor functions handed over.** So the AI looks things up less often, MDLxL hands
+it the editor functions it needs, each with its arguments and the description
+written above it in the source:
+
+- Every editing turn ends with a short fixed list of the functions jobs use most
+  (`AI_COMMON_FUNCTIONS` in `src/ai-capabilities.js`). It never changes between
+  turns, so providers bill it at their cheaper cached rate.
+- Each job also gets the functions of the areas it needs (mesh, uv, materials and
+  so on), at most once per bird conversation. In Automatic routing the organiser
+  names up to three areas in its routing reply. Otherwise MDLxL picks up to two
+  from the request's words.
+- **Finding modeling tools** still works for anything not handed over. A search
+  now returns the matching functions with their arguments and descriptions, so
+  one lookup is usually enough.
+
 **Decision diary.** MDLxL keeps a short diary for each model: for every AI job,
 your request, the plan (cause, chosen fix, why, what it kept), the edits it made,
 whether the result was verified, and your next message as your reaction. Every new
@@ -560,7 +575,7 @@ Embedded chat works without enabling this external listener.
 
 | Tool | Capability |
 | --- | --- |
-| `mdlxl_capabilities` | Search installed editing libraries by task, discover exported functions and read their actual runtime signatures. |
+| `mdlxl_capabilities` | Search installed editing libraries by task; a search returns the matching functions with their arguments and descriptions, and a module request returns all of its functions the same way. |
 | `mdlxl_plan` | Embedded chat only: record the job's cause, reach, keep list, alternative fixes and choice before the first edit. |
 | `mdlxl_versions` | Keep versions of the model side by side: list, save, compare, and use one again as one Undo step. Scripts read them as `references["version:NAME"]`. |
 | `mdlxl_review` | Run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |

@@ -32,39 +32,42 @@ const REJECTION_RULE = 'When the user rejects a result that your measurements sh
 // AGENTS.md "Reuse, never create unasked": the model's own data, then native game
 // files; new textures, materials or geosets only when the user asks for new.
 const REUSE_RULE = "Reuse before creating: for textures, materials and geosets use what the model already has first, then Blizzard's native game files (mdlxl_assets source textures or game). Create a new texture, material or geoset only when the user's request explicitly asks for something new; if nothing existing fits, say what you checked and ask first.";
-const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text);
+// Geosets list numbers from 1: replies name geosets by that number, not /Geosets/ paths.
+const NUMBER_BEFORE = "All IDs are zero-based; explain visible labels clearly.";
+const NUMBER_AFTER = "All IDs and paths are zero-based, but the Geosets list numbers geosets from 1: /Geosets/0 is geoset 1 and /Geosets/32 is geoset 33. A geoset number from the user means that list number. When writing to the user, name geosets by the list number (for example \"geoset 33\"), never by a /Geosets/ path or zero-based index, and name bones by name.";
+const stripMotionRules = text => [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text).replace(NUMBER_AFTER, NUMBER_BEFORE);
 const EXPECTED = {
   "editing plain": [
-    "6fe5691ae601f02e805f267cdc2ece134450f5c00afa32da2d03640a7db8583c",
-    8815
+    "bc33dc1cb95094e031782f8a99cb21a8f3dc8de5007c71cc951779d2b6843504",
+    9101
   ],
   "worker plain": [
-    "468fb1f61de0cee18a8b72ef9eb3c0e7c4d2953c033c899bc41f96b75c4aa078",
-    9971
+    "8cbf2c3391f8c876707c015e6ae1a169157e65042bd848f33a9da5c12878b258",
+    10257
   ],
   "editing plain+web": [
-    "79ca23e64faf9faf0bc2a1b0b6fb731751f1bd5ac71d81ffc8c624172853c6bf",
-    9317
+    "c57abee71ff629b8d0eee928aae3e66b7132eaf7021747ca3dd04386620288ad",
+    9603
   ],
   "worker plain+web": [
-    "4fd4f79c64b61b338c211a69c714cfd9b77ef76ac0902e8ada204350e7278ac8",
-    10473
+    "834f9f3c5dbe00d806bd38c783273e35b26acdfb043ed227cd7eb57a8b3d8b70",
+    10759
   ],
   "editing handbook": [
-    "a1bcd6388631ee3049919be467f5c6bb8ad06132c4f03b1ec94159de4aef2b2d",
-    11822
+    "5dad8f8a22853ce8f4d082c8c8efcb03bb50cc8d7961e0d3e5513ab6b662a849",
+    12108
   ],
   "worker handbook": [
-    "2ff5ec382fe2f8bbfe61397f4b3228292cce17af80ceda0b8b71eedddc346b6d",
-    12978
+    "d147f2ce4740d8610a5adba5eae23e23867b7bad1cc2d6a5f1dfe87643f09fd0",
+    13264
   ],
   "editing handbook+web": [
-    "87782c5014f329adaf66e67fa9b1088b06fab280c36a6705f053984963548447",
-    12324
+    "3bd685db2e29da379ebf32827d4bbcc5f3d221e8e2d75d9666a99a50d7e3dbb7",
+    12610
   ],
   "worker handbook+web": [
-    "f3e39054878111260460aac018a154fcd483dd7455822d05d4c348d4f82deda9",
-    13480
+    "76792acbe4bc7ae11ec3cfecf26818ed4b687e6c7956841c9ce8524047dfa06e",
+    13766
   ]
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -77,8 +80,9 @@ test('outside check deliberately adds motion measurements alongside still pictur
   assert.match(contract.AI_OUTSIDE_CHECK, /Missing baseline.*notes only/);
 });
 
-test('router is unchanged; editing and worker prompts change only the documented rules', () => {
-  assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT), BEFORE_RULE.router);
+test('router changes only by the tool-areas rule; editing and worker prompts change only the documented rules', () => {
+  assert.ok(contract.AI_ROUTER_PROMPT.endsWith(contract.AI_ROUTER_TOOLS_RULE));
+  assert.deepEqual(fingerprint(contract.AI_ROUTER_PROMPT.slice(0, -contract.AI_ROUTER_TOOLS_RULE.length)), BEFORE_RULE.router);
   for (const handbook of [false, true])
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
@@ -91,6 +95,14 @@ test('router is unchanged; editing and worker prompts change only the documented
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));
 });
 
+
+test('the router names exactly the function areas the bird can be handed; the common list goes last', async () => {
+  const { AI_AREAS } = await import('../src/ai-capabilities.js');
+  const named = contract.AI_ROUTER_TOOLS_RULE.match(/at most three of ([a-z, ]+) \(/)[1].split(', ');
+  assert.deepEqual(named, AI_AREAS.map(area => area.id));
+  const plain = editingPrompt(contract, { worker: true });
+  assert.equal(editingPrompt(contract, { worker: true, functions: 'LIST' }), plain + '\nLIST');
+});
 
 test('owner example and keep-look replays receive the structural example rule in direct and worker prompts', () => {
   assert.match(turns.turns['27'].text, /welded the bottom right/);

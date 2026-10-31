@@ -108,6 +108,7 @@ import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
+import { plainTrackValues } from '../src/plain-track-values.js';
 import SidebarResizer from './SidebarResizer.jsx';
 import { exposeAppForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
@@ -574,6 +575,8 @@ export default function App() {
   };
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
+    // Views drawn by the Warcraft preview need keyframe tracks: offer the fix first.
+    if (['bones', 'animation', 'manager', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
     sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
@@ -897,6 +900,7 @@ export default function App() {
     if (savingRef.current) return false;
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
+    if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat } }); return false; }
     savingRef.current = true; setSaving(true);
     const previousPath = target.path;
     try {
@@ -904,7 +908,7 @@ export default function App() {
       const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
       if (staged !== target.doc) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       const unfinished = forgeSaveBlock(staged.model);
-      if (unfinished) { say(unfinished, true); setNotice({ message: unfinished }); return false; }
+      if (unfinished) { say(unfinished, true); setNotice({ title: 'Save', message: unfinished }); return false; }
       // Save As must bring reopened Forge textures along, even before preview
       // resolution completes or when texture rendering is disabled.
       const missing = missingForgeAssetPaths(target.assets, staged.model);
@@ -1266,11 +1270,11 @@ export default function App() {
     } catch (error) { say(error.message, true); return false; }
   }
   // keepOpen: the Library stays open so more geosets can be imported in a row.
-  async function importPart({source,rgbSequence,assets,replacement,keepOpen=false}) {
+  async function importPart({source,look=null,assets,replacement,keepOpen=false}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
     const target=session;
-    const result=edit(replacement?'Replace Part':'Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{rgbSequence,replacement}),{rethrow:true});
+    const result=edit(replacement?'Replace Part':'Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{look,replacement}),{rethrow:true});
     if(result===false)return false;
     // Select the new part in the same tick as its edit, so the selection joins the
     // import's undo step instead of becoming a separate 'Change selection'.

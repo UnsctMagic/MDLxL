@@ -305,3 +305,6 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.compact-input-strength{flex:none;margin-left:0;padding:0 8px;font-size:11px;color:var(--ui-muted)}
 /* Top-row and editor-row text buttons grey out when they cannot be used (the soft chrome style otherwise keeps them dark). */
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label) button:disabled{color:var(--ui-muted)!important;cursor:default}
+
+/* Disabled tools lose their colours too, so a coloured icon always means usable. */
+:root .classic-app.classic-app:not([data-vis-ui]) button:disabled .look-icon{filter:grayscale(1)!important}

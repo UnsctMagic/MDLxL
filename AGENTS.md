@@ -40,6 +40,11 @@ separate and are not a shared handover.
   user-added files. An offline upgrade must preserve the entire
   `resources/app/profile` and personal files, verify migration before replacing
   shortcuts, then remove the superseded installation unless the user asks to keep it.
+- `D:\Claude\MDLxL-TestModels` is the permanent test-model collection (its
+  README lists the contents). Never delete, move, prune or "clean up" it or its
+  files, even during cleanups the owner asks for; only add to it. Tests read
+  real models from it through `test/helpers/fixtures.cjs`, never from Downloads,
+  Desktop or a checkout's `out/`.
 - Remove task-created disposable builds/profiles/runtimes after verification,
   keeping the small report and needed captures. Stop unused task-started processes.
   After pushing or merging, remove the finished task worktree and prune its
@@ -68,6 +73,20 @@ separate and are not a shared handover.
 - Every 3D preview must allow normal mouse camera rotation unless explicitly
   requested otherwise. Verify actual mouse drags in the packaged app;
   programmatic camera changes do not verify the user's controls.
+- Rotate has two settled rules, both owner-approved; keep them apart. 3D editors
+  use `src/rotation-drag.js` and the Mouse → Rotation settings. The 2D UV map
+  uses only `uvTurn` in `src/uv-tools.js`: the selection turns with the mouse
+  around its centre one for one, by distance moved within 48 px so it never
+  snaps, with no rotation setting applied. One piece turns on its own spot,
+  several around their shared centre. Never share code or settings between them.
+  Test feel with the owner's real mouse settings, not a fresh profile.
+- Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
+  animation or frame changes keep the camera exactly where the user left it.
+  Frame automatically only when the user opens something new to look at (a
+  different model, group or part), or asks for it (Fit/frame commands).
+- Only do work someone can see: live drags, hovers and previews update at most
+  once per display frame, never per pointer event, and refresh only what changed.
+  Read [MDLxL architecture rules](docs/ARCHITECTURE.md) before adding or changing one.
 - Show only the smallest relevant indicator by default. Explanations/editing
   controls appear after a deliberate click, remain dismissible and stay out of
   the normal layout. Verify both the uncluttered default and opened details.

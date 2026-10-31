@@ -179,7 +179,7 @@ test('HD popups reuse the in-app dialog on open and on save, with view-only and 
   const app = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
   const inspector = readFileSync(new URL('../app/Inspectors.jsx', import.meta.url), 'utf8');
   const dialogs = readFileSync(new URL('../app/AppDialogs.jsx', import.meta.url), 'utf8');
-  assert.match(dialogs, /\{notice && <Dialog title="HD models"[^\n]*>Open view-only<\/button>[^\n]*>Convert to SD<\/button>[^\n]*>OK<\/button>/);
+  assert.match(dialogs, /\{notice && <Dialog title=\{notice\.title \|\| "HD models"\}[^\n]*>Open view-only<\/button>[^\n]*>Convert to SD<\/button>[^\n]*>OK<\/button>/);
   assert.match(app, /function install\([\s\S]*?if \(next\.doc\.hdViewOnly\) setNotice\(next\.doc\.hdBorderline \? \{ message: HD_BORDERLINE_MESSAGE, convert: next \} : \{ message: HD_VIEW_ONLY_MESSAGE \}\);/);
   assert.doesNotMatch(app.match(/function activateSession\([\s\S]*?\n  \}/)[0], /setNotice/, 'switching tabs does not repeat the popup');
   assert.match(app, /async function save\([^\n]*\n[^\n]*\n    if \(target\.doc\.hdViewOnly\) \{ say\(HD_VIEW_ONLY_MESSAGE, true\); setNotice\(\{ message: HD_VIEW_ONLY_MESSAGE \}\); return false; \}/);

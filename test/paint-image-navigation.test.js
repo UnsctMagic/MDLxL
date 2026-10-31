@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {bindScrollSensitivity,pointerSensitivityValue,wheelZoomFactor} from '../app/viewport-performance.js';
+import {bindScrollSensitivity,createFrameCoalescer,pointerSensitivityValue,wheelZoomFactor} from '../app/viewport-performance.js';
 import {cameraBindings} from '../src/preferences.js';
 
 // Execute the real hook with deterministic React effects and DOM event targets.
@@ -15,15 +15,15 @@ function event(extra={}){return {deltaY:-100,deltaMode:0,buttons:0,button:0,poin
 function harness(preferences){
   const owner=target(),element=Object.assign(target(),{ownerDocument:{defaultView:owner},scrollLeft:100,scrollTop:80}),scroll={current:element};
   let zoom=2,adjusting,options={preferences},api,cursor=0,mounted=false;
-  const refs=[],layouts=[],effects=[],cleanup=[];
+  const refs=[],layouts=[],effects=[],cleanup=[],frames=[];
   const image={current:{getBoundingClientRect:()=>({left:150-element.scrollLeft,top:120-element.scrollTop})}};
-  const context={bindScrollSensitivity,pointerSensitivityValue,wheelZoomFactor,cameraBindings,
+  const context={bindScrollSensitivity,pointerSensitivityValue,wheelZoomFactor,cameraBindings,createFrameCoalescer:run=>createFrameCoalescer(run,{request:callback=>frames.push(callback),cancel:id=>{frames[id-1]=null;}}),
     useRef:()=>refs[cursor++]??(refs[cursor-1]={current:undefined}),useState:()=>[adjusting,value=>{adjusting=value;}],
     useEffect:fn=>{if(!mounted)effects.push(fn);},useLayoutEffect:fn=>layouts.push(fn)};
   vm.createContext(context);vm.runInContext(source+'; globalThis.hook=usePaintImageNavigation;',context);
   function render(){cursor=0;api=context.hook(scroll,image,zoom,value=>{zoom=value;},()=>{},options);for(const fn of layouts.splice(0))fn();if(!mounted){mounted=true;for(const fn of effects)cleanup.push(fn());}}
   render();
-  return {element,owner,get zoom(){return zoom;},get indicator(){return adjusting;},get navigation(){return api.navigation;},render,
+  return {element,owner,frame(){for(const callback of frames.splice(0))callback?.();},get zoom(){return zoom;},get indicator(){return adjusting;},get navigation(){return api.navigation;},render,
     preferences(value){options={...options,preferences:value};render();},callbacks(value){options={...options,...value};render();},wheel(extra){element.emit('wheel',event(extra));},dispose(){cleanup.forEach(fn=>fn());}};
 }
 
@@ -52,7 +52,7 @@ test('Paint navigation respects disabled/toggle buttons, maps 2D rotate to pan a
   h.preferences({cameraBindings:{right:'rotate',middle:'pan'},pointerSensitivity:2});
   h.navigation.onPointerDownCapture(event({button:2}));h.navigation.onPointerMoveCapture(event({clientX:270,clientY:190}));assert.equal(h.element.scrollLeft,60);assert.equal(h.element.scrollTop,60);
   h.navigation.onPointerUpCapture(event({button:2}));
-  h.preferences({cameraBindings:{right:'zoom'}});h.navigation.onPointerDownCapture(event({button:2}));h.navigation.onPointerMoveCapture(event({clientY:170}));assert.equal(h.zoom,2*Math.exp(.1));
+  h.preferences({cameraBindings:{right:'zoom'}});h.navigation.onPointerDownCapture(event({button:2}));h.navigation.onPointerMoveCapture(event({clientY:170}));assert.equal(h.zoom,2,"zoom waits for the next frame");h.frame();assert.equal(h.zoom,2*Math.exp(.1));
 });
 
 test('Paint middle toggle and listener cleanup use the shared scroll controller',()=>{

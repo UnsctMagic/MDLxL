@@ -3,6 +3,7 @@ import { Box, Circle, Move, Trash2 } from 'lucide-react';
 import { createNode, deleteNode } from '../src/editor-document.js';
 import { fittedCollision, moveCollision, resizeCollision } from '../src/model-collisions.js';
 import { movementDragAmount } from './movement-overlay.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import './model-manager.css';
 import { MODEL_COMMENTS_KEY } from '../src/model-comments.js';
 
@@ -18,7 +19,8 @@ export default function ModelManager({ doc, edit, assets, teamColor }) {
   const [name, setName] = useState(model.Info.Name || '');
   const [comments, setComments] = useState(model[MODEL_COMMENTS_KEY] || '');
   const [view, setView] = useState('perspective');
-  const gesture = useRef(null), pending = useRef(null);
+  const gesture = useRef(null), pending = useRef(null), frame = useRef(null);
+  frame.current ||= createFrameCoalescer(() => applyDrag());
   useEffect(() => { setName(model.Info.Name || ''); setComments(model[MODEL_COMMENTS_KEY] || ''); pending.current = null; gesture.current = null; setDraft(null); }, [doc, doc.revision]);
   const selected = model.CollisionShapes.find(shape => shape.ObjectId === selectedId);
   const shape = draft || selected;
@@ -32,8 +34,8 @@ export default function ModelManager({ doc, edit, assets, teamColor }) {
       if (target) { target.Vertices = new Float32Array(value.Vertices); target.BoundsRadius = value.BoundsRadius; }
     });
   };
-  const cancel = () => { pending.current = null; gesture.current = null; setDraft(null); };
-  useEffect(() => () => { pending.current = null; }, []);
+  const cancel = () => { frame.current.cancel(); pending.current = null; gesture.current = null; setDraft(null); };
+  useEffect(() => () => { frame.current.cancel(); pending.current = null; }, []);
   useEffect(() => {
     const active = gesture.current;
     if (!active) return;
@@ -58,9 +60,14 @@ export default function ModelManager({ doc, edit, assets, teamColor }) {
     gesture.current = { x: event.clientX, y: event.clientY, before: structuredClone(selected), handle };
     event.currentTarget.focus();
   };
+  // A move records the pointer; cloning, resizing and the preview update run once per frame.
   const drag = event => {
     const active = gesture.current; if (!active) return;
-    const next = structuredClone(active.before), dx = event.clientX - active.x, dy = event.clientY - active.y;
+    active.point = { x: event.clientX, y: event.clientY }; frame.current.schedule();
+  };
+  function applyDrag() {
+    const active = gesture.current; if (!active?.point) return;
+    const next = structuredClone(active.before), dx = active.point.x - active.x, dy = active.point.y - active.y;
     if (active.handle.move) moveCollision(next, [0, 1, 2].map(i => dx * active.handle.move.dx[i] + dy * active.handle.move.dy[i]));
     else {
       const { axis, basis } = active.handle;
@@ -68,11 +75,11 @@ export default function ModelManager({ doc, edit, assets, teamColor }) {
       resizeCollision(next, axis, next.Shape === 2 ? next.BoundsRadius + amount : next.Vertices[axis + 3] - next.Vertices[axis] + amount * 2);
     }
     previewDraft(next);
-  };
+  }
   const handleProps = handle => ({
     tabIndex: doc.readOnly ? -1 : 0, role: 'slider',
     onPointerDown: event => beginDrag(event, handle), onPointerMove: drag,
-    onPointerUp: event => { if (gesture.current) { drag(event); commit(); } },
+    onPointerUp: event => { if (gesture.current) { drag(event); frame.current.flush(); commit(); } },
     onPointerCancel: cancel, onLostPointerCapture: () => { if (gesture.current) cancel(); },
     onKeyDown: event => {
       if (event.key === 'Escape') { cancel(); event.stopPropagation(); }

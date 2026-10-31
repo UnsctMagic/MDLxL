@@ -5,6 +5,7 @@ import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import { isTypingTarget } from '../src/preferences.js';
 import { readStored, writeStored } from '../src/local-store.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { Matrix4, Quaternion, Vector3 } from 'three';
@@ -161,7 +162,9 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const sectionDone = Array.isArray(settings.range) && !sectionOn;
   const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
-  const dialog = useRef(null), touched = useRef(new Set()), drag = useRef(null);
+  const dialog = useRef(null), touched = useRef(new Set()), drag = useRef(null), stripApply = useRef(null), stripFrame = useRef(null);
+  stripFrame.current ||= createFrameCoalescer(() => stripApply.current());
+  useEffect(() => () => stripFrame.current.cancel(), []);
   const history = useRef({ undo: [], redo: [], at: 0 });
   const boneOptions = useMemo(() => new Map(animXLNodes(model).map(node => [node.ObjectId, node.Name || `Bone ${node.ObjectId}`])), [model, doc.revision]);
   // Apply to: Auto (AnimXL picks the weapon, cloth and so on) or Selected (bones and POSE
@@ -460,19 +463,27 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
     if (index > 0) { drag.current = { pose: result.sourceKeyTimes[index], box }; setTime(poses[index]); return; }
     drag.current = { box }; setTime(stripTime(event, box));
   };
+  // A drag only records the pointer; retiming (which rebuilds the shaped animation) runs once per frame.
   const stripMove = event => {
     const d = drag.current;
     if (!d) return;
-    const t = stripTime(event, d.box);
-    if (d.section !== undefined) { setDraft(d.section < t ? [d.section, t] : [t, d.section]); setTime(t); return; }
+    d.x = event.clientX; stripFrame.current.schedule();
+  };
+  stripApply.current = () => {
+    const d = drag.current;
+    if (!d || d.x === undefined) return;
+    const t = stripTime({ clientX: d.x }, d.box);
+    if (d.section !== undefined) { d.range = d.section < t ? [d.section, t] : [t, d.section]; setDraft(d.range); setTime(t); return; }
     if (d.key) { update(old => ({ ...old, [d.key]: old[d.key].map(x => x === d.at ? t : x).sort((a, b) => a - b) })); d.at = t; setTime(t); }
     else if (d.pose !== undefined) { update(old => ({ ...old, retime: { ...old.retime, [d.pose]: t } })); setTime(t); }
     else setTime(t);
   };
   const stripUp = () => {
+    stripFrame.current.flush();
     const d = drag.current; drag.current = null;
     if (d?.section === undefined) return;
-    if (draft && draft[1] - draft[0] >= 30) update(old => ({ ...old, range: draft }));
+    const range = d.range;
+    if (range && range[1] - range[0] >= 30) update(old => ({ ...old, range }));
     setDraft(null); setArmed(false);
   };
   const resetPose = event => {

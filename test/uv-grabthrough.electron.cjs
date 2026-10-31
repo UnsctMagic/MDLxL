@@ -53,23 +53,17 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 
     await liveSelect.click();
     assert.equal(await liveSelect.getAttribute('aria-pressed'), 'true');
-    // Lines and Grabthrough live in a small menu behind the arrow next to Live Select.
-    const arrow = uvw.getByRole('button', { name: 'Live Select options', exact: true });
-    assert.equal(await grabThrough.count(), 0, 'the options stay tucked away until the arrow is clicked');
-    const options = async () => { if (await arrow.getAttribute('aria-expanded') !== 'true') await arrow.click(); await grabThrough.waitFor(); };
-    await options();
-    assert.equal(await grabThrough.isChecked(), true, 'UV Grabthrough defaults on, like the vertex editor');
-    assert.match(await grabThrough.locator('xpath=..').getAttribute('title'), /hidden behind it/, 'Grabthrough explains itself on hover');
+    await grabThrough.waitFor();
+    assert.equal(await grabThrough.getAttribute('aria-pressed'), 'true', 'UV Grabthrough defaults on, like the vertex editor');
+    assert.match(await grabThrough.getAttribute('title'), /hidden behind it/, 'Grabthrough explains itself on hover');
 
     const lines = uvw.getByLabel('Lines', { exact: true });
-    assert.equal(await lines.isChecked(), true, 'Lines defaults on');
-    assert.match(await lines.locator('xpath=..').getAttribute('title'), /lines between vertices/, 'Lines explains itself on hover');
-    const footerOrder = await uvw.locator('.uv-preview-footer > *').evaluateAll(items => items.map(item => item.getAttribute('aria-label') || item.textContent));
-    assert.deepEqual(footerOrder.slice(1), ['Selected Only', 'Hide RGB'], 'the footer keeps only buttons');
-    const menuBox = await uvw.locator('.uv-live-select-menu').boundingBox(), footerBox = await uvw.locator('.uv-preview-footer').boundingBox();
-    assert.ok(menuBox.y + menuBox.height <= footerBox.y + 4, 'the options menu opens upward over the preview');
-    await page.mouse.click(footerBox.x + footerBox.width - 6, footerBox.y + footerBox.height / 2);
-    await page.waitForFunction(() => !document.querySelector('.uv-live-select-menu'));
+    assert.equal(await lines.getAttribute('aria-pressed'), 'true', 'Lines defaults on');
+    assert.match(await lines.getAttribute('title'), /lines between vertices/, 'Lines explains itself on hover');
+    // Lines and Grabthrough are toggle buttons right next to Live Select, like it.
+    const footerOrder = await uvw.locator('.uv-preview-footer > *').evaluateAll(items => items.map(item => item.getAttribute('aria-label') || item.querySelector('input')?.getAttribute('aria-label') || item.textContent));
+    assert.deepEqual(footerOrder, ['Live Select', 'Lines', 'Grabthrough', 'Selected Only', 'Hide RGB'], 'footer order');
+    await uvw.locator('.uv-live-preview').screenshot({ path: path.join(output, 'live-select-footer.png') });
 
     // Turn the model with a real mouse drag so the far side faces away.
     let box = await canvas.boundingBox();
@@ -100,8 +94,8 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     const throughCount = await marqueeAll();
     assert.ok(throughCount > 0, 'Grabthrough on: a box over the preview selects vertices');
 
-    await options(); await grabThrough.uncheck();
-    assert.equal(await grabThrough.isChecked(), false);
+    await grabThrough.click();
+    assert.equal(await grabThrough.getAttribute('aria-pressed'), 'false');
     await clearSelection();
     await page.waitForFunction(value => markerPixels() > 0 && markerPixels() < value, throughPixels);
     const seenPixels = await page.evaluate(() => markerPixels());
@@ -109,18 +103,18 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     assert.ok(seenCount > 0, 'Grabthrough off: vertices on the visible side are still selected');
     assert.ok(seenCount < throughCount, `Grabthrough off skips vertices hidden behind the model (${throughCount} -> ${seenCount})`);
 
-    await options(); await grabThrough.check();
+    await grabThrough.click();
     await clearSelection();
     assert.equal(await marqueeAll(), throughCount, 'turning Grabthrough back on picks through the model again');
 
     // With Lines off the wire between vertices disappears; the vertex dots stay.
     await page.waitForFunction(() => drawnPixels() > 0);
     const drawnWithLines = await page.evaluate(() => drawnPixels());
-    await options(); await lines.uncheck();
+    await lines.click();
     await page.waitForFunction(value => drawnPixels() < value, drawnWithLines);
     const drawnWithoutLines = await page.evaluate(() => drawnPixels());
     assert.ok(drawnWithoutLines > 0, 'vertex dots stay visible with Lines off');
-    await options(); await lines.check();
+    await lines.click();
     await page.waitForFunction(value => drawnPixels() >= value, drawnWithLines);
     console.log(`Lines toggle: wire hidden while vertex dots stay (${drawnWithLines} -> ${drawnWithoutLines} drawn px)`);
 

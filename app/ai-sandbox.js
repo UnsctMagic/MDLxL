@@ -1,4 +1,5 @@
 // Loaded ONLY in a disposable sandboxed renderer. The editor's CSP stays strict.
+import { aiFunctionCards } from '../src/ai-capabilities.js';
 const modules = import.meta.glob(['../src/*.js', '!../src/cli.js']);
 const sources = import.meta.glob(['../src/*.js', '!../src/cli.js'], { query: '?raw', import: 'default' });
 const names = Object.keys(modules)
@@ -32,9 +33,7 @@ window.aiSandbox.onRun(async payload => {
         const source = await sources[`../src/${name}.js`]();
         return {
           exports: Object.fromEntries(Object.entries(exports).map(([key, value]) => [key, typeof value])),
-          signatures: [...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(([^]*?)\)\s*\{/g)].map(
-            match => ({ name: match[1], arguments: match[2] }),
-          ),
+          signatures: aiFunctionCards(source),
           source: 'Read (await api.source("' + name + '")).text for the implementation; api.source returns {module,text,offset,total,truncated}.',
         };
       },

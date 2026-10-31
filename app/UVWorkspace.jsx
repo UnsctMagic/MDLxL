@@ -2,6 +2,7 @@ import MaterialProperties from './MaterialProperties.jsx';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import UVEditor from './UVEditor.jsx';
 import useStoredState from './useStoredState.js';
+import { createFrameCoalescer } from './viewport-performance.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
@@ -53,9 +54,14 @@ function UVGridControls({ value, onChange, children }) {
 }
 
 function Splitter({ orientation, label, value, minimum, maximum, defaultValue, onPointerValue, onValue }) {
-  const pointer = useRef(null), vertical = orientation === 'vertical';
+  // A drag records the pointer; the resize (and its saved layout) applies once per frame. Keys stay immediate.
+  const pointer = useRef(null), point = useRef(null), report = useRef(onPointerValue), frame = useRef(null), vertical = orientation === 'vertical';
+  report.current = onPointerValue;
+  frame.current ||= createFrameCoalescer(() => { if (point.current) report.current(point.current); });
+  useEffect(() => () => frame.current.cancel(), []);
   const stop = event => {
     if (pointer.current !== event.pointerId) return;
+    frame.current.flush(); // cancel too: the splitter keeps where it was dragged, as before
     pointer.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
@@ -74,14 +80,14 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
     aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={Math.round(value)} tabIndex={0} title={`${label} · drag or use arrow keys · double-click to reset`}
     onDoubleClick={() => onValue(defaultValue)} onKeyDown={keyDown}
     onPointerDown={event => { pointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); event.currentTarget.focus(); event.preventDefault(); }}
-    onPointerMove={event => { if (pointer.current === event.pointerId) { onPointerValue(event); event.preventDefault(); } }} onPointerUp={stop} onPointerCancel={stop}><span/></div>;
+    onPointerMove={event => { if (pointer.current === event.pointerId) { point.current = { clientX: event.clientX, clientY: event.clientY }; frame.current.schedule(); event.preventDefault(); } }} onPointerUp={stop} onPointerCancel={stop}><span/></div>;
 }
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,
   onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, textureAssets, teamColor, preferences, onPreferences,
   draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
-  const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true), [liveMenuOpen, setLiveMenuOpen] = useState(false);
+  const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
   const [projectionPreset, setProjectionPreset] = useState({ name: 'front', revision: 0, fit: true });
   const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
@@ -268,7 +274,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             onSelectionChange={densityOpen ? undefined : onPreviewSelectionChange}
             view="orthographic" cameraMode="rotate" transformMode="select" cameraPresetRequest={projectionPreset} onProjectionViewChange={value => { projectionView.current = value; }} /></Suspense></div>
           <div className="uv-preview-footer">
-            <span className="uv-live-select" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setLiveMenuOpen(false); }}><button aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => { setShowVerticles(value => !value); setLiveMenuOpen(false); }}>Live Select</button><button className="uv-live-select-arrow" aria-label="Live Select options" title="Live Select options" aria-haspopup="dialog" aria-expanded={liveMenuOpen} aria-pressed={showVerticles} disabled={!current || !showVerticles} onClick={() => setLiveMenuOpen(value => !value)}>▾</button>{showVerticles && liveMenuOpen && <div className="uv-live-select-menu" role="dialog" aria-label="Live Select options"><label className="check uv-lines-option" title="Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered."><input aria-label="Lines" type="checkbox" checked={showLines} onChange={event => setShowLines(event.target.checked)}/>Lines</label><label className="check grabthrough-option" title="On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see."><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={event => setGrabThrough(event.target.checked)}/>Grabthrough</label></div>}</span><button aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
+            <button aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => setShowVerticles(value => !value)}>Live Select</button>{showVerticles && <><button aria-label="Lines" aria-pressed={showLines} title="Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered." onClick={() => setShowLines(value => !value)}>Lines</button><button aria-label="Grabthrough" aria-pressed={grabThrough} title="On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see." onClick={() => setGrabThrough(value => !value)}>Grabthrough</button></>}<button aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
           </div>
         </section>
         <Splitter orientation="horizontal" label="Resize live model preview" value={activePreviewPercent} minimum={UV_PREVIEW_MIN} maximum={UV_PREVIEW_MAX} defaultValue={UV_PREVIEW_DEFAULT}

@@ -40,7 +40,8 @@ function externalURL(value) { return websiteURL(value) || value === 'https://www
 function releaseMetadata(release, current) {
   if (!release || release.draft || release.prerelease || !newerVersion(release.tag_name, current)) return null;
   const version = release.tag_name.replace(/^v/, '');
-  const asset = release.assets?.find(item => item.name === `MDLxL-${version}-win32-x64.zip`);
+  // Releases up to 0.38 name the ZIP by version; later ones use one fixed name.
+  const asset = release.assets?.find(item => item.name === `MDLxL-${version}-win32-x64.zip`) || release.assets?.find(item => item.name === 'MDLxL-win32-x64.zip');
   if (!asset || !releaseURL(asset.browser_download_url) || !releaseURL(release.html_url)) throw Error('The update package is unavailable.');
   const notes = {};
   for (const [, label, url] of (release.body || '').matchAll(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g)) {
@@ -119,8 +120,8 @@ async function extractArchive(archive, destination) {
 }
 
 class Updater {
-  constructor({ currentVersion, installRoot, profile, packaged, onStatus = () => {}, fetcher = fetch, extract = extractArchive }) {
-    Object.assign(this, { currentVersion, installRoot, profile, packaged, onStatus, fetcher, extract });
+  constructor({ currentVersion, installRoot, profile, packaged, onStatus = () => {}, fetcher = fetch, extract = extractArchive, installWindow = () => null }) {
+    Object.assign(this, { currentVersion, installRoot, profile, packaged, onStatus, fetcher, extract, installWindow });
     this.state = { state: 'idle', currentVersion, canInstall: packaged && process.platform === 'win32' && process.arch === 'x64' };
     this.pending = false;
     this.abortController=new AbortController();
@@ -232,9 +233,10 @@ class Updater {
         catch (error) { if (error.code !== 'ENOENT') throw error; }
       }
       await fs.writeFile(path.join(snapshotRoot, 'snapshot.json'), JSON.stringify({schema:1,product:'mdlxl',version:previous.version,files:snapshotFiles}));
-      const plan = { source, target: this.installRoot, operations, snapshotRoot, mode: 'update', pid: process.pid, executable: path.join(this.installRoot, 'MDLxL.exe'), profile: this.profile, result: path.join(this.profile, 'update-result.json') };
+      const plan = { source, target: this.installRoot, operations, snapshotRoot, mode: 'update', pid: process.pid, executable: path.join(this.installRoot, 'MDLxL.exe'), profile: this.profile, result: path.join(this.profile, 'update-result.json'), window: this.installWindow('update', this.release.version) };
       const planFile = path.join(stage, 'plan.json');
       await fs.copyFile(path.join(__dirname, 'update-install.ps1'), path.join(stage, 'install.ps1'));
+      if (plan.window) await fs.copyFile(path.join(__dirname, 'update-window.cs'), path.join(stage, 'window.cs'));
       await fs.writeFile(planFile, JSON.stringify(plan));
       this.prepared = { stage, planFile }; this.pending = true;
       return this.publish({ state: 'ready', received, error: null });
@@ -279,7 +281,8 @@ class Updater {
       }
       const planFile=path.join(stage,'plan.json');
       await fs.copyFile(path.join(__dirname,'update-install.ps1'),path.join(stage,'install.ps1'));
-      await fs.writeFile(planFile,JSON.stringify({source,target:this.installRoot,operations,mode:'revert',pid:process.pid,executable:path.join(this.installRoot,'MDLxL.exe'),profile:this.profile,result:path.join(this.profile,'update-result.json')}));
+      const window=this.installWindow('revert',snapshot.version);if(window)await fs.copyFile(path.join(__dirname,'update-window.cs'),path.join(stage,'window.cs'));
+      await fs.writeFile(planFile,JSON.stringify({source,target:this.installRoot,operations,mode:'revert',pid:process.pid,executable:path.join(this.installRoot,'MDLxL.exe'),profile:this.profile,result:path.join(this.profile,'update-result.json'),window}));
       this.prepared={stage,planFile};this.pending=true;
       return this.publish({state:'ready',action:'revert'});
     }catch(error){if(stage)await fs.rm(stage,{recursive:true,force:true});return this.publish({state:'error',error:error.message});}

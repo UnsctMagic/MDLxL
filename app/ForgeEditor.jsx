@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Vector3 } from 'three';
 import { degreesToQuaternion } from '../src/rotation-math.js';
-import { CopyPlus } from 'lucide-react';
+import ToolIcon from './ToolIcon.jsx';
 import Viewport from './Viewport.jsx';
 import { CameraTools, Coordinate, Tool, TransformTools, WorkplaneControls } from './EditorControls.jsx';
 import { useHotkeys } from './Hotkeys.jsx';
@@ -67,7 +67,7 @@ export default function ForgeEditor({ model, editorState = {}, selection = {}, o
         <ForgeCoordinates center={center} preview={dragPreview} disabled={!points.length || !onTransform} onCommit={(i, value) => onTransform({ selections: selection, pivot: center, translation: center.map((n, a) => a === i ? value - n : 0) })}/>
         <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane} locked={quad && pane?.workplane}/>
         {controlPoints && <div className="forge-control-points">{controlPoints}</div>}
-        <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><CopyPlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>}</div>
+        <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><ToolIcon name="duplicate" className="modern-retro-icon"/></Tool>}</div>
         {shapingTools}
         <div className="classic-tools"><TransformTools look value={tool} onChange={next => { onCancelPartDrag?.('tool'); chooseTool(next); }}/>{onDelete && <Tool look action="Delete vertices" icon="sb_del" title="Delete selection" disabled={!points.length} onClick={onDelete}/>}</div>
         <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={e => setGrabThrough(e.target.checked)}/>Grabthrough</label>

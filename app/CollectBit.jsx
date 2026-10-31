@@ -1,18 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import Viewport from './Viewport.jsx';
-import { collectedPartModel, previewPart, serializeCollectedPart } from '../src/bits-and-parts.js';
-import PartAnimations from './PartAnimations.jsx';
+import { collectedPartModel, partHasGlobalAnimations, partLook, partRgbOptions, previewPart, serializeCollectedPart } from '../src/bits-and-parts.js';
+import PartRgb from './PartRgb.jsx';
 import { validateModel } from '../src/editor-document.js';
+import { fixPlainTrackValues, plainTrackValues } from '../src/plain-track-values.js';
 
 export default function CollectBit({ source, textureAssets, teamColor, onClose, onSaved }) {
-  const [name, setName] = useState(''), [sequence, setSequence] = useState(''), [playing, setPlaying] = useState(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const preview = useMemo(() => previewPart(source), [source]);
-  const interval = source.Sequences[Number(sequence)]?.Interval;
-  const save = async () => {
-    setBusy(true); setError('');
+  const [name, setName] = useState(''), [rgb, setRgb] = useState(0), [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [fixing, setFixing] = useState(null);
+  const rgbOptions = useMemo(() => partRgbOptions(source), [source]), hasGlobals = useMemo(() => partHasGlobalAnimations(source), [source]);
+  const preview = useMemo(() => previewPart(partLook(source, rgbOptions[rgb])), [source, rgbOptions, rgb]);
+  // A Bit with global animations asks whether to keep them; values Warcraft III
+  // keeps only as keyframes ask to be fixed instead of failing the save.
+  const save = async (keepGlobals = null, fix = false) => {
+    if (hasGlobals && keepGlobals === null) { setAsking(true); return; }
+    setAsking(false); setFixing(null); setBusy(true); setError('');
     try {
-      const model = collectedPartModel(source, { name });
+      const model = collectedPartModel(source, { name, keepGlobals: keepGlobals !== false }), plain = plainTrackValues(model);
+      if (plain.length && !fix) { setFixing({ keepGlobals, labels: plain.map(item => item.label) }); return; }
+      fixPlainTrackValues(model, plain);
       const issues = validateModel(model).filter(issue => issue.severity === 'error');
       if (issues.length) throw Error(issues[0].message);
       const result = await window.desktop.savePart({ name: name.trim(), bytes: serializeCollectedPart(model) });
@@ -24,9 +30,8 @@ export default function CollectBit({ source, textureAssets, teamColor, onClose, 
     <div className="parts-body"><aside>
       <label className="parts-collect-name">Bit name<input autoFocus aria-label="Bit name" value={name} onChange={event => setName(event.target.value)}/></label>
       <p className="parts-note">{source.Geosets.length} geosets · {source.Geosets.reduce((count, geoset) => count + geoset.Vertices.length / 3, 0)} selected vertices</p>
-      <PartAnimations model={source} sequence={sequence} onPreview={value => { setSequence(value); setPlaying(false); }} busy={busy} collecting/>
-    </aside><main><div className="parts-preview"><Viewport presentation="preview" model={preview} revision={0} textureAssets={textureAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={sequence === '' ? -1 : Number(sequence)} time={sequence === '' ? 0 : interval?.[0] || 0} playing={playing} shaded/></div>
-      <button disabled={sequence === ''} onClick={() => setPlaying(value => !value)}>{playing ? 'Pause preview' : 'Play preview'}</button>
-    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer><span>Saved in BitsAndParts with original texture paths.</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving…' : 'Save Bit'}</button></footer>
+      <PartRgb options={rgbOptions} value={rgb} onChange={setRgb} busy={busy}/>
+    </aside><main><div className="parts-preview"><Viewport presentation="preview" model={preview} revision={0} textureAssets={textureAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={-1} time={0} playing={false} shaded/></div>
+    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer>{asking ? <><span>Keep global animations?</span><button onClick={() => save(true)}>Yes</button><button onClick={() => save(false)}>No</button></> : fixing ? <><span>Warcraft III needs keyframes for these values:</span><span>{fixing.labels.join(', ')}</span><button onClick={() => setFixing(null)}>Cancel</button><button className="parts-import" onClick={() => save(fixing.keepGlobals, true)}>Fix and save</button></> : <><span>Saved in BitsAndParts with original texture paths.</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={busy || !name.trim()} onClick={() => save()}>{busy ? 'Saving…' : 'Save Bit'}</button></>}</footer>
   </section></div>;
 }

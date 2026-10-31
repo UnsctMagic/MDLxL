@@ -1,8 +1,14 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: waitForSettle } = require('./helpers/app.cjs');
 
 (async()=>{
- const file=process.env.MDLXL_BOUNDS_MODEL;if(!file)throw Error('Set MDLXL_BOUNDS_MODEL to the private model under review.');
+ // Fixture: the owner's WH_WOC_WarriorNurgle_Flail11_Optimized.mdx (Downloads, copied to out/optimizexl-bounds). Measured with
+ // out/fixture-scan/bounds-scan.mjs (sanityProposals on the raw file and on prepareOptimizeXL bytes, test/helpers/hive.mjs
+ // sanityTest): mdx-m3-viewer 0 errors / 0 severe / 26 warnings / 0 notices; the only automatic proposal is one bounds repair
+ // whose 26 targets are all sequence extents, over 10 sequences. No LowPolyWorks or SD MDX800 model has a bounds-only repair.
+ // Every expected value below is still derived from the model at run time.
+ const file=process.env.MDLXL_BOUNDS_MODEL||testModel('optimizexl-bounds/WH_WOC_WarriorNurgle_Flail11_Optimized.mdx');
  const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','bounds-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
  const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js'),{flattenHiveFindings}=await import('../app/optimizexl-hive.js');
  const { sanityTest } = await import('./helpers/hive.mjs');

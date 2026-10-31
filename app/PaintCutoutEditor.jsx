@@ -4,7 +4,7 @@ import {shapeSelection,magicSelection,combineSelection,featherSelection,extractP
 import {flattenPaintRasterAlpha} from '../src/paint-raster.js';
 import {paintRasterCanvas} from './paint-raster.js';
 import {usePaintImageNavigation} from './usePaintImageNavigation.js';
-import {sensitivityIndicatorStyle,sensitivityIndicatorText} from './viewport-performance.js';
+import {createFrameCoalescer,sensitivityIndicatorStyle,sensitivityIndicatorText} from './viewport-performance.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
 
 /** Selection tools operate on a copyable mask. Closing never changes the source asset. */
@@ -14,7 +14,8 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
   const [mask,setMask]=useState(()=>initialMask?new Uint8ClampedArray(initialMask):new Uint8ClampedArray(raster.width*raster.height).fill(255)),[points,setPoints]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const {navigation,adjustingSensitivity}=usePaintImageNavigation(scroll,image,zoom,setZoom,undefined,{preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle});
   const history=useRef([]),redo=useRef([]);
-  const [hoverPoint,setHoverPoint]=useState(null),[crop,setCrop]=useState(null),polygonOperation=useRef('replace');
+  const [hoverPoint,setHoverPoint]=useState(null),[crop,setCrop]=useState(null),polygonOperation=useRef('replace'),hover=useRef(null),applyDrag=useRef(),dragFrame=useRef(null);
+  dragFrame.current||=createFrameCoalescer(()=>applyDrag.current?.());useEffect(()=>()=>dragFrame.current.cancel(),[]);
   const selectedCount=useMemo(()=>mask.reduce((n,value)=>n+(value>127?1:0),0),[mask]);
   const instructions={crop:crop?'Drag inside to move it. Drag a corner to resize it.':'Drag to set the crop.',lasso:'Draw around the patch. Release to close it.',polygon:'Click corners. Click the first point or press Enter to finish. Backspace removes a point.',wand:'Click a color. Tolerance controls how much is selected.'};
   const maskShape=id=>id==='square'?'rectangle':id==='circle'?'ellipse':id;
@@ -60,20 +61,27 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
     event.currentTarget.setPointerCapture(event.pointerId);
   }
   function move(event){
-    const pointer=point(event);if(tool==='polygon')setHoverPoint(pointer);
+    const pointer=point(event);if(tool==='polygon'){hover.current=pointer;dragFrame.current.schedule();}
     if(!drag.current)return;const current=drag.current;
-    if(current.type==='crop'){
+    if(current.type==='crop'){current.pointer=pointer;dragFrame.current.schedule();return;}
+    const previous=current.points.at(-1);if(Math.hypot(pointer.x-previous.x,pointer.y-previous.y)<1)return;current.points.push(pointer);current.redraw=true;dragFrame.current.schedule();
+  }
+  // Every lasso point is kept; the crop, its mask, the outline and the polygon
+  // hover edge redraw once per frame.
+  applyDrag.current=()=>{
+    const pointer=hover.current;hover.current=null;if(pointer&&tool==='polygon')setHoverPoint(pointer);
+    const current=drag.current;if(current?.type!=='crop'){if(current?.redraw){current.redraw=false;setPoints([...current.points]);}return;}
+    if(current.pointer){const pointer=current.pointer;current.pointer=null;
       let next;
       if(current.mode==='move'){
         const bounds=cropBounds(current.source),dx=Math.max(-bounds.left,Math.min(raster.width-bounds.right,Math.round(pointer.x-current.anchor.x))),dy=Math.max(-bounds.top,Math.min(raster.height-bounds.bottom,Math.round(pointer.y-current.anchor.y)));
         next={...current.source,start:{x:current.source.start.x+dx,y:current.source.start.y+dy},end:{x:current.source.end.x+dx,y:current.source.end.y+dy}};
       }else{const shape=current.source?.shape||cropShape,[start,end]=cropPoints(shape,current.mode==='resize'?current.anchor:current.anchor,pointer);next={...(current.source||current.next),shape,start,end};}
-      current.next=next;setCrop(next);setMask(cropMask(next));return;
+      current.next=next;setCrop(next);setMask(cropMask(next));
     }
-    const previous=current.points.at(-1);if(Math.hypot(pointer.x-previous.x,pointer.y-previous.y)<1)return;current.points.push(pointer);setPoints([...current.points]);
-  }
-  function up(event){if(!drag.current)return;move(event);const current=drag.current;drag.current=null;if(current.type==='crop'){const next=current.next;if(!next||!cropBounds(next).width||!cropBounds(next).height){setMask(current.beforeMask);setCrop(current.source);return;}remember(current.beforeMask);setCrop(next);setMask(cropMask(next));setError('');return;}commit(combineSelection(mask,shapeSelection(raster.width,raster.height,'lasso',current.points),current.operation));setPoints([]);}
-  function cancelDrag(){const current=drag.current;drag.current=null;if(current?.type==='crop'){setMask(current.beforeMask);setCrop(current.source);}setPoints([]);}
+  };
+  function up(event){if(!drag.current)return;move(event);dragFrame.current.flush();const current=drag.current;drag.current=null;if(current.type==='crop'){const next=current.next;if(!next||!cropBounds(next).width||!cropBounds(next).height){setMask(current.beforeMask);setCrop(current.source);return;}remember(current.beforeMask);setCrop(next);setMask(cropMask(next));setError('');return;}commit(combineSelection(mask,shapeSelection(raster.width,raster.height,'lasso',current.points),current.operation));setPoints([]);}
+  function cancelDrag(){dragFrame.current.cancel();const current=drag.current;drag.current=null;if(current?.type==='crop'){setMask(current.beforeMask);setCrop(current.source);}setPoints([]);}
   function polygon(){if(points.length<3)return;commit(combineSelection(mask,shapeSelection(raster.width,raster.height,'polygon',points),polygonOperation.current));setPoints([]);}
   async function act(callback,whole=false){if(busy)return;setBusy(true);setError('');try{await callback({name,raster:whole?raster:extractPaintCutout(raster,softened),whole});}catch(e){setError(e.message);}finally{setBusy(false);}}
   function changeCropShape(shape){

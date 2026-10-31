@@ -1,8 +1,9 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path');
 (async()=>{
  const {openDocument}=await import('../src/editor-document.js');
- const root=process.cwd(), file=process.env.MDLXL_TEST_MODEL || 'C:\\Users\\PC\\Desktop\\WIP\\graveguard_Optimized Weapon (1).mdx';
+ const root=process.cwd(), file=process.env.MDLXL_TEST_MODEL || testModel('graveguard/graveguard_Optimized Weapon (1).mdx');
  const original=fs.readFileSync(file), out=process.env.MDLXL_SCREENSHOTS || path.join(root,'out/managers-v3'); fs.mkdirSync(out,{recursive:true});
  const { app, page, errors } = await launchApp({ out: root, profile: path.join(root,'out/managers-v3/profile-'+Date.now()), env: { MDLVIS_HEADLESS:'1' }, fixture: file , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
 

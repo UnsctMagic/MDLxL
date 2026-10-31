@@ -1,6 +1,7 @@
 import { Buffer } from 'buffer';
 import { parseMDX, generateMDX } from 'war3-model';
 import { parseMdx } from './mdx-container.js';
+import { constantTrack } from './plain-track-values.js';
 
 // Boundary repairs for war3-model 4.0.1. The library still owns the model and
 // ordinary chunks. Keep fields it cannot express beside their actual owner.
@@ -352,8 +353,7 @@ export function generateCompatibleMdx(inputModel) {
   // it only for binary export, leaving the authored MDL and editor value alone.
   for(const key of ['Attachments','Lights','ParticleEmitters','ParticleEmitters2','RibbonEmitters','ParticleEmitterPopcorns','Cameras'])model[key]=(model[key]||[]).map(n=>{
     if(typeof n.Visibility!=='number')return n;
-    const frames=[...new Set([0,...(model.Sequences||[]).flatMap(s=>Array.from(s.Interval))])].sort((a,b)=>a-b);
-    return {...n,Visibility:{LineType:0,GlobalSeqId:null,Keys:frames.map(Frame=>({Frame,Vector:Float32Array.of(n.Visibility)}))}};
+    return {...n,Visibility:constantTrack(model,[n.Visibility])};
   });
   // Unsupported library fields are handled below, never fed to a wrong codec.
   const safe = { ...model, Materials: [], Lights: model.Lights.map(n=>({...n,AttenuationStart:0,AttenuationEnd:0})), RibbonEmitters: model.RibbonEmitters.map(n=>({...n,Color:new Float32Array([1,1,1])})), Cameras: [], CollisionShapes: model.CollisionShapes.map(n=>({...n,Shape:0,Vertices:new Float32Array(6)})), BindPoses:model.BindPoses?.length ? model.BindPoses : undefined };

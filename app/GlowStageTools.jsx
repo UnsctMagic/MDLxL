@@ -1,15 +1,19 @@
 import {useWindowKeyClaim} from './Hotkeys.jsx';
 import { clamp } from '../src/math.js';
-import React,{useRef} from 'react';
+import React,{useEffect,useRef} from 'react';
 import {particleAxisMapping} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
+import {createFrameCoalescer} from './viewport-performance.js';
 // Glow Up handles in the EMTR preview. Same handles, look, latching and keys as
 // ParticleStageTools: Move like an emitter, the ground glow's edge like the
 // spawn width, the weapon glow's two ends like a ribbon's edges, and its corners
 // like a particle's size corners. Escape cancels a drag; arrow keys nudge.
 // onDrag(true/false) brackets a drag so the preview can hold the animation still.
 export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
-  const drag=useRef(null),marks=snapshot?.marks;
+  const drag=useRef(null),follow=useRef(null),frame=useRef(null),marks=snapshot?.marks;
+  // Each glow change rebuilds the preview model: follow the pointer once per frame.
+  frame.current||=createFrameCoalescer(()=>follow.current?.());
+  useEffect(()=>()=>frame.current.cancel(),[]);
   const set=change=>onChange(value=>({...value,...change}));
   useWindowKeyClaim(({event})=>{
     if(event.key!=='Escape'||!drag.current)return false;
@@ -53,9 +57,11 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
     event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
     drag.current={...d,x:event.clientX,y:event.clientY};onDrag?.(true);
   }
-  function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;set(next(d,dx,dy));}
-  function end(){if(drag.current)onDrag?.(false);drag.current=null;}
-  function abort(){const d=drag.current;drag.current=null;if(d){set(d.before);onDrag?.(false);}}
+  function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;d.delta=[dx,dy];frame.current.schedule();}
+  function applyMove(){const d=drag.current;if(d?.delta)set(next(d,...d.delta));}
+  follow.current=applyMove;
+  function end(){frame.current.flush();if(drag.current)onDrag?.(false);drag.current=null;}
+  function abort(){frame.current.cancel();const d=drag.current;drag.current=null;if(d){set(d.before);onDrag?.(false);}}
   const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;

@@ -15,18 +15,18 @@ test('old and fresh profiles default every editing Rotate tool to Along the ring
 });
 test('rotation behavior and speed inherit independently and survive portable export/import', async () => {
   const { rotationOptions } = await api();
-  const prefs = normalizePreferences({ rotationRevision: 2, rotation: { behavior: 'pivot', sensitivity: 2, editors: { uv: { behavior: 'linear' }, forge: { sensitivity: .25 } } } });
-  assert.deepEqual(rotationOptions(prefs, 'uv'), { behavior: 'linear', sensitivity: 2 });
+  const prefs = normalizePreferences({ rotationRevision: 2, rotation: { behavior: 'pivot', sensitivity: 2, editors: { bones: { behavior: 'linear' }, forge: { sensitivity: .25 } } } });
+  assert.deepEqual(rotationOptions(prefs, 'bones'), { behavior: 'linear', sensitivity: 2 });
   assert.deepEqual(rotationOptions(prefs, 'forge'), { behavior: 'pivot', sensitivity: .25 });
   assert.deepEqual(rotationOptions(prefs, 'movement'), { behavior: 'pivot', sensitivity: 2 });
   assert.deepEqual(importConfiguration(JSON.stringify(exportConfiguration(prefs))).rotation, prefs.rotation);
   const changed = normalizePreferences({ ...prefs, rotation: { ...prefs.rotation, behavior: 'linear', sensitivity: 3 } });
   assert.deepEqual(rotationOptions(changed, 'forge'), { behavior: 'linear', sensitivity: .25 });
-  assert.deepEqual(rotationOptions(changed, 'uv'), { behavior: 'linear', sensitivity: 3 });
+  assert.deepEqual(rotationOptions(changed, 'bones'), { behavior: 'linear', sensitivity: 3 });
 });
 test('invalid rotation data cannot produce reversed, infinite or zero speed', async () => {
   const { normalizeRotationPreferences } = await api();
-  assert.deepEqual(normalizeRotationPreferences({ behavior: 'arc', sensitivity: null, editors: { uv: { behavior: 'oops', sensitivity: 'oops' }, unknown: { behavior: 'pivot' } } }), { behavior: 'ring', sensitivity: 1, editors: {} });
+  assert.deepEqual(normalizeRotationPreferences({ behavior: 'arc', sensitivity: null, editors: { bones: { behavior: 'oops', sensitivity: 'oops' }, unknown: { behavior: 'pivot' } } }), { behavior: 'ring', sensitivity: 1, editors: {} });
   assert.equal(normalizeRotationPreferences({ sensitivity: -3 }).sensitivity, .01);
   assert.equal(normalizeRotationPreferences({ sensitivity: 999 }).sensitivity, 4);
   assert.equal(normalizeRotationPreferences({ sensitivity: Infinity }).sensitivity, 1);
@@ -145,10 +145,10 @@ test('Straight drag and Circle the pivot opt-ins keep their old turns with the a
   }
 });
 test('saved profiles move to Along the ring once; later choices and editor overrides stay', () => {
-  const saved = { rendererRevision: 3, pointerSensitivity: .6, rotation: { behavior: 'pivot', sensitivity: 2, editors: { uv: { behavior: 'linear' }, movement: { behavior: 'pivot' }, forge: { sensitivity: .25 } } } };
+  const saved = { rendererRevision: 3, pointerSensitivity: .6, rotation: { behavior: 'pivot', sensitivity: 2, editors: { bones: { behavior: 'linear' }, movement: { behavior: 'pivot' }, forge: { sensitivity: .25 } } } };
   const migrated = normalizePreferences(saved);
   assert.equal(migrated.rotationRevision, 2);
-  assert.deepEqual(migrated.rotation, { behavior: 'ring', sensitivity: 2, editors: { uv: { behavior: 'linear' }, movement: { behavior: 'pivot' }, forge: { sensitivity: .25 } } });
+  assert.deepEqual(migrated.rotation, { behavior: 'ring', sensitivity: 2, editors: { bones: { behavior: 'linear' }, movement: { behavior: 'pivot' }, forge: { sensitivity: .25 } } });
   assert.equal(normalizePreferences({ ...saved, rotation: { behavior: 'linear' } }).rotation.behavior, 'ring');
   for (const behavior of ['linear', 'pivot', 'ring']) {
     const chosen = normalizePreferences({ ...migrated, rotation: { ...migrated.rotation, behavior } });

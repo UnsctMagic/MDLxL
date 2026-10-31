@@ -1,15 +1,16 @@
 import React from 'react';
 import { Tool } from './EditorControls.jsx';
+import ToolIcon from './ToolIcon.jsx';
 
 export const MOLD_TOOLS=[
-  ['Bend','M4 20V11Q4 4 11 4H20 M8 20V11Q8 8 11 8H20','Bend a piece or selected region. Drag Center and Range to choose where it bends.'],
-  ['Bulge','M6 3Q1 12 6 21 M18 3Q23 12 18 21 M8 12H16 M12 8V16','Bulge / Pinch: widen or squeeze the middle while the ends stay put.'],
-  ['Taper','M4 21 9 3H15L20 21Z','Taper: gradually narrow or widen a piece toward one end.'],
-  ['Bevel','M3 21V8L8 3H21 M3 8H8V3 M8 8 21 21','Bevel: turn selected solid edges into angled or rounded edges.'],
-  ['Twist','M6 3C24 7 0 17 18 21 M18 3C0 7 24 17 6 21 M6 3H18 M6 21H18','Twist a piece along its length while its starting end stays still.'],
+  ['Bend','Bend a piece or selected region. Drag Center and Range to choose where it bends.'],
+  ['Bulge','Bulge / Pinch: widen or squeeze the middle while the ends stay put.'],
+  ['Taper','Taper: gradually narrow or widen a piece toward one end.'],
+  ['Bevel','Bevel: turn selected solid edges into angled or rounded edges.'],
+  ['Twist','Twist a piece along its length while its starting end stays still.'],
 ];
 export function ForgeMoldTools({active,disabled,onChoose}){
-  return <div className="classic-tools forge-mold-tools" role="group" aria-label="Shaping tools">{MOLD_TOOLS.map(([name,path,description])=><Tool key={name} title={name==='Bulge'?'Bulge / Pinch':name} action={'forge:shape:mold:'+name} description={description} disabled={disabled} active={active===name} onClick={()=>onChoose(name)}><svg className="modern-retro-icon modern-retro-gold" viewBox="0 0 24 24" aria-hidden="true"><path d={path}/></svg></Tool>)}</div>;
+  return <div className="classic-tools forge-mold-tools" role="group" aria-label="Shaping tools">{MOLD_TOOLS.map(([name,description])=><Tool key={name} title={name==='Bulge'?'Bulge / Pinch':name} action={'forge:shape:mold:'+name} description={description} disabled={disabled} active={active===name} onClick={()=>onChoose(name)}><ToolIcon name={name.toLowerCase()} className="modern-retro-icon"/></Tool>)}</div>;
 }
 export function ForgeMoldControls({state,error,onChange,onApply,onCancel}){
   if(!state)return null;

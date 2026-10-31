@@ -5,6 +5,11 @@ from `origin/main` `4b3487f2`); earlier PR #327 then #336 (Pivot-based default) 
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-29
 
+Update 2026-10-31: the 2D UV map left this module. Its Rotate follows the mouse
+around the selection one for one (`uvTurn` in `src/uv-tools.js`) and ignores every
+rotation setting; the owner's 0.3× rotation sensitivity had made it lag the mouse.
+"UV Wrapper" is no longer a Rotation settings choice. UV notes below are history.
+
 ## Current status: "Along the ring" is the default (2026-10-29)
 
 Why: the owner found Rotate unprofessional. With Pivot-based, an axis facing the

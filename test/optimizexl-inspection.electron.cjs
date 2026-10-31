@@ -1,9 +1,10 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
 
 (async()=>{
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','optimizexl-inspection-proof');fs.mkdirSync(out,{recursive:true});
- const model=process.env.MDLXL_OPTIMIZEXL_MODEL||'C:/Users/PC/Documents/ChatGPT/MDLxL/out/Khorne_Optimized_Review/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx';
+ const model=process.env.MDLXL_OPTIMIZEXL_MODEL||testModel('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
  const source=fs.readFileSync(model),packaged=appTarget().packaged;
  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });
  try{

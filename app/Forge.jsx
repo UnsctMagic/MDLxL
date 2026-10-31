@@ -3,7 +3,7 @@ import { windowCommandActions } from '../src/commands.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { alphaMask, buildForgeMesh, combineMask, cropContour, cropMask, magicWand, polygonMask } from '../src/forge.js';
 import { textureFromAsset } from './Viewport.jsx';
-import { bindScrollSensitivity, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelZoomFactor } from './viewport-performance.js';
+import { bindScrollSensitivity, createFrameCoalescer, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelZoomFactor } from './viewport-performance.js';
 import { cameraBindings } from '../src/preferences.js';
 import { trapTab } from './focus-trap.js';
 import TextureLibrary from './TextureLibrary.jsx';
@@ -24,7 +24,11 @@ async function readImage(asset) {
 }
 function MaskEditor({ preferences, onSensitivityChange, onPointerSensitivityChange, image, mask, selected, points, setPoints, closed, setClosed, tool, cropShape, tolerance, connected, onSelected, onCrop, onBeginEdit, onBeginPolygon }) {
   const host = useRef(), canvas = useRef(), drag = useRef(), [size, setSize] = useState([600, 400]), [zoom, setZoom] = useState(1), [pan, setPan] = useState([0, 0]);
-  const current = useRef(), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
+  const current = useRef(), [adjustingSensitivity, setAdjustingSensitivity] = useState(null), applyMove = useRef(), moveFrame = useRef();
+  // Pointers report far more often than the display refreshes; pan, zoom, crop and point
+  // drags (and a closed polygon's full-image mask) run once per frame with the latest point.
+  if (!moveFrame.current) moveFrame.current = createFrameCoalescer(() => applyMove.current?.());
+  useEffect(() => () => moveFrame.current.cancel(), []);
   const layers = useMemo(() => {
     if (!image) return null;
     const source = document.createElement('canvas'); source.width = image.width; source.height = image.height;
@@ -88,8 +92,9 @@ function MaskEditor({ preferences, onSensitivityChange, onPointerSensitivityChan
       else { if (closed || !points.length) onBeginPolygon(); setPoints(closed ? [p] : [...points, p]); setClosed(false); onSelected(null); }
     }
   };
-  const move = e => {
-    if (!drag.current || !image) return; const d = drag.current;
+  const move = e => { if (!drag.current || !image) return; drag.current.pending = { clientX: e.clientX, clientY: e.clientY }; moveFrame.current.schedule(); };
+  applyMove.current = () => {
+    const d = drag.current, e = d?.pending; if (!e || !image) return;
     if (d.type === 'pan') { setPan([d.pan[0] + (e.clientX - d.start[0]) * d.sensitivity, d.pan[1] + (e.clientY - d.start[1]) * d.sensitivity]); return; }
     if (d.type === 'zoom') {
       const next = Math.max(.25, Math.min(24, d.zoom * Math.exp(-(e.clientY - d.start[1]) * .01 * d.sensitivity))), factor = next / d.zoom, rect = canvas.current.getBoundingClientRect();
@@ -107,8 +112,8 @@ function MaskEditor({ preferences, onSensitivityChange, onPointerSensitivityChan
     }
     else { const next = points.map((v, i) => i === d.index ? p : v); setPoints(next); if (closed) onSelected(polygonMask(image.width, image.height, next)); }
   };
-  const up = () => { const d = drag.current; if (d?.type === 'crop') { const { start, end } = d.next || d; if (Math.abs(start[0] - end[0]) >= 1 && Math.abs(start[1] - end[1]) >= 1) onCrop(cropMask(image.width, image.height, cropShape, start, end)); } drag.current = null; };
-  return <div className="forge-image-stage"><div className="forge-zoom"><button onClick={() => setZoom(z => Math.max(.25, z / 1.3))} aria-label="Zoom out">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom(z => Math.min(24, z * 1.3))} aria-label="Zoom in">+</button><button onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit image</button></div><div ref={host} className="forge-image-host"><canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }} onContextMenu={e => e.preventDefault()} aria-label="Image cleanup canvas"/>{adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}{!image && <div className="forge-empty">Load an image to crop and clean its silhouette.</div>}</div></div>;
+  const up = () => { moveFrame.current.flush(); const d = drag.current; if (d?.type === 'crop') { const { start, end } = d.next || d; if (Math.abs(start[0] - end[0]) >= 1 && Math.abs(start[1] - end[1]) >= 1) onCrop(cropMask(image.width, image.height, cropShape, start, end)); } drag.current = null; };
+  return <div className="forge-image-stage"><div className="forge-zoom"><button onClick={() => setZoom(z => Math.max(.25, z / 1.3))} aria-label="Zoom out">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom(z => Math.min(24, z * 1.3))} aria-label="Zoom in">+</button><button onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit image</button></div><div ref={host} className="forge-image-host"><canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { moveFrame.current.cancel(); drag.current = null; }} onContextMenu={e => e.preventDefault()} aria-label="Image cleanup canvas"/>{adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}{!image && <div className="forge-empty">Load an image to crop and clean its silhouette.</div>}</div></div>;
 }
 const DEFAULTS = { detail: 35, size: 100, thickness: 0, trim: false, trimWidth: 3, trimThickness: 1, trimOffset: 0, trimHoles: true };
 export default function Forge({ model, modelPath, preferences, onSensitivityChange, onPointerSensitivityChange, editorState, onClose, onCommit }) {

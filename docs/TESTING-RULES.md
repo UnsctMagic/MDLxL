@@ -64,3 +64,10 @@ request that breaks a rule below is not reviewed. It goes back.
 Zero failures in the full packaged suite on the final package, zero unexplained
 skips, source and compatibility suites green, every feature the owner asked to
 include merged and tested the user's way. Anything less: no tag, no publish.
+
+**One full run per release, never more.** The full suite takes about 1.5 hours
+and the owner waits for it. Run it once, after the release scope is frozen.
+After a fix or a late addition, rerun only the failed tests plus the tests that
+cover the changed files (map the changed components, styles and source files
+to test names). Tests that passed on code that has not changed since are not
+rerun. A passing result stays valid until its own code changes.

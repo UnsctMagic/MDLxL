@@ -125,3 +125,17 @@ test('node and unchecked-geoset drafts remain pending while BAKE updates only ch
   assert.deepEqual(model.Lights[0], light);
   close(sampleAnimationProperty(model, target(0, 'Color'), 1000, 0), settings.color);
 });
+
+test('Bake RGB leaves visibility alone and Bake All Visibility leaves colour alone', () => {
+  const doc = fixture(), model = doc.model;
+  setAnimationKey(model, [target(0, 'Alpha')], 1000, .5, 0);
+  setAnimationKey(model, [target(0, 'Color')], 1000, [0, 1, 0], 0);
+  const alphaBefore = structuredClone(model.GeosetAnims.find(a => a.GeosetId === 0).Alpha);
+  bakeGeosetAnimationSettings(model, { geosetIds: [0], color: [1, .2, .4] });
+  assert.deepEqual(model.GeosetAnims.find(a => a.GeosetId === 0).Alpha, alphaBefore, 'colour baking keeps the visibility track');
+  close(sampleAnimationProperty(model, target(0, 'Color'), 3500, 1), [1, .2, .4]);
+  const colorBefore = structuredClone(model.GeosetAnims.find(a => a.GeosetId === 0).Color);
+  bakeGeosetAnimationSettings(model, { geosetIds: [0], alpha: .25 });
+  assert.deepEqual(model.GeosetAnims.find(a => a.GeosetId === 0).Color, colorBefore, 'visibility baking keeps the colour track');
+  close(sampleAnimationProperty(model, target(0, 'Alpha'), 3500, 1), .25);
+});

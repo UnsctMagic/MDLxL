@@ -9,12 +9,14 @@ import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { applyMovementPose } from '../src/movement.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { poseChainIds, poseRole, withPoseResult, suggestPoseRig, samplePoseChain, solvePoseLimb, solvePoseNode, poseNodeControl, poseNodeConstraints, poseTrackScope } from '../src/pose-ik.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const points = (model,frame,sequence) => { const matrices=sampleNodeMatrices(model,frame,sequence,frame); return new Map(allNodes(model).map(node=>[node.ObjectId,new Vector3(...node.PivotPoint).applyMatrix4(matrices.get(node.ObjectId))])); };
 const move = (model,config,target,values,frame,sequence,mode='move') => {const id=target.kind==='body'?config.body:target.id;return solvePoseNode(model,id,poseNodeConstraints(model,config,id,mode,target),frame,sequence,{mode,space:'world',values,control:poseNodeControl(model,config,target,mode)});};
 function attached(before,after,frame,sequence,tolerance){const a=points(before,frame,sequence),b=points(after,frame,sequence);for(const node of allNodes(before))if(a.has(node.Parent))assert.ok(Math.abs(a.get(node.ObjectId).distanceTo(a.get(node.Parent))-b.get(node.ObjectId).distanceTo(b.get(node.Parent)))<tolerance,`joint ${node.ObjectId} detached`);}
-const footman='out/pose/Footman.mdx';
+const footman=testModel('pose/Footman.mdx');
 test('Footman pelvis carries its sibling chest through the shared body, while native bone selection retains FK', {skip:!fs.existsSync(footman)},()=>{
  const doc=openDocument(fs.readFileSync(footman)),original=structuredClone(doc.model),config={...suggestPoseRig(doc.model,167,0),pins:[]};
  for(const [mode,values] of [['move',[25,-15,0]],['move',[0,0,60]],['rotate',[0,20,0]]]){

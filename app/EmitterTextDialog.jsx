@@ -1,4 +1,5 @@
-import React,{useMemo,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {createFrameCoalescer} from './viewport-performance.js';
 import {emitterMdlText,parseEmitterMdlText,applyEmitterNode} from '../src/emitter-text.js';
 import {mdlHoverPieces} from '../src/mdl-glossary.js';
 import Dialog from './Dialog.jsx';
@@ -27,9 +28,15 @@ export default function EmitterTextDialog({doc,id,onEdit,onClose}){
   try{const parsed=parseEmitterMdlText(doc,id,text);if(onEdit('Adjust emitter manually',['Nodes'],m=>{applyEmitterNode(m,id,parsed);})!==false)onClose();}
   catch(problem){setError(problem.message);}
  };
- const hover=event=>{
-  const area=event.currentTarget,style=getComputedStyle(area),rect=area.getBoundingClientRect();
-  const context=hover.canvas||(hover.canvas=document.createElement('canvas').getContext('2d'));context.font=style.font;
+ // The mouse position is recorded; measuring the text and moving the tip happen once per frame.
+ const pointer=useRef(null),findTip=useRef(null),frame=useRef(null),measure=useRef(null);
+ frame.current||=createFrameCoalescer(()=>{if(pointer.current)findTip.current(pointer.current);});
+ useEffect(()=>()=>frame.current.cancel(),[]);
+ const hover=event=>{pointer.current={area:event.currentTarget,clientX:event.clientX,clientY:event.clientY};frame.current.schedule();};
+ const leave=()=>{frame.current.cancel();pointer.current=null;setTip(null);};
+ findTip.current=event=>{
+  const area=event.area,style=getComputedStyle(area),rect=area.getBoundingClientRect();
+  const context=measure.current||(measure.current=document.createElement('canvas').getContext('2d'));context.font=style.font;
   const width=context.measureText('0000000000').width/10,height=parseFloat(style.lineHeight)||parseFloat(style.fontSize)*1.45;
   const line=Math.floor((event.clientY-rect.top-parseFloat(style.paddingTop)+area.scrollTop)/height),column=Math.floor((event.clientX-rect.left-parseFloat(style.paddingLeft)+area.scrollLeft)/width);
   const found=index[line]?.find(piece=>column>=piece.from&&column<piece.to),box=area.parentElement.getBoundingClientRect();
@@ -42,8 +49,8 @@ export default function EmitterTextDialog({doc,id,onEdit,onClose}){
    <div className="emitter-text-editor">
     <pre ref={mirror} className="emitter-text-mirror" aria-hidden="true">{pieces.map((piece,i)=>piece.tip?<span key={i}>{piece.text}</span>:piece.text)}{'\n'}</pre>
     <textarea aria-label="Emitter MDL text" spellCheck={false} wrap="off" value={text} autoFocus
-     onChange={e=>{setText(e.target.value);setError('');}} onMouseMove={hover} onMouseLeave={()=>setTip(null)}
-     onScroll={e=>{if(mirror.current){mirror.current.scrollTop=e.currentTarget.scrollTop;mirror.current.scrollLeft=e.currentTarget.scrollLeft;}setTip(null);}}/>
+     onChange={e=>{setText(e.target.value);setError('');}} onMouseMove={hover} onMouseLeave={leave}
+     onScroll={e=>{if(mirror.current){mirror.current.scrollTop=e.currentTarget.scrollTop;mirror.current.scrollLeft=e.currentTarget.scrollLeft;}frame.current.cancel();setTip(null);}}/>
     {tip&&<div className="emitter-text-tip" role="tooltip" style={{left:Math.max(4,tip.x),top:tip.y}}>{tip.text}</div>}
    </div>
    {error&&<p className="emitter-text-error" role="alert">{error}</p>}
