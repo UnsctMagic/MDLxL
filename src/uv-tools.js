@@ -2,6 +2,27 @@ import { sampleTrack } from './animation.js';
 
 const finiteIndex = value => Number.isSafeInteger(value) && value >= 0;
 const uniqueIndices = values => [...new Set(Array.from(values || []).filter(finiteIndex))];
+/** Screen pixels around the selection's centre where the mouse has no direction yet. */
+const UV_TURN_CENTRE = 2;
+/** Inside this many screen pixels of the centre the turn goes by distance moved
+ * around it, as at this radius, so a mouse over the selection cannot snap it. */
+const UV_TURN_STEADY = 48;
+
+/** UV map Rotate: the turn in radians follows the mouse around the selection's
+ * centre (`drag.pivotScreen`) one for one beyond UV_TURN_STEADY pixels, and adds
+ * up past a full circle. Closer in, each pixel moved around the centre turns
+ * the same small amount, so passing over the centre never flips it. Positive is
+ * clockwise on screen. `drag.fine` scales it (Alt); no 3D rotation setting
+ * applies. Call once at drag start and on every move. */
+export function uvTurn(drag, x, y) {
+  drag.turn ??= 0;
+  const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
+  if (radius < UV_TURN_CENTRE) return drag.turn;
+  const angle = Math.atan2(py, px);
+  if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / UV_TURN_STEADY, drag.radius / UV_TURN_STEADY) * (drag.fine ?? 1);
+  drag.angle = angle; drag.radius = radius;
+  return drag.turn;
+}
 
 /** Set both repeat axes without changing other texture flags or UVs. */
 export function setUVTextureWrapping(model, textureIDs, enabled) {

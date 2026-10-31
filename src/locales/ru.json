@@ -6801,7 +6801,7 @@
   "All editors (default)": "Все редакторы (по умолчанию)",
   "Behavior": "Поведение",
   "Use default ·": "По умолчанию ·",
-  "Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly.": "Скорость вращения умножает чувствительность указателя или UV редактора. Меньшее значение вращает медленнее.",
+  "Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse.": "Скорость вращения умножает чувствительность указателя редактора. Меньшее значение вращает медленнее. UV-карта всегда поворачивается вместе с мышью.",
   "Rotation sensitivity": "Чувствительность вращения",
   "Use default rotation sensitivity": "Использовать чувствительность вращения по умолчанию",
   "Use default": "По умолчанию",
