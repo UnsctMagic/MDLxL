@@ -1,9 +1,10 @@
 # Top bar layout: status row items up, model tabs down, warning toasts
 
-State: implemented 1 Nov 2026 by Codex; ready to test and awaiting merge approval.
+State: completed 1 Nov 2026; owner-approved PR #485 merged into main.
 Owner of implementation: Codex. Branch: `codex/top-bar-layout` from current `main`.
-PR: [#485](https://github.com/UnsctMagic/MDLxL/pull/485), open and unmerged.
-Implementation revision: `5b7ff6a6973394fde73f28c62f27f6ca76e34d64`.
+PR: [#485](https://github.com/UnsctMagic/MDLxL/pull/485), merged.
+Merge revision: `30713681ea74ceaa601379f029e50dd44296f264`.
+Final integrated head: `474f0268b9ff9d568c7ee04c43666187b3317539`.
 
 ## Goal (owner's words)
 
@@ -122,8 +123,7 @@ only; the small arrows pointing at the model's waist are unrelated — ignore th
 
 ## Next action
 
-Review the `codex/top-bar-layout` PR into `main`, then owner/Claude QA click-through.
-Do not merge without the owner's approval.
+Completed. The owner approved the merge after the visible team-colour test.
 
 ## Implementation and handoff
 
@@ -209,3 +209,14 @@ the next full release suite (not restored product chatter). Examples:
 `alert-ping`, `model-tabs`, `dummy-bone`, `geoset-operations`,
 `geoset-merge-conflicts`, `localization`, `normalizer`, `vis-mdlvis-mode`,
 `uv-preview-edit-constraints`, `pose-complex`, `showcase`.
+
+## Merge verification
+
+Integrated main `79bea97f` before merging. Resolved the shared new-look button
+selectors by retaining both bottom-tab styling and main’s Loose parts button
+exclusions; preserved the new AI task-index row. Focused owner checks: 60 pass,
+zero fail/skip. Fresh packaged default and 150% DPI workflows both passed on the
+hidden desktop. CI passed on `474f0268` before the authorized merge. Verified the
+merged revision is on online main and checked top model controls, swatch-only
+team colour with readable dropdown names, bottom tabs, warnings, Add-ons, and
+main’s Loose parts exclusions there.
