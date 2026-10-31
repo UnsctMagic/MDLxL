@@ -98,8 +98,9 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   // Show body: the body over the corpse just after it switches on in Decay Flesh.
   const corpseSequence = corpse ? (withBody ? corpse.flesh : corpse.bone) : -1;
   const time = corpse ? (bloodTab ? deathStart + bloodTime : draft.model.Sequences[corpseSequence].Interval[0] + (withBody ? 200 : 0)) : 0;
-  // Pieces are planned before Size scales the corpse about the body's centre.
-  const show = point => { const c = corpse?.sizeCenter || [0, 0], s = size / 100; return [c[0] + (point[0] - c[0]) * s, c[1] + (point[1] - c[1]) * s, Math.max(2, (corpse?.span || 0) * .025) * height / 100]; };
+  // Pieces are planned before Size scales the corpse about the body's centre;
+  // a raised or lowered piece shows its handles at its own height.
+  const show = (point, raise = 0) => { const c = corpse?.sizeCenter || [0, 0], s = size / 100; return [c[0] + (point[0] - c[0]) * s, c[1] + (point[1] - c[1]) * s, (Math.max(2, (corpse?.span || 0) * .025) + raise) * height / 100]; };
   const bloodPoints = rows.map(row => ({ start: row.position, end: row.position, half: 0 }));
   const marks = useMemo(() => !corpse ? undefined : bloodTab ? pieceMarks(bloodPoints, bloodSelected, point => [point[0], point[1], point[2] || 0]) : pieceMarks(shown, selected, show), [shown, selected, corpse, size, bloodTab, rows, bloodSelected]);
 
@@ -122,7 +123,13 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   useEffect(frame, [corpse]);
   // New handle points are projected on the preview's next draw.
   useEffect(() => { api.current?.invalidate(); }, [marks]);
-  const edit = (index, piece) => { if (!dragging.current) remember(); setPieces(list => (list || corpse.pieces).map((value, i) => i === index ? piece : value)); };
+  const edit = (index, piece) => {
+    if (!dragging.current) remember();
+    // Lowering stops just above the ground, where the corpse itself stops it.
+    const floor = corpse?.parts?.find(part => part.piece === index)?.minRaise;
+    if (piece.raise != null && floor != null) piece = { ...piece, raise: Math.max(floor, piece.raise) };
+    setPieces(list => (list || corpse.pieces).map((value, i) => i === index ? piece : value));
+  };
   const remove = index => { remember(); setPieces(list => (list || corpse.pieces).filter((_, i) => i !== index)); setSelected(null); };
   const add = kind => {
     if (!corpse) return;
@@ -246,11 +253,11 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
             sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
           {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>
-            : <CorpseStageTools snapshot={snapshot} pieces={shown} selected={selected} scale={size / 100} onSelect={setSelected} onChange={edit} onDrag={drag}/>}
+            : <CorpseStageTools snapshot={snapshot} pieces={shown} selected={selected} onSelect={setSelected} onChange={edit} onDrag={drag}/>}
         </section>
       </div>
       <footer>
-        <span role="status" className={error || draft.error ? 'atm-error' : 'atm-muted'}>{error || draft.error || (bloodTab ? (bloodSelected != null ? 'Drag the handle to move this blood. Delete removes it.' : 'Double-click blood to move it, or add a splat or spray. Play to see it.') : selected != null ? 'Drag the handles to move, stretch or widen this part. Delete removes it. Ctrl+Z undoes.' : 'Double-click a body part to move or stretch it. Drag to turn the camera.')}</span>
+        <span role="status" className={error || draft.error ? 'atm-error' : 'atm-muted'}>{error || draft.error || (bloodTab ? (bloodSelected != null ? 'Drag the handle to move this blood. Delete removes it.' : 'Double-click blood to move it, or add a splat or spray. Play to see it.') : selected != null ? 'Drag the handles to move, raise, stretch or widen this part. Delete removes it. Ctrl+Z undoes.' : 'Double-click a body part to move or stretch it. Drag to turn the camera.')}</span>
         <button className="atm-commit active" disabled={!!draft.error || doc.readOnly} title="Make this corpse and its decay animations as one undoable edit" onClick={commit}>Create</button>
         <button onClick={onClose}>Close</button>
       </footer>
