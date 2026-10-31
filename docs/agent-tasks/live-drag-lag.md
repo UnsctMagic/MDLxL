@@ -49,7 +49,7 @@ held value, `paint-image-navigation.test.js` zoom drag (steps a manual frame).
 
 ## Verification
 
-- `node --test test/*.test.js`: 2594 tests, 0 failures.
+- `node --test test/*.test.js`: 2600 tests, 0 failures (final build).
 - Packaged run on an early build (UV only), 22 drag/UV/timeline tests: 21 pass, 1 skip
   (fixture, since copied).
 - Full packaged suite and reruns: see [PR #477](https://github.com/UnsctMagic/MDLxL/pull/477); only citadel-locales (also fails on main) and update-popup-fallback (symlink permission) fail.
