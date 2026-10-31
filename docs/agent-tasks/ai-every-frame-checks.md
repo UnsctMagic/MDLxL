@@ -81,7 +81,7 @@ This is idea 2 (fact 12) of [AI hook learning facts](ai-hook-learning-facts.md#1
    default. Keep the whole reply small: aim under ~2 KB for a 30-animation model.
    Follow the existing rule in `ai-motion-compare.js`: statistics, never pass/fail
    fields. The AI judges the numbers. Flag camera-dependent (billboarded) nodes
-   the same way `sampleAiModel` does, because a sweep cannot judge them.
+   in the measured hierarchy using the same flag bits as `sampleAiModel`.
 5. **Plan and review.** A plan check may carry one sweep rule. `mdlxl_review` and
    the outside check re-run those rules on the edited model (and on the baseline
    when one is set, so before/after both show) and include the compact rows next to
@@ -127,9 +127,9 @@ This is idea 2 (fact 12) of [AI hook learning facts](ai-hook-learning-facts.md#1
 
 - Supply `sweep: {kind, a, b?, reference?, sequences?, globalSequence?, limit?}` to `mdlxl_sample`. A point is `{nodeId}` or `{geoset, vertices}`, using zero-based IDs. Omitting both selectors walks every local clip and each positive-duration global clock. Explicit local and global selectors can be combined.
 - `attached` compares the centroid offset in B’s own space to its reference pose. For a vertex group, B’s origin is its posed centroid and its axes are its mean skin transform. `clear` measures the closest pair of named vertices or pivots. `level` measures signed Z, selects the largest absolute excursion, and returns min, max and spread. The optional share counts visible, measurable frames strictly below the clearance limit or strictly above the drift/absolute-height limit.
-- The table declares its columns once. Each row includes the visit count, step in ms, number measured, worst value and absolute frame, p50 and p95. Invisible geosets and singular attached bases contribute no measurements. Empty rows have null statistics. Camera-dependent nodes are listed as in the frame sampler. Each sweep snapshots the named points, their bone hierarchies, clips and visibility before yielding to the editor.
+- The table declares its columns once. Each row includes the visit count, step in ms, number measured, worst value and absolute frame, p50 and p95. Invisible geosets and singular attached bases contribute no measurements. Empty rows have null statistics. The camera warning lists only billboarded nodes that influence the selected points, including their ancestors. It is omitted when none contribute. Each sweep snapshots the named points, their bone hierarchies, clips and visibility before yielding to the editor.
 - Existing string plan checks still work. A check of the form `{name, sweep}` supplies the app-owned rule for inspection. Both sides are measured on each revision, against the job start or named baseline. Cache identity includes the revision, baseline and actual checklist. The independent reviewer requests the latest plan’s evidence against that inspection baseline. It reuses the cached table when it still matches. A missing ID on one side is identified on that side.
-- A `sampleAiModel` run under Node 22.23.3 on Windows took **4.00 s** on `pose-complex-fixtures/Current_VampireDragon.mdx` (263 nodes, 2,849 vertices). The attached sweep used vertices 0–5 of geoset index 8 against node 3, limit 1. It visited **76,272 timestamps in 29 local and 6 global clips**, measured 70,271 visible samples and returned 2,255 UTF-8 bytes. The largest drift was 150.703 model units in Death Alternate at frame 171566. The walk yields to the event loop during long clips.
+- The initial `sampleAiModel` run under Node 22.23.3 on Windows took **4.00 s** on `pose-complex-fixtures/Current_VampireDragon.mdx` (263 nodes, 2,849 vertices). The attached sweep used vertices 0–5 of geoset index 8 against node 3, limit 1. It visited **76,272 timestamps in 29 local and 6 global clips**, measured 70,271 visible samples and returned 2,255 UTF-8 bytes. The largest drift was 150.703 model units in Death Alternate at frame 171566. The walk yields to the event loop during long clips.
 
 ## Verification results
 
@@ -138,6 +138,13 @@ This is idea 2 (fact 12) of [AI hook learning facts](ai-hook-learning-facts.md#1
 - AI suite 314 passed, 0 failed, 1 Windows SIGTERM skip. Full source suite 2,618 passed, 0 failed, 10 skipped. The CI baseline has no failure entries and remained unchanged. Compatibility 57 passed, 0 failed, 0 skipped.
 - The 10 full-source skips comprise the POSIX SIGTERM check, Windows symlink privilege, unavailable 8.3 short names on the volume, and optional input fixtures for archer armor, the broken/rebuilt skinning pair, private Fx, two pose-corpus manifest checks, the dense twin-head rider and the Tinker/Brown Magnataur replay.
 - Rebuilt and packaged on Windows. The final hidden `ai-editor` test passed **72/72** checks in 28 s. The real MCP call measured Z = 40 at 1,001 timestamps in each of Stand and Attack. Owner playback, a live AI provider and Warcraft III were not exercised.
+
+## PR #488 review follow-up
+
+- The outside reviewer’s sweep block is capped at 4,000 characters including its heading and truncation notice. Full tables are sent when they fit. Larger tables retain as many complete check summaries as fit, with both sides’ worst clip, frame and value or measurement error. The sampler and inspection still return their full tables.
+- Both MCP and the local sampler allow up to 256 supplied vertex IDs per sweep point. The sampler identifies the oversized point and tells the caller how many vertices to choose. The tool schema directs floor checks to each row’s signed minimum and ceiling checks to its signed maximum. This wording lives in the tool description, outside the editing prompt.
+- Before the fix, a single 35-clip check produced a 4,667-character reviewer block, an unrelated billboard appeared alongside both influencing nodes, and 257 supplied IDs did not raise an error. The final workflow test exercises 20 checks with 35 clips on both sides. The billboard test covers a skinned point, its parent and an unrelated hierarchy. The input test accepts 256 IDs and rejects 257.
+- All 63 tests across `ai-relation-sweep`, `ai-workflow`, `ai-review-pictures` and `ai-prompts` passed with zero failures or skips. The existing prompt fingerprints passed unchanged. The rebuilt Windows package passed all 72 `ai-editor` checks on the hidden MDLxLTests desktop in 23 s, including the real MCP sweep. Verification for this follow-up was limited to those four source files and that packaged test.
 
 ## Next action
 

@@ -1581,7 +1581,7 @@ class AiService {
           ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).map(c => c.name ?? c).join('; ')}.`
           : 'The worker recorded no plan (an exact value edit).',
         `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
-        ...(inspect.sweeps?.length ? [`MDLxL plan sweep measurements:\n${JSON.stringify(inspect.sweeps)}`] : []),
+        ...(inspect.sweeps?.length ? [outsideSweepBlock(inspect.sweeps)] : []),
         ...(inspect.motion ? [`MDLxL's own measurement, not written by the worker:\n${JSON.stringify(inspect.motion)}`] : []),
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
         ...(left.length ? [`Not sent, to keep the set small (the worker saw them): ${left.join('; ')}.`] : []),
@@ -2081,6 +2081,24 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
 function acceptsDelivery(text) {
   return /^(?:(?:please|just|fucking)\s+)*(?:i\s+)?(?:deliver|accept)(?:\s+(?:it|this(?:\s+(?:result|edit|model))?|(?:the\s+)?(?:current\s+)?(?:result|edit|model)))?(?:\s+(?:anyway|now|as[ -]is))?(?:\s*$|[,.!;]|\s+i (?:don['’]?t|do not) care)/i.test(String(text || '').trim());
 }
+function outsideSweepBlock(sweeps) {
+  const header = 'MDLxL plan sweep measurements:\n', limit = 4000;
+  const full = header + JSON.stringify(sweeps);
+  if (full.length <= limit) return full;
+
+  const note = '\n[Truncated to the before/edited worst measurements and errors that fit.]';
+  const summary = [];
+  let length = header.length + 2 + note.length; // Include the JSON array brackets.
+  for (const { name, before, edited } of sweeps) {
+    const row = JSON.stringify({ name, before: before?.worst ?? before?.error ?? null, edited: edited?.worst ?? edited?.error ?? null });
+    const added = row.length + (summary.length ? 1 : 0);
+    if (length + added > limit) continue;
+    summary.push(row);
+    length += added;
+  }
+  return header + '[' + summary.join(',') + ']' + note;
+}
+
 // The outside check gets a bounded but complete comparison set: whole groups only,
 // so the original, edited and donor pictures of one phase stay together. The still
 // comparison comes first, then as many phases as fit, spread over the animation,

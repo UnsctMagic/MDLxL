@@ -9,8 +9,9 @@ const target = string(
 );
 const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'] };
 const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
+export const MAX_SWEEP_POINT_VERTICES = 256;
 const sweepPoint = {
-  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1 } }),
+  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES } }),
   description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based).',
 };
 export const AI_SWEEP_SCHEMA = {
@@ -23,7 +24,7 @@ export const AI_SWEEP_SCHEMA = {
     limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it.' },
   }),
   required: ['kind', 'a'],
-  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
+  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
 };
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,

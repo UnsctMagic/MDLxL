@@ -1,5 +1,6 @@
 import { Matrix4, Vector3 } from 'three';
 import { allNodes, geosetSkinMatrix, nodePivot, sampleGeosetAnimation, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { MAX_SWEEP_POINT_VERTICES } from './ai-tools.js';
 import { animation, animationFrames } from './ai-motion-compare.js';
 import { standSequenceIndex } from './sequence-editor.js';
 
@@ -18,6 +19,8 @@ function preparePoint(model, spec, label, nodes, needed) {
   }
   const g = model.Geosets?.[spec.geoset];
   if (!index(spec.geoset) || !g) throw Error('Invalid geoset for point ' + label + '.');
+  if (Array.isArray(spec.vertices) && spec.vertices.length > MAX_SWEEP_POINT_VERTICES)
+    throw Error(`Choose at most ${MAX_SWEEP_POINT_VERTICES} vertices for point ${label}.`);
   if (!Array.isArray(spec.vertices) || !spec.vertices.length || spec.vertices.some(v => !index(v) || v >= g.Vertices.length / 3))
     throw Error('Choose valid vertices for point ' + label + '.');
   const ids = [...new Set(spec.vertices)].sort((a, b) => a - b);
@@ -105,7 +108,7 @@ export async function sweepAiRelation(model, rule, signal) {
     Bones: [...needed].filter(id => nodes.has(id)).map(id => ({ ...nodes.get(id), PivotPoint: nodePivot(model, nodes.get(id)) })),
     GeosetAnims: model.GeosetAnims?.filter(g => geosets.includes(g.GeosetId)),
   });
-  const cameraDependentNodes = [...nodes.values()].filter(n => n.Flags & 120).map(n => n.ObjectId);
+  const cameraDependentNodes = [...needed].filter(id => nodes.get(id)?.Flags & 120).sort((a, b) => a - b);
   const from = new Vector3(), center = new Vector3(), basis = new Matrix4(), scratch = new Matrix4();
   function measure(clip, frame, reference) {
     const matrices = sampleNodeMatrices(clip.model, frame, clip.sequence);
@@ -161,5 +164,5 @@ export async function sweepAiRelation(model, rule, signal) {
     if (limit !== undefined) row.push(n ? compact(past / n) : null);
     rows.push(row);
   }
-  return { kind, worst, columns, rows, cameraDependentNodes };
+  return { kind, worst, columns, rows, ...(cameraDependentNodes.length ? { cameraDependentNodes } : {}) };
 }

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { AI_SWEEP_SCHEMA } from '../src/ai-tools.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 
 const key = (Frame, ...Vector) => ({ Frame, Vector });
@@ -75,14 +76,18 @@ test('level measures signed Z and its spread on the isolated global clock', asyn
 
 test('long clips include the off-grid endpoint, report step and flag billboard nodes', async () => {
   const m = fixture();
+  m.Bones[0].Flags = 16; // Parent of the skinned vertices' bone.
   m.Bones[1].Flags = 8;
+  m.Bones.push({ ObjectId: 2, Flags: 8 }); // Separate hierarchy.
   m.Sequences[2].Interval = [200, 5203];
   m.Bones[1].Translation = track(key(200, 0, 0, 0), key(5203, 0, 0, -7));
   const result = await run(m, { kind: 'level', a: point, sequences: [2] });
-  assert.deepEqual(result.cameraDependentNodes, [1]);
+  assert.deepEqual(result.cameraDependentNodes, [0, 1]);
   assert.deepEqual(result.worst, { clip: 'Last', frame: 5203, value: -7 });
   const [row] = records(result);
   assert.deepEqual([row.framesSampled, row.stepMs, row.spread], [502, 10, 7]);
+  m.Bones[0].Flags = 0;
+  assert.ok(!('cameraDependentNodes' in await run(m, { kind: 'level', a: anchor, sequences: [0] })));
 });
 
 test('invalid points, reference poses and clip selectors give actionable errors', async () => {
@@ -90,9 +95,12 @@ test('invalid points, reference poses and clip selectors give actionable errors'
   for (const [change, message] of [
     [{ a: { nodeId: 8 } }, /node/i], [{ a: { geoset: 3, vertices: [0] } }, /geoset/i],
     [{ a: { geoset: 0, vertices: [2] } }, /vert/i], [{ sequences: [14] }, /sequence/i],
+    [{ kind: 'clear', b: { geoset: 0, vertices: Array(257).fill(0) } }, /at most 256 vertices for point B/i],
     [{ globalSequence: 9 }, /global/i], [{ kind: 'clear' }, /point B/i],
     [{ kind: 'attached', b: point, reference: { sequence: 0, frame: 99 } }, /reference/i],
   ]) await assert.rejects(run(fixture(), { ...level, ...change }), message);
+  assert.equal(AI_SWEEP_SCHEMA.properties.b.properties.vertices.maxItems, 256);
+  await run(fixture(), { kind: 'clear', a: anchor, b: { geoset: 0, vertices: Array(256).fill(0) } });
 });
 
 test('30-clip evidence stays below 2 KiB without per-frame values or verdicts', async () => {
