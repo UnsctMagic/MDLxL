@@ -166,7 +166,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations>button:last-child{border-bottom:0!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-geoset-operations,.classic-geoset-split)>button:disabled{color:var(--ui-muted)!important;opacity:1}
 /* Seperate by Loose parts is the row; Nuclear is a small chip at its end. */
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split{display:flex;align-items:center;border-bottom:1px solid var(--m-line);background:var(--ui-field)}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split{display:flex;align-items:center;background:var(--ui-field)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split>button:first-child{flex:1 0 auto;margin:0!important;border-radius:0!important;background:transparent!important;border:0!important;text-align:left!important;padding:5px 4px 5px 12px!important;min-height:30px!important;height:auto!important;white-space:nowrap;color:var(--ui-text)!important;box-shadow:none!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split>button:first-child:disabled{color:var(--ui-muted)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split:has(>button:first-child:hover:not(:disabled)){background:var(--ui-hover)}
