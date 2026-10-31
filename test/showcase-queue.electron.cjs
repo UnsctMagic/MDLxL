@@ -1,10 +1,11 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, sha256File } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out/showcase-review/queue-inspection-'+Date.now());fs.mkdirSync(out,{recursive:true});
- const model=process.env.MDLXL_QUEUE_MODEL_A||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneFlail04.mdx',hash=()=>sha256File(model),beforeHash=hash();
- const other=process.env.MDLXL_QUEUE_MODEL_B||'C:/Users/PC/Desktop/WH_WOC_KnightKhorneAxe01.mdx'; const otherHash=sha256File(other);
+ const model=process.env.MDLXL_QUEUE_MODEL_A||testModel('showcase-queue/WH_WOC_KnightKhorneFlail03.mdx'),hash=()=>sha256File(model),beforeHash=hash();
+ const other=process.env.MDLXL_QUEUE_MODEL_B||testModel('showcase-queue/WH_WOC_KnightKhorneAxe03.mdx'); const otherHash=sha256File(other);
  const cache=JSON.parse(fs.readFileSync(path.join(root,'profile/game-data-discovery.json'),'utf8')).result;
  const entry=path.join(out,'main.cjs');fs.writeFileSync(entry,`const {app}=require('electron');app.getAppPath=()=>${JSON.stringify(out)};global.queueBegins=[];const {ipcMain}=require('electron'),handle=ipcMain.handle.bind(ipcMain);ipcMain.handle=(name,fn)=>handle(name,async(...args)=>{if(name==='preview:recordBegin')queueBegins.push({...args[1],light:await args[0].sender.executeJavaScript(\"document.querySelector('select[aria-label=\\\"Light\\\"]')?.value\")});return fn(...args);});const {GameDataDiscovery}=require(${JSON.stringify(path.join(root,'electron/game-data.cjs'))});GameDataDiscovery.prototype.discover=async()=>(${JSON.stringify(cache)});require(${JSON.stringify(path.join(root,'electron/main.cjs'))});`);
  fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile/recent.json'),JSON.stringify([model,other]));

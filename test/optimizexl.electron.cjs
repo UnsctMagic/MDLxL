@@ -1,10 +1,11 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length);actual.forEach((value,index)=>assert.ok(Math.abs(value-expected[index])<1e-8,`Camera component ${index} differs: ${value} / ${expected[index]}`));};
 (async()=>{
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','optimizexl-proof');fs.mkdirSync(out,{recursive:true});
  const previousFiles=new Set(fs.readdirSync(out));
- const model=process.env.MDLXL_OPTIMIZEXL_MODEL||'C:/Users/PC/Documents/ChatGPT/MDLxL/out/Khorne_Optimized_Review/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx';
+ const model=process.env.MDLXL_OPTIMIZEXL_MODEL||testModel('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
  const source=fs.readFileSync(model),workDir=path.join(out,'work-'+Date.now()),work=path.join(workDir,path.basename(model));fs.mkdirSync(workDir,{recursive:true});fs.copyFileSync(model,work);
  const packaged=process.env.MDLXL_OPTIMIZEXL_EXE;
  const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile,{recursive:true});fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{wheelMode:'scroll'}}));

@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
 
@@ -9,7 +10,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
  // 0 warnings. out/fixture-scan/anim100.mjs: after that repair, Animation optimization at Simple strength 100 gives
  // 91.06 KB (from 102.56 KB), so the After size must drop below 92 KB.
  const WARNINGS=38,AFTER_MAX_KB=92;
- const model=process.env.MDLXL_FOOTMAN_MODEL||path.resolve('out/optimizexl-footman/human__footman.mdx'),source=fs.readFileSync(model),exe=appTarget().packaged;
+ const model=process.env.MDLXL_FOOTMAN_MODEL||testModel('optimizexl-footman/human__footman.mdx'),source=fs.readFileSync(model),exe=appTarget().packaged;
  const scale=process.env.MDLXL_TEST_DPR||'1',out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','footman-ui-'+scale);fs.mkdirSync(out,{recursive:true});
  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out, args: ['--force-device-scale-factor='+scale] });
  const alignment=[];

@@ -9,7 +9,9 @@ import {allNodes,sampleNodeMatrices,skinGeoset} from '../src/animation.js';
 import {applyMovementPose} from '../src/movement.js';
 import {assertModelEquivalent} from '../src/save-equivalence.js';
 import {suggestPoseRig,poseRole,poseNodeControl,poseNodeConstraints,poseTrackScope,poseChainIds,samplePoseChain,solvePoseNode,solvePoseLimb} from '../src/pose-ik.js';
-const dir=process.env.MDLXL_POSE_COMPLEX || 'out/pose-complex-fixtures';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const dir=process.env.MDLXL_POSE_COMPLEX || testModel('pose-complex-fixtures');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const position=(node,matrices)=>new Vector3(...node.PivotPoint).applyMatrix4(matrices.get(node.ObjectId));
 function solve(model,config,target,values,frame,sequence,mode='move'){

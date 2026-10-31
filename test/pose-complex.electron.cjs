@@ -1,7 +1,7 @@
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
-const { fixturePath } = require('./helpers/fixtures.cjs');
+const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
 (async () => {
   const { ObjectLoader, Vector3 } = await import('three');
@@ -10,7 +10,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const { allNodes, sampleNodeMatrices, skinGeoset } = await import('../src/animation.js');
   const { samplePreviewMatrices } = await import('../app/preview-pose.js');
   const { assertModelEquivalent } = await import('../src/save-equivalence.js');
-  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-complex-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose-complex-fixtures/WH_VC_NecrarchLord3.mdx');
+  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-complex-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || testModel('pose-complex-fixtures/WH_VC_NecrarchLord3.mdx'));
   const { executablePath } = appTarget();
   fs.mkdirSync(out, { recursive: true });
   for (const entry of fs.readdirSync(path.dirname(fixture), {withFileTypes:true})) if (entry.isDirectory() || /\.(?:blp|dds|tga|png|jpe?g)$/i.test(entry.name)) fs.cpSync(path.join(path.dirname(fixture),entry.name),path.join(out,entry.name),{recursive:true});

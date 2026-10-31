@@ -40,6 +40,11 @@ separate and are not a shared handover.
   user-added files. An offline upgrade must preserve the entire
   `resources/app/profile` and personal files, verify migration before replacing
   shortcuts, then remove the superseded installation unless the user asks to keep it.
+- `D:\Claude\MDLxL-TestModels` is the permanent test-model collection (its
+  README lists the contents). Never delete, move, prune or "clean up" it or its
+  files, even during cleanups the owner asks for; only add to it. Tests read
+  real models from it through `test/helpers/fixtures.cjs`, never from Downloads,
+  Desktop or a checkout's `out/`.
 - Remove task-created disposable builds/profiles/runtimes after verification,
   keeping the small report and needed captures. Stop unused task-started processes.
   After pushing or merging, remove the finished task worktree and prune its

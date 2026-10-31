@@ -7,6 +7,8 @@ import {autoCorpse,AUTO_CORPSE_SECTIONS} from '../src/auto-corpse.js';
 import {sampleNodeMatrices,skinGeoset,sampleGeosetAnimation,sampleTrack} from '../src/animation.js';
 import {createVisibilityGeosetAnimation} from '../src/geoset-animation-defaults.js';
 import {buildCorpseGeometry} from '../src/corpse-geometry.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 const track=(pairs,line=1,GlobalSeqId=null)=>({LineType:line,GlobalSeqId,Keys:pairs.map(([Frame,v])=>({Frame,Vector:new Float32Array(v)}))});
 function fixture({variants=1,globalMotion=false,sharedStart=false}={}) {
@@ -237,10 +239,10 @@ test('a separate weapon skeleton never becomes a corpse skull', {skip: !flailMod
 });
 function flailModel() {
   const fs = process.getBuiltinModule('node:fs');
-  return [process.env.MDLXL_CORPSE_FLAIL, 'D:/Claude/research/fx-optimization-2026-10-30/fable-success/Fx_optimization_research/01_original/Fx_original.mdx'].find(p => p && fs.existsSync(p));
+  return [process.env.MDLXL_CORPSE_FLAIL, testModel('pose-flail/Fx_original.mdx')].find(p => p && fs.existsSync(p));
 }
-// Real models: the SD Footman (out/pose, prepared by out/fixtures.sh) and the owner's flail.
-const footmanModel=()=>{const file=new URL('../out/pose/Footman.mdx',import.meta.url);return existsSync(file)?file:null;};
+// Real models from the test-model collection (test/helpers/fixtures.cjs): the SD Footman and the owner's flail.
+const footmanModel=()=>{const file=testModel('pose/Footman.mdx');return existsSync(file)?file:null;};
 test('the skull has the native gutz skull proportions and rests near the ground',{skip:!footmanModel()&&!flailModel()&&'no SD Footman or flail on this machine'},async()=>{
   // Every native skull is one mesh scaled evenly: 0.72 of its length wide, 0.42 tall, 0.22 above the ground.
   const {openDocument}=await import('../src/editor-document.js');
@@ -286,8 +288,8 @@ test('real corpses occupy a Blizzard-sized footprint instead of thin joint strip
   }
 });
 
-test('a detached Death chest with a POSE head keeps its skull, while the separate flail stays excluded',{skip:!process.env.MDLXL_CORPSE_DETACHED&&'set MDLXL_CORPSE_DETACHED to the owner ratling fixture'},async()=>{
-  const file=process.env.MDLXL_CORPSE_DETACHED;
+test('a detached Death chest with a POSE head keeps its skull, while the separate flail stays excluded',{skip:!existsSync(process.env.MDLXL_CORPSE_DETACHED||testModel('corpse-fixtures/ratling_unit.mdx'))&&'ratling not in the test models'},async()=>{
+  const file=(process.env.MDLXL_CORPSE_DETACHED||testModel('corpse-fixtures/ratling_unit.mdx'));
   assert.ok(file&&existsSync(file),'prepare the owner ratling fixture');
   const {openDocument}=await import('../src/editor-document.js');
   const {allNodes}=await import('../src/animation.js');
@@ -297,14 +299,12 @@ test('a detached Death chest with a POSE head keeps its skull, while the separat
   assert.equal(byId.get(skulls[0].ids[0]).Name,'gore_head','the skull belongs to the final Death head, not the hidden living head');
 });
 
-test('native hand pieces retain forearm-scale reach instead of shrinking to palm vertices',{skip:!flailModel()&&'set MDLXL_CORPSE_FLAIL to the owner flail fixture'},async t=>{
+test('native hand pieces retain forearm-scale reach instead of shrinking to palm vertices',{skip:!flailModel()&&'set MDLXL_CORPSE_FLAIL to the owner flail fixture'},async()=>{
   const {openDocument}=await import('../src/editor-document.js');
   const {suggestPoseRig,poseChainIds}=await import('../src/pose-ik.js');
   const {allNodes,nodePivot}=await import('../src/animation.js');
   const {Vector3}=await import('three');
-  // The SD Ogre is optional (out/pose); without it only the flail is checked.
-  const ogre=new URL('../out/pose/Ogre.mdx',import.meta.url);if(!existsSync(ogre))t.diagnostic('SD Ogre not prepared; checked the flail only');
-  for(const file of [flailModel(),ogre].filter(existsSync)){
+  for(const file of [flailModel(),testModel('pose/Ogre.mdx')]){
   const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
   const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
   for(const hand of r.pieces.filter(p=>p.kind==='hand')){
@@ -318,12 +318,12 @@ test('native hand pieces retain forearm-scale reach instead of shrinking to palm
 });
 
 
-test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!process.env.MDLXL_CORPSE_TAILED&&'set MDLXL_CORPSE_TAILED to the owner Skink fixture'},async()=>{
+test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!existsSync(process.env.MDLXL_CORPSE_TAILED||testModel('corpse-fixtures/Skink.mdx'))&&'Skink not in the test models'},async()=>{
   const {openDocument}=await import('../src/editor-document.js');
   const {suggestPoseRig}=await import('../src/pose-ik.js');
   const {allNodes,nodePivot}=await import('../src/animation.js');
   const {Vector3}=await import('three');
-  const file=process.env.MDLXL_CORPSE_TAILED;assert.ok(existsSync(file),'prepare the owner Skink fixture');
+  const file=(process.env.MDLXL_CORPSE_TAILED||testModel('corpse-fixtures/Skink.mdx'));assert.ok(existsSync(file),'prepare the owner Skink fixture');
   const d=openDocument(new Uint8Array(readFileSync(file)),'model.mdx'),m=structuredClone(d.model),r=apply(d).corpses[0];
   const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
   const at=id=>new Vector3().fromArray(nodePivot(m,nodes.get(id),id)).applyMatrix4(M.get(id));
@@ -337,8 +337,8 @@ test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!p
 });
 
 
-const robeFixtures=()=>[new URL('../out/pose/Necromancer.mdx',import.meta.url),process.env.MDLXL_CORPSE_ROBED].filter(Boolean);
-const robeOptions={skip:!process.env.MDLXL_CORPSE_ROBED&&'set MDLXL_CORPSE_ROBED to the owner Lahmian fixture'};
+const robeFixtures=()=>[testModel('pose/Necromancer.mdx'),(process.env.MDLXL_CORPSE_ROBED||testModel('corpse-fixtures/Lahmian_SD_14.mdx'))];
+const robeOptions={skip:!existsSync(process.env.MDLXL_CORPSE_ROBED||testModel('corpse-fixtures/Lahmian_SD_14.mdx'))&&'Lahmian not in the test models'};
 async function robeCase(file){
   const {openDocument}=await import('../src/editor-document.js');
   const {allNodes,nodePivot}=await import('../src/animation.js');
@@ -395,8 +395,8 @@ test('extending named garment panels changes the chalk outline but does not grow
 
 
 
-test('Medivh ribs fit his shoulders, not his cape, including blended cloth vertices',{skip:!existsSync(new URL('../out/pose/Medivh.mdx',import.meta.url))&&'prepare SD Medivh'},async()=>{
-  const {m,r,at,nodes}=await robeCase(new URL('../out/pose/Medivh.mdx',import.meta.url));
+test('Medivh ribs fit his shoulders, not his cape, including blended cloth vertices',{skip:!existsSync(testModel('pose/Medivh.mdx'))&&'prepare SD Medivh'},async()=>{
+  const {m,r,at,nodes}=await robeCase(testModel('pose/Medivh.mdx'));
   const {nameTokens}=await import('../src/rig-names.js');
   const {nodeIndex}=await import('../src/node-hierarchy.js');
   const {vertexBones}=await import('../src/part-bones.js');
@@ -418,15 +418,15 @@ test('Medivh ribs fit his shoulders, not his cape, including blended cloth verti
     near(dimensions(r.pieces[i]),dimensions(changed.pieces[i]),.01);
   }
 });
-test('Guldan backpack never becomes an anatomical bone',{skip:!existsSync(new URL('../out/pose/Guldan.mdx',import.meta.url))&&'prepare SD Guldan'},async()=>{
-  const {r,nodes}=await robeCase(new URL('../out/pose/Guldan.mdx',import.meta.url));
+test('Guldan backpack never becomes an anatomical bone',{skip:!existsSync(testModel('pose/Guldan.mdx'))&&'prepare SD Guldan'},async()=>{
+  const {r,nodes}=await robeCase(testModel('pose/Guldan.mdx'));
   const pack=nodes.filter(n=>/backpack/i.test(n.Name)).map(n=>n.ObjectId);assert.ok(pack.length);
   assert.ok(r.pieces.every(p=>!p.ids.some(id=>pack.includes(id))),'backpack controls must not generate corpse bones');
 });
 
 
-test('Acolyte keeps two arms and two legs under the robe using its authored foot references',{skip:!existsSync(new URL('../out/pose/Acolyte.mdx',import.meta.url))&&'prepare SD Acolyte'},async()=>{
-  const {r}=await robeCase(new URL('../out/pose/Acolyte.mdx',import.meta.url));
+test('Acolyte keeps two arms and two legs under the robe using its authored foot references',{skip:!existsSync(testModel('pose/Acolyte.mdx'))&&'prepare SD Acolyte'},async()=>{
+  const {r}=await robeCase(testModel('pose/Acolyte.mdx'));
   const count=kind=>r.pieces.filter(p=>p.kind===kind).length;
   assert.equal(count('skull'),1);assert.equal(count('torso'),1);
   assert.equal(count('arm'),2);assert.equal(count('hand'),2);
@@ -438,9 +438,9 @@ test('Acolyte keeps two arms and two legs under the robe using its authored foot
 });
 
 
-test('quadruped trunks reach the hind hips instead of ending at the front legs',{skip:!existsSync(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url))&&'prepare turtle, centaur and knight'},async()=>{
+test('quadruped trunks reach the hind hips instead of ending at the front legs',{skip:!existsSync(testModel('pose/DragonSeaTurtle.mdx'))&&'prepare turtle, centaur and knight'},async()=>{
   for(const name of ['DragonSeaTurtle','CentaurKhan','Knight']){
-    const {r,at,nodes}=await robeCase(new URL(`../out/pose/${name}.mdx`,import.meta.url)),byId=new Map(nodes.map(n=>[n.ObjectId,n]));
+    const {r,at,nodes}=await robeCase(testModel(`pose/${name}.mdx`)),byId=new Map(nodes.map(n=>[n.ObjectId,n]));
     const roots=[...new Set(r.pieces.filter(p=>p.kind==='leg').map(p=>p.ids[0]))].filter(id=>/leg1.*rear|back.*leg/i.test(byId.get(id)?.Name));
     assert.equal(roots.length,2,`${name}: both actual hind hip joints were found`);
     const ps=roots.map(at),hip=ps[0].map((v,i)=>(v+ps[1][i])/2);
@@ -448,8 +448,8 @@ test('quadruped trunks reach the hind hips instead of ending at the front legs',
     assert.ok(r.pieces.filter(p=>p.kind==='torso').some(covers),`${name}: the trunk must cover the hind pelvis, not only the front-leg/neck region`);
   }
 });
-test('the turtle tail stays behind the shell instead of becoming a bone through its trunk',{skip:!existsSync(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url))&&'prepare SD turtle'},async()=>{
-  const {r,at,nodes}=await robeCase(new URL('../out/pose/DragonSeaTurtle.mdx',import.meta.url));
+test('the turtle tail stays behind the shell instead of becoming a bone through its trunk',{skip:!existsSync(testModel('pose/DragonSeaTurtle.mdx'))&&'prepare SD turtle'},async()=>{
+  const {r,at,nodes}=await robeCase(testModel('pose/DragonSeaTurtle.mdx'));
   const a=at(nodes.find(n=>n.Name==='Bone Tail 03').ObjectId),b=at(nodes.find(n=>n.Name==='Bone Tail 04').ObjectId),dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy;
   const tails=r.pieces.filter(p=>p.kind==='branch');assert.ok(tails.length);
   for(const p of tails)for(const v of [p.start,p.end])assert.ok(((v[0]-a[0])*dx+(v[1]-a[1])*dy)/len2>=-.35,'tail pieces must not cross the shell from the waist to the tail root');

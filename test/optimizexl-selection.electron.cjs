@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 
@@ -17,7 +18,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   const FIRST = 'motion:8:21:Translation', SECOND = 'motion:8:37:Translation', CONTEXT = 'context:2:48:Rotation', CONTEXT_SEQUENCE = '2', ADVANCE = 'pose:0:167:0:1667';
   const labels = ['Death Second: irregular movement (1Cylinder04)', 'Death Second: irregular movement (1Cylinder03)'];
   const PAIR_SEQUENCE = '8', PAIR_FRAME = 24167, PAIR_NODE = 21, PAIR_X = 6.772181452545066;
-  const model = process.env.MDLXL_FOOTMAN_MODEL || path.resolve('out/optimizexl-selection/human__muradin.mdx'), source = fs.readFileSync(model);
+  const model = process.env.MDLXL_FOOTMAN_MODEL || testModel('optimizexl-selection/human__muradin.mdx'), source = fs.readFileSync(model);
   const out = path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT || 'out', 'selection-ui'); fs.mkdirSync(out, { recursive: true });
   const exe = appTarget().packaged;
   const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });

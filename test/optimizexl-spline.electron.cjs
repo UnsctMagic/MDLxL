@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('./helpers/app.cjs');
 
@@ -8,7 +9,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   // runOptimizeStage until none is left): 0 errors / 0 severe / 0 warnings / 14 notices; 13 automatic proposals, 2 of them
   // splineResample; one pass leaves 0 notices, so Back returns to the original 14 notices.
   const START='mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 14 notices',BACK=START;
-  const model=process.env.MDLXL_SPLINE_MODEL;if(!model)throw Error('Set MDLXL_SPLINE_MODEL to the private review fixture.');
+  const model=process.env.MDLXL_SPLINE_MODEL||testModel('optimizexl-spline/Warp_Lightning_CannonB.mdx');
   const source=fs.readFileSync(model),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','spline-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(model));fs.copyFileSync(model,work);
   const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js');
   let expected=new Uint8Array(source);const passes=[];

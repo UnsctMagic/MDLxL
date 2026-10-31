@@ -13,7 +13,7 @@ import { createDemoDocument } from '../src/editor-document.js';
 
 const require = createRequire(import.meta.url);
 const { root, appTarget, appDist, sha256File, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
-const { fixturePath, tempDir } = require('./helpers/fixtures.cjs');
+const { fixturePath, testModel, tempDir } = require('./helpers/fixtures.cjs');
 const { PROBE_SOURCE } = require('./helpers/fiber-probe.cjs');
 
 test('appTarget uses MDLXL_TEST_EXE, then MDLXL_SUITE_PKG, then the development Electron with this repo', () => {
@@ -25,10 +25,11 @@ test('appTarget uses MDLXL_TEST_EXE, then MDLXL_SUITE_PKG, then the development 
   assert.equal(appDist(appTarget({ MDLXL_TEST_EXE: 'D:/a/MDLxL.exe' })), path.join(path.resolve('D:/a'), 'resources/app/dist'));
 });
 
-test('fixturePath reads the runner variables and knows which fixtures have no default', () => {
-  assert.equal(fixturePath('footman', {}), path.join(root, 'out/pose/Footman.mdx'));
+test('fixturePath reads the runner variables and defaults to the test-model collection', () => {
+  assert.equal(fixturePath('footman', {}), testModel('pose/Footman.mdx'));
+  assert.equal(testModel('pose/Footman.mdx'), path.resolve(process.env.MDLXL_TEST_MODELS || 'D:/Claude/MDLxL-TestModels', 'pose/Footman.mdx'));
   assert.equal(fixturePath('footman', { MDLXL_SUITE_FOOTMAN: 'D:/x/Footman.mdx' }), path.resolve('D:/x/Footman.mdx'));
-  assert.equal(fixturePath('archer', {}), null);
+  assert.equal(fixturePath('particle-index', {}), path.join(root, 'out/particle-index/particles'), 'generated data stays in out/');
   assert.throws(() => fixturePath('nope'), /Unknown fixture/);
 });
 

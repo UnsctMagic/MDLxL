@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  const root = process.cwd(), file = process.env.MDLXL_TEST_MODEL || 'C:/Users/PC/Desktop/WIP/graveguard_Optimized Weapon (1).mdx';
+  const root = process.cwd(), file = process.env.MDLXL_TEST_MODEL || testModel('graveguard/graveguard_Optimized Weapon (1).mdx');
   const { app, page } = await launchApp({ out: root, profile: path.join(root, 'out/menu-scroll-test/profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, fixture: file , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
 

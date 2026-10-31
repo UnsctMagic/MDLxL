@@ -13,6 +13,8 @@ import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
 import { movementRotationAmount, movementRotationGesture, movementWorkplaneHandle } from '../app/movement-overlay.js';
+import {createRequire} from 'node:module';
+const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 const chain = { root: 1, middle: 2, end: 3, kind: 'arm', key: 'a' }, leg1 = { root: 4, middle: 5, end: 6, kind: 'leg', key: 'l' }, leg2 = { root: 7, middle: 8, end: 9, kind: 'leg', key: 'r' };
 const q = (axis, angle) => new Quaternion().setFromAxisAngle(new Vector3(...axis).normalize(), angle).toArray();
@@ -425,8 +427,8 @@ test('body translation stops at the first inner reach boundary and retains a val
   const after=samplePoseChain(m,leg1,500,0); vectorNear(after.end.toArray(),pose.end.toArray());vectorNear(after.lengths,pose.lengths);assert.ok(after.root.distanceTo(after.end)>=8-1e-5);
 });
 
-test('native Footman suggestions include both hands, both feet and the shared whole-body root', {skip:!fs.existsSync('out/pose/Footman.mdx')}, () => {
-  const m=openDocument(fs.readFileSync('out/pose/Footman.mdx'),'Footman.mdx').model, rig=suggestPoseRig(m,500,0);
+test('native Footman suggestions include both hands, both feet and the shared whole-body root', {skip:!fs.existsSync(testModel('pose/Footman.mdx'))}, () => {
+  const m=openDocument(fs.readFileSync(testModel('pose/Footman.mdx')),'Footman.mdx').model, rig=suggestPoseRig(m,500,0);
   assert.deepEqual(rig.chains.map(c=>c.end).sort((a,b)=>a-b),[29,32,38,42]);assert.equal(rig.body,25);assert.ok(rig.nodes.includes(39)&&rig.nodes.includes(33)&&rig.nodes.includes(26));
 });
 
@@ -445,7 +447,7 @@ test('Knight SD arm native solve, atomic Undo/Redo and MDX reopen preserve all o
   assert.equal(createHash('sha256').update(fs.readFileSync(path)).digest('hex'), hash);
 });
 
-const nativeFixture = process.env.MDLXL_POSE_FIXTURE || new URL('../out/pose/Footman.mdx', import.meta.url);
+const nativeFixture = process.env.MDLXL_POSE_FIXTURE || testModel('pose/Footman.mdx');
 test('native SD Footman limb/body preserves both foot pins and all other data through MDL and MDX', { skip: !fs.existsSync(nativeFixture) }, () => {
   const bytes = fs.readFileSync(nativeFixture), hash = createHash('sha256').update(bytes).digest('hex'), doc = openDocument(bytes, 'Footman.mdx'), original = structuredClone(doc.model);
   const arm = { root: 36, middle: 37, end: 38 }, legs = [{ root: 27, middle: 28, end: 29 }, { root: 30, middle: 31, end: 32 }];

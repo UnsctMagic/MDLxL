@@ -1,3 +1,4 @@
+const { testModel } = require('./helpers/fixtures.cjs');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 
@@ -10,7 +11,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   // 11700 and keeps its first authored key in the sequence, 11799; after approval 0 severe and the 409 notices remain.
   const SEVERE = 'mdx-m3-viewer: 0 errors · 1 severe · 0 warnings · 409 notices', CLEARED = 'mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 409 notices';
   const label = 'Jaw: missing opening Translation in Portrait Talk', SEQUENCE = '2', OPENING = 11700, AUTHORED = 11799, BETWEEN = '11750';
-  const model = process.env.MDLXL_OPENING_MODEL || path.resolve('out/optimizexl-opening/Spanish_Halberdier.mdx');
+  const model = process.env.MDLXL_OPENING_MODEL || testModel('optimizexl-opening/Spanish_Halberdier.mdx');
   const source = fs.readFileSync(model), out = path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT || 'out', 'opening-ui'); fs.mkdirSync(out, { recursive: true });
   const exe = appTarget().packaged;
   const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });
