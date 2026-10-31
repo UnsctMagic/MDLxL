@@ -7375,5 +7375,13 @@
   "Fix and save": "Исправить и сохранить",
   "Fix keyframe values": "Исправить значения ключевых кадров",
   "Turn single animation values into keyframes.": "Превратить одиночные значения анимации в ключевые кадры.",
-  "{0} is a single value; Warcraft III needs keyframes here.": "{0} — одиночное значение; здесь Warcraft III нужны ключевые кадры."
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} — одиночное значение; здесь Warcraft III нужны ключевые кадры.",
+  "Nuclear": "Полное",
+  "Splits the selected geometry into one geoset per separate piece.": "Разделяет выбранную геометрию: каждая отдельная часть становится своим геосетом.",
+  "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.": "Полное: разделяет выбранную геометрию везде, где треугольники не имеют общих вершин, даже внутри одной части.",
+  "Weld selected duplicates": "Сварить выбранные дубликаты",
+  "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.": "Объединяет выбранные вершины, которые находятся точно в одной точке одного геосета. Копии с другими UV, нормалями или костями остаются раздельными, поэтому текстуры и жёсткие рёбра выглядят как прежде.",
+  "No exact duplicates found in the selection.": "В выделении нет точных дубликатов.",
+  "Welded {0} duplicate vertex.": "Сварено дубликатов вершин: {0}.",
+  "Welded {0} duplicate vertices.": "Сварено дубликатов вершин: {0}."
 }

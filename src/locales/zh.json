@@ -7255,5 +7255,13 @@
   "Fix and save": "修复并保存",
   "Fix keyframe values": "修复关键帧值",
   "Turn single animation values into keyframes.": "将单个动画值转换为关键帧。",
-  "{0} is a single value; Warcraft III needs keyframes here.": "{0} 是单个值；这里 Warcraft III 需要关键帧。"
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} 是单个值；这里 Warcraft III 需要关键帧。",
+  "Nuclear": "完全",
+  "Splits the selected geometry into one geoset per separate piece.": "将所选几何体按每个独立部件拆分为单独的几何集。",
+  "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.": "完全：在三角形不共享顶点的地方拆分所选几何体，即使在同一部件内部也是如此。",
+  "Weld selected duplicates": "焊接所选重复顶点",
+  "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.": "合并同一几何集中位置完全相同的所选顶点。UV、法线或骨骼不同的副本保持分开，因此纹理和硬边外观不变。",
+  "No exact duplicates found in the selection.": "所选内容中没有完全重复的顶点。",
+  "Welded {0} duplicate vertex.": "已焊接 {0} 个重复顶点。",
+  "Welded {0} duplicate vertices.": "已焊接 {0} 个重复顶点。"
 }

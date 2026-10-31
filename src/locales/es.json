@@ -7391,5 +7391,13 @@
   "Fix and save": "Corregir y guardar",
   "Fix keyframe values": "Corregir valores de fotogramas clave",
   "Turn single animation values into keyframes.": "Convertir los valores de animación únicos en fotogramas clave.",
-  "{0} is a single value; Warcraft III needs keyframes here.": "{0} es un valor único; Warcraft III necesita fotogramas clave aquí."
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} es un valor único; Warcraft III necesita fotogramas clave aquí.",
+  "Nuclear": "Total",
+  "Splits the selected geometry into one geoset per separate piece.": "Divide la geometría seleccionada en un geoset por cada pieza separada.",
+  "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.": "Total: divide la geometría seleccionada allí donde los triángulos no comparten vértices, incluso dentro de una misma pieza.",
+  "Weld selected duplicates": "Soldar duplicados seleccionados",
+  "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.": "Une los vértices seleccionados que están exactamente en el mismo punto del mismo geoset. Las copias con UV, normales o huesos distintos se mantienen separadas, así las texturas y los bordes duros conservan su aspecto.",
+  "No exact duplicates found in the selection.": "No se encontraron duplicados exactos en la selección.",
+  "Welded {0} duplicate vertex.": "Se soldó {0} vértice duplicado.",
+  "Welded {0} duplicate vertices.": "Se soldaron {0} vértices duplicados."
 }

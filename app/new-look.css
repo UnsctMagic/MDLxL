@@ -164,7 +164,12 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations{display:flex!important;flex-direction:column!important;gap:0!important;border:1px solid var(--m-line);border-radius:10px;overflow:hidden;margin:0 0 10px!important;background:var(--ui-field)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations>button{margin:0!important;border-radius:0!important;background:var(--ui-field)!important;border:0!important;border-bottom:1px solid var(--m-line)!important;text-align:left!important;padding:5px 12px!important;min-height:30px!important;height:auto!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations>button:last-child{border-bottom:0!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations>button:disabled{color:var(--ui-muted)!important;opacity:1}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-geoset-operations,.classic-geoset-split)>button:disabled{color:var(--ui-muted)!important;opacity:1}
+/* Seperate by Loose parts | Nuclear share one row; Nuclear is its own click target. */
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split{display:flex;border-bottom:1px solid var(--m-line)}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split>button{margin:0!important;border-radius:0!important;background:var(--ui-field)!important;border:0!important;text-align:left!important;padding:5px 12px!important;min-height:30px!important;height:auto!important;flex:1 1 auto}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split>button:first-child{padding-right:6px!important;white-space:nowrap}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-split>button+button{flex:0 0 auto;border-left:1px solid var(--m-line)!important;padding:5px 8px!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar>button:not(.sidebar-fold){display:block;width:100%;background:var(--m-soft)!important;margin:3px 0!important}
 
 /* Geosets section; the ⇱ button floats it over the view. */

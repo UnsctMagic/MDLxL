@@ -1436,7 +1436,15 @@
     "Fix and save",
     "Fix keyframe values",
     "Turn single animation values into keyframes.",
-    "{0} is a single value; Warcraft III needs keyframes here."
+    "{0} is a single value; Warcraft III needs keyframes here.",
+    "Nuclear",
+    "Splits the selected geometry into one geoset per separate piece.",
+    "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.",
+    "Weld selected duplicates",
+    "Merges selected vertices that sit on exactly the same spot in the same geoset. Copies with different UVs, normals or bones stay apart, so textures and hard edges keep their look.",
+    "No exact duplicates found in the selection.",
+    "Welded {0} duplicate vertex.",
+    "Welded {0} duplicate vertices."
   ],
   "paint": [
     "Citadel Paint",
