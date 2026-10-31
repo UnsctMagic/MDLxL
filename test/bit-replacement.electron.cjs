@@ -82,7 +82,7 @@ const path = require('node:path');
       await page.waitForFunction(selector => { const state = bitState(selector); return state.viewport.entries[1].meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === '0,1,0'); }, partsViewport);
     };
     await begin();
-    // BITZ previews the automatic fit; manual adjustments remain in the vertex editor.
+    // BITZ previews the placed Bit at its own size; manual adjustments remain in the vertex editor.
     const dialog = page.getByRole('dialog', { name: 'BitsAndParts', exact: true });
     assert.equal(await page.locator('.parts-placement-menu').count(), 0);
     for (const name of ['Move', 'Rotate', 'Scale', 'Quad View', 'Normal View']) assert.equal(await dialog.getByRole('button', { name, exact: true }).count(), 0, name);
@@ -96,9 +96,10 @@ const path = require('node:path');
     await chooseRgb(1, [0, 0, 1]);
     const incoming = () => page.evaluate(selector => Array.from(bitState(selector).props.model.Geosets[1].Vertices), partsViewport);
     const centered = await incoming();
-    const expectedVertices = Array.from(doc.model.Geosets[0].Vertices);
-    centered.forEach((value, index) => assert.ok(Math.abs(value - expectedVertices[index]) < 1e-4, 'replacement matches selected size and position'));
-    assert.ok(centered.some((value, index) => Math.abs(value - source.model.Geosets[0].Vertices[index]) > 1), 'source geometry was resized and positioned');
+    // The Bit keeps its own size, centred on the selected part's bounds.
+    const middle = values => [0, 1, 2].map(axis => { const list = values.filter((_, index) => index % 3 === axis); return (Math.min(...list) + Math.max(...list)) / 2; });
+    const own = Array.from(source.model.Geosets[0].Vertices), goal = middle(Array.from(doc.model.Geosets[0].Vertices)), shift = middle(own).map((value, axis) => goal[axis] - value);
+    centered.forEach((value, index) => assert.ok(Math.abs(value - (own[index] + shift[index % 3])) < 1e-4, 'replacement keeps its size at the selected position'));
     // The preview camera still rotates with a normal mouse drag and never edits geometry.
     const preview = await page.locator('.parts-preview').boundingBox(), cameraAt = () => page.evaluate(selector => bitState(selector).viewport.camera.position.toArray(), partsViewport);
     const cameraBefore = await cameraAt();
@@ -149,7 +150,7 @@ const path = require('node:path');
     for (let step = 0; step < 8 && JSON.stringify(await serialized()) !== JSON.stringify(moved); step++) await clickMenu(app, 'Redo');
     assert.deepEqual(await serialized(), moved);
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.ok(fs.readFileSync(bitFile).equals(donorBytes)); assert.deepEqual(pageErrors, []);
-    fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, fittedToSelection: true, noPlacementToolsInBitz: true, previewCameraRotates: true, selectedInVertexEditor: true, movedWithVertexMoveTool: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
+    fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, ownSizeAtSelection: true, noPlacementToolsInBitz: true, previewCameraRotates: true, selectedInVertexEditor: true, movedWithVertexMoveTool: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
     console.log('PASS packaged Electron: BITZ previews only, preview camera rotates, cancel, replacement lands selected in the vertex editor and moves with its Move tool, dependency reuse, bones, undo/redo and unchanged fixtures/sidebar.');
   } finally { await closeApp(app); fs.unlinkSync(bitFile); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -68,6 +68,13 @@ separate and are not a shared handover.
 - Every 3D preview must allow normal mouse camera rotation unless explicitly
   requested otherwise. Verify actual mouse drags in the packaged app;
   programmatic camera changes do not verify the user's controls.
+- Rotate has two settled rules, both owner-approved; keep them apart. 3D editors
+  use `src/rotation-drag.js` and the Mouse → Rotation settings. The 2D UV map
+  uses only `uvTurn` in `src/uv-tools.js`: the selection turns with the mouse
+  around its centre one for one, by distance moved within 48 px so it never
+  snaps, with no rotation setting applied. One piece turns on its own spot,
+  several around their shared centre. Never share code or settings between them.
+  Test feel with the owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
   animation or frame changes keep the camera exactly where the user left it.
   Frame automatically only when the user opens something new to look at (a

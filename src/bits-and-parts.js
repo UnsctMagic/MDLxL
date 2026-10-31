@@ -309,14 +309,8 @@ export function positionPart(source, target, selection) {
   updateBounds(incoming); updateBounds(outgoing);
   const pivot = Array.from(incoming.MinimumExtent, (value, axis) => (value + incoming.MaximumExtent[axis]) / 2);
   const center = Array.from(outgoing.MinimumExtent, (value, axis) => (value + outgoing.MaximumExtent[axis]) / 2);
-  const scale = Array.from(incoming.MinimumExtent, (value, axis) => {
-    const size = incoming.MaximumExtent[axis] - value;
-    const targetSize = outgoing.MaximumExtent[axis] - outgoing.MinimumExtent[axis];
-    // A flat/point selection cannot define thickness; keep that axis instead
-    // of dividing by zero or flattening a solid Bit into degenerate triangles.
-    return size > 0 && targetSize > 0 ? targetSize / size : 1;
-  });
-  return transformPart(source, { pivot, scale, translation: center.map((value, axis) => value - pivot[axis]) });
+  // The Bit keeps its own size (owner rule); Scale in the vertex editor resizes it.
+  return transformPart(source, { translation: center.map((value, axis) => value - pivot[axis]) });
 }
 
 /** Palette animations stay in the saved Bit. An import takes the displayed

@@ -1,11 +1,10 @@
-import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
 import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator, wheelZoomFactor } from './viewport-performance.js';
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
-import { collapseUVCoordinates, foldUVCoordinates } from '../src/uv-tools.js';
+import { collapseUVCoordinates, foldUVCoordinates, uvTurn } from '../src/uv-tools.js';
 import { occupiedUVTextureFrames } from '../src/uv-preview-display.js';
 import { normalizeUVGrid, snapUVCoordinates, visibleUVGridLines } from '../src/uv-grid.js';
 import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js';
@@ -154,8 +153,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // A positive UV angle turns clockwise on screen: the axis points away from the viewer.
-      if (type === 'rotate') s.drag.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, 'uv'), x, y, pivot: { x: s.drag.pivotScreen[0], y: s.drag.pivotScreen[1] }, axis: [0, 0, -1] });
+      // The map is flat: the selection turns with the mouse around its centre, one
+      // for one, near or far. The 3D editors' rotation settings never apply here.
+      if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x, y); }
       draw();
     }
     function pointerMove(event) {
@@ -166,15 +166,17 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const angle = drag.type === 'rotate' ? rotationDragDegrees(drag.rotationDrag, rawEnd.x - drag.x, rawEnd.y - drag.y, drag.pointerSensitivity) * Math.PI / 180 : 0;
+        const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
         const factor = Math.max(0, 1 + dx / 100);
-        const lockedAxis = event.shiftKey ? p.axis : null;
+        // An axis lock squashes a turn into a skew, so rotation ignores it.
+        const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
         for (const index of drag.indices) {
           const offset = index * 2, u = drag.original[offset] - drag.center[0], v = drag.original[offset + 1] - drag.center[1];
           let nextU = drag.original[offset], nextV = drag.original[offset + 1];
           if (drag.type === 'translate' || drag.type === 'move') { nextU += dx / drag.sizeX; nextV += dy / drag.sizeY; }
           if (drag.type === 'scale') { nextU = drag.center[0] + u * factor; nextV = drag.center[1] + v * factor; }
-          if (drag.type === 'rotate') { nextU = drag.center[0] + u * Math.cos(angle) - v * Math.sin(angle); nextV = drag.center[1] + u * Math.sin(angle) + v * Math.cos(angle); }
+          // Turn in screen pixels so a non-square texture rotates without skewing.
+          if (drag.type === 'rotate') { const su = u * drag.sizeX, sv = v * drag.sizeY; nextU = drag.center[0] + (su * Math.cos(angle) - sv * Math.sin(angle)) / drag.sizeX; nextV = drag.center[1] + (su * Math.sin(angle) + sv * Math.cos(angle)) / drag.sizeY; }
           if (lockedAxis !== 'Y') s.uv[offset] = nextU;
           if (lockedAxis !== 'X') s.uv[offset + 1] = nextV;
         }

@@ -1,5 +1,6 @@
-/** Shared editing rotation. Camera navigation and authored transforms stay separate. */
-export const ROTATION_EDITORS = Object.freeze({ vertices: 'Vertices', bones: 'Bones', movement: 'Movement / POSE', forge: 'Forge', uv: 'UV Wrapper', showcase: 'Showcase' });
+/** Shared editing rotation. Camera navigation and authored transforms stay separate.
+ * The flat UV map has its own turn (uvTurn in uv-tools.js) and no entry here. */
+export const ROTATION_EDITORS = Object.freeze({ vertices: 'Vertices', bones: 'Bones', movement: 'Movement / POSE', forge: 'Forge', showcase: 'Showcase' });
 export const ROTATION_BEHAVIORS = Object.freeze(['ring', 'linear', 'pivot']);
 export const DEFAULT_ROTATION = Object.freeze({ behavior: 'ring', sensitivity: 1, editors: Object.freeze({}) });
 /** Circle the pivot: below this, the turn circle is too thin on screen to follow (about 73° off the view). */
