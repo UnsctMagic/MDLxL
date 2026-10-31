@@ -1266,11 +1266,11 @@ export default function App() {
     } catch (error) { say(error.message, true); return false; }
   }
   // keepOpen: the Library stays open so more geosets can be imported in a row.
-  async function importPart({source,rgbSequence,assets,replacement,keepOpen=false}) {
+  async function importPart({source,look=null,assets,replacement,keepOpen=false}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
     const target=session;
-    const result=edit(replacement?'Replace Part':'Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{rgbSequence,replacement}),{rethrow:true});
+    const result=edit(replacement?'Replace Part':'Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{look,replacement}),{rethrow:true});
     if(result===false)return false;
     // Select the new part in the same tick as its edit, so the selection joins the
     // import's undo step instead of becoming a separate 'Change selection'.

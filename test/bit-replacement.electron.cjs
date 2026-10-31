@@ -79,7 +79,8 @@ const path = require('node:path');
       assert.deepEqual(absent, { count: 1, anims: 0 });
       await page.getByRole('button', { name: bitName, exact: true }).click();
       await page.waitForFunction(selector => bitState(selector).viewport?.entries.length === 2, partsViewport);
-      await page.waitForFunction(selector => { const state = bitState(selector); return state.viewport.entries[1].meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === '0,1,0'); }, partsViewport);
+      // Several RGBs: the list starts at No RGB.
+      await page.waitForFunction(selector => { const state = bitState(selector); return state.viewport.entries[1].meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === '1,1,1'); }, partsViewport);
     };
     await begin();
     // BITZ previews the placed Bit at its own size; manual adjustments remain in the vertex editor.
@@ -88,12 +89,13 @@ const path = require('node:path');
     for (const name of ['Move', 'Rotate', 'Scale', 'Quad View', 'Normal View']) assert.equal(await dialog.getByRole('button', { name, exact: true }).count(), 0, name);
     assert.equal(await page.getByText('Select animations and rename', { exact: true }).count(), 0);
     const chooseRgb = async (index, rgb) => {
-      await page.getByLabel('RGB animation', { exact: true }).selectOption(String(index));
+      await page.getByLabel('Bit RGB', { exact: true }).selectOption(String(index));
       await page.waitForFunction(([selector, rgb]) => { const state = bitState(selector); return state.viewport.entries[1].meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === rgb); }, [partsViewport, rgb.join(',')]);
     };
-    await chooseRgb(0, [1, 0, 0]);
+    assert.deepEqual(await page.getByLabel('Bit RGB', { exact: true }).locator('option').allTextContents(), ['No RGB', '255/0/0', '0/0/255']);
+    await chooseRgb(1, [1, 0, 0]);
     await page.screenshot({ path: path.join(output, 'replacement-preview.png') });
-    await chooseRgb(1, [0, 0, 1]);
+    await chooseRgb(2, [0, 0, 1]);
     const incoming = () => page.evaluate(selector => Array.from(bitState(selector).props.model.Geosets[1].Vertices), partsViewport);
     const centered = await incoming();
     // The Bit keeps its own size, centred on the selected part's bounds.
@@ -111,7 +113,7 @@ const path = require('node:path');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), before);
     await begin();
-    await chooseRgb(1, [0, 0, 1]);
+    await chooseRgb(2, [0, 0, 1]);
     await page.getByRole('button', { name: 'Apply replacement', exact: true }).click();
     await dialog.waitFor({ state: 'detached' });
     const bytes = new Uint8Array(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))));

@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Viewport, { textureFromAsset } from './Viewport.jsx';
 import { openDocument, validateModel } from '../src/editor-document.js';
 import { HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
-import { collectPart, partPathKey, partRgbSnapshot, partTextureFiles, partTextureIndices, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
+import { collectPart, partHasGlobalAnimations, partLook, partPathKey, partRgbOptions, partTextureFiles, partTextureIndices, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
-import PartAnimations from './PartAnimations.jsx';
+import PartRgb from './PartRgb.jsx';
 import { hasDesktop, resolveGameFiles } from './desktop.js';
 import './bits-and-parts.css';
 
@@ -38,13 +38,13 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
   const [collection, setCollection] = useState(null);
   const [replacing, setReplacing] = useState(false), [placed, setPlaced] = useState(null);
   const [bank, setBank] = useState(null), [part, setPart] = useState(null), [assets, setAssets] = useState(new Map()), [selected, setSelected] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [missing, setMissing] = useState([]);
-  const [sequence, setSequence] = useState('');
+  const [rgb, setRgb] = useState(0), [globals, setGlobals] = useState(null), [asking, setAsking] = useState(false);
   const generation = useRef(0), picker = useRef(), dialog = useRef();
   const refresh = async () => { if (!window.desktop?.listParts) return; setBusy(true); setError(''); try { setBank(await window.desktop.listParts()); } catch (error) { setError(error.message); } finally { setBusy(false); } };
   useEffect(() => { refresh(); dialog.current?.focus(); return () => { generation.current++; }; }, []);
   const choose = async entry => {
     const request = ++generation.current;
-    setSelected(entry.id); setPart(null); setPlaced(null); setAssets(new Map()); setSequence(''); setMissing([]); setBusy(true); setError('');
+    setSelected(entry.id); setPart(null); setPlaced(null); setAssets(new Map()); setRgb(0); setGlobals(null); setAsking(false); setMissing([]); setBusy(true); setError('');
     try {
       const record = window.desktop?.readPart ? await window.desktop.readPart(entry.id) : { name: entry.name, bytes: new Uint8Array(await bank.models.get(entry.id).arrayBuffer()) };
       const document = openDocument(record.bytes, record.name);
@@ -71,13 +71,15 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
     } catch (error) { if (generation.current === request) setError(error.message); }
     finally { if (generation.current === request) setBusy(false); }
   };
-  const rgbSequence = sequence === '' ? -1 : Number(sequence);
-  const preview = useMemo(() => part ? previewPart(partRgbSnapshot(part.model, rgbSequence)) : null, [part, rgbSequence]);
+  const rgbOptions = useMemo(() => part ? partRgbOptions(part.model) : [], [part]);
+  const hasGlobals = useMemo(() => !!part && partHasGlobalAnimations(part.model), [part]);
+  const look = useMemo(() => part ? { ...rgbOptions[rgb], globals: !!globals } : null, [part, rgbOptions, rgb, globals]);
+  const preview = useMemo(() => part ? previewPart(partLook(part.model, look)) : null, [part, look]);
   const placement = useMemo(() => {
     if (!replacing) return null;
-    try { return previewPartReplacement(model, placed, selectionByGeoset, rgbSequence); }
+    try { return previewPartReplacement(model, placed, selectionByGeoset, look); }
     catch (error) { return { error: error.message }; }
-  }, [replacing, model, placed, selectionByGeoset, rgbSequence]);
+  }, [replacing, model, placed, selectionByGeoset, look]);
   const placementAssets = useMemo(() => new Map([...assets, ...textureAssets]), [assets, textureAssets]);
   const hasSelection = Object.values(selectionByGeoset || {}).some(ids => ids.length);
   const collect = () => { try { setCollection(collectPart(model, selectionByGeoset)); setError(''); } catch (error) { setError(error.message); } };
@@ -88,15 +90,18 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
       setReplacing(true); setError('');
     } catch (error) { setError(error.message); }
   };
-  const importPart = async () => {
+  // A Bit with global animations asks once whether to apply them.
+  const importPart = async (applyGlobals = globals) => {
     if (!part || busy) return;
-    const request = generation.current;
+    if (hasGlobals && applyGlobals === null) { setAsking(true); return; }
+    setAsking(false); setGlobals(applyGlobals);
+    const request = generation.current, chosen = { ...look, globals: !!applyGlobals };
     setBusy(true); setError('');
     try {
       const portable = [];
-      for (const { name, asset } of partTextureFiles(model, partRgbSnapshot(part.model, rgbSequence), assets)) portable.push(await preparePartAsset(asset, name));
+      for (const { name, asset } of partTextureFiles(model, partLook(part.model, chosen), assets)) portable.push(await preparePartAsset(asset, name));
       if (generation.current !== request) return;
-      const result = await onCommit({ source: replacing ? placed : part.model, rgbSequence, assets: portable, replacement: replacing ? selectionByGeoset : null });
+      const result = await onCommit({ source: replacing ? placed : part.model, look: chosen, assets: portable, replacement: replacing ? selectionByGeoset : null });
       if (generation.current === request && result !== false) onClose();
     } catch (error) { if (generation.current === request) setError(error.message); }
     finally { if (generation.current === request) setBusy(false); }
@@ -112,9 +117,9 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
     </div>
       {replacing && <p className="parts-note">{part ? 'The Bit is placed at the selected part’s position at its own size. Apply selects it in the vertex editor for adjustments with Move, Rotate and Scale. It inherits the replaced vertices’ bones and weights; source rig motion is not imported.' : 'The selected part is hidden. Choose a Bit to position in its place.'}</p>}
       {part && <><strong className="parts-filename">{part.name} · {part.model.Geosets.length} geosets</strong>{!replacing && <p className="parts-note">Import the whole part at its original coordinates and scale, attached to DummyBone. Source rig motion is not imported.</p>}
-      <PartAnimations model={part.model} sequence={sequence} onPreview={setSequence} busy={busy}/>
+      <PartRgb options={rgbOptions} value={rgb} onChange={setRgb} busy={busy}/>
       {missing.length > 0 && <p className="parts-warning">Unavailable textures: {missing.join(', ')}. Import requires these textures unless an equivalent dependency already exists.</p>}
       {part.model.Version !== model.Version && <p className="parts-warning">Source format {part.model.Version}; destination format {model.Version}. Convert a copy to the destination format before import.</p>}</>}
-    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer><span>{replacing ? 'Apply removes the selected geometry. Cancel keeps the model unchanged.' : 'The displayed RGB is imported; saved Bit tracks stay intact.'}</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={!part || busy || part?.model.Version !== model.Version || (replacing && (!placed || !!placement?.error))} onClick={importPart}>{busy ? 'Working…' : replacing ? 'Apply replacement' : 'Import whole part'}</button></footer>
+    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer>{asking ? <><span>Apply its global animations?</span><button onClick={() => importPart(true)}>Yes</button><button onClick={() => importPart(false)}>No</button></> : <><span>{replacing ? 'Apply removes the selected geometry. Cancel keeps the model unchanged.' : 'The displayed RGB is imported; saved Bit tracks stay intact.'}</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={!part || busy || part?.model.Version !== model.Version || (replacing && (!placed || !!placement?.error))} onClick={() => importPart()}>{busy ? 'Working…' : replacing ? 'Apply replacement' : 'Import whole part'}</button></>}</footer>
   </section></div>;
 }
