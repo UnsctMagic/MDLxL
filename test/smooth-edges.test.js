@@ -74,7 +74,7 @@ test('the XL toolbar toggles the shared preference both ways and VIS never rende
   const previousWindow = globalThis.window; globalThis.window = { desktop: {} };
   try {
     let preferences = normalizePreferences();
-    const render = visUI => module.exports.default({ preferences, visUI, mode: 'vertices', displayMode: 'vertices', doc: {}, resources: [], teamColor: '#ff0000', commandEnabled: () => true, commands: { current: {} }, changePreferences: update => { preferences = update(preferences); } });
+    const render = visUI => module.exports.default({ preferences, visUI, mode: 'vertices', displayMode: 'vertices', doc: {}, model: { Version: 800 }, resources: [], teamColor: '#ff0000', commandEnabled: () => true, commands: { current: {} }, changePreferences: update => { preferences = update(preferences); } });
     let button = findSwitch(render(false));
     assert.equal(button.props.title, 'Classic MDLVis'); button.props.onClick();
     assert.equal(preferences.graphics.antialias, true);

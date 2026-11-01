@@ -7391,5 +7391,13 @@
   "Fix and save": "Corregir y guardar",
   "Fix keyframe values": "Corregir valores de fotogramas clave",
   "Turn single animation values into keyframes.": "Convertir los valores de animación únicos en fotogramas clave.",
-  "{0} is a single value; Warcraft III needs keyframes here.": "{0} es un valor único; Warcraft III necesita fotogramas clave aquí."
+  "{0} is a single value; Warcraft III needs keyframes here.": "{0} es un valor único; Warcraft III necesita fotogramas clave aquí.",
+  "Nuclear": "Total",
+  "Splits the selected geometry into one geoset per separate piece.": "Divide la geometría seleccionada en un geoset por cada pieza separada.",
+  "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.": "Total: divide la geometría seleccionada allí donde los triángulos no comparten vértices, incluso dentro de una misma pieza.",
+  "Nuclear Weld": "Soldadura nuclear",
+  "Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL.": "Limpieza rápida: los vértices seleccionados en exactamente el mismo punto se unen en uno si usan el mismo material, incluso entre geosets (esos geosets se combinan). El primer vértice conserva sus UV, normal y huesos. Para la versión cuidadosa use OptimizeXL.",
+  "Nuclear Weld found no selected vertices on the same spot.": "La soldadura nuclear no encontró vértices seleccionados en el mismo punto.",
+  "Nuclear Weld: vertices welded: {0}.": "Soldadura nuclear: vértices soldados: {0}.",
+  "Nuclear Weld: vertices welded: {0}, geosets merged: {1}.": "Soldadura nuclear: vértices soldados: {0}, geosets combinados: {1}."
 }

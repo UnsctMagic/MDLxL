@@ -70,14 +70,15 @@ for (const viewMode of Object.keys(VIS_MENU)) test(`${viewMode}: VIS renders the
   }
 });
 
-test('VIS hides tabs and editors, restores classic placements and hides AI while retaining its XL state', () => {
+test('VIS keeps bottom model tabs, restores classic editors and hides AI while retaining its XL state', () => {
   assert.match(classic, /data-vis-ui\]>\.classic-modules>:not\(\.toolbar-modules\):not\(\.editor-modules\)/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules>\.editor-modules>button/);
   assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>:not\(\.vis-toggle\)/);
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
   assert.match(display, /const visibleOverlays = visUI \? \{ \.\.\.storedOverlays, bones: true, helpers: true, attachments: true \}/);
-  assert.match(app, /'Bones \u00b7 Rest pose'/);
+  assert.match(app, /<div className="classic-status"><ModelTabs /);
+  assert.doesNotMatch(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);
   assert.doesNotMatch(classic, /data-vis-ui\][^{}]*toolbar-modules\{position:absolute/);

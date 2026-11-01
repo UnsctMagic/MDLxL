@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 
@@ -39,6 +40,8 @@ function registryEntries({ choice, executable, brandingDirectory }) {
     // "Open with > Always use" makes Windows' own Applications\MDLxL.exe entry the
     // default for .mdl/.mdx; Explorer then takes the icon from that entry instead.
     [`${CLASSES}\\Applications\\${path.win32.basename(executable)}\\DefaultIcon`, null, 'REG_SZ', iconLocation(choices.mdx, executable, brandingDirectory)],
+    // Windows fills in that entry's command with whichever copy was picked there.
+    [`${CLASSES}\\Applications\\${path.win32.basename(executable)}\\shell\\open\\command`, null, 'REG_SZ', command],
     ...EXTENSIONS.map(extension => [`${CLASSES}\\${extension}\\OpenWithProgids`, progIdFor(extension), 'REG_NONE', '']),
     // Paint Projects belong to MDLxL alone, so they get the file type directly.
     [`${CLASSES}\\.mdlxlpaint`, null, 'REG_SZ', PROG_ID],
@@ -64,17 +67,30 @@ async function currentValue(run, key) {
 
 const NOTIFY = "Add-Type -Namespace MDLxL -Name Shell -MemberDefinition '[DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int e, uint f, IntPtr a, IntPtr b);'; [MDLxL.Shell]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)";
 
+// The program the shared file type currently opens, or null when none is set.
+async function ownerExecutable(run) {
+  const command = await currentValue(run, `${CLASSES}\\${PROG_ID}\\shell\\open\\command`);
+  return command?.match(/^"([^"]+)"/)?.[1] ?? null;
+}
+
 class FileTypeRegistration {
-  constructor({ executable, brandingDirectory, run = defaultRun }) {
-    Object.assign(this, { executable, brandingDirectory, run });
+  constructor({ executable, brandingDirectory, run = defaultRun, exists = fs.existsSync }) {
+    Object.assign(this, { executable, brandingDirectory, run, exists });
     this.queue = Promise.resolve();
   }
-  apply(choice) {
-    const operation = this.queue.catch(() => {}).then(() => this.write(choice));
+  // Only one copy owns the file types: the one already registered. Another copy
+  // (a test build, a second unpacked version) leaves them alone unless the owner
+  // is gone or `claim` is set, which happens after this copy installed an update
+  // or the user picked a file icon here. Otherwise every test build would take
+  // over double-clicked models and they would break once it is deleted.
+  apply(choice, { claim = false } = {}) {
+    const operation = this.queue.catch(() => {}).then(() => this.write(choice, claim));
     this.queue = operation;
     return operation;
   }
-  async write(choice) {
+  async write(choice, claim = false) {
+    const owner = await ownerExecutable(this.run);
+    if (!claim && owner && owner.toLowerCase() !== this.executable.toLowerCase() && this.exists(owner)) return false;
     const entries = registryEntries({ choice, executable: this.executable, brandingDirectory: this.brandingDirectory });
     const checked = entries.filter(([key, name]) => name === null && /\\(DefaultIcon|command)$/.test(key));
     if (await this.registered() && (await Promise.all(checked.map(async ([key, , , data]) => await currentValue(this.run, key) === data))).every(Boolean)) return false;

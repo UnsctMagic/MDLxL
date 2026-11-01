@@ -69,7 +69,7 @@ let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.re
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
 const fileTypes=userRun&&process.platform==='win32'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
-function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl}).catch(error=>console.warn('File types: '+error.message));}
+function registerFileTypes(claim=false){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -510,7 +510,7 @@ async function updateSettings(value){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
-  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes();
+  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes(true);
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }
@@ -620,7 +620,8 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
     // The small window the installer shows while MDLxL is closed for the update.
     installWindow:(mode,version)=>{const t=text=>translateText(text,settings.preferences?.language);return {title:t(mode==='revert'?'Restoring MDLxL {version}':'Installing MDLxL {version}').replace('{version}',version),detail:t('MDLxL restarts by itself when it is done. Please wait.'),undoing:t('Undoing the update…'),colors:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors,icon:path.join(__dirname,'../dist/branding/MDLxL.png'),sheet:path.join(__dirname,'../dist/update/shredder-sheet.png'),wings:path.join(__dirname,'../dist/update/shredder-wings.png')};}});
   await updater.initialize();
-  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
+  let installedUpdate=false;
+  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));installedUpdate=true;if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
@@ -631,7 +632,8 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   // Discover game data only when textures are requested or the user rescans.
   // A blank editor starts without registry queries or a drive-search process.
   // Runs in the background; it must not wait for (or be skipped by) the editor page load.
-  registerFileTypes();
+  // The copy that just went through the updater is the installed one: it takes the file types back.
+  registerFileTypes(installedUpdate);
   await createWindow();
 });
 async function createWindow(bounds={}){
