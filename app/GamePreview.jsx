@@ -15,7 +15,7 @@ import { boneHighlightColors, createRigMarkersGL } from './rig-markers-gl.js';
 import { boneInfluenceMap, boneVertexHighlights } from '../src/bone-tools.js';
 import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
-import { drawCollisionSpheres } from './optimizexl-overlays.js';
+import { drawCollisionShapes } from './optimizexl-overlays.js';
 import { ModelRenderer } from 'war3-model';
 import { guardRendererDestroy } from './war3-model-patches.js';
 import { advanceShowcaseModel } from './showcase-playback.js';
@@ -1448,7 +1448,7 @@ export default function GamePreview(inputProps) {
       if (p.showCollisionSpheres) {
         if (!collisionCanvas) { collisionCanvas = ownerDocument.createElement('canvas'); collisionCanvas.dataset.collisionOverlay = ''; collisionCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30'; hostElement.appendChild(collisionCanvas); }
         collisionCanvas.width=canvas.width; collisionCanvas.height=canvas.height;
-        drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
+        drawCollisionShapes(collisionCanvas.getContext('2d'),collisionStageSnapshot(native,camera,canvas.width,canvas.height,ownedModel.CollisionShapes,null));
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
       if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.helpers = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }

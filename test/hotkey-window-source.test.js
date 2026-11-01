@@ -25,8 +25,12 @@ const documentedClaims = {
     3,
     "Cancel key/range selection and restore frame/speed drafts."
   ],
+  "CollisionOverlay.jsx": [
+    1,
+    "Cancel the collision-shape drag."
+  ],
   "ModelManager.jsx": [
-    2,
+    1,
     "Cancel an unfinished manager edit."
   ],
   "MotionInspector.jsx": [

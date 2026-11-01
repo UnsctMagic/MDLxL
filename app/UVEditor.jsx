@@ -188,7 +188,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
         const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
-        const factor = Math.max(0, 1 + dx / 100);
+        const a = [drag.x - drag.pivotScreen[0], drag.y - drag.pivotScreen[1]];
+        const b = [x - drag.pivotScreen[0], y - drag.pivotScreen[1]];
+        const radius = Math.hypot(...a);
+        const factor = Math.max(0, radius > 12 ? Math.hypot(...b) / radius : 1 + (dx - dy) / 100);
         // An axis lock squashes a turn into a skew, so rotation ignores it.
         const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
         for (const index of drag.indices) {
