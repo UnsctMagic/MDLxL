@@ -1,6 +1,6 @@
 # FX surface effects
 
-> **Owner review of PR #492 (1 Nov 2026): not accepted as is.** Read the [FX contract](../FX-GLOBAL-ANIMATIONS.md) first; it overrides this note. Next pass: global animation maker, layer controls, fit the whole part, re-edit after Apply; remove ground auras, swing trails and cue cards (park the cue code).
+> **Owner review of PR #492 (1 Nov 2026): the task was misunderstood.** Read the [FX contract](../FX-GLOBAL-ANIMATIONS.md) first; it overrides this note. FX is a global sequence maker (burning sword, water skin, rune blade, fly swarm) with layer controls, whole-part fit and re-editing. Keep every existing card and its code as it is; the owner will sort them later.
 
 ## Current handover
 

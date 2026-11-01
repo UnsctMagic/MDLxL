@@ -1,92 +1,121 @@
 # FX contract: the Global Animation Maker
 
-Owner-defined contract for the FX window, written 1 November 2026 after reviewing
-PR #492. It overrides earlier FX handovers and recipe choices. If code, a task note
-or a preset disagrees with this file, this file wins. Ask the owner before changing it.
+Owner-defined contract for the FX window, written 1 November 2026 after the owner
+reviewed PR #492. It overrides earlier FX handovers and recipe choices. If code, a
+task note or a preset disagrees with this file, this file wins. Ask the owner before
+changing it.
 
-## What FX is
+Read the first section slowly. PR #492 was built with careful engineering, but on
+the wrong idea of what the tool is for. The rules further down only make sense once
+the intention is clear.
 
-FX gives a part the user already has (a sword, a skin, armour, a cape, a head) a
-**permanent looping animation** that runs in every animation of the model, driven by
-**global sequences**, and that works in the game.
+## The intention
 
-The owner's own examples define the target:
+### What the owner asked for
 
-- a flaming sword, a frost blade, a lightning blade, a magical blade;
-- water skin, ice skin, lava skin, glowing skin;
-- a rune that turns slowly on a sword or shield;
-- flies or motes that fly around the unit **all the time**.
+A **global sequence maker**: a tool that gives parts of the user's own model a
+permanent, looping animation that is useful on a real unit.
 
-In one sentence: **FX is a global animation maker. It makes models look enchanted,
-always, in a way that is model friendly and fully adjustable.**
+- Make this sword burn. Make this blade crackle with frost or lightning.
+- Make this skin flow like water, freeze like ice, glow like lava.
+- Make these runes or this trim glow and pulse.
+- Make flies buzz around this head, forever.
 
-## What FX is not
+The model then carries that enchantment itself, in every animation, in the game,
+with no trigger, ability or map script.
 
-| Not in FX | Why | Where it belongs |
-| --- | --- | --- |
-| Ground auras, circles and seals under the feet | The game draws auras through abilities. A unit model must not carry one. | Nowhere. Do not build them. |
-| Weapon swing trails (ribbons that only show during a swing) | EMTR already makes and fits weapon trails. | EMTR |
-| Impacts, birth, death and other one-moment cues | They belong to one animation, not a global loop. | Parked (see below) |
-| Buffs and curses as status SFX | The game shows those through abilities. | Nowhere, unless the owner asks |
-| A big catalogue of finished looks | Quantity is not the goal. A few good starting points with real controls are. | — |
+### Why "global sequence" is the key word
 
-**Parked, not deleted:** the impact and cue code (`hit`, `cue`, `stamp`, birth/death
-timing in `visual-effect-recipes.js` and `visual-effect-composition.js`) stays in the
-repository and its tests stay green. Remove those cards from the FX list. Do not wire
-them into another window; the owner decides later where they go.
+In a Warcraft III model, normal animations (Stand, Walk, Attack, Death) are ranges
+on one timeline: only one plays at a time. A **global sequence** is a separate clock
+that runs forever, whatever animation is playing. Anything keyed to it loops
+constantly: texture animations, material alpha, geoset colour, bone rotation and
+scale, emitter visibility and emission.
 
-## How auras are used
+That is how Blizzard makes the Water Elemental's body flow, the Fire Lord's embers
+glow and the Revenant's skin ripple. FX lets a modder do the same on any part of their
+own model, quickly, and adjust the result. Every piece FX writes should be driven by
+a global sequence. That is the test for whether something belongs in the main FX
+workflow.
 
-The owner asked to **study** native aura models, not to make auras. Aura models show
-how Blizzard animates flat geometry with global sequences: bones that spin, scale and
-breathe; texture animations that scroll; alpha and colour tracks that shimmer. Examples
-are `Abilities\Spells\Human\DevotionAura\DevotionAura.mdx`,
+### Why PR #492 missed
+
+PR #492 read "effects" as "spell effects" (SFX) and built a catalogue of them:
+auras, impacts, buffs, curses, trails. In Warcraft III those are mostly separate
+things the game spawns or attaches for a moment or for an ability. They are not
+permanent animations a unit model carries:
+
+- **Auras** are drawn by the game when a unit has an aura ability. Putting one inside
+  a unit model makes no sense for this tool. It was never part of the request.
+- **Weapon trails** usually appear during attacks, so they are keyed to the Attack
+  animation, not to a global sequence. A burning sword is a global animation; a swing
+  trail is not.
+- **Impacts, birth and death flashes** are one moment of one animation.
+
+None of these is wrong to have. They are simply not the tool that was asked for, and
+building them took the place of the actual job.
+
+### What "study auras" meant
+
+Aura models are some of the clearest native examples of how Blizzard animates
+geometry with global sequences: rings that turn, shapes that breathe in scale, alpha
+that shimmers, textures that scroll. Examples are
+`Abilities\Spells\Human\DevotionAura\DevotionAura.mdx`,
 `Abilities\Spells\Orc\CommandAura\CommandAura.mdx` and
 `Abilities\Spells\Undead\UnholyAura\UnholyAura.mdx`.
 
-FX uses that **technique** on the user's parts. Example: an aura rune, reused from the
-native aura model, wrapped around a sword blade as a slowly turning, shimmering ring,
-or laid flat on a shield. It is attached to the part's bone, so it follows every swing.
-It is never placed on the ground.
+The owner asked to **study** them to learn that **technique**, then use it on the
+user's parts. Example: take an aura's rune ring, wrap it around a sword blade, and let
+it turn slowly and shimmer while it follows every swing. The aura is the textbook;
+the enchanted sword is the product.
 
-## The test every effect must pass
+### The question to ask on every decision
 
-An effect belongs in FX only if all four answers are yes:
+> Is this a permanent animated enchantment of a part of the user's model, driven by
+> a global sequence, that the user can fit and adjust?
 
-1. Does it sit **on or around a part** of the model (not on the ground)?
-2. Does it **loop forever** on a global sequence, in every animation?
-3. Does it **follow the part** when the part moves (attached to the part's bone)?
-4. Can the user **adjust every visible piece** of it with existing MDLxL controls?
+If yes, it is this work. If no, it is not, however good it looks.
 
-## Building blocks (layers)
+## Everything from PR #492 stays
 
-Every FX effect is a short stack of layers. A starter look such as Flaming sword is
-just a stack of these, and stays fully editable after it is chosen.
+The owner will sort through the existing work later. Until then:
+
+- Do not delete, hide, rename or rework any existing card, recipe, test or piece of
+  code: auras, trails, impacts, buffs and curses, cues, skins, terrain, model cards.
+  They keep working exactly as they do now, and their tests stay green.
+- Do not add more cards like them, and do not spend this pass improving them.
+- The new global animation work is built alongside. Reuse PR #492's skins,
+  texture motion, fitting and composition code wherever it fits.
+
+## What a global animation is made of (layers)
+
+Every global animation is a short stack of layers. A starter look such as Flaming
+sword is just a stack of these, and stays fully editable after it is chosen.
 
 | Layer | What it does | Built from |
 | --- | --- | --- |
 | Moving skin | Scrolls, flips or pulses a texture over the part (fire, water, ice, lava, energy running along a blade) | Material layer + texture animation on a global sequence |
 | Glow | Brightens, pulses or changes the colour of the part | Material layer, geoset colour/alpha on a global sequence |
-| Rune | Native aura or spell geometry (ring, rune, seal) on or around the part that spins, breathes and shimmers | Copied native geometry + a bone under the part's bone with global-sequence rotation/scale + alpha |
-| Particles | Something that leaves the part or flies around it all the time: embers rising off the blade, frost mist, drips, flies, motes, sparks | Native PRE2 emitter under the part's bone, emitting on a global sequence |
-| Ribbon edge | A flame or light edge that clings along the whole part at all times (not a swing trail) | Native ribbon emitter fitted to the full length of the part |
+| Rune | Native aura or spell geometry (ring, rune, seal) on or around the part that turns, breathes and shimmers | Copied native geometry + a bone under the part's bone with global-sequence rotation/scale + alpha |
+| Particles | Something that leaves the part or flies around it all the time: embers rising off the blade, frost mist, drips, flies, motes | Native PRE2 emitter under the part's bone, emitting on a global sequence |
+| Edge | A flame or light edge that clings along the whole part all the time | Native ribbon emitter fitted to the full length of the part, visible on a global sequence |
 
 Five layer types. Do not add new layer types without asking the owner.
 
 ## Controls: no baked values
 
-The main complaint about PR #492: effects were dropped on the model and could not be
-adjusted. An ember trail became a tiny squeeze in the middle of the sword. These rules
-fix that.
+The second complaint about PR #492: effects were dropped on the model and could not
+be adjusted. An ember trail became a tiny squeeze in the middle of the sword. These
+rules fix that for the global animation work.
 
 1. **Every layer is listed and selectable** in the FX window (a short list, one line
    per layer, in the existing right column). Selecting a layer shows its controls.
    Add layer and remove layer are allowed. No hidden ingredients.
 2. **Reuse the existing control for the job, exactly** (AGENTS.md "one way of doing
    things"):
-   - Particles and ribbons use EMTR's own fields and wording: `Upper end`, `Lower end`,
-     `Size`, `Lasts`, `Intensity`, `Smoothness`, `Gravity`, ribbon colour, emission
-     amount and speed (`app/ParticleRibbonFields.jsx`, `app/ParticleStageTools.jsx`,
+   - Particles and edges use EMTR's own fields and wording: `Upper end`, `Lower end`,
+     `Size`, `Lasts`, `Intensity`, `Smoothness`, `Gravity`, colour, emission amount
+     and speed (`app/ParticleRibbonFields.jsx`, `app/ParticleStageTools.jsx`,
      `app/ParticleTimingTool.jsx`). Same handles, same drags, same tooltips. An
      `Open in EMTR` button opens the full emitter editor for that layer.
    - Placing, moving and resizing anything in the preview uses EMTR's handles
@@ -97,17 +126,17 @@ fix that.
    - Colour uses the existing swatches and picker.
 3. **Fit the whole part by default.** A new layer starts fitted to the selected
    part's full length and size, along its long axis, on its own bone. A blade effect
-   runs from hilt to tip. A ribbon spans both ends of the blade. Particles emit along
-   the whole part. A rune is sized to wrap the part. A swarm orbits around the part
-   at a radius that clears it. The user then adjusts; they never have to rescue a
+   runs from hilt to tip. An edge spans both ends of the blade. Particles emit along
+   the whole part. A rune is sized to wrap the part. Flies orbit around the part at a
+   radius that clears it. The user then adjusts; they never have to rescue a
    misplaced default.
-4. **Loop length is the global sequence.** Each effect has one `Loop length`
-   (milliseconds) shared by its layers, so the layers stay in sync. It is that
-   effect's global sequence. Speed controls change the motion inside the loop.
-5. **Re-editable after Apply.** Reopening FX on a part with an FX effect shows that
-   effect's layers with their current values. Editing updates the effect; it does not
-   stack a duplicate. Each piece also stays editable in its normal manager
-   (EMTR for emitters, Material and Texture Animation managers).
+4. **Loop length is the global sequence.** Each global animation has one
+   `Loop length` (milliseconds) shared by its layers, so the layers stay in sync. It
+   is that effect's global sequence. Speed controls change the motion inside the loop.
+5. **Re-editable after Apply.** Reopening FX on a part with a global animation shows
+   its layers with their current values. Editing updates it; it does not stack a
+   duplicate. Each piece also stays editable in its normal manager (EMTR for
+   emitters, Material and Texture Animation managers).
 6. Controls apply on release, as in the first audit (no rebuild per input tick).
 7. Every control and its label has a one-line plain tooltip.
 
@@ -120,39 +149,38 @@ fix that.
   or newly generated textures.
 - Attach to the part's existing dominant bone. Add a bone only when a layer needs its
   own motion (a turning rune); add no helpers otherwise.
-- The effect plays in every animation, including Death. Keep it small: no extra
-  geosets, materials or textures beyond what the layers need; reuse existing ones.
+- The animation plays in every model animation, all the time.
+- Keep it small: no extra geosets, materials or textures beyond what the layers need;
+  reuse existing ones.
 - Survives saving and reopening as MDX and MDL, and plays the same in the game.
 - One Apply is one Undo step.
 
 ## Starter looks
 
-FX opens with a **short** list of starting points, grouped by what is enchanted.
-Each one is an editable layer stack. Start with these, and add more only when the
-owner asks:
+The global animation part of FX starts with a **short** list of starting points,
+grouped by what is enchanted. Each one is an editable layer stack. Start with these,
+and add more only when the owner asks:
 
 | Group | Starter looks |
 | --- | --- |
 | Blades | Flaming sword, Frost blade, Lightning blade, Arcane blade, Rune blade (turning aura rune) |
 | Skins | Water skin, Ice skin, Lava skin, Glowing skin, Poison skin |
-| Around the unit | Fly swarm, Motes (fireflies), Rising embers, Frost mist |
+| Around the unit | Fly swarm, Motes, Rising embers, Frost mist |
 | Your textures | Moving own texture, Colour pulse, Fade pulse |
 
-Existing PR #492 pieces that pass the four-question test are reused in these looks
-(Water skin, Flaming skin, Frost skin, Revenant waves, lava and fissure terrain
-skins, Blade energy, Frost edge, Ember edge, energy streaks, Fireflies, Forge cinders,
-Winter breath, Lantern wisp, Spell ward's turning rune, Moon orbit's orbit, own-texture
-cards). Remove from FX: every ground aura (Sanctuary circle, Cinder tide, Winter seal,
-Blight sigil, Banner ward), the swing trails (Sunsteel, Wraith, Rime, Coalbrand,
-Viper), and all cue cards (Iron strike, Ice fracture, Ember burst, Dust shock, Soul
-release, Dawn awakening, Thunder print, Fel rupture, Recall seal); park the cue code.
+Build them from PR #492's existing pieces where they fit (Water skin, Flaming skin,
+Frost skin, Revenant waves, the lava and fissure skins, Blade energy, Frost edge,
+Ember edge, the energy streaks, Fireflies, Forge cinders, Winter breath, Spell ward's
+turning rune, Moon orbit's orbit, the own-texture cards). Reuse the code; leave the
+original cards in place.
 
 ## Window
 
 Same FX window and size: geoset choice, preview with normal mouse camera rotation,
 look list on the left, layer list and controls on the right, Apply at the bottom.
-No new panels, tabs or toolbars. Categories are the four groups above, not effect
-types like "Buffs & curses".
+No new panels, tabs or toolbars. FX opens on the global animation groups above.
+The existing PR #492 categories stay reachable in the same list, unchanged, after
+them.
 
 ## Done means (the owner's click-through)
 
@@ -171,13 +199,15 @@ types like "Buffs & curses".
    shimmers; drag it along the blade and resize it with the EMTR handles.
 7. Undo removes each Apply in one step. Save as MDX, reopen: everything is there.
    Open the model in the game: it looks the same.
-8. The FX list shows no ground auras, no swing trails, no impact or cue cards.
+8. Every PR #492 card still appears and works as before.
 
 ## Rules for the work
 
-- Less is more. Spend the effort on controls, fit and re-editing, not on new looks.
+- Use the intention section to decide unclear cases. When the answer is still
+  unclear, ask the owner instead of guessing.
+- Spend the effort on the global sequence maker: layers, controls, fit and
+  re-editing. Not on new looks or new SFX.
 - Do not add looks, layer types, categories or windows beyond this file without
   asking the owner.
-- Keep PR descriptions short and plain: what the owner can now do, what was removed,
-  what is left.
+- Keep PR descriptions short and plain: what the owner can now do, and what is left.
 - Continue on `codex/global-effects-local` and PR #492; retitle it to match this file.
