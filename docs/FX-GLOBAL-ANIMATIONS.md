@@ -139,9 +139,10 @@ The source checks are `test/global-animations.test.js` and the private real-mode
 `test/fx-owner-followup.electron.cjs`, `test/fx-owner-round.electron.cjs`,
 `test/fx-owner-motion.electron.cjs`,
 `test/fx-owner-intensity.electron.cjs` and the existing FX/save/UV/library workflows.
-The motion harness accepts `FX_MODELS` / `FX_LOOKS` (comma-separated) and `FX_PART`
-(a zero-based test override; UI reports remain one-based). The intensity harness
-also accepts `FX_MODEL`, relative to the permanent test-model collection.
+The motion harness accepts comma-separated `FX_MODELS`, `FX_LOOKS` and `FX_CLIPS`.
+`FX_PART` is zero-based in the harness and one-based in reports. The intensity
+harness also accepts `FX_MODEL`, relative to the permanent test-model collection.
+The packaged save/reopen harness accepts `FX_LOOKS` for testing a batch in one app session.
 
 ## Window and text
 

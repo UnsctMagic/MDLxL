@@ -6,6 +6,14 @@ The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Bran
 
 Continued from `75a440f0`. The owner accepted the teal Ice skin, requested a white variation and retired all six Impacts. The top `sort` folder holds 30 candidates for their next review. The revised native textures, layer choices, overlay and UV workflow are specified in the [FX contract](../FX-GLOBAL-ANIMATIONS.md).
 
+- Compared the Knight and Impaler Tzeentch Spell emitters. Both use `Textures\LightningBall.blp` at 33 particles per second and 0.4 s lifetime. Lightning blade uses their native sprite with shorter travel, on each independently skinned blade. The game archive supplied all 82 distinct texture paths used by the library and its addable ingredients.
+- The previous build failed the 30-candidate check (`0 !== 30`) and the packaged check that the textured rune UV is immediately visible. In the review build a mouse dragged each of the three editor tools. A zero-opacity image comparison on Slaanesh geoset 29 distinguished overlay from replacement. Reopened older attack stacks retained their native hit records.
+- Reviewed all 61 looks in Stand, Walk and Attack on Slaanesh, including loop wrap, game distance and a closer mouse orbit. Reviewed all candidates on Nurgle's shield as well. Adjusted seven candidates after playback. Phoenix quill's first feather had visible square corners. The replacement passed a fail-first transparency check and a second motion review on all three Warriors. [Watch the 30 candidates](../../test/evidence/visual-effects/sort-round.webp).
+- All 61 looks passed packaged MDX and MDL save, reopen, re-edit and exact Undo (122 round trips). For 60 looks the saved MDX and MDL bytes were identical between their reviewed build and delivery build `b7affa92`. Phoenix quill passed both round trips directly on that build.
+- On the hidden desktop, `fx-owner-intensity` exercised 50 surface-layer sliders at minimum, middle and maximum. `fx-owner-motion` also replayed five representative looks on the Footman, Paladin and Abomination in all three clips. `fx-owner-followup`, `fx-owner-round`, `surface-effects`, `surface-effects-warriors`, `global-animations`, `uv-controls` and `uv-rotate-steady` exercised picking, editing, mouse orbit, EMTR transfer and the shared UV editor. `visual-effects-save` covered both formats.
+- Windows passed 2,718 source checks, 57 compatibility checks and 13 real-model FX checks with 0 failures. The seven existing source skips cover POSIX signal handling, Windows symlink privileges, a volume without 8.3 short names, the private archer fixture, the skin-collapse model pair and two checks of the original pose corpus manifest. The known-failures baseline is unchanged.
+- Which `sort` entries should stay is open for the owner. Warcraft III playback and independent QA remain outstanding.
+
 ## Second hand test · 1 November 2026
 
 Starting point: `ae13c9ab`. The owner rejected dark frost mist, sparse sparks,
