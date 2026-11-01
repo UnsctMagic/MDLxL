@@ -25,15 +25,16 @@ export const RUNE_IMAGES=[
 const crackle=()=>dust('Blade crackle','crackle',texture('LightningBall'),{burstGap:3,burstWindow:.22,spread:76,tint:[.94,.92,1]});
 const powerArcs=()=>skin('Blade arcs',texture('Lightning4b'),{powerArcs:true,axis:'v',band:.9,strength:1,tint:[.8,.92,1],burstGap:3,burstWindow:.25,amount:3});
 const rune=()=>({type:'Rune',label:'Runes',image:RUNE_IMAGES[0][1],strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
+export const ICE_VARIANTS={dark:[skin('Ice surface',texture('Ice_Natural01'),{fixed:true,atlasRect:[.52,.18,.46,.76],bodyUV:true,filter:2,strength:.97,tint:[1,1,1]}),glow('Ice sheen',texture('Ice3b'),{bodyUV:true,pulse:'glint',strength:.24,tint:[.9,.96,1]})],white:[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]};
 const make=(id,name,group,loop,palette,layers)=>({id,name,group,loop,palette,layers});
 export const GLOBAL_LOOKS=[
  make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames'),embers()]),
  make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1]}),shine(),frost()]),
- make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1],enabled:false}),powerArcs(),{...crackle(),enabled:false}]),
+ {...make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),powerArcs()]),asOverlay:true},
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
  make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
- make('ice-skin','Ice skin','Skins',4200,'glacier',[skin('Ice surface',texture('Ice_Natural01'),{fixed:true,atlasRect:[.52,.18,.46,.76],bodyUV:true,filter:2,strength:.97,tint:[1,1,1]}),glow('Ice sheen',texture('Ice3b'),{bodyUV:true,pulse:'glint',strength:.24,tint:[.9,.96,1]}),frost()]),
+ make('ice-skin','Ice skin','Skins',4200,'glacier',[...ICE_VARIANTS.white,frost()]),
  make('white-ice-skin','White ice','Skins',3900,'ice',[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]),
  make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers(),fire('Fire',{enabled:false})]),
  make('glowing-skin','Glowing skin','Skins',2500,'azure',[pulse()]),
@@ -72,10 +73,6 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
 GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group));
 // A saved impact remains editable. It is never offered in the library or search.
 export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredLooks.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);
-export const ICE_VARIANTS={
- dark:GLOBAL_LOOKS.find(l=>l.id==='ice-skin').layers.slice(0,2),
- white:retiredLooks.find(l=>l.id==='white-ice-skin').layers,
-};
 export function withIceVariation(stack,frame,variant){
  const names=new Set([...ICE_VARIANTS.dark,...ICE_VARIANTS.white].map(l=>l.label));
  const surfaces=stack.layers.filter(l=>names.has(l.label)),extra=stack.layers.filter(l=>!names.has(l.label));
@@ -91,7 +88,7 @@ export const LAYER_CHOICES=[
  glow('Star field','Units\\Undead\\FrostWyrm\\Starfield.blp',{pulse:'double',strength:1.1}),
  ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
- powerArcs(),crackle(),frost(),edge(),inkSeal,
+ powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,
 ];
 // The compact menu can start any ingredient independently of its original preset.
 for(const look of GLOBAL_LOOKS){
@@ -187,5 +184,5 @@ export function makeLayer(spec,frame,palette,id) {
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {
- return {owner,look:look.id,loop:look.loop,...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
+ return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
 }

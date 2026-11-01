@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {createRequire} from 'node:module';import {openDocument} from '../../src/editor-document.js';
-import {GLOBAL_LOOKS,findLook,newStack,partFrame} from '../../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,newStack,partFrame,makeLayer,LAYER_CHOICES} from '../../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../../src/global-animation-model.js';
 const {testModel}=createRequire(import.meta.url)('../helpers/fixtures.cjs');
 const fixture=()=>openDocument(fs.readFileSync(testModel('WH_WOC_WarriorSlaaneshDual01.mdx')),'slaanesh.mdx');
@@ -108,7 +108,7 @@ test('default weapon sparks and embers are visible concurrently on both weapons'
 });
 test('lightning flashes alternate between blades with quiet intervals, and the burst controls survive reopen',async()=>{
  const {ModelRenderer}=await import('war3-model');
- const d=fixture(),s=stack(d,'lightning-blade'),l=s.layers.find(l=>l.kind==='crackle');l.enabled=true;
+ const d=fixture(),s=stack(d,'lightning-blade'),l=makeLayer(LAYER_CHOICES.find(l=>l.kind==='crackle'),partFrame(d.model.Geosets[28]),'azure',3);s.layers.push(l);
  for(const [gap,amount,window] of [[3,4,.22],[1,9,.36]]){
   l.burstGap=gap;l.amount=amount;l.burstWindow=window;d.apply('Change lightning',FX_SECTIONS,m=>compileAnimation(m,28,s));
   const renderer=new ModelRenderer(structuredClone(d.model));renderer.setSequence(0);

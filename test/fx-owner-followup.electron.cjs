@@ -45,7 +45,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await fire.check();await ready();assert.ok((await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props.Name?.startsWith('FX Fire')&&e.particles.length));await motion(stage,'lava-fire');await fire.uncheck();await ready();assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await choose('Arcane blade');const addition=fx.getByLabel('Add layer',{exact:true});
   assert.equal(await addition.locator('option').first().innerText(),'Add layer');
-  for(const name of ['Diamond flash','Eye','Orbiting stars']){await addition.selectOption(name);await ready();assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
+  for(const name of ['Diamond flash','Eye','Orbiting stars']){await (name==='Orbiting stars'?fx.getByLabel('Add emitter',{exact:true}):addition).selectOption(name);await ready();assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
   const overlay=fx.getByLabel('Create as overlay',{exact:true});
   const base=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxStack);return [g.MaterialID,g._FxStack.baseMaterial];});
   await overlay.check();await ready();const [overlayMat,sourceMat]=await base();assert.equal(overlayMat,sourceMat);

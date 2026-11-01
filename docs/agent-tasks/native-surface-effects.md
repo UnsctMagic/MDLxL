@@ -2,6 +2,18 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Sixth hand test · 2 November 2026
+
+Continued from `44f8c6c8`. Lightning blade starts as an overlay with Storm steel and Blade arcs. Every preset has an empty Particles → Add emitter choice. Choosing an emitter uses the existing layer builder and native controls. New Ice skin stacks start on White ice with Falling mist. Dark ice and older saved stacks remain editable.
+
+The old package failed `the emitter choice is available before adding any emitter` (`0 !== 1`). The source regression found the two extra Lightning layers and the old dark default. The new packaged check visits all 42 presets, adds Star sparks to Lightning, edits through the native life-field controls and restores the complete original model with Undo.
+
+- All 42 presets expose the empty choice. In Lightning it creates no native emitter until a selection is made. Star sparks was added, its Born colour edited through FX, applied and undone exactly on the Slaanesh model.
+- Reviewed Lightning blade and the default White ice in Stand, Walk and Attack on Slaanesh, Khorne and Nurgle, with game-distance views and closer mouse orbit. Both changed defaults passed packaged MDX and MDL save, reopen, re-edit and Undo.
+- Passed 2,710 source checks, 57 compatibility checks and 14 real-model checks, with zero failures and the same seven existing source skips described in the fourth round. All nine packaged FX checks passed on the hidden desktop. The known-failures baseline is unchanged.
+- [Default controls](../../test/evidence/visual-effects/empty-emitter-defaults.webp) show the empty Particles choice, the two Lightning surfaces, overlay enabled and White ice selected.
+- Warcraft III playback and independent QA remain open.
+
 ## Fifth hand test · 1 November 2026
 
 Continued from `375df03e`. Lightning blade uses blade-bound native Lightning4b arcs with stepped flashes and editable quiet intervals. Ice skin now holds Dark ice and White ice, both with Falling mist. Fissures skin in Skins replaces Lava skin. Oathfire and Buried coals are retired. Basalt kiln is now Basalt skin, with Heat seams at 40% and RGB 82, 34, 16.

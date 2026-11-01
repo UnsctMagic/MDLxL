@@ -64,7 +64,7 @@ Animation Manager and UV controls. Do not invent another control scheme.
 
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
-Use one grouped Add layer menu for ingredients across all accepted presets. A layer can use a different native texture from the existing texture library. Particle layers can also change emitter while keeping their placement. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons. M, R and Z select these tools inside FX.
+Use the grouped Add layer menu for surface ingredients across all accepted presets. Every preset also has a Particles field with an empty Add emitter choice. Selecting an emitter adds that ingredient through the same layer builder; the empty choice allocates no native objects or assets. A layer can use a different native texture from the existing texture library. Particle layers can also change emitter while keeping their placement. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons. M, R and Z select these tools inside FX.
 
 Create as overlay keeps the original material visible and draws the effect on separate geosets fitted to the same surface and skin. With the switch cleared, the effect supplies the visible surface. Only stacks containing a surface ingredient offer the choice. Persist it through Apply and MDX/MDL reopen.
 
@@ -107,11 +107,11 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | A Warhammer 40,000 power sword with branching native Lightning4b arcs running along the skinned blade metal. Flash three times over 0.25 seconds, with three seconds quiet between bursts. Expose duration, quiet interval and flashes per burst. The earlier LightningBall emitter is optional and starts off. |
+| Lightning blade | A Warhammer 40,000 power sword with branching native Lightning4b arcs running along the skinned blade metal. Flash three times over 0.25 seconds, with three seconds quiet between bursts. Expose duration, quiet interval and flashes per burst. New stacks contain only Storm steel and Blade arcs and start as overlays. The Particles choice is empty until the artist chooses an emitter. |
 | Arcane blade | Energy flows along the blade with a pulse. |
 | Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
-| Ice skin | One Dark ice / White ice selector. Keep the accepted dark striations. White ice uses native Northrend frost and fractured ice. Falling mist is available in both finishes. |
+| Ice skin | One Dark ice / White ice selector, with White ice selected for new stacks. Keep the accepted dark striations. White ice uses native Northrend frost and fractured ice. Falling mist is available in both finishes. |
 | Fissures skin | The accepted Lava fissures surface replaces Lava skin in Skins. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
@@ -146,7 +146,7 @@ keep its count.
 
 The source checks include `test/global-animations.test.js`, `test/fx-sort.test.js` and the private real-model
 `test/manual/fx-owner-round.test.js`. Hidden packaged checks are
-`test/fx-layer-editing.electron.cjs`, `test/fx-lightning-bursts.electron.cjs`,
+`test/fx-empty-emitters.electron.cjs`, `test/fx-layer-editing.electron.cjs`, `test/fx-lightning-bursts.electron.cjs`,
 `test/fx-owner-followup.electron.cjs`, `test/fx-owner-round.electron.cjs`,
 `test/fx-owner-motion.electron.cjs`,
 `test/fx-owner-intensity.electron.cjs` and the existing FX/save/UV/library workflows.
