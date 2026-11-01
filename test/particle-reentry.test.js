@@ -8,12 +8,12 @@ import { effectNodes } from '../src/particle-recipes.js';
 const source = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
 const body = source.match(/const openParticles = id => \{([\s\S]*?)\n  \};/)[1];
 function open(model, selectedNodeIds = [], id) {
-  const dialogs = [], playing = [], selection = { 0: [1] }, selectedBone = model.Bones[0];
-  const action = new Function('effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'validSelection', 'setPlaying', 'setDialog', 'id', body);
+  const dialogs = [], playing = [], selection = { 0: [1] }, singleRigNode = selectedNodeIds.length===1?model.Nodes?.[selectedNodeIds[0]]:null, selectedBone = model.Bones.includes(singleRigNode)?singleRigNode:null;
+  const action = new Function('effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', body);
   const before = structuredClone(model);
-  action(effectNodes, model, selectedNodeIds, selectedBone, selection, value => playing.push(value), value => dialogs.push(value), id);
+  action(effectNodes, model, selectedNodeIds, selectedBone, singleRigNode, selection, value => playing.push(value), value => dialogs.push(value), id);
   assert.deepEqual(model, before); assert.deepEqual(playing, [false]);
-  assert.equal(dialogs[0].attachmentId, selectedBone?.ObjectId); assert.equal(dialogs[0].selection, selection);
+  const expected=[...(model.Bones||[]),...(model.Helpers||[]),...(model.Attachments||[])].find(n=>n===singleRigNode)?.ObjectId;assert.equal(dialogs[0].attachmentId, expected); assert.equal(dialogs[0].selection, selection);
   return dialogs[0].nodeId;
 }
 
@@ -42,4 +42,9 @@ test('EMTR with only particles chooses the first effect; with no effects it open
   const editor = readFileSync(new URL('../app/ParticleEditor.jsx', import.meta.url), 'utf8');
   assert.match(editor, /useState\(Number\.isInteger\(selectedNodeId\)\?'On model':'Lab'\)/);
   assert.match(editor, /\[library,setLibrary\]=useState\(!Number\.isInteger\(selectedNodeId\)\)/);
+});
+
+test('EMTR forwards a selected bone, helper or attachment as the no-vertex placement target',()=>{
+ const model=createDemoDocument().model;for(const type of ['Bone','Helper','Attachment']){const node=createNode(model,type);node.PivotPoint=new Float32Array([7,11,13]);open(model,[node.ObjectId]);}
+ const light=createNode(model,'Light');open(model,[light.ObjectId]);
 });

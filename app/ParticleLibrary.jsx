@@ -20,7 +20,12 @@ function refreshCatalog(previous,next) {
       ? {...item,thumbnail:old.thumbnail} : item;
   })};
 }
-export default function ParticleLibrary({onChoose,onClose,onError,preferences,disabled=false}) {
+export async function readParticleLibraryRecipe(item){
+  const recipe=parseParticleData(await window.desktop.particleRead(item.id));
+  for(const key of ['name','tags','categories','naming','previewSample'])if(item[key]!==undefined)recipe[key]=item[key];
+  return recipe;
+}
+export default function ParticleLibrary({onChoose,onClose,onError,onSelectionChange,preferences,disabled=false}) {
   const opening=useRef(false);
   const [openingName,setOpeningName]=useState('');
   const [catalog,setCatalog]=useState({items:[]}),[search,setSearch]=useState(''),[style,setStyle]=useState('standard'),[selected,setSelected]=useState(null),[sourceContext,setSourceContext]=useState(null);
@@ -61,10 +66,12 @@ export default function ParticleLibrary({onChoose,onClose,onError,preferences,di
   },[search,style,catalog.browse]);
   const rows=useMemo(()=>visibleWorldEditorRows(tree.nodes,opened),[tree,opened]);
   const selectedItem=catalog.items.find(item=>item.id===selected?.node?.item?.id);
+  useEffect(()=>{onSelectionChange?.(selectedItem||null);},[selectedItem,onSelectionChange]);
+  useEffect(()=>()=>onSelectionChange?.(null),[onSelectionChange]);
   const item=selectedItem?{...selectedItem,associations:selected?.node?.item?.associations}:null;
   const onVisibleRows=useCallback(rows=>setVisible(rows.map(row=>row.node?.item).filter(Boolean)),[]);
   const toggle=row=>setExpanded(previous=>{const next=new Set(previous);if(next.has(row.key))next.delete(row.key);else next.add(row.key);return next;});
-  const choose=async item=>{if(disabled||opening.current)return;if(item.blocked)return;opening.current=true;setOpeningName(item.name);try{const recipe=parseParticleData(await window.desktop.particleRead(item.id));for(const key of ['name','tags','categories','naming','previewSample'])if(item[key]!==undefined)recipe[key]=item[key];await onChoose(recipe);}catch(error){onError(error.message);}finally{opening.current=false;setOpeningName('');}};
+  const choose=async item=>{if(disabled||opening.current)return;if(item.blocked)return;opening.current=true;setOpeningName(item.name);try{await onChoose(await readParticleLibraryRecipe(item));}catch(error){onError(error.message);}finally{opening.current=false;setOpeningName('');}};
   const favorite=async item=>{try{const favorite=!item.favorite;await window.desktop.particleAnnotate({id:item.id,favorite});setCatalog(old=>({...old,items:old.items.map(entry=>entry.id===item.id?{...entry,favorite}:entry)}));}catch(error){onError(error.message);}};
   const annotate=async patch=>{try{await window.desktop.particleAnnotate({id:item.id,...patch});await load();}catch(error){onError(error.message);}};
   const rowIcon=row=>{

@@ -827,7 +827,7 @@ export default function GamePreview(inputProps) {
     // The first click of a double-click may select the bone under an emitter
     // (Bones show by default), so cycling continues from the emitter picked last.
     let lastPickedParticle=null;
-    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId);if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
+    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId,{details:true});if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point.position,point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
     canvas.addEventListener('dblclick',pickParticle,true);
     // Double-click a bone or a part of the model: its bones are selected with Focused Skeleton on.
     const pickPartBones=event=>{const p=latest.current;if(event.button!==0||event.altKey||!p.onPartBones)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,bone=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='bones'),x,y);
@@ -1427,7 +1427,7 @@ export default function GamePreview(inputProps) {
             // A paused view may draw only once after a seek, edit or camera change.
             // Publish that pose immediately; playback still uses the normal report rate.
             const reportKey=p.playing?'':[native.getFrame(),p.particleSelectedId,p.particleLiveRevision,particleStatusKey,canvas.width,canvas.height,...displayCamera.matrixWorldInverse.elements,...displayCamera.projectionMatrix.elements].join(':');
-            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;p.onParticleStage(particleStageSnapshot(native,displayCamera,canvas.clientWidth,canvas.clientHeight,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
+            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
           }
         }
         finally { gl.colorMask(true, true, true, true); }
@@ -1626,6 +1626,7 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      frames: state.scheduler.frames,
       captureView() {
         if (disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
         return composeViewportLayers(hostElement, canvas);

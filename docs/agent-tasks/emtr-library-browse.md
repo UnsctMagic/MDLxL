@@ -1,6 +1,14 @@
 # EMTR Particle Library browsing
 
-Owner contents/motion round ready for review. Codex, 1 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch `codex/emtr-library-browse`, continued from Claude's `03811037`. No merge or release is authorized.
+Placement R1–R9 implemented; ready to test. Codex, 1 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch `codex/emtr-library-browse`. No merge or release is authorized.
+
+## Add like ribbons — current placement round
+
+Implemented the [PR #498 R1–R9 contract](emtr-add-like-ribbons.md) from source base a5c5a17e. A Library single-click now feeds the same load-then-place route as stage Add. Selected vertices determine the centre and ribbon-rule bone; a selected bone/helper/attachment supplies the no-vertex fallback. The shared ribbon panel contains Visibility, Create and Cancel. The shared handle follows the actual emitter, including UI scaling; Snap keeps its double-click interaction and binds to the hit face. The existing On model handle and visibility key track remain available. See the linked note for owners and fail-first evidence.
+
+Final hidden packaged P1–P10 **10 / 0 / 0**, five Library workflows **5 / 0 / 0**, source **2,647 / 0 / 10 existing skips**, focused **80 / 0 / 0**, compatibility **57 / 0 / 0**; build/package **1,381 files, 55 locales**. [Results and bundle hashes](../../test/evidence/emtr-add/results.json), [P1](../../test/evidence/emtr-add/P1.png), [P4](../../test/evidence/emtr-add/P4.png), [P5](../../test/evidence/emtr-add/P5.png), [P6](../../test/evidence/emtr-add/P6.png). Prior A27a/A27b evidence below remains valid; no catalogue data or Standard browser contents changed.
+
+D:/Codex/mdlxl-491-particle-review was preserved and not replaced. Ready to test; independent Claude QA, owner acceptance and Warcraft III playback remain pending. Small logs: D:/Codex/mdlxl-491-add-effects-report.
 
 ## Owner contents and motion correction (1 November 2026)
 

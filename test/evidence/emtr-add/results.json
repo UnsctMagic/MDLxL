@@ -1,0 +1,89 @@
+{
+  "sourceBase": "a5c5a17e059eb25ded828c6a705e279deb2060f6",
+  "bundle": {
+    "indexHash": "6ee022a4c76175f4a9b2be4b9f4dc65a9049c85d7721f333c1ef9b0991fd1ed4",
+    "assetsHash": "dbc3ed9536dce2e4176e297e5ade85d989430ddd14c4602c875a40996b0c9639"
+  },
+  "passed": 10,
+  "failed": 0,
+  "skipped": 0,
+  "checks": [
+    {
+      "id": "P1",
+      "emitter": "BlizParticle01",
+      "parent": 18,
+      "center": [
+        3.0026267369588218,
+        24.41200002034505,
+        40.84843444824219
+      ]
+    },
+    {
+      "id": "P2"
+    },
+    {
+      "id": "P3"
+    },
+    {
+      "id": "P4"
+    },
+    {
+      "id": "P5",
+      "pixels": 100.00000211257822,
+      "renderedParticlesPixels": 100.96559302811801
+    },
+    {
+      "id": "P6",
+      "parent": 19,
+      "snapError": 0.000005591521210799504,
+      "motionError": 0.0000034424734488436845
+    },
+    {
+      "id": "P7",
+      "selected": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "P8",
+      "afterCreateHandlePixels": 50.000002157458596,
+      "timingDiamond": true
+    },
+    {
+      "id": "P9"
+    },
+    {
+      "id": "P10"
+    }
+  ],
+  "sourceSuite": {
+    "pass": 2647,
+    "fail": 0,
+    "skipped": 10
+  },
+  "compatibilitySuite": {
+    "pass": 57,
+    "fail": 0,
+    "skipped": 0
+  },
+  "library": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "workflows": [
+      "layout",
+      "previews",
+      "copy",
+      "browse",
+      "indexing"
+    ]
+  },
+  "runtimeFiles": 1381,
+  "locales": 55,
+  "notExercised": [
+    "Warcraft III gameplay",
+    "non-enUS installed data",
+    "independent Claude QA and owner acceptance"
+  ]
+}

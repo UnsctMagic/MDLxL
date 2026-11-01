@@ -377,17 +377,21 @@ Preserve binary defaults behind animated fields where the application's codec su
 
 ### 12.2 Add to model
 
-The user selects Add to model, chooses a target, places an effect anchor visually, and confirms. Show a live ghost while placing. Cancel leaves the model unchanged. Confirm inserts one undoable operation containing the effect and all required dependencies.
+**Add to model** uses the single-clicked Library row while the Library is open, otherwise the current Lab effect. Both add routes load the chosen recipe into Lab before placement. A load error leaves the Lab and target model unchanged; never substitute the previous recipe.
 
-Offer a bone/helper picker and surface/pivot snapping where applicable. Choosing a bone attaches the emitter's source; it is not the same setting as carrying already-emitted particles with that source. Keep those choices separate.
+Placement matches **Add ribbon**: selected vertices determine the centre and parent using the shared ribbon influence rule. With no vertices selected, use the selected bone/attachment pivot, otherwise the model origin. The panel contains only **Add effect**, the ribbon **Visibility** checklist (current animation ticked), **Create** and **Cancel**. Keep **Snap to surface** and its double-click interaction; the clicked face also determines the parent bone.
+
+The live model and effect remain visible while placing. The shared ribbon-style handle sits at the emitter's world position and moves the visible effect by the pointer's screen distance, including display scaling. Retain normal mouse rotation. Errors appear as one line in the panel, without removing the preview.
+
+**Create** inserts the effect and dependencies in one undoable operation, selects it in On model and shows “Effect added. Drag it to adjust.” The same handle and existing key track remain available afterwards. **Cancel** and Esc leave the model unchanged. Undo restores all copied nodes and resources; Redo restores the insertion.
 
 A copied recipe must remap ObjectIds, parents, PivotPoints, TextureIDs, MaterialIDs, texture animation references, global-sequence IDs, and other imported references correctly. Never assume source array indices remain valid in the target model.
 
 Import only the necessary effect dependency graph. Do not silently transplant an entire unit skeleton or overwrite a target animation because that was easier than isolating the effect. Use an explicit anchor wrapper and preserve internal relative motion where appropriate.
 
-For timing, default to an explicit source-clip/target-clip mapping rather than blindly copying absolute source timestamps. Offer fitting to a selected interval as a distinct operation, preserve key ordering, and never modify unrelated target sequences. Global loops remain global unless deliberately converted.
+Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons. Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion, preserving the recipe's internal relative motion. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
 
-“Keep source motion” and “use target attachment motion” are different placement choices. Reparenting while preserving one pose is not proof that all animated poses remain unchanged. Test transformed and nonuniformly scaled parents; reject or explain unsupported transformations rather than inventing exact preservation.
+See [R1–R9 and packaged P1–P10](../agent-tasks/emtr-add-like-ribbons.md) for the owner acceptance path.
 
 ### 12.3 Size versus whole-effect scale
 

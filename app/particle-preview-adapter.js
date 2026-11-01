@@ -5,6 +5,7 @@ import { samplePreviewMatrices } from './preview-pose.js';
 import { screenPlaneTranslation } from './viewport-math.js';
 import { teamColorPixels } from './viewport-quality.js';
 import { sampleTrack, skinGeoset, sampleGeosetAnimation } from '../src/animation.js';
+import {particleVertexSelection} from '../src/particle-selection.js';
 import { pickParticleSamples } from '../src/particle-handles.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 
@@ -153,7 +154,8 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
   let anchor;
   const anchorNode=native.model.Nodes?.[options.anchorId];
   if(anchorNode){
-    const world=new Vector3().fromArray(anchorNode.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[options.anchorId].matrix));
+    const shown=native.model.Nodes?.[selectedId]||anchorNode;
+    const world=new Vector3().fromArray(shown.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[shown.ObjectId].matrix));
     const parentMatrix=anchorNode.Parent==null?new Matrix4():new Matrix4().fromArray(native.rendererData.nodes[anchorNode.Parent].matrix),inverse=parentMatrix.clone();
     if(Math.abs(inverse.determinant())>1e-10){inverse.invert();const local=world.clone().applyMatrix4(inverse);anchor={point:project(world.toArray()),dx:world.clone().add(screenPlaneTranslation(camera,world,width,height,1,0)).applyMatrix4(inverse).sub(local).toArray(),dy:world.clone().add(screenPlaneTranslation(camera,world,width,height,0,1)).applyMatrix4(inverse).sub(local).toArray()};}
   }
@@ -476,22 +478,24 @@ export class ParticleAuthoringPreview {
 }
 
 /** Native posed triangle hit, converted through the chosen attachment's full affine transform. */
-export function particleSurfaceAnchor(native,camera,width,height,x,y,anchorId) {
+export function particleSurfaceAnchor(native,camera,width,height,x,y,anchorId,{details=false}={}) {
  const anchor=native.model.Nodes?.[anchorId];if(!anchor)return null;
  const raycaster=new Raycaster();raycaster.setFromCamera(new Vector2(x/width*2-1,1-y/height*2),camera);
  const matrices=new Map(native.rendererData.nodes.flatMap((n,i)=>n?.matrix?[[i,new Matrix4().fromArray(n.matrix)]]:[]));
- let nearest=null,distance=Infinity;
+ let nearest=null,distance=Infinity,binding;
  for(const [index,geo]of native.model.Geosets.entries()){
   if(sampleGeosetAnimation(native.model,index,native.getFrame(),native.getSequence()).alpha<=.001)continue;
   const vertices=skinGeoset(geo,matrices);
   for(let i=0;i<geo.Faces.length;i+=3){
    const triangle=[0,1,2].map(k=>new Vector3().fromArray(vertices,geo.Faces[i+k]*3)),point=raycaster.ray.intersectTriangle(...triangle,false,new Vector3());
-   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;}}
+   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;binding={index,ids:[geo.Faces[i],geo.Faces[i+1],geo.Faces[i+2]]};}}
   }
  }
  if(!nearest)return null;
- const matrix=matrices.get(anchor.Parent)||new Matrix4();if(Math.abs(matrix.determinant())<1e-10)return null;
- return nearest.applyMatrix4(matrix.clone().invert()).toArray();
+ const parent=details?particleVertexSelection(native.model,{[binding.index]:binding.ids}).parent:anchor.Parent;
+ const matrix=matrices.get(parent)||new Matrix4();if(Math.abs(matrix.determinant())<1e-10)return null;
+ const position=nearest.applyMatrix4(matrix.clone().invert()).toArray();
+ return details?{position,parent,geoset:binding.index,vertices:binding.ids}:position;
 }
 
 /** Depth-writing mesh coverage in the pinned SD renderer. Picking uses base-level

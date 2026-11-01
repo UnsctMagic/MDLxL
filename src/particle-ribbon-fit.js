@@ -1,23 +1,17 @@
 import {Vector3,Quaternion} from 'three';
 import {createStarterRecipe} from './particle-starters.js';
-import {vertexBones} from './part-bones.js';
+import {particleVertexSelection} from './particle-selection.js';
 
 /** Only complete marked polygons contribute; unrelated selected vertices do not. */
 export function ribbonPolygonSelection(model,selection={}){
- const points=[],bindings=[];let polygons=0;
+ const marked={};let polygons=0;
  for(const [index,ids] of Object.entries(selection)){
   const geo=model.Geosets[Number(index)];if(!geo)continue;
   const selected=new Set(ids),used=new Set();
   for(let i=0;i<geo.Faces.length;i+=3){const face=Array.from(geo.Faces.slice(i,i+3));if(face.length===3&&face.every(id=>selected.has(id))){polygons++;face.forEach(id=>used.add(id));}}
-  for(const id of used){
-   points.push(Array.from(geo.Vertices.slice(id*3,id*3+3)));
-   bindings.push([...new Set(vertexBones(geo,id))]);
-  }
+  marked[index]=[...used];
  }
- const first=bindings[0]||[],rigid=bindings.length>0&&first.length<=1&&bindings.every(group=>group.length===first.length&&group[0]===first[0]);
- const influence=new Map();for(const group of bindings)for(const id of group)influence.set(id,(influence.get(id)||0)+1/group.length);
- const parent=[...influence].sort((a,b)=>b[1]-a[1])[0]?.[0]??null;
- return {points,polygons,parent,needsBone:bindings.length>0&&!rigid};
+ return {...particleVertexSelection(model,marked),polygons};
 }
 
 /** WC3 SD ribbons are straight strips along local Y. Fit that axis to the marked back. */
