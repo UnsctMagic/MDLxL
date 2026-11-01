@@ -40,6 +40,7 @@ export async function scanParticleLibrary({ folder, directory, originsOnly = fal
       updateBrowse = await prepareParticleBrowse(reader, build, cache);
       const entries = JSON.parse(await fs.readFile(path.join(cache,'catalog.json'),'utf8'));
       await updateBrowse(entries,shouldCancel);
+      if(shouldCancel())onProgress({sourceKey,originsOnly:true,cancelled:true});
       return { manifest:{ extractionComplete:true }, entries, directory:cache };
     }
     inventory = await reader.list('models');
@@ -53,7 +54,7 @@ export async function scanParticleLibrary({ folder, directory, originsOnly = fal
     const pictures=await reader.list('textures'),keys={...pictures.keys,...inventory.keys};
     const byHash = new Map(entries.filter(item=>!item.blocked).map(item => [item.recipeHash,item]));
     let lastCheckpoint = 0;
-    async function checkpoint() {
+    async function checkpoint(final = false) {
       manifest.processed = [...completed]; manifest.updatedAt = new Date().toISOString();
       manifest.reviewedNames=entries.filter(item=>item.naming?.state==='reviewed'||!!reviewFor(item)).length;manifest.reviewNeededNames=entries.length-manifest.reviewedNames;
       manifest.recipeCount=entries.filter(item=>!item.blocked).length;manifest.blockedEntries=entries.filter(item=>item.blocked).length;manifest.catalogEntries=entries.length;manifest.sourceGroups=entries.filter(item=>item.grouping&&!item.blocked).length;
@@ -63,14 +64,16 @@ export async function scanParticleLibrary({ folder, directory, originsOnly = fal
       await atomic(path.join(cache,'catalog.json'),JSON.stringify(entries));
       await atomic(path.join(cache,'manifest.json'),JSON.stringify(manifest,null,2));
       await atomic(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));
-      if (!updateBrowse && !browseError && !shouldCancel()) {
+      if (!updateBrowse && !browseError && (!shouldCancel() || (final && entries.length))) {
         // Publish the first usable effects before reading the larger object and locale tables.
         onProgress({sourceKey,processed:completed.size,total:candidates.length,recipes:entries.length,complete:false});
         try { updateBrowse=await prepareParticleBrowse(reader,build,cache); }
         catch(error){ browseError=error.message; }
       }
-      if (updateBrowse && !shouldCancel()) {
-        try { await updateBrowse(entries,shouldCancel); } catch (error) { browseError=error.message; updateBrowse=null; }
+      // Cancellation stops model extraction. Finish the small metadata transaction
+      // for the saved partial catalogue so its new revision remains browsable.
+      if (updateBrowse && (!shouldCancel() || final)) {
+        try { await updateBrowse(entries,final ? () => false : shouldCancel); } catch (error) { browseError=error.message; updateBrowse=null; }
       }
       lastCheckpoint = Date.now();
       onProgress({ browseError, sourceKey, processed:completed.size,total:candidates.length,recipes:entries.length,complete:manifest.extractionComplete,cancelled:shouldCancel() });
@@ -144,7 +147,7 @@ export async function scanParticleLibrary({ folder, directory, originsOnly = fal
       completed.add(name);
       if (count % 25 === 0 && Date.now()-lastCheckpoint >= 1200) await checkpoint();
     }
-    await checkpoint();
+    await checkpoint(true);
     return { manifest, entries, directory:cache };
   } finally { reader.close(); }
 }

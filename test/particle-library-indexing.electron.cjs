@@ -14,14 +14,13 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  const store=new ParticleLibrary({directory,discover:async()=>({cascFolders:[]})}),thumbRoot=path.join(directory,'thumbnails','native-4.0.1-authoring-5');
  for(const file of await fs.readdir(thumbRoot)){if(!file.endsWith('.json'))continue;const entry=JSON.parse(await fs.readFile(path.join(thumbRoot,file)));entry.revision=await store.thumbnailRevision(file.slice(0,-5));await fs.writeFile(path.join(thumbRoot,file),JSON.stringify(entry));}
  const current=JSON.parse(await fs.readFile(path.join(directory,'current.json'))),manifestFile=path.join(directory,current.sourceKey,'manifest.json');
- // The copy changes NTFS timestamps. Preserve a verified partial browse snapshot
- // exactly as the thumbnail revisions above preserve the copied images.
- const {browseRevision}=require('../electron/particle-review.cjs'),original=path.join(source,'particles',current.sourceKey),copied=path.dirname(manifestFile);
- const snapshot=await fs.readFile(path.join(original,'browse.json'),'utf8').then(JSON.parse,error=>{if(error.code!=='ENOENT')throw error;});
- if(snapshot?.revision===browseRevision(await fs.stat(path.join(original,'catalog.json'),{bigint:true}))){
-   snapshot.revision=browseRevision(await fs.stat(path.join(copied,'catalog.json'),{bigint:true}));
-   await fs.writeFile(path.join(copied,'browse.json'),JSON.stringify(snapshot));
- }
+ // A cancelled resume must leave the saved partial catalogue and its links on
+ // the same revision, including when copying this fixture rounded its timestamps.
+ const {scanParticleLibrary}=await import('../electron/particle-library-worker.mjs');
+ await scanParticleLibrary({folder:current.folder,directory,shouldCancel:()=>true});
+ const {browseRevision}=require('../electron/particle-review.cjs'),copied=path.dirname(manifestFile);
+ const snapshot=JSON.parse(await fs.readFile(path.join(copied,'browse.json')));
+ assert.ok(snapshot.objects.length);assert.equal(snapshot.revision,browseRevision(await fs.stat(path.join(copied,'catalog.json'),{bigint:true})));
  assert.equal(JSON.parse(await fs.readFile(manifestFile)).extractionComplete,false,'The fixture must resume an incomplete index');
  let app;const errors=[],samples=[],returns=[],started=Date.now();
  try{
