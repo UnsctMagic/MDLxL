@@ -166,3 +166,14 @@ Implementation revision: `6ec1091db2fa92f0d730dca1cb35e4939458085a`.
 The follow-up records final rebased verification, PR references and the strict
 locale-size update for the one new prompt per language. No runtime change after
 this packaged verification.
+
+## Claude review fixes
+
+Claude reviewed PR #502 and fixed, on this branch: an unreadable art/variation no
+longer hides an entry's other textures (partial lists are not cached); the
+Textures tree shows the "No Warcraft III game files were found" message instead of
+"No matches"/endless loading; Model folder/All installed is restored when going
+back to Standard; the "not found" list names each path once; entry clicks reuse
+the tree's signature and read each model with one `gameFilesReadPath` call;
+metadata-only resolve skips its dead read guard. Source tests and `pnpm run build`
+pass; the packaged Library check was not rerun after these fixes (`ready to test`).

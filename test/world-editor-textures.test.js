@@ -20,3 +20,11 @@ test('all arts and variations in order, normalized dedupe, icon last, session/ve
  const matched=matchEntryTextures(first,items);
  assert.deepEqual(matched.items.map(x=>x.id),[1,3]);assert.deepEqual(matched.missing,['Textures/Three.dds','Icon.blp']);
 });
+test('an unreadable art keeps the other arts, is retried, and missing names are listed once',async()=>{
+ let calls=0;const load=createEntryTextureLists(async(path,variant)=>{calls++;if(path==='bad')throw Error('unreadable');return [{path:'One.blp',variant}];},async()=>null);
+ const entry={key:'we/1',models:[{path:'bad'},{path:'good'}]};
+ assert.deepEqual((await load(entry,'classic','sig')).map(x=>x.path),['One.blp']);
+ await load(entry,'classic','sig');assert.equal(calls,4,'a partial list is not cached');
+ await assert.rejects(load({key:'we/2',models:[{path:'bad'}]},'classic','sig'),/unreadable/);
+ assert.deepEqual(matchEntryTextures([{path:'Gone.blp',variant:'classic'},{path:'Gone.blp',variant:'reforged'}],[]).missing,['Gone.blp']);
+});

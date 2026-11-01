@@ -91,7 +91,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const [style,setStyle]=useState(()=>readStoredText('mdlvis.texture-library.style','worldeditor',value=>value==='standard'?'standard':'worldeditor'));
   const worldEditor=style==='worldeditor';
   const [entry,setEntry]=useState(null),[entryRecords,setEntryRecords]=useState([]),[entryLoading,setEntryLoading]=useState(false),[entryError,setEntryError]=useState('');
-  const entryRequest=useRef(0);
+  const entryRequest=useRef(0),standardVariant=useRef(null);
   const initialCatalog=librarySessions.peek(modelPath);
   const [catalog,setCatalog]=useState(initialCatalog),[loading,setLoading]=useState(!initialCatalog),[error,setError]=useState(''),[query,setQuery]=useState(''),[vibe,setVibe]=useState(preferredVibe),[format,setFormat]=useState(preferredFormat),[folder,setFolder]=useState(''),[variant,setVariant]=useState('classic'),[kind,setKind]=useState('all'),[limit,setLimit]=useState(120),[result,setResult]=useState(()=>librarySessions.result(modelPath,initialCatalog?.signature,{query:'',vibe:preferredVibe(),folder:'',variant:'classic',kind:'all',format:preferredFormat(),limit:120})||{items:[],total:0}),[ready,setReady]=useState(false),[searching,setSearching]=useState(false),[selected,setSelected]=useState(null),[selectedAsset,setSelectedAsset]=useState(null),[selectedImage,setSelectedImage]=useState(null),[selectionError,setSelectionError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[cacheEpoch,setCacheEpoch]=useState(0),[choice,setChoice]=useState(null);
   const worker=useRef(),requestId=useRef(0),requestOptions=useRef(null),expectedCatalog=useRef(null),previewFilters=useRef(null),dialog=useRef(),input=useRef();
@@ -143,11 +143,12 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   },[selected?.cacheKey,modelPath]);
   useEffect(()=>{
     entryRequest.current++;setEntry(null);setEntryRecords([]);setEntryLoading(false);setEntryError('');if(worldEditor)setSelected(null);
-    if(worldEditor&&!SKIN[variant])setVariant('classic');
+    // World Editor Style has no Model folder/All installed; keep that choice for the way back to Standard.
+    if(worldEditor&&!SKIN[variant]){standardVariant.current=variant;setVariant('classic');}
   },[worldEditor,variant]);
-  const chooseEntry=async node=>{
+  const chooseEntry=async(node,signature)=>{
     const request=++entryRequest.current;setEntry(node);setEntryRecords([]);setEntryLoading(true);setEntryError('');setSelected(null);
-    try{const summary=await window.desktop.gameFilesSummary(),records=await entryTextureList(node,variant,summary.signature);if(request===entryRequest.current)setEntryRecords(records);}
+    try{const records=await entryTextureList(node,variant,signature??(await window.desktop.gameFilesSummary()).signature);if(request===entryRequest.current)setEntryRecords(records);}
     catch(error){if(request===entryRequest.current)setEntryError(error.message);}
     finally{if(request===entryRequest.current)setEntryLoading(false);}
   };
@@ -166,8 +167,12 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const requestTexture=(action,callback,success)=>{if(existingTexture<0)return act(callback,success);if(!materialUsers.length)return act(callback,action==='preview'?success:'Added a new material.',action==='preview'?undefined:{material:'new'});setMessage('');setChoice({callback,success:action==='preview'?success:''});};
   const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
-  const changeVariant=value=>{setVariant(value);setFolder('');};
-  const changeStyle=value=>{setStyle(value);setQuery('');if(value==='standard'&&catalog&&!catalog.items.some(item=>item.variant==='classic'))setVariant('all');writeStoredText('mdlvis.texture-library.style',value);};
+  const changeVariant=value=>{setVariant(value);setFolder('');standardVariant.current=null;};
+  const changeStyle=value=>{
+    setStyle(value);setQuery('');
+    if(value==='standard'){if(standardVariant.current)setVariant(standardVariant.current);else if(catalog&&!catalog.items.some(item=>item.variant==='classic'))setVariant('all');standardVariant.current=null;}
+    writeStoredText('mdlvis.texture-library.style',value);
+  };
   useWindowKeyClaim(({event, localWindow}) => {
     if (localWindow !== dialog.current || event.key !== 'Escape' || !choice) return false;
     if (!busy) setChoice(null); return true;

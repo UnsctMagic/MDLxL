@@ -89,14 +89,16 @@ export function LibraryTree({rows,results,expanded,selected,focusKey,setFocusKey
  </div>;
 }
 export function WorldEditorTextureTree({variant,query,onChoose,onError}){
- const [catalog,setCatalog]=useState(null),[expanded,setExpanded]=useState(()=>new Set()),[selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null);
- useEffect(()=>{let active=true;setCatalog(null);setSelected(null);setExpanded(new Set());setFocusKey(null);
-  window.desktop.gameFilesSummary().then(summary=>worldEditorTree(variant,summary.signature)).then(value=>{if(active)setCatalog(value);}).catch(error=>{if(active)onError(error);});
+ const [catalog,setCatalog]=useState(null),[summary,setSummary]=useState(null),[failed,setFailed]=useState(false),[expanded,setExpanded]=useState(()=>new Set()),[selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null);
+ useEffect(()=>{let active=true;setCatalog(null);setFailed(false);setSelected(null);setExpanded(new Set());setFocusKey(null);
+  window.desktop.gameFilesSummary().then(value=>{if(active)setSummary(value);return worldEditorTree(variant,value.signature);}).then(value=>{if(active)setCatalog(value);}).catch(error=>{if(active){setFailed(true);onError(error);}});
   return()=>{active=false;};
  },[variant]);
+ const noGame='No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.';
+ const empty=failed?'':summary&&!summary.folder?noGame:!catalog?'Loading game files…':query.trim()?'No matches. Try fewer words or another game version.':noGame;
  const results=useMemo(()=>worldEditorResults(catalog,query),[catalog,query]);
  const rows=useMemo(()=>results?results.rows.map(row=>({...row,depth:0,search:true})):worldEditorRows(catalog,expanded),[catalog,expanded,results]);
  const toggle=row=>setExpanded(previous=>{const next=new Set(previous);if(next.has(row.key))next.delete(row.key);else next.add(row.key);return next;});
- const choose=row=>{setSelected(row);setFocusKey(row.key);onChoose(row.node);};
- return <LibraryTree rows={rows} results={results} expanded={expanded} selected={selected} focusKey={focusKey} setFocusKey={setFocusKey} toggle={toggle} choose={choose} rowIcon={row=>worldEditorRowIcon(row,variant,expanded)} empty={catalog?'No matches. Try fewer words or another game version.':'Loading game files…'}/>;
+ const choose=row=>{setSelected(row);setFocusKey(row.key);onChoose(row.node,summary?.signature);};
+ return <LibraryTree rows={rows} results={results} expanded={expanded} selected={selected} focusKey={focusKey} setFocusKey={setFocusKey} toggle={toggle} choose={choose} rowIcon={row=>worldEditorRowIcon(row,variant,expanded)} empty={empty}/>;
 }

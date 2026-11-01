@@ -198,7 +198,9 @@ class GameFileLibrary {
         if (match) break;
       }
       if (!match) { missing.push(name); continue; }
-      try { found.push(metadataOnly?{name,path:match.path,sourcePath:match.sourcePath,variant:match.variant}:{name,bytes:await this.read(index,match)}); } catch { missing.push(name); }
+      // Metadata lists the indexed file without reading it; an unreadable picture shows "Preview unavailable" on its tile.
+      if (metadataOnly) { found.push({name,path:match.path,sourcePath:match.sourcePath,variant:match.variant}); continue; }
+      try { found.push({name,bytes:await this.read(index,match)}); } catch { missing.push(name); }
     }
     return {found,missing};
   }

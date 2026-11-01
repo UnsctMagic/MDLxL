@@ -30,14 +30,17 @@ export function modelTextureNames(bytes,name){
  return names;
 }
 const textureKey=record=>record.variant+'|'+gamePathKey(record.sourcePath||record.path).split(':').at(-1);
-/** Session cache shared by pickers and the full Library; rejected loads can be retried. */
+/** Session cache shared by pickers and the full Library; rejected or partial loads can be retried. */
 export function createEntryTextureLists(readModels,readIcon){
  const lists=new Map();
  return (entry,variant,signature)=>{
   const key=signature+'|'+variant+'|'+entry.key;
   if(!lists.has(key)){
    const job=(async()=>{
-    const groups=await Promise.all((entry.models||[]).map(model=>readModels(model.path,variant,signature)));
+    // One unreadable art or variation must not hide the textures of the others.
+    const settled=await Promise.allSettled((entry.models||[]).map(model=>readModels(model.path,variant,signature)));
+    const groups=settled.filter(result=>result.status==='fulfilled').map(result=>result.value),failed=settled.filter(result=>result.status==='rejected');
+    if(failed.length){if(!groups.length)throw failed[0].reason;queueMicrotask(()=>lists.delete(key));}
     if(entry.icon){const icon=await readIcon(entry.icon,variant);groups.push([icon||{path:entry.icon,variant}]);}
     const seen=new Set();return groups.flat().filter(record=>{const id=textureKey(record);if(seen.has(id))return false;seen.add(id);return true;});
    })();
@@ -49,8 +52,8 @@ export function createEntryTextureLists(readModels,readIcon){
 const catalogIndexes=new WeakMap();
 export function matchEntryTextures(records,catalog){
  let index=catalogIndexes.get(catalog);
- if(!index){index=new Map();for(const item of catalog){for(const path of [item.path,item.sourcePath])if(path){const key=item.variant+'|'+gamePathKey(path).split(':').at(-1);if(!index.has(key))index.set(key,item);}}catalogIndexes.set(catalog,index);}
+ if(!index){index=new Map();for(const item of catalog){for(const path of [item.path,item.sourcePath])if(path){const key=textureKey({variant:item.variant,path});if(!index.has(key))index.set(key,item);}}catalogIndexes.set(catalog,index);}
  const items=[],missing=[],seen=new Set();
- for(const record of records){const item=index.get(textureKey(record));if(!item){missing.push(record.path);continue;}if(!seen.has(item.cacheKey||item.id)){items.push(item);seen.add(item.cacheKey||item.id);}}
+ for(const record of records){const item=index.get(textureKey(record));if(!item){if(!missing.includes(record.path))missing.push(record.path);continue;}if(!seen.has(item.cacheKey||item.id)){items.push(item);seen.add(item.cacheKey||item.id);}}
  return {items,missing};
 }
