@@ -519,7 +519,7 @@ export class AiEditorBridge {
       host = this.host(),
       env = this.env(target),
       state = env.state;
-    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args);
+    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal);
     if (name === 'mdlxl_versions') {
       const versions = this.versionStore,
         id = target.documentId;

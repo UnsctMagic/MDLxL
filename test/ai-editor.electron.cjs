@@ -326,6 +326,11 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check('help leaves out the SD guides while SD Brain is parked', !(await tool('mdlxl_help')).topics.some(topic => topic.includes('AI-SD-')));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
+  const sweep = await tool('mdlxl_sample', {
+    target: context.target, sweep: { kind: 'level', a: { geoset: 0, vertices: [2] } },
+  });
+  check('a single AI sweep measures the posed vertex across both complete clips',
+    sweep.worst?.value === 40 && sweep.rows.length === 2 && sweep.rows.every(row => row[1] === 1001), sweep);
   const recipe = /```js\r?\n([^]*?)\r?\n```/.exec(fs.readFileSync(path.join(__dirname, '../docs/WC3-EDITING-OPTIMIZATION.md'), 'utf8'))[1];
   const optimized = await tool('mdlxl_script', { target: context.target, code: recipe + '\n', timeoutMs: 120000 });
   check('sandbox can serialize and call unchanged OptimizeXL without an adapter', optimized.applied === false && optimized.value.report.afterBytes > 0 && optimized.value.candidate.Geosets.length === 2);
