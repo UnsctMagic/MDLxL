@@ -365,7 +365,7 @@ const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payloa
 ipcMain.handle('gameFiles:summary',()=>trackTextureOperation(gameFileIndex().then(({library,index,folder})=>({...library.summary(index),folder}))));
 ipcMain.handle('gameFiles:browse',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
 ipcMain.handle('gameFiles:read',(_,payload)=>trackTextureOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
-ipcMain.handle('gameFiles:resolve',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');return library.resolve(index,library.entry(index,payload.id,payload.signature),payload.names);})));
+ipcMain.handle('gameFiles:resolve',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');return library.resolve(index,library.entry(index,payload.id,payload.signature),payload.names,{metadataOnly:payload.metadataOnly===true});})));
 // World Editor view: the renderer builds its tree from these read-only game tables.
 const worldEditorString=path=>/^units\\[a-z]*strings\.txt$|^ui\\worldedit(?:game)?strings\.txt$/.test(path);
 ipcMain.handle('gameFiles:worldEditorSources',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{

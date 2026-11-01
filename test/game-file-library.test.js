@@ -173,3 +173,13 @@ test('a part from a newer model format imports into an MDX 800 model instead of 
   assert.equal(result.geosetIndices.length,donor.Geosets.length);assert.equal(target.Geosets.length,before+donor.Geosets.length);
   assert.ok(target.Bones.some(bone=>bone.Name==='DummyBone'));
 });
+
+test('entry texture metadata uses the preview resolver without reading picture bytes',async()=>{
+ const library=fakeLibrary(),index=await library.load(['D:\\Game']);
+ const model=library.findPath(index,'Units\\Human\\Footman\\Footman.mdx','reforged');
+ library.read=async()=>{throw Error('Metadata lookup must not read picture bytes');};
+ const result=await library.resolve(index,model,['Units\\Human\\Footman\\Footman_diffuse.tif','Absent.blp'],{metadataOnly:true});
+ assert.equal(result.found.length,1);assert.equal(result.found[0].variant,'reforged');
+ assert.equal(result.found[0].sourcePath,'war3.w3mod:_hd.w3mod:units\\human\\footman\\footman_diffuse.dds');
+ assert.equal('bytes' in result.found[0],false);assert.deepEqual(result.missing,['Absent.blp']);
+});

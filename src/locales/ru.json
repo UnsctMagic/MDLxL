@@ -7405,5 +7405,6 @@
   "Move this corner of the box along the {0} axis, in model units. Z controls height.": "Переместить этот угол параллелепипеда вдоль оси {0} в единицах модели. Z задаёт высоту.",
   "Collision shape coordinates must be finite.": "Координаты формы столкновения должны быть конечными.",
   "Sphere radius must be positive.": "Радиус сферы должен быть положительным.",
-  "A box needs each maximum corner value above its minimum.": "У параллелепипеда каждое значение максимального угла должно быть больше минимального."
+  "A box needs each maximum corner value above its minimum.": "У параллелепипеда каждое значение максимального угла должно быть больше минимального.",
+  "Choose a unit, spell, item or doodad to see its textures.": "Выберите юнита, заклинание, предмет или декорацию, чтобы увидеть текстуры."
 }

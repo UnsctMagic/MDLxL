@@ -7421,5 +7421,6 @@
   "Move this corner of the box along the {0} axis, in model units. Z controls height.": "Mueve esta esquina de la caja a lo largo del eje {0}, en unidades del modelo. Z controla la altura.",
   "Collision shape coordinates must be finite.": "Las coordenadas de la forma de colisión deben ser finitas.",
   "Sphere radius must be positive.": "El radio de la esfera debe ser positivo.",
-  "A box needs each maximum corner value above its minimum.": "Una caja necesita que cada valor de la esquina máxima supere al de la mínima."
+  "A box needs each maximum corner value above its minimum.": "Una caja necesita que cada valor de la esquina máxima supere al de la mínima.",
+  "Choose a unit, spell, item or doodad to see its textures.": "Elige una unidad, hechizo, objeto o decorado para ver sus texturas."
 }

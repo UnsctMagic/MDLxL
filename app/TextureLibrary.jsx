@@ -11,6 +11,9 @@ import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { trapTab } from './focus-trap.js';
 import { gamePathKey } from '../src/game-path.js';
 import { resolveGameFiles } from './desktop.js';
+import {FolderStyle,WorldEditorTextureTree,WORLD_EDITOR_PLACEHOLDER,SKIN} from './WorldEditorTree.jsx';
+import {entryTextureList} from './world-editor-textures.js';
+import {matchEntryTextures} from '../src/world-editor-textures.js';
 
 const GameFileBrowser=lazy(()=>import('./GameFileBrowser.jsx'));
 const LIBRARY_TABS=[['textures','Textures','Warcraft III textures and textures beside your model'],['models','Models','Every Warcraft III model; double-click one to open it in the editor'],['sounds','Sounds','Every Warcraft III sound, voice and music file'],['all','All files','Every Warcraft III game file, organised like the game folders']];
@@ -85,10 +88,14 @@ function FolderBranch({node,selected,onSelect,depth=0}){
 export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onPreviewTexture,previewEnabled=false,previewReason='',selectedGeosets,onOpenMaterials,onSelectTexture,selectLabel='Use in Forge',fullLibrary=false,onOpenGameModel,onImportGameGeosets,importTargetName,preferences}){
   // Only the Library button opens every game file; texture pickers stay texture-only.
   const [tab,setTab]=useState(()=>fullLibrary?preferredTab():'textures'),chooseTab=value=>{setTab(value);writeStoredText('mdlvis.library.tab',value);};
+  const [style,setStyle]=useState(()=>readStoredText('mdlvis.texture-library.style','worldeditor',value=>value==='standard'?'standard':'worldeditor'));
+  const worldEditor=style==='worldeditor';
+  const [entry,setEntry]=useState(null),[entryRecords,setEntryRecords]=useState([]),[entryLoading,setEntryLoading]=useState(false),[entryError,setEntryError]=useState('');
+  const entryRequest=useRef(0);
   const initialCatalog=librarySessions.peek(modelPath);
   const [catalog,setCatalog]=useState(initialCatalog),[loading,setLoading]=useState(!initialCatalog),[error,setError]=useState(''),[query,setQuery]=useState(''),[vibe,setVibe]=useState(preferredVibe),[format,setFormat]=useState(preferredFormat),[folder,setFolder]=useState(''),[variant,setVariant]=useState('classic'),[kind,setKind]=useState('all'),[limit,setLimit]=useState(120),[result,setResult]=useState(()=>librarySessions.result(modelPath,initialCatalog?.signature,{query:'',vibe:preferredVibe(),folder:'',variant:'classic',kind:'all',format:preferredFormat(),limit:120})||{items:[],total:0}),[ready,setReady]=useState(false),[searching,setSearching]=useState(false),[selected,setSelected]=useState(null),[selectedAsset,setSelectedAsset]=useState(null),[selectedImage,setSelectedImage]=useState(null),[selectionError,setSelectionError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[cacheEpoch,setCacheEpoch]=useState(0),[choice,setChoice]=useState(null);
   const worker=useRef(),requestId=useRef(0),requestOptions=useRef(null),expectedCatalog=useRef(null),previewFilters=useRef(null),dialog=useRef(),input=useRef();
-  const currentFilters=useRef();currentFilters.current={query,format,folder,variant,kind};
+  const currentFilters=useRef();currentFilters.current={query,format,folder,variant,kind,worldEditor};
   const [catalogFresh,setCatalogFresh]=useState(false);
   useEffect(()=>{
     const previous=document.activeElement;input.current?.focus();return()=>previous?.focus?.();
@@ -100,7 +107,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     const onMessage=({data})=>{if(!active)return;if(data.type==='ready'&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current){setReady(true);setLoading(false);}else if(data.type==='result'&&data.id===requestId.current){librarySessions.remember(modelPath,expectedCatalog.current,requestOptions.current,data.result);setResult(data.result);setSearching(false);}else if(data.type==='error'&&(data.id===requestId.current||data.id==null&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current)){setError(data.message);setLoading(false);setSearching(false);}};
     const onError=event=>{if(sharedWorker===w){w.terminate();sharedWorker=null;}if(active){setError(event.message||'Texture search could not start.');setLoading(false);}};
     w.addEventListener('message',onMessage);w.addEventListener('error',onError);
-    const useCatalog=data=>{if(!active)return;clearTimeout(initTimer);if(expectedCatalog.current!==data.signature){requestId.current=++searchSerial;setSearching(false);}expectedCatalog.current=data.signature;setCatalog(data);setSelected(previous=>previous&&data.items.some(item=>item.cacheKey===previous.cacheKey)?previous:null);if(!data.items.some(item=>item.variant==='classic'))setVariant('all');if(data.signature&&w.warmSignature===data.signature){setReady(true);setLoading(false);}else{setReady(false);initTimer=setTimeout(()=>{if(active)w.postMessage({type:'init',items:data.items,signature:data.signature});},50);}};
+    const useCatalog=data=>{if(!active)return;clearTimeout(initTimer);if(expectedCatalog.current!==data.signature){requestId.current=++searchSerial;setSearching(false);}expectedCatalog.current=data.signature;setCatalog(data);setSelected(previous=>previous&&data.items.some(item=>item.cacheKey===previous.cacheKey)?previous:null);if(!currentFilters.current.worldEditor&&!data.items.some(item=>item.variant==='classic'))setVariant('all');if(data.signature&&w.warmSignature===data.signature){setReady(true);setLoading(false);}else{setReady(false);initTimer=setTimeout(()=>{if(active)w.postMessage({type:'init',items:data.items,signature:data.signature});},50);}};
     const refreshCatalog=()=>librarySessions.load(modelPath,()=>window.desktop.textureLibraryCatalog({modelPath})).then(data=>{useCatalog(data);if(active)setCatalogFresh(true);}).catch(error=>{if(active){setError(error.message);setLoading(false);}});
     const warm=librarySessions.peek(modelPath);
     if(warm){useCatalog(warm);refreshCatalog();}
@@ -109,7 +116,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
       window.desktop.textureLibraryPreview({modelPath,format:previewFormat}).then(preview=>{
         if(!active)return;
         const filters=currentFilters.current;
-        if(filters.query.trim()||filters.folder||filters.kind!=='all'||filters.variant!=='classic'||filters.format!==previewFormat)return;
+        if(filters.worldEditor||filters.query.trim()||filters.folder||filters.kind!=='all'||filters.variant!=='classic'||filters.format!==previewFormat)return;
         previewFilters.current={format:previewFormat,variant:preview.variant};setVariant(preview.variant);setResult(preview.result);setLoading(false);
       }).catch(error=>{if(active)console.warn('Texture library first page:',error);}).finally(()=>{if(active)fullCatalogTimer=setTimeout(()=>{if(active)refreshCatalog();},75);});
     }else refreshCatalog();
@@ -118,6 +125,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   },[modelPath]);
   useEffect(()=>{setLimit(120);},[query,vibe,folder,variant,kind,format]);
   useEffect(()=>{
+    if(worldEditor){requestId.current=++searchSerial;setSearching(false);return;}
     const options={query,vibe,folder,variant,kind,format,limit};
     const first=catalog?initialTextureLibraryResults(catalog.items,options):null;
     if(first){setResult(first);setLoading(false);}
@@ -126,14 +134,28 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     const id=++searchSerial;requestId.current=id;requestOptions.current=options;
     const cached=librarySessions.result(modelPath,catalog?.signature,options);if(cached){setResult(cached);setSearching(false);return;}
     setSearching(true);const timer=setTimeout(()=>worker.current?.postMessage({type:'search',id,signature:catalog?.signature,options}),35);return()=>clearTimeout(timer);
-  },[ready,catalog?.signature,modelPath,query,vibe,folder,variant,kind,format,limit]);
+  },[ready,catalog?.signature,modelPath,query,vibe,folder,variant,kind,format,limit,worldEditor]);
   useEffect(()=>{
     let active=true;setSelectedAsset(null);setSelectedImage(null);setSelectionError('');setMessage('');setChoice(null);if(!selected)return;
     loadAsset(selected,modelPath).then(asset=>{if(active)setSelectedAsset(asset);}).catch(error=>{if(active)setSelectionError(error.message);});
     thumbnail(selected,modelPath).then(url=>{if(active)setSelectedImage(url);}).catch(error=>{if(active)setSelectionError(error.message);});
     return()=>{active=false;};
   },[selected?.cacheKey,modelPath]);
-  const tree=useMemo(()=>textureFolderTree((catalog?.items||[]).filter(item=>(variant==='all'||item.variant===variant)&&textureFormatMatches(item,format))),[catalog,variant,format]);
+  useEffect(()=>{
+    entryRequest.current++;setEntry(null);setEntryRecords([]);setEntryLoading(false);setEntryError('');if(worldEditor)setSelected(null);
+    if(worldEditor&&!SKIN[variant])setVariant('classic');
+  },[worldEditor,variant]);
+  const chooseEntry=async node=>{
+    const request=++entryRequest.current;setEntry(node);setEntryRecords([]);setEntryLoading(true);setEntryError('');setSelected(null);
+    try{const summary=await window.desktop.gameFilesSummary(),records=await entryTextureList(node,variant,summary.signature);if(request===entryRequest.current)setEntryRecords(records);}
+    catch(error){if(request===entryRequest.current)setEntryError(error.message);}
+    finally{if(request===entryRequest.current)setEntryLoading(false);}
+  };
+  useEffect(()=>()=>{entryRequest.current++;},[]);
+  const entryResult=useMemo(()=>matchEntryTextures(entryRecords,catalog?.items||[]),[entryRecords,catalog?.items]);
+  const entryItems=useMemo(()=>entryResult.items.filter(item=>textureFormatMatches(item,format)),[entryResult,format]);
+  const displayed=worldEditor?{items:entryItems,total:entryItems.length}:result;
+  const tree=useMemo(()=>worldEditor?{count:0,children:[]}:textureFolderTree((catalog?.items||[]).filter(item=>(variant==='all'||item.variant===variant)&&textureFormatMatches(item,format))),[catalog,variant,format,worldEditor]);
   const used=useMemo(()=>new Set((model?.Textures||[]).map(t=>gamePathKey(t.Image))),[model,model?.Textures?.length]);
   const checkedPreview=selectedGeosets==null?null:getUVPreviewSelection(model,selectedGeosets);
   const previewAllowed=previewEnabled&&(!checkedPreview||checkedPreview.enabled),disabledPreviewReason=previewReason||checkedPreview?.reason||'Texture preview is unavailable for this selection.';
@@ -145,6 +167,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
   const changeVariant=value=>{setVariant(value);setFolder('');};
+  const changeStyle=value=>{setStyle(value);setQuery('');if(value==='standard'&&catalog&&!catalog.items.some(item=>item.variant==='classic'))setVariant('all');writeStoredText('mdlvis.texture-library.style',value);};
   useWindowKeyClaim(({event, localWindow}) => {
     if (localWindow !== dialog.current || event.key !== 'Escape' || !choice) return false;
     if (!busy) setChoice(null); return true;
@@ -157,21 +180,24 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>{translate("Material & Texture Library")}</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" data-hotkey="close" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
     {fullLibrary&&<div className="tl-tabs" role="tablist" aria-label="Library sections">{LIBRARY_TABS.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>chooseTab(value)}>{label}</button>)}</div>}
     {tab!=='textures'?<Suspense fallback={<p className="tl-empty">Loading game files…</p>}><GameFileBrowser key={tab} preset={tab} onOpenGameModel={onOpenGameModel} onImportGameGeosets={onImportGameGeosets} importTargetName={importTargetName} onClose={onClose}/></Suspense>:<>
-    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={vibe?'Try rusty chain mail, painting, high resolution, or 512':'Search names, paths, high resolution, or 256'} onChange={event=>setQuery(event.target.value)} aria-label="Search textures"/>
-      <label title="Search surfaces, colours and kitbash associations"><input type="checkbox" checked={vibe} onChange={event=>{setVibe(event.target.checked);writeStoredText('mdlvis.texture-library.vibe',event.target.checked);}}/>Vibe search</label>
+    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={worldEditor?WORLD_EDITOR_PLACEHOLDER:vibe?'Try rusty chain mail, painting, high resolution, or 512':'Search names, paths, high resolution, or 256'} onChange={event=>setQuery(event.target.value)} aria-label="Search textures"/>
+      {!worldEditor&&<label title="Search surfaces, colours and kitbash associations"><input type="checkbox" checked={vibe} onChange={event=>{setVibe(event.target.checked);writeStoredText('mdlvis.texture-library.vibe',event.target.checked);}}/>Vibe search</label>}
       <label title="Hide DDS and other texture formats"><input aria-label="BLP textures only" type="checkbox" checked={format==='blp'} onChange={event=>{const next=event.target.checked?'blp':'all';setFormat(next);if(next==='blp')setSelected(previous=>textureFormatMatches(previous,next)?previous:null);writeStoredText('mdlvis.texture-library.blp-only',event.target.checked);}}/>BLP only</label>
-      <select aria-label="Texture source" value={variant} onChange={event=>changeVariant(event.target.value)}><option value="classic">Classic</option><option value="reforged">Reforged</option><option value="forsaken-kingdom">Forsaken Kingdom</option><option value="custom">Model folder</option><option value="all">All installed</option></select>
-      <select aria-label="Texture kind" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All textures</option><option value="units">Units &amp; characters</option><option value="buildings">Buildings</option><option value="doodads">Doodads</option><option value="terrain">Terrain</option><option value="effects">Effects</option><option value="icons">Icons</option><option value="art">Paintings &amp; art</option></select>
+      <select aria-label="Texture source" value={variant} onChange={event=>changeVariant(event.target.value)}><option value="classic">Classic</option><option value="reforged">Reforged</option><option value="forsaken-kingdom">Forsaken Kingdom</option>{!worldEditor&&<><option value="custom">Model folder</option><option value="all">All installed</option></>}</select>
+      {!worldEditor&&<select aria-label="Texture kind" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All textures</option><option value="units">Units &amp; characters</option><option value="buildings">Buildings</option><option value="doodads">Doodads</option><option value="terrain">Terrain</option><option value="effects">Effects</option><option value="icons">Icons</option><option value="art">Paintings &amp; art</option></select>}
     </div>
-    <div className="tl-body"><nav className="tl-folders" aria-label="Native texture folders"><button type="button" className={'tl-all-folders'+(!folder?' selected':'')} onClick={()=>setFolder('')}>All folders <small>{tree.count}</small></button>{tree.children.map(node=><FolderBranch key={node.path} node={node} selected={folder} onSelect={setFolder}/>)}</nav>
-      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</div>
+    <div className="tl-body"><nav className={'tl-folders'+(worldEditor?' gf-side':'')} aria-label="Native texture folders"><FolderStyle style={style} onChange={changeStyle}/>{worldEditor?<WorldEditorTextureTree variant={variant} query={query} onChoose={chooseEntry} onError={error=>setEntryError(error.message)}/>:<><button type="button" className={'tl-all-folders'+(!folder?' selected':'')} onClick={()=>setFolder('')}>All folders <small>{tree.count}</small></button>{tree.children.map(node=><FolderBranch key={node.path} node={node} selected={folder} onSelect={setFolder}/>)}</>}</nav>
+      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{worldEditor?<span>{translate('{0} textures').replace('{0}',displayed.total.toLocaleString())}{entry&&<> · <span translate="no">{entry.name}</span></>}</span>:<>{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</>}</div>
         {error&&<p className="tl-error" role="alert">{error}</p>}{catalog?.errors?.map((item,index)=><p key={index} className="tl-error">{item.message}</p>)}
         {!loading&&catalog?.nativeCount===0&&<p className="tl-note">No Warcraft textures were found. Choose your Warcraft III folder in Settings.</p>}
-        {result.notice&&vibe&&<p className="tl-note">{result.notice}</p>}
-        {result.unknown?.length>0&&vibe&&<p className="tl-note">Unrecognised words: {result.unknown.join(', ')}.</p>}
-        {!loading&&!searching&&!error&&result.total===0&&<p className="tl-empty">No matching textures. Try a material, a Warcraft unit name, or a broader folder.</p>}
-        <div className="tl-grid">{result.items.map(item=><TextureTile key={item.id} item={item} modelPath={modelPath} cacheEpoch={cacheEpoch} selected={selected?.id===item.id} onSelect={setSelected}/>)}</div>
-        {result.hasMore&&<button type="button" className="tl-more" onClick={()=>setLimit(n=>n+120)} disabled={searching}>Show more textures</button>}
+        {!worldEditor&&result.notice&&vibe&&<p className="tl-note">{result.notice}</p>}
+        {!worldEditor&&result.unknown?.length>0&&vibe&&<p className="tl-note">Unrecognised words: {result.unknown.join(', ')}.</p>}
+        {!worldEditor&&!loading&&!searching&&!error&&result.total===0&&<p className="tl-empty">No matching textures. Try a material, a Warcraft unit name, or a broader folder.</p>}
+        {worldEditor&&!entry&&<p className="tl-empty">{translate('Choose a unit, spell, item or doodad to see its textures.')}</p>}
+        {worldEditor&&entryError&&<p className="tl-error" role="alert">{entryError}</p>}
+        <div className="tl-grid">{worldEditor&&entry&&(entryLoading||!catalog)&&<span className="tl-tile"><span className="tl-tile-image">…</span></span>}{displayed.items.map(item=><TextureTile key={item.id} item={item} modelPath={modelPath} cacheEpoch={cacheEpoch} selected={selected?.id===item.id} onSelect={setSelected}/>)}</div>
+        {worldEditor&&catalog&&entryResult.missing.length>0&&<details className="gf-missing"><summary>{translate('{0} textures not found').replace('{0}',entryResult.missing.length)}</summary>{entryResult.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
+        {!worldEditor&&result.hasMore&&<button type="button" className="tl-more" onClick={()=>setLimit(n=>n+120)} disabled={searching}>Show more textures</button>}
       </main>
       <aside className="tl-details">{selected?<><div className="tl-preview">{selectedImage?<img src={selectedImage} alt={selected.name} translate="no"/>:<span>{selectionError?'Preview unavailable':'Loading preview…'}</span>}</div><h3 translate="no">{selected.name}</h3><p className="tl-version">Game version: <strong>{textureVersionLabel[selected.variant]||textureVersionLabel.unknown}</strong></p><code translate="no">{selected.path}</code><button type="button" className="tl-copy-path" onClick={copyPath}>Copy texture path</button>{selected.sourcePath!==selected.path&&<details><summary>Native source path</summary><code translate="no">{selected.sourcePath}</code></details>}
         {selected.width>0&&<p className="tl-dimensions">{selected.width} × {selected.height}</p>}{selected._match?.type==='inspiration'&&<p className="tl-note">{selected._match.inspiration} kitbash suggestion<br/>{selected._match.reason.split(' · ').map(value=>translate(value)).join(' · ')}</p>}
