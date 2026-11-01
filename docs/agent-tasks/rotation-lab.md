@@ -1,6 +1,6 @@
 # Rotation Lab: pick the 3D Rotate rule by feel
 
-Status: ready to test; awaiting merge approval and independent Claude QA
+Status: superseded by [Gizmo Lab](gizmo-lab.md) (2026-11-01); its build (PR #496) is reused there
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-01
 
