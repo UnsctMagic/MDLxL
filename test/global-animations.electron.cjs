@@ -40,10 +40,10 @@ const {testModel}=require('./helpers/fixtures.cjs');
   assert.equal((await stack()).loop,2380);
   await fx.getByLabel('Loop length').fill('2200');await fx.getByLabel('Loop length').press('Enter');await ready();await button('Apply effect').click();await fx.waitFor({state:'hidden'});assert.deepEqual(await count(),a);
   await page.keyboard.press('Control+z');await page.waitForFunction(()=>mdlxlProbe().session.doc.model.Geosets[18]._FxStack?.loop===2380);
-  const dest=path.join(out,'reopened.mdx');await stubDialogs(app,{save:dest});await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save model'}).getByRole('button',{name:'Save',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[role=dialog][aria-label="Save as"]'));await require('node:timers/promises').setTimeout(100);
+  const dest=path.join(out,'reopened.mdx');await stubDialogs(app,{save:dest});await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save model'}).getByRole('button',{name:'Save',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[role=dialog][aria-label="Save as"]'));await page.waitForFunction(()=>!mdlxlProbe().session.doc.dirty);
   const {openDocument}=await import('../src/editor-document.js');assert.equal(openDocument(fs.readFileSync(dest),dest).model.Geosets[18]._FxStack.loop,2380);
-  for(const [name,key] of [['Rune blade','size'],['Fly swarm','size']]){
-   await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button(name+' global animation').click();await ready();
+  for(const [name,key] of [['Fly swarm','size']]){
+   await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();
    await button('Fit selection').click();await button('Position & size').click();
    if(await button('Pause').count())await button('Pause').click();
    const before=(await stack()).layers[0];await drag('Resize particle',18,-8);

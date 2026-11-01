@@ -2,11 +2,72 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
-## Owner correction round · 1 November 2026
+## Owner hand-test round · 1 November 2026 · ready for review
 
-Only Rune blade and Water skin changed after the independent review of `33f1a6d1`. Rune blade identifies the native Unholy Aura seal by its texture/material, keeps one seal face, and fits two small tilted, counter-turning collars along a blade. Broad parts receive one local collar above the ground. Position and size still use the existing EMTR handles. Water skin now projects one continuous surface across the part instead of fitting each atlas island separately. Its two crossing native water layers are translucent; a faint original-material underlay remains visible. The other 15 global looks and all 51 earlier cards are unchanged.
+Continues `46ff2fa900147c540492e27bfc3ad4e7bbe09255` on the same branch and PR.
+The complete owner contract is folded into the feature guide. This round removes
+34 earlier cards, keeps 17 earlier cards as editable layer stacks, retains the
+17 global starters and adds Crystal veins and Felwood curse: **36 looks** total.
+No merge or release is authorized. Claude's independent QA and owner acceptance
+remain before merge.
 
-The correction package passed the rune drag, actual mouse orbit, Apply/one Undo, MDX save, actual reopen and editable-layer checks for both looks. Stand, Walk and Attack were captured through full global loops at game distance and in close orbit on the two Warriors, Footman and Abomination; Water Elemental is included beside the corrected water in the PR animation. Review captures and per-target observations are under `D:\Codex\fx-global-review\corrections-492-final`. The two PR animations were replaced. Focused source checks passed 48/48, compatibility 57/57, and the full source suite passed 2,668 with 10 skips and no failures; CI's unchanged known-failure baseline reported zero new failures. The five related packaged harnesses passed, including every earlier card. Warcraft III executable playback and owner visual acceptance remain unverified.
+Slaanesh displayed geoset 29 has two 110-vertex weapon bindings (bones 19 and 22).
+The former combined frame/parent 19 caused the displaced flames. Fits now follow
+each skin region, including blended attachments; original surface weights stay
+unchanged. Coincident native seam vertices no longer crash FX. EMTR's own LifeTable
+exposes all three colours, sizes and transparency values directly in FX.
+
+The library shares GameIcon/GameLibraryRow, with visible folder arrows, native
+icons, search, Highlight geoset and double-click selection. Ground pieces start
+off. Impacts use local Attack timing at the selected weapon's far end. Rune blade
+uses glowing native surface glyphs; Ice/Poison reuse the liked terrain recipes;
+Fly swarm uses native paths and a corrected transparent sprite; Glow reaches four
+continuous additive passes. The feature guide records the exact native sources.
+
+Verified in this round:
+
+- Full source: **2,690 pass / 0 fail / 7 skip**, unchanged empty failure baseline.
+  Skips: Windows SIGTERM behavior; exact private Archer fixture; private broken/
+  rebuilt skin pair; two pose-corpus-manifest tests; Windows symlink privilege;
+  volume without 8.3 short names. Available private Fx, Nurgle merge and large-pose
+  performance fixtures were enabled. Missing private pairs were not substituted
+  with unrelated models.
+- Focused FX/owner/source: **62 pass / 0 fail / 0 skip**. Compatibility:
+  **57 pass / 0 fail / 0 skip**.
+- Hidden packaged owner controls, global animation/EMTR workflow, surface smoke,
+  Warrior workflow, UV comparison and shared game-file library pass. The library
+  harness now uses real clicks and camera readiness; hidden status-bar strings
+  are replaced by unchanged-model/material-count assertions. Camera comparison
+  retains numeric tolerance for the observed 2e-14 rounding difference.
+- Every look: exact single Undo and **72 MDX/MDL save/reopen/re-edit round trips**.
+- Animated review: all 36 looks on Khorne in Stand/Walk/Attack; the eight owner
+  priorities on all three Warriors; six body looks on Footman, Paladin and
+  Abomination. All 36 Intensity ranges were exercised at min/middle/max; final
+  whole-body Glow and Rune ranges were also inspected. Two compact animated
+  captures are under `test/evidence/visual-effects/owner-round-*.webp`.
+
+Fail-first evidence: the starting revision failed both weapon bindings, native
+life fields and disabled-layer regressions; the hidden starting package exposed
+0 Born-colour controls instead of 1. Additional regressions first failed for a
+normal-frame Attack burst, coincident native seam groups, and hidden library
+folder SVGs. Obsolete ring-handle/card assertions were replaced because those
+cards and controls were explicitly removed by this contract, not to hide failures.
+
+Rune review distinguishes actual model parts: Slaanesh face 28 versus purple edge
+29; Khorne face 17 versus flame edge 19 and handle 16 (all displayed one-based IDs).
+FX always affects the selected surface. The final native glyph strip remains
+legible on the blade faces and follows the authored skin through motion.
+
+Open questions for the owner: is the native Icecrown glyph strip the desired rune
+style? Are event/weapon-speed inferred hit times suitable defaults where the MDX
+has no gameplay attack-point data? Both are editable. Warcraft III map playback
+and the owner's final visual acceptance are unverified.
+
+Working copy was isolated on D:. Owner checkout, game, models and installed app
+were read-only. Small final report: `D:\Codex\mdlxl-492-owner-round-report`.
+Disposable builds/profiles and the pushed working copy are removed at handoff.
+
+The historical rounds below do not establish acceptance of this round.
 
 ## Global animation maker · 1 November 2026
 

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
 import {GLOBAL_LOOKS,makeLayer,LAYER_CHOICES,newStack,partFrame} from '../src/global-animation-looks.js';
@@ -6,21 +7,22 @@ import {animationPart,compileAnimation,readAnimationStack,FX_SECTIONS} from '../
 import {fxData} from '../src/global-animation-data.js';
 import {visitTracks} from '../src/animation.js';
 
-function fixture(){
- const doc=createDemoDocument(),g=doc.model.Geosets[0],frame=partFrame(g);
+function fixture(real=false){
+ const doc=real?openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx'):createDemoDocument(),g=doc.model.Geosets[0],frame=partFrame(g);
  return {doc,frame,donors:{rune:{Geosets:[structuredClone(g)],Materials:[{Layers:[{TextureID:0}]}],Textures:[{Image:LAYER_CHOICES.find(l=>l.type==='Rune').image}]}}};
 }
 for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
- const {doc,frame,donors}=fixture(),model=doc.model,old=structuredClone(model.Sequences);
+ const {doc,frame,donors}=fixture(look.impact),model=doc.model;
+ const old=structuredClone(model.Sequences);
  const before={geos:model.Geosets.length,nodes:model.Nodes.filter(Boolean).length,mats:model.Materials.length};
  const draft=newStack(look,frame,'sample');
  const apply=stack=>doc.apply('Apply '+look.name,FX_SECTIONS,m=>compileAnimation(m,0,stack,donors));
  apply(draft);
- if(look.id==='fly-swarm')assert.ok(model.ParticleEmitters2.every(p=>p.FilterMode===0),'dark wings must cover the background');
+ if(look.id==='fly-swarm')assert.ok(model.ParticleEmitters2.every(p=>p.FilterMode===0),'native alpha blend must preserve dark wings and transparent atlas corners');
  assert.deepEqual(model.Sequences,old);
  let total=0;
  for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag)){
-  visitTracks(record,t=>{assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);total++;});
+  visitTracks(record,t=>{if(look.impact)assert.equal(t.GlobalSeqId,null,'impacts use the selected local Attack');else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);total++;});
  }
  assert.ok(total);
  for(const format of ['mdx','mdl']){
@@ -138,18 +140,12 @@ test('water crosses duplicated atlas seams continuously and retains a translucen
  }
 });
 
-test('rune finds its native material after donor reordering and fits collars rather than a ground disc',()=>{
- const {doc,frame,donors}=fixture(),m=doc.model;
- const spare=structuredClone(donors.rune.Geosets[0]);spare.MaterialID=1;
- spare.Vertices=spare.Vertices.slice(0,9);spare.Normals=spare.Normals.slice(0,9);spare.TVertices=[spare.TVertices[0].slice(0,6)];spare.Faces=Uint16Array.from([0,1,2]);
- donors.rune.Geosets.push(spare);donors.rune.Materials.push({Layers:[{TextureID:1}]});donors.rune.Textures.push({Image:'other.blp'});
+test('runes remain on the exact selected triangles and their authored skin weights',()=>{
+ const {doc,frame}=fixture(),m=doc.model,source=structuredClone(m.Geosets[0]);
  const stack=newStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'rune');
- const result=compileAnimation(m,0,stack,donors),shape=m.Geosets[result.layers[1].geoset];
- assert.equal(shape.Faces.length,donors.rune.Geosets[0].Faces.length*shape.Groups.length,'the unrelated donor triangle must not replace the native rune');
- assert.ok(stack.layers[0].size<=frame.length*.29*1.35,'broad parts receive a local collar');
- for(const [i,group] of shape.Groups.entries()){
-  const pivot=m.Nodes[group[0]].PivotPoint;
-  assert.ok(pivot[2]>frame.center.z-frame.length*.4,'a body collar is centred on the part');
-  assert.ok(shape.VertexGroup.some(v=>v===i));
- }
+ const result=compileAnimation(m,0,stack),shape=m.Geosets[result.layers[1].geoset];
+ assert.deepEqual(shape.Vertices,source.Vertices);assert.deepEqual(shape.Faces,source.Faces);
+ assert.deepEqual(shape.Groups,source.Groups);assert.deepEqual(shape.VertexGroup,source.VertexGroup);
+ assert.equal(m.Bones.filter(n=>n._FxTag?.startsWith('rune/')).length,0,'no aura pivot or ring geometry');
+ const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);assert.ok(layer.Alpha.GlobalSeqId>=0);
 });

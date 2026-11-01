@@ -122,7 +122,7 @@ function orbit(source,spec,radius,duration){
   points.at(-1)[1]=points[0][1];
   return track(points,0,duration,clock(source,duration));
 }
-function addParticles(source,target,spec,effect,options,radius){
+export function addParticles(source,target,spec,effect,options,radius){
   const p=createNode(source,'ParticleEmitter2'),speed=options.speed,life=spec.life/speed;
   p.TextureID=spec.team?teamTexture(source):nativeTexture(source,target,spec.texture);
   p.Flags|=32768|(spec.flat?1048576:0);

@@ -3,7 +3,7 @@ import {parseMdx} from './mdx-container.js';
 import {parseMdl} from './mdl-lossless.js';
 
 const prefix='// MDLXL_GLOBAL_ANIMATIONS_V1 ';
-const collections=['Geosets','Materials','Textures','TextureAnims','Bones','ParticleEmitters2','RibbonEmitters'];
+const collections=['Geosets','Materials','Textures','TextureAnims','Bones','ParticleEmitters2','RibbonEmitters','EventObjects'];
 export function fxData(model){
  const parts=[];
  for(const [i,g] of model.Geosets.entries())if(g._FxStack)parts.push([i,g._FxStack]);
