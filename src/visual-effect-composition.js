@@ -188,7 +188,10 @@ export function attachVisualAccents(model,geometry,parent,effect,options){
       p.Rotation=constantTrack(model,rotation);
       p.HeightAbove=p.HeightBelow=fit.length*Math.min(.48,spec.width*1.35);
     }
-    p.Name=effect.name+(i?' '+(i+1):'');p.PivotPoint=source.PivotPoints[p.ObjectId]=vec([origin[0],origin[1],origin[2]+radius*(spec.height||0)]);
+    const pivot=[origin[0],origin[1],origin[2]+radius*(spec.height||0)];
+    if(spec.along&&fit)for(let axis=0;axis<3;axis++)pivot[axis]+=(fit.endpoints[1][axis]-fit.endpoints[0][axis])*spec.along;
+    p.Name=effect.name+(i?' '+(i+1):'');
+    p.PivotPoint=source.PivotPoints[p.ObjectId]=vec(pivot);
   }
   const {ids}=copyEffectGraph(model,source,source.Nodes.map(n=>n.ObjectId),{parent:ground?null:parent});
   const rest={ParticleEmitters2:[],RibbonEmitters:[],EventObjects:[]};

@@ -61,8 +61,10 @@ async function saveVariant(page,app,name){
     const stamp=reopened.EventObjects.find(e=>e.Name.slice(0,3)==='UBR'&&e.Name.endsWith('THND'));
     assert.ok(stamp?.EventTrack.length);assert.ok(reopened.ParticleEmitters2.some(n=>n.Name===name&&n.Squirt));
    }else{
-    const r=reopened.RibbonEmitters.at(-1);assert.equal(r.Name,name);assert.equal(r.HeightAbove,Math.fround(after.RibbonEmitters.at(-1).HeightAbove));
-    assert.deepEqual(r.Rotation,after.RibbonEmitters.at(-1).Rotation);
+    const ribbons=reopened.RibbonEmitters.slice(-2),expected=after.RibbonEmitters.slice(-2);
+    assert.deepEqual(ribbons.map(r=>r.Name),[name,name+' 2']);
+    ribbons.forEach((r,i)=>{assert.equal(r.HeightAbove,Math.fround(expected[i].HeightAbove));assert.deepEqual(r.Rotation,expected[i].Rotation);});
+    assert.notDeepEqual(ribbons[0].PivotPoint,ribbons[1].PivotPoint,'The two frost lines follow separate positions along the blade');
    }
    await fresh.page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready(fresh.page);
    await fresh.page.getByRole('dialog',{name:'Surface Effects'}).getByRole('button',{name:'Original',exact:true}).click();await ready(fresh.page);

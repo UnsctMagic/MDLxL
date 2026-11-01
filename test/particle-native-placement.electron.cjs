@@ -45,7 +45,7 @@ async function drag(page,handle,dx,dy){
   const node=state.doc.model.ParticleEmitters2[0];return {size:Array.from(node.ParticleScaling),position:JSON.stringify(node.Translation)};
  });
  try{
-  await page.getByText('Opened Footman.mdx',{exact:true}).waitFor();
+  await page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),'Footman.mdx');
   for(const effect of nativeEffects){
    const before=await live(),original=JSON.parse(before);
    await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();
@@ -88,7 +88,7 @@ async function drag(page,handle,dx,dy){
  for(const {file,count,size} of saved){
   const second=await launchApp({out,fixture:file});
   try{
-   await second.page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
+   await second.page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),path.basename(file));
    const check=await second.page.evaluate(()=>{const nodes=mdlxlProbe().session.doc.model.ParticleEmitters2;return {count:nodes.length,size:Array.from(nodes.at(-1).ParticleScaling)};});
    assert.deepEqual(check,{count,size});assert.deepEqual(second.errors,[]);console.log('Reopened '+path.basename(file));
   }finally{await closeApp(second.app);}
