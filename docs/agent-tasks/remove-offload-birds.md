@@ -280,7 +280,11 @@ sessions — hence the multi-tab requirement above.
   corrected and rerun. Removed controls free Blue's dynamic `Shift+L` palette key
   (was fallback `Z`); no shortcut allocator change was made.
 
-## Next action
+## PR and next action
 
-Push this branch and open the PR with `Session: codex remove-offload-birds`.
+[PR #501](https://github.com/UnsctMagic/MDLxL/pull/501) targets `main` from this
+same branch. Implementation: `5faefeda`; main sync: `50cd5718`; verified handoff:
+`27c5e250`. The PR includes `Session: codex remove-offload-birds` and the complete
+check/skip/unverified list. Branch pushed; no PR merge, tag or release.
+
 Independent Claude QA/review and owner merge approval remain. Do not merge.
