@@ -115,6 +115,7 @@ call path is byte-for-byte today's behaviour.
 ## Implementation and hand-test build
 
 - Branch: `codex/rotation-lab`, from `origin/main` `cb7065fb` (contract PR #495).
+- Implementation: `40c1492b`; [PR #496](https://github.com/UnsctMagic/MDLxL/pull/496), ready for review.
 - Standalone build: `D:\Claude\MDLxL-TestBuilds\RotationLab\MDLxL.exe`.
 - Desktop shortcut: **MDLxL Rotation Lab**. The owner opens it; it was never
   opened on the owner's desktop during implementation.
