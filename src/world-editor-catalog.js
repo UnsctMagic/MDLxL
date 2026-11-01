@@ -150,8 +150,9 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
         result.push(...models.map(path => ({ path, group: title, role: unitLabel(ref, ui.get(ref)?.name), kind: 'ability' })));
       }
     }
-    abilityCache.set(id, result);
-    return result;
+    const decorated=result.map(art=>({...art,icon:iconPath(field(skin,'art'))}));
+    abilityCache.set(id, decorated);
+    return decorated;
   }
   const object = (id, name, icon, folders, art) => objects.push({ id, name, icon, folders, art });
   for (const [id, row] of ui) {

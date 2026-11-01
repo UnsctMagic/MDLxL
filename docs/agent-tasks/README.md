@@ -8,7 +8,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| EMTR Particle Library browsing | Ready for review | [World Editor origins](emtr-library-browse.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
 | OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
@@ -19,6 +18,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 | Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
+| EMTR Particle Library browsing | A27a/A27b ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

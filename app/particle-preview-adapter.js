@@ -57,6 +57,17 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
   try{return layer.call(this,emitter);}finally{if(replacement===1||replacement===2)this.rendererData.model.Textures[id]=original;}
  };
  const ribbons=native.ribbonsController,uv=ribbons.updateEmitterTexCoords,resizeRibbon=ribbons.resizeEmitterBuffers,renderRibbons=ribbons.render;
+ // KRVS defaults to one when absent or when this clip has no keys:
+ // mdx-m3-viewer sd.ts defVals.KRVS / SdSequence. Pinned 4.0.1 passes 0.
+ // Evaluate that runtime default without changing authored visibility data.
+ const updateRibbon=ribbons.updateEmitter;
+ ribbons.updateEmitter=function(emitter,delta){
+  const props=emitter.props,value=props.Visibility;if(typeof value==='number')return updateRibbon.call(this,emitter,delta);
+  const owned=Object.hasOwn(props,'Visibility'),globalTime=native.rendererData.globalSequencesFrames[value?.GlobalSeqId]??native.getFrame();
+  const sampled=sampleTrack(value,native.getFrame(),{interval:native.model.Sequences[native.getSequence()]?.Interval,globalSequences:native.model.GlobalSequences,globalTime,fallback:1});
+  props.Visibility=Number(sampled?.[0]??sampled);
+  try{return updateRibbon.call(this,emitter,delta);}finally{if(owned)props.Visibility=value;else delete props.Visibility;}
+ };
  // Upstream caps ribbon allocation at its initial rate/lifetime estimate. Authoring can exceed it.
  ribbons.resizeEmitterBuffers=function(emitter,size){emitter.baseCapacity=Math.max(emitter.baseCapacity,size);return resizeRibbon.call(this,emitter,size);};
  ribbons.render=function(...args){
@@ -300,7 +311,7 @@ export class NativeParticleSimulation {
       for(const [controller,ribbon]of [[native.particlesController,false],[native.ribbonsController,true]])for(const emitter of controller?.emitters||[]){
         const props=emitter.props,visibility=props.Visibility,rate=props.EmissionRate;
         saved.push([props,visibility,rate]);
-        const sampledVisibility=at(visibility,ribbon?0:1,sampling);
+        const sampledVisibility=at(visibility,1,sampling);
         props.Visibility=allowBirths?Number(sampledVisibility?.[0]??sampledVisibility):0;
         if(!ribbon&&props.Squirt&&rate?.Keys){
           // Native's "left key changed" heuristic can fire a future first key.
@@ -533,7 +544,8 @@ export function particlePreviewBounds(native,{sweepRange,selectedId,camera,hidde
   const matrix=matrices.get(selectedId)||new Matrix4(),pivot=new Vector3().fromArray(selected.PivotPoint||[0,0,0]),at=field=>native.particlesController.interp.animVectorVal(selected[field],0),w=Math.max(60,Math.abs(at('Width'))),l=Math.max(60,Math.abs(at('Length')));
   for(const x of [-w,w])for(const y of [-l,l])for(const z of [-60,90])add(pivot.clone().add(new Vector3(x,y,z)).applyMatrix4(matrix).toArray());
  }
- const fitRange=sweepRange||(native.model.__particleDemoParents?native.model.Sequences[native.getSequence()]?.Interval:null);
+ // A still thumbnail frames live geometry; the moving Lab keeps its demo path.
+ const fitRange=sweepRange===false?null:sweepRange||(native.model.__particleDemoParents?native.model.Sequences[native.getSequence()]?.Interval:null);
  if(fitRange)for(const point of particleSweepPath(native.model,selectedId,native.getSequence(),fitRange,camera))add(point.world);
  if(!Number.isFinite(minimum[0]))return null;return {center:minimum.map((v,i)=>(v+maximum[i])/2),radius:Math.max(8,Math.hypot(...minimum.map((v,i)=>maximum[i]-v))/2)*1.15};
 }

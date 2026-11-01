@@ -13,6 +13,18 @@ import {particleRecipeDocument} from '../src/particle-recipes.js';
 const {ParticleLibrary}=createRequire(import.meta.url)('../electron/particle-library.cjs');
 const directory=path.resolve('out/particle-prototype/store-tests-'+Date.now());
 const makeStore=()=>new ParticleLibrary({directory,discover:async()=>({cascFolders:[]})});
+test('revision-2 browse links remain usable offline and upgrade icons when connected',async()=>{
+ const {particleSourceState}=createRequire(import.meta.url)('../electron/particle-source.cjs');
+ const root=path.join(directory,'compatible-icons'),folder=path.join(root,'install');await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'same-build');
+ let connected=true;const discover=async()=>({cascFolders:connected?[folder]:[]}),sourceKey=(await particleSourceState(discover)).sourceKey,cache=path.join(root,sourceKey),id='wc3-'+'4'.repeat(24);await fs.mkdir(cache);
+ await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey,folder}));
+ const file=path.join(cache,'catalog.json');await fs.writeFile(file,JSON.stringify([{id,name:'Effect',collection:'Warcraft',sources:[]}]));await fs.writeFile(path.join(cache,id+'.json'),stringifyParticleData({...createStarterRecipe(),id}));
+ await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({processed:[],failures:[],unsupported:[],missingDependencies:[],extractionComplete:true}));
+ const stat=await fs.stat(file,{bigint:true});await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision:'2|'+stat.size+'|'+stat.mtimeNs,objects:[],buckets:[],other:[id],metadata:{}}));
+ const modes=[],store=new ParticleLibrary({directory:root,discover,createWorker(){throw Error('unexpected worker');}});store.scan=async mode=>modes.push(mode);
+ connected=false;assert.deepEqual((await store.catalog()).browse?.other,[id]);assert.deepEqual(modes,[]);
+ connected=true;assert.deepEqual((await store.catalog()).browse?.other,[id]);assert.deepEqual(modes,[true]);await store.close();
+});
 
 test('opening the catalog automatically indexes missing, incomplete and changed Warcraft sources once',async()=>{
  const {particleSourceState}=createRequire(import.meta.url)('../electron/particle-source.cjs'),root=path.join(directory,'automatic'),folder=path.join(root,'installation');await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'build-one');

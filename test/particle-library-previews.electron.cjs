@@ -104,6 +104,9 @@ const {particleSourceState}=require('../electron/particle-source.cjs');
  await click(freshPage,freshPage.getByRole('treeitem',{name:'My presets',exact:true}));await click(freshPage,freshPage.getByRole('treeitem',{name:'Never-connected preset',exact:true}));await click(freshPage,freshLibrary.getByRole('button',{name:'Favorite Never-connected preset',exact:true}));
  await click(freshPage,freshPage.getByRole('treeitem',{name:'My presets',exact:true}));await click(freshPage,freshPage.getByRole('treeitem',{name:'Favorites',exact:true}));
  assert.equal(await freshLibrary.locator('[data-effect-id]').getAttribute('aria-label'),'Never-connected preset');assert.deepEqual(errors,[]);
+ await click(freshPage,freshPage.getByRole('treeitem',{name:'Never-connected preset',exact:true}));await click(freshPage,freshLibrary.getByRole('button',{name:'Delete',exact:true}));
+ await freshPage.waitForFunction(()=>document.querySelectorAll('.pe-library .gf-row').length===0);
+ assert.doesNotMatch(await freshLibrary.innerText(),/Loading effects/,'An empty offline tree retains the connect status instead of claiming it is loading');
  console.log('PASS never-connected message and personal favorite without a game index');
  }finally{if(app)await closeApp(app);await store.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

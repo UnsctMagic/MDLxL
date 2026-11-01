@@ -17,6 +17,14 @@ function ribbonFixture(){
  const ribbon=createNode(model,'RibbonEmitter');ribbon.Parent=parent.ObjectId;ribbon.Visibility=1;ribbon.EmissionRate=40;
  return {model,parent,ribbon};
 }
+test('native ribbon visibility defaults to one only when KRVS is absent',()=>{
+ const {model,ribbon}=ribbonFixture();delete ribbon.Visibility;const before=structuredClone(model);
+ const visible=new NativeParticleSimulation(model);visible.advance(400);
+ assert.ok(visible.native.ribbonsController.emitters[0].creationTimes.length>1,'Missing KRVS must emit a visible ribbon');
+ assert.deepEqual(model,before);
+ ribbon.Visibility=0;const hidden=new NativeParticleSimulation(model);hidden.advance(400);
+ assert.equal(hidden.native.ribbonsController.emitters[0].creationTimes.length,0,'An authored hidden ribbon stays hidden');
+});
 test('ribbon gestures preserve parent, support animated opacity/color, and create one undo',()=>{
  const {model,ribbon}=ribbonFixture();ribbon.Color={LineType:3,GlobalSeqId:null,Keys:[{Frame:0,Vector:v(.1,.2,.3),InTan:v(.1,.2,.3),OutTan:v(.2,.3,.4)}]};
  const doc=particleRecipeDocument(extractParticleRecipe(model,[ribbon.ObjectId])),node=doc.model.RibbonEmitters[0],before=structuredClone(doc.model);

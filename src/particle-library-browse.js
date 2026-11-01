@@ -161,12 +161,13 @@ export function buildParticleBrowse(objects, entries, evidence = new Map(), revi
     if (base !== key) index(base,item.id);
   }
   for (const {art,...object} of objects) {
-    const groups = new Map(), ids = new Set();
-    for (const {group,role,kind,buff,path} of art) {
+    const groups = new Map(), icons = new Map(), ids = new Set();
+    for (const {group,role,kind,buff,path,icon} of art) {
       const key = modelKey(path), bucket = paths.get(key);
       const title = kind === 'model' || kind === 'attack' || kind === 'death' ? group
         : [group,buff && 'Buff · '+buff,role].filter(Boolean).join(' · ');
       if (!groups.has(title)) groups.set(title,new Set());
+      if(icon)icons.set(title,icon);
       if (bucket === undefined || groups.get(title).has(bucket)) continue;
       groups.get(title).add(bucket);
       const name = (kind === 'model' ? object.name + (role === 'Model' ? '' : ' — '+role.toLowerCase())
@@ -179,7 +180,7 @@ export function buildParticleBrowse(objects, entries, evidence = new Map(), revi
           origins.set(id,{name,path,rank});
       }
     }
-    if (ids.size) rows.push({...object,count:ids.size,groups:[...groups].map(([title,refs])=>({title,refs:[...refs]}))});
+    if (ids.size) rows.push({...object,count:ids.size,groups:[...groups].map(([title,refs])=>({title,refs:[...refs],...(icons.has(title)?{icon:icons.get(title)}:{})}))});
   }
   const other = entries.filter(item => !linked.has(item.id)).map(item => item.id);
   return {objects:rows,buckets:buckets.map(ids=>[...ids]),other,metadata:distinctParticleNames(entries,origins,evidence,reviewFor)};

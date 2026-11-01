@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const THUMBNAIL_VERSION = 'native-4.0.1-authoring-5';
+const THUMBNAIL_VERSION = 'native-4.0.1-authoring-7';
 const {particleSourceState}=require('./particle-source.cjs');
 const {reviewFor:sourceReview,browseRevision}=require('./particle-review.cjs');
 const reviewFor = item => sourceReview(item)||{};
@@ -28,6 +28,9 @@ class ParticleLibrary {
     try {
       const data=JSON.parse(await fs.readFile(path.join(this.directory,sourceKey,'browse.json'),'utf8'));
       if(data.revision===revision){this.browseCache={sourceKey,revision,data};return data;}
+      // Revision 3 adds optional ability icons. Revision 2 has the same links,
+      // names and source signature, so retain it while offline or upgrading.
+      if(data.revision===revision.replace(/^3\|/,'2|')){this.browseCache={sourceKey,revision:data.revision,data};return data;}
     } catch(error){if(error.code!=='ENOENT' && !(error instanceof SyntaxError))throw error;}
     return null;
   }
@@ -72,7 +75,7 @@ class ParticleLibrary {
       this.automaticSource=sourceStatus.sourceKey;
       await this.scan();
     }
-    if(sourceStatus.state==='ready' && coverage?.extractionComplete && !browse && !this.worker && this.createWorker &&
+    if(sourceStatus.state==='ready' && coverage?.extractionComplete && (!browse||browse.revision!==revision) && !this.worker && this.createWorker &&
         this.requestedBrowse!==current.sourceKey+revision){
       this.requestedBrowse=current.sourceKey+revision;
       await this.scan(true);

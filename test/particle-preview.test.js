@@ -28,6 +28,13 @@ test('a new ribbon preview frames its full demonstration swing before playback',
  for(const point of particleSweepPath(model,id,0,[0,5000],camera))assert.ok(new Vector3(...point.world).distanceTo(new Vector3(...bounds.center))<bounds.radius);
  assert.ok(bounds.radius>70,'Framing includes the swing, not just its short current trail');
 });
+test('a short demonstration trail thumbnail frames living geometry without the full path',()=>{
+ const model=createStarterRecipe('ribbon').native;model.RibbonEmitters[0].LifeSpan=.1;model.RibbonEmitters[0].HeightAbove=2;model.RibbonEmitters[0].HeightBelow=2;addParticleDemonstration(model,[0,5000]);
+ const sim=new NativeParticleSimulation(model);sim.advance(800);const id=model.RibbonEmitters[0].ObjectId,bounds=particlePreviewBounds(sim.native,{selectedId:id,sweepRange:false});
+ assert.ok(sim.native.ribbonsController.emitters[0].creationTimes.length>1);assert.ok(bounds.radius<20,'The thumbnail must not shrink a short live trail into a full-flight frame');
+ for(const emitter of sim.native.ribbonsController.emitters)for(let i=0;i<emitter.creationTimes.length*6;i+=3)assert.ok(new Vector3(...emitter.vertices.slice(i,i+3)).distanceTo(new Vector3(...bounds.center))<=bounds.radius);
+});
+
 test('pinned native simulation gives identical particles across display rates and repeated seek replay',()=>{
   const model=make(),a=new NativeParticleSimulation(model),b=new NativeParticleSimulation(model);
   a.advance(1500);
