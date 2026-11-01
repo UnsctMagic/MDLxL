@@ -2,6 +2,7 @@ import { encodeAiValue, decodeAiValue, pointer } from '../src/ai-model.js';
 import { ignoreHistoryAlias } from '../src/editor-document.js';
 import { createChanges } from '../src/history-store.js';
 import { regionBefore, regionSignature, checkRegionEdit } from '../src/ai-regions.js';
+import { sweepAiRelation } from '../src/ai-relation-sweep.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { compareMotion, motionTable } from '../src/ai-motion-compare.js';
@@ -105,6 +106,7 @@ export function recordAiChange(review, result, model) {
   delete review.inspectedRevision;
   delete review.summary;
   delete review.motionCache;
+  delete review.sweepCache;
   const changes = createChanges(review.region ? regionBefore(model, review.before, review.region) : review.before, model, { ignore: ignoreHistoryAlias });
   review.changes = changes.slice(0, 100).map(c => ({ path: pointer(c.path), kind: c.kind }));
   review.animation ||= changes.some(
@@ -316,10 +318,31 @@ async function comparisonPictures(bridge, id, review, before, args) {
   const pose = { ...sample(shown), frame: frames[Math.floor(frames.length / 2)] };
   return { images, frames, shown, pose, missing, compared: { animation: animationName(model, shown), original: original ? animationName(before, original) : null, donor: donor ? `${donor.name}: ${animationName(donor.model, donor.animation)}` : null } };
 }
+// Both inspect and the outside check measure the current plan. A topology edit
+// can leave a named point on only one side, so preserve the other side's numbers.
+async function planSweeps(review, checks, { revision, baseline, before, model }, signal) {
+  if (!checks?.length) return;
+  const key = JSON.stringify(checks);
+  const cache = review.sweepCache;
+  if (cache?.revision === revision && cache.baseline === baseline && cache.key === key) return cache.value;
+  const measure = async (source, sweep) => {
+    try { return await sweepAiRelation(source, sweep, signal); }
+    catch (error) {
+      signal?.throwIfAborted();
+      return { error: error.message };
+    }
+  };
+  const value = [];
+  for (const { name, sweep } of checks)
+    value.push({ name, sweep, before: await measure(before, sweep), edited: await measure(model, sweep) });
+  review.sweepCache = { revision, baseline, key, value };
+  return value;
+}
+
 export async function reviewAiModel(bridge, args, options) {
   const target = bridge.requireTarget(args.target),
     review = target.review;
-  if (args.action === 'status') return reviewStatus(review);
+  if (args.action === 'status' && !args.sweepChecks?.length) return reviewStatus(review);
   if (!review?.changed) return { changed: false, phase: 'unchanged' };
   if (args.action === 'finish') {
     if (typeof args.summary !== 'string' || !args.summary.trim()) throw Error('Explain the review result.');
@@ -337,8 +360,8 @@ export async function reviewAiModel(bridge, args, options) {
     if (Array.isArray(args.criteria)) review.criteria = args.criteria;
     return reviewStatus(review);
   }
-  if (args.action !== 'inspect') throw Error('Unknown review action.');
-  if (typeof args.checksCode !== 'string' || !args.checksCode.trim())
+  if (args.action !== 'inspect' && args.action !== 'status') throw Error('Unknown review action.');
+  if (args.action === 'inspect' && (typeof args.checksCode !== 'string' || !args.checksCode.trim()))
     throw Error(
       'Provide read-only checksCode returning [{name,passed,actual?,expected?}] for the requested result. The original model is available as before.',
     );
@@ -347,6 +370,8 @@ export async function reviewAiModel(bridge, args, options) {
     state = env.state;
   const baseline = args.baseline !== undefined ? bridge.versionStore.get(target.documentId, args.baseline) : review.before;
   const before = target.region ? regionBefore(state.model, baseline, target.region) : baseline;
+  const measurePlan = () => planSweeps(review, args.sweepChecks, { revision, baseline, before, model: state.model }, options.signal);
+  if (args.action === 'status') return { ...reviewStatus(review), sweeps: await measurePlan() };
   const inspectedRegion = target.region && regionSignature(state.model, target.region);
   const tested = await window.desktop.aiScript({
     requestId: options.requestId,
@@ -390,6 +415,7 @@ export async function reviewAiModel(bridge, args, options) {
     if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
       review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
   }
+  const sweeps = await measurePlan();
   const comparison = await comparisonPictures(bridge, args.target, review, before, args),
     images = comparison.images;
   if (args.turnaround)
@@ -435,6 +461,7 @@ export async function reviewAiModel(bridge, args, options) {
       validation,
       poses,
       ...(args.baseline !== undefined ? { baseline: args.baseline } : {}),
+      ...(sweeps ? { sweeps } : {}),
       ...(review.animation ? { motion: motionTable(review.motionCache.value) } : {}),
       compared: comparison.compared,
       ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),

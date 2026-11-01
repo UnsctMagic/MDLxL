@@ -232,9 +232,8 @@ export function skinGeoset(geoset, matrices, out = new Float32Array(geoset.Verti
   return out;
 }
 
-/** Linear skinning is one affine weighted matrix per vertex. Direct preview
- * editing caches its inverse for the duration of a pointer gesture. */
-export function inverseGeosetSkinMatrix(geoset, vertex, matrices, out = new Matrix4()) {
+/** Linear skinning is one affine weighted matrix per vertex. */
+export function geosetSkinMatrix(geoset, vertex, matrices, out = new Matrix4()) {
   const skin = geoset.SkinWeights, hd = skin?.length >= (vertex + 1) * 8;
   const group = hd ? [skin[vertex * 8], skin[vertex * 8 + 1], skin[vertex * 8 + 2], skin[vertex * 8 + 3]] : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
   const elements = new Array(16).fill(0), identity = new Matrix4().elements;
@@ -248,7 +247,12 @@ export function inverseGeosetSkinMatrix(geoset, vertex, matrices, out = new Matr
   }
   if (!total) return out.identity();
   for (let component = 0; component < 16; component++) elements[component] /= total;
-  out.fromArray(elements);
+  return out.fromArray(elements);
+}
+
+/** Direct preview editing caches the inverse for the duration of a pointer gesture. */
+export function inverseGeosetSkinMatrix(geoset, vertex, matrices, out = new Matrix4()) {
+  geosetSkinMatrix(geoset, vertex, matrices, out);
   const determinant = out.determinant();
   if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return null;
   return out.invert();

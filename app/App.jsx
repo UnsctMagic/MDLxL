@@ -5,6 +5,8 @@ import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
 import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs,adoptCommittedPaintMaterials} from '../src/paint-model-integration.js';
 import Addons from './Addons.jsx';
+import ModelTabs from './ModelTabs.jsx';
+import WarningToasts from './WarningToasts.jsx';
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
 import AiOffscreenRender from './AiOffscreenRender.jsx';
@@ -38,7 +40,6 @@ import { setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 import Dialog from './Dialog.jsx';
-import { TriangleAlert } from 'lucide-react';
 import SidebarSection from './SidebarSection.jsx';
 import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
@@ -73,7 +74,7 @@ import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, p
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
-import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
+import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
 import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
@@ -171,7 +172,8 @@ export default function App() {
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
   const aiReferences = useRef([]);
-  const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready'), [statusAlert, setStatusAlert] = useState(0);
+  const [tick, setTick] = useState(0), [warnings, setWarnings] = useState([]), warningId = useRef(0);
+  const [addonsOpen, setAddonsOpen] = useState(false);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
   const [managerKind, setManagerKind] = useState('Materials');
   const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
@@ -270,7 +272,7 @@ export default function App() {
   // Double-click in the preview: select the bones a part hangs on and show them as Focused Skeleton.
   const selectPartBones = target => {
     const ids = target.nodeId != null ? [target.nodeId] : partBones(model, target.geosetIndex, target.vertexIndex);
-    if (!ids.length) { say('No bone moves this part.'); return; }
+    if (!ids.length) { say('No bone moves this part.', true); return; }
     setSelectedNodeIds(ids);
     if (!overlays.focusedSkeleton) changeOverlay('focusedSkeleton', true);
   };
@@ -368,8 +370,12 @@ export default function App() {
   latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
   useEffect(() => exposeAppForTests(() => latest.current), []);
   const refresh = () => setTick(value => value + 1);
-  // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
-  const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
+  // Info stays quiet. Repeating a warning replaces it and restarts its fade.
+  const say = (message, error = false) => {
+    if (!error) return;
+    const warning = { id: ++warningId.current, message: 'Error: ' + message };
+    setWarnings(previous => [warning, ...previous.filter(item => item.message !== warning.message)].slice(0, 2));
+  };
   const selectBackground = value => { setBackground(value); writeStoredText('mdlvis-preview-background', value); };
   // Backgrounds belong to Showcase only; the editors always show the plain view.
   const backgroundLibrary = usePreviewBackgrounds(mode === 'showcase', background, selectBackground, say);
@@ -787,7 +793,7 @@ export default function App() {
     }
     setSession(next); restoreSessionView(next);
     if (latest.current.preferencesReady) resolveTextures(next);
-    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`);
+    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
   }
   function install(next, { replace = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
@@ -799,14 +805,14 @@ export default function App() {
     const nextSessions = replaceActive ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
     if (!replaceActive) rememberSessionView(active);
     setSessions(nextSessions); setSession(next); restoreSessionView(next);
-    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Opened ${next.doc.name}`);
+    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Opened ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
     if (next.doc.hdViewOnly) setNotice(next.doc.hdBorderline ? { message: HD_BORDERLINE_MESSAGE, convert: next } : { message: HD_VIEW_ONLY_MESSAGE });
     // The boot effect resolves once after installing the initial model and settings.
     if (latest.current.preferencesReady) resolveTextures(next);
   }
   function convertToSD(target) {
     if (target !== (latest.current.session || session)) return;
-    try { install(newSession(target.doc.convertToSD(), target.path, target.assets), { replace: true }); say(HD_CONVERTED_MESSAGE); }
+    try { install(newSession(target.doc.convertToSD(), target.path, target.assets), { replace: true }); say(HD_CONVERTED_MESSAGE, true); }
     catch (error) { say(error.message, true); }
   }
   function removeSession(target) {
@@ -899,7 +905,7 @@ export default function App() {
   async function save(saveAs = false, requestedFormat = session.doc.format, target = session) {
     if (savingRef.current) return false;
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
-    if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
+    if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.', true); return false; }
     if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat } }); return false; }
     savingRef.current = true; setSaving(true);
     const previousPath = target.path;
@@ -925,8 +931,9 @@ export default function App() {
       }
       const { format, name } = prepared, bytes = removeData ? prepared.withoutEditorData : prepared.bytes;
       let savedName = name;
-      if (window.desktop) { const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs:saveAs||format!==target.doc.format, forgeAssets:retainedForgeAssets(target.assets,staged.model) }); if (!result) return false; target.path = result.path; savedName = result.name; say([`Saved ${result.name}`, ...(prepared.notes || [])].join(' ')); }
+      if (window.desktop) { const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs:saveAs||format!==target.doc.format, forgeAssets:retainedForgeAssets(target.assets,staged.model) }); if (!result) return false; target.path = result.path; savedName = result.name; say(`Saved ${result.name}`); }
       else { const forgeAssets=retainedForgeAssets(target.assets,staged.model), blob=forgeAssets.length?forgeExportArchive(name,bytes,forgeAssets):new Blob([bytes]); const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = forgeAssets.length?name.replace(/\.(mdl|mdx)$/i,'')+'.zip':name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); say(`Downloaded ${name}`); }
+      if (prepared.notes?.length) say(prepared.notes.join(' '), true);
       if (staged !== target.doc) target.doc.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       if (removeData && !target.doc.readOnly) target.doc.apply('Remove MDLxL editor data', EDITOR_DATA_SECTIONS, clearEditorData);
       // Keep the target document's semantic serialization snapshot. Re-parsing
@@ -1076,7 +1083,7 @@ export default function App() {
       // travelling back through that history so it can be repaired by Undo.
       if (validBefore) {
         try { validateUVPreviewGuard(doc.model, session.uvPreviews, guard); }
-        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing changes to their geoset targets.'); return; }
+        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing changes to their geoset targets.', true); return; }
       }
       setSelection(restored.selection); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
@@ -1179,12 +1186,12 @@ export default function App() {
     if (mode === 'animation') return poseViewActive && globalSeqId === null ? timelineCommands.current.copyPose?.() : timelineCommands.current.copy?.();
     if ((mode === 'bones' || visUI) && selectedNodeIds.length) {
       const captured = captureNodeSelection(model, selectedNodeIds);
-      if (!captured.nodeIds.length) { say('Select nodes to copy.'); return; }
+      if (!captured.nodeIds.length) { say('Select nodes to copy.', true); return; }
       clipboard.current = { ...captured, sourceDocument: doc, assets: new Map(session.assets) };
       say(`Copied ${captured.nodeIds.length} node${captured.nodeIds.length === 1 ? '' : 's'}.`); refresh(); return;
     }
     const captured = captureMeshSelection(model, validSelection, selectable, { rgbPreview, rgbSequence });
-    if (!captured.indices.length) { say('Select vertices, triangles or geosets to copy.'); return; }
+    if (!captured.indices.length) { say('Select vertices, triangles or geosets to copy.', true); return; }
     clipboard.current = { ...captured, sourceDocument: doc, assets: new Map(session.assets) };
     say(`Copied ${captured.vertexCount} vertices and ${captured.triangleCount} triangles.`); refresh();
   }
@@ -1207,7 +1214,7 @@ export default function App() {
   async function listRecovery() { try { const items = window.desktop?.listRecovery ? await window.desktop.listRecovery() : await browserRecovery('list'); setRecoveries((items || []).map(({ state, ...item }) => ({ ...item, name: item.name || state?.name }))); setDialog({ type: 'recovery' }); } catch (error) { say(error.message, true); } }
   async function restoreRecovery(item) { try { const envelope = window.desktop?.readRecovery ? await window.desktop.readRecovery(item.id) : await browserRecovery('get', item.id), restored = newSession(EditorDocument.restoreRecoveryState(envelope.state || envelope), envelope.path || null); restored.id = envelope.id || restored.id; restored.checkpoint = envelope.version || 0; restored.animationDrafts = envelope.animationDrafts || {}; restored.paintProject = envelope.paintProject || null; restored.paintOriginalModelBytes = envelope.paintOriginalModelBytes || null; restored.paintWorkingModel = envelope.paintWorkingModel || null;restored.paintAppliedRevision=envelope.paintAppliedRevision;if(restored.paintProject?.materialMode){const original=restored.paintOriginalModelBytes?openDocument(restored.paintOriginalModelBytes,restored.doc.name).model:restored.doc.model;repairPaintMaterials(restored.paintProject,original,restored.paintWorkingModel||restored.doc.model);validatePaintAssignments(restored.paintProject,restored.paintWorkingModel||restored.doc.model);} for(const asset of envelope.forgeAssets||[]){const record={...asset,source:asset.source||'forge'};restored.assets.set(gamePathKey(asset.name),record);restored.assets.set(gamePathKey(asset.name.split(/[\\/]/).at(-1)),record);} restored.uvPreviews = restoreUVPreviews(restored.doc.model, envelope.uvPreviews); for (const draft of Object.values(restored.uvPreviews)) { restored.assets.set(gamePathKey(draft.asset.name), draft.asset); restored.assets.set(gamePathKey(draft.asset.name.split(/[\\/]/).at(-1)), draft.asset); } install(restored); say(`Recovered ${restored.doc.name} with undo history${restored.paintProject ? ' and paint coats' : ''}.`); } catch (error) { say(error.message, true); } }
   async function gameData() {
-    if (!window.desktop?.chooseGameData) { say('Choose a Warcraft III installation folder in the desktop application.'); return; }
+    if (!window.desktop?.chooseGameData) { say('Choose a Warcraft III installation folder in the desktop application.', true); return; }
     try {
       const next = await window.desktop.chooseGameData();
       if (!next) return;
@@ -1288,14 +1295,14 @@ export default function App() {
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
-    exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
+    addons: () => setAddonsOpen(true), exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
     'theme:dark': () => switchLightDark('dark'), 'theme:light': () => switchLightDark('light'),
     pressedKeys: () => changePreferences(previous=>({...previous,showPressedKeys:!previous.showPressedKeys})), learn: () => changePreferences(previous=>({...previous,learn:{...previous.learn,enabled:!previous.learn.enabled}})), captureSettings:()=>setSettingsTab('capture'),
     importTextures, textureFolder,
     cameraToggle: toggleCamera,
     'wheel:scroll': () => toggleWheelMode('scroll'), 'wheel:pointer': () => toggleWheelMode('pointer'), 'wheel:rotate': () => changePreferences(previous => ({ ...previous, wheelMode: 'rotate' })),
     pointerUp: () => changePointerSensitivity(preferencesRef.current.pointerSensitivity * 1.15), pointerDown: () => changePointerSensitivity(preferencesRef.current.pointerSensitivity / 1.15),
-    'game-data-rescan': async () => { if (!window.desktop?.rescanGameData) { say('Choose a Warcraft III installation folder in the desktop application.'); return; } try { say('Refreshing Warcraft III texture locations…'); const found = await window.desktop.rescanGameData(); settings.current.gameDataDiscovery = found; await resolveTextures(); say(`Warcraft III texture locations refreshed: ${found.archives?.length || 0} archives available.`); } catch (error) { say(error.message, true); } },
+    'game-data-rescan': async () => { if (!window.desktop?.rescanGameData) { say('Choose a Warcraft III installation folder in the desktop application.', true); return; } try { say('Refreshing Warcraft III texture locations…'); const found = await window.desktop.rescanGameData(); settings.current.gameDataDiscovery = found; await resolveTextures(); say(`Warcraft III texture locations refreshed: ${found.archives?.length || 0} archives available.`); } catch (error) { say(error.message, true); } },
     'grid:small': () => changePreferences(previous=>({...previous,grid:{...previous.grid,small:!previous.grid.small}})),
     ...Object.fromEntries(['xz','yz','xy'].map(plane=>['grid:'+plane,()=>{setShowGrid(true);changePreferences(previous=>({...previous,grid:{...previous.grid,planes:{...previous.grid.planes,[plane]:!previous.grid.planes[plane]}}}));}])),
     axes: () => changePreferences(previous=>{const visible=Object.values(previous.grid.axes).some(Boolean);return {...previous,grid:{...previous.grid,axes:{x:!visible,y:!visible,z:!visible}}};}),
@@ -1546,7 +1553,7 @@ export default function App() {
     let result;
     try { result = edit(label, sections, operation, { rethrow: true }); }
     catch { return; }
-    if (result === false) { say('No geosets share compatible materials and RGB.'); return false; }
+    if (result === false) { say('No geosets share compatible materials and RGB.', true); return false; }
     const remapVertices = previous => {
       const next = {};
       for (const [oldIndex, vertices] of Object.entries(previous)) {
@@ -1565,7 +1572,7 @@ export default function App() {
   };
   const mergeSelectedGeosets = () => {
     const review = geosetMergeConflicts(model, validSelection);
-    if (!review.groups.length) { say('No geosets share compatible materials and RGB.'); return; }
+    if (!review.groups.length) { say('No geosets share compatible materials and RGB.', true); return; }
     if (review.conflicts.length) {
       setDialog({ type: 'mergeGeosets', review, selection: structuredClone(validSelection), resolutions: {}, doc, revision: doc.revision });
       return;
@@ -1573,11 +1580,11 @@ export default function App() {
     changeGeosetStructure('Merge geosets', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => mergeSimilarGeosets(current, validSelection));
   };
   const resolveGeosetMerge = () => {
-    if (dialog.doc !== doc || dialog.revision !== doc.revision) { setDialog(null); say('The model changed. Select the geosets and merge again.'); return; }
+    if (dialog.doc !== doc || dialog.revision !== doc.revision) { setDialog(null); say('The model changed. Select the geosets and merge again.', true); return; }
     const result = changeGeosetStructure('Merge geosets', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => mergeSimilarGeosets(current, dialog.selection, dialog.resolutions));
     if (result !== undefined) {
       setDialog(null);
-      if (result === false) say('Selected geosets exceed the model format limits and were kept separate.');
+      if (result === false) say('Selected geosets exceed the model format limits and were kept separate.', true);
     }
   };
   const separateSelectedGeosets = nuclear => {
@@ -1585,7 +1592,7 @@ export default function App() {
     let result;
     try { result = edit(label, ['Geosets', 'GeosetAnims', 'Gliders', 'Info'], current => (nuclear ? nuclearSeparateGeosets : separateGeosetsByLoosePart)(current, validSelection), { rethrow: true }); }
     catch { return; }
-    if (result === false) { say('The selected vertices contain no parts to separate.'); return; }
+    if (result === false) { say('The selected vertices contain no parts to separate.', true); return; }
     setSelection(previous => { const next = { ...previous }; for (const index of result.touched) delete next[index]; return { ...next, ...result.selection }; });
     setSelectable(previous => new Set([...previous, ...result.geosetIndices]));
     setActiveGeoset(result.geosetIndices[0] ?? activeGeoset); setUvSet(0); clearZoomAnchor();
@@ -1612,6 +1619,24 @@ export default function App() {
     setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
     say(`Deleted ${result.removedVertices} free ${result.removedVertices === 1 ? 'vertex' : 'vertices'} from selected geosets.`);
+  };
+  // Quick cleaner: same spot + same material welds, even across geosets.
+  // OptimizeXL is the careful option.
+  const nuclearWeld = () => {
+    let result;
+    try { result = edit('Nuclear Weld', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => nuclearWeldVertices(current, validSelection), { rethrow: true }); }
+    catch { return; }
+    if (result === false) { say('Nuclear Weld found no selected vertices on the same spot.'); return; }
+    const remap = index => result.oldToNew[index];
+    setSelection(previous => {
+      const next = {};
+      for (const [index, ids] of Object.entries(previous)) if (!(index in validSelection) && remap(index) != null && !(remap(index) in result.selection)) next[remap(index)] = ids;
+      return { ...next, ...result.selection };
+    });
+    setSelectable(previous => new Set([...previous].map(remap).filter(index => index != null)));
+    setVisibleOnly(previous => new Set([...previous].map(remap).filter(index => index != null)));
+    setActiveGeoset(previous => remap(previous) ?? -1); clearZoomAnchor();
+    say(result.geosetsMerged ? `Nuclear Weld: vertices welded: ${result.welded}, geosets merged: ${result.geosetsMerged}.` : `Nuclear Weld: vertices welded: ${result.welded}.`);
   };
   const commitUVChanges = (changes, label = 'Edit UV coordinates') => {
     setLiveUV(null);
@@ -1672,14 +1697,15 @@ export default function App() {
   return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
-      activateSession, animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
+      animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
       dialog, displayMode, doc, inputStrength, menuChecks, mode, model, openLibrary,
-      openOptimizeXL, openParticles, preferences, pressedKeysIcon, requestCloseSession, resources,
-      runCommand, runLatest, saving, selectAnimationPanel, selectMode, session,
-      sessionDirty, sessions, setDialog, setRenderMode,
+      openOptimizeXL, openParticles, preferences, pressedKeysIcon, resources,
+      runCommand, runLatest, saving, selectAnimationPanel, selectMode,
+      setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
       placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
+    <Addons open={addonsOpen} onClose={() => setAddonsOpen(false)} onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/>
     {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={options => {
       const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, current => autoCorpse(current, options), { rethrow: true });
       if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
@@ -1688,6 +1714,7 @@ export default function App() {
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
+      <WarningToasts messages={warnings} onDismiss={id => setWarnings(previous => previous.filter(item => item.id !== id))} actionWarning={duplicateAnimations.length ? { id: session.id, message: 'Duplicate geoset animations', title: 'Some geosets have more than one animation record. The model works; click to choose which record to keep.', onAction: () => setDialog({ type: 'geosetRepair' }) } : null}/>
       {mode !== 'manager' && <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
@@ -1763,13 +1790,13 @@ export default function App() {
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
         setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time
       }}/>
-      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
+      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><div className="classic-geoset-split"><button disabled={!editable || !selectionCount} title="Splits the selected geometry into one geoset per separate piece." onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} title="Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece." onClick={() => separateSelectedGeosets(true)}>Nuclear</button></div><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button><button disabled={!editable || !selectionCount} title="Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL." onClick={nuclearWeld}>Nuclear Weld</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span>{duplicateAnimations.length > 0 && <button key={session.id} className="status-warning" data-alert="" title="Some geosets have more than one animation record. The model works; click to choose which record to keep." onClick={() => setDialog({ type: 'geosetRepair' })}><TriangleAlert size={13} aria-hidden="true"/>Duplicate geoset animations</button>}<span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'paint' ? paintMessage('paint.hint') : visUI ? mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations' : ''}</span>{!visUI && <div className="status-model-actions"><button data-hotkey="convertVersion" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly||saving} onClick={()=>commands.current.convertVersion()}>MDX{model.Version} ⇄</button><Addons onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/></div>}{!visUI && inputStrength}</div>
+    <div className="classic-status"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}</div>
     <AppDialogs {...{
       activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

@@ -12,7 +12,7 @@ const mean = values => values.reduce((sum, v) => sum + v, 0) / (values.length ||
 const named = value => String(value || '').trim().toLowerCase();
 const xy = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-function animation(model, selection) {
+export function animation(model, selection) {
   if (selection.globalSequence != null) {
     const duration = model.GlobalSequences?.[selection.globalSequence];
     if (!(duration > 0)) return null;
@@ -22,6 +22,13 @@ function animation(model, selection) {
   }
   const sequence = selection.sequence, clip = model.Sequences?.[sequence];
   return clip && { model, sequence, interval: Array.from(clip.Interval), name: clip.Name };
+}
+
+export function animationFrames([start, end], step = end - start > 5000 ? 10 : 1) {
+  const frames = [];
+  for (let frame = start; frame < end; frame += step) frames.push(frame);
+  frames.push(end);
+  return { frames, step };
 }
 
 function matching(before, after, selection) {
@@ -105,10 +112,8 @@ export function compareMotion(before, after, { sequences, step } = {}) {
     const b = animation(after, selection), a = b && matching(before, after, selection);
     if (!b) throw Error('Motion comparison animation is out of range.');
     if (!a) return { ...selection, name: b.name, missing: 'No matching animation in the baseline.' };
-    const [start, end] = b.interval, duration = end - start, sampleStep = step ?? (duration > 5000 ? 10 : 1);
-    const frames = [];
-    for (let frame = start; frame < end; frame += sampleStep) frames.push(frame);
-    frames.push(end);
+    const [start, end] = b.interval, duration = end - start;
+    const { frames, step: sampleStep } = animationFrames(b.interval, step);
     const perFrame = [], channelRows = channels.map(c => ({ path: c.path, kind: c.kind, max: 0, spans: [] }));
     const buffers = [a, b].map(side => comparable.map(i => [new Float32Array(side.model.Geosets[i].Vertices.length), new Float32Array(side.model.Geosets[i].Vertices.length)]));
     let previous, peakSpeed = 0, worst = { distance: 0, frame: start }, worstSpeed = { difference: 0, frame: start };

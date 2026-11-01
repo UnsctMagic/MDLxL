@@ -1,12 +1,14 @@
 import { Box3, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { sweepAiRelation } from './ai-relation-sweep.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
 
 /** Numeric pose inspection uses the same skinning implementation as the editor. */
 export function sampleAiModel(
-  model,
-  context,
-  {
+  model, context, args = {}, signal,
+) {
+  if (args.sweep !== undefined) return sweepAiRelation(model, args.sweep, signal);
+  const {
     frames = [context.frame],
     sequence = context.sequence,
     globalSequence = context.globalSequence ?? null,
@@ -15,8 +17,7 @@ export function sampleAiModel(
     vertices = context.selection || {},
     offset = 0,
     limit = 200,
-  } = {},
-) {
+  } = args;
   if (!Number.isInteger(sequence) || sequence < -1 || sequence >= model.Sequences.length)
     throw Error('Animation index is out of range.');
   if (!Array.isArray(frames) || !frames.length || frames.length > 32 || frames.some(f => !Number.isFinite(f)))

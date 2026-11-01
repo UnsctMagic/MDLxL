@@ -436,3 +436,72 @@ export function mergeSimilarGeosets(model, selectionByGeoset, resolutions) {
   const oldToNew = removeGeosets(model, new Map(leaders.flatMap((leader, index) => leader === index ? [] : [[index, leader]])));
   return { merged: original.length - model.Geosets.length, geosetIndices: [...targets].map(index => oldToNew[index]), oldToNew: Object.fromEntries(oldToNew.entries()), vertexOffsets };
 }
+
+/** Nuclear Weld: selected vertices on exactly the same spot become one vertex
+ * when their geosets use the same material, whatever their UVs, normals or
+ * bones. Geosets that share a welded spot merge into the lowest one first; the
+ * earliest vertex keeps its attributes. Formats that cannot be joined stay
+ * apart and only weld inside themselves. */
+export function nuclearWeldVertices(model, selectionByGeoset) {
+  const geosets = model.Geosets || [];
+  const picked = Object.entries(selectionByGeoset || {}).map(([key, ids]) => [Number(key), [...new Set(ids)]])
+    .filter(([index, ids]) => geosets[index] && ids.length).sort((a, b) => a[0] - b[0]);
+  const spot = (g, vertex) => `${g.Vertices[vertex * 3]}|${g.Vertices[vertex * 3 + 1]}|${g.Vertices[vertex * 3 + 2]}`;
+  const parent = new Map(), find = index => { while (parent.get(index) !== index) index = parent.get(index); return index; };
+  const firstGeoset = new Map();
+  for (const [index, ids] of picked) {
+    parent.set(index, index);
+    const g = geosets[index], count = g.Vertices.length / 3;
+    for (const vertex of ids) {
+      if (!Number.isInteger(vertex) || vertex < 0 || vertex >= count) throw new Error('Vertex selection is out of range.');
+      const key = `${g.MaterialID}|${spot(g, vertex)}`, first = firstGeoset.get(key);
+      if (first === undefined) { firstGeoset.set(key, index); continue; }
+      const a = find(first), b = find(index);
+      if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
+    }
+  }
+  const compatible = (target, source) => target.TVertices.length === source.TVertices.length && !!target.Tangents?.length === !!source.Tangents?.length
+    && !!target.SkinWeights?.length === !!source.SkinWeights?.length && canAppend(target, source);
+  const leaders = new Map(), selected = new Map();
+  for (const [index, ids] of picked) {
+    const root = find(index); let owner = index, offset = 0;
+    if (root !== index && compatible(geosets[root], geosets[index])) {
+      offset = geosets[root].Vertices.length / 3;
+      appendGeosetGeometry(geosets[root], geosets[index]); unionAnimatedExtents(geosets[root], geosets[index]);
+      owner = root; leaders.set(index, root);
+    }
+    selected.set(owner, [...(selected.get(owner) || []), ...ids.map(vertex => vertex + offset)]);
+  }
+  let welded = 0; const selection = {};
+  for (const [index, ids] of selected) {
+    const g = geosets[index], count = g.Vertices.length / 3, representative = new Map(), firstAt = new Map();
+    for (const vertex of [...new Set(ids)].sort((a, b) => a - b)) {
+      const key = spot(g, vertex);
+      if (firstAt.has(key)) representative.set(vertex, firstAt.get(key)); else firstAt.set(key, vertex);
+    }
+    let remap = null;
+    if (representative.size) {
+      const kept = []; remap = new Map();
+      for (let vertex = 0; vertex < count; vertex++) if (!representative.has(vertex)) { remap.set(vertex, kept.length); kept.push(vertex); }
+      const faces = [];
+      for (let i = 0; i < g.Faces.length; i += 3) {
+        const face = [0, 1, 2].map(corner => remap.get(representative.get(g.Faces[i + corner]) ?? g.Faces[i + corner]));
+        if (new Set(face).size === 3) faces.push(...face);
+      }
+      Object.assign(g, gatherStreams(g, kept));
+      g.Faces = new g.Faces.constructor(faces);
+      g.PrimitiveTypes = Uint32Array.of(4); g.PrimitiveCounts = Uint32Array.of(faces.length);
+      updateBounds(g);
+      welded += representative.size;
+    } else if (leaders.size && [...leaders.values()].includes(index)) {
+      g.PrimitiveTypes = Uint32Array.of(4); g.PrimitiveCounts = Uint32Array.of(g.Faces.length);
+    }
+    selection[index] = [...new Set(ids.map(vertex => remap ? remap.get(representative.get(vertex) ?? vertex) : vertex))];
+  }
+  if (!welded) return false;
+  const oldToNew = removeGeosets(model, leaders);
+  return {
+    welded, geosetsMerged: leaders.size, oldToNew: Object.fromEntries(oldToNew.entries()),
+    selection: Object.fromEntries(Object.entries(selection).map(([index, ids]) => [oldToNew[index], ids])),
+  };
+}
