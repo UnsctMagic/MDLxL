@@ -8,8 +8,8 @@ import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {createThumbnailQueue} from '../src/texture-library-session.js';
-import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
+import {buildWorldEditorCatalog,WORLD_EDITOR_FILES,visibleWorldEditorRows} from '../src/world-editor-catalog.js';
+import GameIcon,{FOLDER_ICONS} from './GameIcon.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
@@ -19,8 +19,6 @@ const VARIANTS=[['classic','Classic'],['reforged','Reforged'],['forsaken-kingdom
 const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',worldeditor:'Search units, spells, items and doodads by name',sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
 const AUDIO={wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',flac:'audio/flac'},VIDEO={webm:'video/webm',mp4:'video/mp4'},IMAGE={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'};
 const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
-// Folder icons for the World Editor view's top level, taken from the game's own buttons.
-const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
 const ROW=24;
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
 const remembered=(key,fallback,allowed)=>readStoredText(key,fallback,value=>allowed.includes(value)?value:fallback);
@@ -43,21 +41,6 @@ function previewAssets(textures){
     assets.set(gamePathKey(record.name),asset);assets.set(gamePathKey(record.name.split(/[\\/]/).at(-1)),asset);
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
-}
-
-// Small icons for tree rows: decoded once per session, a few at a time.
-const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
-function loadIcon(key,read,size=48){
-  if(!icons.has(key)){
-    const job=iconQueue(key,async()=>{const file=await read();return file?.bytes?.length?decodeTextureThumbnail({name:file.name||key,bytes:file.bytes},size):null;}).catch(()=>null);
-    icons.set(key,job);if(icons.size>6000)icons.delete(icons.keys().next().value);
-  }
-  return icons.get(key);
-}
-function GameIcon({iconKey,read,fallback:Fallback=File,size=16}){
-  const [url,setUrl]=useState(null);
-  useEffect(()=>{let active=true;setUrl(null);if(iconKey&&read)loadIcon(iconKey,read,Math.max(48,size)).then(value=>{if(active)setUrl(value);});return()=>{active=false;};},[iconKey]);
-  return url?<img className="gf-icon" src={url} alt="" width={size} height={size} draggable={false}/>:<Fallback size={size-1} aria-hidden="true" className="gf-icon-glyph"/>;
 }
 
 // World Editor trees are built from the game tables once per game version.
@@ -152,8 +135,7 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     if(results)return results.rows.map(row=>({...row,depth:0,search:true}));
     const list=[];
     if(worldEditor){
-      const walk=(nodes,depth)=>{for(const node of nodes){list.push({key:node.key,depth,name:node.name,node,folder:!!node.children,count:node.total});if(node.children&&expanded.has(node.key))walk(node.children,depth+1);}};
-      if(we)walk(we.root.children,0);return list;
+      return visibleWorldEditorRows(we?.root.children||[],expanded);
     }
     const walk=(listing,depth)=>{
       for(const folder of listing.folders){const key='d'+folder.key;list.push({key,depth,name:folder.name,folderKey:folder.key,folder:true,count:folder.count});if(expanded.has(key)&&children.has(folder.key))walk(children.get(folder.key),depth+1);}

@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { openDocument, effectNodes, extractParticleRecipe, validateParticleRecipe, activeParticleSample } from '../dist/particle-runtime.mjs';
+import { prepareParticleBrowse } from './particle-browse-index.mjs';
 import { stringifyParticleData, parseParticleData } from '../src/particle-data.js';
 const require = createRequire(import.meta.url);
 const { CascReader, installKey } = require('./casc.cjs');
@@ -24,7 +25,7 @@ export function particleDependencyCandidates(logical,source){
  if(logical.includes(':'))return [logical];const parts=source.split(':');parts.pop();const result=[];
  while(parts.length){result.push(parts.join(':')+':'+logical);parts.pop();}return result.length?result:['war3.w3mod:'+logical];
 }
-export async function scanParticleLibrary({ folder, directory, maxAssets = Infinity, onProgress = () => {}, shouldCancel = () => false }) {
+export async function scanParticleLibrary({ folder, directory, originsOnly = false, maxAssets = Infinity, onProgress = () => {}, shouldCancel = () => false }) {
   await fs.mkdir(directory, {recursive:true});
   const build = await fs.readFile(path.join(folder,'.build.info'),'utf8');
   const sourceKey = installKey(folder, build);
@@ -34,6 +35,13 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
   let manifest, entries = [], inventory, completed = new Set();
   const dependencies = new Map();
   try {
+    let updateBrowse, browseError;
+    if (originsOnly) {
+      updateBrowse = await prepareParticleBrowse(reader, build, cache);
+      const entries = JSON.parse(await fs.readFile(path.join(cache,'catalog.json'),'utf8'));
+      await updateBrowse(entries,shouldCancel);
+      return { manifest:{ extractionComplete:true }, entries, directory:cache };
+    }
     inventory = await reader.list('models');
     const candidates = inventory.names.filter(name => !/(?:^|:)_(?:hd|de)\.w3mod:/i.test(name));
     const namespaces = Object.fromEntries([...new Set(inventory.names.map(n => n.split(':').slice(0,-1).join(':')))].map(ns => [ns, inventory.names.filter(n => n.startsWith(ns + ':') && n.split(':').length === ns.split(':').length+1).length]));
@@ -44,6 +52,7 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
     manifest ||= { schema:3, sourceKey, source:{installation:folder, buildInfo:build}, startedAt, totalEnumerated:inventory.names.length, namespaces, candidateAssets:candidates.length, parsedAssets:0, emitterCounts:{ParticleEmitters2:0,RibbonEmitters:0,ParticleEmitters:0,ParticleEmitterPopcorns:0}, processed:[], assets:[], failures:[], missingDependencies:[], unsupported:[], duplicates:[], extractionComplete:false, fullyPreviewableRecipes:0, insertableRecipes:0, reviewedNames:0, reviewNeededNames:0 };
     const pictures=await reader.list('textures'),keys={...pictures.keys,...inventory.keys};
     const byHash = new Map(entries.filter(item=>!item.blocked).map(item => [item.recipeHash,item]));
+    let lastCheckpoint = 0;
     async function checkpoint() {
       manifest.processed = [...completed]; manifest.updatedAt = new Date().toISOString();
       manifest.reviewedNames=entries.filter(item=>item.naming?.state==='reviewed'||!!reviewFor(item)).length;manifest.reviewNeededNames=entries.length-manifest.reviewedNames;
@@ -54,7 +63,17 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
       await atomic(path.join(cache,'catalog.json'),JSON.stringify(entries));
       await atomic(path.join(cache,'manifest.json'),JSON.stringify(manifest,null,2));
       await atomic(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));
-      onProgress({ sourceKey, processed:completed.size,total:candidates.length,recipes:entries.length,complete:manifest.extractionComplete,cancelled:shouldCancel() });
+      if (!updateBrowse && !browseError && !shouldCancel()) {
+        // Publish the first usable effects before reading the larger object and locale tables.
+        onProgress({sourceKey,processed:completed.size,total:candidates.length,recipes:entries.length,complete:false});
+        try { updateBrowse=await prepareParticleBrowse(reader,build,cache); }
+        catch(error){ browseError=error.message; }
+      }
+      if (updateBrowse && !shouldCancel()) {
+        try { await updateBrowse(entries,shouldCancel); } catch (error) { browseError=error.message; updateBrowse=null; }
+      }
+      lastCheckpoint = Date.now();
+      onProgress({ browseError, sourceKey, processed:completed.size,total:candidates.length,recipes:entries.length,complete:manifest.extractionComplete,cancelled:shouldCancel() });
     }
     function blocked(name,selection,error,source={logicalPath:name.split(':').at(-1),physicalPath:name,buildKey:sourceKey,installation:folder}){
       const id='wc3-'+hash(sourceKey+'|blocked|'+name+'|'+(selection?.ids||[]).join(',')).slice(0,24);
@@ -123,7 +142,7 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
         }
       } catch(error) { manifest.failures.push({source:name,stage:'parse',reason:error.message});blocked(name,null,error); }
       completed.add(name);
-      if (count % 25 === 0) await checkpoint();
+      if (count % 25 === 0 && Date.now()-lastCheckpoint >= 1200) await checkpoint();
     }
     await checkpoint();
     return { manifest, entries, directory:cache };

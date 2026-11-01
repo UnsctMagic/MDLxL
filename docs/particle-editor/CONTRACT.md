@@ -4,7 +4,7 @@ Prepared 30 September 2026. Refined for Astra's implementation handoff. This con
 
 **Required workflow:** **Open Particle Library → choose a well-named visual effect → experiment → save a preset or add to model.** The entry point is the effect, organized by appearance. Source units are optional provenance and search aliases. Astra must implement and run extraction against the user's configured local CASC assets; the user need not export emitters one by one. This document does not claim that extraction or a fresh repository audit has been performed.
 
-**Product statement:** Open a visual library of clearly named particles, choose one by its appearance, touch what you see, change it immediately, and save it or place it on a model. Source units are optional provenance, not a navigation requirement. Classic and Clueless are two interfaces to the same Warcraft data—not two particle engines.
+**Product statement:** Open a visual library of clearly named particles, choose one by its appearance, touch what you see, change it immediately, and save it or place it on a model. By type stays the default. At the owner’s request on 1 November 2026, the user can also pick World Editor and choose effects through their source objects. Classic and Clueless are two interfaces to the same Warcraft data—not two particle engines.
 
 This is an implementation contract, not a claim that the feature exists. The user's stated workflow and acceptance criteria are requirements. Examples, suggested labels, numerical targets, and implementation techniques are identified as such. The source register records the earlier research; its repository snapshot is historical and must be checked against current code before implementation.
 
@@ -14,7 +14,7 @@ Execute this contract against the current repository. First read its nearest AGE
 
 ## 1. Authority, baseline, and boundaries
 
-The user's explicit requirements are authoritative: an existing visual editor must become less text-heavy; offer Classic and Clueless modes; support direct manipulation and sliders; retain immediate feedback; provide a separate particle playground; reopen model effects directly; and include a genuine Warcraft particle preset library plus personal presets. The library is organized by recognizable effect names and appearance, across source units, using recipes extracted from the user's CASC files. Unit-first browsing is explicitly rejected. Earlier requirements for live editing, slow motion, and fitting weapon sweeps remain in scope.
+The user's explicit requirements are authoritative: an existing visual editor must become less text-heavy; offer Classic and Clueless modes; support direct manipulation and sliders; retain immediate feedback; provide a separate particle playground; reopen model effects directly; and include a genuine Warcraft particle preset library plus personal presets. The library is organized by recognizable effect names and appearance, across source units, using recipes extracted from the user's CASC files. By type stays the default. The owner requested World Editor as a second view on 1 November 2026. Earlier requirements for live editing, slow motion, and fitting weapon sweeps remain in scope.
 
 The inspected repository is `KlugerA/MDLxL`, `main` at commit `d492b5ccdb690197eb10371f0bde9155d3481086`, version **0.14.0**. The inspection covered source and styles, not an executed Windows application. No current GUI screenshots, performance measurements, full library inventory, or in-game tests were produced during this research. Astra must inspect the then-current main and record differences before implementing. [C1–C8]
 
@@ -267,13 +267,13 @@ Audit the installed `war3-model` version before patching private controller stat
 
 Define that fixture before implementation: model, textures, emitter count, live particle count, viewport dimensions, sampling interval, and hardware. Also test an intentionally heavy effect. Do not silently cap exported values to make the performance test pass. Any preview-only budget reduction must be visible on demand and must never masquerade as the full effect.
 
-## 11. Particle Library: effect-first browsing of extracted recipes
+## 11. Particle Library: browse extracted recipes by type or World Editor origin
 
 ### 11.1 Required discovery experience and asset identity
 
 **Open Particle Library → choose a well-named visual effect → experiment → save a preset or add to model.**
 
-The default library is a gallery of particles/effects, not a gallery of units. Do not require the user to select a race, unit, source model, or original emitter name before seeing usable effects. A stock effect belongs beside visually related effects regardless of which unit supplied it. Source units and model paths belong in optional Details and secondary search aliases; they are not the top-level organization or default card titles.
+The default library is a gallery of particles/effects, not a gallery of units. Do not require the user to select a race, unit, source model, or original emitter name before seeing usable effects. A stock effect belongs beside visually related effects regardless of which unit supplied it. The header switch opens a second, optional World Editor view. Use the installed tables, localized names and icons to group the same recipe cards by unit, building, hero, item, doodad or destructible. Include every shared association, identify objects’ model, attack, death, spell and buff art, and keep unlinked cards visible in Other effects. Original emitter names and paths remain in Details and search.
 
 A **picture/texture** is one image resource. An **emitter recipe** is native behavior plus its dependencies. An **effect group** may contain several emitters, ribbons, and other visual ingredients. These are different objects and must not be conflated. Native schemas distinguish these structures. [F1–F2]
 
@@ -299,7 +299,7 @@ Exactly duplicate recipes may share one gallery entry with all source associatio
 
 For this library requirement, classic means the SD/classic asset set of the selected Warcraft installation/build, not the editor's Classic UI mode. Inventory emitter-bearing classic models across the configured CASC source, including units and the ability, missile, spell, portrait, building, alternate-form, and other effect models needed to represent their effects. Do not limit discovery to a manually selected unit roster or a `Units` folder. Follow external effect references during extraction. The exact count and boundaries come from the source inventory, not a hard-coded claim.
 
-Unit/object associations are useful for provenance and coverage, but the gallery remains organized by effect appearance and friendly names. Unknown source associations must not hide otherwise usable recipes. Absence of a friendly label is not a reason to drop an extracted entry.
+Unit and object associations organize the optional World Editor view. By type groups friendly names by appearance. Unknown source associations must not hide otherwise usable recipes. Absence of a friendly label is not a reason to drop an extracted entry.
 
 Resolve source variants correctly. Do not mix SD entries with HD or other asset namespaces merely because filenames match. Record source installation, build/version identity, logical path, physical source identity, and content hash. Missing or incomplete discovery must be reported as incomplete, not “all.”
 
@@ -445,7 +445,7 @@ Every requirement below needs an observable pass/fail result. A feature checklis
 | A24 | Measure interaction and preview performance | Hardware and fixtures are recorded; latency targets and baseline frame-rate conditions in section 10 are measured, not guessed. |
 | A25 | Read-only documents, keyboard, and close/recovery | No writes bypass read-only state; primary operations have non-hover alternatives; draft and model ownership remain clear through closing and recovery. |
 | A26 | Test exported examples in Warcraft | Record exact game build, assets, test sequence, and observed result. Label anything not run as unverified; another previewer is not a substitute. |
-| A27 | Find and open an effect without knowing a unit | The default library shows named effect thumbnails organized by appearance. A user can search/browse, choose an effect, and start experimenting without choosing a unit, race, model path, emitter ID, or texture. Both UI modes retain friendly library names. |
+| A27 | Find and open an effect without knowing a unit | By type opens by default with named thumbnails grouped by appearance. The user may pick World Editor to search or browse an object and choose the same effects. Both UI modes retain friendly names, and choosing an effect starts the same Lab workflow. |
 | A28 | Extract from the configured local CASC source | Astra demonstrates bulk extraction/indexing without manual per-model exports or source-asset uploads; source files remain unchanged. The cached catalogue opens after restart, scanning can be cancelled/resumed, and an individual bad asset does not block remaining entries. |
 | A29 | Review names, variants, and rescan persistence | Names match observed previews; exact duplicates retain all source associations, visually similar but distinct recipes remain available, and user name/tag overrides survive rescanning. Source details remain secondary rather than becoming default card clutter. |
 

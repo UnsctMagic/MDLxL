@@ -183,3 +183,28 @@ test('stock thumbnail revisions separate game builds and reject a late capture f
  await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey:'a'.repeat(64)}));const old=(await store.thumbnails([id]))[id].revision;await store.thumbnail({id,url:image,revision:old});assert.equal((await store.thumbnails([id]))[id].url,image);
  await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey:'b'.repeat(64)}));const current=(await store.thumbnails([id]))[id];assert.equal(current.url,null);assert.notEqual(current.revision,old);await assert.rejects(store.thumbnail({id,url:image,revision:old}),/changed while/);await store.thumbnail({id,url:image,revision:current.revision});assert.equal((await store.thumbnails([id]))[id].url,image);
 });
+
+test('completed legacy catalogues gain browse metadata in the worker; edits, favorites and native bytes survive cache changes',async()=>{
+  const {particleSourceState}=createRequire(import.meta.url)('../electron/particle-source.cjs');
+  const {browseRevision}=createRequire(import.meta.url)('../electron/particle-review.cjs');
+  const root=path.join(directory,'browse-upgrade'),folder=path.join(root,'install');
+  await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'enUS text?');
+  const discover=async()=>({cascFolders:[folder]}),{sourceKey}=await particleSourceState(discover);
+  const cache=path.join(root,sourceKey),id='wc3-'+'3'.repeat(24),file=path.join(cache,'catalog.json');
+  await fs.mkdir(cache);await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey}));
+  await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({processed:[],failures:[],unsupported:[],missingDependencies:[],extractionComplete:true}));
+  await fs.writeFile(file,JSON.stringify([{id,name:'Pale particles',collection:'Warcraft',categories:['Other'],sources:[]}]));
+  const data=stringifyParticleData({...createStarterRecipe(),id});await fs.writeFile(path.join(cache,id+'.json'),data);
+  const modes=[],store=new ParticleLibrary({directory:root,discover,createWorker() {throw Error('unexpected extraction');}});
+  store.scan=async mode=>modes.push(mode);
+  await store.annotate({id,name:'My own name',favorite:true});
+  assert.equal((await store.catalog()).browse,null);assert.deepEqual(modes,[true]);
+  const revision=browseRevision(await fs.stat(file,{bigint:true}));
+  await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision,objects:[],other:[id],buckets:[],metadata:{[id]:{name:'Origin title',categories:['Smoke']}}}));
+  const loaded=await store.catalog();assert.deepEqual(loaded.browse.other,[id]);assert.deepEqual(loaded.items[0].categories,['Smoke']);
+  assert.equal(loaded.items[0].name,'My own name');assert.equal(loaded.items[0].favorite,true);
+  await fs.appendFile(file,' ');assert.equal((await store.catalog()).browse,null);assert.deepEqual(modes,[true,true]);
+  assert.equal(await store.read(id),data);
+  await fs.writeFile(path.join(folder,'.build.info'),'frFR text?');assert.equal((await store.catalog()).sourceStatus.state,'changed');
+  assert.deepEqual(modes,[true,true,undefined]);
+});

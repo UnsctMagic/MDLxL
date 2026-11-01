@@ -3,7 +3,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const THUMBNAIL_VERSION = 'native-4.0.1-authoring-5';
 const {particleSourceState}=require('./particle-source.cjs');
-const {reviewFor:sourceReview}=require('./particle-review.cjs');
+const {reviewFor:sourceReview,browseRevision}=require('./particle-review.cjs');
 const reviewFor = item => sourceReview(item)||{};
 const ID = /^(?:wc3-[a-f0-9]{24}|my-[a-f0-9-]{36}|work-[a-f0-9]{64})$/;
 const {writeFileAtomic}=require('./atomic-file.cjs');
@@ -23,13 +23,28 @@ class ParticleLibrary {
     if(!this.catalogRequest)this.catalogRequest=this.loadCatalog().finally(()=>{this.catalogRequest=null;});
     return this.catalogRequest;
   }
+  async browseData(sourceKey,revision) {
+    if(this.browseCache?.sourceKey===sourceKey && this.browseCache.revision===revision)return this.browseCache.data;
+    try {
+      const data=JSON.parse(await fs.readFile(path.join(this.directory,sourceKey,'browse.json'),'utf8'));
+      if(data.revision===revision){this.browseCache={sourceKey,revision,data};return data;}
+    } catch(error){if(error.code!=='ENOENT' && !(error instanceof SyntaxError))throw error;}
+    return null;
+  }
   async loadCatalog() {
     const current=await this.current(), meta=await this.metadata();
-    let items=[],coverage=null;
+    let items=[],coverage=null,browse=null,revision;
     if(current) {
       const base=path.join(this.directory,current.sourceKey);
-      const file=path.join(base,'catalog.json'),{mtimeMs}=await fs.stat(file);items=JSON.parse(await fs.readFile(file,'utf8'));
-      this.reviewSamples={file,mtimeMs,ids:new Map(items.map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
+      const file=path.join(base,'catalog.json'),stat=await fs.stat(file,{bigint:true});
+      revision=browseRevision(stat);
+      browse=await this.browseData(current.sourceKey,revision);
+      // A running extraction only appends sources and recipes. Between its two
+      // atomic renames, keep already published links visible until the next checkpoint.
+      if(!browse && this.status.running && this.status.sourceKey===current.sourceKey &&
+          this.browseCache?.sourceKey===current.sourceKey)browse=this.browseCache.data;
+      items=JSON.parse(await fs.readFile(file,'utf8'));
+      this.reviewSamples={file,revision,ids:new Map(items.map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
       const manifest=JSON.parse(await fs.readFile(path.join(base,'manifest.json'),'utf8'));
       coverage={sourceKey:manifest.sourceKey,candidateAssets:manifest.candidateAssets,parsedAssets:manifest.parsedAssets,processed:manifest.processed.length,recipes:manifest.recipeCount,extractionComplete:manifest.extractionComplete,failures:manifest.failures.length,missingDependencies:manifest.missingDependencies.length,unsupported:manifest.unsupported.length,fullyPreviewableRecipes:manifest.fullyPreviewableRecipes,insertableRecipes:manifest.insertableRecipes,reviewedNames:manifest.reviewedNames};
     }
@@ -47,7 +62,7 @@ class ParticleLibrary {
         items.push({id,name:recipe.name,tags:recipe.tags,categories:recipe.categories,naming:{state:'personal'},collection:'My work',updatedAt:info.mtimeMs,empty:!effectNodes(draft.state.model).length,unsupported:recipe.compatibility?.unsupported||[]});
       }
     }catch(error){if(error.code!=='ENOENT')throw error;}
-    items=items.map(item=>({...item,...reviewFor(item),...meta[item.id],favorite:!!meta[item.id]?.favorite}));
+    items=items.map(item=>({...item,...browse?.metadata[item.id],...reviewFor(item),...meta[item.id],favorite:!!meta[item.id]?.favorite}));
     items.sort((a,b)=>Number(!!a.blocked)-Number(!!b.blocked)||Number(['reviewed','user-reviewed'].includes(b.naming?.state))-Number(['reviewed','user-reviewed'].includes(a.naming?.state)));
     if(coverage){coverage.reviewedNames=items.filter(item=>item.collection==='Warcraft'&&['reviewed','user-reviewed'].includes(item.naming?.state)).length;coverage.reviewNeededNames=items.filter(item=>item.collection==='Warcraft').length-coverage.reviewedNames;}
     const thumbnails=await this.thumbnails(items.slice(0,36).map(item=>item.id));
@@ -57,8 +72,13 @@ class ParticleLibrary {
       this.automaticSource=sourceStatus.sourceKey;
       await this.scan();
     }
-    if(this.status.running)sourceStatus.message='Indexing Warcraft assets…';
-    return {sourceStatus,items,coverage,status:this.status};
+    if(sourceStatus.state==='ready' && coverage?.extractionComplete && !browse && !this.worker && this.createWorker &&
+        this.requestedBrowse!==current.sourceKey+revision){
+      this.requestedBrowse=current.sourceKey+revision;
+      await this.scan(true);
+    }
+    if(this.status.running)sourceStatus.message=this.status.originsOnly?'Finding World Editor effects…':'Indexing Warcraft assets…';
+    return {sourceStatus,items,coverage,status:this.status,browse:browse && {objects:browse.objects,buckets:browse.buckets,other:browse.other}};
   }
 
   async thumbnailRevision(id,current) {
@@ -72,9 +92,9 @@ class ParticleLibrary {
   }
   // Reviewed previews are found through the indexed sources, so map ids once per catalog revision.
   async reviewedSample(id,current) {
-    const file=path.join(this.directory,current.sourceKey,'catalog.json'),mtimeMs=await fs.stat(file).then(info=>info.mtimeMs,error=>{if(error.code==='ENOENT')return null;throw error;});
-    if(mtimeMs===null)return undefined;
-    if(this.reviewSamples?.file!==file||this.reviewSamples.mtimeMs!==mtimeMs)this.reviewSamples={file,mtimeMs,ids:new Map(JSON.parse(await fs.readFile(file,'utf8')).map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
+    const file=path.join(this.directory,current.sourceKey,'catalog.json'),revision=await fs.stat(file,{bigint:true}).then(browseRevision,error=>{if(error.code==='ENOENT')return null;throw error;});
+    if(revision===null)return undefined;
+    if(this.reviewSamples?.file!==file||this.reviewSamples.revision!==revision)this.reviewSamples={file,revision,ids:new Map(JSON.parse(await fs.readFile(file,'utf8')).map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
     return this.reviewSamples.ids.get(id);
   }
   async thumbnails(ids){
@@ -91,7 +111,14 @@ class ParticleLibrary {
   }
   async exportData(id){
     const {parseParticleData,stringifyParticleData}=await import('../src/particle-data.js'),{validateParticleRecipe}=await import('../dist/particle-runtime.mjs');
-    const recipe=parseParticleData(await this.read(id)),meta={...reviewFor(recipe),...(await this.metadata())[id]};
+    const recipe=parseParticleData(await this.read(id));
+    let browse;
+    if(id.startsWith('wc3-')){
+      const {sourceKey}=await this.current(),file=path.join(this.directory,sourceKey,'catalog.json');
+      const stat=await fs.stat(file,{bigint:true}).catch(error=>{if(error.code!=='ENOENT')throw error;});
+      if(stat)browse=await this.browseData(sourceKey,browseRevision(stat));
+    }
+    const meta={...browse?.metadata[id],...reviewFor(recipe),...(await this.metadata())[id]};
     for(const key of ['name','tags','categories','naming','previewSample'])if(meta[key]!==undefined)recipe[key]=meta[key];
     validateParticleRecipe(recipe);return stringifyParticleData(recipe);
   }
@@ -156,16 +183,16 @@ class ParticleLibrary {
     const {parseParticleData}=await import('../src/particle-data.js'),text=await this.workingCopy({id});if(!text)throw Error('This working effect is unavailable.');
     const draft=parseParticleData(text);if(draft.schema!=='mdlxl-particle-draft'||draft.version!==1||!draft.state?.model||!draft.recipe)throw Error('Invalid working effect.');return draft;
   }
-  scan() {
-    if(!this.scanRequest)this.scanRequest=this.startScan().finally(()=>{this.scanRequest=null;});
+  scan(originsOnly=false) {
+    if(!this.scanRequest)this.scanRequest=this.startScan(originsOnly).finally(()=>{this.scanRequest=null;});
     return this.scanRequest;
   }
-  async startScan() {
+  async startScan(originsOnly) {
     if(this.worker)return this.status;
     const found=await this.discover(), folder=found.cascFolders?.[0];
     if(!folder)throw Error('Connect your Warcraft III installation in Settings.');
-    this.status={running:true,processed:0,total:0,recipes:0};
-    const worker=this.worker=this.createWorker({folder,directory:this.directory});
+    this.status={running:true,originsOnly,processed:0,total:0,recipes:0};
+    const worker=this.worker=this.createWorker({folder,directory:this.directory,originsOnly});
     worker.on('message',message=>{
       if(message.type==='progress')this.status={running:true,...message.status};
       if(message.type==='done')this.status={...this.status,running:false,complete:message.summary.extractionComplete};
