@@ -21,6 +21,11 @@ const {testModel}=require('./helpers/fixtures.cjs');
   for(const tool of ['Move','Rotate','Scale']){
    const button=fx.getByRole('button',{name:tool+' UVs',exact:true});assert.equal((await button.innerText()).trim(),'');const glyph=button.locator('svg:visible,img:visible').first();assert.ok((await glyph.boundingBox())?.width>=16,'the tool icon is visible at editor size');
   }
+  await fx.getByRole('button',{name:'Scale UVs'}).click();
+  for(const [key,tool] of [['m','Move'],['r','Rotate'],['z','Scale']]){
+   await page.keyboard.press(key);
+   assert.equal(await fx.getByRole('button',{name:tool+' UVs'}).getAttribute('aria-pressed'),'true',key+' activates the UV tool');
+  }
   await fx.locator('.fx-uv-fit').screenshot({path:path.join(out,'initial-rune-uv.png')});
   const rune=fx.getByLabel('Rune',{exact:true});assert.equal(await rune.count(),1,'rune glyph can be chosen in FX');
   const choices=await rune.locator('option').evaluateAll(a=>a.map(o=>o.value));assert.ok(choices.length>=3);

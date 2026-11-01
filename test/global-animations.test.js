@@ -22,7 +22,14 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
  assert.deepEqual(model.Sequences,old);
  let total=0;
  for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag)){
-  visitTracks(record,t=>{if(look.impact)assert.equal(t.GlobalSeqId,null,'impacts use the selected local Attack');else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);total++;});
+  visitTracks(record,t=>{
+   if(look.impact)assert.equal(t.GlobalSeqId,null,'impacts use the selected local Attack');
+   else if(record.EmissionRate===t&&draft.layers.some(l=>l.burstGap!=null&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
+    const burst=draft.layers.find(l=>l.burstGap!=null),sites=model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith(draft.owner+'/'+burst.id+'/')).length;
+    assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(burst.burstGap+burst.burstWindow))*sites);
+   }else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);
+   total++;
+  });
  }
  assert.ok(total);
  for(const format of ['mdx','mdl']){
@@ -44,7 +51,7 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
 test('shared authored clock, independent ribbon ends and externally edited emitter survive another layer edit',()=>{
  const {doc,frame,donors}=fixture(),m=doc.model;
  const s=newStack(GLOBAL_LOOKS[0],frame,'blade');m.GlobalSequences.push(s.loop);
- s.layers.push(makeLayer(LAYER_CHOICES.at(-1),frame,'copper',24));s.layers.at(-1).lower*=.4;
+ s.layers.push(makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',24));s.layers.at(-1).lower*=.4;
  let graph=compileAnimation(m,0,s,donors),r=m.Nodes[graph.layers[24].id];
  assert.ok(r.HeightAbove>2*r.HeightBelow);const flames=graph.layers[s.layers[1].id].ids.map(id=>m.Nodes[id]);
  assert.equal(flames.length,s.layers[1].count);assert.ok(flames.every(n=>(n.Flags&524288)===0));assert.ok(Math.abs(frame.axis.dot(frame.at(s.layers[1].upper).sub(frame.at(-s.layers[1].lower))))>frame.length*.97);
@@ -80,7 +87,7 @@ test('own texture drifts within painted unit atlases and scrolls a complete tile
 });
 test('an FX edge drops as it ages, and the newest points still touch the part',async()=>{
  const {NativeParticleSimulation}=await import('../app/particle-preview-adapter.js');
- const {doc,frame,donors}=fixture(),edge=makeLayer(LAYER_CHOICES.at(-1),frame,'copper',1);
+ const {doc,frame,donors}=fixture(),edge=makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',1);
  const stack={...newStack(GLOBAL_LOOKS[0],frame,'blade'),layers:[edge]};
  edge.gravity=80;edge.lasts=1.5;compileAnimation(doc.model,0,stack,donors);
  const simulate=gravity=>{

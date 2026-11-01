@@ -7641,5 +7641,19 @@
   "Dew pearls": "Perlas de rocío",
   "Dew sheen": "Brillo de rocío",
   "Rift seam": "Fisura dimensional",
-  "Rift splinters": "Esquirlas de la fisura"
+  "Rift splinters": "Esquirlas de la fisura",
+  "Change emitter": "Cambiar emisor",
+  "Replace this emitter and keep its position.": "Sustituye este emisor y conserva su posición.",
+  "Change texture": "Cambiar textura",
+  "Choose a texture from the game library for this layer.": "Elige una textura de la biblioteca del juego para esta capa.",
+  "Choose a native Warcraft texture.": "Elige una textura original de Warcraft.",
+  "Burst duration (s)": "Duración de la descarga (s)",
+  "Time between bursts (s)": "Pausa entre descargas (s)",
+  "Bolts per burst": "Rayos por descarga",
+  "Spread (°)": "Dispersión (°)",
+  "How long one burst emits lightning.": "Cuánto tiempo emite rayos cada descarga.",
+  "Quiet time before the next burst on the blade.": "Pausa antes de la siguiente descarga en la hoja.",
+  "Total bolts emitted at one point during each burst.": "Número de rayos que salen de un punto en cada descarga.",
+  "How far the lightning can spread around the blade.": "Ángulo de dispersión de los rayos alrededor de la hoja.",
+  "Adjust only the selected layer.": "Ajusta solo la capa seleccionada."
 }

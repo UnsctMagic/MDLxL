@@ -7,6 +7,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption(process.env.FX_PART??(look.group==='Blades'?'19':'8'));await fx.getByLabel('Find a surface effect').fill(look.name);await button(look.name+' global animation').click();await ready();await button('Fit selection').click();const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,180);
    for(const [i,layer] of look.layers.entries()){
     if(layer.type==='Particles'||layer.type==='Edge'||layer.stamp)continue;
+    if(layer.enabled===false){await fx.getByLabel('Enable '+layer.label,{exact:true}).check();await ready();}
     await fx.getByRole('group',{name:'Layers'}).getByRole('button').nth(i).click();const range=fx.getByRole('slider',{name:'Intensity',exact:true});assert.equal(await range.count(),1);await range.scrollIntoViewIfNeeded();const b=await range.boundingBox(),values=[];
     for(const [name,fraction] of [['min',0],['middle',.5],['max',1]]){
      await page.mouse.click(b.x+8+(b.width-16)*fraction,b.y+b.height/2);if(fraction===0)await page.keyboard.press('Home');if(fraction===1)await page.keyboard.press('End');await ready();

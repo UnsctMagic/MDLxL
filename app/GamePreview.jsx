@@ -1631,6 +1631,15 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      previewParticleAlpha(ids,alpha) {
+        if(disposed)return;
+        for(const id of ids)ownedModel.Nodes[id].Alpha=Uint8Array.from(alpha);
+        invalidate();
+      },
+      previewMaterialLayers(index,layers) {
+        if(disposed||!ownedModel.Materials[index])return;
+        ownedModel.Materials[index].Layers=layers;invalidate();
+      },
       captureView() {
         if (disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
         return composeViewportLayers(hostElement, canvas);

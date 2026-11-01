@@ -2,6 +2,19 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Fourth hand test · 1 November 2026
+
+Continued from `f0a35fb2`. The owner accepted Frost blade and chose 15 looks to file in the existing folders. The [FX contract](../FX-GLOBAL-ANIMATIONS.md) lists the folder assignments, overlay defaults, available ingredients and lightning timing. [See the 15 filed looks in motion](../../test/evidence/visual-effects/filed-looks.webp) and [compare four lightning flashes with quiet frames](../../test/evidence/visual-effects/blade-bursts.webp).
+
+- In the prior package, M left the UV tool inactive and the preview timed out waiting for the selected material to fade during a held drag. Mouse and keyboard checks now move, rotate and scale the displayed UVs. On a fixed Slaanesh pose, Black stone changed 9,970 pixels and Heat seams changed 8,787 before mouse release. The other layer's native passes stayed identical. Fading an emitter to zero also leaves its sibling visible. Native life-stage alpha can be restored after a zero-intensity edit.
+- Checked the game texture picker and emitter replacement from another look, plus separate timing, spread and bolt controls. Four consecutive flashes occurred at four different weapon sites, alternating between the two skinning bones. The accepted Frost blade produced byte-identical MDX and MDL to the previous hand-test package.
+- Reviewed all 46 looks across Stand, Walk and Attack on Slaanesh, at game distance and after a closer mouse orbit. Reviewed the 15 filed looks on Nurgle as well. Living ink keeps its native moving cloud texture with a blend that responds to intensity. The separate Ink seal remains available from Add layer.
+- Windows passed 2,705 source, 57 compatibility and 14 real-model FX checks with zero failures. Seven existing source checks skipped for POSIX signal handling, Windows symlink privileges, a volume without 8.3 names, private archer and skin-collapse fixtures, and two checks requiring the original pose corpus manifest. The baseline is unchanged.
+- All 46 looks passed packaged MDX and MDL save, reopen, re-edit and exact Undo across the three Warriors (92 round trips). All nine packaged interaction suites passed. Reviewed ten material layers at minimum, middle and maximum intensity, including optional Mossy bark. Lightning blade and Basalt kiln also ran through Stand, Walk and Attack on Khorne, Footman, Paladin and Abomination.
+- Warcraft III playback, the owner's review of the new lightning timing and independent QA are open.
+
+The following sections record past hand tests.
+
 ## Third hand test · 1 November 2026
 
 Continued from `75a440f0`. The owner accepted the teal Ice skin, requested a white variation and retired all six Impacts. The top `sort` folder holds 30 candidates for their next review. The revised native textures, layer choices, overlay and UV workflow are specified in the [FX contract](../FX-GLOBAL-ANIMATIONS.md).

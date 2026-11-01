@@ -7625,5 +7625,19 @@
   "Dew pearls": "Жемчужины росы",
   "Dew sheen": "Блеск росы",
   "Rift seam": "Разлом",
-  "Rift splinters": "Осколки разлома"
+  "Rift splinters": "Осколки разлома",
+  "Change emitter": "Сменить эмиттер",
+  "Replace this emitter and keep its position.": "Заменить эмиттер, сохранив его положение.",
+  "Change texture": "Сменить текстуру",
+  "Choose a texture from the game library for this layer.": "Выбрать текстуру из библиотеки игры для этого слоя.",
+  "Choose a native Warcraft texture.": "Выберите игровую текстуру Warcraft.",
+  "Burst duration (s)": "Длительность разряда (с)",
+  "Time between bursts (s)": "Пауза между разрядами (с)",
+  "Bolts per burst": "Молний за разряд",
+  "Spread (°)": "Разброс (°)",
+  "How long one burst emits lightning.": "Сколько длится испускание молний за один разряд.",
+  "Quiet time before the next burst on the blade.": "Время до следующего разряда на клинке.",
+  "Total bolts emitted at one point during each burst.": "Число молний из одной точки за разряд.",
+  "How far the lightning can spread around the blade.": "Угол разброса молний вокруг клинка.",
+  "Adjust only the selected layer.": "Изменить только выбранный слой."
 }

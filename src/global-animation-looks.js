@@ -4,7 +4,7 @@ import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 
-import {SORT_LOOKS} from './fx-sort-looks.js';
+import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -22,13 +22,13 @@ export const RUNE_IMAGES=[
  ['Icecrown','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp'],
  ['Eye',texture('DemonRune3')],['Fork',texture('DemonRune5')],['Sigil',texture('DemonRune2')],
 ];
-const crackle=()=>dust('Blade crackle','crackle',texture('LightningBall'),{tint:[.94,.92,1]});
+const crackle=()=>dust('Blade crackle','crackle',texture('LightningBall'),{burstGap:3,burstWindow:.22,spread:76,tint:[.94,.92,1]});
 const rune=()=>({type:'Rune',label:'Runes',image:RUNE_IMAGES[0][1],strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
 const make=(id,name,group,loop,palette,layers)=>({id,name,group,loop,palette,layers});
 export const GLOBAL_LOOKS=[
  make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames'),embers()]),
  make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1]}),shine(),frost()]),
- make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),crackle()]),
+ make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1],enabled:false}),crackle()]),
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
  make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
@@ -65,9 +65,9 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
  if(e.stamp&&!impact)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
  (impact?retiredImpacts:GLOBAL_LOOKS).push({...make(e.id,e.name,e.category,e.duration||3000,e.palette||'native',layers),impact});
 }
-GLOBAL_LOOKS.push(...SORT_LOOKS);
+GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group));
 // A saved impact remains editable. It is never offered in the library or search.
-export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id);
+export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);
 export const LAYER_CHOICES=[
  skin('Flowing energy',existing('energy').texture,{pulse:'breathe'}),
  skin('Forked arcs',texture('Lightning4b'),{axis:'v',band:.32,pulse:'lightning'}),
@@ -76,8 +76,36 @@ export const LAYER_CHOICES=[
  glow('Star field','Units\\Undead\\FrostWyrm\\Starfield.blp',{pulse:'double',strength:1.1}),
  ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
- crackle(),frost(),edge(),
+ crackle(),frost(),edge(),inkSeal,
 ];
+// The compact menu can start any ingredient independently of its original preset.
+for(const look of GLOBAL_LOOKS){
+ for(const spec of look.layers){
+  const choice={...spec};delete choice.enabled;
+  const matches=LAYER_CHOICES.filter(other=>other.label===choice.label);
+  if(matches.some(other=>other.type===choice.type&&other.image===choice.image&&other.kind===choice.kind&&other.stamp===choice.stamp&&other.nativeSurface?.id===choice.nativeSurface?.id))continue;
+  const generic=/^(Surface|Particles|Ground piece) \d+$/.test(choice.label);
+  const menuLabel=matches.length||generic?choice.label+' ('+look.name+')':choice.label;
+  if(!LAYER_CHOICES.some(other=>(other.menuLabel||other.label)===menuLabel))LAYER_CHOICES.push({...choice,menuLabel});
+ }
+}
+export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
+export function withParticleStrength(layer,currentAlpha,value){
+ const opacityBase=layer.opacityBase||Array.from(currentAlpha);
+ return {...layer,opacityBase,particleStrength:value,native:{...layer.native,Alpha:opacityBase.map(a=>Math.round(a*value))}};
+}
+export function withLayerTexture(layer,image){
+ const next={...layer,image,own:false,pictureOverride:true};
+ if(image===layer.image)return layer;
+ delete next.frames;delete next.atlasRect;delete next.atlas;
+ if(next.nativeSpec){next.nativeSpec={...next.nativeSpec,texture:image};delete next.nativeSpec.atlas;delete next.nativeSpec.team;}
+ if(next.nativeSurface){
+  next.nativeSurface={...next.nativeSurface,texture:image,picture:image};
+  if(next.nativeSurface.atlas)next.nativeSurface.atlas=[0,0,1,1];
+  if(next.nativeSurface.layers)next.nativeSurface.layers=next.nativeSurface.layers.map(spec=>({...spec,texture:image,team:false,sheet:undefined}));
+ }
+ return next;
+}
 export const surfaceIngredient=l=>l.type==='Moving skin'||l.type==='Glow'||l.glyphs;
 export const createsOverlay=stack=>stack.asOverlay??!stack.layers.some(l=>l.base&&l.enabled!==false);
 export function partFrame(geometry,split=true) {
@@ -132,7 +160,7 @@ export function makeLayer(spec,frame,palette,id) {
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
  const properties={
   flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,46,.72,unit*3.6,-unit*5,unit*.40],
-  crackle:[3,42,.23,unit*.64,0,unit*1.45],sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
+  crackle:[3,4,.40,unit*6.2,0,unit*2.25],sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
   drops:[4,7,.69,-unit*.5,unit*7,unit*.33],motes:[4,11,1.05,unit*.7,-unit*.35,unit*.53],
   flies:[5,5,.09,0,0,Math.max(2.1,Math.min(8,length*.066+radius*.037))],
  };
@@ -144,5 +172,5 @@ export function makeLayer(spec,frame,palette,id) {
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {
- return {owner,look:look.id,loop:look.loop,impact:!!look.impact,layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
+ return {owner,look:look.id,loop:look.loop,...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
 }

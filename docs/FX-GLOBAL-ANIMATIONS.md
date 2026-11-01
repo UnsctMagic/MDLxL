@@ -16,7 +16,17 @@ without triggers, abilities or map scripts.
 
 Keep the terrain and buff/curse looks. The owner retired the entire Impacts folder and its six cards in the third hand test. Models with an existing Attack effect keep their native data and saved layer list.
 
-The first library folder is `sort`. It holds exactly 30 native candidates for the owner's next hand test. Keep them together until the owner chooses where they belong. White ice is a separate Skins entry. Auras and the earlier retired cards remain outside the library.
+The owner selected 15 of the 30 candidates. File the accepted looks in the existing folders. Previously saved looks remain editable, including retired entries. White ice stays beside Ice skin. Auras and Impacts are retired.
+
+| Folder | Accepted looks |
+| --- | --- |
+| Terrain | Basalt kiln, Void shale, Carved cairn, Moon mosaic, Buried coals |
+| Skins | Briar binding, Living ink, Tide etching |
+| Blades | Thorn script, Oathfire, Rift seam |
+| Buffs & curses | Eclipse brand, Soul lantern, Astral chart |
+| Around the unit | Sanguine drip |
+
+Basalt kiln, Briar binding, Carved cairn, Moon mosaic and Eclipse brand start as overlays. Black stone and Vine weave are stationary surfaces. Briar binding offers the Spore bark finish and its spores as separate, initially disabled layers. Living ink starts with the clouds alone. Ink seal remains an addable ingredient.
 
 Studying aura models teaches texture and alpha animation; it does not authorize
 adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
@@ -54,11 +64,11 @@ Animation Manager and UV controls. Do not invent another control scheme.
 
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
-Use one grouped Add layer menu. Each named choice creates its own native recipe. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons.
+Use one grouped Add layer menu for ingredients across all accepted presets. A layer can use a different native texture from the existing texture library. Particle layers can also change emitter while keeping their placement. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons. M, R and Z select these tools inside FX.
 
 Create as overlay keeps the original material visible and draws the effect on separate geosets fitted to the same surface and skin. With the switch cleared, the effect supplies the visible surface. Only stacks containing a surface ingredient offer the choice. Persist it through Apply and MDX/MDL reopen.
 
-Controls commit on release. Live gestures update at most once per display frame
+Intensity belongs to the selected ingredient. Show its level, preview its own material during the drag and commit on release. On particle layers it scales the three-stage opacity together. Verify the rendered change without changing sibling passes or emitters. Live gestures update at most once per display frame
 and update only what changed. Every control must make a clear visible difference
 through its range; inspect minimum, middle and maximum. Maximum Intensity must
 produce a clearly strong glow without erasing the model's shape.
@@ -97,7 +107,7 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | Use the Tzeentch Knight and Impaler Spell emitter's native LightningBall sprite, with short travel on each blade. |
+| Lightning blade | Use the Tzeentch Knight and Impaler Spell emitter's native LightningBall sprite. Emit a wider burst from one site, leave several seconds quiet, then strike at the next site. Expose duration, quiet interval, bolts per burst and spread. The surface arcs are optional. |
 | Arcane blade | Energy flows along the blade with a pulse. |
 | Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
@@ -134,8 +144,9 @@ keep its count.
   final pass. Intensity therefore changes continuously and survives reopening.
 - The six retired Attack recipes can be read from saved stacks. They are excluded from the library, folder counts and search.
 
-The source checks are `test/global-animations.test.js` and the private real-model
+The source checks include `test/global-animations.test.js`, `test/fx-sort.test.js` and the private real-model
 `test/manual/fx-owner-round.test.js`. Hidden packaged checks are
+`test/fx-layer-editing.electron.cjs`, `test/fx-lightning-bursts.electron.cjs`,
 `test/fx-owner-followup.electron.cjs`, `test/fx-owner-round.electron.cjs`,
 `test/fx-owner-motion.electron.cjs`,
 `test/fx-owner-intensity.electron.cjs` and the existing FX/save/UV/library workflows.
@@ -185,7 +196,7 @@ motion before being reported done. Passing structural tests is insufficient.
    Claude's independent QA gate still applies before any merge.
 6. Owner click-through: Slaanesh flames fit; three colours edit; runes are glyphs;
    ice reads as solid ice without crystals; poison uses the tileset; maximum glow is strong; flies have no
-   black corners and Recall seal has no ground aura by default. Check the 30 candidates in the top folder, the white ice variant, textured UV tools, both surface modes and absence of Impacts.
+   black corners and Recall seal has no ground aura by default. Check the 15 filed looks, optional spores and seal, per-layer intensity during a drag, texture and emitter changes, the three UV shortcuts and both surface modes.
 
 Work only under `D:\Codex`. Owner checkout, models, game files and installed MDLxL
 are read-only. Never delete anything from `D:\Claude\MDLxL-TestModels`. Clean task

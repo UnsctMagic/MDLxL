@@ -100,10 +100,28 @@ test('unchecked ingredients are absent from MDX and MDL after disabling a previo
 
 test('default weapon sparks and embers are visible concurrently on both weapons',async()=>{
  const {ModelRenderer}=await import('war3-model');
- for(const [id,kind] of [['lightning-blade','crackle'],['flaming-sword','embers'],['rising-embers','embers']]){
+ for(const [id,kind] of [['flaming-sword','embers'],['rising-embers','embers']]){
   const d=fixture(),s=stack(d,id),layer=s.layers.find(l=>l.kind===kind);compileAnimation(d.model,28,s);const native=new ModelRenderer(d.model);native.setSequence(0);let visible=0;
   for(let i=0;i<120;i++){native.update(17);const parts=[19,22].map(id=>native.particlesController.emitters.filter(e=>e.props.Parent===id&&e.props._FxTag?.startsWith(s.owner+'/'+layer.id+'/')).reduce((n,e)=>n+e.particles.length,0));if(i>=40&&parts.every(n=>n>=2))visible++;}
   assert.ok(visible>=60,id+' must show multiple particles on both blades at its default; frames: '+visible+'/80');
+ }
+});
+test('lightning flashes alternate between blades with quiet intervals, and the burst controls survive reopen',async()=>{
+ const {ModelRenderer}=await import('war3-model');
+ const d=fixture(),s=stack(d,'lightning-blade'),l=s.layers.find(l=>l.kind==='crackle');
+ for(const [gap,amount,window] of [[3,4,.22],[1,9,.36]]){
+  l.burstGap=gap;l.amount=amount;l.burstWindow=window;d.apply('Change lightning',FX_SECTIONS,m=>compileAnimation(m,28,s));
+  const renderer=new ModelRenderer(structuredClone(d.model));renderer.setSequence(0);
+  const groups=[],empty=[];let last='',max=0;
+  for(let i=0;i<Math.ceil((gap+window)*3*60);i++){
+   renderer.update(1000/60);const live=renderer.particlesController.emitters.filter(e=>e.props._FxTag?.startsWith(s.owner+'/'+l.id+'/')&&e.particles.length);
+   const sites=live.map(e=>e.props.Parent).join('/');if(sites&&sites!==last)groups.push(sites);
+   if(!sites)empty.push(i);max=Math.max(max,...live.map(e=>e.particles.length));last=sites;
+  }
+  assert.ok(groups.length>=2&&groups[0]!==groups[1],'different blades flash in turn');
+  assert.ok(empty.length>gap*60,'quiet intervals visible at game playback speed');
+  assert.ok(max>=amount-1,'one short burst contains the requested bolts');
+  for(const format of ['mdx','mdl']){const reopened=readAnimationStack(openDocument(d.serialize(format),'burst.'+format).model,28).layers.find(v=>v.kind==='crackle');assert.deepEqual([reopened.burstGap,reopened.amount,reopened.burstWindow],[gap,amount,window]);}
  }
 });
 test('Attack contact uses the same striking surface from the helmet or either blade',async()=>{

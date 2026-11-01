@@ -7506,5 +7506,19 @@
   "Dew sheen": "露光",
   "Rift seam": "裂隙",
   "Rift splinters": "裂隙碎片",
-  "Add layer": "添加图层"
+  "Add layer": "添加图层",
+  "Change emitter": "更换发射器",
+  "Replace this emitter and keep its position.": "更换此发射器并保留位置。",
+  "Change texture": "更换纹理",
+  "Choose a texture from the game library for this layer.": "为此图层选择游戏库中的纹理。",
+  "Choose a native Warcraft texture.": "请选择魔兽争霸原生纹理。",
+  "Burst duration (s)": "放电时长（秒）",
+  "Time between bursts (s)": "放电间隔（秒）",
+  "Bolts per burst": "每次放电的闪电数",
+  "Spread (°)": "扩散角（°）",
+  "How long one burst emits lightning.": "每次放电产生闪电的持续时间。",
+  "Quiet time before the next burst on the blade.": "剑刃上两次放电之间的静默时间。",
+  "Total bolts emitted at one point during each burst.": "每次放电从同一点产生的闪电总数。",
+  "How far the lightning can spread around the blade.": "闪电在剑刃周围散开的角度。",
+  "Adjust only the selected layer.": "仅调整所选图层。"
 }

@@ -1,5 +1,7 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {Matrix3} from 'three';
+import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {isTypingTarget} from '../src/preferences.js';
 import {Tool} from './EditorControls.jsx';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import UVEditor from './UVEditor.jsx';
@@ -7,6 +9,13 @@ import UVEditor from './UVEditor.jsx';
 // The mesh is the fitted layer's real UV map. Only the layer settings change on release.
 export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change}){
  const [mode,setMode]=useState(layer.glyphs?'move':null),[texture,setTexture]=useState(null),[error,setError]=useState(false);
+ const fit=useRef(null);
+ useWindowKeyClaim(({event,localWindow})=>{
+  if(localWindow!==fit.current?.closest('[role="dialog"]')||isTypingTarget(event.target)||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey)return false;
+  const action={m:'move',r:'rotate',z:'scale'}[event.key.toLowerCase()];
+  if(!action)return false;
+  setMode(action);return true;
+ },5);
  const visible=!!mode;
  useEffect(()=>{
   let active=true;setTexture(null);setError(false);
@@ -22,7 +31,7 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
    const d=Math.hypot(uv[i]-uv[0],uv[i+1]-uv[1]);
    if(d>distance){far=i;distance=d;}
   }
-  if(layer.glyphs){
+  if(layer.glyphs||mode==='move'||(mode==='scale'&&!canScale)){
    // Store the editor's exact affine gesture, including its centre and texture aspect.
    const u=uv[far]-uv[0],v=uv[far+1]-uv[1];let third=0,area=0;
    for(let i=2;i<uv.length;i+=2){const a=Math.abs(u*(uv[i+1]-uv[1])-v*(uv[i]-uv[0]));if(a>area){third=i;area=a;}}
@@ -43,7 +52,7 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
    change('direction',((Math.round(layer.direction-turn*180/Math.PI)%360)+360)%360);
   }
  };
- const tools=[...(layer.glyphs?[['move','sb_move','Move']]:[]),['rotate','sb_rot','Rotate'],...(canScale?[['scale','sb_zoom','Scale']]:[])];
- return <div className="fx-uv-fit"><div className="classic-toolbar-group">{tools.map(([action,icon,title])=><Tool key={action} action={action==='move'?'translate':action} look icon={icon} title={title+' UVs'} active={mode===action} onClick={()=>setMode(mode===action&&!layer.glyphs?null:action)}/>)}</div>
+ const tools=[['move','sb_move','Move'],['rotate','sb_rot','Rotate'],['scale','sb_zoom','Scale']];
+ return <div className="fx-uv-fit" ref={fit}><div className="classic-toolbar-group">{tools.map(([action,icon,title])=><Tool key={action} action={action==='move'?'translate':action} look icon={icon} title={title+' UVs'} active={mode===action} onClick={()=>setMode(mode===action&&!layer.glyphs?null:action)}/>)}</div>
  {mode&&<div className="fx-uv-canvas"><UVEditor geoset={geoset} selectedVertices={vertices} textureUrl={texture} fitUVs={!!layer.glyphs} showVertices={!layer.glyphs} showSelectedVertices={!layer.glyphs} transformMode={mode} preferences={preferences} onChange={commit}/>{error&&<span role="status">Texture unavailable.</span>}</div>}</div>;
 }

@@ -69,6 +69,24 @@ function overlay(c,geometry,material,colour,ownAnimation){
 export function textureRepeats(model,textureId){
  return (model.Textures[textureId]?.Flags&3)===3;
 }
+// Scale each pass of this ingredient. Excess glow adds light after the first pass.
+export function strengthPasses(unitLayers,strength,glow=false,alphaFor=null){
+ const copies=glow?Math.max(1,Math.ceil(strength)):1,passes=[];
+ for(let i=0;i<copies;i++)for(const source of unitLayers){
+  const pass={...source},value=Math.max(0,Math.min(1,strength-i));
+  if(i)pass.FilterMode=3;
+  else if(value<1&&[0,1].includes(pass.FilterMode))pass.FilterMode=2;
+  if(alphaFor)pass.Alpha=alphaFor(value);
+  else if(typeof source.Alpha==='number'||!source.Alpha)pass.Alpha=(source.Alpha??1)*value;
+  else pass.Alpha={...source.Alpha,Keys:source.Alpha.Keys.map(key=>{
+   const next={...key};
+   for(const field of ['Vector','InTan','OutTan'])if(key[field])next[field]=Float32Array.from(key[field],n=>n*value);
+   return next;
+  })};
+  passes.push(pass);
+ }
+ return passes;
+}
 function skinLayer(c,l){
  const {model:m,source,tag,id,ms}=c;
  const mat=m.Materials[c.base],original=mat?.Layers.findLast(layer=>typeof layer.TextureID==='number'&&!m.Textures[layer.TextureID]?.ReplaceableId)||mat?.Layers.at(-1);
@@ -130,10 +148,9 @@ function skinLayer(c,l){
  const previous=m.Materials.find(mat=>mat._FxTag===tag+'/material')?.Layers[0];
  const prior=c.prior?.type===l.type&&c.prior.image===l.image?c.prior:null;
  const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
- const strength=Math.min(1,l.strength);
  const glyphCurve=l.glyphs&&l.pulse==='flicker'?[[0,1],[.12,1],[.14,.03],[.20,.05],[.22,.92],[.49,.9],[.50,.06],[.58,.04],[.60,1],[1,1]]:l.glyphs&&l.pulse==='breathe'?[[0,.04],[.17,.08],[.49,1],[.64,.94],[1,.04]]:shape;
  const alphaFor=value=>glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
- const alpha=alphaFor(strength);
+ const alpha=alphaFor(1);
  const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
  if(!l.fixed&&!l.glyphs&&l.pulse!=='steady'&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
@@ -148,13 +165,12 @@ function skinLayer(c,l){
   else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(id,ms,pairs)});
  }
  if(prior&&previous){
-  if(c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)layer.Alpha=previous.Alpha;
   if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
   layer.FilterMode=previous.FilterMode;layer.Shading=previous.Shading;
  }
- // Opaque native passes ignore opacity. A reduced strength needs native Blend.
- if(layer.FilterMode===0&&l.strength<1)layer.FilterMode=2;
- const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:Array.from({length:l.type==='Glow'?Math.max(1,Math.ceil(l.strength)):1},(_,i)=>({...structuredClone(layer),Alpha:i?alphaFor(Math.min(1,l.strength-i)):layer.Alpha}))});
+ const passes=strengthPasses([layer],l.strength,l.type==='Glow',alphaFor);
+ if(prior&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
+ const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
  const colour=l.steel?l.tint.map(v=>.22+v*.31):l.crust?l.tint.map(v=>.18+v*.22):l.tint;
  const index=overlay(c,g,material,colour,m.GeosetAnims.find(a=>a.GeosetId===c.index));
  return {geoset:index};
@@ -163,11 +179,16 @@ function nativeSurface(c,l){
  const m=c.model,temp=emptyParticleModel(m.Version),e={...l.nativeSurface,texture:l.nativeSurface.texture||l.nativeSurface.picture,flow:l.nativeSurface.flow||(l.nativeSurface.id==='revenant'?[0,1,0]:undefined)};
  temp.Geosets=[structuredClone(c.source)];temp.Materials=structuredClone(m.Materials);temp.Textures=structuredClone(m.Textures);temp.TextureAnims=structuredClone(m.TextureAnims);temp.GlobalSequences=[...m.GlobalSequences];
  temp.Geosets[0].MaterialID=c.base;
- const options={...defaultEffectOptions(e),mode:'replace',geoset:0,speed:(e.duration||2000)/c.ms*l.speed,opacity:l.strength,tint:l.tint,direction:l.direction,tiling:l.tiling};
+ const options={...defaultEffectOptions(e),mode:'replace',geoset:0,speed:(e.duration||2000)/c.ms*l.speed,opacity:1,tint:l.tint,direction:l.direction,tiling:l.tiling};
  applySurfaceEffect(temp,null,e,options);
  const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true,reuseTextureAnims:true});
  const texCount=m.Textures.length,animCount=m.TextureAnims.length;
- const material=resource(m.Materials,c.tag+'/material',importer.remapMaterial(temp.Materials[temp.Geosets[0].MaterialID]));
+ const native=importer.remapMaterial(temp.Materials[temp.Geosets[0].MaterialID]);
+ const first=native.Layers[0].Alpha;
+ const peak=typeof first==='number'?first:Math.max(...first.Keys.map(k=>k.Vector[0]));
+ c.state.layers.find(v=>v.id===l.id).unitAlphaPeak=peak;
+ native.Layers=strengthPasses(native.Layers,l.strength);
+ const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;
  for(let i=animCount;i<m.TextureAnims.length;i++){m.TextureAnims[i]._FxTag=c.tag+'/native-motion'+i;visitTracks(m.TextureAnims[i],t=>{if(t.GlobalSeqId==null||t.GlobalSeqId<0){t.GlobalSeqId=c.id;t.Keys=[{...t.Keys[0],Frame:0}];}});}
  return {geoset:overlay(c,temp.Geosets[0],material,l.tint,m.GeosetAnims.find(a=>a.GeosetId===c.index))};
@@ -260,28 +281,39 @@ function particles(c,l){
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
   const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
   const current={...p},prior=c.prior;
-  Object.assign(p,{Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly?12:atlas,Columns:fly?16:atlas,
+  Object.assign(p,{Squirt:false,Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,
    Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
    EmissionRate:fly?1.3/l.lasts:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,l.amount/(count*regions.length)*(.76+.24*Math.cos((k%8)*Math.PI/4+i*1.7))])),
    Visibility:keys(id,ms,[[0,1],[1,1]]),FrameFlags:1,Time:fly?.5:.36,SegmentColor:colors.map(vec),
    ParticleScaling:vec(fly?[size,size,size]:flame?[size*.94,size,size*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
    Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});
+  if(l.kind==='crackle'&&l.burstGap!=null){
+   // Each site gets one turn, alternating limbs before advancing along the blade.
+   const span=Math.max(60,Math.round(l.burstWindow*1000)),period=span+Math.max(100,Math.round(l.burstGap*1000));
+   const cycle=period*count*regions.length,clock=clockFor(m,cycle,c.createdClocks);
+   const start=(i*regions.length+regionIndex)*period+40;
+   p.EmissionRate=keys(clock,cycle,[[0,0],[start/cycle,l.amount*1000/span],[(start+span)/cycle,0],[1,0]],0);
+  }
   if(l.kind==='crackle'){
    // The Knight and Impaler use this additive, model-space sprite in Spell.
-   p.Flags|=524288;p.Variation=.18;p.Latitude=55;p.Time=.43;
+   p.Flags|=524288;p.Variation=l.burstGap!=null?.55:.18;p.Latitude=l.spread??55;p.Time=.43;
    p.SegmentColor=[vec([1,1,1]),vec(l.tint),vec(l.tint.map((v,j)=>v*[.8,.48,1][j]))];
    p.Alpha=Uint8Array.from([255,250,0],a=>Math.round(a*l.strength));p.ParticleScaling=vec([size*.48,size,size*1.18]);
   }
-  const first=fly?9*16+7:0,end=fly?first:mist?25:atlas*atlas-1,mid=fly?first:mist?12:Math.floor(end*.4);
+  const first=fly&&!l.pictureOverride?9*16+7:0,end=fly?first:mist&&!l.pictureOverride?25:atlas*atlas-1,mid=fly?first:mist&&!l.pictureOverride?12:Math.floor(end*.4);
   p.LifeSpanUVAnim=Uint32Array.from([first,mid,1]);p.DecayUVAnim=Uint32Array.from([Math.min(end,mid+1),end,1]);
   if(prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
    // A layer adjustment preserves independent native fields already edited in EMTR.
-   for(const field of ['Flags','FilterMode','TextureID','Rows','Columns','FrameFlags','Time','Variation','Latitude','TailLength','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim'])p[field]=current[field];
+   const samePicture=prior.image===l.image;
+   for(const field of ['Flags','FilterMode','FrameFlags','Time','Variation','TailLength','TailUVAnim','TailDecayUVAnim'])p[field]=current[field];
+   if(samePicture)for(const field of ['TextureID','Rows','Columns','LifeSpanUVAnim','DecayUVAnim'])p[field]=current[field];
+   if(prior.spread===l.spread)p.Latitude=current.Latitude;
+   if(l.burstGap==null)p.Squirt=!!current.Squirt;
    for(const [option,fields] of Object.entries({size:['ParticleScaling','Width','Length'],lasts:['LifeSpan'],velocity:['Speed'],gravity:['Gravity'],strength:['Alpha'],tint:['SegmentColor']})){
     if(JSON.stringify(l[option])===JSON.stringify(prior[option])&&(option!=='size'||l.spriteSize===prior.spriteSize))for(const field of fields)p[field]=current[field];
    }
-   if(l.amount===prior.amount&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
+   if(l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
   }
   for(const [key,value] of Object.entries(l.native||{}))p[key]=key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):structuredClone(value);
   ids.push(p.ObjectId);
@@ -356,7 +388,7 @@ export function readAnimationStack(model,index){
    const index=model.Geosets.findIndex(g=>g._FxTag===prefix+'shape');
    const layer=model.Materials[model.Geosets[index]?.MaterialID]?.Layers[0];if(!layer)continue;
    const peak=typeof layer.Alpha==='number'?layer.Alpha:layer.Alpha?.Keys.reduce((n,k)=>Math.max(n,k.Vector[0]),0);
-   read('strength',(l.type==='Glow'||l.glyphs)?model.Materials[model.Geosets[index]?.MaterialID].Layers.reduce((n,v)=>n+(typeof v.Alpha==='number'?v.Alpha:v.Alpha?.Keys.reduce((a,k)=>Math.max(a,k.Vector[0]),0)||0),0):peak);
+   read('strength',(l.type==='Glow'||l.glyphs)?model.Materials[model.Geosets[index]?.MaterialID].Layers.reduce((n,v)=>n+(typeof v.Alpha==='number'?v.Alpha:v.Alpha?.Keys.reduce((a,k)=>Math.max(a,k.Vector[0]),0)||0),0):peak/(l.unitAlphaPeak||1));
    const rgb=model.GeosetAnims.find(a=>a.GeosetId===index)?.Color;
    if(rgb?.length===3){
     const colour=Array.from(rgb,v=>Math.max(0,Math.min(1,l.steel?(v-.22)/.31:l.crust?(v-.18)/.22:v)));
@@ -373,10 +405,14 @@ export function readAnimationStack(model,index){
    const r=ribbonQuickValues(node);for(const [k,v] of Object.entries({upper:r.above,lower:r.below,strength:r.intensity,lasts:r.lasts,gravity:r.gravity,smoothness:r.amount}))read(k,v);
    if(r.color.some((v,i)=>Math.abs(v-l.tint[i])>.001))l.tint=r.color;
   }else{
+   if(l.opacityBase&&l.opacityBase.some((a,i)=>Math.round(a*l.particleStrength)!==node.Alpha[i])){
+    // A subsequent EMTR edit defines the new three-stage opacity.
+    delete l.opacityBase;delete l.particleStrength;
+   }
    if(l.kind==='native'){if(l.native)for(const key of Object.keys(l.native)){const value=node[key];l.native[key]=key==='SegmentColor'?value.map(v=>Array.from(v)):ArrayBuffer.isView(value)?Array.from(value):structuredClone(value);}continue;}
    read('lasts',node.LifeSpan);read('gravity',typeof node.Gravity==='number'?node.Gravity:null);read('velocity',typeof node.Speed==='number'?node.Speed:null);
    read(l.kind==='flies'?'spriteSize':'size',node.ParticleScaling?.[1]);
-   if(l.kind!=='flies'&&l.kind!=='native'){
+   if(l.kind!=='flies'&&l.kind!=='native'&&l.burstGap==null){
     const rate=typeof node.EmissionRate==='number'?node.EmissionRate:node.EmissionRate?.Keys?.[0]?.Vector[0];
     const phase=(Math.floor(emitters.length/2)%l.count)*1.7,weight=typeof node.EmissionRate==='number'?1:.76+.24*Math.cos(phase);
     if(Number.isFinite(rate))read('amount',rate*emitters.length/weight);
@@ -415,7 +451,7 @@ export function compileAnimation(model,index,draft,{rune}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
-  const tag=owner+'/'+l.id,context={model,source,index,base,frame,parent:effectAnchor(model,source),id,ms,tag,used,rune,prior,stack:draft,attachmentCache,sameClock:before?.loop===ms};
+  const tag=owner+'/'+l.id,context={model,source,index,base,frame,parent:effectAnchor(model,source),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameClock:before?.loop===ms};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
   if(before?.look===draft.look&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
