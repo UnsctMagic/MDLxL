@@ -7639,5 +7639,14 @@
   "Quiet time before the next burst on the blade.": "Время до следующего разряда на клинке.",
   "Total bolts emitted at one point during each burst.": "Число молний из одной точки за разряд.",
   "How far the lightning can spread around the blade.": "Угол разброса молний вокруг клинка.",
-  "Adjust only the selected layer.": "Изменить только выбранный слой."
+  "Adjust only the selected layer.": "Изменить только выбранный слой.",
+  "Ice variation": "Вариант льда",
+  "Dark ice": "Тёмный лёд",
+  "Basalt skin": "Базальтовая поверхность",
+  "Blade arcs": "Дуги на клинке",
+  "Flashes per burst": "Вспышек в серии",
+  "Fissures skin": "Поверхность с трещинами",
+  "How long the arcs flash along the blade.": "Как долго дуги сверкают вдоль клинка.",
+  "Quiet time between flashes.": "Пауза между вспышками.",
+  "Number of flashes along the blade in each burst.": "Число вспышек вдоль клинка в каждой серии."
 }

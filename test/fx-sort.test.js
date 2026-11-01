@@ -5,8 +5,8 @@ import {openDocument} from '../src/editor-document.js';
 import {GLOBAL_LOOKS,LAYER_CHOICES,findLook,newStack,partFrame,withLayerTexture,withParticleStrength} from '../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 
-const kept=['basalt','briar','abyss','cairn','mosaic','buried','eclipse','ink','soul','thorn','astral','oath','tide','blood','rift'];
-test('the fifteen accepted candidates are filed and their ingredients work in other looks',()=>{
+const kept=['basalt','briar','abyss','cairn','mosaic','eclipse','ink','soul','thorn','astral','tide','blood','rift'];
+test('the thirteen remaining candidates are filed and their ingredients work in other looks',()=>{
  const filed=GLOBAL_LOOKS.filter(l=>l.id.startsWith('sort-'));
  assert.deepEqual(filed.map(l=>l.id),kept.map(id=>'sort-'+id));
  assert.ok(GLOBAL_LOOKS.every(l=>!['Impacts','sort'].includes(l.group)));

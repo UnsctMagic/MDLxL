@@ -16,17 +16,17 @@ without triggers, abilities or map scripts.
 
 Keep the terrain and buff/curse looks. The owner retired the entire Impacts folder and its six cards in the third hand test. Models with an existing Attack effect keep their native data and saved layer list.
 
-The owner selected 15 of the 30 candidates. File the accepted looks in the existing folders. Previously saved looks remain editable, including retired entries. White ice stays beside Ice skin. Auras and Impacts are retired.
+The owner kept 13 of the 30 candidates after the fifth hand test. They are filed in the existing folders. Previously saved looks remain editable, including retired entries. Ice skin contains Dark ice and White ice as finish options. Auras and Impacts are retired.
 
 | Folder | Accepted looks |
 | --- | --- |
-| Terrain | Basalt kiln, Void shale, Carved cairn, Moon mosaic, Buried coals |
+| Terrain | Basalt skin, Void shale, Carved cairn, Moon mosaic |
 | Skins | Briar binding, Living ink, Tide etching |
-| Blades | Thorn script, Oathfire, Rift seam |
+| Blades | Thorn script, Rift seam |
 | Buffs & curses | Eclipse brand, Soul lantern, Astral chart |
 | Around the unit | Sanguine drip |
 
-Basalt kiln, Briar binding, Carved cairn, Moon mosaic and Eclipse brand start as overlays. Black stone and Vine weave are stationary surfaces. Briar binding offers the Spore bark finish and its spores as separate, initially disabled layers. Living ink starts with the clouds alone. Ink seal remains an addable ingredient.
+Basalt skin, Briar binding, Carved cairn, Moon mosaic and Eclipse brand start as overlays. Black stone and Vine weave are stationary surfaces. Briar binding offers the Spore bark finish and its spores as separate, initially disabled layers. Living ink starts with the clouds alone. Ink seal remains an addable ingredient. Basalt skin's Heat seams start at 40% intensity and RGB 82, 34, 16. Soul lantern's Soul seal starts with the rotation, scale and position recovered from the owner's fifth-round UV screenshot.
 
 Studying aura models teaches texture and alpha animation; it does not authorize
 adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
@@ -107,12 +107,12 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | Use the Tzeentch Knight and Impaler Spell emitter's native LightningBall sprite. Emit a wider burst from one site, leave several seconds quiet, then strike at the next site. Expose duration, quiet interval, bolts per burst and spread. The surface arcs are optional. |
+| Lightning blade | A Warhammer 40,000 power sword with branching native Lightning4b arcs running along the skinned blade metal. Flash three times over 0.25 seconds, with three seconds quiet between bursts. Expose duration, quiet interval and flashes per burst. The earlier LightningBall emitter is optional and starts off. |
 | Arcane blade | Energy flows along the blade with a pulse. |
 | Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
-| Ice skin and White ice | Keep the accepted teal striations on Ice skin. White ice uses native Northrend frost and fractured ice. |
-| Lava skin | Dark crust and pulsing cracks with visible embers. Fire is an independent layer, off by default. |
+| Ice skin | One Dark ice / White ice selector. Keep the accepted dark striations. White ice uses native Northrend frost and fractured ice. Falling mist is available in both finishes. |
+| Fissures skin | The accepted Lava fissures surface replaces Lava skin in Skins. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
 | Fly swarm | Compare with the native fly swarm. Correct atlas cell, rows/columns and blend preserve transparent corners. A few dark flies follow separate irregular paths, never an orderly glowing ring. |

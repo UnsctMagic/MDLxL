@@ -27,6 +27,8 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
    else if(record.EmissionRate===t&&draft.layers.some(l=>l.burstGap!=null&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
     const burst=draft.layers.find(l=>l.burstGap!=null),sites=model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith(draft.owner+'/'+burst.id+'/')).length;
     assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(burst.burstGap+burst.burstWindow))*sites);
+   }else if(draft.layers.some(l=>l.powerArcs&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
+    const arcs=draft.layers.find(l=>l.powerArcs);assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(arcs.burstGap+arcs.burstWindow)));
    }else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);
    total++;
   });

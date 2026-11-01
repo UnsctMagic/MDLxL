@@ -8,7 +8,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
@@ -47,6 +47,7 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
  return <>
   <h3>{look.name}</h3>
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
+  {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><select aria-label="Ice variation" value={stack.iceVariation||'dark'} onChange={e=>setStack(withIceVariation(stack,frame,e.target.value))}><option value="dark">Dark ice</option><option value="white">White ice</option></select></label>}
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" checked={createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+item.label} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={'Adjust this '+layerType(item).toLowerCase()+' layer.'} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{item.label}<small>{layerType(item)}</small></button></div>)}</div>
@@ -66,6 +67,11 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
+  {l.powerArcs&&<>
+   {row('Burst duration (s)','burstWindow',.06,1,.01,'How long the arcs flash along the blade.')}
+   {row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time between flashes.')}
+   {row('Flashes per burst','amount',1,12,1,'Number of flashes along the blade in each burst.')}
+  </>}
   {p&&<>
    {real&&<LifeTable emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
     begin={(field,stage)=>{gesture.current={field,stage,emitter:structuredClone(real)};}}
@@ -94,7 +100,7 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
    <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update}/>
   </>}
   {!p&&!edge&&!l.stamp&&<>
-   {(l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface)&&row('Speed','speed',1,4,1,'Complete turns or texture passes within the loop.')}
+   {(l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&!l.powerArcs)&&row('Speed','speed',1,4,1,'Complete turns or texture passes within the loop.')}
    {l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&<>{row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}{!l.atlasRect&&canTile&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}{!l.atlasRect&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}</>}
   </>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}

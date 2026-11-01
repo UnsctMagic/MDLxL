@@ -7520,5 +7520,14 @@
   "Quiet time before the next burst on the blade.": "剑刃上两次放电之间的静默时间。",
   "Total bolts emitted at one point during each burst.": "每次放电从同一点产生的闪电总数。",
   "How far the lightning can spread around the blade.": "闪电在剑刃周围散开的角度。",
-  "Adjust only the selected layer.": "仅调整所选图层。"
+  "Adjust only the selected layer.": "仅调整所选图层。",
+  "Ice variation": "冰面变体",
+  "Dark ice": "深色冰面",
+  "Basalt skin": "玄武岩表皮",
+  "Blade arcs": "剑刃电弧",
+  "Flashes per burst": "每轮闪光数",
+  "Fissures skin": "裂隙表皮",
+  "How long the arcs flash along the blade.": "电弧沿剑刃闪动的持续时间。",
+  "Quiet time between flashes.": "闪光之间的停顿时间。",
+  "Number of flashes along the blade in each burst.": "每轮沿剑刃出现的闪光数量。"
 }

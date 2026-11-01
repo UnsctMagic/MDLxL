@@ -2,6 +2,20 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Fifth hand test · 1 November 2026
+
+Continued from `375df03e`. Lightning blade uses blade-bound native Lightning4b arcs with stepped flashes and editable quiet intervals. Ice skin now holds Dark ice and White ice, both with Falling mist. Fissures skin in Skins replaces Lava skin. Oathfire and Buried coals are retired. Basalt kiln is now Basalt skin, with Heat seams at 40% and RGB 82, 34, 16.
+
+Soul lantern's starting UV transform was recovered by matching the native Rune6b texture to the owner's screenshot. Its repeated tile is 106 pixels wide in that image. The fitted mesh spans approximately U −0.066 to 1.075 and V 0.028 to 0.745. The transform includes the screenshot's quarter turn. This gives a general default that scales with the selected part.
+
+The old package failed `Ice skin has its finish selector` (`0 !== 1`), and the catalogue check failed on the separate White ice entry. The earlier particle burst remains available as an off-by-default ingredient.
+
+- Reviewed the five changed looks in Stand, Walk and Attack on Slaanesh, Khorne and Nurgle, at game distance and after real mouse orbit. Dark and white ice were switched through the finish selector with live mist. The [power sword sample](../../test/evidence/visual-effects/power-sword.webp) shows the arc shapes with duration increased to 0.7 seconds for inspection. Defaults remain three flashes over 0.25 seconds and three seconds quiet. The [Soul seal UV preview](../../test/evidence/visual-effects/soul-uv.webp) uses the screenshot-derived transform.
+- All 42 remaining presets passed MDX and MDL save, reopen, re-edit and exact Undo (84 round trips). After the final Soul UV rotation, its two round trips and the fifth-round UI check passed again on the delivery package.
+- Windows passed 2,704 source checks, 57 compatibility checks and 14 real-model FX checks with zero failures. The seven existing source skips have the same reasons listed in the fourth round. The private rider test uses the supplied twin-head rider fixture. The baseline is unchanged.
+- The eight packaged checks passed on the delivery package. They cover finish switching, mist, UVs, flash timing, live layer intensity, optional crackle, emitter handles, camera orbit, Apply, Undo, EMTR and library search. Heat seams' default tint is asserted as `#522210`, then changed through the RGB picker to white before the held-drag pixel comparison, so its deliberately dim default does not obscure that check.
+- Warcraft III playback, the owner's verdict on the power sword appearance and independent QA remain open.
+
 ## Fourth hand test · 1 November 2026
 
 Continued from `f0a35fb2`. The owner accepted Frost blade and chose 15 looks to file in the existing folders. The [FX contract](../FX-GLOBAL-ANIMATIONS.md) lists the folder assignments, overlay defaults, available ingredients and lightning timing. [See the 15 filed looks in motion](../../test/evidence/visual-effects/filed-looks.webp) and [compare four lightning flashes with quiet frames](../../test/evidence/visual-effects/blade-bursts.webp).

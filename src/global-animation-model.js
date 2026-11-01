@@ -149,7 +149,19 @@ function skinLayer(c,l){
  const prior=c.prior?.type===l.type&&c.prior.image===l.image?c.prior:null;
  const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
  const glyphCurve=l.glyphs&&l.pulse==='flicker'?[[0,1],[.12,1],[.14,.03],[.20,.05],[.22,.92],[.49,.9],[.50,.06],[.58,.04],[.60,1],[1,1]]:l.glyphs&&l.pulse==='breathe'?[[0,.04],[.17,.08],[.49,1],[.64,.94],[1,.04]]:shape;
- const alphaFor=value=>glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
+ let arc;
+ if(l.powerArcs){
+  const count=Math.max(1,Math.round(l.amount)),span=Math.max(60,Math.round(l.burstWindow*1000));
+  const ms=span+Math.max(100,Math.round(l.burstGap*1000)),clock=clockFor(m,ms,c.createdClocks);
+  const alpha=[[0,0]],motion=[[0,[0,0,0]]];
+  for(let i=0;i<count;i++){
+   const start=40+i*(span-40)/count,end=start+(span-40)/count*.68;
+   alpha.push([start/ms,1],[end/ms,0]);
+   motion.push([start/ms,[[0,.07,-.06,.04][i%4],[0,.29,.61,.84][i%4],0]]);
+  }
+  alpha.push([1,0]);motion.push([1,[0,0,0]]);arc={ms,clock,alpha,motion};
+ }
+ const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
  const alpha=alphaFor(1);
  const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
  if(!l.fixed&&!l.glyphs&&l.pulse!=='steady'&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
@@ -168,6 +180,7 @@ function skinLayer(c,l){
   if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
   layer.FilterMode=previous.FilterMode;layer.Shading=previous.Shading;
  }
+ if(arc){layer.FilterMode=3;layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(arc.clock,arc.ms,arc.motion,0)});}
  const passes=strengthPasses([layer],l.strength,l.type==='Glow',alphaFor);
  if(prior&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});

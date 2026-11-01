@@ -11,9 +11,9 @@ function spray(label,name,tint,spec){
 }
 const white=[1,1,1],silver=[.83,.91,1],gold=[1,.72,.29],mint=[.48,1,.73],violet=[.76,.49,1],ember=[1,.34,.085];
 const folders={
- basalt:'Terrain',briar:'Skins',abyss:'Terrain',cairn:'Terrain',mosaic:'Terrain',buried:'Terrain',
+ basalt:'Terrain',briar:'Skins',abyss:'Terrain',cairn:'Terrain',mosaic:'Terrain',
  eclipse:'Buffs & curses',ink:'Skins',soul:'Buffs & curses',thorn:'Blades',astral:'Buffs & curses',
- oath:'Blades',tide:'Skins',blood:'Around the unit',rift:'Blades',
+ tide:'Skins',blood:'Around the unit',rift:'Blades',
 };
 const overlays=new Set(['basalt','briar','cairn','mosaic','eclipse']);
 const make=(id,name,loop,...layers)=>({id:'sort-'+id,name,group:folders[id],loop,palette:'native',layers,...(overlays.has(id)?{asOverlay:true}:{})});
@@ -22,7 +22,7 @@ const spores=spray('Spores','Bubble',mint,{life:1.45,rate:8,area:.5,velocity:.34
 export const inkSeal=mark('Ink seal','DemonRune2','glint',violet);
 export const SORT_LOOKS=[
  make('porcelain','Gilded porcelain',3900,{...stone('White marble','Cityscape\\City_WhiteMarble'),tint:[.76,.71,.63]},mark('Gold inscription','Rune1D','breathe',gold)),
- make('basalt','Basalt kiln',2900,stone('Black stone','Dungeon\\Cave_DarkRocks'),surface('Heat seams','Flame4',{axis:'v',band:.19,tint:ember,pulse:'glint',strength:.66})),
+ make('basalt','Basalt skin',2900,stone('Black stone','Dungeon\\Cave_DarkRocks'),surface('Heat seams','Flame4',{axis:'v',band:.19,tint:[82/255,34/255,16/255],pulse:'glint',strength:.4})),
  make('briar','Briar binding',4600,stone('Vine weave','Ashenvale\\Ashen_Vines'),spray('Pollen','Star2',gold,{life:1.25,rate:9,velocity:.24,area:.72,spread:55,size:[.025,.085,.01]}),{...moss,enabled:false},{...spores,enabled:false}),
  make('abyss','Void shale',3500,stone('Outland strata','Outland\\Outland_Abyss'),light('Starlight','Units\\Undead\\FrostWyrm\\Starfield','glint',1.05,silver)),
  make('cairn','Carved cairn',5300,stone('Grey stones','Dungeon\\Cave_GreyStones'),mark('Carving','DemonRune5','steady',mint),light('Carving light','GenericGlow64','glint',.38,mint)),
@@ -35,7 +35,7 @@ export const SORT_LOOKS=[
  make('comet','Comet glass',1200,surface('Comet core','Star2',{axis:'v',band:.34,pulse:'steel',tint:silver}),trail('Comet tail','RibbonNE1_White',silver,.52,.25)),
  make('ink','Living ink',3800,surface('Ink clouds','CloudsTile1',{filter:2,bodyUV:true,strength:.86,tint:[.18,.13,.23]})),
  make('phoenix','Phoenix quill',1850,surface('Feather light','Units\\Human\\Phoenix\\Phoenix2',{base:true,filter:2,atlasRect:[.03,.12,.43,.4],strength:1}),spray('Falling feathers','Feather',gold,{life:1.45,rate:8,filter:1,area:.6,velocity:.28,gravity:.62,spread:50,size:[.07,.24,.09],alpha:[40,235,0]})),
- make('soul','Soul lantern',2700,mark('Soul seal','Rune6b','breathe',mint),spray('Lantern flame','Ghost1',mint,{life:.95,rate:9,orbit:.56,velocity:.21,size:[.12,.28,.02]})),
+ make('soul','Soul lantern',2700,{...mark('Soul seal','Rune6b','breathe',mint),uvMatrix:[0,1.10305,-1.14151,0,1.07555,-.16473]},spray('Lantern flame','Ghost1',mint,{life:.95,rate:9,orbit:.56,velocity:.21,size:[.12,.28,.02]})),
  make('thorn','Thorn script',2450,mark('Thorn glyph','DemonRune4','flicker',mint),trail('Thorn trail','RibbonNE1_White',mint,.38,.32)),
  make('astral','Astral chart',5400,stone('Black stone','Cityscape\\City_BlackMarble'),surface('Star field','Units\\Undead\\FrostWyrm\\Starfield',{bodyUV:true,direction:26,strength:1,tint:white}),mark('Constellation','Rune4','glint',gold)),
  make('prism','Prism sweep',2850,surface('Prism band','CrystalOpaque',{base:true,filter:2,atlasRect:[0,0,1,1],strength:1}),surface('Polished ridge','FX\\Flare\\DiamondNarrow',{axis:'v',band:.38,tint:[1,.28,.71],strength:1}),light('Prism flash','FX\\v\\RainbowLenseFlare_BW','glint',1.7,silver)),

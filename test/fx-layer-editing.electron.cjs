@@ -14,10 +14,13 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const [x,y]=await Promise.all([pixels(a),pixels(b)]);let count=0;for(let i=0;i<x.length;i+=4)if(Math.max(...[0,1,2].map(k=>Math.abs(x[i+k]-y[i+k])))>3)count++;return count;
  },[a,b].map(buf=>buf.toString('base64')));
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt kiln');
-  await fx.getByLabel('Create as overlay').check();await ready();await fx.getByRole('button',{name:'Solo',exact:true}).click();await fx.getByRole('button',{name:'Fit selection'}).click();await fx.getByRole('button',{name:'Pause',exact:true}).click();
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt skin');
+  await fx.getByLabel('Create as overlay').check();await ready();await fx.getByRole('button',{name:'Solo',exact:true}).click();await fx.getByRole('button',{name:'Fit selection'}).click();await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack;const t=p.runtime.native.rendererData.globalSequencesFrames[m.GlobalSequences.indexOf(s.loop)]/s.loop;return t>.288&&t<.31;});
+  await fx.getByRole('button',{name:'Pause',exact:true}).click();
   for(const [i,label] of ['Black stone','Heat seams'].entries()){
-   await select(label);const slider=fx.getByRole('slider',{name:'Intensity',exact:true});await slider.scrollIntoViewIfNeeded();const box=await slider.boundingBox(),before=await passes(),beforeImg=await stage.screenshot();
+   await select(label);
+   if(label==='Heat seams'){assert.equal(await fx.getByLabel('RGB tint').inputValue(),'#522210');await fx.getByLabel('RGB tint').fill('#ffffff');await ready();}
+   const slider=fx.getByRole('slider',{name:'Intensity',exact:true});await slider.click();await page.keyboard.press('End');await ready();await slider.scrollIntoViewIfNeeded();const box=await slider.boundingBox(),before=await passes(),beforeImg=await stage.screenshot();
    await page.mouse.move(box.x+box.width-9,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+6,box.y+box.height/2,{steps:7});
    await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.runtime.native.model,id=m.Geosets.find(g=>g._FxStack)._FxStack.owner;
     const i=Array.from(document.querySelectorAll('.fx-layer-list button')).findIndex(b=>b.getAttribute('aria-pressed')==='true')+1;
@@ -41,7 +44,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const isolated=()=>{const es=mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.map(e=>e.props);
    const selected=es.filter(e=>e.Name.startsWith('FX Rising embers'));return selected.length>0&&selected.every(e=>e.Alpha.every(v=>v===0))&&es.some(e=>e.Name.startsWith('FX Pollen')&&e.Alpha.some(v=>v>0));};
   await page.waitForFunction(isolated,null,{timeout:5000});await page.mouse.up();await ready();assert.ok(await page.evaluate(isolated));
-  await choose('Lightning blade');await select('Blade crackle');for(const [label,value] of [['Time between bursts (s)','2'],['Burst duration (s)','.3'],['Bolts per burst','8'],['Spread (°)','68']]){
+  await choose('Lightning blade');await select('Blade arcs');for(const [label,value] of [['Time between bursts (s)','2'],['Burst duration (s)','.3'],['Flashes per burst','8']]){
    const field=fx.getByLabel(label,{exact:true});await field.fill(value);await field.press('Enter');await ready();
   }
   assert.deepEqual(errors,[]);console.log('PASS live layer isolation, native texture library, emitter substitution and independent lightning controls');
