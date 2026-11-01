@@ -78,8 +78,10 @@ function rendererSources(directory) {
 }
 
 const preload = preloadBridge(source(read('electron/preload.cjs')));
-const main = mainBridge(readdirSync(path.join(root, 'electron')).filter(file => /\.(?:cjs|mjs)$/.test(file) && !file.endsWith('preload.cjs'))
+const main = mainBridge(readdirSync(path.join(root, 'electron')).filter(file => /\.(?:cjs|mjs)$/.test(file) && !file.endsWith('preload.cjs') && file !== 'rotation-lab-main.cjs')
   .map(file => [file, source(read(`electron/${file}`))]));
+const lab = preloadBridge(source(read('electron/rotation-lab-preload.cjs')));
+const labMain = mainBridge([['rotation-lab-main.cjs', source(read('electron/rotation-lab-main.cjs'))]]);
 const sandbox = preloadBridge(source(read('electron/ai-sandbox-preload.cjs')));
 // ai-sandbox:result is sent by the isolated sandbox preload, not window.desktop.
 const sandboxReplies = new Set(['ai-sandbox:result']);
@@ -95,6 +97,19 @@ test('preload invoke/send channels have matching main registrations', () => {
   ];
   for (const channel of sandboxReplies) assert.ok(sandbox.sends.has(channel), `Sandbox exception ${channel} has no sandbox sender`);
   assert.deepEqual(errors, [], `Desktop bridge request mismatch:\n${errors.join('\n')}`);
+});
+
+// The lab entry/preload are loaded together only in the isolated build. Check
+// both directions separately so lab channels cannot hide product bridge drift.
+test('isolated lab preload channels match its own main registrations', () => {
+  const errors = [
+    ...missing(lab.invokes, labMain.handles).map(channel => `lab invoke ${channel} has no ipcMain.handle`),
+    ...missing(lab.sends, labMain.receives).map(channel => `lab send ${channel} has no ipcMain.on`),
+    ...missing(labMain.handles, lab.invokes).map(channel => `lab ipcMain.handle ${channel} has no preload invoke`),
+    ...missing(labMain.receives, lab.sends).map(channel => `lab ipcMain.on ${channel} has no preload send`),
+    ...missing(labMain.pushes, lab.listeners).map(channel => `lab push ${channel} has no preload listener`),
+  ];
+  assert.deepEqual(errors, [], `Isolated lab bridge mismatch:\n${errors.join('\n')}`);
 });
 
 test('main push channels have preload listeners, including the sandbox preload', () => {

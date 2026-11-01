@@ -241,6 +241,13 @@ The superseded five-style rule module and tests have been removed.
 
 - Focused source/unit/regression checks: **101 passed / 0 failed / 0 skipped**.
 - Compatibility: **57 passed / 0 failed / 0 skipped**.
+- Desktop bridge follow-up: **4 passed / 0 failed / 0 skipped**. First CI
+  exposed that its inventory scanned the lab main but only the product preload,
+  reporting `rotationLab:fixtures has no preload invoke` and
+  `rotationLab:log has no preload send`. Reproduced locally before the correction.
+  The check now validates product and isolated lab main/preload pairs separately,
+  preserving every bidirectional registration and listener assertion. Runtime
+  files and the verified delivery package are unchanged by this test-only fix.
 - Normal app and lab builds pass. Normal runtime owner files match online main;
   the ordinary bundle contains neither lab control/event code nor the lab rule
   module in its AI inventory.
