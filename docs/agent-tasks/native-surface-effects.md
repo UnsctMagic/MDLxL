@@ -2,6 +2,12 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Owner correction round · 1 November 2026
+
+Only Rune blade and Water skin changed after the independent review of `33f1a6d1`. Rune blade identifies the native Unholy Aura seal by its texture/material, keeps one seal face, and fits two small tilted, counter-turning collars along a blade. Broad parts receive one local collar above the ground. Position and size still use the existing EMTR handles. Water skin now projects one continuous surface across the part instead of fitting each atlas island separately. Its two crossing native water layers are translucent; a faint original-material underlay remains visible. The other 15 global looks and all 51 earlier cards are unchanged.
+
+The correction package passed the rune drag, actual mouse orbit, Apply/one Undo, MDX save, actual reopen and editable-layer checks for both looks. Stand, Walk and Attack were captured through full global loops at game distance and in close orbit on the two Warriors, Footman and Abomination; Water Elemental is included beside the corrected water in the PR animation. Review captures and per-target observations are under `D:\Codex\fx-global-review\corrections-492-final`. The two PR animations were replaced. Focused source checks passed 48/48, compatibility 57/57, and the full source suite passed 2,668 with 10 skips and no failures; CI's unchanged known-failure baseline reported zero new failures. The five related packaged harnesses passed, including every earlier card. Warcraft III executable playback and owner visual acceptance remain unverified.
+
 ## Global animation maker · 1 November 2026
 
 Select a model part and choose a look from Blades, Skins, Around the unit, or Your textures. These 17 starters sit above the 51 earlier cards. Select a layer in the right column to adjust it, drag its position or size, or open its emitter in EMTR. One Apply writes one history entry. Selecting a saved skin or rune resolves to its original part. Reopening a stack reads back native emitter settings, material colour and intensity, and simple texture speeds. Independently edited tracks survive changes to another layer.
@@ -13,7 +19,7 @@ Select a model part and choose a look from Blades, Skins, Around the unit, or Yo
 
 The [model checks](../../test/global-animations.test.js) cover every starter in both formats, shared clocks, independent adjustments and Undo. The [packaged workflow](../../test/global-animations.electron.cjs) exercises both blade ends, actual camera rotation, colour, loop length, rune and swarm handles, persistence and Open in EMTR.
 
-I reviewed all 17 looks on the Khorne Warrior’s straight sword, the Nurgle Warrior’s hooked weapon, a Footman, a Paladin and an Abomination. The 255 full-loop captures cover Stand, Walk and Attack at game distance and in close orbit. I also checked 28 controls or gestures at three settings and corrected flame lifetime, wing blending, hooked-blade placement and painted texture travel. The packaged regressions previewed, applied and undid all 51 earlier cards, compared UV sets and reopened two saved effects in fresh windows. The five animated PR images come from the packaged editor. The captures and review are under `D:\Codex\fx-global-review`. Playback inside Warcraft III remains unverified.
+The earlier review (superseded above for Rune blade and Water skin) covered all 17 looks on the Khorne Warrior’s straight sword, the Nurgle Warrior’s hooked weapon, a Footman, a Paladin and an Abomination. The 255 full-loop captures cover Stand, Walk and Attack at game distance and in close orbit. I also checked 28 controls or gestures at three settings and corrected flame lifetime, wing blending, hooked-blade placement and painted texture travel. The packaged regressions previewed, applied and undid all 51 earlier cards, compared UV sets and reopened two saved effects in fresh windows. The five animated PR images come from the packaged editor. The captures and review are under `D:\Codex\fx-global-review`. Playback inside Warcraft III remains unverified.
 
 ## Earlier card handover
 

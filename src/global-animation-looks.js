@@ -23,7 +23,7 @@ export const GLOBAL_LOOKS=[
  make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),dust('Jumping sparks','sparks',texture('Star4'))]),
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
  make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
- make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.81,water:true,bodyUV:true}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.19,water:true,bodyUV:true})]),
+ make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
  make('ice-skin','Ice skin','Skins',4200,'glacier',[skin('Crystal surface',existing('frost-edge').texture,{base:true,filter:2,strength:.91,bodyUV:true,tint:[.80,.93,1]}),shine(),frost()]),
  make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers()]),
  make('glowing-skin','Glowing skin','Skins',2500,'azure',[pulse()]),
@@ -80,7 +80,7 @@ export function makeLayer(spec,frame,palette,id) {
  const p=properties[spec.kind]||[1,24,.12,1,0,1];
  return {...structuredClone(spec),id,tint:spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1])),strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
-  count:p[0],amount:p[1],lasts:p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?girth*1.24:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
+  count:p[0],amount:p[1],lasts:p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {

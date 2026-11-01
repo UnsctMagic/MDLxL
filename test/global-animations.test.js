@@ -8,7 +8,7 @@ import {visitTracks} from '../src/animation.js';
 
 function fixture(){
  const doc=createDemoDocument(),g=doc.model.Geosets[0],frame=partFrame(g);
- return {doc,frame,donors:{rune:{Geosets:[null,structuredClone(g)]}}};
+ return {doc,frame,donors:{rune:{Geosets:[structuredClone(g)],Materials:[{Layers:[{TextureID:0}]}],Textures:[{Image:LAYER_CHOICES.find(l=>l.type==='Rune').image}]}}};
 }
 for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
  const {doc,frame,donors}=fixture(),model=doc.model,old=structuredClone(model.Sequences);
@@ -106,5 +106,50 @@ test('saving without the layer list keeps every native emitter, clock and materi
   assert.equal(fxData(b),null);assert.deepEqual(b.GlobalSequences,a.GlobalSequences);
   assert.deepEqual(b.ParticleEmitters2.map(p=>p.EmissionRate),a.ParticleEmitters2.map(p=>p.EmissionRate));
   assert.deepEqual(b.Materials.map(m=>m.Layers),a.Materials.map(m=>m.Layers));
+ }
+});
+
+test('water crosses duplicated atlas seams continuously and retains a translucent painted underlay',()=>{
+ const {doc}=fixture(),m=doc.model,g=m.Geosets[0],base=g.MaterialID;
+ // Duplicate vertices occupy the same place but unrelated corners of the source atlas.
+ const count=g.Vertices.length/3;
+ g.Vertices=Float32Array.from([...g.Vertices,...g.Vertices]);
+ g.Normals=Float32Array.from([...g.Normals,...g.Normals]);
+ g.TVertices=[Float32Array.from([...g.TVertices[0],...Array.from(g.TVertices[0],v=>v*.03+.7)])];
+ g.VertexGroup=Uint8Array.from([...g.VertexGroup,...g.VertexGroup]);
+ g.Faces=Uint16Array.from([...g.Faces,...Array.from(g.Faces,v=>v+count)]);g.PrimitiveCounts=Uint32Array.from([g.Faces.length]);
+ const original=structuredClone(m.Materials[base]);
+ const s=newStack(GLOBAL_LOOKS.find(l=>l.id==='water-skin'),partFrame(g),'water');
+ const result=compileAnimation(m,0,s);
+ assert.deepEqual(m.Materials[base],original,'the authored material stays intact');
+ const underlay=m.Materials[g.MaterialID].Layers[0];
+ assert.equal(underlay.FilterMode,2);assert.ok(underlay.Alpha>0&&underlay.Alpha<.3);
+ const surfaces=s.layers.map(l=>m.Geosets[result.layers[l.id].geoset]);
+ for(const surface of surfaces){
+  const uv=surface.TVertices[0];
+  for(let i=0;i<count*2;i++)assert.equal(uv[i],uv[count*2+i],'a shared position samples the same moving water across an atlas seam');
+  const layer=m.Materials[surface.MaterialID].Layers[0];assert.ok(layer.Alpha<.6);
+ }
+ const a=surfaces[0].TVertices[0],b=surfaces[1].TVertices[0];
+ assert.notDeepEqual(a,b,'the two currents cross instead of following one direction');
+ for(const format of ['mdx','mdl']){
+  const reopened=openDocument(doc.serialize(format),'water.'+format).model;
+  assert.equal(readAnimationStack(reopened,0).layers.length,2);
+ }
+});
+
+test('rune finds its native material after donor reordering and fits collars rather than a ground disc',()=>{
+ const {doc,frame,donors}=fixture(),m=doc.model;
+ const spare=structuredClone(donors.rune.Geosets[0]);spare.MaterialID=1;
+ spare.Vertices=spare.Vertices.slice(0,9);spare.Normals=spare.Normals.slice(0,9);spare.TVertices=[spare.TVertices[0].slice(0,6)];spare.Faces=Uint16Array.from([0,1,2]);
+ donors.rune.Geosets.push(spare);donors.rune.Materials.push({Layers:[{TextureID:1}]});donors.rune.Textures.push({Image:'other.blp'});
+ const stack=newStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'rune');
+ const result=compileAnimation(m,0,stack,donors),shape=m.Geosets[result.layers[1].geoset];
+ assert.equal(shape.Faces.length,donors.rune.Geosets[0].Faces.length*shape.Groups.length,'the unrelated donor triangle must not replace the native rune');
+ assert.ok(stack.layers[0].size<=frame.length*.29*1.35,'broad parts receive a local collar');
+ for(const [i,group] of shape.Groups.entries()){
+  const pivot=m.Nodes[group[0]].PivotPoint;
+  assert.ok(pivot[2]>frame.center.z-frame.length*.4,'a body collar is centred on the part');
+  assert.ok(shape.VertexGroup.some(v=>v===i));
  }
 });

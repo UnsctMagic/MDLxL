@@ -70,7 +70,14 @@ function skinLayer(c,l){
  let coords=own||l.bodyUV?(source.TVertices[original?.CoordId||0]||source.TVertices[0]).slice():streakCoordinates(source,{axis:l.axis,band:l.band??(l.base?1:.8)});
  // A body often occupies a slender slice of its painted texture atlas. Give each island
  // the full native material while keeping the modeller's seams and winding.
- if(l.bodyUV&&!own)for(const island of indexedSurfaceIslands(source)){
+ if(l.water){
+  // One spatial projection across the part, including duplicated seam vertices. A painted
+  // atlas island must not turn into a separate full-frame patch of water.
+  const {axis,center,length}=c.frame;
+  const offsets=Array.from({length:source.Vertices.length/3},(_,i)=>new Vector3().fromArray(source.Vertices,i*3).sub(center));
+  const side=offsets.map(v=>v.clone().addScaledVector(axis,-v.dot(axis))).reduce((a,b)=>a.lengthSq()>b.lengthSq()?a:b).normalize();
+  for(let i=0;i<offsets.length;i++){coords[2*i]=.5+offsets[i].dot(side)/(length*.55);coords[2*i+1]=.5+offsets[i].dot(axis)/(length*.55);}
+ }else if(l.bodyUV&&!own)for(const island of indexedSurfaceIslands(source)){
   for(let axis=0;axis<2;axis++){
    let lo=Infinity,hi=-Infinity;
    for(const v of island){const n=coords[v*2+axis];lo=Math.min(lo,n);hi=Math.max(hi,n);}
@@ -102,7 +109,7 @@ function skinLayer(c,l){
  const prior=c.prior?.type===l.type&&c.prior.image===l.image?c.prior:null;
  const shape=curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
  const alpha=shape?keys(id,ms,shape.map(([t,a])=>[t,.005+a*(l.strength-.005)])):l.strength;
- const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.bodyUV||l.steel?16:17,Alpha:alpha};
+ const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
  if(l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
   const turns=Math.max(1,Math.round(l.speed));
@@ -183,26 +190,45 @@ function edgeLayer(c,l){
  return {id:p.ObjectId,ids:[p.ObjectId],family:'RibbonEmitters'};
 }
 function runeLayer(c,l){
- const {model:m,frame,id,ms,tag}=c,donor=c.rune?.Geosets[1];
+ const {model:m,frame,id,ms,tag}=c;
+ // The rune is identified by its native material, not the donor's geoset order.
+ const donor=c.rune?.Geosets.find(g=>c.rune.Materials[g.MaterialID]?.Layers.some(layer=>
+  typeof layer.TextureID==='number'&&gamePathKey(c.rune.Textures[layer.TextureID]?.Image||'')===gamePathKey(l.image)));
  if(!donor)throw Error('Choose your Warcraft III folder to load the native rune.');
- const p=frame.at(0).add(new Vector3(...l.offset));
- const bone=nodeFor(c,'Bones','Bone','pivot','Turning rune pivot',p,c.parent), turns=Math.max(1,Math.round(l.speed));
- const rotation=Array.from({length:turns*8+1},(_,i)=>[i/(turns*8),new Quaternion().setFromAxisAngle(frame.axis,i*Math.PI/4).toArray()]);
- bone.Rotation=keys(id,ms,rotation);
- const geometry=structuredClone(donor),vertices=geometry.Vertices,center=new Vector3();
- for(let i=0;i<vertices.length;i+=3)center.add(new Vector3().fromArray(vertices,i));
- center.multiplyScalar(3/vertices.length);
- const basis=new Quaternion().setFromUnitVectors(z,frame.axis);
- let r=0;for(let i=0;i<vertices.length;i+=3)r=Math.max(r,new Vector3().fromArray(vertices,i).distanceTo(center));
- for(let i=0;i<vertices.length;i+=3){
-  new Vector3().fromArray(vertices,i).sub(center).multiplyScalar(l.size*1.4/r).applyQuaternion(basis).add(p).toArray(vertices,i);
-  new Vector3().fromArray(geometry.Normals,i).applyQuaternion(basis).toArray(geometry.Normals,i);
+ const geometry=structuredClone(donor),center=new Vector3();
+ for(let i=0;i<donor.Vertices.length;i+=3)center.add(new Vector3().fromArray(donor.Vertices,i));
+ center.multiplyScalar(3/donor.Vertices.length);
+ let radius=0;for(let i=0;i<donor.Vertices.length;i+=3)radius=Math.max(radius,new Vector3().fromArray(donor.Vertices,i).sub(center).length());
+ const side=new Vector3().crossVectors(frame.axis,Math.abs(frame.axis.z)<.9?z:y).normalize();
+ const narrow=frame.radius<frame.length*.28;
+ const normal=frame.axis.clone().multiplyScalar(narrow?.55:.84).addScaledVector(side,narrow?.84:.55).normalize();
+ const basis=new Quaternion().setFromUnitVectors(z,normal),turns=Math.max(1,Math.round(l.speed));
+ // Small oblique collars clear the blade on both sides. The tilt exposes the
+ // native circular glyphs from the side without turning a body into a ground disc.
+ const places=narrow?[-.28,.28]:[0];
+ // The native mesh has two overlapping copies of the same seal. Keep one
+ // connected face so a blade-sized ring retains its lines instead of adding to white.
+ const ids=[...indexedSurfaceIslands(donor)[0]],map=new Map(ids.map((id,i)=>[id,i]));
+ const count=ids.length,positions=[],normals=[],uv=[],faces=[],groups=[],vertexGroups=[];
+ for(const [ring,along] of places.entries()){
+  const p=(narrow?frame.at(frame.length*along):frame.center.clone()).add(new Vector3(...l.offset));
+  const bone=nodeFor(c,'Bones','Bone','pivot'+ring,'Turning rune pivot '+(ring+1),p,c.parent);
+  const rotation=Array.from({length:turns*16+1},(_,i)=>[i/(turns*16),new Quaternion().setFromAxisAngle(frame.axis,(ring?-1:1)*i*Math.PI/8).toArray()]);
+  bone.Rotation=keys(id,ms,rotation);groups.push([bone.ObjectId]);
+  for(const i of ids){
+   new Vector3().fromArray(donor.Vertices,i*3).sub(center).multiplyScalar(l.size*1.42/(radius||1)).applyQuaternion(basis).add(p).toArray(positions,positions.length);
+   new Vector3().fromArray(donor.Normals,i*3).applyQuaternion(basis).toArray(normals,normals.length);
+   vertexGroups.push(ring);
+  }
+  for(const i of ids)uv.push(...donor.TVertices[0].subarray(i*2,i*2+2));
+  for(let i=0;i<donor.Faces.length;i+=3){const face=Array.from(donor.Faces.subarray(i,i+3));if(face.every(v=>map.has(v)))faces.push(...face.map(v=>map.get(v)+ring*count));}
  }
- geometry.VertexGroup=new Uint8Array(vertices.length/3);geometry.Groups=[[bone.ObjectId]];geometry.TotalGroupsCount=1;geometry.Anims=[];
+ geometry.Vertices=vec(positions);geometry.Normals=vec(normals);geometry.TVertices=[vec(uv)];geometry.Faces=Uint16Array.from(faces);geometry.PrimitiveTypes=Uint32Array.from([4]);geometry.PrimitiveCounts=Uint32Array.from([faces.length]);
+ geometry.VertexGroup=Uint8Array.from(vertexGroups);geometry.Groups=groups;geometry.TotalGroupsCount=groups.length;geometry.Anims=[];
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:1,RenderMode:0,Layers:[{FilterMode:4,Shading:17,CoordId:0,TVertexAnimId:null,TextureID:texture(m,l.image,false,tag),
   Alpha:keys(id,ms,[[0,l.strength*.62],[.47,l.strength],[1,l.strength*.62]])}]});
  const index=overlay(c,geometry,material,l.tint);recalculateExtents(m,[index]);
- return {id:bone.ObjectId,geoset:index};
+ return {geoset:index};
 }
 function compact(list,isUnused,refs){
  const used=new Set();refs((id)=>used.add(id));
@@ -291,8 +317,16 @@ export function compileAnimation(model,index,draft,{rune}={}){
  source.MaterialID=base;source._FxStack=state;
  if(draft.layers.some(l=>l.base)){
   const original=model.Materials[base].Layers[0];
-  const hidden={...structuredClone(original),Alpha:0,FilterMode:2};
-  source.MaterialID=resource(model.Materials,owner+'/underlay',{PriorityPlane:0,RenderMode:0,Layers:[hidden]});
+  const water=draft.layers.some(l=>l.base&&l.water);
+  const underlay=water?structuredClone(model.Materials[base].Layers):[structuredClone(original)];
+  for(const layer of underlay){
+   layer.FilterMode=2;
+   if(!water)layer.Alpha=0;
+   else if(layer.Alpha==null)layer.Alpha=.22;
+   else if(typeof layer.Alpha==='number')layer.Alpha*=.22;
+   else for(const key of layer.Alpha.Keys)key.Vector[0]*=.22;
+  }
+  source.MaterialID=resource(model.Materials,owner+'/underlay',{PriorityPlane:0,RenderMode:0,Layers:underlay});
  }
  const results={};
  for(const l of draft.layers){
