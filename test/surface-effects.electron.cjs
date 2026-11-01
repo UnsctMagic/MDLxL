@@ -1,8 +1,9 @@
+const {fixturePath,testModel}=require('./helpers/fixtures.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs');
 (async()=>{
  const out=path.join(root,'out/surface-effects');fs.mkdirSync(out,{recursive:true});
- const run=await launchApp({fixture:process.env.MDLXL_EFFECTS_FIXTURE,out,bounds:{x:-3000,y:0,width:1440,height:1000}});
+ const run=await launchApp({fixture:fixturePath('footman'),out,bounds:{x:-3000,y:0,width:1440,height:1000}});
  const {page,app}=run,checks=[];app.process().stderr.on('data',d=>fs.appendFileSync(path.join(out,'electron.log'),d));app.process().on('exit',(code,signal)=>console.log('APP EXIT',code,signal));
  const {ObjectLoader,Vector3,Matrix4}=await import('three');
  const {movementAxisHandles}=await import('../app/movement-overlay.js');
@@ -32,7 +33,29 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs');
   checks.push('Normal mouse drag rotates the camera');
   await page.waitForFunction(frame=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame()!==frame,before.frame);
   checks.push('Native preview advances while playing');
-  const speed=page.getByRole('slider',{name:'Speed',exact:true});await speed.click();await page.keyboard.press('ArrowRight');await ready();
+  const speed=page.getByRole('slider',{name:'Speed',exact:true});
+  const range=await speed.boundingBox();
+  await page.evaluate(()=>{window.fxDragStart=mdlxlProbe('.sfx-stage .game-preview-root').runtime;});
+  await page.mouse.move(range.x+range.width*.20,range.y+range.height/2);await page.mouse.down();
+  await page.mouse.move(range.x+range.width*.64,range.y+range.height/2,{steps:18});
+  assert.equal(await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime===window.fxDragStart),true,'Dragging a range keeps the same live renderer until release');
+  await page.mouse.up();await ready();
+  assert.equal(await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime===window.fxDragStart),false,'Release installs the adjusted effect');
+  checks.push('Slider draft keeps renderer until release');
+  // Find a different visible surface through the same hover feedback a user gets.
+  let picked=null;
+  for(const y of [.4,.45,.5,.55,.6,.65]) {
+   for(const x of [.48,.52,.46,.54,.44,.56,.42,.58]) {
+    await page.mouse.move(box.x+x*box.width,box.y+y*box.height);
+    const id=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve(mdlxlProbe('.sfx-stage .game-preview-root').props.hoveredGeoset))));
+    if(id!=null&&id>0){picked=id;break;}
+   }
+   if(picked!==null)break;
+  }
+  assert.notEqual(picked,null,'Another geoset highlights under the pointer');
+  await page.keyboard.down('Control');await page.mouse.down();await page.mouse.up();await page.keyboard.up('Control');
+  await page.waitForFunction(id=>document.querySelector('.sfx-target select').value===String(id),picked);
+  await page.getByLabel('Geoset',{exact:true}).selectOption('0');await ready();checks.push('Ctrl-click selects the highlighted surface');
   assert.ok((await read()).model.GlobalSequences.at(-1)<before.model.GlobalSequences.at(-1),'Speed shortens the imported loop');
   await button('Replace').click();await ready();
   assert.equal((await read()).model.Geosets.length,original.Geosets.length);
@@ -44,19 +67,25 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs');
   await page.getByLabel('Shape',{exact:true}).selectOption('native');await ready();
   await dragHandle('move');await dragHandle('scale');
   await page.screenshot({path:path.join(out,'eye-placement.png')});
+  const placedPreview=await read();
   await button('Apply effect').click();
   await page.getByRole('dialog',{name:'Surface Effects',exact:true}).waitFor({state:'hidden'});
   await page.waitForFunction(n=>mdlxlProbe().session.doc.model.Geosets.length===n,original.Geosets.length+1);
-  const inserted=await documentModel();assert.deepEqual(inserted.Bones,original.Bones);assert.deepEqual(inserted.Sequences,original.Sequences);checks.push('Overlay, Replace, copy shape and native eye surface');
+  const inserted=await documentModel();assert.deepEqual(inserted.Helpers,original.Helpers,'Placement leaves no helper');assert.deepEqual(inserted.PivotPoints,original.PivotPoints);assert.deepEqual(inserted.GlobalSequences,placedPreview.model.GlobalSequences,'Only material clocks are saved');assert.deepEqual(inserted.Bones,original.Bones);assert.deepEqual(inserted.Sequences,original.Sequences);checks.push('Overlay, Replace, copy shape and native eye surface');
   await stubDialogs(app,{save:path.join(out,'eye-result.mdx')});
   await page.keyboard.press('F12');
   await button('Save MDX…').click();
   await page.waitForFunction(()=>!document.querySelector('[role=dialog][aria-label="Save as"]'));
-  assert.ok(fs.existsSync(path.join(out,'eye-result.mdx')),'Saved native MDX');
+  const {openDocument}=await import('../src/editor-document.js');
+  const savedEye=openDocument(fs.readFileSync(path.join(out,'eye-result.mdx')),'eye-result.mdx').model;
+  assert.equal(savedEye.Geosets.length,inserted.Geosets.length);
+  assert.equal(savedEye.Helpers.length,original.Helpers.length);assert.deepEqual(savedEye.GlobalSequences,inserted.GlobalSequences);
+  checks.push('Saved native eye reopens with the expected geometry and clocks');
   await page.keyboard.press('Control+z');
   await page.waitForFunction(n=>mdlxlProbe().session.doc.model.Geosets.length===n,original.Geosets.length);
   const undone=await documentModel();assert.deepEqual(undone,original);checks.push('One Undo restores model');
-  for(const name of ['Classic eye','Water skin','Flaming skin','Falling water','Blade energy','Cloud shimmer','Flow current skin','Colour pulse','Visibility pulse','Fire wisps','Water droplets']){
+  const {SURFACE_EFFECTS}=await import('../src/surface-effects.js');
+  for(const {name} of SURFACE_EFFECTS.filter(entry=>entry.id!=='eye')){
    await button('Surface Effects').click();await ready();console.log('PREVIEW',name);await button(name).click();await ready();
    const state=await read();assert.ok(!await page.locator('.sfx-error').count(),name);
    await button('Apply effect').click();await page.getByRole('dialog',{name:'Surface Effects',exact:true}).waitFor({state:'hidden'});
@@ -66,11 +95,17 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs');
   }
   await button('Surface Effects').click();await ready();await button('Water skin').click();await ready();
   await page.screenshot({path:path.join(out,'workspace.png')});await button('Cancel').click();
-  if(process.env.MDLXL_EFFECTS_KNIGHT){
-   await stubDialogs(app,{open:process.env.MDLXL_EFFECTS_KNIGHT});await page.keyboard.press('Control+o');
+  {
+   await stubDialogs(app,{open:testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx')});await page.keyboard.press('Control+o');
    await page.waitForFunction(()=>mdlxlProbe().session.path?.includes('KnightTzeentchSword'));
    await button('Surface Effects').click();await ready();await page.getByLabel('Geoset',{exact:true}).selectOption('26');await button('Replace').click();await ready();await page.locator('.sfx-window').getByRole('button',{name:'Solo',exact:true}).click();await ready();await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.hiddenGeosets?.size>0);await page.locator('.sfx-window').getByRole('button',{name:'Fit selection',exact:true}).click();
    await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame()>0);
+   const stage=await page.locator('.sfx-stage canvas').first().boundingBox();
+   await page.mouse.move(stage.x+stage.width*.7,stage.y+stage.height*.36);await page.mouse.down();await page.mouse.move(stage.x+stage.width*.7+45,stage.y+stage.height*.36+20,{steps:6});await page.mouse.up();
+   const cameraBeforeSeek=(await read()).camera;
+   const clip=page.getByLabel('Preview animation',{exact:true});
+   const next=await clip.locator('option').evaluateAll(rows=>rows.find(row=>!row.selected)?.value);
+   if(next!=null){await clip.selectOption(next);await page.waitForFunction(n=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getSequence()===Number(n),next);assert.ok((await read()).camera.every((v,i)=>Math.abs(v-cameraBeforeSeek[i])<1e-9),'Changing animation retains the manually rotated solo camera');}
    await page.screenshot({path:path.join(out,'knight-eye.png')});await button('Cancel').click();checks.push('Tzeentch knight geoset 27 previews the native eye');
   }
   assert.deepEqual(run.errors,[]);

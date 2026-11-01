@@ -35,7 +35,10 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
-  'surface-effects': { env: { MDLXL_EFFECTS_FIXTURE: process.env.MDLXL_EFFECTS_FIXTURE || footman }, needs: [process.env.MDLXL_EFFECTS_FIXTURE || footman] },
+  'surface-effects-uv': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
+  'surface-effects-warriors': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
+  'surface-effects': { needs: [footman,testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx')] },
+  'particle-native-placement': { env: {MDLXL_PARTICLE_INDEX:particleIndex}, needs: [footman,particleIndex] },
   'ai-real-use': { env: { MDLVIS_HEADLESS: '' }, timeout: Number(process.env.MDLXL_AI_REAL_USE_REPEATS || 3) * (10 + 6 * Number(process.env.MDLXL_AI_REAL_USE_RESUMES || 2)) * (Number(process.env.MDLXL_AI_REAL_USE_TURN_MS || 240000) + 30000) + 120000 },
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },

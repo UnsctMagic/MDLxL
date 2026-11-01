@@ -641,7 +641,7 @@ export default function GamePreview(inputProps) {
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
-      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && !p.emptyDragRotates && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
+      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && (!p.emptyDragRotates || event.ctrlKey && p.onInspectGeoset) && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
         controls.enabled = false; canvas.setPointerCapture(event.pointerId);
@@ -996,6 +996,16 @@ export default function GamePreview(inputProps) {
     // points: frame these model-space points; detail.selection (Fit selection): the selection.
     // exact: the AI's pictures frame exactly these points, also when they reach past the
     // model's own size, so two models compared side by side get one scale.
+    function frameGeosets(indices) {
+      const matrices = new Map((native.rendererData.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
+      bounds.makeEmpty();
+      for (const index of indices) {
+        const geoset = ownedModel.Geosets[index]; if (!geoset) continue;
+        const vertices = skinGeoset(geoset, matrices);
+        for (let i = 0; i < vertices.length; i += 3) bounds.expandByPoint(point.fromArray(vertices, i));
+      }
+      if (!bounds.isEmpty()) { bounds.getCenter(center); bounds.getSize(boundsSize); radius = Math.max(1, boundsSize.length() / 2); fit(); }
+    }
     function fit({ initialize = false, detail, points, exact = false } = {}) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
@@ -1372,14 +1382,7 @@ export default function GamePreview(inputProps) {
         const reframe = p.frameKey === undefined || p.frameKey !== framedKey.current;
         if (p.isolatedGeosets && (sequenceChanged || userSeek) && reframe) {
           framedKey.current = p.frameKey;
-          const matrices = new Map((native.rendererData.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
-          bounds.makeEmpty();
-          for (const index of p.isolatedGeosets) {
-            const geoset = ownedModel.Geosets[index]; if (!geoset) continue;
-            const vertices = skinGeoset(geoset, matrices);
-            for (let i = 0; i < vertices.length; i += 3) bounds.expandByPoint(point.fromArray(vertices, i));
-          }
-          if (!bounds.isEmpty()) { bounds.getCenter(center); bounds.getSize(boundsSize); radius = Math.max(1, boundsSize.length() / 2); fit(); }
+          frameGeosets(p.isolatedGeosets);
         }
         if (p.portraitMode && !state.cameraEditing && !state.cameraDetached) {
           const evaluated = evaluateModelCamera(p.model, p.model?.Cameras?.[p.portraitCameraIndex], native.getFrame(), poseSequence, globalClock);
@@ -1643,11 +1646,7 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
-      fitGeoset(index) {
-        const geoset=ownedModel.Geosets[index];if(!geoset)return;
-        const matrices=new Map((native.rendererData?.nodes||[]).flatMap((node,id)=>node?.matrix?[[id,new THREE.Matrix4().fromArray(node.matrix)]]:[]));
-        fit({points:latest.current.restPose?geoset.Vertices:skinGeoset(geoset,matrices),exact:true});
-      },
+      frameGeosets,
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
       alignModel(crop,x,y) { centerShowcaseModel(crop,false,x,y); },

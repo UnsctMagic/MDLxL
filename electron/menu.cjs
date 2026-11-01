@@ -16,8 +16,8 @@ function buildMenuTemplate(bindings, dispatch, platform = process.platform, rece
   const item = (label, id) => {
     const keys = (bindings[id] || []).filter(key => /^[A-Za-z0-9]$|^F(?:[1-9]|1\d|2[0-4])$/.test(key) || ['Delete','Escape','Insert','Tab'].includes(key));
     const requiresEditable = id === 'GeosetAnims';
-    const enabled = id === 'particles' ? !editorState.saving : id === 'uv' ? !!editorState.uvEnabled : !requiresEditable || (!editorState.readOnly && !editorState.saving);
-    const result = { label, click: () => { if (enabled) dispatch(id); }, ...((requiresEditable || id==='uv'||id==='particles') ? { enabled } : {}) };
+    const enabled = id === 'surfaceEffects' ? !!editorState.surfaceEffectsEnabled : id === 'particles' ? !editorState.saving : id === 'uv' ? !!editorState.uvEnabled : !requiresEditable || (!editorState.readOnly && !editorState.saving);
+    const result = { label, click: () => { if (enabled) dispatch(id); }, ...((requiresEditable || id==='surfaceEffects'||id==='uv'||id==='particles') ? { enabled } : {}) };
     // The renderer owns shortcuts so input fields, dialogs, and remapped keys use
     // the same rules as the browser build. Native accelerators only display them.
     const accelerator = keys.length ? nativeAccelerator(keys[0]) : null;
@@ -34,7 +34,7 @@ function buildMenuTemplate(bindings, dispatch, platform = process.platform, rece
     { label: 'Shape', submenu: ['Bend','Warp','Dome','Wrap','Taper'].map(name=>item(name,'shape:'+name.toLowerCase())) },
     { label: 'View', submenu: ((editorState.vanilla?VIS_VIEW_MENU:VIEW_MENU)[editorState.viewMode] || []).map(row=>row[1]==='clearDisplay'?item(...row):{...item(...row),type:'checkbox',checked:!!editorState.checks?.[row[1]]}) },
     { label: 'Modules', submenu: [item('Vertex editor', 'vertices'), item('Bones', 'bones'), item('UV-maps', 'uv'), item('Movement', 'animation'), item('Animations: visibility and RGB', 'animations'), item('Particle Editor…', 'particles'), item('AnimXL…', 'animXL'), item('Material and Texture Library', 'textureLibrary')] },
-    { label: 'Managers', submenu: [['Material Manager…', 'Materials'], ['Texture Manager…', 'Textures'], ['Node Manager…', 'Nodes'], ['Geoset Manager…', 'Geosets'], ['Geoset Animation Manager…', 'GeosetAnims'], ['Sequence Manager…', 'Sequences'], ['Texture Animation Manager…', 'TextureAnims'], ['Global Sequence Manager…', 'GlobalSequences']].map(([label, id]) => item(label, id)) },
+    { label: 'Managers', submenu: [['Surface Effects…','surfaceEffects'], ['Material Manager…', 'Materials'], ['Texture Manager…', 'Textures'], ['Node Manager…', 'Nodes'], ['Geoset Manager…', 'Geosets'], ['Geoset Animation Manager…', 'GeosetAnims'], ['Sequence Manager…', 'Sequences'], ['Texture Animation Manager…', 'TextureAnims'], ['Global Sequence Manager…', 'GlobalSequences']].map(([label, id]) => item(label, id)) },
     { label: 'Settings', submenu: [item('Mouse and general…', 'settings'), item('Keyboard Shortcuts…', 'hotkeys'), item('Graphical settings…', 'graphics'), item('Recording and screenshots…','captureSettings'), item('Appearance…','appearanceSettings'), item('Configuration…','configurationSettings'), item('Grid…','gridSettings'), item('Warcraft III…','gameDataSettings'), separator(), item('Undo cache…', 'history'), item('Show pressed keys','pressedKeys'), item('Learn mode','learn'), item('Choose Warcraft III folder…', 'gameData'), item('Rescan game data', 'game-data-rescan')] },
     { label: 'Help', submenu: [item('Hotkeys', 'help'), item('Sanity Check', 'sanityCheck'), item('About', 'about')] },
   ];

@@ -135,6 +135,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
   let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey;
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
+  const layerUVBuffers = [];
   // A unit war3-model never binds, so the per-bone map survives layer setup.
   const bindBoneInfluence = (context, influence) => {
     influenceTexture ||= context.createTexture();
@@ -262,6 +263,28 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
         if (target === this.ARRAY_BUFFER) skinBuffer = buffer;
         return original.bindBuffer.call(this, target, buffer);
       };
+      // The native renderer binds set zero for every layer. MDX CoordId can
+      // point at another UV set on the same mesh (e.g. armour plus a glow).
+      function drawWithLayerUV(index, coordId, args) {
+        const coordinates = coordId > 0 && model.Geosets[index].TVertices[coordId];
+        if (!coordinates || coordinates.length !== model.Geosets[index].TVertices[0].length) return original.drawElements.apply(gl, args);
+        const sets = layerUVBuffers[index] ||= [];
+        const entry = sets[coordId] ||= { buffer: gl.createBuffer() };
+        const attr = native.shaderProgramLocations.textureCoordAttribute, previous = skinBuffer;
+        gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
+        try {
+          if (entry.coordinates !== coordinates) {
+            gl.bufferData(gl.ARRAY_BUFFER, coordinates, gl.STATIC_DRAW);
+            entry.coordinates = coordinates;
+          }
+          gl.vertexAttribPointer(attr, 2, gl.FLOAT, false, 0, 0);
+          return original.drawElements.apply(gl, args);
+        } finally {
+          gl.bindBuffer(gl.ARRAY_BUFFER, native.texCoordBuffer[index]);
+          gl.vertexAttribPointer(attr, 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ARRAY_BUFFER, previous);
+        }
+      }
       gl.drawElements = function (...args) {
         const geosetIndex = activeProgram === native.shaderProgram ? byIndexBuffer.get(elementBuffer) : undefined;
         const drawLayer = () => {
@@ -306,7 +329,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           else if (influence || tint[3] < .999999 && (activeLayer?.FilterMode ?? 0) <= 1) {
             this.enable(this.BLEND); this.blendFuncSeparate(this.SRC_ALPHA, this.ONE_MINUS_SRC_ALPHA, this.ONE, this.ONE_MINUS_SRC_ALPHA); this.depthMask(false);
           }
-          try { return original.drawElements.apply(this, args); }
+          try { return drawWithLayerUV(geosetIndex, activeLayer?.CoordId, args); }
           finally { this.disable(this.SAMPLE_ALPHA_TO_COVERAGE); if (depthOnly) this.colorMask(true, true, true, true); }
         };
         const materialID = geosetIndex === undefined ? undefined : model.Geosets[geosetIndex]?.MaterialID;
@@ -327,6 +350,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       if (native && setLayerPropsHD) native.setLayerPropsHD = setLayerPropsHD;
       if (native?.ribbonsController && renderRibbons) native.ribbonsController.render = renderRibbons;
       if (native?.ribbonsController && updateRibbons) native.ribbonsController.update = updateRibbons;
+      for (const sets of layerUVBuffers) sets?.forEach(entry => gl.deleteBuffer(entry.buffer));
       if (neutralNormalTexture) gl.deleteTexture(neutralNormalTexture);
       if (neutralOrmTexture) gl.deleteTexture(neutralOrmTexture);
       if (influenceTexture) gl.deleteTexture(influenceTexture);

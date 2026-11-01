@@ -1,129 +1,251 @@
+import {Euler, Quaternion} from 'three';
 import {createResourceImporter} from './model-import.js';
 import {emptyParticleModel} from './particle-recipes.js';
 import {adaptPasteFormat} from './paste-format.js';
 import {createNode,geosetBounds,recalculateExtents,transformGeoset} from './editor-document.js';
+import {constantTrack} from './plain-track-values.js';
 import {vertexBoneWeights} from './part-bones.js';
+import {surfacePalette, tintFromHex} from './surface-effect-colours.js';
 import {stableKey} from './value-key.js';
 
-const eye='UI\\Glues\\BattleNet\\BattlenetWorkingExpansion\\BattlenetWorkingExp.mdx';
-const fire='Units\\Creeps\\HeroFlameLord\\HeroFlameLord.mdx';
-const water='Units\\Human\\WaterElemental\\WaterElemental.mdx';
-export const SURFACE_EFFECTS=[
- {id:'eye',name:'Moving eye',category:'Eyes',path:eye,material:0,nativeShape:0,description:'The animated expansion eye. Use its own surface to place it on a shield.'},
- {id:'eye-classic',name:'Classic eye',category:'Eyes',path:'UI\\Glues\\BattleNet\\BattlenetWorking\\BattlenetWorking.mdx',material:0,nativeShape:0,description:'The original Battle.net eye animation.'},
- {id:'water',name:'Water skin',category:'Skins',path:water,material:0,description:'Eight native water pictures with flowing texture motion.'},
- {id:'fire',name:'Flaming skin',category:'Skins',path:fire,material:0,atlas:[.0005,.25025,.24975,.24975],description:'Fire Lord flames. Native picture-sheet motion.'},
- {id:'waterfall',name:'Falling water',category:'Skins',path:'Doodads\\Terrain\\CliffDoodad\\Waterfall\\Waterfall.mdx',material:0,description:'Continuous downward water motion.'},
- {id:'energy',name:'Blade energy',category:'Energy',texture:'UI\\Glues\\SinglePlayer\\TutorialCampaign3D\\cloudstile1.blp',flow:[0,1,0],description:'Additive energy moving along the existing UV map. Turn Direction to align it with the blade.'},
- {id:'shimmer',name:'Cloud shimmer',category:'Energy',texture:'Textures\\cloudstile2.blp',flow:[1,1,0],description:'A slow cloud shimmer using a native repeating texture.'},
- {id:'own-flow',name:'Flow current skin',category:'Model',own:true,flow:[0,1,0],description:'Move the selected material’s existing textures.'},
- {id:'tint',name:'Colour pulse',category:'Model',own:true,tintPulse:true,description:'Pulse the selected geoset between its colour and your RGB tint.'},
- {id:'fade',name:'Visibility pulse',category:'Model',own:true,visibilityPulse:true,description:'Fade the selected surface in and out while retaining its Death and Decay visibility.'},
- {id:'fire-emitter',name:'Fire wisps',category:'Emitters',path:fire,emitter:101,description:'Native Fire Lord particles. Drag the handles to place them.'},
- {id:'water-emitter',name:'Water droplets',category:'Emitters',path:water,emitter:61,description:'Native Water Elemental droplets. Drag the handles to place them.'}
+export const SURFACE_EFFECTS = [
+  {id: "eye",name: "Moving eye",category: "Eyes",path: "UI\\Glues\\BattleNet\\BattlenetWorkingExpansion\\BattlenetWorkingExp.mdx",material: 0,picture: "UI\\Glues\\BattleNet\\BattlenetWorkingExpansion\\BNetWorkingExp0000.blp",description: "The animated expansion eye. Its native surface can be placed on a shield.",nativeShape: 0,overlayFilter: 2,textureReuse: "partPath"},
+  {id: "eye-classic",name: "Classic eye",category: "Eyes",path: "UI\\Glues\\BattleNet\\BattlenetWorking\\BattlenetWorking.mdx",material: 0,picture: "Textures\\BattlenetWorking0000.blp",description: "The original Battle.net eye animation.",nativeShape: 0,overlayFilter: 2,textureReuse: "partPath"},
+  {id: "water",name: "Water skin",category: "Skins",path: "Units\\Human\\WaterElemental\\WaterElemental.mdx",material: 0,picture: "Textures\\Lords0000.blp",description: "Eight moving Water Elemental pictures."},
+  {id: "fire",name: "Flaming skin",category: "Skins",texture: "Textures\\HeroAvatarFlame.blp",atlas: [0.03,0.815,0.45,0.176],motion: "flame",filterMode: 2,opacity: .88,duration: 1550,palette: "flame",description: "Gold flames roll across the selected surface."},
+  {id: "embers",name: "Fire Lord embers",category: "Skins",path: "Units\\Creeps\\HeroFlameLord\\HeroFlameLord.mdx",material: 0,picture: "Textures\\clouds_anim1_bw.blp",atlas: [0.0005,0.25025,0.249,0.249],thumbnailRect: [0,0,0.25,0.25],palette: "embers",description: "Glowing embers bloom and dissolve in the Fire Lord’s native orange."},
+  {id: "waterfall",name: "Falling water",category: "Skins",path: "Doodads\\Terrain\\CliffDoodad\\Waterfall\\Waterfall.mdx",material: 0,picture: "ReplaceableTextures\\Water\\Water00.blp",description: "Continuous downward water motion."},
+  {id: "frost",name: "Frost skin",category: "Skins",palette: "ice",path: "Abilities\\Spells\\Undead\\FreezingBreath\\FreezingBreathTargetArt.mdx",material: 0,picture: "Textures\\Ice3b.blp",description: "The ice and mist layers of Freezing Breath."},
+  {id: "revenant",name: "Revenant waves",category: "Skins",path: "Units\\Creeps\\Revenant\\Revenant.mdx",material: 2,picture: "Textures\\BlueWaves.blp",description: "Waves from the Revenant’s moving skin."},
+  {id: "moonwell",name: "Moon well swirl",category: "Magic",path: "Abilities\\Spells\\NightElf\\MoonWell\\MoonWellTarget.mdx",material: 0,picture: "Textures\\Lords0000.blp",description: "The Moon Well’s rotating water pictures."},
+  {id: "stars",name: "Starfield",category: "Magic",path: "Units\\Undead\\FrostWyrm\\FrostWyrm_Portrait.mdx",material: 4,picture: "Units\\Undead\\FrostWyrm\\starfield.blp",description: "Stars drifting across the surface."},
+  {id: "lava",name: "Molten lava",category: "Terrain",textureFlags: 0,textureReuse: "partPath",texture: "TerrainArt\\Dungeon\\Cave_Lava.blp",atlas: [0,0,0.25,0.25],motion: "drift",duration: 3100,opacity: 0.75,pulse: 0.12,overlayFilter: 2,filterMode: 2,description: "Slow currents of molten rock from the Dungeon tileset."},
+  {id: "fissures",filterMode: 2,inset: .025,name: "Lava fissures",category: "Terrain",textureFlags: 0,textureReuse: "partPath",texture: "TerrainArt\\Dungeon\\Cave_LavaCracks.blp",atlas: [0.625,0.25,0.125,0.25],duration: 2400,pulse: 0.42,description: "Red fissures stay in place while their light swells and recedes."},
+  {id: "glacial",filterMode: 2,inset: .025,name: "Glacial fissures",category: "Terrain",textureFlags: 0,textureReuse: "partPath",texture: "TerrainArt\\Dungeon2\\GLavaCracks.blp",atlas: [0.625,0.25,0.125,0.25],duration: 3400,pulse: 0.35,palette: "ice",description: "Cold blue cracks from the Underground tileset pulse beneath the surface."},
+  {id: "poison",name: "Felwood poison",category: "Terrain",textureFlags: 0,textureReuse: "partPath",texture: "TerrainArt\\Felwood\\Felwood_Poison.blp",atlas: [0.75,0.5,0.125,0.25],motion: "drift",duration: 2700,opacity: 0.72,overlayFilter: 2,filterMode: 2,palette: "venom",description: "Green poison pools drift across the surface within one Felwood tile."},
+  {id: "energy",name: "Blade energy",category: "Weapons",palette: "arcane",fitUV: true,texture: "UI\\Glues\\SinglePlayer\\TutorialCampaign3D\\cloudstile1.blp",flow: [0,1,0],description: "Energy travels along the blade. Turn Direction to follow its UV map."},
+  {id: "shimmer",name: "Cloud shimmer",category: "Magic",texture: "Textures\\cloudstile2.blp",flow: [1,1,0],description: "A diagonal cloud shimmer."},
+  {id: "sacred",name: "Sacred edge",category: "Weapons",palette: "gold",fitUV: true,texture: "Textures\\FX\\v\\SacredGlowSharper.blp",flow: [1,0,0],description: "A band of sacred light running along the weapon."},
+  {id: "frost-edge",name: "Frost edge",category: "Weapons",palette: "ice",fitUV: true,texture: "Textures\\Ice3b.blp",flow: [0,1,0],description: "Scrolling ice highlights along the weapon."},
+  {id: "ember-edge",name: "Ember edge",category: "Weapons",texture: "Abilities\\Weapons\\FlamingArrow\\Fire10022.blp",fitUV: true,flow: [0,1,0],duration: 1350,palette: "flame",description: "A bright flame travels along the blade. Turn Direction to follow its length."},
+  {id: "venom-edge",name: "Venom edge",category: "Weapons",texture: "Textures\\AcidSplash1.blp",fitUV: true,flow: [0,1,0],duration: 2200,palette: "venom",description: "Green streaks of acid travel along the blade."},
+  {id: "own-flow",name: "Flow current skin",category: "Model",own: true,flow: [0,1,0],description: "Move the selected material’s existing textures."},
+  {id: "tint",name: "Colour pulse",category: "Model",own: true,palette: "arcane",tintPulse: true,description: "Pulse the selected geoset between its colour and your tint."},
+  {id: "fade",name: "Visibility pulse",category: "Model",own: true,visibilityPulse: true,description: "Fade the selected surface in and out."}
 ];
-export const EFFECT_SECTIONS=['Info','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences','Bones','Helpers','ParticleEmitters2','PivotPoints'];
-export const defaultEffectOptions=effect=>({geoset:0,mode:effect.own?'replace':'overlay',shape:effect.nativeShape!=null?'native':'copy',speed:1,opacity:1,pulse:effect.visibilityPulse?1:effect.emitter!=null?.5:0,tint:effect.tintPulse?[.25,.6,1]:[1,1,1],tintPulse:!!effect.tintPulse,direction:0,tiling:1,amount:1,size:1,placement:{Translation:[0,0,0],Rotation:[0,0,0,1],Scaling:[1,1,1]}});
-const clone=value=>structuredClone(value);
-const global=t=>Number.isInteger(t?.GlobalSeqId)&&t.GlobalSeqId>=0;
-const clock=(model,duration)=>{const i=model.GlobalSequences.indexOf(duration);return i<0?model.GlobalSequences.push(duration)-1:i;};
-const track=(id,values,duration=2000,line=1)=>({LineType:line,GlobalSeqId:id,Keys:values.map((Vector,i)=>({Frame:Math.round(duration*i/(values.length-1||1)),Vector:new Float32Array(Vector)}))});
-const scaleValue=(value,factor)=>{if(value?.Keys){for(const key of value.Keys)for(const p of ['Vector','InTan','OutTan'])if(key[p])key[p]=new Float32Array(Array.from(key[p],n=>n*factor));return value;}return Number(value??1)*factor;};
-const localValue=(value,fallback=1)=>value?.Keys?Math.max(fallback,...value.Keys.map(k=>Number(k.Vector[0]))):value??fallback;
-function retime(model,speed){
- const visit=value=>{if(!value||typeof value!=='object'||ArrayBuffer.isView(value))return;if(value.Keys&&global(value)){for(const k of value.Keys)k.Frame=Math.round(k.Frame/speed);}else for(const child of Object.values(value))visit(child);};
- for(const collection of ['Materials','TextureAnims','GeosetAnims','ParticleEmitters2'])visit(model[collection]);
- model.GlobalSequences=model.GlobalSequences.map(v=>Math.max(1,Math.round(v/speed)));
+
+export const EFFECT_SECTIONS = ['Info','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences'];
+export const defaultEffectOptions = effect => ({
+  geoset:0, mode:effect.own?'replace':'overlay', shape:effect.nativeShape!=null?'native':'copy',
+  speed:1, opacity:effect.opacity??1, pulse:effect.pulse??(effect.visibilityPulse?1:0), tint:tintFromHex(surfacePalette(effect)[0][1]),
+  setTint:!!(effect.atlas || effect.palette), tintPulse:!!effect.tintPulse, direction:0, tiling:1,
+  placement:{Translation:[0,0,0], Rotation:[0,0,0,1], Scaling:[1,1,1]},
+});
+
+const hasClock = value => Number.isInteger(value?.GlobalSeqId) && value.GlobalSeqId >= 0;
+function reuse(list, value) {
+  const key = stableKey(value), index = list.findIndex(item => stableKey(item) === key);
+  return index < 0 ? list.push(value)-1 : index;
 }
-function reuse(collection,value){const key=stableKey(value),id=collection.findIndex(v=>stableKey(v)===key);return id<0?collection.push(value)-1:id;}
-export function effectAnchor(model,g){
- const totals=new Map();for(let i=0;i<g.Vertices.length/3;i++)for(const [id,w] of vertexBoneWeights(g,i))if(model.Nodes[id])totals.set(id,(totals.get(id)||0)+w);
- return [...totals].sort((a,b)=>b[1]-a[1])[0]?.[0]??null;
+function clock(model, duration) {
+  const index = model.GlobalSequences.indexOf(duration);
+  return index < 0 ? model.GlobalSequences.push(duration)-1 : index;
 }
-function bounds(g){const b=geosetBounds(g.Vertices),size=Array.from(b.MaximumExtent,(v,i)=>v-b.MinimumExtent[i]);return {center:size.map((v,i)=>b.MinimumExtent[i]+v/2),size};}
-function anchor(model,g,name,placement){
- const node=createNode(model,'Helper'),b=bounds(g);node.Name=name;node.Parent=effectAnchor(model,g);node.PivotPoint=new Float32Array(b.center);model.PivotPoints[node.ObjectId]=node.PivotPoint;
- const id=clock(model,1000);for(const key of ['Translation','Rotation','Scaling'])node[key]=track(id,[placement[key]],1000,0);
- return node;
+function loop(model, duration, values) {
+  return {LineType:1, GlobalSeqId:clock(model,duration), Keys:values.map((value,index)=>({
+    Frame:Math.round(duration*index/(values.length-1)), Vector:Float32Array.from(value),
+  }))};
 }
-function inheritAnimation(model,from,to){
- const a=model.GeosetAnims.find(a=>a.GeosetId===from);if(a)model.GeosetAnims.push({...clone(a),GeosetId:to});
+
+// Only an eye surface needs geometry. The material importer collects every referenced
+// picture (including animated TextureID), texture animation and clock in local slots.
+export function prepareSurfacePackage(donor, effect) {
+  const pack = emptyParticleModel(donor.Version);
+  createResourceImporter(donor,pack,{reuseTextures:'partKey',reuseGlobals:true}).materialRef(effect.material);
+  if (effect.nativeShape != null) pack.Geosets.push(structuredClone(donor.Geosets[effect.nativeShape]));
+  return pack;
 }
-function tintGeoset(model,index,options,duration){
- if(options.tint.every(v=>v===1)&&!options.tintPulse)return;
- let a=model.GeosetAnims.find(a=>a.GeosetId===index);if(!a){a={GeosetId:index,Alpha:1,Color:new Float32Array([1,1,1]),Flags:2};model.GeosetAnims.push(a);}
- a.Flags=(a.Flags||0)|2;const colour=options.tint;
- if(options.tintPulse){const base=a.Color?.Keys?Array.from(a.Color.Keys[0]?.Vector||[1,1,1]):Array.from(a.Color||[1,1,1]);a.Color=track(clock(model,duration),[base,colour,base],duration);}
- else if(a.Color?.Keys)for(const k of a.Color.Keys)for(const p of ['Vector','InTan','OutTan'])if(k[p])k[p]=new Float32Array(Array.from(k[p],(v,i)=>v*colour[i]));
- else a.Color=new Float32Array(Array.from(a.Color||[1,1,1],(v,i)=>v*colour[i]));
+function retime(value, speed) {
+  if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
+  if (value.Keys) {
+    if (hasClock(value)) for (const key of value.Keys) key.Frame=Math.round(key.Frame/speed);
+    return;
+  }
+  for (const child of Object.values(value)) retime(child,speed);
 }
-export function applySurfaceEffect(model,donor,effect,options){
- const original=model.Geosets[options.geoset];if(!original)throw Error('Select a geoset.');
- if(model.BindPoses?.length)throw Error('This local prototype supports Classic meshes without bind-pose matrices.');
- if(!Number.isFinite(options.speed)||options.speed<=0)throw Error('Choose a positive speed.');
- const duration=Math.max(100,Math.round(2000/options.speed));
- let source=effect.own?clone(model):donor?adaptPasteFormat(clone(donor),model.Version):emptyParticleModel(model.Version);
- let materialId=effect.own?original.MaterialID:effect.material??0;
- if(effect.texture){source.Textures=[{Image:effect.texture,ReplaceableId:0,Flags:3}];source.Materials=[{PriorityPlane:0,RenderMode:0,Layers:[{TextureID:0,TVertexAnimId:null,CoordId:0,Alpha:1,FilterMode:3,Shading:17}]}];}
- if(effect.flow){
-  const material=clone(source.Materials[materialId]);source.Materials.push(material);materialId=source.Materials.length-1;
-  const angle=options.direction*Math.PI/180,flow=effect.flow,vector=[flow[0]*Math.cos(angle)-flow[1]*Math.sin(angle),flow[0]*Math.sin(angle)+flow[1]*Math.cos(angle),0];
-  const id=clock(source,2000);for(const layer of material.Layers){layer.TVertexAnimId=source.TextureAnims.push({Translation:track(id,[[0,0,0],vector])})-1;}
- }
- if(!effect.own||effect.flow)retime(source,options.speed);
- const importer=createResourceImporter(source,model,{reuseTextures:effect.category==='Eyes'?'partPath':'partKey',reuseGlobals:true,reuseMaterials:true,reuseTextureAnims:true});
- if(effect.emitter!=null){
-  const sourceNode=source.ParticleEmitters2.find(n=>n.ObjectId===effect.emitter);if(!sourceNode)throw Error('The native emitter is unavailable.');
-  const root=anchor(model,original,effect.name,options.placement),node=createNode(model,'ParticleEmitter2'),id=node.ObjectId;
-  const copy=clone(sourceNode);for(const key of ['Translation','Rotation','Scaling'])delete copy[key];
-  for(const [key,value] of Object.entries(copy))if(value?.Keys&&!global(value))copy[key]=localValue(value,key==='Visibility'?1:0);
-  importer.globalRef(copy);copy.TextureID=importer.textureRef(sourceNode.TextureID);
-  Object.assign(node,copy,{ObjectId:id,Parent:root.ObjectId,Name:effect.name,PivotPoint:new Float32Array(root.PivotPoint)});
-  model.PivotPoints[id]=node.PivotPoint;
-  node.EmissionRate=scaleValue(node.EmissionRate,options.amount);node.ParticleScaling=new Float32Array(Array.from(node.ParticleScaling,v=>v*options.size));
-  node.SegmentColor=node.SegmentColor.map(v=>new Float32Array(Array.from(v,(n,i)=>n*options.tint[i])));
-  node.Alpha=new Uint8Array(Array.from(node.Alpha,v=>Math.round(v*options.opacity)));
-  // Preserve the selected surface's ordinary visibility; pulse emission independently.
-  const geoAlpha=model.GeosetAnims.find(a=>a.GeosetId===options.geoset)?.Alpha;
-  node.Visibility=clone(geoAlpha??1);
-  if(options.pulse>0){const maximum=localValue(node.EmissionRate,0);node.EmissionRate=track(clock(model,duration),[[maximum],[maximum*(1-options.pulse)],[maximum]],duration);}
-  return {geoset:options.geoset,anchorId:root.ObjectId,emitterId:id};
- }
- const material=clone(source.Materials[materialId]);if(!material?.Layers?.length)throw Error('This effect has no surface material.');
- for(const layer of material.Layers){
-  if(!effect.own&&layer.Alpha?.Keys&&!global(layer.Alpha))layer.Alpha=localValue(layer.Alpha);
-  layer.Alpha=scaleValue(layer.Alpha,options.opacity);
-  if(options.pulse>0)layer.Alpha=track(clock(source,duration),[[options.opacity],[options.opacity*(1-options.pulse)],[options.opacity]],duration);
-  if(options.mode==='overlay'){layer.FilterMode=effect.category==='Eyes'?2:3;layer.Shading=(layer.Shading||0)|16;}
- }
- source.Materials.push(material);materialId=source.Materials.length-1;
- let index=options.geoset,geometry=original,root=null;
- if(options.mode==='new'){
-  if(options.shape==='native'&&effect.nativeShape!=null){
-   geometry=clone(source.Geosets[effect.nativeShape]);const from=bounds(geometry),to=bounds(original),span=Math.max(...to.size)*.35,scale=span/Math.max(...from.size,1e-6);
-   transformGeoset(geometry,{translation:from.center.map(v=>-v)});transformGeoset(geometry,{scale,rotation:[90,0,90],translation:[to.center[0]+to.size[0]/2+.5,to.center[1],to.center[2]]});
-   root=anchor(model,original,effect.name,options.placement);geometry.Groups=[[root.ObjectId]];geometry.TotalGroupsCount=1;geometry.VertexGroup=new Uint8Array(geometry.Vertices.length/3);delete geometry.SkinWeights;delete geometry.Tangents;
-   geometry.Anims=clone(original.Anims||[]);
-  }else geometry=clone(original);
-  index=model.Geosets.push(geometry)-1;inheritAnimation(model,options.geoset,index);
- }
- const native=options.mode==='new'&&options.shape==='native'&&effect.nativeShape!=null;
- // An independent UV set lets an overlaid atlas leave the original skin mapping intact.
- const uv=clone(geometry.TVertices[0]);
- if(!native&&(effect.atlas||options.tiling!==1)){const [u,v,w,h]=effect.atlas||[0,0,1,1];for(let i=0;i<uv.length;i+=2){uv[i]=u+uv[i]*w*options.tiling;uv[i+1]=v+uv[i+1]*h*options.tiling;}}
- let coord=0;
- if(options.mode==='overlay'&&(effect.atlas||options.tiling!==1)){coord=geometry.TVertices.findIndex(a=>stableKey(a)===stableKey(uv));if(coord<0)coord=geometry.TVertices.push(uv)-1;}
- else if(!native)geometry.TVertices[0]=uv;
- for(const layer of material.Layers)layer.CoordId=coord;
- const materialsBefore=model.Materials.length,importedId=importer.materialRef(materialId);
- if(options.mode==='overlay'){
-  const combined=clone(model.Materials[original.MaterialID]);
-  for(const layer of model.Materials[importedId].Layers)if(!combined.Layers.some(x=>stableKey(x)===stableKey(layer)))combined.Layers.push(clone(layer));
-  geometry.MaterialID=reuse(model.Materials,combined);
-  // The intermediate imported material is disposable if nothing references it.
-  if(importedId>=materialsBefore&&!model.Geosets.some(g=>g.MaterialID===importedId)&&!model.RibbonEmitters.some(n=>n.MaterialID===importedId)){model.Materials.splice(importedId,1);for(const g of model.Geosets)if(g.MaterialID>importedId)g.MaterialID--;}
- }else geometry.MaterialID=importedId;
- tintGeoset(model,index,options,duration);
- if(options.mode==='new')recalculateExtents(model,[index]);
- return {geoset:index,anchorId:root?.ObjectId??null};
+function adjustedPackage(pack, version, effect, speed) {
+  if (effect.texture) {
+    const source=emptyParticleModel(version);
+    source.Textures.push({Image:effect.texture,ReplaceableId:0,Flags:effect.textureFlags??3});
+    source.Materials.push({PriorityPlane:0,RenderMode:0,Layers:[{TextureID:0,TVertexAnimId:null,CoordId:0,Alpha:1,FilterMode:effect.filterMode??3,Shading:17}]});
+    return source;
+  }
+  const source = pack.Version===version ? structuredClone(pack) : adaptPasteFormat(pack,version);
+  if (speed!==1) {
+    retime(source.Materials,speed);
+    retime(source.TextureAnims,speed);
+    source.GlobalSequences=source.GlobalSequences.map(ms=>Math.max(1,Math.round(ms/speed)));
+  }
+  return source;
+}
+
+export function effectAnchor(model, geoset) {
+  const totals = new Map();
+  for (let vertex=0; vertex<geoset.Vertices.length/3; vertex++) {
+    for (const [bone,weight] of vertexBoneWeights(geoset,vertex)) {
+      if (model.Nodes[bone]) totals.set(bone,(totals.get(bone)||0)+weight);
+    }
+  }
+  return [...totals].sort((a,b)=>b[1]-a[1])[0]?.[0] ?? null;
+}
+function bounds(geoset) {
+  const box=geosetBounds(geoset.Vertices);
+  const size=Array.from(box.MaximumExtent,(value,i)=>value-box.MinimumExtent[i]);
+  return {size,center:size.map((span,i)=>box.MinimumExtent[i]+span/2)};
+}
+function newSurface(model, original, pack, effect, options, preview) {
+  let geometry, anchorId=null;
+  if (options.shape==='native' && effect.nativeShape!=null) {
+    geometry=structuredClone(pack.Geosets[0]);
+    const from=bounds(geometry), to=bounds(original), pivot=to.center;
+    const scale=Math.max(...to.size)*.35/Math.max(...from.size,1e-6);
+    transformGeoset(geometry,{translation:from.center.map(v=>-v)});
+    transformGeoset(geometry,{scale,rotation:[90,0,90],translation:[pivot[0]+to.size[0]/2+.5,pivot[1],pivot[2]]});
+    let bone=effectAnchor(model,original);
+    if (preview) {
+      const helper=createNode(model,'Helper');
+      helper.Name=effect.name; helper.Parent=bone;
+      helper.PivotPoint=model.PivotPoints[helper.ObjectId]=Float32Array.from(pivot);
+      for (const [field,value] of Object.entries(options.placement)) helper[field]=constantTrack(model,value);
+      anchorId=bone=helper.ObjectId;
+    } else {
+      // transformGeoset applies X, then Y, then Z (ZYX Euler composition).
+      const pose=options.placement;
+      const euler=new Euler().setFromQuaternion(new Quaternion().fromArray(pose.Rotation),'ZYX');
+      transformGeoset(geometry,{translation:pivot.map(v=>-v)});
+      transformGeoset(geometry,{rotation:[euler.x,euler.y,euler.z].map(r=>r*180/Math.PI),scale:pose.Scaling,
+        translation:pivot.map((value,i)=>value+pose.Translation[i])});
+    }
+    geometry.Groups=[bone==null?[]:[bone]]; geometry.TotalGroupsCount=bone==null?0:1;
+    geometry.VertexGroup=new Uint8Array(geometry.Vertices.length/3);
+    delete geometry.SkinWeights; delete geometry.Tangents;
+    geometry.Anims=structuredClone(original.Anims||[]);
+  } else geometry=structuredClone(original);
+  const index=model.Geosets.push(geometry)-1;
+  const visibility=model.GeosetAnims.find(a=>a.GeosetId===options.geoset);
+  if (visibility) model.GeosetAnims.push({...structuredClone(visibility),GeosetId:index});
+  recalculateExtents(model,[index]);
+  return {index,anchorId};
+}
+function effectCoordinates(geometry,effect,options) {
+  const fitted=!!(effect.atlas || effect.fitUV);
+  if (!fitted && options.tiling===1) return null;
+  const uv=geometry.TVertices[0].slice();
+  const [left,top,width,height]=effect.atlas || [0,0,1,1];
+  // A Warrior part may occupy a sliver of an atlas, or wrap beyond 1. Fit the
+  // effect to that part while keeping the original material on its own UVs.
+  const low=[Infinity,Infinity], high=[-Infinity,-Infinity];
+  if (fitted) for (let i=0;i<uv.length;i++) {
+    const axis=i%2; low[axis]=Math.min(low[axis],uv[i]); high[axis]=Math.max(high[axis],uv[i]);
+  }
+  const inset=effect.motion==='drift' ? .13 : effect.inset??0;
+  const repeats=effect.atlas ? 1 : options.tiling;
+  for (let i=0;i<uv.length;i+=2) {
+    for (let axis=0;axis<2;axis++) {
+      const span=high[axis]-low[axis];
+      const value=fitted ? (span>0 ? (uv[i+axis]-low[axis])/span : .5) : uv[i+axis];
+      uv[i+axis]=(axis===0?left:top)+(inset+value*(1-2*inset))*repeats*(axis===0?width:height);
+    }
+  }
+  if (options.mode==='overlay') return reuse(geometry.TVertices,uv);
+  geometry.TVertices[0]=uv;
+  return 0;
+}
+
+function surfaceTranslation(effect,direction) {
+  if (effect.motion==='drift') {
+    const [, , width,height]=effect.atlas;
+    return [[0,0],[.055,.035],[.085,0],[.06,-.045],[0,-.075],[-.065,-.045],[-.085,0],[-.055,.035],[0,0]]
+      .map(([x,y])=>[x*width,y*height,0]);
+  }
+  if (effect.motion==='flame') return [[0,0,0],[.25,.003,0],[.5,0,0],[.75,-.003,0],[1,0,0]];
+  if (!effect.flow) return null;
+  const angle=direction*Math.PI/180, [x,y]=effect.flow;
+  return [[0,0,0],[x*Math.cos(angle)-y*Math.sin(angle),x*Math.sin(angle)+y*Math.cos(angle),0]];
+}
+function layerVisibility(layer, source, options, duration) {
+  if(options.pulse===0 && options.opacity===1)return;
+  if (options.pulse>0) {
+    layer.Alpha=loop(source,duration,[[options.opacity],[options.opacity*(1-options.pulse)],[options.opacity]]);
+  } else if (options.opacity!==1 && layer.Alpha?.Keys) {
+    for (const key of layer.Alpha.Keys) for (const field of ['Vector','InTan','OutTan']) {
+      if (key[field]) key[field]=Float32Array.from(key[field],v=>v*options.opacity);
+    }
+  } else if (!layer.Alpha?.Keys) layer.Alpha=(layer.Alpha??1)*options.opacity;
+}
+function applyMaterial(model, geometry, originalMaterial, source, effect, options, duration) {
+  // Own materials already use destination IDs. Only the chosen material needs a copy.
+  if((effect.own||options.mode==='overlay')&&!originalMaterial?.Layers?.length)throw Error('Select a geoset with a material or choose Replace with a native effect.');
+  let material=effect.own?structuredClone(originalMaterial):source.Materials[0];
+  const coord=effectCoordinates(geometry,effect,options);
+  const translation=surfaceTranslation(effect,options.direction);
+  if (translation) {
+    const animation=reuse(source.TextureAnims,{Translation:loop(source,duration,translation)});
+    for(const layer of material.Layers)layer.TVertexAnimId=animation;
+  }
+  for(const layer of material.Layers) {
+    if(!effect.own && layer.Alpha?.Keys && !hasClock(layer.Alpha))layer.Alpha=1;
+    layerVisibility(layer,source,options,duration);
+    if(coord!==null)layer.CoordId=coord;
+    if(options.mode==='overlay'){
+      layer.FilterMode=effect.overlayFilter??3;
+      layer.Shading=(layer.Shading||0)|16;
+    }
+  }
+  if(!effect.own)material=createResourceImporter(source,model,{
+    reuseTextures:effect.textureReuse??'partKey',reuseGlobals:true,reuseTextureAnims:true,
+  }).remapMaterial(material);
+  if(options.mode==='overlay') {
+    const combined=structuredClone(originalMaterial);
+    for(const layer of material.Layers)if(!combined.Layers.some(existing=>stableKey(existing)===stableKey(layer)))combined.Layers.push(layer);
+    material=combined;
+  }
+  geometry.MaterialID=reuse(model.Materials,material);
+}
+function applyGeosetAppearance(model,index,effect,options,duration) {
+  let animation=model.GeosetAnims.find(a=>a.GeosetId===index);
+  const tint=options.tintPulse || options.tint.some(v=>v!==1) || (options.setTint && (animation?.Flags & 2));
+  // A local Death/Decay alpha stays on the geoset. Its material can supply
+  // the independent global pulse. A free alpha channel needs no new material.
+  const localGate=animation?.Alpha?.Keys && !hasClock(animation.Alpha);
+  const fade=effect.visibilityPulse && options.mode!=='overlay' && !localGate;
+  if(!tint&&!fade)return false;
+  if(!animation){animation={GeosetId:index,Alpha:1,Flags:0};model.GeosetAnims.push(animation);}
+  if(fade){
+    const peak=options.opacity*(typeof animation.Alpha==='number'?animation.Alpha:1);
+    animation.Alpha=options.pulse>0?loop(model,duration,[[peak],[peak*(1-options.pulse)],[peak]]):peak;
+  }
+  if(!tint)return fade;
+  const base=(animation.Flags & 2) && animation.Color ? animation.Color : [1,1,1];
+  animation.Flags|=2;
+  if(options.tintPulse){
+    const start=base.Keys?.[0]?.Vector??base;
+    animation.Color=loop(model,duration,[start,options.tint,start]);
+  }else if(base.Keys){
+    for(const key of base.Keys)for(const field of ['Vector','InTan','OutTan'])if(key[field])key[field]=Float32Array.from(key[field],(v,i)=>v*options.tint[i]);
+  }else animation.Color=Float32Array.from(options.tint);
+  return fade;
+}
+export function applySurfaceEffect(model,pack,effect,options,{preview=false}={}) {
+  const original=model.Geosets[options.geoset];
+  if(!original)throw Error('Select a geoset.');
+  if(options.mode==='new'&&model.BindPoses?.length)throw Error('New geoset requires a model without bind-pose matrices.');
+  if(!Number.isFinite(options.speed)||options.speed<=0)throw Error('Choose a positive speed.');
+  const duration=Math.max(100,Math.round((effect.duration??2000)/options.speed));
+  const source=effect.own?model:adjustedPackage(pack,model.Version,effect,options.speed);
+  const {index,anchorId}=options.mode==='new'?newSurface(model,original,source,effect,options,preview):{index:options.geoset,anchorId:null};
+  const geosetVisibility=applyGeosetAppearance(model,index,effect,options,duration);
+  const materialOptions=geosetVisibility?{...options,opacity:1,pulse:0}:options;
+  applyMaterial(model,model.Geosets[index],model.Materials[original.MaterialID],source,effect,materialOptions,duration);
+  return {geoset:index,anchorId};
 }
