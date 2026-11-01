@@ -68,6 +68,12 @@ MDLVis 1.40 source, LGPL: <https://github.com/kisapablo/mdlvis>. The owner uses
      one plane, `drawMovementGizmo`), now also in Vertices. A drag that starts off
      the handles moves in the plane facing the camera most; that square lights up
      on hover.
+   - Shift with the Move handles (today `gizmoTranslation` ignores Shift):
+     Shift + arrow = move in the plane perpendicular to that arrow (Shift + Z
+     arrow slides along the floor, never up); Shift + square = lock to the one
+     axis of that plane the drag runs along most. Shift can be pressed or released
+     mid-drag and continues from the visible position, like today's
+     `shiftDragOffset`. Shift always means "lock it down more".
    - Rotate handles: see Appearance. A drag that starts off the handles turns
      around the axis facing the camera most; its handle lights up on hover.
    - Rotate drag rule, every style: the turn follows the direction from the
@@ -131,7 +137,7 @@ MDLVis 1.40 source, LGPL: <https://github.com/kisapablo/mdlvis>. The owner uses
 - Packaged real-mouse drags on a hidden desktop (as
   `test/rotation-interaction.electron.cjs`): Move and Rotate, constraints on and
   off, all three appearances, single view at three camera angles and all four
-  quad panes, three Rotate drags in a row with the same hand movement (must turn
+  quad panes, Shift + arrow and Shift + square on each Move handle, three Rotate drags in a row with the same hand movement (must turn
   the same way each time), Shift snap, Reset, Ctrl+Z, camera orbit in each pane.
 - Screenshots of: default (uncluttered), hover highlight, mid-drag feedback for
   each appearance, constrained arrow readout.
