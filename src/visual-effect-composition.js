@@ -1,4 +1,5 @@
 import {Vector3} from 'three';
+import {isGlobalTrack,keysInInterval} from './animation.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {createNode,geosetBounds} from './editor-document.js';
 import {copyEffectGraph,emptyParticleModel} from './particle-recipes.js';
@@ -170,6 +171,23 @@ export function positionedAccents(rest,origin,placement){
   if(patch.EventObjects.length)patch.eventPlacement=true;
   return patch;
 }
+// A geoset is visible in a clip without alpha keys. A ribbon defaults to hidden
+// in the same clip. One held key in that clip gives both the same visibility.
+function accentVisibility(model,gate,ribbon){
+  const track=structuredClone(gate);
+  if(!ribbon||!track.Keys)return track;
+  const intervals=isGlobalTrack(track,model)?[[0,model.GlobalSequences[track.GlobalSeqId]]]:model.Sequences.map(s=>s.Interval);
+  for(const interval of intervals){
+    if(keysInInterval(track,interval).length)continue;
+    const key={Frame:Math.round((interval[0]+interval[1])/2),Vector:vec([1])};
+    if(track.LineType>=2){
+      key.InTan=vec([track.LineType===2?0:1]);key.OutTan=key.InTan.slice();
+    }
+    track.Keys.push(key);
+  }
+  track.Keys.sort((a,b)=>a.Frame-b.Frame);
+  return track;
+}
 export function attachVisualAccents(model,geometry,parent,effect,options){
   if(!effect.accents?.length)return null;
   const source=emptyParticleModel(model.Version),ground=effect.at==='ground';
@@ -211,7 +229,7 @@ export function attachVisualAccents(model,geometry,parent,effect,options){
   const gate=model.GeosetAnims.find(a=>a.GeosetId===options.geoset)?.Alpha;
   for(const id of ids){
     const node=model.Nodes[id],family=node.ParticleScaling?'ParticleEmitters2':'RibbonEmitters';
-    if(!effect.cue && gate!=null && gate!==1)node.Visibility=structuredClone(gate);
+    if(!effect.cue && gate!=null && gate!==1)node.Visibility=accentVisibility(model,gate,family==='RibbonEmitters');
     rest[family].push({...node});
   }
   const patch=positionedAccents(rest,origin,options.placement);

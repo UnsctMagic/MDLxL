@@ -25,6 +25,25 @@ test('layered effects survive native MDX, preserve authored sequences and take o
   doc.undo();assert.deepEqual(doc.model,before,effect.name+' undo');
  }
 });
+test('a ribbon stays visible with its geoset in clips without local alpha keys',()=>{
+ const effect=SURFACE_EFFECTS.find(e=>e.id==='frost-ribbon');
+ for(const lineType of [0,2,3]){
+  const doc=createDemoDocument(),m=doc.model;
+  m.Sequences.push({...structuredClone(m.Sequences[0]),Name:'Death',Interval:new Uint32Array([3000,4000])});
+  const key=(Frame,v)=>({Frame,Vector:Float32Array.of(v),...(lineType>=2?{InTan:Float32Array.of(v),OutTan:Float32Array.of(v)}:{})});
+  const gate={LineType:lineType,GlobalSeqId:null,Keys:[key(3100,1),key(3650,0)]};
+  m.GeosetAnims=[{GeosetId:0,Flags:0,Alpha:structuredClone(gate)}];
+  applySurfaceEffect(m,null,effect,defaultEffectOptions(effect));
+  const saved=openDocument(doc.serialize('mdx'),'rime.mdx').model;
+  assert.deepEqual(saved.GeosetAnims[0].Alpha,gate);
+  for(const ribbon of saved.RibbonEmitters){
+   assert.deepEqual(ribbon.Visibility.Keys.filter(k=>k.Frame>=3000),gate.Keys);
+   for(const seq of saved.Sequences)for(const f of [seq.Interval[0],(seq.Interval[0]+seq.Interval[1])/2,seq.Interval[1]]){
+    assert.equal(Number(sampleTrack(ribbon.Visibility,f,{interval:seq.Interval,fallback:0})),Number(sampleTrack(gate,f,{interval:seq.Interval,fallback:1})));
+   }
+  }
+ }
+});
 test('energy streaks animate native UVs without launching or attaching an object',()=>{
  for(const e of SURFACE_EFFECTS.filter(e=>e.category==='Energy streaks')){
   const doc=createDemoDocument(),m=doc.model,ids=m.Nodes.length;

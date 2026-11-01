@@ -68,6 +68,15 @@ async function saveVariant(page,app,name){
    }
    await fresh.page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready(fresh.page);
    await fresh.page.getByRole('dialog',{name:'Surface Effects'}).getByRole('button',{name:'Original',exact:true}).click();await ready(fresh.page);
+   if(name==='Rime trail'){
+    const attack=reopened.Sequences.findIndex(s=>/^attack/i.test(s.Name));
+    await fresh.page.getByLabel('Preview animation',{exact:true}).selectOption(String(attack));
+    await fresh.page.waitForFunction(({attack,name})=>{
+     const native=mdlxlProbe('.sfx-stage .game-preview-root').runtime.native;
+     const ribbons=native.ribbonsController.emitters.filter(e=>e.props.Name===name||e.props.Name===name+' 2');
+     return native.getSequence()===attack&&ribbons.length===2&&ribbons.every(e=>e.creationTimes.length>0);
+    },{attack,name});
+   }
    assert.deepEqual(fresh.errors,[]);console.log('Reopened in a fresh packaged window',name);
   }finally{await closeApp(fresh.app);}
  }

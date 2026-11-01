@@ -70,6 +70,7 @@ const jobs=alternate?[
      frames.push(await frame());await stage.screenshot({path:path.join(dir,i+'.jpg'),type:'jpeg',quality:84});
      if(evidence)await page.screenshot({path:path.join(dir,'workspace-'+i+'.jpg'),type:'jpeg',quality:85});
     }
+    if(effect.accents?.some(a=>a.ribbon))assert.ok(frames.some(f=>f.ribbons.every(segments=>segments>0)&&f.ribbons.length),'Every fitted ribbon emits during the swing: '+effect.name);
     const after=await camera();assert.ok(after.some((v,i)=>Math.abs(v-before[i])>.001),'Real camera drag rotates '+effect.name);
     const fields=await dialog.locator('.sfx-controls input[type=range]').evaluateAll(nodes=>nodes.map(n=>({name:n.getAttribute('aria-label'),tip:n.closest('[title]')?.title})));
     assert.ok(fields.every(row=>row.tip),'Every range describes its effect');
