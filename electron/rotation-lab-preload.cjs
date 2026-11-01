@@ -1,0 +1,1 @@
+require('electron').contextBridge.exposeInMainWorld('rotationLab',{fixtures:()=>require('electron').ipcRenderer.invoke('rotationLab:fixtures'),log:record=>require('electron').ipcRenderer.send('rotationLab:log',record)});

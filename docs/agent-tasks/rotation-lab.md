@@ -1,6 +1,6 @@
 # Rotation Lab: pick the 3D Rotate rule by feel
 
-Status: contract ready for Codex; nothing built yet
+Status: ready to test; awaiting merge approval and independent Claude QA
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-01
 
@@ -112,16 +112,105 @@ call path is byte-for-byte today's behaviour.
   or the UV map (the UV map keeps its own turn; see the Two Rotate rules in
   AGENTS/the old note). That is the follow-up PR after the owner picks.
 
-## Revision and local state
+## Implementation and hand-test build
 
-- Branch / checkout: contract on `claude/rotation-lab-contract`; Codex builds on
-  its own `codex/` branch from `origin/main`.
-- Base / checked revision: `origin/main` `911c345a`.
-- Required local fixtures: `D:\Claude\MDLxL-TestModels\optimizexl-footman`.
+- Branch: `codex/rotation-lab`, from `origin/main` `cb7065fb` (contract PR #495).
+- Standalone build: `D:\Claude\MDLxL-TestBuilds\RotationLab\MDLxL.exe`.
+- Desktop shortcut: **MDLxL Rotation Lab**. The owner opens it; it was never
+  opened on the owner's desktop during implementation.
+- Local owner drag log: `rotation-drags.jsonl` beside the executable. Verification
+  reports and two captures: `D:\Codex\rotation-lab-report`.
+- Footman and its Textures are copied from the permanent fixture collection.
+  Footman opens with all vertices selected, Rotate active and Quad View on.
+  The existing model tabs also contain an asymmetric plain Box.
+- Owner preferences are a read-only snapshot of the real installed profile:
+  Rotation **0.5×**, general pointer **0.67×** (combined **0.335×**).
+  This supersedes the older 0.3× estimate in the contract. **1×** bypasses both
+  multipliers for comparisons. No real profile content is written.
+- Reset restores positions, normals and tangents on the current test model;
+  it remains a normal undoable document edit and keeps the camera.
+- E composes screen-up and screen-right rotations, then uses **ZYX** Euler
+  order for both preview and `transformVertices` commit. The original XYZ
+  conversion was caught by a perspective drag and a negative-control unit test.
+- B consumes every pointer sample for wrap-safe angle accumulation. Geometry
+  preview still uses the existing once-per-frame coalescer.
 
-## Blockers and next action
+### Isolation
 
-- None. Next: Codex builds the lab and hands the owner the shortcut.
-- After the owner picks: one PR makes that style the only 3D Rotate rule in every
-  3D editor, removes the losers and the lab hook, and keeps the lab only if the
-  owner wants it.
+Normal `App.jsx`, `Viewport.jsx`, `rotation-drag.js`, Vite config, Electron main
+and preload, Settings, package manifest and normal entries are byte-identical to
+`origin/main`. The ordinary build contains no lab UI or lab IPC strings.
+
+`vite.rotation-lab.config.js` adds a separate HTML entry and applies explicit,
+checked build-only substitutions to the real App/Viewport sources. A changed
+upstream anchor fails the lab build. It does not write those sources. Only the
+Vertices viewport receives the lab flag; other consumers keep the original
+rotation block. The normal quad camera locks are bypassed only for the lab's
+Vertices viewport, so Front/Top/Side can also orbit with normal mouse controls.
+
+The builder copies Electron into the standalone output, stages the real runtime,
+redirects the copied main process to the lab HTML, adds the lab preload bridge,
+and selects a separate `lab-profile`. The installed app is never replaced.
+
+### Reproduce
+
+```powershell
+pnpm exec vite build --config vite.rotation-lab.config.js
+node scripts/build-rotation-lab.mjs --owner-settings '<real profile settings.json>' --shortcut
+```
+
+The builder requires an empty destination; override `--out` to use another D:
+folder. Existing `node_modules` must be linked from a D: checkout as required by
+AGENTS.md. It is never copied into the lab.
+
+For hidden desktop verification, set `MDLXL_TEST_EXE` to the lab executable and
+`MDLXL_PLAYWRIGHT_MODULE` to the available Playwright installation, then run
+`scripts/hidden-run.ps1` with `node test/rotation-lab.electron.cjs` as its command.
+The harness copies the owner's lab preferences into its own disposable profile.
+`MDLXL_LAB_SINGLE_ONLY=1` is a targeted single-view diagnostic; the reported final
+run uses the full matrix. `MDLXL_LAB_BASELINE=1` expects the lab UI and therefore
+fails on the unchanged product, proving the missing-feature check.
+
+### Measured turns
+
+Same gesture at **1×**: start 40 px right and 40 px above the selection pivot,
+then drag **40 px right**. Values are signed degrees about the pane's axis;
+E values are degrees about screen up (screen right stays 0°).
+
+| Style | Single 30° | Single 60° | Single 85° | Quad Front | Quad Top | Quad Side | Quad Perspective |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | -32.0 | -38.8 | +40.0 | -28.3 | -28.3 | +28.3 | -39.6 |
+| B | -18.4 | -18.4 | -18.4 | -18.4 | -18.4 | +18.4 | -18.4 |
+| C | -40.0 | -40.0 | -40.0 | -40.0 | -40.0 | +40.0 | -40.0 |
+| D | -32.0 | -38.8 | -40.0 | -28.3 | -28.3 | +28.3 | -39.6 |
+| E | +40.0 | +40.0 | +40.0 | +40.0 | +40.0 | +40.0 | +40.0 |
+
+### Verification and remaining acceptance
+
+- Rotation/styles/isolation, viewport, per-frame drag, quad and gesture tests:
+  **99 passed / 0 failed / 0 skipped**.
+- Compatibility suite: **57 passed / 0 failed / 0 skipped**.
+- Normal production build and separate lab build both succeed.
+- Final hidden package run: **223 checks passed / 0 failed / 0 skipped**,
+  **62 logged drags**, **40 measurement rows**, **0 renderer errors**.
+- Hidden packaged checks cover all styles in single view at 30°/60°/85° and all
+  four quad panes; Shift snap for every style in every quad pane; real mouse
+  orbit in all panes and single view; Ctrl+Z; Reset including normals/tangents;
+  vertical and diagonal E gestures; Box; copied owner speed; local log accuracy.
+- Each drag checks committed vertex positions against an independent transform;
+  E also checks the actual camera's screen axes. Viewpoint comparisons include
+  position, quaternion, zoom and target, excluding clip-plane maintenance.
+- Fail-first proof: the product build fails `five live style buttons exist`;
+  wrong E order fails `free-turn commit must equal the preview`; old Reset fails
+  `Reset restores original normals and tangents`.
+- B–E pure-function tests cover Front/Top/Side and 30°/60°/85°, B's 12 px zone
+  and wrap across 180°, projected ellipse tangents, A parity and no-injection parity.
+- This is Codex implementation evidence. Claude's independent QA, owner feel
+  preference and merge authorization remain pending. No release or Warcraft III
+  acceptance is claimed.
+
+## Next action
+
+Owner double-clicks the shortcut, compares A–E and chooses the rule by feel.
+A later separately approved PR makes that choice the product rule. The ordinary
+app's rotation behavior is unchanged by this PR.

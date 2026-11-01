@@ -1,0 +1,2 @@
+.rotation-lab-row{display:flex;gap:4px;align-items:center;padding:4px 8px;background:var(--ui-panel);color:var(--ui-text);border-bottom:1px solid var(--ui-border);flex-shrink:0}.rotation-lab-row button[aria-pressed="true"]{background:var(--ui-tool-highlight);color:var(--ui-text);border-color:var(--ui-accent)}
+:root .classic-app .rotation-lab-row button[aria-pressed="true"]{background:color-mix(in srgb,var(--ui-tool-highlight) 22%,var(--ui-panel))!important;box-shadow:inset 0 0 0 1px var(--ui-tool-highlight)!important;color:var(--ui-text)!important}
