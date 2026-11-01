@@ -1,7 +1,7 @@
 'use strict';
 // The decision diary: what each AI job on a model did and why, kept with the
 // model in MDLxL's own registry. It survives provider switches, compaction,
-// new birds and "Keep a summary", so later jobs know earlier edits were choices.
+// new chats and "Keep a summary", so later jobs know earlier edits were choices.
 
 const KEPT = 40; // entries stored per model (unchanged)
 const short = (value, length) => {
@@ -10,14 +10,13 @@ const short = (value, length) => {
 };
 
 // One entry per job, updated when the job resumes or finishes.
-function recordJob(entry, { id, request, plan, steps = [], outcome, bird, nodeIds = [] }) {
+function recordJob(entry, { id, request, plan, steps = [], outcome, nodeIds = [] }) {
   const edits = steps.filter(step => step.status === 'applied').map(step => short(step.label, 80));
   if (!plan && !edits.length) return false;
   entry.diary ||= [];
   const job = entry.diary.find(item => item.id === id) || entry.diary[entry.diary.push({ id, at: new Date().toISOString() }) - 1];
   Object.assign(job, {
     request: short(request, 300),
-    ...(bird ? { bird } : {}),
     ...(plan
       ? {
           plan: {
@@ -45,7 +44,7 @@ function noteOwnerReply(entry, text) {
   return true;
 }
 
-// The organiser keeps the complete stored diary. Workers get entries related
+// The registry keeps the complete diary. Direct jobs get entries related
 // to this request or the parts it touches, never a fixed number of recent jobs.
 const common = new Set('the and for with from this that these those them they their its you your please make model mesh geoset bone part whole selected current keep look same change changes edit work task result about like into only'.split(' '));
 const terms = text => new Set((String(text || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(w => w.length > 2 && !common.has(w)).map(w => w.length > 4 ? w.replace(/s$/, '') : w));

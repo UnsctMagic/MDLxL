@@ -43,7 +43,7 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.unmaximize(); w.setContentSize(1440, 900); });
   link = (await page.evaluate(async () => {
-    await window.desktop.aiOffload(false); await window.desktop.aiEnable(true); return window.desktop.aiConfig();
+    await window.desktop.aiEnable(true); return window.desktop.aiConfig();
   })).mcpServers.mdlxl;
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   if (!await page.getByLabel('AI provider', { exact: true }).isVisible()) await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
@@ -132,9 +132,9 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   await page.getByRole('button', { name: 'New chat', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('.ai-composer button[aria-label^="Remove reference "]'));
   check('new chat starts with no inherited attachments or draft', !(await donors()).length && !(await images()).length && await page.getByLabel('AI prompt', { exact: true }).inputValue() === '');
-  const earlier = await page.getByLabel('Retired chats', { exact: true }).locator('option').allTextContents();
+  const earlier = await page.getByLabel('Earlier chat', { exact: true }).locator('option').allTextContents();
   const label = earlier.find(text => text.startsWith('Earlier chat'));
-  await page.getByLabel('Retired chats', { exact: true }).selectOption({ label });
+  await page.getByLabel('Earlier chat', { exact: true }).selectOption({ label });
   check('earlier A chat retains only its own donors', (await donors()).join('|') === 'Donor A.mdx|Background donor.mdx|Delayed donor.mdx');
   check('earlier chats disable attachment controls',await page.getByRole('button',{name:'Attach',exact:true}).isDisabled() && await page.locator('.ai-assistant input[type=file]').isDisabled());
   const earlierImages=await images();
@@ -143,15 +143,15 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
     document.querySelector('[aria-label="AI prompt"]').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:data}));
   });
   check('earlier chat paste adds no stranded attachment',JSON.stringify(await images())===JSON.stringify(earlierImages));
-  await page.getByRole('button', { name: 'Organiser', exact: true }).click();
-  check('returning to new organiser does not inherit old donors', !(await donors()).length);
+  await page.getByLabel('Earlier chat', {exact:true}).selectOption({label:'Current chat'});
+  check('returning to current chat does not inherit old donors', !(await donors()).length);
   await show('Model B.mdx');
   check('starting a new A chat preserves B donor', (await donors()).join('|') === 'Donor B.mdx');
   await page.getByRole('button', { name: 'Remove reference Donor B.mdx', exact: true }).click();
   await page.getByRole('tab', { name: 'Donor B.mdx', exact: true }).waitFor({ state: 'detached' });
   check('removing B donor removes it from AI context', (await tool('mdlxl_context')).documents.map(d => d.name).join('|') === 'Model B.mdx');
   await show('Model A.mdx');
-  await page.getByLabel('Retired chats', { exact: true }).selectOption({ label });
+  await page.getByLabel('Earlier chat', { exact: true }).selectOption({ label });
   check('removing B donor leaves A references intact without tabs', (await donors()).includes('Donor A.mdx') && await page.getByRole('tab', { name: 'Donor A.mdx', exact: true }).count() === 0);
   const reviewContext = await tool('mdlxl_context');
   const donor = reviewContext.documents.find(d => d.name === 'Donor A.mdx');

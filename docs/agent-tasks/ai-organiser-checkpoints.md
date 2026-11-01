@@ -1,5 +1,8 @@
 # Automatic organiser checkpoints and helper birds
 
+> Superseded by [Remove Offload Mode](remove-offload-birds.md). Its delegation behavior is being removed.
+
+
 Status: completed — merged in #376 (6d211c88)
 Owner: Codex
 Updated: 2026-10-29

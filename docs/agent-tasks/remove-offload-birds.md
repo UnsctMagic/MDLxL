@@ -1,6 +1,6 @@
 # Remove Offload Mode (the AI birds)
 
-Status: contract written; implementation not started
+Status: implementation completed; ready for review, awaiting merge approval
 Owner / consolidator: Codex (implementation), Claude Code (contract)
 Updated: 2026-11-01
 
@@ -231,9 +231,52 @@ sessions — hence the multi-tab requirement above.
 ## Revision and local state
 
 - Branch `claude/remove-offload-birds`, based on `origin/main` f75e407d.
-  Contains only this note and its README table entry.
+  Implementation is in progress in D:\Codex\remove-offload-birds on this same branch.
+
+## Implementation and verification so far
+
+- Direct `runTask` is the only execution path; its per-model task map and editor
+  queues remain independent across model tabs. Legacy registry names are retained.
+- Removed bird scheduling, regions, helpers, model routing, handovers and UI.
+  `ai-chat-state.cjs` retains persistence, steering, recording and cleanup.
+- The direct path still uses exact-request exemptions and validated plan checks:
+  those pre-existing functions moved to `ai-job-plan.cjs` as `exactValueRequest`
+  and `planChecks`. Removing their validation would change direct behavior.
+- Direct system/body/handbook/web prompt hashes remain unchanged. Outside-check
+  nouns change from worker to editing AI; the memory prompt refers to the next
+  chat and its reports; job routines survive restart instead of handover, and
+  phase checkpoints no longer advertise handing over. The memory note is supplied
+  to a fresh direct chat, including after upgrading a delegated-only native chat.
+- Fixture profile upgrade passed: unrelated settings and files preserved, old
+  transcripts readable, interrupted delegated jobs refuse Resume, cleanup removes
+  legacy chat files and provider sessions.
+- Hidden packaged multi-tab regression passed 16 checks: running peak 3, all three
+  isolated edits and chats, hidden completion, retained Handbook/Web switches,
+  absent delegation controls, New/Earlier/Current chat.
+- Compatibility: 57 passed, 0 failed, 0 skipped. Connection markup: 20 passed.
+- Final full source: 2,580 passed, 0 failed, 10 existing skips; official baseline
+  comparison passed with no baseline changes. The skips are the existing Windows
+  platform/permissions and optional private/corpus-input cases, not AI regressions.
+- Hidden final-package checks all passed: multi-tab 16, attachments 30, awareness
+  17, questions 18, console 71, editor 72; refresh and hotkeys scenarios passed.
+  Real mouse rotation was exercised in the console and attachment tests.
+- Original a63c23fe failed the new upgrade test (`offload` still present) and the
+  hidden UI test (Offload switch/roster still present). Both pass on this change.
+- Removal sweep: 222 remaining lines in 38 files, all explained in the retained
+  D:\Codex\remove-offload-birds-results\removal-sweep-review.md. Remaining hits
+  are legacy registry/cleanup/report compatibility, Highlighter, unrelated
+  background workers, Shredder, texture vocabulary, interface lightness and the
+  Cloudflare Workers endpoint. AI-HOOK and active AI prompts have no hits.
+- Retained evidence: D:\Codex\remove-offload-birds-results\verification.md plus
+  logs and two captures. Disposable packages/profiles/runtimes are removed.
+- Not exercised: optional paid/live provider test, long owner sessions, Warcraft
+  III playback, independent Claude QA and owner acceptance. No installed profile
+  or app was upgraded; no release/version change.
+- Intermediate stale test labels/counts and asynchronous fixture waits were
+  corrected and rerun. Removed controls free Blue's dynamic `Shift+L` palette key
+  (was fallback `Z`); no shortcut allocator change was made.
 
 ## Next action
 
-Codex: implement on this branch, open a PR into `main` with
-`Session: codex <task>`, report ready for review; awaiting merge approval.
+Push this branch and open the PR with `Session: codex remove-offload-birds`.
+Independent Claude QA/review and owner merge approval remain. Do not merge.

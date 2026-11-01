@@ -1,7 +1,7 @@
 // SD Brain trial rig: runs one natural-language prompt through the packaged app with
 // the real Codex provider, then saves pictures from several sides, the chat and the model.
 // Start it with scripts/sd-trial/trial.ps1 (hidden desktop, no windows). Args: label, prompt,
-// brain (on/off), offload (on/off), [model file to open]; the prompt "-" only opens and photographs.
+// brain (on/off), [model file to open]; the prompt "-" only opens and photographs.
 // It shares the test build's Codex sign-in through a folder link (never a copy), uses its own
 // profile and port under out/sd-trials/runs/<label>, and ends only its own process tree.
 const fs = require('node:fs');
@@ -9,7 +9,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execSync } = require('node:child_process');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE);
-const [label, prompt, brain = 'on', offload = 'on', open] = process.argv.slice(2);
+const [label, prompt, brain = 'on', open] = process.argv.slice(2);
 const repo = path.resolve(__dirname, '..', '..');
 const out = path.join(repo, 'out', 'sd-trials', 'runs', label);
 const exe = path.join(repo, 'out', process.env.MDLXL_TRIAL_PKG || 'pkg-ai', 'MDLxL-win32-x64', 'MDLxL.exe');
@@ -23,7 +23,7 @@ const log = (...a) => fs.appendFileSync(path.join(out, 'rig.log'), a.join(' ') +
   execSync(`cmd /c mklink /J "${path.join(out, 'profile', 'ai', 'codex')}" "${codexHome}"`);
   // The test build's provider settings, with this trial's switches.
   const connections = JSON.parse(fs.readFileSync(path.join(codexHome, '..', 'connections.json'), 'utf8'));
-  Object.assign(connections, { sdBrain: brain === 'on', offload: offload === 'on', awareness: false });
+  Object.assign(connections, { sdBrain: brain === 'on', awareness: false });
   // Encrypted values belong to the other profile; this one makes its own.
   delete connections.token;
   connections.port = 54100 + Math.floor(Math.random() * 800);
@@ -46,12 +46,11 @@ const log = (...a) => fs.appendFileSync(path.join(out, 'rig.log'), a.join(' ') +
     await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
     await page.waitForTimeout(1500);
     await page.evaluate(
-      async ({ brain, offload }) => {
+      async ({ brain }) => {
         await window.desktop.aiSdBrain(brain === 'on');
-        await window.desktop.aiOffload(offload === 'on');
         await window.desktop.aiEnable(true);
       },
-      { brain, offload },
+      { brain },
     );
     const link = (await page.evaluate(() => window.desktop.aiConfig())).mcpServers.mdlxl;
     const tool = async (name, args = {}) => {
@@ -74,7 +73,7 @@ const log = (...a) => fs.appendFileSync(path.join(out, 'rig.log'), a.join(' ') +
     await page.getByLabel('AI prompt').fill(prompt);
     const started = Date.now();
     await page.getByLabel('AI prompt').press('Enter');
-    log('sent', prompt, 'brain', brain, 'offload', offload);
+    log('sent', prompt, 'brain', brain);
     for (let i = 0; i < 24 && !(await page.evaluate(() => window.desktop.aiStatus())).busy; i++) await page.waitForTimeout(2500);
     if (!(await page.evaluate(() => window.desktop.aiStatus())).busy) {
       await page.screenshot({ path: path.join(out, 'not-sent.png') });

@@ -1,7 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
-const { helperSpec, acceptanceChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
@@ -26,12 +25,9 @@ const {
   AiSteering,
   AiRecorder,
   OrganiserRegistry,
-  RETIRE_AT,
-  nextBird,
-  contextUse,
   writeJsonAtomic,
   settleConversation,
-} = require('./ai-offload.cjs');
+} = require('./ai-chat-state.cjs');
 
 // Optional per-prompt limits the user can set: dollars (API) and tool rounds. 0 = none.
 const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it empty for none.', stepLimit: 'Enter a number of steps, or leave it empty for none.' };
@@ -50,21 +46,16 @@ function accountKey(settings) {
   return settings.provider + ':' + (settings.executable || '');
 }
 // The editing instructions, with the handbook and web research when they are on.
-// A worker bird gets its own note in place of the opening line. `functions` is the
-// fixed list of common editor functions, the same on every turn so it stays cached.
-function editingPrompt(contract, { handbook, web, worker, functions }) {
+// The common editor functions stay the same on every turn for prompt caching.
+function editingPrompt(contract, { handbook, web, functions }) {
   return (
-    (worker ? contract.AI_WORKER_NOTE + '\n' + contract.AI_EDITING_BODY : contract.AI_SYSTEM_PROMPT) +
+    contract.AI_SYSTEM_PROMPT +
     (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
     (web ? '\n' + contract.AI_WEB_RESEARCH : '') +
     (functions ? '\n' + functions : '')
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
-// The bird a message is addressed to by name: "Crow: …", "Crow, …" or "ask Crow to …".
-function addressedBird(workers, text) {
-  return workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
-}
 // The editor snapshot goes in full once per conversation (and again when its
 // provider history starts over); later prompts carry the target, where the user
 // is, and only the fields that changed. mdlxl_context returns everything,
@@ -110,8 +101,6 @@ class AiService {
     this.writes = new Map();
     this.runningIds = new Set();
     this.registry = new OrganiserRegistry(this.directory);
-    this.workerLocks = new Map();
-    this.random = Math.random;
     // Native accounts found signed in this session; sending checks only the others.
     this.signedIn = new Set();
   }
@@ -159,6 +148,13 @@ class AiService {
           if (error.code !== 'ENOENT') throw error;
           this.config = { provider: PROVIDERS[0].id, enabled: false, port: 0, providers: {} };
         }
+        // Drop obsolete delegation preferences on the next save.
+        delete this.config.offload;
+        delete this.config.routing;
+        for (const provider of Object.values(this.config.providers || {})) {
+          delete provider.allowLighter;
+          delete provider.lightModel;
+        }
         this.awareness.setEnabled(this.config.awareness === true);
         return this.config;
       })().catch(error => {
@@ -193,13 +189,8 @@ class AiService {
       busy: this.busy(),
       running: this.runningChats(),
       awareness: this.awareness.enabled,
-      offload: config.offload !== false,
-      routing: config.routing || 'manual',
       outsideCheck: config.outsideCheck !== false,
-      allowLighter: provider.allowLighter === true,
-      lightModel: provider.lightModel || '',
       effort: provider.effort || 'high',
-      lighterModels: this.lighterChoices({ ...provider, provider: name }),
       spendLimit: limitOf(config, 'spendLimit'),
       stepLimit: limitOf(config, 'stepLimit'),
       cleanupDays: cleanupDaysOf(config),
@@ -236,9 +227,9 @@ class AiService {
   busy() {
     return !!this.active || this.tasks.size > 0;
   }
-  // Which chats are working, for the console: each task's chat and its current bird.
+  // Which per-model chats are working, for the console.
   runningChats() {
-    return [...this.tasks.values()].flatMap(t => t.workers?.size ? [...t.workers.values()].map(w => ({ id: t.id, worker: w.id, documentId: t.documentId })) : [{ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }]);
+    return [...this.tasks.values()].map(t => ({ id: t.id, documentId: t.documentId }));
   }
   emitRunning() {
     // A covered or minimized window stops drawing, and the AI's pictures and
@@ -282,7 +273,6 @@ class AiService {
       throw Error('Stop the current AI request before changing providers.');
     }
     if (!providerInfo(input.provider)) throw Error('Unknown AI provider.');
-    if (input.routing !== undefined && !['manual', 'automatic', 'both'].includes(input.routing)) throw Error('Choose Manual, Automatic, or Both routing.');
     const previous = config.providers?.[input.provider] || {};
     if (input.baseUrl) endpoint(input.baseUrl);
     const native = providerInfo(input.provider).native,
@@ -296,29 +286,23 @@ class AiService {
         : checkAgentExecutable(input.provider, requested);
     // A saved key belongs to the server it was entered for; never send it to a new address.
     const next = {
+      ...previous,
       model: String(input.model || '').trim(),
       executable,
       baseUrl,
       key: baseUrl === (previous.baseUrl || '') ? previous.key || '' : '',
-      allowLighter: input.allowLighter === undefined ? previous.allowLighter === true : input.allowLighter === true,
-      lightModel: String(input.lightModel ?? previous.lightModel ?? ''),
       effort: EFFORTS.includes(input.effort) ? input.effort : previous.effort || 'high',
     };
     if (input.apiKey !== undefined && input.apiKey !== '') next.key = this.encrypt(String(input.apiKey));
     if (input.clearKey) next.key = '';
     const providerChanged = config.provider !== input.provider;
     config.provider = input.provider;
-    if (input.routing !== undefined) config.routing = input.routing;
     if (input.outsideCheck !== undefined) config.outsideCheck = input.outsideCheck === true;
     config.providers ||= {};
     config.providers[input.provider] = next;
     await this.persist();
     if (providerChanged) this.emit({ type: 'organiser-reset' });
     return this.status();
-  }
-  lighterChoices(settings) {
-    const models = this.modelCatalog?.[catalogKey(settings)] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
-    return lighterModels(models, settings.model);
   }
   async settings() {
     const c = await this.configuration();
@@ -456,7 +440,6 @@ class AiService {
       conversation = await this.conversation(id, settings.provider),
       task = conversation.task;
     if (!task) return null;
-    // An Offload organiser's own task runs in `tasks` without going through runTask.
     if (task.status === 'running' && !this.runningIds.has(id) && !this.tasks.has(id)) {
       task.status = 'interrupted';
       await this.persistConversation(conversation);
@@ -466,10 +449,10 @@ class AiService {
       phase: task.phase,
       steps: task.steps,
       summary: task.summary || '',
-      canResume: !task.regionJobs && ['interrupted', 'incomplete'].includes(task.status),
+      canResume: !task.workerId && !task.regionJobs && ['interrupted', 'incomplete'].includes(task.status),
     };
   }
-  async send({ id, text, images = [], context, resume = false, route, worker, job, lightChoice }) {
+  async send({ id, text, images = [], context, resume = false }) {
     if (this.active) throw Error('Wait for the current AI request to finish.');
     if (this.tasks.has(id)) throw Error('This chat is already working.');
     // One job per model: another chat of the same model tab waits its turn.
@@ -497,45 +480,24 @@ class AiService {
       }
     }
     const conversation = await this.conversation(id, settings.provider);
-    if (!resume && conversation.kind === 'worker' && !conversation.helperOnly && !conversation.retired) {
-      return this.send({ id: conversation.organiserId, text, images, context, worker: conversation.name, route: 'continue', lightChoice: simpleJob(text, images) ? lightChoice : 'chosen' });
-    }
     // The owner's next message is their reaction to the last job on this model.
     if (!resume && conversation.modelKey) {
       const entry = await this.registry.model(conversation.modelKey);
       if (noteOwnerReply(entry, text)) await this.registry.save();
     }
-    if (settings.allowLighter && !this.modelCatalog?.[catalogKey(settings)] && settings.provider !== 'claude') await this.models();
-    const choices = this.lighterChoices(settings);
-    const light = choices.find(m => m.id === settings.lightModel) || choices[0];
-    const currentBird = conversation.workers?.find(w => w.status !== 'retired' && (worker ? (w.id === worker || w.name === worker) : (!route || route === 'continue') && w.id === conversation.currentWorker));
-    const canUseLight = settings.allowLighter && light && (await this.configuration()).offload !== false;
-    if (lightChoice !== undefined && !['chosen', 'light'].includes(lightChoice)) throw Error('Choose which model should do this job.');
-    const routingConfig = await this.configuration();
-    const automatic = conversation.kind === 'organiser' && routingConfig.offload !== false && (route || (routingConfig.routing === 'automatic' ? 'auto' : 'continue')) === 'auto';
-    if (!automatic && currentBird?.light && !simpleJob(text, images)) lightChoice = 'chosen';
-    if (!resume && !automatic && canUseLight && !simpleJob(text, images) && !lightChoice && conversation.kind !== 'worker') return { ok: false, modelChoiceRequired: true, message: 'This job may need judgement about shape or motion. A lighter model can lower the quality. Which model should do this job?' };
-    settings.lightJobModel = canUseLight && lightChoice !== 'chosen' ? light.id : '';
-    settings.jobModel = !automatic && settings.lightJobModel && (simpleJob(text, images) || lightChoice === 'light') ? light.id : settings.model;
-    if (conversation.retired)
-      throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
-    if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
     const recorder = this.recorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
-    const active = { id, controller, steering, recorder, worker: null, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
+    const active = { id, controller, steering, recorder, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
     this.tasks.set(id, active);
     this.emitRunning();
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
-      if (!resume && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal, worker, route })) {
+      if (!resume && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal })) {
         recorder.event({ type: 'done' });
         return { ok: true };
       }
-      const offload = conversation.kind === 'organiser' && config.offload !== false;
-      const run = offload ? this.runOffload.bind(this) : this.runTask.bind(this);
-      await run({
-        route, worker, job,
+      await this.runTask({
         conversation,
         recorder,
         steering,
@@ -546,7 +508,6 @@ class AiService {
         settings,
         contract,
         signal: controller.signal,
-        organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
         policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
       });
       recorder.event({ type: 'done' });
@@ -578,13 +539,9 @@ class AiService {
   }
   // This is the owner's acceptance, not another model's judgement. Reuse finish
   // so the review, saved task and organiser all leave the blocked state together.
-  async acceptDelivery({ conversation, recorder, text, context, signal, worker, route }) {
+  async acceptDelivery({ conversation, recorder, text, context, signal }) {
     if (!acceptsDelivery(text)) return false;
-    const bird = conversation.kind === 'organiser'
-      ? conversation.workers?.find(w => w.status !== 'retired' && !w.helperOnly && (worker ? w.id === worker || w.name === worker : w.id === conversation.currentWorker))
-      : null;
-    const owner = bird ? await this.conversation(bird.id, conversation.provider) : conversation,
-      task = owner.task;
+    const task = conversation.task;
     if (!task || task.status === 'complete' || !task.checkpoint?.review?.changed) return false;
     await this.call('mdlxl_checkpoint', { target: context.target, baseline: task.baseline, restoreReview: task.checkpoint.review }, signal);
     const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
@@ -596,126 +553,9 @@ class AiService {
     delete task.images;
     recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
     recorder.event({ type: 'text', text: summary });
-    if (owner !== conversation) {
-      const ownRecorder = this.recorder(owner, value => this.emit({ id: owner.id, ...value }));
-      ownRecorder.start({ role: 'user', text });
-      ownRecorder.event({ type: 'text', text: summary });
-      ownRecorder.finish();
-      Object.assign(conversation.task, { status: 'complete', phase: review.phase, summary, acceptedByUser: true });
-      await this.persistConversation(owner);
-    }
     return true;
   }
-  // The organiser is a local ledger. Only unaddressed automatic routing asks a model.
-  async runOffload({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser: active, policy, route, worker, job }) {
-    if (resume) {
-      const prior = conversation.task;
-      if (!prior || !['interrupted', 'incomplete'].includes(prior.status))
-        throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
-      if (prior.regionJobs) throw Object.assign(Error('This multi-part job is unfinished. Send a new job with the remaining work so its current parts and combined result can be checked again. Applied edits remain in Undo.'), { precondition: true });
-      const bird = await this.conversation(prior.workerId, settings.provider);
-      recorder.start({ role: 'user', text: 'Resume task' });
-      active.cost = {};
-      const result = await this.runWorker({ organiser: conversation, active, args: { worker: bird.name, job: conversation.workers?.find(w => w.id === bird.id)?.job || 'Resume task', resumeTask: structuredClone(bird.task) }, userText: prior.prompt, images: [], context, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
-      prior.workerId = active.lastWorker || conversation.currentWorker;
-      if (result.status !== 'done') { prior.status = 'incomplete'; throw Error(result.error || result.report); }
-      conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
-      prior.status = 'complete';
-      prior.phase = 'complete';
-      prior.summary = result.report;
-      return;
-    }
-    const config = await this.configuration();
-    const workers = (conversation.workers || []).filter(w => w.status !== 'retired' && !w.helperOnly);
-    const current = workers.find(w => w.id === conversation.currentWorker) || workers.at(-1);
-    const named = workers.find(w => worker === w.id || worker === w.name || addressedBird([w], text));
-    route ||= config.routing === 'automatic' ? 'auto' : 'continue';
-    if (!['continue', 'new', 'tiny', 'auto'].includes(route)) throw Error('Choose a job destination.');
-    if (worker && !named) throw Error('That bird is no longer available. Choose a current bird.');
-    recorder.start({ role: 'user', text, document: context.name, selection: context.selection, drawings: context.annotations?.strokes?.length || 0 });
-    active.cost = {};
-    // Until the bird's plan names the job, it shows a marked excerpt of the request.
-    const words = text.trim().split(/\s+/);
-    let args = { job: job || words.slice(0, 6).join(' ') + (words.length > 6 ? '…' : '') };
-    if (named) args.worker = named.name;
-    else if (route === 'tiny') args.tiny = true;
-    else if (route === 'continue' && current) { args.worker = current.name; args.job = current.job; }
-    else if (route === 'auto') {
-      args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure: await this.call('mdlxl_regions', { action: 'summary', target: context.target }, signal) });
-      settings = { ...settings, autoRouting: true, jobModel: args.tiny && settings.lightJobModel || settings.model };
-    }
-    const continuing = args.worker && workers.find(w => w.name === args.worker);
-    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job, tiny: args.tiny, tools: args.tools }];
-    const previousNote = conversation.modelKey ? (await this.registry.model(conversation.modelKey)).note : null;
-    conversation.task = { prompt: text, context, status: 'running', phase: 'inspecting', steps: [], sdBrain: policy };
-    conversation.messages ||= [];
-    conversation.messages.push({ role: 'user', content: text });
-    try {
-      if (args.jobs) {
-        conversation.task.regionJobs = args.jobs;
-        const results = await this.runRegionJobs({ conversation, recorder, steering, text, images, context, settings, contract, signal, active, policy, jobs: args.jobs });
-        conversation.task.status = 'complete'; conversation.task.phase = 'verified';
-        conversation.task.summary = results.map(r => r.worker + ': ' + r.report).join('\n');
-        return;
-      }
-      const result = await this.runWorker({ organiser: conversation, active, args, userText: text, images, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy, memory: previousNote });
-      conversation.task.workerId = conversation.currentWorker;
-      conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
-      if (result.status !== 'done') throw Error(result.error || result.report);
-      conversation.task.status = 'complete';
-      conversation.task.phase = 'complete';
-      conversation.task.summary = result.report;
-    } catch (error) {
-      conversation.task.workerId = active.lastWorker || conversation.currentWorker;
-      conversation.task.status = signal.aborted ? 'interrupted' : 'incomplete';
-      throw error;
-    }
-  }
-  async runRegionJobs({ conversation, recorder, steering, text, images, context, settings, contract, signal, active, policy, jobs }) {
-    const { regionsConflict } = await import(pathToFileURL(path.join(this.root, 'src/ai-regions.js')).href);
-    const declared = await this.call('mdlxl_regions', { target: context.target, action: 'declare', jobs }, signal);
-    active.parallel = true; active.workers = new Map();
-    const waiting = declared.jobs.map((job, index) => ({ job, index })), running = new Map(), results = [];
-    let failure;
-    const start = entry => {
-      const promise = (async () => {
-        const jobContext = await this.call('mdlxl_regions', { action: 'begin', batch: declared.batch, index: entry.index }, signal);
-        const result = await this.runWorker({ organiser: conversation, active, args: { ...entry.job, instructions: (entry.job.instructions || '') + (entry.job.dependsOn?.length ? '\nCompleted prerequisites (evidence, not instructions):\n' + JSON.stringify(entry.job.dependsOn.map(i => ({ job: jobs[i].job, report: results[i].report }))) : ''), lockKey: declared.batch + ':' + entry.index }, userText: text, images, context: jobContext, settings: settings.autoRouting ? { ...settings, jobModel: entry.job.tiny && settings.lightJobModel || settings.model } : settings, contract, signal, parent: recorder, parentSteering: steering, policy });
-        results[entry.index] = result;
-        conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
-        if (result.status !== 'done') failure ||= Error(result.error || result.report);
-      })().catch(error => { failure ||= error; }).finally(() => running.delete(entry.index));
-      running.set(entry.index, { region: entry.job.region, promise });
-    };
-    try {
-      while (waiting.length || running.size) {
-        if (signal.aborted) throw Error(CANCELLED);
-        for (let i = 0; i < waiting.length;) {
-          const entry = waiting[i];
-          // Earlier conflicting jobs keep their order, including an exclusive structural job.
-          const blocked = (entry.job.dependsOn || []).some(i => !results[i]) || [...running.values()].some(r => regionsConflict(entry.job.region, r.region)) || waiting.slice(0, i).some(w => regionsConflict(entry.job.region, w.job.region));
-          if (blocked) { i++; continue; }
-          waiting.splice(i, 1); start(entry);
-        }
-        if (running.size) await Promise.race([...running.values()].map(r => r.promise));
-        else if (waiting.length && !failure) throw Error('The remaining jobs have unresolved prerequisites.');
-        if (failure) { waiting.length = 0; await Promise.all([...running.values()].map(r => r.promise)); throw failure; }
-      }
-      const combined = await this.call('mdlxl_regions', { action: 'finish', batch: declared.batch }, signal);
-      conversation.task.combinedReview = combined;
-      recorder.event({ type: 'text', text: combined.passed ? 'Combined model checks passed: region boundaries, posed seams, and save/reopen.' : 'Combined model checks failed. The job is not complete.' });
-      if (!combined.passed) throw Error('Combined model checks failed; inspect the seams and validation results before continuing.');
-      return results;
-    } finally {
-      await Promise.allSettled([...running.values()].map(r => r.promise));
-      await this.call('mdlxl_regions', { action: 'close', batch: declared.batch });
-      active.parallel = false;
-    }
-  }
-  // One tool-free turn in a throwaway chat; returns the reply text. Usage goes to
-  // `meter`, `label` is the error for a tool call, and `stepLimit` caps the rounds.
-  // The AI never watches the editor (providers skip awareness when it is null) and is never steered.
-  async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
+    async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
     let reply = '';
     const steering = new AiSteering(() => {});
     try {
@@ -744,62 +584,6 @@ class AiService {
     }
     return reply;
   }
-  async routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure }) {
-    const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
-    const current = workers.find(w => w.id === conversation.currentWorker);
-    const next = this.pendingBird(conversation);
-    const input = {
-      text,
-      current: current ? { id: current.id, name: current.name, job: current.job } : null,
-      birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny, model: w.model, light: w.light })),
-      nextBird: next,
-      recent: (conversation.messages || []).slice(-4).map(m => ({ role: m.role, content: String(m.content || '').slice(0, 1000) })),
-      chosenModel: settings.model,
-      lighterModel: settings.lightJobModel || null,
-      ...(structure ? { structure } : {}),
-    };
-    const options = {
-      settings, stepLimit: 1, label: 'Routing has no editor tools.',
-      system: contract.AI_ROUTER_PROMPT,
-      prompt: JSON.stringify(input),
-      conversation: routing, signal,
-    };
-    // Function areas the bird is handed; an unknown name is dropped, not a retry.
-    const { areas } = await this.functionCards();
-    const toolsOf = tools => (Array.isArray(tools) ? [...new Set(tools.filter(area => areas.includes(area)))].slice(0, 3) : []);
-    const jobOf = args => {
-      if (!args || typeof args !== 'object' || typeof args.job !== 'string' || !args.job.trim()) throw Error('Each job needs a short title.');
-      if (args.worker != null && typeof args.worker !== 'string') throw Error('The worker must be a bird name or id.');
-      if (args.tiny !== undefined && typeof args.tiny !== 'boolean') throw Error('The tiny field must be true or false.');
-      const destination = (args.worker || '').trim().toLowerCase();
-      const selected = workers.find(w => w.name.toLowerCase() === destination || w.id.toLowerCase() === destination);
-      if (destination && !selected && destination !== next.toLowerCase()) throw Error('Unknown bird. Choose an existing bird from birds or an empty worker for a new job.');
-      return { ...args, job: args.job.trim().slice(0, 160), worker: selected?.name, tiny: args.tiny === true, tools: toolsOf(args.tools), ...(args.helper ? { helper: helperSpec(args.helper) } : {}), ...(args.checks ? { checks: acceptanceChecks(args.checks, contract.AI_SWEEP_SCHEMA) } : {}) };
-    };
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const reply = await this.askOnce({ ...options, meter: this.measureUsage(routing, recorder, 'router') });
-      try {
-        const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
-        if (Array.isArray(args?.jobs) && args.jobs.length) {
-          const jobs = args.jobs.map(jobOf);
-          const assigned = jobs.filter(j => j.worker).map(j => j.worker);
-          if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
-          jobs.forEach((j, i) => {
-            if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
-            if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
-            if (j.instructions !== undefined && (typeof j.instructions !== 'string' || j.instructions.length > 2000)) throw Error('Keep part instructions under 2000 characters.');
-          });
-          if (jobs.some(j => !j.readOnly && (!Array.isArray(j.scope) || !j.scope.length || j.scope.some(p => typeof p !== 'string')))) throw Error('Each model part needs explicit scope paths or readOnly:true.');
-          return { jobs };
-        }
-        const { job, worker, tiny, helper, checks, tools } = jobOf(args);
-        return { job, worker, tiny, helper, checks, tools };
-      } catch (error) {
-        if (attempt) throw Error('The organiser could not produce a valid routing decision: ' + error.message);
-        options.prompt = JSON.stringify({ ...input, correction: 'Your previous routing decision was invalid: ' + error.message + ' Return corrected routing JSON only.', previousReply: reply.slice(0, 4000) });
-      }
-    }
-  }
   measureUsage(conversation, recorder, role) {
     let lastTokens = 0, lastUsd = 0;
     const own = { calls: 0, tokens: null, usd: null };
@@ -809,60 +593,41 @@ class AiService {
       if (value.type === 'request') conversation.sentContextThread = conversation.threadId || null;
       if (!['request', 'cost'].includes(value.type)) {
         recorder.event(value);
-        const parent = this.tasks.get(conversation.organiserId)?.recorder;
-        if (value.type === 'provider-notice' && parent && parent !== recorder) parent.event({ ...value, name: conversation.name });
-        if (value.type === 'usage' && conversation.kind === 'worker' && !conversation.helperOnly && !conversation.toolsOff && conversation.task?.status === 'running' && !conversation.task.checkpointRequested && contextUse(conversation) >= RETIRE_AT) {
-          const active = this.tasks.get(conversation.organiserId) || this.tasks.get(conversation.id);
-          const worker = active?.workers?.get(conversation.id);
-          if (worker) {
-            conversation.task.checkpointRequested = true;
-            // Deliver with a tool result, never manufacture an extra provider turn after completion.
-          }
-        }
         return;
       }
-      const active = this.tasks.get(conversation.organiserId) || this.tasks.get(conversation.id);
+      const active = this.tasks.get(conversation.id);
       if (!active) { if (value.type === 'cost') recorder.event(value); return; }
       const costs = (active.cost ||= {}), cost = (costs[role] ||= { calls: 0, tokens: null, usd: null });
       if (value.type === 'request') { cost.calls++; own.calls++; if (value.unit) cost.unit = own.unit = value.unit; }
       else {
         const delta = Math.max(0, value.tokens - lastTokens); cost.tokens = (cost.tokens || 0) + delta; own.tokens = (own.tokens || 0) + delta; lastTokens = value.tokens;
         if (value.usd !== null) { const deltaUsd = Math.max(0, value.usd - lastUsd); cost.usd = (cost.usd || 0) + deltaUsd; own.usd = (own.usd || 0) + deltaUsd; lastUsd = value.usd; }
-        if (recorder !== active.recorder) recorder.event({ ...value, model: conversation.model, light: conversation.light, roles: { [role]: { ...own } } });
+        if (recorder !== active.recorder) recorder.event({ ...value, model: conversation.model, roles: { [role]: { ...own } } });
       }
       const rows = Object.values(costs);
       active.recorder.event({ type: 'cost', tokens: rows.every(c => c.tokens !== null) ? rows.reduce((n, c) => n + c.tokens, 0) : null, usd: rows.every(c => c.usd !== null) ? rows.reduce((n, c) => n + c.usd, 0) : null, roles: structuredClone(costs) });
     };
   }
   // One task on one conversation: the provider turn, edit checkpoints, verification
-  // and steering. The organiser and each of its workers run through this.
-  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry, policy, helper, checks, toolAreas, requestText, canHandover = false }) {
+  // and steering, independently of jobs on other model tabs.
+  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, entry, policy }) {
     const {
-      AI_TOOLS,
       AI_JOB_TOOLS,
       AI_JOB_CHECKPOINT,
-      AI_HELPER_NOTE,
       AI_PLAN_TOOL,
       guidesForRequest,
-      AI_WORKER_TOOL,
-      AI_ORGANISER_PROMPT,
       aiToolEditsModel,
-      AI_HELPER_TOOLS,
-      aiHelperCanCall,
       sdBrainInstructions,
       sdReviewProblem,
     } = contract;
     const id = conversation.id;
     context = structuredClone(context);
-    if (conversation.kind === 'worker' && conversation.model !== undefined) settings = { ...settings, model: conversation.model };
-    const lightController = new AbortController();
-    signal = AbortSignal.any([signal, lightController.signal]);
-    let lightFailure, workerYield;
-    const escalate = reason => { lightFailure = Error(reason); lightFailure.code = 'AI_LIGHT_ESCALATE'; lightController.abort(lightFailure); throw lightFailure; };
     const previousTask = conversation.task;
     let task;
     if (resume) {
       task = conversation.task;
+      if (task?.workerId || task?.regionJobs)
+        throw Object.assign(Error('This legacy delegated task cannot resume. Send a new prompt in this model chat.'), { precondition: true });
       if (!task || !['running', 'interrupted', 'incomplete'].includes(task.status))
         throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
       if (task.checkpoint) {
@@ -896,8 +661,8 @@ class AiService {
     } else
       task = conversation.task = {
         prompt: text,
-        request: requestText || text,
-        latestRequest: requestText || text,
+        request: text,
+        latestRequest: text,
         images,
         context,
         status: 'running',
@@ -906,7 +671,7 @@ class AiService {
         sdBrain: policy || { enabled: false },
       };
     // SD Brain and the editing handbook stay as they were when the task started;
-    // toggling applies to the next task. Workers inherit the organiser's policy.
+    // toggling applies to the next task.
     const sd = (task.sdBrain ||= policy || { enabled: false });
     task.context = context;
     task.latestRequest ||= task.request || text;
@@ -932,10 +697,8 @@ class AiService {
         ? '\n\nResume the interrupted task. Inspect the current model and these completed steps before continuing; do not repeat an applied edit. A pending step may have been interrupted before its result was recorded.\n' +
           checkpointNote(task)
         : '');
-    if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
-    // SD Brain: the request first becomes an art brief, once per task. Workers get
-    // the organiser task's brief with their job instead of writing their own.
-    if (sd.enabled && !conversation.toolsOff && !conversation.helperOnly && !task.artBrief) {
+    // SD Brain: the request first becomes an art brief, once per task.
+    if (sd.enabled && !conversation.toolsOff && !task.artBrief) {
       recorder.event({ type: 'art', status: 'running' });
       let failure = '';
       try {
@@ -953,7 +716,7 @@ class AiService {
     if (task.artBrief)
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
     // With the handbook on, the job carries the guides its request touches.
-    if (sd.handbook === true && !organiser && !conversation.toolsOff && !conversation.helperOnly && !resume)
+    if (sd.handbook === true && !conversation.toolsOff && !resume)
       for (const topic of guidesForRequest(text)) {
         try {
           const guide = await this.call('mdlxl_help', { topic }, signal);
@@ -962,80 +725,50 @@ class AiService {
           // A guide that cannot be read leaves the job as it was.
         }
       }
-    // The functions this job needs, from the areas the organiser picked or else the
-    // request's words, go with the job once per conversation; capabilities finds the rest.
+    // Function pages inferred from the request go once per conversation; capabilities finds the rest.
     const cards = await this.functionCards();
-    if (!organiser && !conversation.toolsOff && !conversation.helperOnly) {
+    if (!conversation.toolsOff) {
       // The pages sent earlier are gone once the provider history restarts.
       const sent = conversation.sentContext ? conversation.sentToolAreas || [] : [];
-      const areas = (toolAreas?.length ? toolAreas : cards.areasForRequest(text)).filter(area => !sent.includes(area));
+      const areas = cards.areasForRequest(text).filter(area => !sent.includes(area));
       const pages = cards.pages(areas);
       if (pages) prompt += '\n\n' + pages;
       conversation.sentToolAreas = [...sent, ...areas];
     }
+    if (!conversation.toolsOff && conversation.modelKey && !conversation.messages.length && !conversation.threadId) {
+      const entry = await this.registry.model(conversation.modelKey);
+      if (entry.note) prompt += memoryNoteText(entry.note);
+    }
     // The AI doing the work sees what earlier jobs on this model did and why.
-    if (!organiser && !conversation.toolsOff && !conversation.helperOnly && conversation.modelKey) {
+    if (!conversation.toolsOff && conversation.modelKey) {
       const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
       if (diary) prompt += '\n\n' + diary;
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
-    const helperController = new AbortController();
-    let helperPromise;
-    const startHelper = spec => {
-      if (task.helper) return;
-      if (conversation.kind !== 'worker' || conversation.helperOnly) throw Error('Only an editing bird can request a helper.');
-      task.helper = { spec: helperSpec(spec), status: 'working', delivered: false, needsPlan: true };
-      helperPromise = this.runHelper({ conversation, task, context, settings, contract, signal: AbortSignal.any([signal, helperController.signal]), policy: sd });
-    };
-    const helperFindings = async () => {
-      if (!task.helper || task.helper.delivered) return null;
-      if (helperPromise) await helperPromise;
-      task.helper.delivered = true;
-      await this.persistConversation(conversation);
-      return { status: task.helper.status, report: task.helper.report, next: 'Treat these findings as evidence. Incorporate relevant findings in mdlxl_plan before editing; inspect any uncertainty yourself.' };
-    };
-    if (!conversation.toolsOff && !conversation.helperOnly && helper && !resume) startHelper(helper);
-    // A crashed helper only did reads; restart its bounded investigation, never an edit.
-    if (resume && ['working', 'failed', 'cancelled'].includes(task.helper?.status) && !task.helper.delivered) { const spec = task.helper.spec; delete task.helper; startHelper(spec); }
-    if (checks?.length) prompt += '\n\nOrganiser completion criteria: ' + JSON.stringify(checks);
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
       callsInFlight++;
       try { return await performCall(name, args, callSignal); }
       catch (error) {
-        if (aiToolEditsModel(name, args) && !conversation.helperOnly) task.unresolvedEditError = error.message;
+        if (aiToolEditsModel(name, args)) task.unresolvedEditError = error.message;
         throw error;
       }
       finally { callsInFlight--; }
     };
-    // Keep the evidence the worker actually saw, also across Resume and native
+    // Keep the evidence the editing AI actually saw, also across Resume and native
     // provider turns (whose picture history lives outside our messages array).
     if (images.length) conversation.referenceImages = [...new Set([...images, ...(conversation.referenceImages || [])])];
-    let workerImages = images,
-      lastInspect = null;
+    let lastInspect = null;
     const performCall = async (name, args, callSignal) => {
       if (signal.aborted) throw Error(CANCELLED);
-      if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this bird.');
-      if (organiser && name === 'mdlxl_worker') {
-        const attached = workerImages;
-        workerImages = [];
-        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
-      }
-      if ((conversation.helperOnly || context.region?.readOnly) && !aiHelperCanCall(name, args)) throw Error('This helper is read-only; the editor bird owns changes, saves and UI actions.');
+      if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this chat.');
       if (name === 'mdlxl_job_checkpoint') {
         if (!['candidate', 'verify'].includes(args.phase) || typeof args.evidence !== 'string' || !args.evidence.trim() || args.evidence.length > 4000 || !Array.isArray(args.remaining) || args.remaining.length > 20 || args.remaining.some(v => typeof v !== 'string' || v.length > 500)) throw Error('A checkpoint needs a phase, concise evidence and specific remaining work.');
         if (callsInFlight !== 1) throw Error('Wait for the other tool operations before recording a phase checkpoint.');
-        const findings = await helperFindings();
-        if (findings) return { checkpointed: false, helper: findings };
         task.workCheckpoint = { phase: args.phase, evidence: args.evidence, remaining: args.remaining };
         task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, signal);
         await this.persistConversation(conversation);
-        if (canHandover && args.remaining.length && contextUse(conversation) >= RETIRE_AT && !task.unresolvedEditError && task.checkpoint.fingerprint) {
-          workerYield = Object.assign(Error('Phase checkpoint saved; handing remaining work to a fresh bird.'), { code: 'AI_WORKER_HANDOVER' });
-          lightController.abort(workerYield);
-          throw workerYield;
-        }
         return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Finish the agreed review and report; do not add polishing goals.' };
       }
       // Look first, then change once: the plan is kept with the task, not sent to the editor.
@@ -1043,16 +776,11 @@ class AiService {
         const options = Array.isArray(args.options) ? args.options : [];
         if (!String(args.cause || '').trim() || !String(args.reach || '').trim() || !args.keep?.length)
           throw Error('A plan names the cause, how far it reaches and what must stay the same.');
-        if (options.length < 2 && !simpleJob(task.request || text, images))
+        if (options.length < 2 && !exactValueRequest(task.request || text, images))
           throw Error('Give at least two genuinely different fixes with what each costs, then choose one.');
         if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
-        const checks = acceptanceChecks(args.checks, contract.AI_SWEEP_SCHEMA);
-        const requestedHelper = helperSpec(args.helper);
-        const findings = await helperFindings();
-        if (findings) return { recorded: false, helper: findings };
+        const checks = planChecks(args.checks, contract.AI_SWEEP_SCHEMA);
         if (task.replanRequired && task.plan && args.cause === task.plan.cause && options[args.choice].fix === task.plan.options[task.plan.choice].fix) throw Error('The same check failed twice: ' + task.replanRequired + '. Audit the cause and choose a materially different plan, or finish blocked.');
-        if (requestedHelper && !task.helper) startHelper(requestedHelper);
-        else if (task.helper?.delivered) task.helper.needsPlan = false;
         if (!task.plan || args.cause !== task.plan.cause || options[args.choice].fix !== task.plan.options[task.plan.choice].fix) {
           delete task.replanRequired;
           task.checkFailures = {};
@@ -1060,12 +788,10 @@ class AiService {
         const replaces = !!task.plan;
         task.plan = { cause: args.cause, reach: args.reach, keep: args.keep, options, choice: args.choice, why: args.why, checks, afterStep: task.steps.length };
         await this.persistConversation(conversation);
-        if (typeof args.title === 'string' && args.title.trim()) await this.retitleWorker(conversation, args.title.trim().slice(0, 80));
         return {
           recorded: true,
           ...(replaces ? { replaced: 'the previous plan' } : {}),
           chosen: options[args.choice].fix,
-          ...(task.helper?.needsPlan ? { helper: 'Working in parallel. Continue read-only target inspection; its findings must be incorporated before editing.' } : {}),
           next: 'Check a representative candidate before exhaustive work. The final review must cover checks and keep items.',
         };
       }
@@ -1073,16 +799,12 @@ class AiService {
         throw Error('Use the target captured with the current prompt.');
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
-      if (edit && task.helper?.needsPlan) {
-        const findings = await helperFindings();
-        throw Error('Incorporate the helper findings with mdlxl_plan before editing. ' + JSON.stringify(findings || { report: task.helper.report }));
-      }
       if (edit && task.replanRequired) throw Error('The same check failed twice: ' + task.replanRequired + '. Revise mdlxl_plan based on evidence or finish blocked before another edit.');
       args = expandRoutine(task, name, args);
       if (task.routines) await this.persistConversation(conversation);
       // Model edits need a plan, except exact value edits; switching the view or going
       // back to a saved version does not.
-      if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !simpleJob(task.request || text, images))
+      if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !exactValueRequest(task.request || text, images))
         throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
@@ -1118,7 +840,7 @@ class AiService {
         }
         // The outside check: a separate AI that never saw this work judges the result
         // before it counts as verified; a doubtful result goes back with its reasons.
-        if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !task.acceptedByUser && !organiser && lastInspect) {
+        if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !task.acceptedByUser && lastInspect) {
           const sweepChecks = (task.plan?.checks || []).filter(c => c.sweep);
           const sweeps = sweepChecks.length ? (await this.call('mdlxl_review', {
             target: context.target, action: 'status', baseline: lastInspect.baseline, sweepChecks,
@@ -1159,7 +881,7 @@ class AiService {
           if (name === 'mdlxl_context') result.annotations = task.steeringAnnotations;
         }
         if (name === 'mdlxl_context' && result?.target === context.target)
-          contextText(conversation, context); // The full tool result is the worker's new baseline.
+          contextText(conversation, context); // The full tool result is the editing AI's new baseline.
         // What the outside check will judge: the latest inspected checks and pictures.
         if (edit) {
           lastInspect = null;
@@ -1199,15 +921,10 @@ class AiService {
             });
           if (name === 'mdlxl_review' && args.action === 'inspect') {
             const repeated = recordFailures(task, result.review?.checks, task.checkpoint.fingerprint);
-            if (repeated) result.organiser = 'Repeated failures: ' + repeated + '. Reassess the mechanism and record a revised plan before another edit.';
+            if (repeated) result.planUpdate = 'Repeated failures: ' + repeated + '. Reassess the mechanism and record a revised plan before another edit.';
           }
           if (edit || task.checkpoint.review.phase === 'verified') delete task.unresolvedEditError;
           await this.persistConversation(conversation);
-        }
-        if (conversation.light && name === 'mdlxl_review' && (result.review?.passed === false || result.passed === false || (args.action === 'finish' && ['needs-correction', 'blocked'].includes(args.outcome)))) escalate('The lighter model review failed; continuing with the chosen model.');
-        if (task.checkpointRequested && !task.checkpointNoticeSent && result && typeof result === 'object' && !Array.isArray(result)) {
-          result.organiserCheckpoint = 'Context reached its handover size. At the next candidate/verification boundary, record mdlxl_job_checkpoint with evidence and remaining work. Do not repeat applied edits.';
-          task.checkpointNoticeSent = true;
         }
         return result;
       } catch (error) {
@@ -1219,27 +936,13 @@ class AiService {
         throw error;
       }
     };
-    const tools = organiser
-      ? [
-          AI_WORKER_TOOL,
-          AI_TOOLS.find(tool => tool.name === 'mdlxl_help'),
-          // With SD Brain on the organiser looks at the combined result itself.
-          ...(sd.enabled ? [AI_TOOLS.find(tool => tool.name === 'mdlxl_capture')] : []),
-        ]
-      : conversation.toolsOff
-        ? []
-        : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => AI_HELPER_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
-    // The organiser only routes, so web research goes to the AI that does the work.
-    const web = sd.web === true && !organiser;
-    const system =
-      organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
-      ? AI_ORGANISER_PROMPT
-      : conversation.helperOnly ? AI_HELPER_NOTE
-      : editingPrompt(contract, { handbook: sd.handbook === true, web, worker: conversation.kind === 'worker', functions: cards.common });
+    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
+    const web = sd.web === true;
+    const system = editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
-      ? system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct')
+      ? system + '\n\n' + sdBrainInstructions(sd, conversation.toolsOff ? 'note' : 'direct')
       : system;
     try {
       await progress('inspecting');
@@ -1251,7 +954,7 @@ class AiService {
           key: this.decrypt(settings.key),
           directory: this.directory,
           askUser: (params, questionSignal) => this.askUser(conversation, recorder, params, questionSignal),
-          event: this.measureUsage(conversation, recorder, conversation.kind === 'worker' ? 'bird' : organiser || conversation.toolsOff ? 'organiser' : 'direct'),
+          event: this.measureUsage(conversation, recorder, 'direct'),
           tools,
           call,
           system: instructions,
@@ -1265,11 +968,6 @@ class AiService {
         };
         try { await runProvider(options); }
         catch (error) { delete conversation.sentContext; throw error; }
-        if (workerYield) throw workerYield;
-        if (lightFailure) throw lightFailure;
-        const findings = await helperFindings();
-        if (findings) { promptHasContext = false; prompt = task.latestRequest + '\n\nTask update:\nYour helper finished. Incorporate these findings before completing the job: ' + JSON.stringify(findings); continue; }
-        if (conversation.light && /\b(?:cannot|can't|couldn't|could not|unable to)\s+(?:finish|complete|do)\b/i.test(recorder.report())) escalate('The lighter model reported that it could not finish.');
         // Steering that arrived as the AI finished starts a follow-up turn on the same task.
         const late = steering.take();
         if (late) {
@@ -1299,8 +997,7 @@ class AiService {
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
           return;
         }
-        if (conversation.light && review.changed && review.phase !== 'verified') escalate('The lighter model could not verify its edit.');
-        // A short first line; the worker's own explanation follows in the same box.
+        // A short first line; the editing AI's own explanation follows in the same box.
         if (review.phase === 'blocked')
           throw Error(review.summary ? 'The edit is kept but not verified.\n' + review.summary : 'The edited model still needs verification.');
         if (attempt >= 4) break;
@@ -1315,24 +1012,20 @@ class AiService {
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
       );
     } catch (error) {
-      if (workerYield) error = workerYield;
-      else if (lightFailure) error = lightFailure;
-      task.status = signal.aborted && !lightFailure ? 'interrupted' : 'incomplete';
+      task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
       throw error;
     } finally {
-      helperController.abort();
-      if (helperPromise) await helperPromise;
       this.runningIds.delete(id);
       // The decision diary keeps what this job did and why with the model.
-      if (conversation.modelKey && !organiser && !conversation.helperOnly)
+      if (conversation.modelKey)
         try {
           const entry = await this.registry.model(conversation.modelKey);
           task.diaryId ||= crypto.randomUUID();
           const outcome =
             (task.phase === 'verified' ? 'verified' : task.status === 'complete' ? 'complete' : (task.status || 'incomplete') + (task.summary ? ': ' + task.summary : '')) +
             (task.outsideCheck ? `; outside check: ${task.outsideCheck.verdict}` : '');
-          if (recordJob(entry, { id: task.diaryId, request: task.request || task.prompt || text, plan: task.plan, steps: task.steps, nodeIds: context.selectedNodeIds, outcome, bird: conversation.kind === 'worker' ? conversation.name : undefined })) {
+          if (recordJob(entry, { id: task.diaryId, request: task.request || task.prompt || text, plan: task.plan, steps: task.steps, nodeIds: context.selectedNodeIds, outcome })) {
             await this.persistConversation(conversation);
             await this.registry.save();
           }
@@ -1341,212 +1034,6 @@ class AiService {
         }
     }
   }
-  async runHelper({ conversation, task, context, settings, contract, signal, policy }) {
-    const active = this.tasks.get(conversation.organiserId) || this.tasks.get(conversation.id);
-    const organiser = await this.conversation(conversation.organiserId, settings.provider);
-    const helperSteering = new AiSteering(() => {});
-    let batch;
-    try {
-      const declared = await this.call('mdlxl_regions', { target: context.target, action: 'declare', jobs: [{ ...task.helper.spec, readOnly: true }] }, signal);
-      batch = declared.batch;
-      const helperContext = await this.call('mdlxl_regions', { action: 'begin', batch, index: 0 }, signal);
-      const result = await this.runWorker({ organiser, active, args: { ...task.helper.spec, helperOnly: true, region: declared.jobs[0].region, lockKey: batch + ':helper', forceChosen: true }, userText: task.prompt, images: [], context: helperContext, settings, contract, signal, parent: active.recorder, parentSteering: helperSteering, policy: { ...policy, outside: false } });
-      task.helper.status = result.status;
-      task.helper.report = result.report.slice(0, 2400) + (result.report.length > 2400 ? '\n[Report shortened; inspect unresolved details before relying on it.]' : '');
-    } catch (error) {
-      task.helper.status = 'failed';
-      task.helper.report = 'Helper did not complete: ' + error.message;
-    } finally {
-      helperSteering.close();
-      if (batch) await this.call('mdlxl_regions', { action: 'close', batch });
-      await this.persistConversation(conversation);
-    }
-  }
-  // The roster and memory the organiser needs for routing, added to each prompt.
-  async organiserBriefing(conversation) {
-    const workers = (conversation.workers || []).filter(worker => worker.status !== 'retired');
-    const entry = conversation.modelKey ? await this.registry.model(conversation.modelKey) : null;
-    const lines = workers.map(
-      worker =>
-        `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of the way to its handover`,
-    );
-    // Names the organiser can use before the worker exists: "I'll ask Crow to…".
-    const tiny = workers.find(worker => worker.tiny);
-    const names =
-      `\nA new job would go to a new worker called ${this.pendingBird(conversation)}.` +
-      (tiny ? ` Tiny jobs go to ${tiny.name}.` : ' The first tiny job starts a tiny-jobs worker with that next free name.');
-    return (
-      (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
-      names +
-      (entry?.note && conversation.transcript.length <= 2 ? memoryNoteText(entry.note) : '')
-    );
-  }
-  // The next new worker's name is drawn once, so the organiser can announce it.
-  pendingBird(organiser) {
-    organiser.birds ||= [];
-    if (!organiser.nextName || organiser.birds.includes(organiser.nextName))
-      organiser.nextName = nextBird(organiser.birds, this.random);
-    return organiser.nextName;
-  }
-  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief, memory }) {
-    // One bird edits a model at a time; birds of other models work alongside.
-    const key = args.lockKey || organiser.modelKey || organiser.id,
-      previous = this.workerLocks.get(key);
-    let release;
-    const lock = new Promise(resolve => (release = resolve));
-    this.workerLocks.set(key, lock);
-    await previous;
-    organiser.workers ||= [];
-    organiser.birds ||= [];
-    const parentSignal = signal;
-    let worker = null,
-      handover = args.handover || null;
-    try {
-      const named = String(args.worker || '').trim().toLowerCase();
-      if (named) {
-        worker = organiser.workers.find(w => w.name.toLowerCase() === named);
-        if (!worker)
-          return {
-            error: `There is no worker called ${args.worker}. Workers: ${organiser.workers.filter(w => w.status !== 'retired').map(w => w.name).join(', ') || 'none yet'}.`,
-          };
-        if (worker.status === 'retired')
-          return { error: `${worker.name} is retired. Start a new worker for this job and include what it needs to know.` };
-      } else if (args.tiny && !args.forceChosen && !args.region) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
-      if (worker?.light && (args.forceChosen || !settings.allowLighter || (settings.autoRouting ? !args.tiny : !simpleJob(userText, images)))) {
-        const previous = await this.conversation(worker.id, settings.provider);
-        handover = { name: worker.name, note: this.workerHandover(previous, 'The follow-up requires the chosen model.') };
-        await this.retireWorker(organiser, worker); worker = null; args = { ...args, forceChosen: true };
-      }
-      // A worker at its handover size retires; MDLxL writes the note from its saved task.
-      if (worker && (worker.use || 0) >= RETIRE_AT) {
-        handover = { name: worker.name, note: args.resumeTask ? checkpointNote(args.resumeTask) : this.sizeHandover(await this.conversation(worker.id, settings.provider)) };
-        await this.retireWorker(organiser, worker);
-        worker = null;
-      }
-      if (!worker) {
-        const name = this.pendingBird(organiser);
-        delete organiser.nextName;
-        organiser.birds.push(name);
-        worker = {
-          id: `${organiser.id}-${name.toLowerCase().replace(/\s+/g, '-')}`,
-          name,
-          job: args.tiny ? 'Tiny jobs' : args.job,
-          tiny: !!args.tiny,
-          ...(args.helperOnly ? { helperOnly: true } : {}),
-          model: args.forceChosen ? settings.model : (settings.jobModel || settings.model),
-          light: !args.forceChosen && !!settings.jobModel && settings.jobModel !== settings.model,
-          ...(args.region ? { region: args.region } : {}),
-          status: 'idle',
-          use: 0,
-        };
-        organiser.workers.push(worker);
-        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny, helperOnly: !!worker.helperOnly, model: worker.model, light: worker.light, ...(args.region ? { region: args.region } : {}) };
-        this.conversations.set(worker.id, created);
-        await this.persistConversation(created);
-      } else if (!worker.tiny) worker.job = args.job;
-      worker.model ??= settings.model;
-      worker.status = 'working';
-      await this.persistConversation(organiser);
-      this.emitRoster(organiser);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, model: worker.model, light: worker.light, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
-      const conversation = await this.conversation(worker.id, settings.provider);
-      if (args.resumeTask) conversation.task = args.resumeTask;
-      const recorder = this.recorder(conversation, value => this.emit({ id: worker.id, ...value }));
-      const steering = new AiSteering(text => recorder.split(text));
-      if (!active.parallel && !args.helperOnly) parentSteering.forward = steering;
-      const controller = new AbortController();
-      signal = AbortSignal.any([signal, controller.signal]);
-      const runningWorker = { id: worker.id, name: worker.name, light: worker.light, steering, controller };
-      (active.workers ||= new Map()).set(worker.id, runningWorker);
-      if (!active.parallel && !args.helperOnly) active.worker = { id: worker.id, steering };
-      if (!args.helperOnly) active.lastWorker = worker.id;
-      this.emitRunning();
-      const text =
-        `${userText}\n\nJob: ${args.job}` +
-        (args.instructions ? '\n\nAssigned investigation or prerequisite evidence:\n' + args.instructions : '') +
-        (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
-        (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
-        (!conversation.messages.length && memory ? memoryNoteText(memory) : '');
-      if (context.region) {
-        await this.call('mdlxl_regions', { action: 'label', target: context.target, name: worker.name });
-      }
-      let status = 'done',
-        error;
-      try {
-        await this.runTask({ conversation, recorder, steering, text, images, context, resume: !!args.resumeTask, settings: { ...settings, model: worker.model }, contract, signal, policy, helper: args.helper, checks: args.checks, toolAreas: args.tools, requestText: userText, canHandover: !args.helperOnly, entry: { from: 'organiser', job: args.job } });
-      } catch (reason) {
-        if (signal.aborted && !runningWorker.escalation) throw reason;
-        if (runningWorker.escalation) userText += '\n\nUser steering: ' + runningWorker.escalation;
-        status = reason.code === 'AI_WORKER_HANDOVER' ? 'handover' : 'failed';
-        error = runningWorker.escalation ? 'The user steered this job into work for the chosen model.' : reason.message;
-        if (status !== 'handover') {
-          recorder.event({ type: 'error', text: reason.message, worker: true });
-        }
-      } finally {
-        recorder.finish();
-        if (!active.parallel && !args.helperOnly) parentSteering.forward = null;
-        active.workers?.delete(worker.id);
-        if (active.worker?.id === worker.id) active.worker = null;
-        this.emitRunning();
-        const late = steering.take();
-        if (late && !active.parallel) parentSteering.requeue(late);
-        steering.close();
-        worker.use = contextUse(conversation);
-        worker.status = 'idle';
-        await this.persistConversation(conversation);
-      }
-      if (!args.helperOnly) organiser.currentWorker = worker.id;
-      const report = recorder.report().slice(-4000);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report, model: worker.model, light: worker.light, cost: recorder.reply.cost ? { ...recorder.reply.cost, model: worker.model, light: worker.light } : undefined });
-      if (status === 'handover') {
-        const resumeTask = structuredClone(conversation.task);
-        resumeTask.status = 'interrupted';
-        delete resumeTask.checkpointRequested;
-        delete resumeTask.checkpointNoticeSent;
-        await this.retireWorker(organiser, worker);
-        parent.event({ type: 'notice', text: worker.name + ' saved a phase checkpoint; a fresh bird will finish the remaining work.' });
-        release();
-        return this.runWorker({ organiser, active, args: { ...args, worker: undefined, helper: undefined, resumeTask, forceChosen: true }, userText, images: [], context, settings, contract, signal: parentSignal, parent, parentSteering, policy, artBrief, memory });
-      }
-      if (status === 'failed' && worker.light && !args.forceChosen) {
-        const note = this.workerHandover(conversation, error || 'The lighter model did not finish.');
-        await this.retireWorker(organiser, worker);
-        parent.event({ type: 'notice', text: worker.name + ' handed the unfinished job to the chosen model.' });
-        release();
-        return this.runWorker({ organiser, active, args: { ...args, worker: undefined, forceChosen: true, handover: { name: worker.name, note } }, userText, images, context, settings, contract, signal: parentSignal, parent, parentSteering, policy, artBrief, memory });
-      }
-      return {
-        worker: worker.name,
-        status,
-        report: report || '(no report)',
-        ...(error ? { error } : {}),
-        memoryUsed: Math.round(worker.use * 100) + '%',
-        ...(handover ? { replaced: `${handover.name} retired with a handover note; ${worker.name} took over.` } : {}),
-      };
-    } finally {
-      if (worker) await this.persistConversation(organiser).catch(() => {});
-      if (worker) this.emitRoster(organiser);
-      release();
-      if (this.workerLocks.get(key) === lock) this.workerLocks.delete(key);
-    }
-  }
-  workerHandover(conversation, reason) {
-    return reason + '\nApplied edits remain in the model; inspect and verify before making further changes. Do not repeat completed edits.\n' + JSON.stringify({ task: conversation.task?.prompt, steps: conversation.task?.steps, review: conversation.task?.checkpoint?.review, report: conversation.task?.summary }).slice(-12000);
-  }
-  // A bird whose memory reached its handover size: its saved task state and last
-  // report, without an AI call re-reading that memory. The decision diary already
-  // reaches the next bird with its job.
-  sizeHandover(conversation) {
-    const task = conversation.task,
-      report = conversation.transcript?.findLast(entry => entry.role === 'assistant' && entry.text?.trim())?.text.trim().slice(-4000);
-    return (
-      'Its memory reached the handover size. Applied edits remain in the model; inspect and verify before making further changes. Do not repeat completed edits.' +
-      (task ? `\nIts last job: ${String(task.prompt || '').slice(0, 2000)}\nSaved task state: ${checkpointNote(task)}` : '') +
-      (report ? `\nIts last report:\n${report}` : '')
-    );
-  }
-  // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
-  // user's words into an SD art brief. Nothing of it is kept but the brief.
   async artDirection({ text, images, context, settings, contract, signal, conversation }) {
     const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
     const counts = context.counts || {},
@@ -1555,7 +1042,7 @@ class AiService {
         : `The open model ${context.name} is empty, so this creates something new.`;
     const reply = await this.askOnce({
       settings,
-      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'bird'),
+      meter: this.measureUsage(conversation, this.recorder(conversation, () => {}), 'art direction'),
       label: 'The art director has no tools.',
       system: contract.AI_SD_ART_DIRECTOR,
       prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
@@ -1565,7 +1052,7 @@ class AiService {
     });
     return reply.trim().slice(0, 4000);
   }
-  // One tool-free call to a fresh AI with no part of the worker's conversation.
+  // One tool-free call to a fresh AI with no part of the editing AI's conversation.
   // Returns {verdict, confidence, problems, strengths}, or null when it could not judge.
   async outsideCheck({ request, plan, inspect, settings, contract, signal, conversation, recorder }) {
     const judge = { id: `${conversation.id}-check`, provider: settings.provider, transcript: [], messages: [], kind: 'check' };
@@ -1578,13 +1065,13 @@ class AiService {
       prompt: [
         `The owner's request, exactly as written:\n${request}`,
         plan
-          ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).map(c => c.name ?? c).join('; ')}.`
+          ? `The editing AI's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).map(c => c.name ?? c).join('; ')}.`
           : 'The worker recorded no plan (an exact value edit).',
-        `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
+        `The editing AI's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
         ...(inspect.sweeps?.length ? [outsideSweepBlock(inspect.sweeps)] : []),
-        ...(inspect.motion ? [`MDLxL's own measurement, not written by the worker:\n${JSON.stringify(inspect.motion)}`] : []),
+        ...(inspect.motion ? [`MDLxL's own measurement, not written by the editing AI:\n${JSON.stringify(inspect.motion)}`] : []),
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
-        ...(left.length ? [`Not sent, to keep the set small (the worker saw them): ${left.join('; ')}.`] : []),
+        ...(left.length ? [`Not sent, to keep the set small (the editing AI saw them): ${left.join('; ')}.`] : []),
         ...(inspect.missing?.length ? [`Evidence the review could not produce: ${inspect.missing.join(' ')}`] : []),
       ].join('\n\n'),
       images: pictures.map(p => p.image),
@@ -1619,30 +1106,6 @@ class AiService {
       return null;
     }
   }
-  async retireWorker(organiser, worker) {
-    worker.status = 'retired';
-    worker.retiredAt = new Date().toISOString();
-    const conversation = this.conversations.get(worker.id);
-    if (conversation) {
-      conversation.retired = true;
-      await this.persistConversation(conversation);
-    }
-    await this.persistConversation(organiser);
-    this.emitRoster(organiser);
-  }
-  emitRoster(organiser) {
-    this.emit({ id: organiser.id, type: 'roster', workers: organiser.workers || [] });
-  }
-  // A bird's plan names its job; that title replaces the excerpt of the request.
-  async retitleWorker(conversation, title) {
-    const organiser = conversation.kind === 'worker' && this.conversations.get(conversation.organiserId);
-    const worker = organiser?.workers?.find(w => w.id === conversation.id);
-    if (!worker || worker.tiny || worker.helperOnly || worker.job === title) return;
-    worker.job = title;
-    await this.persistConversation(organiser);
-    this.emitRoster(organiser);
-    if (worker.status === 'working') this.tasks.get(organiser.id)?.recorder?.event({ type: 'worker', workerId: worker.id, name: worker.name, job: title, model: worker.model, light: worker.light, status: 'working' });
-  }
   async markActivity(modelKey) {
     const entry = await this.registry.model(modelKey);
     if (!entry.activity) {
@@ -1653,7 +1116,6 @@ class AiService {
   // The organiser chat that belongs to a model (file path, or the unsaved tab).
   async organiser({ modelKey, name }) {
     const settings = await this.settings(),
-      config = await this.configuration(),
       entry = await this.registry.model(modelKey, name);
     // Opening a model's chat counts as using it for automatic cleanup.
     entry.used = Date.now();
@@ -1669,16 +1131,13 @@ class AiService {
     if (!conversation) conversation = await this.createOrganiser(entry, modelKey, settings);
     return {
       id: conversation.id,
-      workers: conversation.workers || [],
       earlier: entry.earlier,
-      offload: config.offload !== false,
-      currentWorker: conversation.currentWorker || null,
       hasNote: !!entry.note,
     };
   }
   async createOrganiser(entry, modelKey, settings) {
     const id = OrganiserRegistry.newId();
-    const conversation = { id, provider: settings.provider, transcript: [], messages: [], kind: 'organiser', modelKey, name: entry.name, workers: [], birds: [] };
+    const conversation = { id, provider: settings.provider, transcript: [], messages: [], kind: 'organiser', modelKey, name: entry.name };
     this.conversations.set(id, conversation);
     await this.persistConversation(conversation);
     entry.organiser = id;
@@ -1727,9 +1186,6 @@ class AiService {
       { SD_BRAIN_REVISION } = await this.init();
     return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
-  setOffload(enabled) {
-    return this.setSwitch('offload', 'offload', enabled);
-  }
   setRememberedCleanup(input) {
     return chats.setRememberedCleanup(this, input);
   }
@@ -1755,16 +1211,15 @@ class AiService {
   async memoryNote(organiser, settings, previousNote) {
     const contract = await this.init(),
       controller = new AbortController();
-    const active = { id: organiser.id, controller, steering: null, worker: null };
+    const active = { id: organiser.id, controller, steering: null };
     this.active = active;
     const recorder = this.recorder(organiser, value => this.emit({ id: organiser.id, ...value }));
     const steering = new AiSteering(() => {});
-    // An Offload organiser is a local ledger: Codex and Claude Code have no thread
-    // holding the birds' reports, so they travel in the prompt (API routes send the
-    // ledger as history).
+    // Legacy native chats may have a local ledger without a provider thread.
+    // Include it in memory notes; API routes send it as history.
     const ledger =
       providerInfo(settings.provider)?.native && !organiser.threadId && organiser.messages?.length
-        ? '\n\nThe requests and bird reports from this conversation, oldest first:\n' +
+        ? '\n\nThe requests and reports from this conversation, oldest first:\n' +
           organiser.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
         : '';
     const diary = organiser.modelKey ? diaryText(await this.registry.model(organiser.modelKey)) : '';
@@ -1798,9 +1253,9 @@ class AiService {
       return null;
     }
   }
-  // The task a chat belongs to: its own, or the organiser task its bird works for.
+  // Each direct chat owns its task.
   taskOf(id) {
-    return [...this.tasks.values()].find(t => t.id === id || t.worker?.id === id || t.workers?.has(id)) || null;
+    return this.tasks.get(id) || null;
   }
   modelBusy(modelKey) {
     return [...this.tasks.values()].some(t => t.modelKey && t.modelKey === modelKey);
@@ -1814,10 +1269,8 @@ class AiService {
       throw Error('The AI must supply a question with a unique ID and readable options.');
     signal.throwIfAborted();
     const questionId = crypto.randomUUID();
-    const parent = this.taskOf(conversation.id)?.recorder;
-    const recorders = parent && parent !== recorder ? [recorder, parent] : [recorder];
-    const publish = value => { for (const target of recorders) target.event(value); };
-    const persist = () => Promise.all(recorders.map(target => this.persistConversation(target.conversation)));
+    const publish = value => recorder.event(value);
+    const persist = () => this.persistConversation(conversation);
     let resolve, reject, answers, reason;
     const response = new Promise((yes, no) => { resolve = yes; reject = no; });
     response.catch(() => {});
@@ -1881,45 +1334,14 @@ class AiService {
           (context ? contextText(conversation, context) : '');
       };
     };
-    // Steering the organiser reaches the worker it is waiting on; steering a
-    // running worker directly goes only to that worker.
-    const deliver = w => {
-      if (acceptsDelivery(text)) { const task = this.conversations.get(w.id)?.task; if (task) task.acceptedByUser = true; }
-      if (w.light && !simpleJob(text)) { w.escalation = text; w.controller.abort(Error('Complex steering requires the chosen model.')); }
-      else w.steering.push(text, messageFor(w.id));
-      this.emit({ id: w.id, type: 'steer', text });
-    };
-    const addressed = active.workers?.get(id);
-    if (addressed) {
-      deliver(addressed); return { queued: true };
-    }
-    if (active.parallel && active.workers?.size) {
-      const conversation = await this.readConversation(active.id);
-      const workers = (conversation.workers || []).filter(w => active.workers.has(w.id));
-      const named = addressedBird(workers, text);
-      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), contract: await this.init(), signal: active.controller.signal });
-      const selected = workers.find(w => w.name === choice.worker);
-      const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
-      for (const w of targets) deliver(w);
-      active.recorder.split(text); return { queued: true };
-    }
-    if (active.worker && id === active.worker.id) {
-      active.worker.steering.push(text, messageFor(active.worker.id));
-      this.emit({ id, type: 'steer', text });
-      return { queued: true };
-    }
-    if (active.id !== id) return { queued: false };
-    const only = active.workers?.size === 1 ? [...active.workers.values()][0] : null;
-    if (only?.light && !simpleJob(text)) { active.recorder.split(text); deliver(only); return { queued: true }; }
-    if (acceptsDelivery(text)) { const task = this.conversations.get(active.worker?.id || id)?.task; if (task) task.acceptedByUser = true; }
-    active.steering.push(text, messageFor(active.worker?.id || id));
+    if (acceptsDelivery(text)) { const task = this.conversations.get(id)?.task; if (task) task.acceptedByUser = true; }
+    active.steering.push(text, messageFor(id));
     this.emit({ id, type: 'steer', text });
-    if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
     return { queued: true };
   }
-  // Stop one chat's task (and its bird); without a chat, everything.
+  // Stop one chat's task; without a chat, everything.
   cancel(id) {
-    if (id) { const task = this.taskOf(id); return (task?.workers?.get(id)?.controller || task?.controller)?.abort(); }
+    if (id) return this.taskOf(id)?.controller.abort();
     this.active?.controller.abort();
     for (const task of this.tasks.values()) task.controller.abort();
   }
@@ -2022,7 +1444,6 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:important', input => service.setImportant(input));
-  handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));

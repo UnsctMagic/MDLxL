@@ -2,45 +2,18 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-// Offload Mode building blocks: worker names, the per-model organiser registry,
-// recording of streamed replies, steering and cleanup of saved chats.
-
-// Everyday birds only; a model's organiser never reuses a name. The console
-// colours each bird by its place in this list.
-const BIRDS = require('../src/ai-birds.json');
 const PROVIDERS = require('../src/ai-providers.json');
-// The first bird of a chat is a corvid; later ones come from the whole list.
-const CORVIDS = ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'];
-function nextBird(used = [], random = Math.random) {
-  const taken = new Set(used.map(name => name.toLowerCase()));
-  for (let round = 1; ; round++) {
-    const pool = (used.length ? BIRDS : CORVIDS)
-      .map(bird => (round === 1 ? bird : `${bird} ${round}`))
-      .filter(name => !taken.has(name.toLowerCase()));
-    if (pool.length) return pool[Math.floor(random() * pool.length)];
-  }
-}
-// A worker hands over to a fresh one once its context holds this many tokens, or
-// half of a smaller window. Long contexts cost more per call and recall less.
-const HANDOVER_TOKENS = 200000;
-const handoverAt = window => Math.min(HANDOVER_TOKENS, window * 0.5);
-// The contextUse at which a worker hands over.
-const RETIRE_AT = 1;
-
 // Messages the user sends while a task runs. Providers deliver them at their next
-// opportunity; anything left when the AI finishes starts a follow-up turn. While a
-// worker runs for the organiser, steering is forwarded to that worker.
+// opportunity; anything left when the AI finishes starts a follow-up turn.
 class AiSteering {
   constructor(onAccepted) {
     this.queue = [];
     this.listeners = new Set();
     this.onAccepted = onAccepted;
-    this.forward = null;
   }
   push(text, message) {
     if (this.closed) return;
     this.onAccepted(text);
-    if (this.forward && !this.forward.closed) return this.forward.push(text, message);
     this.queue.push(message);
     this.notify();
   }
@@ -106,7 +79,7 @@ class AiRecorder {
   separate() {
     if (this.reply.text && !this.reply.text.endsWith('\n\n')) this.event({ type: 'text', text: '\n\n' });
   }
-  // The last thing the AI said after its last tool call: a worker's report.
+  // The last text after the final tool call, used by memory notes.
   report() {
     const parts = this.reply.parts,
       lastTool = parts.findLastIndex(p => p.type === 'tool');
@@ -136,13 +109,11 @@ function settleConversation(conversation) {
   return conversation;
 }
 
-// How far a conversation's context is toward its handover point; 1 means hand
-// over. Providers report real token use; otherwise it is estimated from the
-// stored history against a 200K window.
+// Context pressure for the display, retaining the existing scale for saved chats.
 function contextUse(conversation) {
-  if (conversation.usage?.window) return conversation.usage.used / handoverAt(conversation.usage.window);
+  if (conversation.usage?.window) return conversation.usage.used / Math.min(200000, conversation.usage.window * 0.5);
   const stored = JSON.stringify(conversation.messages || []).length + JSON.stringify(conversation.transcript || []).length;
-  return stored / 4 / handoverAt(200000);
+  return stored / 4 / 100000;
 }
 
 // Saves JSON (as it is now) through a temporary file, so a crash or a full disk
@@ -232,11 +203,6 @@ async function deleteProviderSessions(directory, ids) {
 
 module.exports = {
   settleConversation,
-  BIRDS,
-  CORVIDS,
-  nextBird,
-  HANDOVER_TOKENS,
-  RETIRE_AT,
   AiSteering,
   AiRecorder,
   contextUse,

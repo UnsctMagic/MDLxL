@@ -175,7 +175,7 @@ export function aiCommonFunctionsText(sources) {
 }
 
 // The areas a request's words point to, most mentioned first (at most two), for
-// jobs no organiser has picked areas for.
+// direct jobs inferred from their request.
 const AREA_WORDS = [
   ['mesh', /\b(vertex|vertices|mesh|geoset|weld|extrude|mirror|split|detach|separate|merge|triangle|face|poly|subdivid|densit|hole|gap)/gi],
   ['creation', /\b(forge|primitive|procedural|lathe|sculpt|prop|bits?\b)/gi],

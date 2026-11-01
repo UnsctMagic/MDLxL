@@ -1,5 +1,8 @@
 # Automatic job routing in bird mode
 
+> Superseded by [Remove Offload Mode](remove-offload-birds.md). Its delegation behavior is being removed.
+
+
 Status: completed — merged in #372 (3500255b)
 Owner: Codex
 Updated: 2026-10-29

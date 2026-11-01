@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bird, Brain, Check, ChevronRight, Frown, LoaderCircle, X } from 'lucide-react';
+import { Brain, Check, ChevronRight, Frown, LoaderCircle, X } from 'lucide-react';
 import AiMessage from './AiMessage.jsx';
-import BIRDS from '../src/ai-birds.json';
 import { translate } from '../src/localization.js';
 
 // The parts of an AI reply in the console thread: what the AI says, thinks and
-// does, its bird jobs, questions, notices and cost.
+// does, questions, notices and cost.
 export const activity = {
   mdlxl_context: 'Inspecting the model',
   mdlxl_capabilities: 'Finding modeling tools',
@@ -25,13 +24,6 @@ export const activity = {
   mdlxl_plan: 'Planning the change',
   mdlxl_versions: 'Comparing versions',
   outside_check: 'Outside check',
-  mdlxl_worker: 'Handing the job to a worker',
-};
-// A steady colour per bird, spread around the colour wheel in naming order.
-export const birdColor = name => {
-  const [base, round] = String(name || '').split(' ');
-  const index = Math.max(0, BIRDS.indexOf(base)) + (Number(round) > 1 ? (Number(round) - 1) * BIRDS.length : 0);
-  return `hsl(${Math.round((index * 137.508) % 360)} 62% 46%)`;
 };
 export const toolName = name => name?.replace(/^mcp__mdlxl__/, '');
 // One readable line under a tool step, from the arguments the AI sent. Main
@@ -166,36 +158,6 @@ function ToolPart({ part }) {
     </div>
   );
 }
-// A job the organiser gave to a bird; click it to open that bird's chat.
-function WorkerPart({ part, onOpen }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
-      <button type="button" className="ai-part-toggle" title="Open this chat." onClick={() => onOpen?.(part.workerId)}>
-        <span className="ai-step-icon" aria-hidden="true">
-          {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
-        </span>
-        <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
-        <span className="ai-step-detail">{part.job}{part.region && <small> · {part.region}</small>}{part.light && <small> · light model</small>}</span>
-        <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'done' ? 'done' : 'stopped'}</span>
-      </button>
-      {part.report && (
-        <button
-          type="button"
-          className="ai-part-toggle ai-worker-report-toggle"
-          aria-expanded={open}
-          title="What it reported back."
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronRight size={13} aria-hidden="true" />
-          Report
-        </button>
-      )}
-      {open && part.report && <AiMessage text={part.report} />}
-      {part.cost && <CostLine cost={part.cost} />}
-    </div>
-  );
-}
 // What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
 function CostLine({ cost }) {
   const tokens = cost.tokens == null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
@@ -205,7 +167,7 @@ function CostLine({ cost }) {
       className="ai-cost"
       title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
     >
-      {cost.model && <span>{cost.model}{cost.light ? ' · light model' : ''} · </span>}
+      {cost.model && <span>{cost.model} · </span>}
       {roles || (cost.usd === null ? tokens : `About ${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`)}
     </div>
   );
@@ -268,14 +230,14 @@ function ProviderNotice({ part }) {
     {part.detail && <pre translate="no">{part.detail}</pre>}
   </details>;
 }
-export function AssistantMessage({ message, live, onOpenWorker }) {
-  // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
+export function AssistantMessage({ message, live }) {
+  // Legacy saved reports remain readable; suppress their duplicate delegation tool row.
   const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
     part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
   );
   const shown = parts.map((part, index) =>
     part.type === 'worker' ? (
-      <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
+      <div key={index} className="ai-message-note"><span translate="no">{part.job}</span>{part.report && <AiMessage text={part.report} />}</div>
     ) : part.type === 'provider-notice' ? (
       <ProviderNotice key={index} part={part} />
     ) : part.type === 'question' ? (

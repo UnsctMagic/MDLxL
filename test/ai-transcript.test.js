@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { applyAiEvent, recordAiEvent } from '../src/ai-transcript.js';
 const require = createRequire(import.meta.url);
-const { AiRecorder } = require('../electron/ai-offload.cjs');
+const { AiRecorder } = require('../electron/ai-chat-state.cjs');
 
 // The saved transcript a sequence of AI events builds, and the events passed on
 // to the console.
@@ -98,31 +98,13 @@ test('a repeated provider notice updates its row and keeps only the notice field
   ]);
 });
 
-test('a bird job row is added once and filled in when the bird finishes', () => {
-  const { conversation, emitted } = record([
-    { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working', region: 'cape', model: 'm', light: false },
-    { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working' },
-    { type: 'split', text: 'Steer' },
-    { type: 'worker', workerId: 'w1', name: 'Crow', status: 'done', report: 'Done.', cost: { usd: 1 }, model: 'm', light: false },
-    { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Again', status: 'done', report: 'Again.' },
-  ]);
-  assert.deepEqual(conversation.transcript[1].parts, [
-    { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'done', region: 'cape', model: 'm', light: false, report: 'Done.', cost: { usd: 1 } },
-  ]);
-  // A finished bird that reports again gets a new row.
-  assert.deepEqual(conversation.transcript[3].parts, [
-    { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Again', status: 'done', region: undefined, model: undefined, light: undefined },
-  ]);
-  assert.equal(emitted.length, 4);
-});
-
 test('the art brief row fills in, cost keeps roles only when sent, usage and requests stay in main', () => {
   const { conversation, emitted } = record([
     { type: 'request' },
     { type: 'art', status: 'running' },
     { type: 'art', status: 'done', text: 'Brief' },
     { type: 'art', status: 'error' },
-    { type: 'cost', usd: 0.5, tokens: 10, model: 'm', light: false },
+    { type: 'cost', usd: 0.5, tokens: 10, model: 'm' },
     { type: 'usage', used: 0, window: 100 },
     { type: 'usage', used: 50, window: 100 },
   ]);
@@ -130,11 +112,11 @@ test('the art brief row fills in, cost keeps roles only when sent, usage and req
     { type: 'art', status: 'done', text: 'Brief' },
     { type: 'art', status: 'error', text: '' },
   ]);
-  assert.deepEqual(conversation.transcript[1].cost, { usd: 0.5, tokens: 10, model: 'm', light: false });
+  assert.deepEqual(conversation.transcript[1].cost, { usd: 0.5, tokens: 10, model: 'm' });
   assert.deepEqual(conversation.usage, { used: 50, window: 100 });
   assert.deepEqual(emitted.map(e => e.type), ['art', 'art', 'art', 'cost']);
-  const roles = record([{ type: 'cost', usd: null, tokens: 5, roles: { bird: { calls: 1 } } }]);
-  assert.deepEqual(roles.conversation.transcript[1].cost, { usd: null, tokens: 5, model: undefined, light: undefined, roles: { bird: { calls: 1 } } });
+  const roles = record([{ type: 'cost', usd: null, tokens: 5, roles: { direct: { calls: 1 } } }]);
+  assert.deepEqual(roles.conversation.transcript[1].cost, { usd: null, tokens: 5, model: undefined, roles: { direct: { calls: 1 } } });
 });
 
 test('a recorder that was never started keeps its reply out of the saved chat', () => {
@@ -176,7 +158,6 @@ const STREAM = [
   { type: 'compaction', active: true },
   { type: 'question', questionId: 'q1', questions, name: 'Crow', message: 'One thing' },
   { type: 'provider-notice', id: 'chat', text: 'Usage', detail: '10%', severity: 'info', name: '' },
-  { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working', region: 'cape' },
   { type: 'steer', text: 'Also the cape' },
   { type: 'art', status: 'done', text: 'Brief' },
   { type: 'tool-result', callId: 'c1', name: 'mdlxl_read', summary: 'Footman' },
@@ -185,9 +166,7 @@ const STREAM = [
   { type: 'compaction', active: false },
   { type: 'question-result', questionId: 'q1', status: 'done', answers: { colour: { answers: ['Dark'] } } },
   { type: 'provider-notice', id: 'chat', text: 'Usage', detail: '20%', severity: 'info', name: '' },
-  { type: 'worker', workerId: 'w1', name: 'Crow', job: 'Red cape', status: 'working' },
-  { type: 'worker', workerId: 'w1', name: 'Crow', status: 'done', report: 'Done.', cost: { usd: 1 } },
-  { type: 'cost', usd: 0.5, tokens: 10, model: 'm', roles: { bird: { calls: 1 } } },
+  { type: 'cost', usd: 0.5, tokens: 10, model: 'm', roles: { direct: { calls: 1 } } },
   { type: 'text', text: 'Finished.' },
   { type: 'error', text: 'Stopped late' },
   { type: 'done' },
