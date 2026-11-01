@@ -1,6 +1,6 @@
 // AI console in the packaged app: docked layout, Pen/Marker/Eraser with real
 // mouse drags, camera controls while a tool is active, live thinking/steps and
-// steering a running task, and a bird working on its own model tab while you
+// steering a running task, and a direct chat working on its own model tab while you
 // edit another one. Run through scripts/hidden-run.ps1 on Windows.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -30,10 +30,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     secondModel = path.join(out, 'Second.mdx');
   fs.copyFileSync(model, workModel);
   fs.copyFileSync(model, secondModel);
-  // Offload Mode is on by default: the organiser hands the job to a worker (Crow).
-  const organiserRequests = [],
-    workerRequests = [];
-  // The bird's background edit waits until the owner has edited the other tab.
+  // The direct model chat edits while other model chats remain available.
+  const memoryRequests = [],
+    directRequests = [];
+  // The AI chat's background edit waits until the owner has edited the other tab.
   let ownerEdited = false,
     planCalls = 0;
   const secondRequests = [],
@@ -75,29 +75,21 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       await stream('content', '{"verdict":"good","confidence":0.9,"problems":[],"strengths":["the vertex moved"]}', 0);
       return stop();
     }
-    if (String(data.messages[0]?.content).includes('You are the organiser')) {
-      organiserRequests.push(data);
-      if (!data.tools) {
-        await stream('content', 'Memory: the chest area was separated; the user wants the shoulder pads kept. ', 10);
-        return stop();
-      }
-      if (data.messages.at(-1).role === 'tool') {
-        await stream('content', 'Crow separated the marked area and kept the shoulder pads. ', 20);
-        return stop();
-      }
-      await stream('content', 'I will give this to a worker. ', 20);
-      return callTool('mdlxl_worker', { job: 'Separate marked area', instructions: 'Cut the marked chest area into its own geoset.' });
+    if (!data.tools) {
+      memoryRequests.push(data);
+      await stream('content', 'Memory: the chest area was separated; keep the shoulder pads. ', 10);
+      return stop();
     }
-    // Second's own bird: a separate job on another model at the same time as Crow's.
+    // Second's own AI chat: a separate job on another model at the same time as the AI's.
     const sentFor = data.messages.find(m => m.role === 'user' && JSON.stringify(m.content).includes('MDLxL context captured'));
     if (/\\"name\\":\\"Second\.mdx\\"/.test(JSON.stringify(sentFor?.content))) {
       secondRequests.push(data);
-      await stream('content', 'Second bird: the gem is now blue. ', 20);
+      await stream('content', 'Second job: the gem is now blue. ', 20);
       return stop();
     }
-    workerRequests.push(data);
-    // The plan the bird records before its first edit is one extra request.
-    const n = workerRequests.length - planCalls;
+    directRequests.push(data);
+    // The plan the AI chat records before its first edit is one extra request.
+    const n = directRequests.length - planCalls;
     if (n === 1) {
       await stream('reasoning_content', 'The user marked an area on the chest and drew an outline with the pen. ', 60);
       await stream('content', 'I will look at the marked area first. ', 40);
@@ -264,7 +256,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('two fresh drawings for the prompt', (await drawings()) === 2);
 
   // Escape leaves the tool first.
-  await canvas.focus().catch(() => {});
+  await page.locator('.classic-status').click();
   await page.keyboard.press('Escape');
   await settle(page, 100);
   check('Escape turns the drawing tool off', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
@@ -329,13 +321,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await settle(page, 200);
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
-  // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
+  // Prompt with drawings: watch and steer the direct chat.
   await page.getByLabel('AI prompt').fill('Cut the marked area into its own geoset');
   await page.getByLabel('AI prompt').press('Enter');
-  await page.waitForSelector('.ai-worker-row', { timeout: 15000 }).catch(async error => { console.log('SEND FAILURE', await page.locator('.ai-assistant').innerText()); throw error; });
+  await page.waitForSelector('.ai-step', { timeout: 15000 }).catch(async error => { console.log('SEND FAILURE', await page.locator('.ai-assistant').innerText()); throw error; });
   await shot('05-organiser');
   const context = JSON.parse(
-    workerRequests[0].messages
+    directRequests[0].messages
       .find(m => m.role === 'user')
       .content[0].text.split(/MDLxL context captured when this prompt was sent[^\n]*:\n/)[1],
   );
@@ -344,34 +336,25 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const markerNote = annotations.strokes.find(s => s.tool === 'marker');
   check('the marker names the vertices it covers', Object.values(markerNote.markedVertices || {}).flat().length > 0, markerNote);
   check('the user message notes the attached drawings', (await page.locator('.ai-role-user .ai-message-note').first().innerText()).includes('2 drawings'));
-  check('no organiser request is made for the job', organiserRequests.length === 0);
-  // Names are random; the first bird of a chat is always a corvid.
-  const bird = await page.locator('.ai-worker-row b').first().innerText();
-  check('the first bird is a random corvid', ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'].includes(bird), bird);
-  const crowChip = page.locator('button.ai-roster-chip', { hasText: bird });
-  await crowChip.waitFor({ timeout: 10000 });
-  for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
-  check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("Cut the marked area into its own geoset"));
-  check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');
+  check('no organiser request is made for the job', memoryRequests.length === 0);
+  check('the direct chat gets the user words verbatim', JSON.stringify(directRequests[0].messages).includes('Cut the marked area into its own geoset'));
+  check('the model picker stays in the header and no Offload switch exists', await page.locator('.ai-heading select[aria-label="Chat model"]').count() === 1 && await page.getByRole('switch', {name:'Offload Mode', exact:true}).count() === 0);
   const modelPicker = page.locator('.ai-heading select[aria-label="Chat model"]');
   check('the model dropdown stays readable and usable while the AI works', (await modelPicker.boundingBox()).width >= 80 && !(await modelPicker.isDisabled()), await modelPicker.boundingBox());
   // SD Brain is parked: no switch and nothing about it in what the AI receives.
   check('the parked SD Brain has no header switch', (await page.locator('.ai-heading [role="switch"][aria-label="SD Brain"]').count()) === 0);
-  check('the first task carries no SD Brain text', !/SD Brain|Warcraft III SD modeling rulebook/.test(workerRequests[0].messages[0].content));
-  check('each bird has its own colour', /hsl\(/.test((await crowChip.getAttribute('style')) || ''));
-  await crowChip.click();
-  await page.waitForSelector('.ai-from-organiser', { timeout: 5000 });
+  check('the first task carries no SD Brain text', !/SD Brain|Warcraft III SD modeling rulebook/.test(directRequests[0].messages[0].content));
   await page.waitForSelector('.ai-step', { timeout: 15000 });
-  for (let i = 0; i < 100 && workerRequests.length < 2; i++) await wait(100);
+  for (let i = 0; i < 100 && directRequests.length < 2; i++) await wait(100);
   await page.waitForSelector('.ai-thinking.ai-live', { timeout: 10000 });
-  await shot('05b-crow-thinking');
+  await shot('05b-direct-thinking');
   await page.getByLabel('AI prompt').fill('Keep the shoulder pads');
   check('while busy the send button steers', (await page.locator('.ai-send').getAttribute('aria-label')) === 'Steer');
   await page.getByLabel('AI prompt').press('Enter');
   await page.waitForSelector('.ai-message-note:has-text("Sent while the AI was working")', { timeout: 5000 });
   await shot('06-steered');
 
-  // Background work: switch to another model tab and edit it while Crow keeps working on Footman.
+  // Background work: switch to another model tab and edit it while the AI keeps working on Footman.
   await stubDialogs(app, { open: secondModel });
   await clickMenu(app, 'Open…');
   await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx'), null, { timeout: 20000 });
@@ -382,50 +365,50 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('Control+a');
   await page.keyboard.press('u');
   await settle(page, 300);
-  check('the owner edits Second while Crow works', (await dirty('Second.mdx')) === '●' && (await page.locator('.ai-paused').count()) === 0);
-  // A second AI job at the same time: Second's own chat is free while Crow works on Footman.
-  check("Second's chat can send while Crow works on Footman", (await page.locator('.ai-send').getAttribute('aria-label')) === 'Send');
+  check('the owner edits Second while the AI works', (await dirty('Second.mdx')) === '●' && (await page.locator('.ai-paused').count()) === 0);
+  // A second AI job at the same time: Second's own chat is free while the AI works on Footman.
+  check("Second's chat can send while the AI works on Footman", (await page.locator('.ai-send').getAttribute('aria-label')) === 'Send');
   await page.getByLabel('AI prompt').fill('Make the gem blue');
   await page.getByLabel('AI prompt').press('Enter');
   for (let i = 0; i < 200 && !secondRequests.length; i++) await wait(100);
   await page
-    .waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('Crow separated') || document.querySelector('.ai-worker-row.ai-worker-done'), null, { timeout: 20000 })
+    .waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('Second job: the gem is now blue.'), null, { timeout: 20000 })
     .catch(async error => {
       await shot('06a-second-failed');
-      console.log('SECOND', secondRequests.length, organiserRequests.length, (await page.locator('.ai-assistant').innerText()).slice(-600));
+      console.log('SECOND', secondRequests.length, memoryRequests.length, (await page.locator('.ai-assistant').innerText()).slice(-600));
       throw error;
     });
-  check("Second's bird finishes its job while Crow is still working on Footman", secondRequests.length >= 1 && workerRequests.length <= 4, { second: secondRequests.length, crow: workerRequests.length });
+  check("Second's AI chat finishes its job while the AI is still working on Footman", secondRequests.length >= 1 && directRequests.length <= 4, { second: secondRequests.length, direct: directRequests.length });
   await shot('06a-two-jobs');
   await settle(page, 600);
   const ownerView = await viewShot();
   ownerEdited = true;
-  // One more request than before the plan step: the bird records its plan first.
-  for (let i = 0; i < 300 && workerRequests.length < 7; i++) await wait(100);
-  const patched = JSON.stringify(workerRequests[4]?.messages || []);
-  check('Crow edits Footman while you are on another tab', patched.includes('\\"applied\\":true') && (await dirty('Footman.mdx')) === '●', patched.slice(-400));
-  const steeringMessage = workerRequests[2].messages.filter(m => m.role === 'user').map(m => typeof m.content === 'string' ? m.content : m.content.map(p => p.text || '').join('\n')).find(text => text.startsWith('Keep the shoulder pads\n\nSteering:\n'));
-  check('steering reaches the running bird with the user words first', !!steeringMessage);
-  const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
+  // One more request than before the plan step: the AI chat records its plan first.
+  for (let i = 0; i < 300 && directRequests.length < 7; i++) await wait(100);
+  const patched = JSON.stringify(directRequests[4]?.messages || []);
+  check('the AI edits Footman while you are on another tab', patched.includes('\\"applied\\":true') && (await dirty('Footman.mdx')) === '●', patched.slice(-400));
+  const steeringMessage = directRequests[2].messages.filter(m => m.role === 'user').map(m => typeof m.content === 'string' ? m.content : m.content.map(p => p.text || '').join('\n')).find(text => text.startsWith('Keep the shoulder pads\n\nSteering:\n'));
+  check('steering reaches the running AI chat with the user words first', !!steeringMessage);
+  const reviewed = JSON.stringify(directRequests[5]?.messages || []);
   check('the review gets original and edited pictures drawn off-screen', reviewed.includes('Edited target') && reviewed.includes('Original target before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
   // Keep the compared pair, drawn with one framing, for a look.
   // The tool text lists "Image n: label"; the pictures follow in the next message with images.
-  const messages = workerRequests[5]?.messages || [],
+  const messages = directRequests[5]?.messages || [],
     at = messages.findIndex(m => m.role === 'tool' && String(m.content).includes('Original target before the task'));
   const labels = [...String(messages[at]?.content || '').matchAll(/Image \d+: ([^\n]+)/g)].map(m => m[1]),
     pictures = (messages.slice(at + 1).find(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'))?.content || []).filter(c => c.type === 'image_url');
   labels.forEach((label, i) => pictures[i] && fs.writeFileSync(path.join(out, `review-${i + 1}.png`), Buffer.from(pictures[i].image_url.url.split(',')[1], 'base64')));
   fs.writeFileSync(path.join(out, 'review-labels.json'), JSON.stringify(labels, null, 1));
-  check('the review passes on the background model', JSON.stringify(workerRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
+  check('the review passes on the background model', JSON.stringify(directRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
   check('a separate outside check judged the background edit before it counted as verified', outsideChecks.length === 1 && !JSON.stringify(outsideChecks[0].messages).includes('Move one vertex'), outsideChecks.length);
   // A step that needs MDLxL's own controls on screen pauses until you return.
   await page.waitForSelector('.ai-paused', { timeout: 15000 });
   check('a step that needs the screen waits for its model tab', (await page.locator('.ai-paused').innerText()).includes('Footman.mdx'));
-  check("Crow's pictures never moved your view", (await viewShot()).equals(ownerView));
+  check("the AI's pictures never moved your view", (await viewShot()).equals(ownerView));
   check('the tab on screen stays Second', await page.evaluate(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx')));
-  const pausedAt = workerRequests.length;
+  const pausedAt = directRequests.length;
   await wait(2500);
-  check('nothing more happens on the paused model while you are away', workerRequests.length === pausedAt && pausedAt === 7, { pausedAt, now: workerRequests.length });
+  check('nothing more happens on the paused model while you are away', directRequests.length === pausedAt && pausedAt === 7, { pausedAt, now: directRequests.length });
   await shot('06b-paused');
   // Each tab keeps its own Undo: Ctrl+Z on Second undoes the owner's edit only.
   // Selection changes are Undo steps too, so step back until Second is unchanged.
@@ -442,17 +425,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.keyboard.press('Control+y');
     await settle(page, 300);
   }
-  check("Undo on Second undoes only the owner's edit; Footman keeps Crow's", undone && (await dirty('Second.mdx')) === '●');
+  check("Undo on Second undoes only the owner's edit; Footman keeps the AI's", undone && (await dirty('Second.mdx')) === '●');
   await page.locator('.model-tab [role="tab"]', { hasText: 'Footman.mdx' }).click();
-  for (let i = 0; i < 150 && workerRequests.length < 8; i++) await wait(100);
-  check('returning to the tab resumes the bird', workerRequests.length === 8);
+  for (let i = 0; i < 150 && directRequests.length < 8; i++) await wait(100);
+  check('returning to the tab resumes the AI chat', directRequests.length === 8);
   await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 30000 });
   check('the pause banner clears', (await page.locator('.ai-paused').count()) === 0);
   await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });
-  check('the bird report reaches the organiser view once without a recap', organiserRequests.length === 0 && (await page.locator('.ai-worker-row.ai-worker-done').count()) === 1);
-  await crowChip.click();
-  await page.waitForSelector('.ai-from-organiser');
-  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });
+  check('the direct reply appears once in its own chat', await page.getByText('Understood, I will keep the shoulder pads in the original geoset.', {exact:true}).count() === 1);
   check('every tool step settles once the AI finishes', (await page.locator('.ai-step').count()) >= 6 && (await page.locator('.ai-step-running').count()) === 0 && (await page.locator('.ai-step-done').count()) >= 1);
   const order = await page.evaluate(() =>
     [...document.querySelectorAll('.ai-thread > article')].map(a => (a.classList.contains('ai-role-user') ? 'user' : 'ai')),
@@ -460,10 +440,6 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the steering message sits where it was sent', JSON.stringify(order) === JSON.stringify(['user', 'ai', 'user', 'ai']), order);
   await page.locator('.ai-thinking .ai-part-toggle').first().click();
   await shot('07-done-thinking-open');
-  await page.locator('button.ai-roster-chip', { hasText: 'Organiser' }).click();
-  await page.waitForSelector('.ai-worker-row');
-  await shot('07a-organiser-done');
-
   // Compaction: a running provider summarizes the long chat; the console shows it plainly.
   const sendEvent = value =>
     app.evaluate(({ BrowserWindow }, event) => BrowserWindow.getAllWindows()[0].webContents.send('ai:event', event), value);
@@ -483,13 +459,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.waitForSelector('.ai-cleanup', { timeout: 20000 });
   check('saving after AI work asks how to tidy the chats', (await page.locator('.ai-cleanup-choices button').count()) === 3);
   await shot('07d-save-cleanup');
-  const before = organiserRequests.length;
+  const before = memoryRequests.length;
   await page.locator('.ai-cleanup-choices button', { hasText: 'Keep a summary' }).click();
-  await page.waitForFunction(() => !document.querySelector('.ai-cleanup') && !document.querySelector('.ai-roster'), null, { timeout: 20000 });
-  check('Keep a summary asks the organiser for a memory note without tools', organiserRequests.length === before + 1 && !organiserRequests.at(-1).tools);
+  await page.waitForFunction(() => !document.querySelector('.ai-cleanup') && !document.querySelector('.ai-chats'), null, { timeout: 20000 });
+  check('Keep a summary asks for a memory note without tools', memoryRequests.length === before + 1 && !memoryRequests.at(-1).tools);
   await page.waitForSelector('.ai-empty', { timeout: 10000 }).catch(() => {});
   await shot('07e-after-cleanup');
-  check('the chats are cleared and a fresh organiser starts', (await page.locator('.ai-empty').count()) === 1);
+  check('the chats are cleared and a fresh chat starts', (await page.locator('.ai-empty').count()) === 1);
   await shot('07e-after-cleanup');
   // Closing hides the drawings without losing them.
   const withDrawings = await viewShot();
@@ -502,8 +478,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('drawings come back when the console reopens', (await drawings()) === 2);
   check('reopened view shows the drawings again', (await viewShot()).equals(withDrawings));
   await shot('08-reopened');
-  // Both models save: Crow's background edit on Footman and the owner's edit on Second.
-  check("saving Footman writes Crow's edit", !fs.readFileSync(workModel).equals(fs.readFileSync(model)));
+  // Both models save: the AI's background edit on Footman and the owner's edit on Second.
+  check("saving Footman writes the AI's edit", !fs.readFileSync(workModel).equals(fs.readFileSync(model)));
   await page.locator('.model-tab [role="tab"]', { hasText: 'Second.mdx' }).click();
   await settle(page, 500);
   await canvas.click({ position: { x: 40, y: 300 } });

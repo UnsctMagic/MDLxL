@@ -192,9 +192,7 @@ async function close() {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   await launch(fixture);
-  // Awareness, interruption and resume are about direct editing by one chat;
-  // Offload Mode (organiser and workers) has its own test in ai-console.electron.cjs.
-  await page.evaluate(() => window.desktop.aiOffload(false));
+  // Awareness, interruption and resume use the direct model chat.
   await page.evaluate(
     baseUrl => window.desktop.aiConfigure({ provider: 'compatible', baseUrl, model: 'workflow-fixture' }),
     `http://127.0.0.1:${server.address().port}/v1`,
@@ -238,6 +236,7 @@ async function close() {
     (await resource()).version === idleVersion && requests === 0,
   );
   await toggle.uncheck();
+  await waitFor(async () => !(await resource()).enabled);
   const disabled = await resource();
   context = await tool('mdlxl_context');
   await tool('mdlxl_select', { target: context.target, vertices: { 0: [3] } });

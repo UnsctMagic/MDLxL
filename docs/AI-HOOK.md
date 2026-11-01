@@ -51,8 +51,7 @@ had just finished, the message starts a follow-up turn on the same task. **Stop*
 
 When Codex or Claude Code asks a clarification, the question and its choices
 appear directly in chat. Choose an option (or several when requested) or type
-an answer, then click **Send answer**. A bird's question also appears in its
-organiser chat. **Cancel question** cancels that request; **Stop** stops the job.
+an answer, then click **Send answer**. **Cancel question** cancels that request; **Stop** stops the job.
 Neither control submits an answer. Questions remain readable after answering,
 cancellation or restart. A live nonblocking question remains answerable while
 the AI continues inspecting. The provider's resolved-request notification removes
@@ -67,15 +66,14 @@ native providers; model changes still use the registered MDLxL tools and Undo.
 
 Provider warnings/errors, connection failures, usage-limit updates, model
 switches and plans stay in chat after later activity. Click a notice to read its
-details or use its dismiss button. Bird notices also appear in the organiser.
+details or use its dismiss button.
 Codex-managed sign-in remains the account mechanism. A request for externally
 managed auth tokens or client attestation receives a visible connection error;
 MDLxL does not fabricate credentials or attestation tokens.
 
 ### Editing handbook
 
-The **Editing handbook** switch (the book icon in the console header, next to the
-bird) is off until you turn it on, and MDLxL remembers your choice. While it is on,
+The **Editing handbook** switch (the book icon in the console header) is off until you turn it on, and MDLxL remembers your choice. While it is on,
 every request also carries a short set of general Warcraft III editing rules, and
 the AI can open the step-by-step `WC3-EDITING-*` guides (geometry, UVs and
 materials, nodes and binding, animation, emitters, game integration,
@@ -96,92 +94,29 @@ Anthropic on top of the tokens.
 The AI is told to treat pages as information only: it never follows instructions
 found on a page and never sends your model or conversation to a website. Its
 editing tools are unchanged, so it can still only change the open model, and
-every edit stays in Undo. The organiser of Offload Mode never searches; the bird
-doing the work does. Like the handbook, a running job keeps the setting it
+every edit stays in Undo. Like the handbook, a running job keeps the setting it
 started with; a change applies from the next request.
 
-### Offload Mode: an organiser per model and its birds
+### One chat per model
 
-Each model has its own AI chat: switch model tabs to switch chats. Reference
-models, draft text and attached images stay with that model's organiser chat and
-its birds. Another model's chat cannot list, read or use those donors in scripts.
-References opened by a background bird stay with its original chat. Attached
-models and models opened by AI tools are AI-only references: they do not create
-editor tabs or change your visible model. The AI can still read their data, use
-them in scripts and render donor comparison pictures. Remove them with their
-attachment chip; closing the owning model releases its references. Normal
-File → Open continues to open models in the editor. **New chat**
-starts without the previous organiser's attachments. With **Offload
-Mode** on (the default; the bird switch in the console header, next to the model
-picker) that chat keeps the job roster and forwards work directly to a worker with a simple bird name (the first one of a chat is a corvid, the
-rest are picked at random), and the
-worker does the work with its own memory. Each bird keeps its own colour in the chat. Its report appears once, without an organiser recap call. Separate memories keep long sessions from running
-into compacting.
+Each model has its own AI chat: switch model tabs to switch chats. **New chat**
+starts a fresh chat; **Earlier chat** opens older chats read only. Draft text,
+attached images and reference models stay with their own chat. A new chat starts
+without the previous chat's attachments. AI-only references do not open editor
+tabs or change your visible model; remove them with their attachment chip.
 
-- Your message reaches the worker exactly as you wrote it, together with your
-  selection and drawings. Only the working bird receives images and captured context.
-  A bird's first message carries the full editor snapshot without the command list.
-  Later messages and verification nudges carry the target and only changed sections;
-  omitted selection, view, sequence, drawings and IDs keep their last values. A reset,
-  compaction or replacement model starts with the full snapshot again. The AI calls
-  `mdlxl_context` for the complete current lists and commands. Your words lead every
-  job, steering message and verification nudge. Workers see only relevant earlier
-  decisions, newest first; the organiser keeps the complete stored diary.
-- **Job routing** in Connection settings offers Manual (default), Automatic, or Both.
-  Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
-  uses the shared bird for quick tasks. Automatic asks the organiser on the chosen
-  model to judge task complexity and delegate an unaddressed message. It sees the
-  current bird, roster, recent job context and compact model structure. Bird names
-  and IDs resolve to the same destination. An invalid decision gets one correction
-  attempt before any worker starts; another invalid reply reports a routing error.
-  Opening a bird chat or addressing its name bypasses routing. The first Manual job starts a bird without a routing call. Automatic can split a new request using a compact structure summary.
-- The existing reply cost line shows calls and tokens by role. Codex reports provider
-  turns; unavailable usage is labelled instead of estimated as zero.
-- Complex jobs declare concrete completion checks before editing. An organiser can
-  assign one read-only reference/measurement helper while the editor inspects the
-  target. Manual and explicitly addressed editor birds can request the same help
-  through their plan. Helpers have separate chats, cannot edit/save/operate UI,
-  and pass a compact evidence report back; the editor must incorporate it before
-  committing. Simple jobs keep the direct path without extra helper calls.
-- Birds record a candidate/verification phase checkpoint. When a bird's context
-  reaches its handover size (200,000 tokens, or half of a smaller window;
-  `HANDOVER_TOKENS` in `electron/ai-offload.cjs`), the next such checkpoint hands
-  remaining work to a fresh bird, preserving the original baseline, applied steps,
-  plan, helper findings and saved routines. It does not interrupt a pending tool
-  operation or replay an edit. Between jobs the same size retires a bird: MDLxL
-  writes its handover note from the saved task state and its last report, with no
-  AI call. Cumulative token spend is not the context-fullness measure.
-- Automatic routing can split a multi-part job into declared regions. Independent
-  birds work at once; overlapping dependencies and structural edits wait. Each
-  actual commit stays inside its region and adds a separate bird-labelled Undo
-  step. Normal Undo reverses those steps in order. The final combined check covers
-  shared seams in bind/posed frames and MDX/MDL save/reopen. There is no bird cap.
-  Explicit prerequisites run first and their compact reports go only to dependent
-  jobs. Coupled edits stay with one editor. If a structural change renumbers
-  parts, remaining assignments need a fresh job.
-- **Allow lighter models for simple jobs** is off by default. Load models in
-  Connection settings to see the lighter choices supported by that connection.
-  Select the lighter model there. Clear exact-value edits and factual reports use
-  it automatically. In Automatic routing, the organiser judges complexity for each
-  job or region: simple work may use the permitted lighter model, while complex
-  work uses the chosen model without a manual model question. Manual routing still
-  asks which model to use for unclear or spatial work. The choice applies to that
-  job. A failed light review or complex follow-up hands over once
-  to the chosen model, without replaying completed edits. Birds keep their model;
-  rows show the model and its individual cost. Unknown wording is treated as complex.
-- The chips above the chat show the organiser and its birds (spinner: working,
-  pause: waiting for you). Click a bird to read its chat, watch its thinking and
-  steps, or talk to it directly. Retired birds and earlier chats of this model
-  stay readable under **Retired**. **New chat** starts a new organiser for the model.
-- If you switch to another model tab while a bird works, it keeps working on its
-  own model in the background (see below). Only a step that needs MDLxL's own
-  buttons or windows on screen pauses ("Paused until you return to …"; the bird's
-  chip shows a pause sign) and carries on when you come back.
+Your words, selection and drawings go directly to the selected AI model. The
+first message carries the full editor snapshot without the command list. Later
+messages carry the target and changed sections; omitted fields retain their last
+values. A reset, compaction or replacement model starts with the full snapshot
+again. `mdlxl_context` returns the current full lists and commands. The cost row
+shows calls and tokens by role (direct, art direction when available, outside
+check); Codex counts provider turns and unavailable usage is labelled.
 
 ### Working in the background
 
-You can open or switch to another model and keep editing it while a bird works on
-the first one. The bird has its own environment for its model tab:
+You can open or switch to another model and keep editing it while the AI works on
+the first one. The AI has its own environment for its model tab:
 
 - **Its own model and Undo.** Its edits go straight into its model, as normal Undo
   steps of that tab. Your Undo on the tab you are using never touches them, and
@@ -190,40 +125,41 @@ the first one. The bird has its own environment for its model tab:
   events, emitters and the other model sections are edited through scripts and
   patches on that model directly, as are selection, views, Undo/Redo, reading,
   sampling, texture previews, reference models and export.
-- **Its own pictures.** The bird's pictures of its model, and every review picture
+- **Its own pictures.** The AI's pictures of its model, and every review picture
   (before/after, side views, animation frames), are drawn in a hidden preview. Your
-  view and camera never move, also when the bird works on the tab you are looking at.
-  These pictures show the bird's marked vertices (red) and the Marker/Pen notes
+  view and camera never move, also when the AI works on the tab you are looking at.
+  These pictures show the AI's marked vertices (red) and the Marker/Pen notes
   sent with the prompt, from the picture's own angle and animation frame. A
   picture can also be a close-up of the marked vertices, for small spots such as
   a joint or a seam. While a job runs MDLxL keeps drawing even when its window is
   covered or minimized, so pictures still work while you use another program.
 - **Editing handbook.** With the [Editing handbook](#editing-handbook) switch on,
-  a bird working in the background gets the same rules and guides.
+  an AI job working in the background gets the same rules and guides.
 - **Older chats keep working.** After an update or an SD Brain switch the AI's
   tool list changes and Claude refuses its earlier reasoning; MDLxL then drops
   that reasoning from finished turns and asks again.
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
-  them. When you switch to the bird's tab you see the selection it left there.
+  them. When you switch to the AI's tab you see the selection it left there.
 - **Screen-only steps wait.** Editor commands other than Undo/Redo, program
-  controls (`mdlxl_ui`) and choosing timeline keys need the bird's tab on screen.
+  controls (`mdlxl_ui`) and choosing timeline keys need the AI's tab on screen.
   Such a step waits until you return to that tab.
-- **Changes are checked.** Region birds become stale when their own part or a dependency changes; changes to another independent part do not invalidate them. For ordinary jobs on the tab being shown, if you change that model or its
-  selection while the bird prepares an edit, the edit is refused and the bird asks,
-  as before. Closing the bird's tab stops its task.
+- **Changes are checked.** On the tab being shown, if you change that model or its
+  selection while the AI prepares an edit, the edit is refused and the AI asks,
+  as before. Closing the AI's tab stops its task.
 
-**Several jobs at once.** Each model's chat runs its own job: while a bird works
-on one model, switch to another model's tab and send its chat a prompt; its own
-organiser and birds work alongside. One owner request per model at a time: its declared region birds can run concurrently; a second independent chat of the same model waits. **Stop** and steering act on
+**Several jobs at once.** Each model's chat runs its own job: while the AI works
+on one model, switch to another model's tab and send its chat a prompt. Jobs on
+different models run at the same time, including hidden tabs. One job per model
+at a time; a second chat of the same model waits. **Stop** and steering act on
 the chat you are looking at. Connection settings and sign-in stay unavailable
 while any job runs, since all chats share one connection.
 
 After you save a model the AI worked on, MDLxL asks how to tidy its chats:
 **Keep everything**, **Keep a summary** (the AI writes a memory note from the
-birds' reports and the decision diary, then
+chat and the decision diary, then
 all chats, screenshots and the copies Codex or Claude keep are deleted; the next
-organiser for this model starts with the note) or **Wipe it all**. **Remember for
+chat for this model starts with the note) or **Wipe it all**. **Remember for
 this model** skips the question next time; **After saving** in the connection
 settings changes the remembered choice.
 
@@ -236,8 +172,6 @@ the AI is working. **Clean up unused chats after (days)** in the connection
 settings changes the number of days; leave it empty to never clean up. Tick
 **Important model** there to keep that model's chats; automatic cleanup skips it.
 Sign-in and connection settings are never touched.
-
-With Offload Mode off, the model's chat edits directly, as one assistant.
 
 ### Marker and Pen
 
@@ -269,8 +203,7 @@ works includes the current notes, and viewport captures show them.
 > setting `SD_BRAIN_AVAILABLE` in `src/ai-sd-rules.js` to `true` brings all of it
 > back. The description below is how it works when it is available.
 
-**SD Brain** is a switch in the AI console header, the brain icon next to the
-Offload Mode bird (off until you turn it on; it
+**SD Brain** is a switch in the AI console header, the brain icon (off until you turn it on; it
 is remembered across restarts, providers and new chats). It is art direction for
 your prompts, not a library of models to copy:
 
@@ -283,7 +216,7 @@ your prompts, not a library of models to copy:
   sword", "evil cup") still gets a coherent SD result, and a subject Warcraft never
   had ("a chalice worthy of Mordor") becomes SD shapes and symbols in that spirit.
   The brief shows as a collapsed **Art direction** row in the chat; the AI that
-  does the work (or the Offload worker) receives it with your own words, which come
+  does the work receives it with your own words, which come
   first. Edits, UV mapping, cleanup and animation get a plan and a list of what to
   preserve instead of a new design.
 - **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
@@ -305,9 +238,7 @@ your prompts, not a library of models to copy:
   [Warcraft III SD rulebook](AI-SD-RULEBOOK.md)) goes into the trusted
   instructions of every turn for Codex, Claude Code and API providers. When it is
   off, each turn carries an explicit "off" state, so an earlier "on" in the chat
-  history cannot keep applying. Offload workers inherit the organiser task's
-  state, and with SD Brain on the organiser may look at a capture of the combined
-  result. External MCP clients read the current state and instructions in every
+  history cannot keep applying. External MCP clients read the current state and instructions in every
   `mdlxl_context` result (`sdBrain`).
 - Review: with SD Brain on, `mdlxl_review finish` with outcome passed needs a
   verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
@@ -354,11 +285,11 @@ failures of the same named measured check across different revisions require a
 changed plan before another edit; rereading the same revision does not count as
 another failure.
 
-Birds inspect representative candidates before expensive exhaustive checks,
+The AI inspects representative candidates before expensive exhaustive checks,
 recheck affected parts after corrections, then perform the full final review.
 For repeated calculations, embedded script/review calls can store a named
 routine once and reuse it with parameters. Routine bodies are job-local and
-survive checkpoint handovers; compact measurements replace repeated code and
+survive checkpoints and restarts; compact measurements replace repeated code and
 large arrays in the conversation. External MCP calls keep their stateless API.
 These instructions do not waive final visual, preservation or save/reopen checks.
 Actual artistic quality and elapsed-time/token savings still require real-job
@@ -390,7 +321,7 @@ it reports distances, speed differences, exact endpoint samples, horizontal
 centre drift, structural contact travel, changed topology and non-geometric
 channel spans. These are observations, never acceptance gates. Changed topology
 has no assumed vertex correspondence, and billboards need visual review.
-The outside check receives this table separately from the worker's own checks;
+The outside check receives this table separately from the editing AI's own checks;
 still pictures alone cannot establish timing, sliding or popping.
 When review frames are omitted, measured motion adds the worst-distance and
 worst-speed frames to the usual start/middle/end pictures, then worst-frame
@@ -436,8 +367,7 @@ pictures before and after a change, so the pair compares like with like.
 Provider default, Medium, High (the default) or Extra high. It sets how hard the
 AI thinks before each step: Codex's reasoning effort, Claude Code's effort, or the
 Claude API's effort (Claude 4.6 stops at High; older Claude models keep their own
-setting). Higher is slower and uses more of your plan or credits. Job routing
-uses the chosen model and thinking setting to judge the work and its dependencies. Other AI / local
+setting). Higher is slower and uses more of your plan or credits. Other AI / local
 model connections do not offer it.
 
 **Guides and patterns.** With the Editing handbook on, each job also carries the
@@ -455,9 +385,7 @@ written above it in the source:
   (`AI_COMMON_FUNCTIONS` in `src/ai-capabilities.js`). It never changes between
   turns, so providers bill it at their cheaper cached rate.
 - Each job also gets the functions of the areas it needs (mesh, uv, materials and
-  so on), at most once per bird conversation. In Automatic routing the organiser
-  names up to three areas in its routing reply. Otherwise MDLxL picks up to two
-  from the request's words.
+  so on), at most once per chat. MDLxL picks up to two from the request's words.
 - **Finding modeling tools** still works for anything not handed over. A search
   now returns the matching functions with their arguments and descriptions, so
   one lookup is usually enough.
@@ -465,10 +393,10 @@ written above it in the source:
 **Decision diary.** MDLxL keeps a short diary for each model: for every AI job,
 your request, the plan (cause, chosen fix, why, what it kept), the edits it made,
 whether the result was verified, and your next message as your reaction. Every new
-job on that model, by any bird or provider, gets the last eight entries and is
+job on that model, with any provider, gets the last eight entries and is
 told that earlier AI edits were choices it may undo, not part of your authored
 model. The diary lives in MDLxL's own profile, so it survives switching between
-Codex and Claude, a bird's memory filling up, and **Keep a summary** after
+Codex and Claude, and **Keep a summary** after
 saving. **Wipe it all** deletes it with the chats.
 
 After model edits, **Result verified** appears only after the AI runs measured,
@@ -712,7 +640,7 @@ The main editor's CSP remains unchanged.
 
 Focused checks: `node --test test/ai-*.test.js` (background work:
 `test/ai-background.test.js`; in the packaged app, `test/ai-console.electron.cjs`
-edits a second tab while a bird edits the first). The native interaction test is
+edits a second tab while the AI edits the first). The native interaction test is
 `test/ai-editor.electron.cjs`; run it on a hidden Windows desktop with a disposable
 profile. `MDLXL_AI_TEST_EXE` selects a packaged executable and `MDLXL_AI_TEST_OUT`
 selects its report directory. It uses a local provider fixture, so it does not
