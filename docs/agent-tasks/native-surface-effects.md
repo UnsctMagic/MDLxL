@@ -1,5 +1,7 @@
 # FX surface effects
 
+> **Owner review of PR #492 (1 Nov 2026): not accepted as is.** Read the [FX contract](../FX-GLOBAL-ANIMATIONS.md) first; it overrides this note. Next pass: global animation maker, layer controls, fit the whole part, re-edit after Apply; remove ground auras, swing trails and cue cards (park the cue code).
+
 ## Current handover
 
 The FX button and Managers command open the compact Surface Effects window. Choose a geoset in the model or dropdown, choose a card, preview it and click Apply effect. Overlay, Replace and New geoset are available. New geoset copies the selected shape and skin weights. The command has an assignable shortcut and starts unbound.
