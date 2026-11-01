@@ -306,7 +306,9 @@ export default function App() {
   }, [session.id, doc.revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
   // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
-  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [model, doc.revision, hideExtras]);
+  // The list is decided when Hide extras is clicked (or the geoset count changes), not after
+  // every edit: baking a geoset's visibility to 0 must not pull it out of the list mid-work.
+  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [session.id, model.Geosets.length, hideExtras]);
   const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const selectable = useMemo(() => new Set([...checkedGeosets].filter(index => tabVisibleGeosets.has(index))), [checkedGeosets, tabVisibleGeosets]);

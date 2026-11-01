@@ -19,7 +19,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [7360, 7376, 7239]);
+  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [7382, 7398, 7261]);
   // Only the removed delegation labels/tips change catalog sizes.
   for (const pack of [ru, es, zh]) for (const key of ['Offload Mode', 'Job routing', 'Tiny job', 'Lighter model']) assert.equal(Object.hasOwn(pack, key), false);
   for (const source of Object.keys(ru)) assert.ok(Object.hasOwn(es, source), `es: ${source}`);
