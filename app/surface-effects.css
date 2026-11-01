@@ -20,4 +20,9 @@
 
 .surface-effects .sfx-stage svg.pe-stage-tools{display:block}
 
+
+.fx-starters,.fx-layer-list{display:grid;gap:3px}.fx-starters h4{margin:5px 0 1px}.fx-starters button,.fx-layer-list button{text-align:left}
+.fx-layer-list small{margin-left:5px;opacity:.72}.fx-layer-actions{display:flex;gap:3px;flex-wrap:wrap}
+.sfx-controls .pe-slider{width:100%;min-width:0}.sfx-controls .pe-slider-value{min-width:0}.sfx-controls .pe-slider-value input[type=range]{min-width:40px;width:100%}
+
 .sfx-empty{display:grid;gap:6px;justify-items:start}

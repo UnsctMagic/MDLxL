@@ -35,7 +35,7 @@ export function RibbonFields({model,id,disabled,onEdit,onPause,flat=false,childr
   <NumberRow label="Upper end" title="How far the ribbon reaches above its center along the weapon." value={values.above} min={0} onCommit={v=>set('Change ribbon upper end',{above:v})}/>
   <NumberRow label="Lower end" title="How far the ribbon reaches below its center along the weapon." value={values.below} min={0} onCommit={v=>set('Change ribbon lower end',{below:v})}/>
   <NumberRow label="Smoothness" title="Trail pieces made per second. More pieces make a smoother curve in fast swings." value={values.amount} min={0} step={1} onCommit={v=>set('Change ribbon smoothness',{amount:v})}/>
-  <NumberRow label="Gravity" title="Pulls the trail down while it fades in game. 0 keeps it where the weapon was. The preview does not show gravity." value={values.gravity} onCommit={v=>set('Change ribbon gravity',{gravity:v})}/>
+  <NumberRow label="Gravity" title={node._FxTag?'Pulls the edge down as it fades. 0 keeps it where the weapon was.':'Pulls the trail down while it fades in game. 0 keeps it where the weapon was. The preview does not show gravity.'} value={values.gravity} onCommit={v=>set('Change ribbon gravity',{gravity:v})}/>
  </>;
  return <>
   <label className="ribbon-box-row" title="The ribbon's color. It is brightest at the weapon and fades along the trail."><span>Color</span><input ref={colorInput} aria-label="Ribbon color" type="color" disabled={disabled} defaultValue={hex(values.color)}/></label>

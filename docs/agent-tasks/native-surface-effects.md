@@ -1,8 +1,21 @@
-# FX surface effects
+# FX global animation maker
 
-> **Owner review of PR #492 (1 Nov 2026): the task was misunderstood.** Read the [FX contract](../FX-GLOBAL-ANIMATIONS.md) first; it overrides this note. FX is a global sequence maker (burning sword, water skin, rune blade, fly swarm) with layer controls, whole-part fit and re-editing. Keep every existing card and its code as it is; the owner will sort them later.
+The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
-## Current handover
+## Global animation maker · 1 November 2026
+
+Select a model part and choose a look from Blades, Skins, Around the unit, or Your textures. These 17 starters sit above the 51 earlier cards. Select a layer in the right column to adjust it, drag its position or size, or open its emitter in EMTR. One Apply writes one history entry. Selecting a saved skin or rune resolves to its original part. Reopening a stack reads back native emitter settings, material colour and intensity, and simple texture speeds. Independently edited tracks survive changes to another layer.
+
+- One loop drives the stack during Stand, Walk, Attack and Death. An equal existing clock is shared. Each fly has its own phase, tilt, direction and number of turns inside the common period.
+- Short-lived fire comes from several points along the blade. The points follow its actual faces, including bends and separated pieces. Flames stay behind a moving weapon for a moment while the bright core stays on it. The rune mesh turns around a pivot under the existing part bone.
+- Moving skins fit the material to each UV island. Separate water highlights cross the underlying surface. Moving own texture scrolls repeating materials and makes a short return movement on painted unit atlases. A dark crust and brighter, pulsing fissures give lava its contrast. Colour, strength, timing and placement remain editable.
+- Native materials, texture tracks, bones, particles and ribbons carry the animation. MDL comments and the MDX `XLFX` chunk hold the editable layer grouping. The save window can remove that grouping while keeping the native animation. Independently tinted layers can require a copy of the selected geometry because classic geoset colour belongs to the geometry.
+
+The [model checks](../../test/global-animations.test.js) cover every starter in both formats, shared clocks, independent adjustments and Undo. The [packaged workflow](../../test/global-animations.electron.cjs) exercises both blade ends, actual camera rotation, colour, loop length, rune and swarm handles, persistence and Open in EMTR.
+
+I reviewed all 17 looks on the Khorne Warrior’s straight sword, the Nurgle Warrior’s hooked weapon, a Footman, a Paladin and an Abomination. The 255 full-loop captures cover Stand, Walk and Attack at game distance and in close orbit. I also checked 28 controls or gestures at three settings and corrected flame lifetime, wing blending, hooked-blade placement and painted texture travel. The packaged regressions previewed, applied and undid all 51 earlier cards, compared UV sets and reopened two saved effects in fresh windows. The five animated PR images come from the packaged editor. The captures and review are under `D:\Codex\fx-global-review`. Playback inside Warcraft III remains unverified.
+
+## Earlier card handover
 
 The FX button and Managers command open the compact Surface Effects window. Choose a geoset in the model or dropdown, choose a card, preview it and click Apply effect. Overlay, Replace and New geoset are available. New geoset copies the selected shape and skin weights. The command has an assignable shortcut and starts unbound.
 
@@ -50,7 +63,7 @@ Model preparation measured destination cloning and applying Water skin. The old 
 | Khorne Flail03 | 14.06 / 17.87 | 0 builds | 7.66 / 9.25 |
 | Hero Tinker | 35.94 / 39.36 | 0 builds | 32.68 / 34.31 |
 
-## Verification
+## Earlier card verification
 
 - The fail-first library check found both retired eye cards on the previous package. The previous renderer differed at 6,420 pixels for two equivalent UV sets on the Nurgle fixture. The corrected renderer gave identical pixels with a 6,420-pixel difference for the negative control.
 - The packaged motion review captures three playback frames and uses an actual mouse orbit for each look. The main set uses the Khorne and Nurgle Warriors. A second set changes the part or model and includes Footman impacts.
@@ -65,4 +78,6 @@ Model preparation measured destination cloning and applying Water skin. The old 
 
 The first prototype checkpoint was `4d84756d`. The initial main merge was `7abe7a35`. The reviewed Warrior build and its timing audit were checkpointed before the second main merge at `03133420`. The 0.37.2 package version stays unchanged for this feature.
 
-Session: codex Visual Lab effects second pass
+Earlier session: codex Visual Lab effects second pass
+
+Session: codex FX global animation maker
