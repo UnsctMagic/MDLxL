@@ -3,9 +3,9 @@ const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // The Library button browses every installed game file; texture pickers stay texture-only.
 // Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, else gameFolder()).
-// MDLXL_PACKAGED_EXE runs a packaged MDLxL.exe instead of the source checkout.
+// MDLXL_TEST_EXE runs a packaged MDLxL.exe instead of the source checkout.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-library'),checks=[];
+const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-library'+(process.env.MDLXL_LIBRARY_EXISTING_ONLY?'-existing':'')),checks=[];
 const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
 (async()=>{
   fs.rmSync(out,{recursive:true,force:true});fs.mkdirSync(out,{recursive:true});
@@ -20,16 +20,24 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   try{
 
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).waitFor();
+    if(!process.env.MDLXL_LIBRARY_EXISTING_ONLY)await require('./library-textures-contract.cjs')(page,out,checks);
+    if(process.env.MDLXL_TEXTURES_ONLY){console.log('PASS:\n- '+checks.join('\n- '));return;}
     // The UV Wrapper's library is the unchanged texture picker: no tabs, same title.
-    await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').focus();await page.keyboard.press('Control+a');
+    await page.locator('[data-hotkey="geosetsClear"]').click();
+    await page.getByRole('checkbox',{name:'Select geoset 0',exact:true}).check();await page.keyboard.press('Control+a');
+    assert.equal(await page.evaluate(()=>window.__mdlxl.selection().activeGeoset),0,'the no-op reuse check targets the geoset already showing Footman');
+    const beforeUV=await page.evaluate(()=>JSON.stringify(window.__mdlxl.model()));
     await page.locator('[data-hotkey="uv"]').click();await page.locator('.uv-tab-window .uv-editor canvas').waitFor();
     await page.getByRole('button',{name:'Replace Texture…',exact:true}).click();
     const picker=page.locator('[aria-modal="true"][aria-label="Material and Texture Library"]');await picker.waitFor();
+    const footmanNative=page.locator('.tl-tile').filter({has:page.locator('.tl-tile-name',{hasText:/^Footman$/})}).first();
     assert.equal(await page.locator('.tl-tabs').count(),0);assert.equal(await picker.locator('h2').innerText(),'Material & Texture Library');
+    await page.getByRole('button',{name:'World Editor Style',exact:true}).click();
     await page.getByRole('searchbox',{name:'Search textures'}).fill('footman');
-    const footmanTile=page.locator('.tl-tile').filter({hasText:/^Footman/}).first();await footmanTile.waitFor();
-    await page.waitForFunction(()=>[...document.querySelectorAll('.tl-tile')].some(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)));
-    await page.evaluate(()=>[...document.querySelectorAll('.tl-tile')].find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).click());
+    await page.locator('.gf-row').filter({hasText:'Footman'}).first().click();
+    await footmanNative.waitFor();
+    await footmanNative.click();
+    assert.match(await page.locator('.tl-details>code').innerText(),/^Textures\\Footman\.blp$/i,'the selected file is the native Footman texture');
     const preview=page.getByRole('button',{name:'Preview Texture in Editor',exact:true});await page.waitForFunction(()=>{const b=[...document.querySelectorAll('.tl-actions button')].find(b=>b.textContent==='Preview Texture in Editor');return b&&!b.disabled;});
     await preview.click();
     // The choice is a small popup: one button per material that shows the texture, one click decides.
@@ -42,13 +50,18 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await picker.waitFor({state:'hidden'});
     checks.push('UV Replace Texture opens the unchanged texture picker; a texture already in the model pops up one-click material buttons');
     await page.getByRole('button',{name:'Save texture',exact:true}).click();
-    await page.getByText('Texture kept: the model already uses this material.').waitFor({timeout:10000});
+    // b2365c65 and both new layouts keep the model unchanged without the old toast.
+    // Check the user-visible draft ending and the complete model-data invariant.
+    await page.getByRole('button',{name:'Save texture',exact:true}).waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>JSON.stringify(window.__mdlxl.model())),beforeUV,'saving this material reuse leaves model data unchanged');
     checks.push('Saving a preview that reuses the existing material ends the temporary preview');
     await page.getByRole('button',{name:'Close UV Wrapper',exact:true}).click().catch(()=>{});
+    checks.push('T9 UV Replace Texture → World Editor Style → Footman → Preview → existing material → Save texture');
     // The toolbar Library button is the full viewer.
     await page.locator('[data-hotkey="textureLibrary"]').click();
     const library=page.locator('[aria-modal="true"][aria-label="Warcraft III Library"]');await library.waitFor();
     assert.deepEqual(await page.locator('.tl-tabs [role="tab"]').allInnerTexts(),['Textures','Models','Sounds','All files']);
+    await page.getByRole('button',{name:'Standard',exact:true}).click();
     await page.getByRole('searchbox',{name:'Search textures'}).fill('painting');
     await page.waitForFunction(()=>/^\d[\d,]* textures/.test(document.querySelector('.tl-result-status')?.textContent||'')&&document.querySelectorAll('.tl-tile').length>0);
     const paintings=await page.locator('.tl-tile').evaluateAll(tiles=>tiles.map(tile=>tile.title));
@@ -59,11 +72,16 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     // Material prompt from the Library's Add button, making a new material.
     await page.getByRole('searchbox',{name:'Search textures'}).fill('footman');
     await page.waitForFunction(()=>[...document.querySelectorAll('.tl-tile')].some(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)));
-    await page.evaluate(()=>[...document.querySelectorAll('.tl-tile')].find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).click());
+    await footmanNative.click();
+    assert.match(await page.locator('.tl-details>code').innerText(),/^Textures\\Footman\.blp$/i,'the selected file is the native Footman texture');
     const add=page.getByRole('button',{name:'Texture already in model…',exact:true});await page.waitForFunction(()=>{const b=[...document.querySelectorAll('.tl-actions button')].find(b=>b.textContent==='Texture already in model…');return b&&!b.disabled;});
+    const beforeAdd=await page.evaluate(()=>{const m=window.__mdlxl.model();return {materials:m.Materials.length,textures:m.Textures.length,geosets:m.Geosets.map(g=>g.MaterialID)};});
     await add.click();await choice.waitFor();await choice.getByRole('button',{name:'New material',exact:true}).click();
     await page.getByText('Added a new material.',{exact:true}).waitFor();
-    await page.waitForFunction(()=>/Added Material \d+ using Textures\\Footman\.blp/.test(document.body.innerText));
+    // Info messages are quiet on b2365c65 too; verify the authored material itself.
+    await page.waitForFunction(count=>window.__mdlxl.model().Materials.length===count+1,beforeAdd.materials);
+    const afterAdd=await page.evaluate(()=>{const m=window.__mdlxl.model();return {textures:m.Textures.length,geosets:m.Geosets.map(g=>g.MaterialID),image:m.Textures[m.Materials.at(-1).Layers[0].TextureID].Image};});
+    assert.equal(afterAdd.textures,beforeAdd.textures,'an existing texture is reused');assert.deepEqual(afterAdd.geosets,beforeAdd.geosets,'Add does not reassign geosets');assert.match(afterAdd.image,/^Textures\\Footman\.blp$/i);
     checks.push('Add texture on an existing texture pops up the choice and "New material" adds one');
     // Models, World Editor Style: races with icons, one central view that glides between models.
     const row=name=>page.locator('.gf-row').filter({has:page.locator('.gf-name',{hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first();
@@ -221,6 +239,7 @@ return null;});
     await library.waitFor({state:'hidden',timeout:15000}).catch(()=>{throw Error('Enter after clicking a model row did not open it in the editor');});
     await page.waitForFunction(count=>document.querySelectorAll('.model-tabs [role="tab"]').length>count,tabs,{timeout:20000});
     checks.push('Click a model in the list, Enter opens it in the editor as a new tab');
+    checks.push('T11 existing Models tree/icons/search, real mouse rotation, double-click/Enter opening and geoset tools unchanged');
     console.log('PASS:\n- '+checks.join('\n- '));
-  }finally{await closeApp(app).catch(()=>{});}
+  }catch(error){await shot(page,'failure');console.error('COMPLETED',checks);console.error('FAILURE',error.message);console.error('LIBRARY',await page.locator('.tl-dialog').count()?await page.locator('.tl-dialog').innerText():'closed');throw error;}finally{await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});
