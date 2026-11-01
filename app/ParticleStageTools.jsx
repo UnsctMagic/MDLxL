@@ -4,7 +4,7 @@ import {particleAimAngles,particleValue} from '../src/particle-bindings.js';
 import {particleAxisMapping,particleSpreadAtPointer} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
 import {createFrameCoalescer} from './viewport-performance.js';
-export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft}) {
+export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,handleTitles}) {
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),[pinned,setPinned]=useState(null);
   // Each change updates the live preview: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
@@ -52,7 +52,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   function abort(){frame.current.cancel();const size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();}
   const handle=(point,field,label,basis)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):field==='Rotation'?value(field)+delta:Math.max(0,value(field)+delta));finish();}
-  }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
+  }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{handleTitles?.[field]??label}</title></g>;
   return <svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
     {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text></g>}
     {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Born','Halfway','End'][lifeStage]:'Size'}</text></g>}

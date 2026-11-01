@@ -73,7 +73,7 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
 /** All Particle Editor private access is pinned to war3-model 4.0.1 here. */
 export function updateParticlePreview(native, source) {
   if (!native || !source) return;
-  for (const family of ['ParticleEmitters2','RibbonEmitters','Helpers']) {
+  for (const family of ['ParticleEmitters2','RibbonEmitters','Helpers',...(source.eventPlacement?['EventObjects']:[])]) {
     for (const node of source[family] || []) {
       const target=native.model[family]?.find(item=>item.ObjectId===node.ObjectId);
       if (!target) continue;

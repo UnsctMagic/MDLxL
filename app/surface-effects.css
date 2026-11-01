@@ -17,3 +17,7 @@
 .surface-effects .sfx-swatch{width:23px;height:23px;min-width:0;padding:0;border:1px solid #777;color:white;font:bold 15px/1 sans-serif;text-shadow:0 1px 2px black,0 -1px 2px black}
 .surface-effects .sfx-swatch[aria-pressed=true]{outline:2px solid #354f69;outline-offset:1px;box-shadow:none}.sfx-custom-colour input{width:34px;height:21px;padding:0}
 .sfx-colours small{font-size:11px}.sfx-target select{max-width:min(320px,45vw);width:auto}
+
+.surface-effects .sfx-stage svg.pe-stage-tools{display:block}
+
+.sfx-empty{display:grid;gap:6px;justify-items:start}

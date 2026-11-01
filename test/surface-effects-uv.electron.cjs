@@ -63,7 +63,7 @@ async function differences(page,bytes){
     const frames=[];
     for(const [i,file] of files.entries()){
       if(i){await stubDialogs(app,{open:file});await page.keyboard.press('Control+o');}
-      await page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
+      await page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),path.basename(file));
       await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
       await dialog.getByLabel('Geoset',{exact:true}).selectOption(String(geoset));await ready();
       await button('Original').click();await ready();

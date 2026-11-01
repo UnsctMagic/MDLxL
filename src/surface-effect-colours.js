@@ -8,6 +8,14 @@ const gold = ['Sun gold','#ffd783'];
 const ember = ['Ember red','#ff7645'];
 const palettes = {
   native: [native,gold,frost,fel,arcane],
+  solar: [['Sun gold','#ffb732'],ember,native,frost],
+  copper: [['Hot copper','#ff762c'],gold,ember,native],
+  glacier: [['Glacier','#70d6ff'],frost,arcane,native],
+  lilac: [['Soul violet','#ad63ff'],frost,fel,native],
+  moss: [['Venom','#6cde38'],['Jade','#72e8a9'],gold,native],
+  honey: [['Warm light','#ffcd63'],gold,ember,native],
+  azure: [['Azure','#519dff'],frost,arcane,native],
+  sand: [['Sandstone','#deba94'],native,ember,gold],
   flame: [['Flame gold','#ffe2ad'],native,ember,['Copper','#ffac73']],
   embers: [['Fire Lord orange','#ff3600'],gold,frost,fel,arcane,native],
   arcane: [['Azure','#70b3ff'],arcane,gold,fel,native],

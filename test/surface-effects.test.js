@@ -59,13 +59,11 @@ test('RGB pulse survives native colour channel serialization',()=>{
 });
 
 
-test('eye pictures reuse an existing native path with different wrapping flags',()=>{
- const doc=createDemoDocument(),source=animatedSource(),existing={...source.Textures[0],Flags:3};
- doc.model.Textures.push(existing);const before=doc.model.Textures.length;
- applySurfaceEffect(doc.model,source,recipe('eye'),defaultEffectOptions(recipe('eye')));
- assert.equal(doc.model.Textures.length,before+1);
- assert.equal(doc.model.Textures.filter(t=>t.Image===existing.Image).length,1);
- assert.equal(existing.Flags,3);
+test('the native material package holds all animated textures and leaves out the donor rig',()=>{
+ const donor=animatedSource(),pack=prepareSurfacePackage(donor,recipe('water'));
+ assert.equal(pack.Materials.length,1);assert.equal(pack.Textures.length,2);
+ assert.deepEqual(pack.GlobalSequences,[1000]);assert.equal(pack.Geosets.length,0);
+ assert.equal(pack.Nodes.length,0);assert.equal(pack.Sequences.length,0);
 });
 
 test('FX sliders rebuild the preview on release only',async()=>{
@@ -76,21 +74,13 @@ test('FX sliders rebuild the preview on release only',async()=>{
  for(const slider of sliders)assert.ok(slider.includes('onCommit=')&&!slider.includes('onChange='),'FX RangeField uses onCommit');
 });
 
-test('the native eye package drops the donor rig and bakes the preview pose into the saved surface',()=>{
- const original=createDemoDocument().model,donor=animatedSource(),eye=recipe('eye');
- const pack=prepareSurfacePackage(donor,eye);
- assert.equal(pack.Materials.length,1);assert.equal(pack.Geosets.length,1);
- assert.equal(pack.Nodes.length,0);assert.equal(pack.Sequences.length,0);
- const options={...defaultEffectOptions(eye),mode:'new',placement:{Translation:[5,-2,16],Rotation:[0,0,Math.sin(.4),Math.cos(.4)],Scaling:[1.2,.8,1.5]}};
- const preview=structuredClone(original),saved=structuredClone(original);
- const ghost=applySurfaceEffect(preview,pack,eye,options,{preview:true}),applied=applySurfaceEffect(saved,pack,eye,options);
- assert.ok(preview.Nodes[ghost.anchorId]);assert.deepEqual(saved.Helpers,original.Helpers);assert.deepEqual(saved.PivotPoints,original.PivotPoints);
- assert.equal(applied.anchorId,null);assert.deepEqual(saved.GlobalSequences,preview.GlobalSequences);
- for(const time of [0,320,710]){
-  const posed=(m,index)=>skinGeoset(m.Geosets[index],sampleNodeMatrices(m,time,0,time));
-  const a=posed(preview,ghost.geoset),b=posed(saved,applied.geoset);
-  assert.ok(a.every((v,i)=>Math.abs(v-b[i])<1e-4),'Baked vertices follow the visible pose');
- }
+test('attached accent placement survives MDX without adding helpers or changing the selected geometry',()=>{
+ const doc=openDocument(createDemoDocument().serialize('mdx'),'source.mdx'),before=structuredClone(doc.model),e=recipe('moon-orbit');
+ const options={...defaultEffectOptions(e),placement:{offset:[9,-4,12],size:1.5}};
+ const result=applySurfaceEffect(doc.model,null,e,options);
+ const saved=openDocument(doc.serialize('mdx'),'orbit.mdx').model;
+ assert.deepEqual(saved.Geosets[0].Vertices,before.Geosets[0].Vertices);assert.deepEqual(saved.Helpers,before.Helpers);
+ for(const id of result.accents.ids){assert.deepEqual(saved.Nodes[id].PivotPoint,doc.model.Nodes[id].PivotPoint);assert.deepEqual(saved.Nodes[id].Translation,doc.model.Nodes[id].Translation);}
 });
 test('existing surfaces can receive a tint or overlay with bind poses',()=>{
  const model=createDemoDocument().model;model.BindPoses=[{Matrices:[]}];

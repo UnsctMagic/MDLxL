@@ -35,6 +35,8 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
+  'visual-effects-save': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
+  'visual-effects-review': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects-uv': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects-warriors': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects': { needs: [footman,testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx')] },

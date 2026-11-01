@@ -38,7 +38,7 @@ async function colourBalance(page,bytes) {
  const open=async()=>{await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();};
  const choose=async name=>{await button(name).click();await ready();};
  try{
-   await page.getByText('Opened '+path.basename(khorne),{exact:true}).waitFor();
+   await page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),path.basename(khorne));
    await open();await dialog.getByLabel('Geoset',{exact:true}).selectOption('17');await choose('Flaming skin');
    await button('Solo').click();await ready();await button('Fit selection').click();
    await button('Pause').click();
@@ -76,7 +76,7 @@ async function colourBalance(page,bytes) {
    checks.push('Terrain browsing, search, empty results and preserved application mode');
 
    await button('Cancel').click();await stubDialogs(app,{open:nurgle});
-   await page.keyboard.press('Control+o');await page.getByText('Opened '+path.basename(nurgle),{exact:true}).waitFor();
+   await page.keyboard.press('Control+o');await page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),path.basename(nurgle));
    await open();await dialog.getByLabel('Geoset',{exact:true}).selectOption('19');await choose('Felwood poison');
    const before=await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model));
    await button('Solo').click();await ready();await button('Fit selection').click();
