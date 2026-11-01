@@ -14,15 +14,9 @@ sword, glowing runes, flowing water, solid ice, lava and flies. Global sequences
 run independently of Stand, Walk, Attack and Death. The model carries the result
 without triggers, abilities or map scripts.
 
-The owner also keeps the good terrain and buff/curse looks and useful impacts.
-An impact is the explicit exception to global timing: it plays in an Attack at
-the hit moment, at the weapon's striking point. It must never default to a global
-loop or the unit centre. Existing authored sequences and keys remain unchanged.
+Keep the terrain and buff/curse looks. The owner retired the entire Impacts folder and its six cards in the third hand test. Models with an existing Attack effect keep their native data and saved layer list.
 
-Remove the Auras category and all its cards. Remove weak duplicates and unrelated
-birth/death effects. List every removed card in the PR. Add a small number of
-looks in the style of the liked terrain, buffs/curses and Glacial fissures; each
-must pass the same human-eye review. Reuse native recipes and existing app owners.
+The first library folder is `sort`. It holds exactly 30 native candidates for the owner's next hand test. Keep them together until the owner chooses where they belong. White ice is a separate Skins entry. Auras and the earlier retired cards remain outside the library.
 
 Studying aura models teaches texture and alpha animation; it does not authorize
 adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
@@ -50,7 +44,7 @@ These remain the five layer types. No new types without asking the owner.
 A particle layer exposes all three native segment **Color**, **Size** and
 **See-through %** values in EMTR's **Born / Halfway / End** control. Do not collapse
 multi-value native fields to one value. Reuse the actual EMTR component, wording,
-picker and behavior, not a lookalike. Presets remain starting points. Keep
+picker and behavior, not a lookalike. Each ingredient has one editable colour and Reset restores that ingredient's initial tint. Omit palette swatches and preset names. Keep
 **Open in EMTR** for the full emitter editor.
 
 Use EMTR's own controls and handles for placement, size, ribbon ends, lifetime,
@@ -60,10 +54,9 @@ Animation Manager and UV controls. Do not invent another control scheme.
 
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
-For impacts, expose the selected Attack and EMTR's Impact moment control. Default
-to the contact frame of the striking weapon or creature limb. Changing the geoset
-selection does not move the hit. Timing can be fine-tuned; placement follows the
-attacker automatically. No free placement or ground decals on impacts.
+Use one grouped Add layer menu. Each named choice creates its own native recipe. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons.
+
+Create as overlay keeps the original material visible and draws the effect on separate geosets fitted to the same surface and skin. With the switch cleared, the effect supplies the visible surface. Only stacks containing a surface ingredient offer the choice. Persist it through Apply and MDX/MDL reopen.
 
 Controls commit on release. Live gestures update at most once per display frame
 and update only what changed. Every control must make a clear visible difference
@@ -85,7 +78,7 @@ The owner saw flames beside the body. Cover Stand, Walk and Attack in captures.
 Read this fixture through `test/helpers/fixtures.cjs`; never edit or delete it.
 
 Added nodes belong to their layer, have plain names and follow the selected part.
-Effect motion uses global sequences; an impact uses its Attack interval. A blended
+New effect motion uses global sequences. Previously saved impacts keep their Attack interval. A blended
 skin attachment may carry derived pose-following keys, without changing the
 model's authored nodes, sequences or timing. Keep those keys limited to attachment
 motion, and measure their position against the shared skin evaluator.
@@ -103,12 +96,12 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | Look | Target |
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
-| Frost blade | A cold sheen and occasional sharp glints; soft white mist falls and fades. It must not darken the model or background. |
-| Lightning blade | Short irregular arcs along the blade, never a solid white shape. |
+| Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
+| Lightning blade | Use the Tzeentch Knight and Impaler Spell emitter's native LightningBall sprite, with short travel on each blade. |
 | Arcane blade | Energy flows along the blade with a pulse. |
-| Rune blade | Choose a native glyph, move/rotate/scale its UVs on the blade and choose steady, pulsing or flickering light. No rings or aura geometry. |
+| Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
-| Ice skin | Solid, striated ice from Blizzardâ€™s natural ice texture, with a separate sheen. No crystal texture or crystals; no scrolling water. |
+| Ice skin and White ice | Keep the accepted teal striations on Ice skin. White ice uses native Northrend frost and fractured ice. |
 | Lava skin | Dark crust and pulsing cracks with visible embers. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
@@ -116,7 +109,6 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | Motes / Rising embers / Frost mist | Distinct drifting points, rising sparks and falling mist respectively. |
 | Glacial fissures | Cold cracks brighten over a solid ice surface. The part remains visible through the whole pulse. |
 | Buffs & curses | Keep the good looks. Every emitter and ground ingredient is optional; ground starts off. |
-| Impacts | At the striking weapon or creature limb when Attack connects, independent of which geoset was clicked. |
 
 The good terrain looks are the quality bar. Reuse their technique when it produces
 a better skin, including Felwood poison. Do not preserve a weak card merely to
@@ -140,11 +132,7 @@ keep its count.
   bodies and transparent corners. Amount is the total across skin regions.
 - Maximum Glow uses up to four additive native material passes, with a fractional
   final pass. Intensity therefore changes continuously and survives reopening.
-- MDX has no universal gameplay damage-point field. FX recognises a named hit marker
-  or estimates contact from the visible skinned surfaces in the chosen Attack.
-  Weapon references and bones help identify the attacking part; an unnamed rig can
-  use its posed geometry. All ingredients burst from the same moving surface at
-  the chosen moment. This is an attacker animation, not a runtime damage event.
+- The six retired Attack recipes can be read from saved stacks. They are excluded from the library, folder counts and search.
 
 The source checks are `test/global-animations.test.js` and the private real-model
 `test/manual/fx-owner-round.test.js`. Hidden packaged checks are
@@ -196,8 +184,7 @@ motion before being reported done. Passing structural tests is insufficient.
    Claude's independent QA gate still applies before any merge.
 6. Owner click-through: Slaanesh flames fit; three colours edit; runes are glyphs;
    ice reads as solid ice without crystals; poison uses the tileset; maximum glow is strong; flies have no
-   black corners; Recall seal has no ground aura by default; impacts occur at the
-   striking weapon or limb on Attack. No descriptions remain.
+   black corners and Recall seal has no ground aura by default. Check the 30 candidates in the top folder, the white ice variant, textured UV tools, both surface modes and absence of Impacts.
 
 Work only under `D:\Codex`. Owner checkout, models, game files and installed MDLxL
 are read-only. Never delete anything from `D:\Claude\MDLxL-TestModels`. Clean task

@@ -4,6 +4,8 @@ import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 
+import {SORT_LOOKS} from './fx-sort-looks.js';
+
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
 const waterFrames=Array.from({length:8},(_,i)=>texture('Lords000'+i));
@@ -20,16 +22,18 @@ export const RUNE_IMAGES=[
  ['Icecrown','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp'],
  ['Eye',texture('DemonRune3')],['Fork',texture('DemonRune5')],['Sigil',texture('DemonRune2')],
 ];
+const crackle=()=>dust('Blade crackle','crackle',texture('LightningBall'),{tint:[.94,.92,1]});
 const rune=()=>({type:'Rune',label:'Runes',image:RUNE_IMAGES[0][1],strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
 const make=(id,name,group,loop,palette,layers)=>({id,name,group,loop,palette,layers});
 export const GLOBAL_LOOKS=[
  make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames'),embers()]),
- make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',existing('frost-edge').texture,{strength:.94,base:true,filter:2,tint:[.84,.94,1]}),shine(),frost()]),
- make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),dust('Jumping sparks','sparks',texture('Star4'))]),
+ make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1]}),shine(),frost()]),
+ make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),crackle()]),
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
  make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
  make('ice-skin','Ice skin','Skins',4200,'glacier',[skin('Ice surface',texture('Ice_Natural01'),{fixed:true,atlasRect:[.52,.18,.46,.76],bodyUV:true,filter:2,strength:.97,tint:[1,1,1]}),glow('Ice sheen',texture('Ice3b'),{bodyUV:true,pulse:'glint',strength:.24,tint:[.9,.96,1]}),frost()]),
+ make('white-ice-skin','White ice','Skins',3900,'ice',[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]),
  make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers(),fire('Fire',{enabled:false})]),
  make('glowing-skin','Glowing skin','Skins',2500,'azure',[pulse()]),
  make('poison-skin','Poison skin','Skins',3400,'moss',[skin('Poison surface',existing('poison').texture,{base:true,strength:.9,nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1]}),dust('Heavy drops','drops',texture('WaterBlobs1'))]),
@@ -44,9 +48,10 @@ export const GLOBAL_LOOKS=[
  make('fade-pulse','Fade pulse','Your textures',2750,'native',[skin('Breathing opacity',null,{base:true,own:true,pulse:'fade'})]),
 ];
 // The owner removed duplicate starters, auras and cues unrelated to an attack.
-export const RETAINED_CARD_IDS=['iron-hit','frost-hit','ember-hit','quake-hit','thunder-print','fel-rupture','sun-mend','hex-mark','venom-seep','spell-ward','spirit-veil','recall-seal','revenant','lava','fissures','glacial','poison'];
+const retiredImpacts=[];
+export const RETAINED_CARD_IDS=['sun-mend','hex-mark','venom-seep','spell-ward','spirit-veil','recall-seal','revenant','lava','fissures','glacial','poison'];
 export const REMOVED_CARDS=SURFACE_EFFECTS.filter(e=>!RETAINED_CARD_IDS.includes(e.id));
-for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id))){
+for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.category==='Impacts'&&e.cue==='attack')){
  const impact=e.category==='Impacts',layers=[];
  if(e.id==='glacial'){
   // The crack tile carries transparent holes. Keep solid ice behind the pulsing details.
@@ -58,10 +63,23 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id))){
  }
  for(const [i,spec] of (e.accents||[]).entries())layers.push(dust((spec.flat?(impact?'Flash':'Ground piece'):'Particles')+' '+(i+1),'native',spec.texture,{nativeSpec:spec,ground:!!spec.flat,enabled:!spec.flat,impact}));
  if(e.stamp&&!impact)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
- GLOBAL_LOOKS.push({...make(e.id,e.name,e.category,e.duration||3000,e.palette||'native',layers),impact});
+ (impact?retiredImpacts:GLOBAL_LOOKS).push({...make(e.id,e.name,e.category,e.duration||3000,e.palette||'native',layers),impact});
 }
-export const LAYER_CHOICES=[skin('Moving skin',existing('energy').texture),pulse(),rune(),embers(),edge()];
-export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id);
+GLOBAL_LOOKS.push(...SORT_LOOKS);
+// A saved impact remains editable. It is never offered in the library or search.
+export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id);
+export const LAYER_CHOICES=[
+ skin('Flowing energy',existing('energy').texture,{pulse:'breathe'}),
+ skin('Forked arcs',texture('Lightning4b'),{axis:'v',band:.32,pulse:'lightning'}),
+ pulse(),glow('Diamond flash',texture('FX\\Flare\\DiamondNarrow'),{pulse:'glint',strength:1.25}),
+ glow('Crescent light',texture('MoonCrescentGlow'),{pulse:'breathe',strength:1.5}),
+ glow('Star field','Units\\Undead\\FrostWyrm\\Starfield.blp',{pulse:'double',strength:1.1}),
+ ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
+ embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
+ crackle(),frost(),edge(),
+];
+export const surfaceIngredient=l=>l.type==='Moving skin'||l.type==='Glow'||l.glyphs;
+export const createsOverlay=stack=>stack.asOverlay??!stack.layers.some(l=>l.base&&l.enabled!==false);
 export function partFrame(geometry,split=true) {
  const points=Array.from({length:geometry.Vertices.length/3},(_,i)=>Array.from(geometry.Vertices.subarray(i*3,i*3+3)));
  const frame=weaponStripFrame(points);
@@ -114,14 +132,15 @@ export function makeLayer(spec,frame,palette,id) {
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
  const properties={
   flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,46,.72,unit*3.6,-unit*5,unit*.40],
-  sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
+  crackle:[3,42,.23,unit*.64,0,unit*1.45],sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
   drops:[4,7,.69,-unit*.5,unit*7,unit*.33],motes:[4,11,1.05,unit*.7,-unit*.35,unit*.53],
   flies:[5,5,.09,0,0,Math.max(2.1,Math.min(8,length*.066+radius*.037))],
  };
  const p=properties[spec.kind]||[1,24,.12,1,0,1];
- return {...structuredClone(spec),id,enabled:spec.enabled!==false,tint:spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1])),strength:spec.strength??1,
+ const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
+ return {...structuredClone(spec),id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
-  count:p[0],amount:p[1],lasts:p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
+  count:p[0],amount:p[1],lasts:spec.lasts??p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {

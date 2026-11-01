@@ -24,7 +24,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await button('Fit selection').click();await button('Position & size').click();await button('Pause').click();await ready();
   await drag('Ribbon upper edge',-22,14);await drag('Ribbon lower edge',14,16);
   const changed=(await stack()).layers[1];assert.notEqual(changed.upper,previous.layers[1].upper);assert.notEqual(changed.lower,previous.layers[1].lower);
-  await button('Ember red').click();await fx.getByLabel('Loop length').fill('2380');await fx.getByLabel('Loop length').press('Enter');await ready();
+  await fx.getByLabel('RGB tint').fill('#ff7645');await fx.getByLabel('Loop length').fill('2380');await fx.getByLabel('Loop length').press('Enter');await ready();
   for(const anim of ['Stand','Walk','Attack','Death']){
    const seq=await fx.getByLabel('Preview animation').locator('option').evaluateAll((a,n)=>a.find(v=>v.textContent.startsWith(n)).value,anim);
    await fx.getByLabel('Preview animation').selectOption(seq);await ready();

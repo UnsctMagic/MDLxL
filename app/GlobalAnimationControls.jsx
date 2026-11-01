@@ -8,9 +8,12 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient} from '../src/global-animation-looks.js';
 
-export default function GlobalAnimationControls({stack,setStack,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence}){
+import {gamePathKey} from '../src/game-path.js';
+import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
+
+export default function GlobalAnimationControls({assets,stack,setStack,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence}){
  const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [addition,setAddition]=useState(''),[live,setLive]=useState(null),gesture=useRef(null);
@@ -20,6 +23,12 @@ export default function GlobalAnimationControls({stack,setStack,selected,select,
  const result=graph?.layers?.[l?.id],p=l?.type==='Particles',edge=l?.type==='Edge',fly=l?.kind==='flies';
  const real=result?.id!=null?graph.model.Nodes[result.id]:null;
  const surface=graph?.model.Geosets[result?.geoset];
+ const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
+ const uvAsset=assets?.get(gamePathKey(nativeImage||l?.image||''));
+ const ingredient=l&&(look.layers.find(s=>s.label===l.label)||LAYER_CHOICES.find(s=>s.label===l.label));
+ const defaultTint=l?.defaultTint||ingredient?.tint||tintFromHex(surfacePalette(look)[0][1]);
+ const baseGlyph=ingredient?.glyphs?ingredient.image:l?.image;
+ const runeImages=baseGlyph&&!RUNE_IMAGES.some(([,path])=>path===baseGlyph)?[[l.label,baseGlyph],...RUNE_IMAGES]:RUNE_IMAGES;
  const canTile=!l?.own||(surface&&textureRepeats(graph.model,graph.model.Materials[surface.MaterialID].Layers[0].TextureID));
  function particle(field,key,min,max,step,title){
   return <div title={title}><ParticleSlider field={field} value={live?.key===key?live.value:l[key]} min={min} max={max} step={step}
@@ -35,12 +44,13 @@ export default function GlobalAnimationControls({stack,setStack,selected,select,
   <h3>{look.name}</h3>
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
+  {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" checked={createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+item.label} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={'Adjust this '+item.type.toLowerCase()+' layer.'} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{item.label}<small>{item.type}</small></button></div>)}</div>
-  <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value={addition} onChange={e=>{const type=e.target.value;setAddition('');if(!frame||!type)return;const spec=LAYER_CHOICES.find(s=>s.type===type),id=Math.max(0,...stack.layers.map(x=>x.id))+1;
-   const next=makeLayer(spec,frame,look.palette,id);setStack({...stack,layers:[...stack.layers,next]});select(id);}}><option value="">Add layerâ€¦</option>{LAYER_CHOICES.map(s=><option key={s.type}>{s.type}</option>)}</select>}
+  <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value={addition} onChange={e=>{const label=e.target.value;setAddition('');if(!frame||!label)return;const spec=LAYER_CHOICES.find(s=>s.label===label),id=Math.max(0,...stack.layers.map(x=>x.id))+1;
+   const next=makeLayer(spec,frame,look.palette,id);setStack({...stack,layers:[...stack.layers,next]});select(id);}}><option value="">Add layer</option>{[...new Set(LAYER_CHOICES.map(s=>s.type))].map(type=><optgroup label={type} key={type}>{LAYER_CHOICES.filter(s=>s.type===type).map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</optgroup>)}</select>}
    {l&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
-  {!edge&&!l.stamp&&<ColourControl hint={'Changes the colour of '+l.label.toLowerCase()+'.'} effect={{palette:look.palette}} options={{tint:l.tint,mode:'new'}} update={update}/>}
+  {!edge&&!l.stamp&&<ColourControl hint={'Changes the colour of '+l.label.toLowerCase()+'.'} tint={l.tint} defaultTint={defaultTint} update={update}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
   {p&&<>
@@ -59,15 +69,15 @@ export default function GlobalAnimationControls({stack,setStack,selected,select,
    {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
    {['LifeSpan','Speed','Gravity'].map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
+  {(l.glyphs||l.type==='Glow')&&<label className="field"><span>Glow</span><select aria-label={l.glyphs?'Rune glow':'Glow style'} value={l.pulse||'breathe'} onChange={e=>update('pulse',e.target.value)}>{[['steady','Steady'],['breathe','Pulse'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse'],...(['crystal','steel'].includes(l.pulse)?[[l.pulse,l.label]]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {l.glyphs&&<>
-   <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>update('image',e.target.value)}>{RUNE_IMAGES.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
-   <label className="field"><span>Glow</span><select aria-label="Rune glow" value={l.pulse||'breathe'} onChange={e=>update('pulse',e.target.value)}>{[['steady','Steady'],['breathe','Pulse'],['flicker','Flicker']].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
-   <GlobalTextureFit key={l.id} geoset={surface} canScale layer={l} preferences={preferences} change={update}/>
+   <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>update('image',e.target.value)}>{runeImages.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
+   <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update}/>
   </>}
   {!p&&!edge&&!l.stamp&&<>
    <RangeField title="How strongly this layer shows on the part." label="Intensity" min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={l.strength} onCommit={v=>update('strength',v)}/>
    {(l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface)&&row('Speed','speed',1,4,1,'Complete turns or texture passes within the loop.')}
-   {l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&<>{row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}{!l.atlasRect&&canTile&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}{!l.atlasRect&&<GlobalTextureFit key={l.id} geoset={surface} canScale={canTile} layer={l} preferences={preferences} change={update}/>}</>}
+   {l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&<>{row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}{!l.atlasRect&&canTile&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}{!l.atlasRect&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}</>}
   </>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}
   {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id)}>Open in EMTR</button>}

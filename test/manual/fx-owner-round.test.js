@@ -1,10 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {createRequire} from 'node:module';import {openDocument} from '../../src/editor-document.js';
-import {GLOBAL_LOOKS,newStack,partFrame} from '../../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,newStack,partFrame} from '../../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../../src/global-animation-model.js';
 const {testModel}=createRequire(import.meta.url)('../helpers/fixtures.cjs');
 const fixture=()=>openDocument(fs.readFileSync(testModel('WH_WOC_WarriorSlaaneshDual01.mdx')),'slaanesh.mdx');
-const stack=(doc,id)=>newStack(GLOBAL_LOOKS.find(l=>l.id===id),partFrame(doc.model.Geosets[28]),'owner-round');
+const stack=(doc,id)=>newStack(findLook(id),partFrame(doc.model.Geosets[28]),'owner-round');
 test('Slaanesh weapon geoset emits from both independently animated weapons',()=>{
  const doc=fixture(),s=stack(doc,'flaming-sword');compileAnimation(doc.model,28,s);
  const flames=doc.model.ParticleEmitters2.filter(n=>n._FxTag?.startsWith(s.owner+'/2/'));
@@ -100,7 +100,7 @@ test('unchecked ingredients are absent from MDX and MDL after disabling a previo
 
 test('default weapon sparks and embers are visible concurrently on both weapons',async()=>{
  const {ModelRenderer}=await import('war3-model');
- for(const [id,kind] of [['lightning-blade','sparks'],['flaming-sword','embers'],['rising-embers','embers']]){
+ for(const [id,kind] of [['lightning-blade','crackle'],['flaming-sword','embers'],['rising-embers','embers']]){
   const d=fixture(),s=stack(d,id),layer=s.layers.find(l=>l.kind===kind);compileAnimation(d.model,28,s);const native=new ModelRenderer(d.model);native.setSequence(0);let visible=0;
   for(let i=0;i<120;i++){native.update(17);const parts=[19,22].map(id=>native.particlesController.emitters.filter(e=>e.props.Parent===id&&e.props._FxTag?.startsWith(s.owner+'/'+layer.id+'/')).reduce((n,e)=>n+e.particles.length,0));if(i>=40&&parts.every(n=>n>=2))visible++;}
   assert.ok(visible>=60,id+' must show multiple particles on both blades at its default; frames: '+visible+'/80');

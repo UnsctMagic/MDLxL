@@ -12,7 +12,7 @@ import {animationPart,compileAnimation,readAnimationStack,impactDefaults,FX_SECT
 import {globalAssetKey,createGlobalLibrary} from './global-animation-library.js';
 import {translate} from '../src/localization.js';
 import {standSequenceIndex} from '../src/sequence-editor.js';
-import {surfacePalette,tintFromHex,hexFromTint} from '../src/surface-effect-colours.js';
+import {tintFromHex,hexFromTint} from '../src/surface-effect-colours.js';
 import {imageTextureLayers} from '../src/uv-preview.js';
 import {resolveGameFiles} from './desktop.js';
 import './particle-editor.css';
@@ -33,17 +33,9 @@ function TintPicker({value,onCommit}) {
  },[onCommit]);
  return <input ref={input} type="color" aria-label="RGB tint" title="Choose a custom RGB colour" defaultValue={value}/>;
 }
-function ColourControl({effect,options,update,hint:layerHint}) {
- const swatches=surfacePalette(effect), hex=hexFromTint(options.tint);
- const current=swatches.find(([,colour])=>colour===hex);
- const hint=layerHint??(effect.cue?'Colours the flash and particles during the chosen animation.':options.mode==='new'?'Tints the new surface.':'Tints the selected part, including its skin.');
- return <div className="sfx-colours" title={hint+(effect.accents?.length?" Its attached effect uses the same colour.":"")}>
-  <div className="sfx-colour-heading"><strong>Colour</strong><span>{current?.[0]??hex.toUpperCase()}</span></div>
-  <div className="sfx-swatches" role="group" aria-label="Colour swatches">
-   {swatches.map(([name,colour])=><button key={name} className="sfx-swatch" style={{backgroundColor:colour}} title={'Use '+name+' on this effect.'} aria-label={name} aria-pressed={hex===colour} onClick={()=>update("tint",tintFromHex(colour))}>{hex===colour?"✓":""}</button>)}
-  </div>
-  <div className="sfx-custom-colour"><label title="Choose any colour for this effect.">Custom <TintPicker value={hex} onCommit={update}/></label><button aria-label="Reset colour" title="Restore this effect’s preset colour" disabled={hex===swatches[0][1]} onClick={()=>update("tint",tintFromHex(swatches[0][1]))}>Reset</button></div>
- </div>;
+function ColourControl({tint,defaultTint,update,hint}) {
+ const hex=hexFromTint(tint);
+ return <div className="sfx-custom-colour" title={hint}><label>Colour <TintPicker value={hex} onCommit={update}/></label><button aria-label="Reset colour" title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
 }
 export default function SurfaceEffects({doc,edit,initialGeoset,textureAssets,modelPath,preferences,teamColor,sequenceIndex,onPlaced,onOpenEmitter,onClose}){
  const [part,setPart]=useState(()=>animationPart(doc.model,doc.model.Geosets[initialGeoset]?initialGeoset:0));
@@ -70,7 +62,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,textureAssets,mod
  const hidden=useMemo(()=>isolated?new Set(doc.model.Geosets.map((_,i)=>i).filter(i=>!isolated.includes(i))):undefined,[doc,doc.revision,isolated]);
  const message=error||graph?.error||previewError,layer=stack.layers.find(l=>l.id===selectedLayer);
  const query=search.trim().toLowerCase(),matches=GLOBAL_LOOKS.filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
- const groups=[...new Set(matches.map(e=>e.group))];
+ const groups=[...new Set(matches.map(e=>e.group))].sort((a,b)=>Number(b==='sort')-Number(a==='sort'));
  const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(JSON.stringify(stack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+findLook(stack.look).name,FX_SECTIONS,model=>compileAnimation(model,part,stack,loaded));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
  return <ToolWindow title="Surface Effects" overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose}>
   <div className="sfx-target"><SelectField label="Geoset" value={part} onChange={value=>pickGeoset(Number(value))} options={geosetOptions}/><label title="Highlight the selected part in the preview."><input type="checkbox" checked={highlight} onChange={e=>setHighlight(e.target.checked)}/>Highlight geoset</label><span>Double-click a surface to select it.</span></div>
@@ -86,7 +78,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,textureAssets,mod
     <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} placing={placing&&!original} onLayer={next=>{if(next.size!==layer.size&&layer.native?.ParticleScaling)next.native={...layer.native,ParticleScaling:layer.native.ParticleScaling.map(v=>v*next.size/layer.size)};setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?next:l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={doc.model.Sequences[sequence]?.Interval[0]??0} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><select aria-label="Preview animation" value={sequence} onChange={e=>setSequence(Number(e.target.value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</select><button aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls assets={assets} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

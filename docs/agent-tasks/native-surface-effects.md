@@ -2,6 +2,10 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Third hand test · 1 November 2026
+
+Continued from `75a440f0`. The owner accepted the teal Ice skin, requested a white variation and retired all six Impacts. The top `sort` folder holds 30 candidates for their next review. The revised native textures, layer choices, overlay and UV workflow are specified in the [FX contract](../FX-GLOBAL-ANIMATIONS.md).
+
 ## Second hand test · 1 November 2026
 
 Starting point: `ae13c9ab`. The owner rejected dark frost mist, sparse sparks,

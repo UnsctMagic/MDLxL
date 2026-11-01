@@ -35,3 +35,12 @@
 .fx-layer-row{display:flex;gap:3px;align-items:center}.fx-layer-row>button{flex:1;min-width:0}.sfx-controls .pe-life-table{width:100%;table-layout:fixed}.sfx-controls .pe-life-table input{max-width:100%;min-width:0;box-sizing:border-box}.sfx-controls .pe-life-table th{font-size:10px}.sfx-controls .pe-life-table input[type=color]{width:38px;height:22px}
 
 .surface-effects .sfx-cards svg{display:block}
+
+.fx-uv-canvas{height:180px;min-width:0;border:1px solid var(--border,#888)}
+.fx-uv-fit .classic-toolbar-group{margin-bottom:3px}
+.fx-layer-actions select{max-width:100%;min-width:0}
+
+.surface-effects .fx-uv-fit .classic-tool{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:3px}
+.fx-uv-fit .classic-tool svg{width:20px;height:20px;flex:none}
+.classic-app:not([data-vis-ui]) .fx-uv-fit .look-icon{display:block}
+.classic-app:not([data-vis-ui]) .fx-uv-fit .has-look-icon>.modern-retro-icon{display:none}

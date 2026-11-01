@@ -22,7 +22,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
     await button('Fit selection').click();const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
     await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,look.group==='Blades'||look.impact?430:300);
     const entry={model,look:look.id,part:part+1,clips:[]};
-    for(const name of ['Stand','Walk','Attack']){
+    for(const name of (process.env.FX_CLIPS||'Stand,Walk,Attack').split(',')){
      const seq=await fx.getByLabel('Preview animation').locator('option').evaluateAll((a,n)=>a.find(o=>o.textContent.startsWith(n))?.value,name);if(seq==null)throw Error(model+' missing '+name);
      await fx.getByLabel('Preview animation').selectOption(seq);await ready();
      const dir=path.join(out,model,look.id,name);fs.mkdirSync(dir,{recursive:true});
