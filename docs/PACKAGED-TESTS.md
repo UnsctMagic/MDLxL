@@ -72,9 +72,8 @@ refuses a visible Windows run. It never starts a sign-in flow or opens a browser
 Only `ai/codex/auth.json` is copied from the named profile to disposable scratch;
 no owner settings or chats are copied or written. Scratch gets a fresh
 `ai/codex/config.toml` with `model = "gpt-6-luna"` and
-`model_reasoning_effort = "low"`. Offload and the outside check stay enabled,
-with manual routing and lighter-model switching disabled, so all requests use
-the selected cheap model. A missing or signed-out login triggers one dry-run
+`model_reasoning_effort = "low"`. The outside check stays enabled; every request uses the selected cheap model
+in its direct model chat. A missing or signed-out login triggers one dry-run
 repetition using an explicitly inert local stand-in. A provider auth error while
 sending stops further live calls and starts one fresh dry-run repetition with
 the stand-in. No interactive reauthentication is attempted.

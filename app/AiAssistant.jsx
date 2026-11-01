@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
-  Bird,
   BookOpen,
   Brain,
   Globe,
@@ -24,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import AiConnectionSettings from './AiConnectionSettings.jsx';
-import { AssistantMessage, activity, birdColor, toolName } from './AiParts.jsx';
+import { AssistantMessage, activity, toolName } from './AiParts.jsx';
 import './ai-assistant.css';
 import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
@@ -73,7 +72,6 @@ const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
 const WEB_TIP =
   'Web research: lets the AI search the web and read pages, such as XGM tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
-const OFFLOAD_TIP ='Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
   ['summary', 'Keep a summary', 'Keep a short note of what was done; delete the chats.'],
@@ -130,11 +128,11 @@ function AiAssistant({ bridge, visUI }) {
     [important, setImportant] = useState(false),
     [connected, setConnected] = useState(false);
   const id = view;
-  // Each model's chat works on its own: this chat is busy while its task or one of
-  // its birds runs; other models' AI jobs only block the shared connection settings.
-  const chats = [org?.id, ...(org?.workers || []).map(w => w.id)].filter(Boolean),
+  // Each model's chat is busy only for its own job. Other models' jobs block
+  // only the shared connection settings.
+  const chats = [org?.id].filter(Boolean),
     ours = chat => !!chat && (chat === id || chats.includes(chat));
-  const busy = ours(sendingId) || running.some(r => ours(r.id) || ours(r.worker)),
+  const busy = ours(sendingId) || running.some(r => ours(r.id)),
     anyBusy = !!sendingId || running.length > 0;
   const cleanupRoot = useRef(null);
   useEffect(() => {
@@ -166,9 +164,7 @@ function AiAssistant({ bridge, visUI }) {
       })
       .catch(reason => setError(reason.message));
     return window.desktop.onAiEvent(event => {
-      // Roster and setting changes matter whichever chat is showing.
-      if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
-      if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
+      // Setting changes matter whichever chat is showing.
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
@@ -179,7 +175,6 @@ function AiAssistant({ bridge, visUI }) {
       // with: what the AI says, thinks and does, in the order it happens. An error
       // without a chat is about the app, not a reply, so it stays in the banner.
       if (event.id || event.type !== 'error') setMessages(previous => applyAiEvent(previous, event));
-      if (event.type === 'worker') setStatus(event.status === 'working' ? `The ${event.name} is working on: ${event.job}` : 'Organising');
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       if (event.type === 'compaction')
         setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
@@ -214,7 +209,7 @@ function AiAssistant({ bridge, visUI }) {
   const switching = !!org && org.modelKey !== modelKey;
   const attachmentChatId = org?.earlier.includes(view) ? view : org?.id;
   const draftKey = !switching ? attachmentChatId : null;
-  const { prompt = '', images = [], jobRoute = '', modelQuestion = null } = drafts[draftKey] || {};
+  const { prompt = '', images = [] } = drafts[draftKey] || {};
   // Async file reads and send replies keep the chat they started in, even after a tab switch.
   function setDraft(field, value) {
     if (!draftKey) return;
@@ -224,9 +219,7 @@ function AiAssistant({ bridge, visUI }) {
     });
   }
   const setPrompt = value => setDraft('prompt', value),
-    setImages = value => setDraft('images', value),
-    setJobRoute = value => setDraft('jobRoute', value),
-    setModelQuestion = value => setDraft('modelQuestion', value);
+    setImages = value => setDraft('images', value);
   useLayoutEffect(() => {
     if (open && attachmentChatId && !switching) bridge.setChat(summaryNow.documentId, attachmentChatId);
   }, [bridge, open, attachmentChatId, switching, summaryNow?.documentId]);
@@ -269,7 +262,7 @@ function AiAssistant({ bridge, visUI }) {
       setImportant(value.important === true);
     }, () => {});
   }, [settingsOpen, org?.modelKey]);
-  // A bird working on another model tab waits until you return to it.
+  // A screen-dependent step on another tab waits until you return.
   useEffect(() => {
     const changed = event => setWaiting(event.detail.waiting ? event.detail.document : null);
     window.addEventListener('mdlxl-ai-waiting', changed);
@@ -330,11 +323,8 @@ function AiAssistant({ bridge, visUI }) {
   }, []);
   const summary = summaryNow;
   const references = open && !switching ? bridge.references() : [];
-  const viewWorker = org?.workers.find(worker => worker.id === view) || null;
   const earlierView = !!org?.earlier.includes(view);
-  const readOnly = viewWorker?.status === 'retired' || earlierView;
-  const liveWorkers = org?.workers.filter(worker => worker.status !== 'retired') || [];
-  const retiredWorkers = org?.workers.filter(worker => worker.status === 'retired') || [];
+  const readOnly = earlierView;
   const provider = providerInfo(settings.provider),
     native = !!provider.native;
   const providerName = provider.label || 'AI';
@@ -370,7 +360,7 @@ function AiAssistant({ bridge, visUI }) {
       setStatus('');
     }
   }
-  // New chat: a fresh organiser for this model; the old one stays among the retired chats.
+  // New chat: a fresh organiser for this model; the old one stays among the earlier chats.
   async function newChat() {
     if (busy || !org) return;
     try {
@@ -409,8 +399,7 @@ function AiAssistant({ bridge, visUI }) {
       setError(reason.message);
     }
   }
-  async function send(resumeTask = false, lightChoice) {
-    setModelQuestion(null);
+  async function send(resumeTask = false) {
     const resume = resumeTask === true;
     if (switching || !id) return;
     if (!resume && busy) return steer();
@@ -423,7 +412,7 @@ function AiAssistant({ bridge, visUI }) {
       attached = images,
       context = bridge.context();
     let sending = id;
-    // The box keeps its draft under the organiser while a live bird is viewed.
+    // Drafts follow the model's current chat across asynchronous sends.
     let draftOwner = draftKey;
     const updateSendingDraft = patch => {
       const key = draftOwner;
@@ -435,7 +424,7 @@ function AiAssistant({ bridge, visUI }) {
     pinned.current = true;
     try {
       await saveSettings();
-      if (org && !viewWorker) {
+      if (org) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
           const previousId = sending;
@@ -456,7 +445,7 @@ function AiAssistant({ bridge, visUI }) {
         }
       }
       if (!resume) {
-        updateSendingDraft({ prompt: '', images: [], jobRoute: '' });
+        updateSendingDraft({ prompt: '', images: [] });
       }
       if (activeId.current === sending) setMessages(previous => [
         ...previous,
@@ -475,16 +464,9 @@ function AiAssistant({ bridge, visUI }) {
         images: attached.map(image => image.data),
         context,
         resume,
-        lightChoice,
-        route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
       // Main checks the account once per session; a reply means it is signed in.
       if (native && result.ok) setSignedIn(true);
-      if (result.modelChoiceRequired) {
-        updateSendingDraft({ modelQuestion: result.message, prompt: text, images: attached, jobRoute });
-        const transcript = await window.desktop.aiTranscript(sending);
-        if (activeId.current === sending) setMessages(transcript);
-      }
       if (result.authRequired) {
         setSignedIn(false);
         setSettingsOpen(true);
@@ -656,7 +638,7 @@ function AiAssistant({ bridge, visUI }) {
               <select
                         className="ai-model ai-header-model"
                         aria-label="Chat model" data-hotkey="chat-model"
-                        title="The model for new jobs. Existing birds keep their assigned model."
+                        title="The model for new requests."
                         value={settings.model || ''}
                         disabled={authBusy}
                         onChange={event => action(async () => setSettings(await window.desktop.aiModel(event.target.value)))}
@@ -673,24 +655,12 @@ function AiAssistant({ bridge, visUI }) {
                           </option>
                         ))}
                       </select>
-              <button
-                type="button"
-                role="switch"
-                className="ai-icon-button ai-offload-switch"
-                aria-label="Offload Mode" data-hotkey="offload"
-                aria-checked={settings.offload !== false}
-                title={OFFLOAD_TIP}
-                disabled={anyBusy}
-                onClick={() => action(async () => setSettings(await window.desktop.aiOffload(settings.offload === false)))}
-              >
-                <Bird size={15} aria-hidden="true" />
-              </button>
               {/* A running task keeps the setting it started with; this applies from the next one. */}
               {settings.sdBrainAvailable && (
                 <button
                   type="button"
                   role="switch"
-                  className="ai-icon-button ai-offload-switch"
+                  className="ai-icon-button ai-switch"
                   aria-label="SD Brain" data-hotkey="sd-brain"
                   aria-checked={!!settings.sdBrain}
                   title={SD_BRAIN_TIP}
@@ -702,7 +672,7 @@ function AiAssistant({ bridge, visUI }) {
               <button
                 type="button"
                 role="switch"
-                className="ai-icon-button ai-offload-switch"
+                className="ai-icon-button ai-switch"
                 aria-label="Editing handbook" data-hotkey="handbook" data-hotkey-label="WC3 editing handbook"
                 aria-checked={!!settings.editingHandbook}
                 title={HANDBOOK_TIP}
@@ -713,7 +683,7 @@ function AiAssistant({ bridge, visUI }) {
               <button
                 type="button"
                 role="switch"
-                className="ai-icon-button ai-offload-switch"
+                className="ai-icon-button ai-switch"
                 aria-label="Web research" data-hotkey="web-research"
                 aria-checked={!!settings.webResearch}
                 title={WEB_TIP}
@@ -756,56 +726,13 @@ function AiAssistant({ bridge, visUI }) {
               <p className="ai-empty">The AI connection is available in the desktop app.</p>
             ) : (
               <>
-                {org && (org.workers.length > 0 || org.earlier.length > 0) && (
-                  <nav className="ai-roster" aria-label="AI chats for this model">
-                    <button
-                      type="button"
-                      className="ai-roster-chip" data-hotkey="organiser" data-hotkey-label="Organiser"
-                      aria-pressed={view === org.id}
-                      title="The main chat for this model."
-                      onClick={() => setView(org.id)}
-                    >
-                      Organiser
-                    </button>
-                    {liveWorkers.map(worker => (
-                      <button
-                        key={worker.id}
-                        type="button"
-                        className={'ai-roster-chip ai-roster-' + worker.status}
-                        style={{ '--bird': birdColor(worker.name) }}
-                        aria-pressed={view === worker.id}
-                        title={`${worker.job} · ${Math.round((worker.use || 0) * 100)}% memory used${worker.status === 'working' && waiting ? ' · paused until you return to ' + waiting : ''}`}
-                        onClick={() => setView(worker.id)}
-                      >
-                        {worker.status === 'working' ? (
-                          waiting ? <Pause size={11} aria-hidden="true" /> : <LoaderCircle size={11} className="ai-spin" aria-hidden="true" />
-                        ) : (
-                          <Bird size={11} aria-hidden="true" />
-                        )}
-                        <span translate="no">{worker.name}</span>
-                      </button>
-                    ))}
-                    {retiredWorkers.length + org.earlier.length > 0 && (
-                      <select
-                        className="ai-retired"
-                        aria-label="Retired chats" data-hotkey="retired"
-                        title="Finished and earlier chats of this model."
-                        value={readOnly ? view : ''}
-                        onChange={event => event.target.value && setView(event.target.value)}
-                      >
-                        <option value="">{`Retired (${retiredWorkers.length + org.earlier.length})`}</option>
-                        {retiredWorkers.map(worker => (
-                          <option key={worker.id} value={worker.id} translate="no">
-                            {worker.name} · {worker.job}
-                          </option>
-                        ))}
-                        {org.earlier.map((earlier, index) => (
-                          <option key={earlier} value={earlier}>
-                            {`Earlier chat ${index + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                {org && org.earlier.length > 0 && (
+                  <nav className="ai-chats" aria-label="AI chats for this model">
+                    <select aria-label="Earlier chat" data-hotkey="earlier-chat" title="Earlier chats of this model are read only."
+                      value={earlierView ? view : org.id} onChange={event => setView(event.target.value)}>
+                      <option value={org.id}>Current chat</option>
+                      {org.earlier.map((earlier, index) => <option key={earlier} value={earlier}>{`Earlier chat ${index + 1}`}</option>)}
+                    </select>
                   </nav>
                 )}
                 {settingsOpen && (
@@ -901,22 +828,7 @@ function AiAssistant({ bridge, visUI }) {
                             <AssistantMessage
                               message={message}
                               live={live && index === messages.length - 1}
-                              onOpenWorker={setView}
                             />
-                          ) : message.from === 'organiser' ? (
-                            <details
-                              className="ai-from-organiser"
-                              title="The job this chat was given. Click to show."
-                              style={{ '--bird': birdColor(viewWorker?.name) }}
-                            >
-                              <summary>
-                                <Bird size={12} aria-hidden="true" />
-                                {message.job === 'Handover' ? 'Asked for a handover note' : 'Job from the organiser: ' + (message.job || '')}
-                              </summary>
-                              <div className="ai-user-text" translate="no">
-                                {message.text}
-                              </div>
-                            </details>
                           ) : (
                             <>
                               <div className="ai-user-text" translate="no">
@@ -995,11 +907,6 @@ function AiAssistant({ bridge, visUI }) {
                     </button>
                   </div>
                 )}
-                {modelQuestion && <div className="ai-resume" role="status">
-                  <span>{modelQuestion}</span>
-                  <button data-hotkey="keep-chosen" title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
-                  <button data-hotkey="use-lighter" title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
-                </div>}
                 <div className="ai-composer">
                   {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">
@@ -1091,14 +998,10 @@ function AiAssistant({ bridge, visUI }) {
                       !draftKey
                         ? 'Loading chat…'
                         : readOnly
-                        ? viewWorker
-                          ? `The ${viewWorker.name} is retired. Talk to the organiser to continue.`
-                          : 'An earlier chat, read only. Use the organiser to continue.'
+                        ? 'An earlier chat, read only. Use the current chat to continue.'
                         : busy
                           ? 'Steer the AI while it works…'
-                          : viewWorker
-                            ? `Talk to the ${viewWorker.name} directly…`
-                            : 'Ask the AI to change your model…'
+                          : 'Ask the AI to change your model…'
                     }
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
@@ -1192,14 +1095,7 @@ function AiAssistant({ bridge, visUI }) {
                       }}
                     />
                     <span className="ai-footer-end">
-                      {settings.offload !== false && !viewWorker && !readOnly && (
-                        <select aria-label="Job destination" data-hotkey="job-destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic lets the organiser choose based on task complexity." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
-                          <option value="continue">Continue</option>
-                          {settings.routing !== 'automatic' && <option value="new">New job</option>}
-                          {settings.routing !== 'automatic' && <option value="tiny">Tiny job</option>}
-                          {settings.routing !== 'manual' && settings.routing && <option value="auto">Automatic</option>}
-                        </select>
-                      )}
+
                       <span className="ai-awareness">
                         <button
                           type="button"

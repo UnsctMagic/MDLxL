@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const PROVIDERS = require('../src/ai-providers.json');
-const { removeFiles, deleteProviderSessions } = require('./ai-offload.cjs');
+const { removeFiles, deleteProviderSessions } = require('./ai-chat-state.cjs');
 
 // A model's AI chats on disk: the save-cleanup choices, important models and the
 // automatic cleanup of chats left behind. Each function takes the AiService.
@@ -49,7 +49,7 @@ async function cleanup(service, { modelKey, mode, remember = false }) {
   service.emit({ type: 'organiser-reset', modelKey });
   return { mode, removedChats: ids.length, providerFiles, note: entry.note };
 }
-// A model's chat files: its organisers, their birds, and the provider thread ids.
+// Model chats and legacy delegated files, retained only for complete cleanup.
 async function chatsOf(service, entry) {
   const ids = [],
     threads = [];
@@ -71,6 +71,7 @@ async function removeChats(service, entry) {
     service.conversations.delete(id);
     await service.writes.get(id)?.catch(() => {});
     await fs.rm(service.chatFile(id), { force: true });
+    await fs.rm(service.chatFile(id) + '.tmp', { force: true });
   }
   return { ids, providerFiles: await deleteProviderSessions(service.directory, threads) };
 }

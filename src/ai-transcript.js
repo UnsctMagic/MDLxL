@@ -89,14 +89,6 @@ function reduce(messages, event, copy) {
       if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary });
       break;
     }
-    case 'worker': {
-      const at = find(p => p.type === 'worker' && p.workerId === event.workerId && p.status === 'working');
-      if (at && event.status !== 'working') update(at, { status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light });
-      else if (at && event.job && event.job !== at.job) update(at, { job: event.job });
-      else if (!at) reply().parts.push({ type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light });
-      break;
-    }
-    // SD Brain's art brief: a row that fills in once the brief is written.
     case 'art': {
       const parts = reply().parts,
         at = parts.findLastIndex(p => p.type === 'art' && p.status === 'running'),
@@ -107,7 +99,7 @@ function reduce(messages, event, copy) {
     }
     // What the prompt has spent so far, kept with the reply it belongs to.
     case 'cost':
-      reply().cost = { usd: event.usd, tokens: event.tokens, model: event.model, light: event.light, ...(event.roles ? { roles: event.roles } : {}) };
+      reply().cost = { usd: event.usd, tokens: event.tokens, model: event.model, ...(event.roles ? { roles: event.roles } : {}) };
       break;
     // A steering message splits the reply where it was sent.
     case 'steer':

@@ -93,7 +93,6 @@ Finish with a short reply: what you made or changed and the main design choice. 
 const SD_BRAIN_OFF = `SD Brain is off for this task. Instructions from earlier turns about SD Brain or Warcraft SD art direction no longer apply. Follow the user's request and the normal editor rules, and keep the model's existing style and format.`;
 
 const SD_BRAIN_ROLES = {
-  organiser: `As the organiser with SD Brain on: the art brief comes with the user's message and goes to the worker automatically, together with the user's own words; keep your instructions short and do not rewrite the brief. A worker's report alone is not proof: after a worker reports a change to the model, look at a current mdlxl_capture from several sides (samples: perspective, front and left or back) before telling the user it is done, and if the result misses the brief, send that worker a concrete correction.`,
   external: `This is the current SD Brain state for the next task; it replaces any SD Brain state from earlier in the conversation.`,
 };
 

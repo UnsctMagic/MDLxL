@@ -8,7 +8,7 @@ import { recordAiEvent } from '../src/ai-transcript.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
-const { AiRecorder } = require('../electron/ai-offload.cjs');
+const { AiRecorder } = require('../electron/ai-chat-state.cjs');
 const { CodexProcess, runClaude } = require('../electron/ai-providers.cjs');
 const { mcpForm } = require('../electron/ai-user-input.cjs');
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -17,7 +17,7 @@ async function setup(t) {
   const service = new AiService({ root: '.', profile, electron: { shell: { openExternal: async url => opened.push(url) } }, getWindow: () => null });
   await fs.mkdir(service.directory, { recursive: true });
   const events = [], sent = [], opened = [];
-  const conversation = { id: 'bird', name: 'Raven', provider: 'codex', transcript: [], messages: [] };
+  const conversation = { id: 'chat', name: 'Model', provider: 'codex', transcript: [], messages: [] };
   const recorder = new AiRecorder(conversation, value => events.push(value), recordAiEvent); recorder.start({ role: 'user', text: 'Test' });
   const client = new CodexProcess({}, { event: value => recorder.event(value), askUser: (params, signal) => service.askUser(conversation, recorder, params, signal) });
   client.write = value => sent.push(value);
@@ -165,19 +165,6 @@ test('editor shutdown rejects every pending question even outside a tracked prov
   await f.service.close(); await rejected;
   assert.equal(f.service.questions.size, 0); assert.equal(f.recorder.reply.parts[0].status, 'stopped');
 });
-
-test('bird provider notices are also recorded in the organiser without duplicating bird output', async t => {
-  const f = await setup(t);
-  const parent = { id: 'organiser', transcript: [], messages: [] }, events = [];
-  const recorder = new AiRecorder(parent, value => events.push(value), recordAiEvent); recorder.start({ role: 'user', text: 'Test' });
-  f.conversation.organiserId = parent.id;
-  f.service.tasks.set(parent.id, { id: parent.id, recorder, controller: new AbortController() });
-  f.service.measureUsage(f.conversation, f.recorder, 'bird')({ type: 'provider-notice', text: 'Important provider warning', severity: 'warning' });
-  assert.equal(f.recorder.reply.parts.filter(p => p.type === 'provider-notice').length, 1);
-  assert.equal(recorder.reply.parts.filter(p => p.type === 'provider-notice').length, 1);
-  assert.equal(events[0].name, 'Raven');
-});
-
 
 test('No on an empty MCP form is a decline, and provider errors remain recorded', async t => {
   const f = await setup(t);

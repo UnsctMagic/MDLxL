@@ -1,14 +1,21 @@
 const { validateArguments } = require('./ai-mcp.cjs');
 
 // Per-job orchestration state. No editor mutations or provider calls live here.
-function helperSpec(value) {
-  if (value == null) return null;
-  if (!value || typeof value !== 'object' || typeof value.job !== 'string' || !value.job.trim() || typeof value.instructions !== 'string' || !value.instructions.trim())
-    throw Error('A helper needs a short job and specific read-only instructions.');
-  if (value.job.length > 160 || value.instructions.length > 2000) throw Error('Keep helper instructions under 2000 characters and its title under 160.');
-  return { job: value.job.trim(), instructions: value.instructions.trim() };
+// The existing direct-chat exact-edit exemption for planning.
+function exactValueRequest(text, images = []) {
+  if (images.length) return false;
+  const value=String(text).trim().replace(/^(?:ask\s+)?[A-Za-z]+(?:[:,]|\s+to\b)\s*/i,'');
+  if (/\b(shape|spatial|bind|binding|deform|retarget|animate|animation feel|pose|sculpt|smooth|fit|improve|design|create|repair|fix|beautiful|natural|realistic|suggest|recommend)\b/i.test(value)) return false;
+  const parts=value.split(/\s*(?:;|\n|\band then\b)\s*/).filter(Boolean);
+  return parts.length>0 && parts.every(part=>
+    /^(?:read|list|count|report|show)\s+(?:(?:all|the|current|selected)\s+)?(?:names?|bones?|nodes?|geosets?|materials?|textures?|sequences?|flags?|values?|counts?|metadata|diagnostics|selection)\b[^?]*[.?]?$/i.test(part) ||
+    /^rename\s+.+\s+to\s+(?:"[^"\n]+"|'[^'\n]+'|[\w .-]+)[.]?$/i.test(part) ||
+    /^(?:set|change|recolou?r)\s+.+\s+(?:to|=)\s*(?:[-+]?\d+(?:\.\d+)?(?:\s*[, ]\s*[-+]?\d+(?:\.\d+)?)*|true|false|on|off|#[0-9a-f]{6}|red|green|blue|black|white|yellow|transparent)[.]?$/i.test(part) ||
+    /^(?:set|change)\s+.+\b(?:visibility|visible|hidden)\b.+\b(?:from|between)\s+\d+\s+(?:to|and)\s+\d+[.]?$/i.test(part)
+  );
 }
-function acceptanceChecks(value, sweepSchema) {
+
+function planChecks(value, sweepSchema) {
   if (!Array.isArray(value) || !value.length || value.length > 20)
     throw Error('List 1–20 concrete completion checks in checks, covering the requested result and protected data.');
   return value.map(check => {
@@ -58,9 +65,8 @@ function checkpointNote(task) {
     appliedSteps: task.steps.filter(s => s.status === 'applied').map(s => ({ tool:s.tool, label:s.label })),
     recentSteps: task.steps.slice(-20).map(s => ({ tool:s.tool, label:s.label, status:s.status })),
     routines: Object.keys(task.routines || {}),
-    helper: task.helper?.report,
     review: task.checkpoint?.review,
     failures: task.replanRequired,
   });
 }
-module.exports = { helperSpec, acceptanceChecks, expandRoutine, recordFailures, checkpointNote };
+module.exports = { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote };

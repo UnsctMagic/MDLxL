@@ -59,7 +59,7 @@ const SPECIAL = {
 // These copy or patch the whole package folder (updater, recovery), so they get the folder of the same target.
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
-for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-parallel', 'ai-questions', 'ai-routing', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
+for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-multi-tab', 'ai-questions', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
 for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
@@ -93,8 +93,7 @@ SPECIAL['optimizexl-selection'] = { env: { MDLXL_FOOTMAN_MODEL: selectionModel }
 const poseSetupModel = testModel('pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx');
 SPECIAL['pose-setup'] = { env: { MDLXL_POSE_FIXTURE: poseSetupModel }, needs: [poseSetupModel, testModel('pose-setup-fixture/Textures')] };
 for (const name of ['optimizexl-opening', 'optimizexl-cleanup']) SPECIAL[name] = { env: { MDLXL_OPENING_MODEL: openingModel }, needs: [openingModel] };
-SPECIAL['ai-parallel'].env.MDLXL_AI_CONSOLE_MODEL = footman;
-SPECIAL['ai-parallel'].needs = [footman];
+SPECIAL['ai-multi-tab'].needs = [footman];
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
 // packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
 export const DEV_ONLY = ['welcome-prompt', 'close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];

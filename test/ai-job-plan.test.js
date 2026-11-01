@@ -22,14 +22,8 @@ test('passing a long-named check clears its truncated failure key',()=>{
  assert.equal(task.replanRequired,undefined);
 });
 
-test('the four tool answers stay as they were: helper calls and calls that skip the edit queue', async () => {
-  const { AI_HELPER_TOOLS, aiHelperCanCall, aiToolRunsUnqueued, aiToolEditsModel } = await import('../src/ai-tools.js');
-  assert.deepEqual([...AI_HELPER_TOOLS], ['mdlxl_context', 'mdlxl_read', 'mdlxl_capabilities', 'mdlxl_help', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_script', 'mdlxl_assets']);
-  assert.equal(aiHelperCanCall('mdlxl_script', { edit: false }), true);
-  assert.equal(aiHelperCanCall('mdlxl_script', { edit: true }), false);
-  assert.equal(aiHelperCanCall('mdlxl_assets', { action: 'search' }), true);
-  assert.equal(aiHelperCanCall('mdlxl_assets', { action: 'import' }), false);
-  assert.equal(aiHelperCanCall('mdlxl_patch', {}), false);
+test('editing and read-only calls keep their existing queue behavior', async () => {
+  const { aiToolRunsUnqueued, aiToolEditsModel } = await import('../src/ai-tools.js');
   const unqueued = ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities', 'mdlxl_context', 'mdlxl_assets', 'mdlxl_patch'].filter(name => aiToolRunsUnqueued(name, {}));
   assert.deepEqual(unqueued, ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities']);
   assert.equal(aiToolRunsUnqueued('mdlxl_script', { edit: false }), true);

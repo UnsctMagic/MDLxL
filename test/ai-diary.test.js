@@ -20,7 +20,7 @@ test('each job is recorded once with its plan, edits and result, and resuming up
   const entry = {};
   assert.equal(recordJob(entry, { id: 'a', request: 'stop the thighs folding', steps: [] }), false, 'a job with no plan and no edits leaves no entry');
   recordJob(entry, { id: 'a', request: 'stop the thighs folding', plan, steps: [applied('Rebind thighs'), { label: 'refused', status: 'failed' }], outcome: 'interrupted' });
-  recordJob(entry, { id: 'a', request: 'stop the thighs folding', plan, steps: [applied('Rebind thighs'), applied('Check seams')], outcome: 'verified', bird: 'Crow' });
+  recordJob(entry, { id: 'a', request: 'stop the thighs folding', plan, steps: [applied('Rebind thighs'), applied('Check seams')], outcome: 'verified' });
   assert.equal(entry.diary.length, 1);
   assert.deepEqual(entry.diary[0].edits, ['Rebind thighs', 'Check seams']);
   assert.equal(entry.diary[0].outcome, 'verified');
@@ -36,7 +36,7 @@ test("the owner's next message is kept as the reaction to the last job", () => {
   assert.equal(entry.diary[0].ownerNext, 'it looks too mechanical');
 });
 
-test('the organiser retains the complete stored diary as choices it may undo', () => {
+test('the model registry retains the complete stored diary as choices it may undo', () => {
   const entry = {};
   assert.equal(diaryText(entry), '');
   for (let i = 1; i <= 50; i++) recordJob(entry, { id: 'job' + i, request: 'job ' + i, plan, steps: [applied('Edit ' + i)], outcome: 'verified' });
@@ -44,14 +44,14 @@ test('the organiser retains the complete stored diary as choices it may undo', (
   noteOwnerReply(entry, 'All the changes are bad');
   const text = diaryText(entry);
   assert.match(text, /choice another AI made, not part of the authored model/);
-  assert.equal(text.split('\n').length - 1, 40, 'the complete stored diary stays with the organiser');
+  assert.equal(text.split('\n').length - 1, 40, 'the complete stored diary stays with the model registry');
   assert.ok(text.indexOf('"job 50"') < text.indexOf('"job 11"'));
   assert.match(text, /the owner then said: "All the changes are bad"/);
   assert.match(text, /chose: Remove the skirt bones from thigh groups/);
 });
 
 
-test('workers receive only relevant entries, newest first, without a fixed count cut-off', () => {
+test('direct jobs receive only relevant entries, newest first, without a fixed count cut-off', () => {
   const entry={diary:[]};
   for(let i=0;i<12;i++) recordJob(entry,{id:'w'+i,request:'Weld the plated band',steps:[{...applied('Weld band'),changes:[{path:'/Geosets/0/Vertices'}]}],outcome:'verified'});
   recordJob(entry,{id:'unrelated',request:'Retime the cape animation',steps:[{...applied('Retime cape'),changes:[{path:'/Bones/9/Translation'}]}],outcome:'verified'});

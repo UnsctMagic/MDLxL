@@ -50,7 +50,8 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
           assert.ok(!chord.includes('>') && chord.split('+').length <= 2, `${row.id}: ${chord}`);
           assert.ok(!used.has(chord), `${place}: duplicate ${chord}`); used.add(chord);
           // HOTKEYS.md permits other letters after a name's letters are occupied.
-          const paletteFallback = { 'color:green': 'Q', 'color:blue': 'Z' }[row.id];
+          // Removing delegation controls frees a name-derived palette chord.
+          const paletteFallback = { 'color:green': 'Q', 'color:blue': 'Shift+L' }[row.id];
           if (paletteFallback) assert.equal(chord, paletteFallback, row.id + ' keeps its distinct palette key');
           else if (chord !== 'Escape') assert.ok(row.label.toUpperCase().includes(chord.split('+').at(-1)), row.id + ': ' + chord + ' is not from ' + row.label);
         }

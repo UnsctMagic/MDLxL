@@ -104,17 +104,6 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                         />
                       )}
                     </label>
-                    {!!settings.lighterModels?.length && (<>
-                      <label title="Use a lighter available model for exact value changes and factual reports. Shape or motion work asks first. Failed reviews hand over to the chosen model.">
-                        <input data-hotkey="allow-lighter" data-hotkey-label="Allow lighter models" type="checkbox" checked={settings.allowLighter === true} onChange={event => setSettings(previous => ({ ...previous, allowLighter: event.target.checked }))} />
-                        Allow lighter models for simple jobs
-                      </label>
-                      {settings.allowLighter && <label title="Choose from lighter models returned by this connection.">Lighter model
-                        <select aria-label="Lighter model" data-hotkey="lighter-model" value={settings.lightModel || settings.lighterModels[0].id} onChange={event => setSettings(previous => ({ ...previous, lightModel: event.target.value }))}>
-                          {settings.lighterModels.map(model => <option key={model.id} value={model.id}>{model.name || model.id}</option>)}
-                        </select>
-                      </label>}
-                    </>)}
                     {provider.effort && (
                       <label title={EFFORT_TIP}>
                         Thinking effort
@@ -126,14 +115,6 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                         </select>
                       </label>
                     )}
-                    <label title="Manual sends to the current bird until you choose New job. Automatic lets the organiser delegate unaddressed messages based on task complexity. Both lets you choose in the composer.">
-                      Job routing
-                      <select aria-label="Job routing" data-hotkey="job-routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
-                        <option value="manual">Manual</option>
-                        <option value="automatic">Automatic</option>
-                        <option value="both">Both</option>
-                      </select>
-                    </label>
                     <label title={OUTSIDE_CHECK_TIP}>
                       <input data-hotkey="outside-check" data-hotkey-label="Outside check" type="checkbox" checked={settings.outsideCheck !== false} onChange={event => setSettings(previous => ({ ...previous, outsideCheck: event.target.checked }))} />
                       Outside check
