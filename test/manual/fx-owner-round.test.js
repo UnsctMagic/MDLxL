@@ -115,3 +115,18 @@ test('Attack contact uses the same striking surface from the helmet or either bl
   assert.deepEqual(poses[0],poses[1]);assert.deepEqual(poses[1],poses[2]);
  }
 });
+
+test('Phoenix quill feathers have clear corners with their native particle blend',async()=>{
+ const {CascReader}=createRequire(import.meta.url)('../../electron/casc.cjs');
+ const {thumbnailPixels}=await import('../../src/texture-thumbnail.js');
+ const feather=findLook('sort-phoenix').layers.find(l=>l.type==='Particles');
+ const reader=new CascReader(process.env.MDLVIS_GAME_DATA||'D:/Warcraft III',process.cwd());
+ try{
+  const bytes=await reader.read(feather.image);assert.ok(bytes,feather.image);
+  const {width,height,data}=thumbnailPixels({name:feather.image,bytes});
+  for(const pixel of [0,width-1,(height-1)*width,width*height-1]){
+   const [r,g,b,a]=data.slice(pixel*4,pixel*4+4);
+   assert.ok(feather.nativeSpec.filter===0?a<8:Math.max(r,g,b)<8,'native feather corner must disappear in the chosen blend');
+  }
+ }finally{reader.close();}
+});

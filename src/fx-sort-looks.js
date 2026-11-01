@@ -1,5 +1,5 @@
 // Candidate recipes for the owner's sort folder. Paths are native SD game textures.
-const tex=name=>(/^(Units|SharedModels)\\/.test(name)?name:'Textures\\'+name)+'.blp';
+const tex=name=>(name.startsWith('Units\\')?name:'Textures\\'+name)+'.blp';
 const surface=(label,name,extra={})=>({type:'Moving skin',label,image:tex(name),strength:.75,...extra});
 const light=(label,name,pulse,strength,tint)=>({type:'Glow',label,image:tex(name),pulse,strength,tint});
 const mark=(label,name,pulse,tint)=>({type:'Rune',label,image:tex(name),glyphs:true,strength:1.55,pulse,tint});
@@ -25,7 +25,7 @@ export const SORT_LOOKS=[
  make('eclipse','Eclipse brand',3400,surface('Passing shadow','CloudsTile2',{base:true,filter:2,strength:1,axis:'v',tint:[.32,.29,.46]}),mark('Eclipse eye','DemonRune3','breathe',white)),
  make('comet','Comet glass',1200,surface('Comet core','Star2',{axis:'v',band:.34,pulse:'steel',tint:silver}),trail('Comet tail','RibbonNE1_White',silver,.52,.25)),
  make('ink','Living ink',3800,surface('Ink clouds','CloudsTile1',{filter:5,bodyUV:true,strength:.86}),mark('Ink seal','DemonRune2','glint',violet)),
- make('phoenix','Phoenix quill',1850,surface('Feather light','Units\\Human\\Phoenix\\Phoenix2',{base:true,filter:2,atlasRect:[.03,.12,.43,.4],strength:1}),spray('Falling feathers','SharedModels\\Feather1',gold,{life:1.45,rate:8,filter:1,area:.6,velocity:.28,gravity:.62,spread:50,size:[.07,.24,.09],alpha:[40,235,0]})),
+ make('phoenix','Phoenix quill',1850,surface('Feather light','Units\\Human\\Phoenix\\Phoenix2',{base:true,filter:2,atlasRect:[.03,.12,.43,.4],strength:1}),spray('Falling feathers','Feather',gold,{life:1.45,rate:8,filter:1,area:.6,velocity:.28,gravity:.62,spread:50,size:[.07,.24,.09],alpha:[40,235,0]})),
  make('soul','Soul lantern',2700,mark('Soul seal','Rune6b','breathe',mint),spray('Lantern flame','Ghost1',mint,{life:.95,rate:9,orbit:.56,velocity:.21,size:[.12,.28,.02]})),
  make('thorn','Thorn script',2450,mark('Thorn glyph','DemonRune4','flicker',mint),trail('Thorn trail','RibbonNE1_White',mint,.38,.32)),
  make('astral','Astral chart',5400,stone('Black stone','Cityscape\\City_BlackMarble'),surface('Star field','Units\\Undead\\FrostWyrm\\Starfield',{bodyUV:true,direction:26,strength:1,tint:white}),mark('Constellation','Rune4','glint',gold)),
