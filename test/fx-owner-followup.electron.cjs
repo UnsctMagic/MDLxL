@@ -14,7 +14,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   }
  };
  const part=async i=>{await fx.getByLabel('Geoset',{exact:true}).selectOption(String(i));await ready();};
- const frame=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxTag?.endsWith('/shape')),l=g&&m.Materials[g.MaterialID].Layers[0];return {image:m.Textures[l?.TextureID]?.Image,alpha:l?.Alpha?.Keys?.map(k=>k.Vector[0])??l?.Alpha,uv:Array.from(g?.TVertices[0]||[]),emitters:m.ParticleEmitters2.filter(n=>n._FxTag).map(n=>({p:n.Parent,pos:Array.from(n.PivotPoint),name:n.Name}))};});
+ const frame=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxTag?.endsWith('/shape')),l=g&&m.Materials[g.MaterialID].Layers[0];return {image:m.Textures[l?.TextureID]?.Image,alpha:l?.Alpha?.Keys?.map(k=>k.Vector[0])??l?.Alpha,uv:Array.from(g?.TVertices[0]||[]),emitters:m.ParticleEmitters2.filter(n=>n._FxTag).map(n=>({p:n.Parent,pos:Array.from(n.PivotPoint),size:Array.from(n.ParticleScaling),name:n.Name}))};});
  try{
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await part(27);await choose('Rune blade');
   const rune=fx.getByLabel('Rune',{exact:true});assert.equal(await rune.count(),1,'rune glyph can be chosen in FX');
@@ -30,6 +30,9 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await part(0);await choose('Iron strike');const a=(await frame()).emitters;assert.ok(a.length);await part(28);assert.deepEqual((await frame()).emitters,a,'an unrelated geoset cannot move the contact');await fx.getByRole('button',{name:'Pause',exact:true}).click();await fx.getByRole('button',{name:'Fit selection',exact:true}).click();
   const size=fx.getByRole('button',{name:'Size',exact:true});assert.equal(await size.count(),1,'the burst keeps its resize tool');
   await size.click();await fx.getByRole('slider',{name:'Resize particle',exact:true}).waitFor();assert.equal(await fx.getByRole('slider',{name:'Move emitter',exact:true}).count(),0);
+  const corner=await fx.getByRole('slider',{name:'Resize particle',exact:true}).boundingBox(),start=(await frame()).emitters;
+  await page.mouse.move(corner.x+corner.width/2,corner.y+corner.height/2);await page.mouse.down();await page.mouse.move(corner.x+corner.width/2+50,corner.y+corner.height/2-12,{steps:8});await page.mouse.up();await ready();
+  const resized=(await frame()).emitters;assert.notDeepEqual(resized.map(n=>n.size),start.map(n=>n.size),'drag resizes the burst');assert.deepEqual(resized.map(n=>n.pos),start.map(n=>n.pos),'resize cannot move the hit');
   assert.deepEqual(errors,[]);
   console.log('PASS: 4 rune choices, glow, UV drag, optional fire and Attack placement from two selections.');
  }finally{await closeApp(app);}

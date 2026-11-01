@@ -11,6 +11,34 @@ striking weapon or creature limb regardless of the geoset the user clicks.
 See the updated feature contract for the current requirements; the prior
 results below describe the earlier package.
 
+Verified on the isolated Windows build of `36934bd1`:
+
+- [Packaged playback](../../test/evidence/visual-effects/hand-test-2.webp): white
+  Freezing Breath mist, sparks, embers, a chosen rune, optional lava fire,
+  striated natural ice, pulsing fissures and Attack bursts on a weapon and a
+  creature. Also inspected Stand, Walk and Attack captures on all three Warriors.
+- At default Amount on Slaanesh geoset 29, both weapons had at least two live
+  sparks/embers in 80/80 measured frames after warm-up (old sparks: 14/80).
+  Old saved frost used normal blend rather than additive. The two revised ice
+  looks retained the original material and all original foreground pixels in a
+  paused Footman comparison at an 18/255 background threshold.
+- The old package had no rune selector. Hidden follow-up controls verified four
+  art choices, steady and animated glow, UV drag, optional fire, independent
+  contact from different selections, and a size drag that cannot move the hit.
+  The owner controls and global FX/EMTR workflows also passed.
+- Without a marker the hit frame is an estimate: a manual timing adjustment
+  resamples the strike. On the Dire Wolf the first Attack reaches with its muzzle,
+  the second with a forelimb. MDX has no knowledge of a live victim or damage event.
+- **2,690 source passed, 0 failed, 7 skipped** (same documented private fixtures
+  and Windows conditions as below). **74 focused** and **57 compatibility** checks
+  passed, none skipped. All 36 looks passed 72 MDX/MDL round trips with re-edit and
+  exact Undo on the hidden desktop. Renderer art and saved native records were
+  unchanged by the final resize-handle restriction, verified on the owner package.
+  Checked-off then disabled layers left no extra native records in either format.
+- No further cards removed. Optional ground decals are no longer offered on impact
+  cards. The independent QA, owner's final visual review and in-game playback are
+  still open. No merge or release.
+
 ## First hand-test round · 1 November 2026
 
 Continues `46ff2fa900147c540492e27bfc3ad4e7bbe09255` on the same branch and PR.

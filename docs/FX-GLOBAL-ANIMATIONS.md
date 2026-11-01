@@ -148,7 +148,8 @@ keep its count.
 
 The source checks are `test/global-animations.test.js` and the private real-model
 `test/manual/fx-owner-round.test.js`. Hidden packaged checks are
-`test/fx-owner-round.electron.cjs`, `test/fx-owner-motion.electron.cjs`,
+`test/fx-owner-followup.electron.cjs`, `test/fx-owner-round.electron.cjs`,
+`test/fx-owner-motion.electron.cjs`,
 `test/fx-owner-intensity.electron.cjs` and the existing FX/save/UV/library workflows.
 The motion harness accepts `FX_MODELS` / `FX_LOOKS` (comma-separated) and `FX_PART`
 (a zero-based test override; UI reports remain one-based). The intensity harness
