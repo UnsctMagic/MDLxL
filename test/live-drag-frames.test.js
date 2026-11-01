@@ -107,7 +107,7 @@ const coalescedDrags = [
   { name: 'AnimXL strip drag', file: 'app/AnimXL.jsx', from: 'const stripMove = event => {', to: 'stripApply.current = () => {', forbidden: /\bupdate\(|setSettings|setTime|setDraft|stripTime/ },
   { name: 'Showcase layer drag', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', to: 'function applyMove(){', forbidden: /onChange|scaleTextRuns/ },
   { name: 'Showcase crop drag', file: 'app/ShowcaseWorkspace.jsx', from: 'function moveCrop(event) {', to: 'function applyCropMove() {', forbidden: /setCrop|cropBetween|getBoundingClientRect/ },
-  { name: 'Model Manager collision drag', file: 'app/ModelManager.jsx', from: 'const drag = event => {', to: 'function applyDrag() {', forbidden: /structuredClone|previewDraft|setDraft|moveCollision|resizeCollision/ },
+  { name: 'Collision shape drag (Managers, Sphereomancer)', file: 'app/CollisionOverlay.jsx', from: 'const drag = event => {', to: 'function applyDrag() {', forbidden: /structuredClone|previewDraft|setDraft|moveCollision|resizeCollision/ },
   { name: 'UV splitters', file: 'app/UVWorkspace.jsx', from: 'onPointerMove={event => { if (pointer.current === event.pointerId) {', to: 'onPointerUp={stop}', forbidden: /onPointerValue|report\.current\(/ },
   { name: 'AI console resize', file: 'app/AiAssistant.jsx', from: 'const move = moveEvent => {', to: 'const end = () => {', forbidden: /setWidth/ },
   { name: 'Geoset list resize', file: 'app/GeosetListBox.jsx', from: 'onPointerMove={event => {', to: 'onPointerUp={stop}', forbidden: /setHeight/ },

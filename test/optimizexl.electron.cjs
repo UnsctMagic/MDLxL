@@ -53,12 +53,18 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   await popup.getByLabel('Sphere preset',{exact:true}).hover();await popup.mouse.wheel(0,-100);
   await popup.waitForFunction(()=>document.querySelector('[aria-label="Sphere preset"]').value==='3');
   await popup.getByLabel('Sphere preset',{exact:true}).selectOption('4');
-  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===2);
+  // Before draws the original shapes; After draws the proposal with the Managers collision handles.
+  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===1&&document.querySelectorAll('.ox-collision .mm-outline').length===3&&getComputedStyle(document.querySelector('.ox-collision')).position==='absolute');
+  const dot=popup.locator('.ox-collision .mm-center'),startX=Number(await dot.getAttribute('cx')),box=await dot.boundingBox();
+  await popup.mouse.move(box.x+box.width/2,box.y+box.height/2);await popup.mouse.down();await popup.mouse.move(box.x+box.width/2+40,box.y+box.height/2,{steps:6});await popup.mouse.up();
+  await popup.waitForFunction(x=>Math.abs(Number(document.querySelector('.ox-collision .mm-center')?.getAttribute('cx'))-x)>20,startX);
+  await popup.getByLabel('Sphere preset',{exact:true}).selectOption({label:'Cavalry'});
+  await popup.waitForFunction(()=>document.querySelectorAll('.ox-collision .mm-outline').length===13);
   await popup.waitForFunction(()=>document.querySelector('.ox-savings strong'));
   assert.equal(await popup.getByRole('alert').count(),0);
   await popup.screenshot({path:path.join(out,'03-spheres.png')});
   await popup.getByRole('button',{name:'Nuclear Polygon Destroyer',exact:true}).click();
-  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===0);
+  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===0&&!document.querySelector('.ox-collision'));
   await popup.getByLabel('Strength',{exact:true}).fill('40');
   await popup.waitForFunction(()=>document.querySelector('.ox-savings strong')&&!document.querySelector('.ox-savings').textContent.includes('Updating'));
   assert.ok(parseFloat(await popup.locator('.ox-savings strong').textContent())>0);
