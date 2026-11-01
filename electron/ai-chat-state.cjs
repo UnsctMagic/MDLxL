@@ -109,13 +109,6 @@ function settleConversation(conversation) {
   return conversation;
 }
 
-// Context pressure for the display, retaining the existing scale for saved chats.
-function contextUse(conversation) {
-  if (conversation.usage?.window) return conversation.usage.used / Math.min(200000, conversation.usage.window * 0.5);
-  const stored = JSON.stringify(conversation.messages || []).length + JSON.stringify(conversation.transcript || []).length;
-  return stored / 4 / 100000;
-}
-
 // Saves JSON (as it is now) through a temporary file, so a crash or a full disk
 // never leaves half a file. Writes to one file happen in the order asked.
 const writing = new Map();
@@ -205,7 +198,6 @@ module.exports = {
   settleConversation,
   AiSteering,
   AiRecorder,
-  contextUse,
   OrganiserRegistry,
   writeJsonAtomic,
   removeFiles,

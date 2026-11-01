@@ -288,3 +288,16 @@ same branch. Implementation: `5faefeda`; main sync: `50cd5718`; verified handoff
 check/skip/unverified list. Branch pushed; no PR merge, tag or release.
 
 Independent Claude QA/review and owner merge approval remain. Do not merge.
+
+## Claude review fixes
+
+Claude reviewed PR 501 and fixed on this branch: ru/es/zh entries for the chat
+picker, read-only placeholder and model tooltip; legacy native chats without a
+provider thread now get their local ledger and the memory note in the prompt
+(shared `ledgerText` with memory notes); unguarded `messages.length`; the
+exact-value check no longer strips a bird-address prefix (`Fix: set ...` needs a
+plan); outside-check "worker" wording; restored `askOnce`/`artDirection`/art
+transcript comments; removed unused `contextUse`; legacy bird reports render at
+normal size under a short name/job note. Focused AI and localization source tests
+(270) and the build passed; the native legacy-ledger path has no automated test.
+Owner merge approval remains.

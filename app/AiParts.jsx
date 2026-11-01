@@ -237,7 +237,10 @@ export function AssistantMessage({ message, live }) {
   );
   const shown = parts.map((part, index) =>
     part.type === 'worker' ? (
-      <div key={index} className="ai-message-note"><span translate="no">{part.job}</span>{part.report && <AiMessage text={part.report} />}</div>
+      <React.Fragment key={index}>
+        <div className="ai-message-note"><span translate="no">{part.name ? part.name + ': ' + part.job : part.job}</span></div>
+        {part.report && <AiMessage text={part.report} />}
+      </React.Fragment>
     ) : part.type === 'provider-notice' ? (
       <ProviderNotice key={index} part={part} />
     ) : part.type === 'question' ? (

@@ -56,6 +56,15 @@ function editingPrompt(contract, { handbook, web, functions }) {
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
+// Legacy native chats may have a local ledger without a provider thread; API
+// routes send it as history instead.
+function ledgerText(conversation, settings) {
+  if (!providerInfo(settings.provider)?.native || conversation.threadId || !conversation.messages?.length) return '';
+  return (
+    '\n\nThe requests and reports from this conversation, oldest first:\n' +
+    conversation.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
+  );
+}
 // The editor snapshot goes in full once per conversation (and again when its
 // provider history starts over); later prompts carry the target, where the user
 // is, and only the fields that changed. mdlxl_context returns everything,
@@ -555,7 +564,10 @@ class AiService {
     recorder.event({ type: 'text', text: summary });
     return true;
   }
-    async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
+  // One tool-free turn in a throwaway chat; returns the reply text. Usage goes to
+  // `meter`, `label` is the error for a tool call, and `stepLimit` caps the rounds.
+  // The AI never watches the editor (providers skip awareness when it is null) and is never steered.
+  async askOnce({ settings, system, prompt, images = [], conversation, signal, meter, label, stepLimit }) {
     let reply = '';
     const steering = new AiSteering(() => {});
     try {
@@ -735,10 +747,14 @@ class AiService {
       if (pages) prompt += '\n\n' + pages;
       conversation.sentToolAreas = [...sent, ...areas];
     }
-    if (!conversation.toolsOff && conversation.modelKey && !conversation.messages.length && !conversation.threadId) {
+    // A chat without provider history starts with the model's memory note. A legacy
+    // native chat's local ledger is not history either, so it travels in the prompt.
+    const ledger = conversation.toolsOff ? '' : ledgerText(conversation, settings);
+    if (!conversation.toolsOff && conversation.modelKey && !conversation.threadId && (ledger || !conversation.messages?.length)) {
       const entry = await this.registry.model(conversation.modelKey);
       if (entry.note) prompt += memoryNoteText(entry.note);
     }
+    prompt += ledger;
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!conversation.toolsOff && conversation.modelKey) {
       const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
@@ -1034,6 +1050,8 @@ class AiService {
         }
     }
   }
+  // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
+  // user's words into an SD art brief. Nothing of it is kept but the brief.
   async artDirection({ text, images, context, settings, contract, signal, conversation }) {
     const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
     const counts = context.counts || {},
@@ -1066,7 +1084,7 @@ class AiService {
         `The owner's request, exactly as written:\n${request}`,
         plan
           ? `The editing AI's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}; completion criteria: ${(plan.checks || []).map(c => c.name ?? c).join('; ')}.`
-          : 'The worker recorded no plan (an exact value edit).',
+          : 'The editing AI recorded no plan (an exact value edit).',
         `The editing AI's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
         ...(inspect.sweeps?.length ? [outsideSweepBlock(inspect.sweeps)] : []),
         ...(inspect.motion ? [`MDLxL's own measurement, not written by the editing AI:\n${JSON.stringify(inspect.motion)}`] : []),
@@ -1215,13 +1233,7 @@ class AiService {
     this.active = active;
     const recorder = this.recorder(organiser, value => this.emit({ id: organiser.id, ...value }));
     const steering = new AiSteering(() => {});
-    // Legacy native chats may have a local ledger without a provider thread.
-    // Include it in memory notes; API routes send it as history.
-    const ledger =
-      providerInfo(settings.provider)?.native && !organiser.threadId && organiser.messages?.length
-        ? '\n\nThe requests and reports from this conversation, oldest first:\n' +
-          organiser.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
-        : '';
+    const ledger = ledgerText(organiser, settings);
     const diary = organiser.modelKey ? diaryText(await this.registry.model(organiser.modelKey)) : '';
     organiser.toolsOff = true;
     try {

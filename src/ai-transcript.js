@@ -89,6 +89,7 @@ function reduce(messages, event, copy) {
       if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary });
       break;
     }
+    // SD Brain's art brief: a row that fills in once the brief is written.
     case 'art': {
       const parts = reply().parts,
         at = parts.findLastIndex(p => p.type === 'art' && p.status === 'running'),
