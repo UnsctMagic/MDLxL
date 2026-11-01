@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createStarterDocument} from '../src/starter-model.js';
 const require=createRequire(import.meta.url),root=path.resolve(import.meta.dirname,'..');
 const args=process.argv.slice(2),option=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];};
-const destination=path.resolve(option('--out')||'D:/Claude/MDLxL-TestBuilds/RotationLab');
+const destination=path.resolve(option('--out')||'D:/Claude/MDLxL-TestBuilds/GizmoLab');
 const ownerSettings=option('--owner-settings');
 if(!ownerSettings)throw Error('Pass --owner-settings with the real profile settings.json (read only).');
 const settings=JSON.parse(await fs.readFile(ownerSettings,'utf8'));
@@ -24,7 +24,7 @@ if(main.split(from).length!==2)throw Error('Lab Electron entry hook drifted.');
 await fs.writeFile(mainFile,main.replace(from,"await current.loadFile(path.join(__dirname,'../dist/rotation-lab.html'));"));
 await fs.appendFile(path.join(app,'electron/preload.cjs'),'\n'+await fs.readFile(path.join(root,'electron/rotation-lab-preload.cjs'),'utf8'));
 const manifest=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
-await fs.writeFile(path.join(app,'package.json'),JSON.stringify({name:'mdlxl-rotation-lab',version:manifest.version,type:'module',main:'electron/rotation-lab-main.cjs'}));
+await fs.writeFile(path.join(app,'package.json'),JSON.stringify({name:'mdlxl-gizmo-lab',version:manifest.version,type:'module',main:'electron/rotation-lab-main.cjs'}));
 const fixtures=option('--models')||'D:/Claude/MDLxL-TestModels/optimizexl-footman',models=path.join(app,'lab-models');
 await fs.mkdir(models,{recursive:true});
 await fs.copyFile(path.join(fixtures,'human__footman.mdx'),path.join(models,'human__footman.mdx'));
@@ -32,11 +32,11 @@ await fs.cp(path.join(fixtures,'Textures'),path.join(models,'Textures'),{recursi
 const box=createStarterDocument();box.apply('Lab box proportions',['Geosets'],m=>m.Geosets[0].Vertices.forEach((v,i,a)=>a[i]=v*[1.5,.7,1.1][i%3]));
 await fs.writeFile(path.join(models,'Box.mdx'),box.serialize('mdx'));
 await fs.mkdir(path.join(destination,'lab-profile'));
-await fs.writeFile(path.join(destination,'lab-profile/settings.json'),JSON.stringify({preferences:settings.preferences}));
+await fs.writeFile(path.join(destination,'lab-profile/settings.json'),JSON.stringify({preferences:{...settings.preferences,rotation:{...settings.preferences.rotation,sensitivity:1,editors:{...settings.preferences.rotation?.editors,vertices:{...settings.preferences.rotation?.editors?.vertices,sensitivity:1}}}}}));
 await fs.writeFile(path.join(destination,'owner-preferences-copy.json'),JSON.stringify({source:path.resolve(ownerSettings),rotation:settings.preferences?.rotation,pointerSensitivity:settings.preferences?.pointerSensitivity},null,2));
 if(args.includes('--shortcut')){
  const quote=value=>"'"+value.replaceAll("'","''")+"'";
- const script="$shell=New-Object -ComObject WScript.Shell; $link=$shell.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'MDLxL Rotation Lab.lnk')); $link.TargetPath="+quote(path.join(destination,'MDLxL.exe'))+"; $link.WorkingDirectory="+quote(destination)+"; $link.Save()";
+ const script="$shell=New-Object -ComObject WScript.Shell; $link=$shell.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'MDLxL Gizmo Lab.lnk')); $link.TargetPath="+quote(path.join(destination,'MDLxL.exe'))+"; $link.WorkingDirectory="+quote(destination)+"; $link.Save()";
  execFileSync('powershell.exe',['-NoProfile','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true});
 }
 console.log(destination);

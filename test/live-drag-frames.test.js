@@ -132,3 +132,13 @@ for (const { name, file, from, to, forbidden } of coalescedDrags) test(`${name} 
   assert.match(body, /\.schedule\(\)/);
   assert.doesNotMatch(body, forbidden, 'expensive work runs per pointer event');
 });
+
+// The lab compiles the real pointer path; its sample-only exception is wrapped-angle accumulation.
+test('Gizmo Lab Move and Rotate retain the existing once-per-frame geometry owner',async()=>{
+ const {transformLabSource}=await import('../scripts/rotation-lab-transform.mjs');
+ const source=transformLabSource(readFileSync(new URL('../app/Viewport.jsx',import.meta.url),'utf8'),'/app/Viewport.jsx');
+ const pointer=source.slice(source.indexOf('function pointerMove(event)'),source.indexOf('// These run at the start'));
+ assert.match(pointer,/sampleLabDrag/);assert.match(pointer,/transformFrame.schedule/);
+ assert.doesNotMatch(pointer,/moveLabDrag|rotateLabDrag|drawGizmoLab|logLabDrag/);
+ assert.match(source,/const transformFrame = createFrameCoalescer\(applyTransformMove, drawFrames\)/);
+});

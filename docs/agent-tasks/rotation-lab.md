@@ -1,6 +1,6 @@
 # Rotation Lab: pick the 3D Rotate rule by feel
 
-Status: superseded by [Gizmo Lab](gizmo-lab.md) (2026-11-01); its build (PR #496) is reused there
+Status: superseded by [Gizmo Lab](gizmo-lab.md) (2026-11-01); PR #496 continues there. The old build/shortcut are replaced; only `D:\Codex\rotation-lab-report` is kept.
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-01
 
@@ -112,7 +112,7 @@ call path is byte-for-byte today's behaviour.
   or the UV map (the UV map keeps its own turn; see the Two Rotate rules in
   AGENTS/the old note). That is the follow-up PR after the owner picks.
 
-## Implementation and hand-test build
+## Historical Rotation Lab implementation and hand-test build
 
 - Branch: `codex/rotation-lab`, from `origin/main` `cb7065fb` (contract PR #495).
 - Implementation: `40c1492b`; [PR #496](https://github.com/UnsctMagic/MDLxL/pull/496), ready for review.

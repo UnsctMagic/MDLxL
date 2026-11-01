@@ -1,6 +1,6 @@
 # Gizmo Lab: Workplane Constraints and one gizmo for Move and Rotate
 
-Status: contract ready for Codex; nothing built yet
+Status: ready to test; ready for review; awaiting merge approval and independent Claude QA
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-01
 
@@ -44,6 +44,28 @@ MDLVis 1.40 source, LGPL: <https://github.com/kisapablo/mdlvis>. The owner uses
   the one nearest the mouse lights up and becomes the plane (`TWorkPlane.FindRot`,
   `TWorkPlane.Find`, `guic.pas` ~1215–1380). Rotate then follows the grabbed
   circle. Move stays in the highlighted plane; never free on screen.
+
+### Verified authored-coordinate direction (Codex)
+
+Reference revision: `kisapablo/mdlvis` `3d120eb046183c9c91a7b29b5e52f986fbe0a41c`.
+[FindAngles](https://github.com/kisapablo/mdlvis/blob/3d120eb046183c9c91a7b29b5e52f986fbe0a41c/guic.pas#L1392-L1409)
+produces `a = oldX - newX = -dx`. Comparing the coordinate equations in
+[vRotate](https://github.com/kisapablo/mdlvis/blob/3d120eb046183c9c91a7b29b5e52f986fbe0a41c/frmmain.pas#L1553-L1617)
+with right-hand XYZ rotation gives:
+
+| Plane | Turn axis | Authored angle for a rightward drag |
+| --- | --- | --- |
+| YZ | X | `+dx` degrees |
+| XZ / ZX | Y | `-dx` degrees |
+| XY | Z | `+dx` degrees |
+
+The XY/YZ coordinate equations use the negative of `a`; XZ uses `a`.
+[mdlDraw's Y reflection](https://github.com/kisapablo/mdlvis/blob/3d120eb046183c9c91a7b29b5e52f986fbe0a41c/mdlDraw.pas#L1415)
+is a display transform, not another negation of the authored vertex data. The
+lab matches the authored equations; it does not add camera-dependent sign
+changes. Unit tests independently evaluate all three MDLVis equations. The
+hidden Front check measures `+37°` about X for `+37 px` horizontal movement,
+including three consecutive turns before Undo.
 
 ## Agreed behaviour (owner, 2026-11-01)
 
@@ -148,15 +170,105 @@ MDLVis 1.40 source, LGPL: <https://github.com/kisapablo/mdlvis>. The owner uses
 Changing the shipped app, Bones/POSE/Forge (they get the same gizmo after the
 owner approves), Scale, and the UV map (keeps its own turn).
 
-## Revision and local state
+## Implementation and local state
 
-- Contract: branch `claude/gizmo-lab-contract` from `origin/main` `cb7065fb`.
-- Codex continues `codex/rotation-lab` (PR #496) or a new `codex/` branch from it.
-- Fixture: `D:\Claude\MDLxL-TestModels\optimizexl-footman` (never modify or
-  clean that folder).
+- Continued `codex/rotation-lab`, [PR #496](https://github.com/UnsctMagic/MDLxL/pull/496).
+- Merged `origin/main` `ff39174d` first in `9d3815cb` before implementation.
+  Main's superseded Rotation Lab status and new Gizmo Lab contract were kept
+  when resolving the two documentation-only merge conflicts.
+- Final main sync: `f3cbd71d` in `123a3e09`, carrying its UVEditor-only fix
+  unchanged. The lab runtime was rebuilt and checked after that sync.
+- Runtime owners: `app/gizmo-lab.js` (input adapter, POSE handles and feedback),
+  `app/gizmo-lab-rules.js` (pure rules), `app/rotation-lab.jsx` (reused fixture
+  sessions and the replacement Lines / Rings / Arcs / Reset row).
+- `scripts/rotation-lab-transform.mjs` compiles checked, lab-only hooks into the
+  real App, Viewport, AppSidebar and EditorControls. Drift fails the build.
+  The ordinary source files, movement-overlay, preferences, Settings, Electron
+  owners, package manifest and ordinary Vite entry stay unchanged.
+- Pure lab rules deliberately live outside `src/`: the product AI inventory
+  glob collects every `src/*.js`. Keeping these rules under `app/` prevents
+  experimental lab functions from appearing in the normal AI inventory.
+- POSE `movementAxisHandles`, `pickMovementHandle` and `drawMovementGizmo` own
+  Move arrows/squares and the Lines parts. Ring hit testing chooses only the
+  handle: rotation uses the cursor's swept angle, never a nearest ring point.
+- Move reuses `shiftDragOffset` to keep the visible offset across modifier
+  changes. Plane drags use Three ray/plane intersection; the existing projected
+  workplane solver handles a mathematically edge-on plane. Arrow displacement
+  retains the existing POSE/Vertices axis solver. Gizmo Move uses raw pointer
+  coordinates; constrained Move retains the existing pointer sensitivity.
+- Rotation strength starts at 1× in the copied lab preferences. Constrained
+  Rotate uses that strength and the fixed MDLVis signs above. DPI never scales
+  Rotate; gizmo Rotate ignores strength and follows the swept angle one to one.
+- Every wrapped-angle sample is retained, including coalesced pointer samples.
+  Geometry and feedback use the existing viewport frame coalescer. Start ghosts
+  cache projected selected triangle edges per pane for the drag.
+- Hover results are reused until the pointer or drawn handle geometry changes.
+  Release/cancel records the final pointer for the next paint; leaving a pane
+  clears it. This prevents an old lever/pane highlight from surviving a turn.
+- Reset restores positions, normals and tangents as one normal undoable edit.
+  Edits, Undo, Reset and appearance changes preserve the camera.
 
-## Blockers and next action
+### Build, profile and logging
 
-- None. Next: Codex builds the Gizmo Lab and reports `ready to test`.
-- After the owner approves: one PR ships this as the only Move/Rotate behaviour
-  in every 3D editor and removes the `ring` rule and the lab hook.
+- Build: `D:\Claude\MDLxL-TestBuilds\GizmoLab\MDLxL.exe`.
+- Desktop shortcut: **MDLxL Gizmo Lab**. Never opened on the owner's desktop.
+- `lab-profile` is disposable and separate. Owner preferences are read only;
+  the copied Rotation strength is set to 1×. Navigation/mouse preferences remain
+  copied (owner pointer sensitivity was 0.67× at build time).
+- Footman and Textures come from the unchanged permanent fixture directory.
+  Box is the existing generated lab fixture. Both open with vertices selected.
+- Per-drag log remains `rotation-drags.jsonl` beside the executable, with tool,
+  constraints, appearance, pane, camera direction, handle, used axis/plane,
+  pointer displacement, degrees/distance, translation, Shift and cancellation.
+- The old Rotation Lab build and shortcut are replaced; only its small report
+  (including the owner’s test-Footman recovery and 11,633-byte drag log) remains at `D:\Codex\rotation-lab-report`.
+- Current evidence: `D:\Codex\gizmo-lab-report` (report, measurements, build
+  metadata, test logs and the six required captures).
+
+Rebuild with linked D: dependencies:
+
+```powershell
+pnpm exec vite build --config vite.rotation-lab.config.js
+node scripts/build-rotation-lab.mjs --owner-settings '<real profile settings.json>' --shortcut
+```
+
+The builder defaults to the GizmoLab folder and requires an empty destination;
+`--out` chooses another D: path. The old filenames for the separate HTML,
+Electron entry and build config are retained as the reused isolated scaffold.
+The superseded five-style rule module and tests have been removed.
+
+### Verification
+
+- Focused source/unit/regression checks: **101 passed / 0 failed / 0 skipped**.
+- Compatibility: **57 passed / 0 failed / 0 skipped**.
+- Normal app and lab builds pass. Normal runtime owner files match online main;
+  the ordinary bundle contains neither lab control/event code nor the lab rule
+  module in its AI inventory.
+- Final package: **1,363 checks passed / 0 failed / 0 skipped**, **134 committed
+  measurements + 2 cancelled drags**, **0 renderer errors**.
+- Full hidden desktop harness: `test/gizmo-lab.electron.cjs`, run through the
+  existing `scripts/hidden-run.ps1` on the invisible MDLxLTests desktop.
+  Final package result is recorded in the small report; no visible window is
+  used, and test profiles/processes are removed when each run finishes.
+- Covers Move and Rotate for every appearance; constraints on/off; single view
+  at measured 30°/60°/85° camera angles; all four quad panes; all three Move
+  arrows and all three squares with Shift before and during dragging in both
+  single view and quad Perspective; repeated
+  Rotate turns in constrained and gizmo modes; Shift snap; Esc/right-click
+  cancel; Reset, Undo, Box, live previews, committed geometry and mouse orbit.
+- Numeric camera setup waits for each displayed camera angle to commit before
+  editing the next one. Tests use only real mouse/keys and read-only state.
+- Required captures: default, hover, mid-Lines, mid-Rings, mid-Arcs and the
+  constrained yellow double-arrow/axis/angle readout.
+- Fail first: missing pure-rule module; old Rotation Lab lacks the replacement
+  Gizmo row. Two hover lifecycle checks also reproduce the old stale highlights:
+  X after leaving Perspective, and Z after releasing a lever where Y should be
+  highlighted. Both are corrected in the final adapter.
+- Claude's independent QA and owner feel/appearance approval remain pending.
+  Warcraft III and the full release suites are not claimed.
+
+## Next action
+
+Owner tests the standalone build and chooses the appearance/feel. PR #496 stays
+open, ready for review and awaiting explicit merge approval. This task does not
+change the shipped Move/Rotate rule or authorize a release.
