@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Library: World Editor Style for textures, like models | Contract ready; Codex to build | [Library textures World Editor](library-textures-world-editor.md) / Codex |
 | Gizmo Lab: Workplane Constraints + one gizmo for Move and Rotate (isolated test build) | Contract ready; Codex to build on PR #496 | [Gizmo Lab](gizmo-lab.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
