@@ -1,6 +1,6 @@
 # EMTR Particle Library browsing
 
-Ready for review. Codex, 1 November 2026. Branch `codex/emtr-library-browse`, based on `f75e407def9badcee9e7080a8d0b050433c85879`. Merge requires owner approval.
+Owner correction round applied. Codex, 1 November 2026. Branch `codex/emtr-library-browse`, based on `f75e407def9badcee9e7080a8d0b050433c85879`. Merge requires owner approval.
 
 ## What changed
 
@@ -27,7 +27,7 @@ Classic Warcraft III build **3.0.1.24371**, English (US), read through the proje
 | Appearance category Other | 2,887 → 1,006 |
 | Hash-verified reviewed names preserved | 34 |
 
-The 14 remaining numbered fallbacks are blocked cinematic records with identical source and authored emitter names. All readable recipes have evidence-based names. Some sibling names share a stem and differ by an authored layer, game variation or measured value. Stripping punctuation, plurals and **all** trailing numbers, including meaningful measurements, yields 139 repeated stems in the resulting catalogue.
+The 14 remaining numbered fallbacks are blocked cinematic records with identical source and authored emitter names. All readable recipes have evidence-based names. Some sibling names share a stem and differ by an authored layer, game variation or measured value. Generated titles now lead with the existing appearance phrase, with origin and variant evidence after it. The table below excludes the 34 preserved reviewed names and was regenerated from the same 5,032-card catalogue after the owner correction.
 
 | Requested example | Evidence from the installed files |
 |---|---|
@@ -50,48 +50,58 @@ Card counts per art row can overlap. A shared effect is counted once per object 
 
 | Previous name | Cards before | Distinct names after | Two resulting names |
 |---|---:|---:|---|
-| Pale particles | 879 | 879 | Meat Wagon — Attack/Missile · pale particles / Forgotten One · pale particles · T Forgotten One |
-| Golden particles | 483 | 483 | Rock Chunks — variation 1 · golden smoke · tilesets g / Rock Chunks — variation 2 · golden smoke · tilesets g |
-| Unavailable particle | 348 | 348 | Stampede — special · teen · 02 / Stampede — special · teen · 03 |
-| Pale particle burst | 341 | 341 | Hydralisk — Attack/Missile · pale particle burst / Meat Wagon — Attack/Missile · pale particle burst · Blood Splash |
-| Red particles | 322 | 322 | Sundering Blades — caster · red glow / Item Attack Fire Bonus — target |
-| Ribbon trail | 311 | 311 | Banish — buff target · ribbon trail · smaller · short-lived / Banish — buff target · ribbon trail · smaller · long-lived |
-| Golden particle burst | 269 | 269 | Sundering Blades — caster · golden particle burst / Purification Caster · golden particle burst |
-| Pale streaks | 237 | 237 | Revenge — special · pale streaks · short-lived / Revenge — special · pale streaks · long-lived |
-| Blue particles | 227 | 227 | Blue Drake · blue smoke / Cloud — buff effect · blue smoke |
-| Pale particles group | 161 | 161 | Meat Wagon — Attack/Missile · layered · Blood Sput Teen / Forgotten One · layered · T Forgotten One |
-| Golden streaks | 150 | 150 | Dark Conversion (Malganis) — buff effect / Slow — buff target |
-| Blue streaks | 150 | 150 | Detonate — target / Storm Bolt — missile · blue streaks |
-| Ribbon trail group | 107 | 107 | Invisibility — target · layered / Resurrection — target · layered |
-| Golden particles group | 102 | 102 | Mana Flare — buff target · layered / Mana Shield — buff target · layered |
-| Unavailable particle group | 95 | 95 | Stampede — special · layered · teen / Banish — buff target · layered |
-| Red streaks | 95 | 95 | Mark Of Chaos Done · red streaks / Phoenix — special · red streaks |
-| Green particles | 70 | 70 | Feedback (Arcane Tower) — special / Flame Strike — special · green particles · flamestrike |
-| Model particles | 65 | 65 | Flying Sheep · burst · T Flying Sheep / Blue Drake · burst · lower |
-| Pale particle burst group | 65 | 65 | Flying Sheep · layered · T Flying Sheep / Vulture · layered · teen |
-| Pale streaks group | 63 | 63 | Revenge — special · layered · pale streaks / Dog — Death/Special · layered · pale streaks |
-| Red particles group | 52 | 52 | Burning Oil — buff effect · layered / Ancestral Spirit — caster · layered |
-| Purple streaks | 45 | 45 | Item Attack Corruption Bonus — target / Shadow Orb Ability — target |
-| Red particle burst | 44 | 44 | Volcano — buff missile · red particle burst · smaller / Volcano — buff missile · red particle burst · firering |
-| Blue particle burst | 43 | 43 | Blizzard — buff effect · blue particle burst / Hex — special · blue particle burst |
-| Golden particle burst group | 40 | 40 | Sundering Blades — caster · layered / Chimaera Acid Target Art · layered |
-| Green streaks | 36 | 36 | Item Attack Poison Bonus — missile · green streaks / Ritual Dagger (Regenerate) — target · front |
-| Blue particles group | 34 | 34 | Blue Drake · layered / Cloud — buff effect · layered |
-| Purple particles | 27 | 27 | Invisibility — target · purple particles / Mass Teleport — area · purple smoke · upper |
-| Blue streaks group | 24 | 24 | Powerup Dispel — effect · layered / Tome of Retraining — caster · layered |
-| Red streaks group | 18 | 18 | Summoning Ritual — caster · layered / Doom — buff target · layered |
-| Golden streaks group | 17 | 17 | Item Lich Orb — effect · layered / Mind Control — buff special · layered |
-| Red particle burst group | 13 | 13 | Rain of Fire — buff effect · layered / Volcano — buff missile · layered |
-| Green particles group | 13 | 13 | Blink — special · layered / Entangling Roots — buff target · layered |
-| Purple streaks group | 13 | 13 | Starfall — buff effect · layered / Tranquility — buff effect · layered |
-| Blue particle burst group | 10 | 10 | Hex — special · layered / Polymorph — effect · layered |
-| Green streaks group | 9 | 9 | Item Attack Poison Bonus — missile · layered / Ritual Dagger (Regenerate) — target · layered |
-| Green particle burst | 7 | 7 | Possession (Channeling) — missile / Locust Missile · green particle burst |
-| Model particles group | 7 | 7 | Poison Sting Missile · layered / Chimaera · layered |
-| Purple particle burst | 4 | 4 | Item Attack Frost Bonus — missile · purple particle burst / Power Generator · purple particle burst |
-| Purple particles group | 2 | 2 | Fountain of Health · layered / Fountain of Mana · layered |
+| Pale particles | 879 | 879 | Pale particles · Meat Wagon — Attack/Missile / Pale particles · Forgotten One · T Forgotten One |
+| Golden particles | 483 | 483 | Golden smoke · Rock Chunks — variation 1 · tilesets g / Golden smoke · Rock Chunks — variation 2 · tilesets g |
+| Unavailable particle | 348 | 348 | Unavailable particle · Stampede — special · teen · 02 / Unavailable particle · Stampede — special · teen · 03 |
+| Pale particle burst | 341 | 341 | Pale particle burst · Hydralisk — Attack/Missile / Pale particle burst · Meat Wagon — Attack/Missile · Blood Splash |
+| Red particles | 322 | 322 | Red glow · Sundering Blades — caster / Red smoke · Item Attack Fire Bonus — target |
+| Ribbon trail | 311 | 311 | Ribbon trail · Banish — buff target · smaller · short-lived / Ribbon trail · Banish — buff target · smaller · long-lived |
+| Golden particle burst | 269 | 269 | Golden particle burst · Sundering Blades — caster / Golden particle burst · Purification Caster |
+| Pale streaks | 237 | 237 | Pale streaks · Revenge — special · short-lived / Pale streaks · Revenge — special · long-lived |
+| Blue particles | 227 | 227 | Blue smoke · Blue Drake / Blue smoke · Cloud — buff effect |
+| Pale particles group | 161 | 161 | Pale burst · Meat Wagon — Attack/Missile · layered · Blood Sput Teen / Pale smoke · Forgotten One · layered · T Forgotten One |
+| Golden streaks | 150 | 150 | Golden streaks · Dark Conversion (Malganis) — buff effect / Golden streaks · Slow — buff target |
+| Blue streaks | 150 | 150 | Blue streaks · Detonate — target / Blue streaks · Storm Bolt — missile |
+| Ribbon trail group | 107 | 107 | Ribbon trail · Invisibility — target · layered / Ribbon trail · Resurrection — target · layered |
+| Golden particles group | 102 | 102 | Golden glow · Mana Flare — buff target · layered / Golden glow · Mana Shield — buff target · layered |
+| Unavailable particle group | 95 | 95 | Unavailable particle · Stampede — special · layered · teen / Unavailable particle · Banish — buff target · layered |
+| Red streaks | 95 | 95 | Red streaks · Mark Of Chaos Done / Red streaks · Phoenix — special |
+| Green particles | 70 | 70 | Green particles · Feedback (Arcane Tower) — special / Green particles · Flame Strike — special · flamestrike |
+| Model particles | 65 | 65 | Burst · Flying Sheep · T Flying Sheep / Burst · Blue Drake · lower |
+| Pale particle burst group | 65 | 65 | Pale particle burst · Flying Sheep · layered · T Flying Sheep / Pale particle burst · Vulture · layered · teen |
+| Pale streaks group | 63 | 63 | Pale streaks · Revenge — special · layered / Pale streaks · Dog — Death/Special · layered |
+| Red particles group | 52 | 52 | Red smoke · Burning Oil — buff effect · layered / Red glow · Ancestral Spirit — caster · layered |
+| Purple streaks | 45 | 45 | Purple streaks · Item Attack Corruption Bonus — target / Purple streaks · Shadow Orb Ability — target |
+| Red particle burst | 44 | 44 | Red particle burst · Volcano — buff missile · smaller / Red particle burst · Volcano — buff missile · firering |
+| Blue particle burst | 43 | 43 | Blue particle burst · Blizzard — buff effect / Blue particle burst · Hex — special |
+| Golden particle burst group | 40 | 40 | Golden particle burst · Sundering Blades — caster · layered / Golden particle burst · Chimaera Acid Target Art · layered |
+| Green streaks | 36 | 36 | Green streaks · Item Attack Poison Bonus — missile / Green streaks · Ritual Dagger (Regenerate) — target · front |
+| Blue particles group | 34 | 34 | Blue smoke · Blue Drake · layered / Blue smoke · Cloud — buff effect · layered |
+| Purple particles | 27 | 27 | Purple particles · Invisibility — target / Purple smoke · Mass Teleport — area · upper |
+| Blue streaks group | 24 | 24 | Blue streaks · Powerup Dispel — effect · layered / Blue streaks · Tome of Retraining — caster · layered |
+| Red streaks group | 18 | 18 | Red streaks · Summoning Ritual — caster · layered / Red streaks · Doom — buff target · layered |
+| Golden streaks group | 17 | 17 | Golden streaks · Item Lich Orb — effect · layered / Golden streaks · Mind Control — buff special · layered |
+| Red particle burst group | 13 | 13 | Red particle burst · Rain of Fire — buff effect · layered / Red particle burst · Volcano — buff missile · layered |
+| Green particles group | 13 | 13 | Green glow · Blink — special · layered / Green smoke · Entangling Roots — buff target · layered |
+| Purple streaks group | 13 | 13 | Purple streaks · Starfall — buff effect · layered / Purple streaks · Tranquility — buff effect · layered |
+| Blue particle burst group | 10 | 10 | Blue particle burst · Hex — special · layered / Blue particle burst · Polymorph — effect · layered |
+| Green streaks group | 9 | 9 | Green streaks · Item Attack Poison Bonus — missile · layered / Green streaks · Ritual Dagger (Regenerate) — target · layered |
+| Green particle burst | 7 | 7 | Green particle burst · Possession (Channeling) — missile / Green particle burst · Locust Missile |
+| Model particles group | 7 | 7 | Model particles · Poison Sting Missile · layered / Model particles · Chimaera · layered |
+| Purple particle burst | 4 | 4 | Purple particle burst · Item Attack Frost Bonus — missile / Purple particle burst · Power Generator |
+| Purple particles group | 2 | 2 | Purple smoke · Fountain of Health · layered / Purple smoke · Fountain of Mana · layered |
 
-## Verification
+## Owner correction — 1 November 2026
+
+Generated names now start with the existing appearance phrase and use the source object only as a qualifier. Browse revision 2 rebuilds the sidecar without rewriting recipes. The copied installed catalogue has 4,998 appearance-first generated names, all 34 hash-verified reviewed names, and zero exact duplicate titles. All 4,591 catalogue/manifest/recipe files stayed byte-identical; a pre-existing user name, favorite and personal preset kept their IDs, state and preset bytes. The table above was regenerated from this run.
+
+World Editor now reads the matching cached tree in missing/changed source states and retains stock, My presets and My work favorites. Without a sidecar, cached stock cards remain browsable and personal favorites use the existing rows. A never-indexed Warcraft view still shows only the short connect-Warcraft status.
+
+Fail-first proof on c4f840c6: appearance assertions received `Heal — target · smoke` / `Slow — buff target · golden streaks`; the old sidecar was incorrectly accepted; hidden packaged offline browsing failed `Disconnected World Editor keeps the cached object cards` (`0 !== 2`). The corrected checks pass. Production build and portable verification passed (1,373 files, 55 locales); focused source 58/58, compatibility 57/57, full source 2,630 passed / 0 failed / 10 existing skips. The unchanged known-failure baseline reports zero new failures. The first full run inherited ESM in scratch helpers because MDLXL_TEMP bypassed their CommonJS marker; using the project's default D: scratch path resolved all 14 setup failures without code edits. Skip reasons remain opt-in private/corpus inputs and Windows symlink/SIGTERM/8.3 limitations.
+
+Hidden portable checks: `particle-library-previews` passed missing/changed saved-tree cards, stock/preset/work favorites, unchanged By type, no-sidecar cards, never-connected messaging, 72 thumbnails, mouse orbit and independent personal opening; `particle-library-browse` passed the real Disease Cloud favorite/search/orbit/placement/Escape workflow. `particle-library-copy` passed independent stock/preset edits, immutable saved presets, draft restart and unchanged model bytes. Warcraft III playback and non-enUS installed game data remain unverified. Evidence: `D:\Codex\emtr-491-correction-report`.
+
+## Earlier verification at c4f840c6
 
 [PR #491](https://github.com/UnsctMagic/MDLxL/pull/491) is open into main. The full source suite passed 2,629 with 10 skipped, compatibility passed 57, and 70 focused source tests passed. The hidden portable app resumed a real 1,450-model partial extraction to all 3,501 candidates. Ten reopens to 144 cards took 436–615 ms in the isolated run, with 138 picture previews at completion. A parallel full-suite run exceeded the scan-completion deadline. The unchanged three-second interaction limit passed. Disconnect, independent preset copies, 72-thumbnail refresh retention, model I/O, mouse picking and rotation, and the six travel checks were also exercised.
 

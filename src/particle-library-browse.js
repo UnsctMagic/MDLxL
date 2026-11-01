@@ -69,7 +69,7 @@ export function distinctParticleNames(entries, origins, evidence, reviewFor = ()
     const picture = words(evidence.get(item.id)?.pictures?.[0]);
     const node = words(authored).replace(/^\d+\s*/, '').replace(/\d+$/, '').trim();
     const look = row.appearance ? [item.tags?.find(tag => /^(red|green|blue|pale|golden|purple)$/.test(tag)),row.appearance.noun].filter(Boolean).join(' ') : item.name.replace(/ group$/i,'').toLowerCase();
-    const base = origin?.name || model || sentence(look);
+    const base = sentence(look) + (origin?.name || model ? ' · '+(origin?.name || model) : '');
     const directory = modelKey(source?.physicalPath).split('\\')[0];
     const sourceType = {buildings:'building', doodads:'doodad', units:'unit', cinematics:'cinematic'}[directory];
     row.name = base + (item.grouping ? ' · layered' : '');

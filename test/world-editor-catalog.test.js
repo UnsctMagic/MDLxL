@@ -143,7 +143,7 @@ test('duplicate repair is order independent, retains reviewed names and uses evi
   assert.deepEqual(result,distinctParticleNames([...items].reverse(),origins,new Map(),review));
   assert.equal(result.c,undefined);
   assert.deepEqual(result.a.categories,['Smoke']);assert.deepEqual(result.b.categories,['Fire']);
-  assert.notEqual(result.a.name,result.b.name);assert.match(result.a.name,/Heal/);
+  assert.notEqual(result.a.name,result.b.name);assert.match(result.a.name,/^Smoke · Heal/);assert.match(result.b.name,/^Flame · Heal/);
   assert.doesNotMatch(result.a.name+result.b.name,/variant/);
 });
 
@@ -151,4 +151,14 @@ test('folder variants resolve only within the same parent and an existing exact 
   const object={folders:[['Units']],art:['Units/Race/Old/Cin.mdl','Units/Race/Correct/Other.mdx','Units/Race/Wrong/Ambiguous.mdx','Units/Race/Wrong/Foreign.mdx'].map(path=>({path}))};
   const paths=['Units/Race/New/Cin.mdx','Units/Race/Correct/Other.mdx','Units/Race/Sibling/Other.mdx','Units/Race/A/Ambiguous.mdx','Units/Race/B/Ambiguous.mdx','Units/Other/F/Foreign.mdx'];
   assert.deepEqual(resolveParticleArtPaths([object],paths)[0].art.map(a=>a.path),['units\\race\\new\\cin.mdx',...object.art.slice(1).map(a=>a.path)]);
+});
+
+test('generated particle names lead with appearance, keep origins secondary and remain unique',()=>{
+  const entries=['Golden streaks','Red particles','Blue streaks','Ribbon trail','Pale particles group','Unavailable particle'].flatMap((name,n)=>
+    Array.from({length:3},(_,i)=>({id:`${n}-${i}`,name,categories:['Trails'],sources:[{physicalPath:'war3.w3mod:Effects/Slow.mdx',emitterName:'Emitter'}],...(name.endsWith('group')?{grouping:{kind:'source'}}:{})})));
+  const origins=new Map(entries.map(item=>[item.id,{name:'Slow — buff target',path:'Slow.mdx'}]));
+  const changes=distinctParticleNames(entries,origins,new Map());
+  const titles=entries.map(item=>changes[item.id]?.name||item.name);
+  for(const item of entries)assert.ok(changes[item.id].name.startsWith(item.name.replace(/ group$/,'')+' · '),changes[item.id].name);
+  assert.equal(new Set(titles.map(name=>name.trim().toLowerCase())).size,entries.length,'No exact duplicate titles');
 });

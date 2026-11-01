@@ -50,11 +50,11 @@ export default function ParticleLibrary({onChoose,onClose,onError,preferences,di
     const text=[item.name,...item.tags||[],...item.aliases||[],...(item.sources||[]).flatMap(source=>[source.emitterName,source.physicalPath])].join(' ').toLowerCase();
     return terms.every(term=>text.includes(term));
   }),[collectionItems,world,category,terms]);
-  const page=useMemo(()=>world&&catalog.browse&&catalog.sourceStatus?.state==='ready'
-    ?worldPage(catalog.browse,collectionItems,items,terms,selected):null,[world,catalog.browse,catalog.sourceStatus?.state,collectionItems,items,terms,selected]);
-  const pageItems=world?[...new Map((page?.sections||[]).flatMap(group=>group.items.map(item=>[item.id,item]))).values()]:items;
+  const page=useMemo(()=>world&&(catalog.browse||collection==='Favorites')
+    ?worldPage(catalog.browse||{objects:[],buckets:[],other:collectionItems.filter(item=>item.collection==='Warcraft').map(item=>item.id)},collectionItems,items,terms,selected):null,[world,catalog.browse,collection,collectionItems,items,terms,selected]);
+  const pageItems=world&&page?[...new Map((page?.sections||[]).flatMap(group=>group.items.map(item=>[item.id,item]))).values()]:items;
   const visible=pageItems.slice(0,limit), visibleIds=new Set(visible.map(item=>item.id));
-  const sections=world?(page?.sections||[]).map(group=>({...group,empty:!group.items.length,items:group.items.filter(item=>visibleIds.has(item.id))})):
+  const sections=world&&page?(page?.sections||[]).map(group=>({...group,empty:!group.items.length,items:group.items.filter(item=>visibleIds.has(item.id))})):
     stock?[...new Set([...appearanceTypes,...visible.flatMap(item=>item.categories||[])])].map(title=>({title,items:visible.filter(item=>(category==='All'?item.categories?.[0]||'Other':category)===title)})):[{title:'',items:visible}];
   const choose=async item=>{if(disabled||opening.current)return;if(item.blocked){setDetails(item.id);return;}opening.current=true;setOpeningName(item.name);try{const recipe=parseParticleData(await window.desktop.particleRead(item.id));for(const key of ['name','tags','categories','naming','previewSample'])if(item[key]!==undefined)recipe[key]=item[key];await onChoose(recipe);}catch(error){onError(error.message);}finally{opening.current=false;setOpeningName('');}};
   const favorite=async item=>{try{const favorite=!item.favorite;await window.desktop.particleAnnotate({id:item.id,favorite});setCatalog(old=>({...old,items:old.items.map(entry=>entry.id===item.id?{...entry,favorite}:entry)}));}catch(error){onError(error.message);}};

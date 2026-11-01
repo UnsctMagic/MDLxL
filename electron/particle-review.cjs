@@ -14,5 +14,5 @@ const reviewFor = item => {
   return null;
 };
 // The containing directory is keyed by install and .build.info (including locale).
-const browseRevision = stat => '1|' + stat.size + '|' + stat.mtimeNs;
+const browseRevision = stat => '2|' + stat.size + '|' + stat.mtimeNs;
 module.exports = { reviewKey, reviewFor, browseRevision };
