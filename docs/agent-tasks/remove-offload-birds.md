@@ -231,7 +231,11 @@ sessions — hence the multi-tab requirement above.
 ## Revision and local state
 
 - Branch `claude/remove-offload-birds`, based on `origin/main` f75e407d.
-  Implementation is in progress in D:\Codex\remove-offload-birds on this same branch.
+  Implementation commit: `5faefeda`; synchronized main `463bfef5` in `50cd5718`.
+  Work directory: D:\Codex\remove-offload-birds on this same branch.
+  Main's unrelated changes are preserved; only the locale-count test conflicted,
+  resolved to include its added entries and this task's deletions. Both full suites
+  and all eight focused hidden checks were rerun on that integrated package.
 
 ## Implementation and verification so far
 
@@ -254,7 +258,7 @@ sessions — hence the multi-tab requirement above.
   isolated edits and chats, hidden completion, retained Handbook/Web switches,
   absent delegation controls, New/Earlier/Current chat.
 - Compatibility: 57 passed, 0 failed, 0 skipped. Connection markup: 20 passed.
-- Final full source: 2,580 passed, 0 failed, 10 existing skips; official baseline
+- Final full source: 2,584 passed, 0 failed, 10 existing skips; official baseline
   comparison passed with no baseline changes. The skips are the existing Windows
   platform/permissions and optional private/corpus-input cases, not AI regressions.
 - Hidden final-package checks all passed: multi-tab 16, attachments 30, awareness
