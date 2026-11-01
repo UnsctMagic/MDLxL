@@ -35,7 +35,15 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.ok(await page.locator('.pe-effect-card').count()>0,'Partial origin links are browsable');
   assert.match(await page.locator('.pe-library').innerText(),/Indexing/);
   await page.getByRole('button',{name:'By type',exact:true}).click();
-  const expand=async()=>{for(let n=0;n<3;n++)await page.getByRole('button',{name:'Show more',exact:true}).click();};
+  // Hidden Chromium delays Playwright's mouse-stability frames by ~2 s per click.
+  // Time the app handlers and wait for every newly visible page of cards.
+  const expand=async()=>{
+   await page.locator('.pe-effect-card').nth(35).waitFor({state:'visible'});
+   for(let n=2;n<=4;n++){
+    await page.getByRole('button',{name:'Show more',exact:true}).dispatchEvent('click');
+    await page.locator('.pe-effect-card').nth(36*n-1).waitFor({state:'visible'});
+   }
+  };
   await expand();
   const find=()=>page.evaluate(requested=>{
    let f=document.querySelector('.pe-library');
@@ -47,7 +55,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   for(let n=0;n<10;n++){
    const found=await find();assert.ok(found.index>=0&&found.index<144,'The chosen effect must be visible in the fixture');
    await page.locator('[data-effect-id="'+found.id+'"] .pe-effect-card').click();await page.locator('.pe-library').waitFor({state:'hidden'});await settle(page, 1000);
-   const begin=Date.now();await page.getByRole('dialog',{name:'Particle Editor',exact:true}).getByRole('button',{name:'Library',exact:true}).click();await expand();returns.push(Date.now()-begin);
+   const begin=Date.now();await page.getByRole('dialog',{name:'Particle Editor',exact:true}).getByRole('button',{name:'Library',exact:true}).dispatchEvent('click');await expand();returns.push(Date.now()-begin);
    console.log('Reopen and expand to 144 cards (ms)',returns.at(-1));
    assert.ok(returns.at(-1)<3000,'Returning to the library must remain responsive during indexing');await settle(page, 1000);
    samples.push(await app.evaluate(({app})=>app.getAppMetrics().map(m=>({type:m.type,name:m.name,cpu:m.cpu.percentCPUUsage,workingSetKB:m.memory.workingSetSize}))));
@@ -56,7 +64,14 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   let manifest;
   for(let n=0;n<90;n++){manifest=JSON.parse(await fs.readFile(manifestFile));if(manifest.extractionComplete)break;const status=(await find()).status;if(n%10===0)console.log(JSON.stringify({phase:'index-progress',processed:manifest.processed.length,status}));if(status.error)throw Error(status.error);await settle(page, 1000);}
   assert.equal(manifest.extractionComplete,true,'The automatic scan must finish');assert.equal(manifest.processed.length,manifest.candidateAssets);
-  await page.waitForFunction(()=>[...document.querySelectorAll('.pe-effect-card')].every(card=>card.querySelector('img')||card.querySelector('small')),null,{timeout:60000});
+  await page.waitForFunction(()=>{
+   const cards=[...document.querySelectorAll('.pe-effect-card')];
+   return cards.length===144 && cards.every(card=>card.querySelector('img')||card.querySelector('small')) &&
+     cards.filter(card=>card.querySelector('img')).length>36;
+  },null,{timeout:60000}).catch(async error=>{
+   console.log('Final cards',await page.locator('.pe-effect-card').count(),'pictures',await page.locator('.pe-effect-thumb img').count(),
+     'labels',await page.locator('.pe-effect-card small').allTextContents());throw error;
+  });
   assert.ok(await page.locator('.pe-effect-thumb img').count()>36,'Previews beyond the initial page must load');
   assert.deepEqual(errors,[]);await page.screenshot({path:path.join(out,'library.png')});
   const result={passed:true,ms:Date.now()-started,processed:manifest.processed.length,recipes:manifest.recipeCount,previews:await page.locator('.pe-effect-thumb img').count(),returns,samples};await fs.writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

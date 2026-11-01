@@ -4,17 +4,29 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {parseParticleData} from '../src/particle-data.js';
 import {appearanceTypes} from '../src/particle-library-browse.js';
 import {worldPage,WorldRows} from './ParticleWorldBrowser.jsx';
+// The service primes 36 thumbnails per snapshot. During a scan retain thumbnails
+// already loaded on later pages for the same stock recipe and reviewed sample.
+function refreshCatalog(previous,next) {
+  if(!previous.coverage?.sourceKey || previous.coverage.sourceKey!==next.coverage?.sourceKey)return next;
+  const shown=new Map(previous.items.filter(item=>item.collection==='Warcraft'&&item.thumbnail).map(item=>[item.id,item]));
+  if(!shown.size)return next;
+  return {...next,items:next.items.map(item=>{
+    const old=shown.get(item.id);
+    return old && !item.thumbnail && JSON.stringify(old.previewSample)===JSON.stringify(item.previewSample)
+      ? {...item,thumbnail:old.thumbnail} : item;
+  })};
+}
 export default function ParticleLibrary({onChoose,onClose,onError,preferences,disabled=false}) {
   const opening=useRef(false);
   const [openingName,setOpeningName]=useState('');
   const [catalog,setCatalog]=useState({items:[]}),[collection,setCollection]=useState('Warcraft'),[category,setCategory]=useState('All'),[search,setSearch]=useState(''),[limit,setLimit]=useState(36),[details,setDetails]=useState(null),[sourceContext,setSourceContext]=useState(null);
-  const load=()=>window.desktop?.particleCatalog?.().then(setCatalog).catch(error=>onError(error.message));
+  const load=()=>window.desktop?.particleCatalog?.().then(next=>setCatalog(old=>refreshCatalog(old,next))).catch(error=>onError(error.message));
   useEffect(()=>{
     let active=true,inFlight=false,again=false,timer,lastLoad=0;
     const refresh=async()=>{
       if(inFlight){again=true;return;}
       inFlight=true;lastLoad=Date.now();
-      try{const next=await window.desktop?.particleCatalog?.();if(active&&next)setCatalog(next);}
+      try{const next=await window.desktop?.particleCatalog?.();if(active&&next)setCatalog(old=>refreshCatalog(old,next));}
       catch(error){if(active)onError(error.message);}
       finally{inFlight=false;if(active&&again){again=false;schedule();}}
     };

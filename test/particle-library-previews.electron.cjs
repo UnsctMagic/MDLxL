@@ -20,6 +20,7 @@ const {particleSourceState}=require('../electron/particle-source.cjs');
  await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision:browseRevision(await fs.stat(path.join(cache,'catalog.json'),{bigint:true})),
    metadata:{},objects:[{id:'test',name:'Localized object',folders:[['Units','Naga','Normal']],count:1,groups:[{title:'Localized ability · Missile',refs:[0]}]}],buckets:[[items[0].id]],other:items.slice(1).map(item=>item.id)}));
  const store=new ParticleLibrary({directory,discover:async()=>({cascFolders:[folder]})}),png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+ await store.save({data:stringifyParticleData(recipe),name:'Offline personal sparks'});
  for(const item of items.slice(0,process.env.MDLXL_PREVIEW_COLD?'36':72)){const revision=(await store.thumbnails([item.id]))[item.id].revision;await store.thumbnail({id:item.id,url:png,revision});}
  let app;const errors=[];try{
  const launched = await launchApp({ out, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
@@ -33,9 +34,13 @@ const {particleSourceState}=require('../electron/particle-source.cjs');
  await page.getByRole('button',{name:'Show more',exact:true}).click();
  try{await page.waitForFunction(()=>document.querySelectorAll('.pe-effect-thumb img').length===72,null,{timeout:10000});}catch(e){console.log(JSON.stringify({phase:'cached-pagination',images:await page.locator('.pe-effect-thumb img').count(),cards:await page.locator('.pe-effect-card').count()}));throw e;}
  await app.evaluate(({ipcMain})=>{const handler=ipcMain._invokeHandlers.get('particles:catalog');global.__catalogCalls=0;ipcMain.removeHandler('particles:catalog');ipcMain.handle('particles:catalog',(...args)=>{global.__catalogCalls++;return handler(...args);});});
+ await page.evaluate(()=>{window.__minThumbs=72;window.__thumbObserver=new MutationObserver(()=>{
+   window.__minThumbs=Math.min(window.__minThumbs,document.querySelectorAll('.pe-effect-thumb img').length);
+ });window.__thumbObserver.observe(document.querySelector('.pe-library'),{childList:true,subtree:true});});
  await app.evaluate(({BrowserWindow})=>{for(let n=0;n<100;n++)BrowserWindow.getAllWindows()[0].webContents.send('particles:progress',{running:true,processed:n,total:100});});
  await settle(page, 1300);const refreshes=await app.evaluate(()=>global.__catalogCalls);assert.ok(refreshes<=2,'A burst of index progress must not reload the full catalog for every event');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('particles:progress',{running:false,processed:100,total:100}));await page.waitForFunction(()=>document.querySelectorAll('.pe-effect-thumb img').length===72);
+ assert.equal(await page.evaluate(()=>{window.__thumbObserver.disconnect();return window.__minThumbs;}),72,'Progress refreshes retain loaded thumbnails beyond the first page');
  await page.locator('.pe-effect-card').filter({hasText:'Cached effect 1'}).first().click();await page.locator('.pe-library').waitFor({state:'hidden'});
  await page.waitForFunction(()=>!document.querySelector('.pe-window .re-status')?.textContent.includes('Updating effect'));const canvas=page.locator('.pe-preview .game-preview-root canvas').first(),box=await canvas.boundingBox();
  const camera=()=>page.evaluate(()=>{let f=document.querySelector('.pe-preview .game-preview-root');{ const v = mdlxlProbe(f).runtime; if (v) return v.controls.object.position.toArray(); }}),before=await camera();
@@ -64,6 +69,12 @@ const {particleSourceState}=require('../electron/particle-source.cjs');
  await library.getByText('Connect your Warcraft III installation in Settings.',{exact:true}).waitFor();
  assert.equal(await library.locator('.pe-effect-card').count(),0);assert.equal(await library.getByRole('status').count(),1);
  await page.getByRole('button',{name:'My presets',exact:true}).click();assert.equal(await library.getByRole('button',{name:'Import preset…',exact:true}).count(),1);
+ await page.getByLabel('Find an effect').fill('Offline personal sparks');
+ await library.locator('.pe-effect-card').click();await library.waitFor({state:'hidden'});
+ await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('texture:resolve');ipcMain.handle('texture:resolve',async()=>[]);});
+ const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});
+ await editor.getByRole('button',{name:'New',exact:true}).click();await editor.getByRole('button',{name:'Soft smoke',exact:true}).click();
+ await page.waitForFunction(name=>findFiberState(document.querySelector('.pe-window'),v=>v?.recipe&&v?.doc)?.recipe.name===name,createStarterRecipe('smoke').name);
  assert.deepEqual(errors,[]);await page.screenshot({path:path.join(out,'preview.png')});console.log(JSON.stringify({passed:true,checks:'72 cached thumbnails, five library/effect round trips, native mouse rotation, 100 index events coalesced',refreshes,samples}));
  }finally{if(app)await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});
