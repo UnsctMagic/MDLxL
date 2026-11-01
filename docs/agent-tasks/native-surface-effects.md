@@ -26,6 +26,7 @@ Each card exposes two to four tuning controls with one-line tooltips. The energy
 - On the Nurgle hook, the whole-geoset UV range lit a detached tooth and missed most of the weapon. An energy streak now fits the length of each connected indexed piece. An overlay retains the authored base UVs. The renderer uses the UV set named by each layer.
 - For paired pauldrons, the combined bounding-box centre put several accents inside the chest. A body accent now starts on an exterior vertex carried by its attachment bone. Ground rings use the model origin. Ribbons reuse the EMTR weapon-strip fit.
 - Ground seals use a blend suited to their real alpha channels. Sparse sparks, falling leaves, a moving core and a fading trail use different lifetimes. A burst retains its positive squirt key until the end of the cue, so a short render step cannot miss the intended emission window.
+- Rime trail uses two fine frost lines at separate positions on the fitted blade. Coalbrand, Wraith trail and Viper trail use additive-alpha blending so their native masks fade into the scene without dark polygon edges.
 - The Water Elemental’s native Stand layer values are retained, including the half-strength second layer. Cropped native sprite sheets, counter-rotating UV layers and game-defined ground marks add motion without exporting or synthesising artwork.
 - Cloud shimmer, Sacred edge, Venom edge, Starfield, Falling water and Moon well swirl were removed after comparison. The original and revised palettes, placements and materials were inspected on animated models.
 
@@ -52,6 +53,9 @@ Model preparation measured destination cloning and applying Water skin. The old 
 - The packaged motion review captures three playback frames and uses an actual mouse orbit for each look. The main set uses the Khorne and Nurgle Warriors. A second set changes the part or model and includes Footman impacts.
 - The workflow tests cover picking a surface, staged slider and handle drags, all three Apply modes, colour swatches, picker value, preset reset, the original comparison, applying every card and restoring the full model in one Undo. The fresh-window check reopens a widened native ribbon and a timed impact with its ground event.
 - The permanent model collection supplies the fixtures through `test/helpers/fixtures.cjs`. The desktop review, reports and selected captures are outside the source tree under `D:\Codex\mdlxl-visual-lab-review`. Screenshots for the PR live under `test/evidence/visual-effects/` and are excluded from packaged runtime files.
+- The Windows package built and verified 1,383 runtime and asset files. Compatibility passed 57/57. The full source suite reported 2,644 passes, nine skips and zero failures. The 86 focused FX, EMTR, hotkey, localisation and slider checks all passed.
+- Nine focused desktop/browser checks passed, including native EMTR placement on the Footman, fitted ribbons on the Blademaster and the material manager’s native colours. A separate shield check tried three looks on Nurgle geoset 7. The two Warrior review files still match the permanent fixtures byte for byte.
+- Three of the source skips are host-specific (POSIX signals, Windows symlink rights and DOS short names). Six need optional reference models or manifests. The deleted original archer is one of these. Its documented packaged material test passed using the current substitute.
 - Warcraft III engine playback and owner visual acceptance remain open.
 
 ## Revisions
