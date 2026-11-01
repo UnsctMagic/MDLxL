@@ -7385,5 +7385,18 @@
   "Move this corner of the box along the {0} axis, in model units. Z controls height.": "Переместить этот угол параллелепипеда вдоль оси {0} в единицах модели. Z задаёт высоту.",
   "Collision shape coordinates must be finite.": "Координаты формы столкновения должны быть конечными.",
   "Sphere radius must be positive.": "Радиус сферы должен быть положительным.",
-  "A box needs each maximum corner value above its minimum.": "У параллелепипеда каждое значение максимального угла должно быть больше минимального."
+  "A box needs each maximum corner value above its minimum.": "У параллелепипеда каждое значение максимального угла должно быть больше минимального.",
+  "Workplane Constraints": "Ограничения плоскости",
+  "On: Rotate stays locked to the chosen plane. Off: use the handles.": "Включено: вращение ограничено выбранной плоскостью. Выключено: используйте рукоятки.",
+  "Move gizmo": "Манипулятор перемещения",
+  "Rotate handles": "Рукоятки вращения",
+  "Today": "Нынешний",
+  "Rings": "Кольца",
+  "Shift rotation precision": "Точность вращения с Shift",
+  "Hold Shift while rotating to multiply the speed by this amount.": "Удерживайте Shift при вращении, чтобы умножить скорость на это значение.",
+  "Lines swing as levers; Rings and Arcs turn around their axis.": "Линии работают как рычаги; кольца и дуги вращают вокруг своей оси.",
+  "Choose the thickness and heads of the Move handles.": "Выберите толщину и наконечники рукояток перемещения.",
+  "Workplane Constraints turns one degree per horizontal pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "Ограничения плоскости: при 1× один горизонтальный пиксель равен одному градусу. Рукоятки следуют углу движения мыши вокруг центра выделения. Чувствительность указателя влияет на оба режима. Shift — точное вращение.",
+  "Perspective workplane toolbar": "Панель рабочей плоскости перспективы",
+  "Perspective Workplane Constraints": "Ограничения плоскости в перспективе"
 }

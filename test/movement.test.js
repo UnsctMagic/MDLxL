@@ -279,39 +279,29 @@ test('Bare bone Rotate chooses the nearest fixed grid axis for either camera sid
   }
 });
 
-test('Rotate uses signed screen distance regardless of pivot, arrow or camera-facing side', () => {
-  const center = { x: 100, y: 100 };
-  for (const axis of ['X', 'Y', 'Z']) for (const [hx, hy] of [[68, 0], [-68, 0], [0, -68], [25, 25], [-30, 40]]) {
-    for (const [x, y] of [[100, 100], [168, 100], [32, 100], [100, 168], [100, 32]]) for (const facing of [-1, 0, 1]) {
-      const handle = { axis, dx: hx, dy: hy }, drag = movementRotationGesture(handle, { x, y }, center, facing);
-      for (const distance of [1, 5, 10, 30, 360, -30, 0]) {
-        near(movementRotationAmount(drag, distance, 0), distance);
-        near(movementRotationAmount(drag, 0, -distance), distance);
-        near(movementRotationAmount(drag, distance, 0, .4), distance * .4);
-      }
-      handle.dx *= -1; handle.dy *= -1;
-      near(movementRotationAmount(drag, 30, -20), 50);
-      near(movementRotationAmount(drag, 30, 30), 0);
-    }
+test('constrained Rotate ignores click position and camera, using MDLVis signs', () => {
+ for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) for (const x of [-100, 0, 100]) for (const facing of [-1, 0, 1]) {
+  const drag = movementRotationGesture({ constrained: true, plane, x, axis: [0, 0, facing] });
+  for (const distance of [1, 5, 30, 360, -30, 0]) {
+   near(movementRotationAmount(drag, distance, 200), sign * distance);
+   near(movementRotationAmount(drag, distance, 0, .4), sign * distance * .4);
   }
+ }
 });
-
-test('Rotate circular paths close at zero and crossing the pivot has no discontinuity', () => {
-  const drag = movementRotationGesture({ dx: 68, dy: 0 }, { x: 168, y: 100 }, { x: 100, y: 100 });
-  for (let step = 1; step <= 128; step++) {
-    const dx = Math.cos(step * Math.PI / 32) * 68 - 68, dy = Math.sin(step * Math.PI / 32) * 68;
-    near(movementRotationAmount(drag, dx, dy), dx - dy);
-  }
-  near(movementRotationAmount(drag, 0, 0), 0);
-  for (const dx of [-67, -68, -69]) near(movementRotationAmount(drag, dx, 0), dx);
+test('free Rotate accumulates circles, holding the last angle at the centre', () => {
+ const drag = movementRotationGesture({ x: 68 });
+ for (let step = 1; step <= 128; step++) {
+  const a = step * Math.PI / 32;
+  near(movementRotationAmount(drag, Math.cos(a) * 68 - 68, Math.sin(a) * 68), step * 180 / 32);
+ }
+ near(movementRotationAmount(drag, -68, 0), 720);
 });
-
-test('Rotate workplanes share the same right/up rule', () => {
-  for (const plane of ['xy', 'xz', 'yz']) {
-    const drag = movementRotationGesture(movementWorkplaneHandle(plane), { x: 50, y: 50 }, { x: 0, y: 0 });
-    near(movementRotationAmount(drag, 20, 0), 20);
-    near(movementRotationAmount(drag, 0, -20), 20);
-  }
+test('constrained Rotate Shift is precision in every plane, with no snapping', () => {
+ for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) {
+  const drag = movementRotationGesture({ constrained: true, plane });
+  near(movementRotationAmount(drag, 37, -120, 1, true), sign * 3.7);
+  near(movementRotationAmount(movementRotationGesture({ constrained: true, plane }), 0, -20), 0);
+ }
 });
 
 test('selected bone connector colors distinguish its parent and every child', () => {
@@ -556,21 +546,21 @@ test('a global edit never takes over a track the model sequences already animate
 });
 
 
-test('Pivot-based Local X follows the mouse circle after a 180 degree Y turn; Linear is unchanged', async () => {
+test('Swept Local X follows the mouse circle after a 180 degree Y turn; constraints keep their fixed sign', async () => {
   const { movementRotationFacing } = await import('../app/movement-overlay.js');
   const rotated = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
   for (const view of [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)]) {
     const results = [];
     for (const [space, orientation] of [['world', new Quaternion()], ['local', rotated]]) {
       const facing = movementRotationFacing({ handle: { axis: 'X' }, space }, orientation, view);
-      const options = { x: 100, y: 0, pivot: { x: 0, y: 0 }, pivotSign: facing > 0 ? -1 : 1 };
-      const degrees = movementRotationAmount(movementRotationGesture({ ...options, behavior: 'pivot' }), -100, 100);
+      const options = { x: 100, y: 0, pivot: { x: 0, y: 0 }, axis: [0, 0, facing] };
+      const degrees = movementRotationAmount(movementRotationGesture(options), -100, 100);
       const model = fixture(); model.Bones[0].Rotation = track([100, orientation.toArray()]);
       applyMovementTransform(model, [0], 500, 0, { mode: 'rotate', space, axis: 'X', amount: degrees });
       const actual = new Quaternion().fromArray(sampleMovement(model, model.Bones[0], 'Rotation', 500, 0));
       // Compare the visible world delta, not the opposite signed Local angle.
       results.push(actual.multiply(orientation.clone().invert()));
-      near(movementRotationAmount(movementRotationGesture({ ...options, behavior: 'linear' }), 30, -20), 50);
+      near(movementRotationAmount(movementRotationGesture({ ...options, constrained: true, plane: 'yz' }), 30, -20), 30);
     }
     near(Math.abs(results[0].dot(results[1])), 1);
     const expected = new Quaternion().setFromAxisAngle(view, Math.PI / 2);

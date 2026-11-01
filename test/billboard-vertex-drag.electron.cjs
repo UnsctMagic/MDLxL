@@ -79,7 +79,7 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     };
 
     await page.getByLabel('View direction', { exact: true }).selectOption('right');
-    await page.getByLabel('Workplane', { exact: true }).check(); await page.getByLabel('ZX workplane', { exact: true }).check();
+    await page.getByLabel('Workplane Constraints', { exact: true }).check(); await page.getByLabel('ZX workplane', { exact: true }).check();
     const viewport = page.getByLabel('3D model viewport', { exact: true }); await viewport.focus(); await page.keyboard.press('a'); await idle();
     const box = await viewport.boundingBox();
     await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10); await page.mouse.down();

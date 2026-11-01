@@ -79,23 +79,23 @@ test('leading hand respects explicit feet pins and translation restrictions; Ben
   assert.equal(applyMovementPose(structuredClone(original), still.changes, 500, 0), 0, 'no movement creates no body key');
 });
 
-test('POSE workplane rotation keeps explicit local Body/Object and world Endpoint axes with linear input', () => {
+test('POSE workplane rotation keeps explicit local Body/Object and world Endpoint axes with constrained MDLVis input', () => {
   for (const plane of ['xy', 'xz', 'yz']) for (const space of ['local', 'world']) for (const kind of ['body', 'node', 'endpoint']) {
     const model = fixture(), handle = movementWorkplaneHandle(plane), axis = ({ X: 0, Y: 1, Z: 2 })[handle.axis];
     const normal = new Vector3().setComponent(axis, 1), flipAxis = axis === 0 ? [0, 1, 0] : [1, 0, 0];
     model.Bones[0].Rotation = track([500, q(flipAxis, Math.PI)]);
     const id = kind === 'body' ? 0 : chain.end;
     const before = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), before, new Vector3());
-    const drag = movementRotationGesture();
+    const drag = movementRotationGesture({ constrained: true, plane });
     const degrees = movementRotationAmount(drag, 20, 0);
-    near(degrees, 20);
+    near(degrees, plane === 'xz' ? -20 : 20);
     const result = kind === 'endpoint'
       ? turnPoseEndpoint(model, chain, 500, 0, new Quaternion().setFromAxisAngle(normal, degrees * Math.PI / 180).toArray())
       : solvePoseNode(model, id, [], 500, 0, { mode: 'rotate', space, values: normal.clone().multiplyScalar(degrees).toArray() });
     apply(model, result);
     const after = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), after, new Vector3());
     const axisNormal = kind !== 'endpoint' && space === 'local' ? normal.clone().applyQuaternion(before) : normal;
-    const delta = after.multiply(before.clone().invert()), expected = new Quaternion().setFromAxisAngle(axisNormal, 20 * Math.PI / 180);
+    const delta = after.multiply(before.clone().invert()), expected = new Quaternion().setFromAxisAngle(axisNormal, degrees * Math.PI / 180);
     near(Math.abs(delta.dot(expected)), 1, 1e-7);
   }
 });

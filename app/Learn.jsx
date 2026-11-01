@@ -49,11 +49,11 @@ export default function Learn({ settings }) {
     if (!enabled) return;
     notebook.current = loadLearnNotebook();
     const counted = new WeakSet();
-    let serial = 0;
+    let serial = 0, clickTimer;
     const save = next => { notebook.current = next; storeNotebook(next); };
     /** Citadel Paint's keys are its own (`data-paint-key`); everything else uses the shortcut settings. */
     const keysOf = id => latest.current.shortcuts[id] || (id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : undefined);
-    const show = (id, element) => {
+    const show = (id, element, afterClick = false) => {
       // A window's extra Close / Cancel / Done buttons close it like its own close button: with Esc,
       // when Esc closes that window (in Forge it clears the selection).
       // Only hand-picked command keys are taught: a window's own buttons get keys from their names
@@ -68,18 +68,22 @@ export default function Learn({ settings }) {
       const rect = element?.getBoundingClientRect?.();
       const next = { id, chord: id.startsWith(PAINT_KEY_PREFIX) ? key : formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial };
       // Repeated clicks leave the same popup, animation and original expiry alone.
-      setPopup(current => current?.id === id && current.chord === next.chord ? current : next);
+      const reveal = () => setPopup(current => current?.id === id && current.chord === next.chord ? current : next);
+      // A capture-phase render can restore a controlled checkbox before React
+      // receives its change event. Let the native click complete first.
+      if (afterClick) { clearTimeout(clickTimer); clickTimer = setTimeout(reveal, 0); }
+      else reveal();
     };
     const click = event => {
       // A real mouse click has a click count; hotkeys and Enter/Space presses do not.
       if (!event.isTrusted || event.detail === 0) return;
       if (event.target.closest?.(OWN_UI)) return;
       const paintKey = event.target.closest?.('[data-paint-key]');
-      if (paintKey && !paintKey.hasAttribute('data-hotkey')) { show(PAINT_KEY_PREFIX + paintKey.getAttribute('data-paint-key'), paintKey); return; }
+      if (paintKey && !paintKey.hasAttribute('data-hotkey')) { show(PAINT_KEY_PREFIX + paintKey.getAttribute('data-paint-key'), paintKey, true); return; }
       const element = event.target.closest?.('[data-hotkey]');
       if (!element || !element.matches(CONTROLS)) return;
       const id = controlActionId(element);
-      if (id) show(id, element);
+      if (id) show(id, element, true);
     };
     const menu = event => { if (typeof event.detail?.id === 'string') show(event.detail.id, null); };
     const used = event => {
@@ -105,6 +109,7 @@ export default function Learn({ settings }) {
     window.addEventListener('click', click, true); window.addEventListener('mdlxl-menu-command', menu);
     window.addEventListener('mdlxl-hotkey-used', used); window.addEventListener(CHANGED, changed);
     return () => {
+      clearTimeout(clickTimer);
       window.removeEventListener('click', click, true); window.removeEventListener('mdlxl-menu-command', menu);
       window.removeEventListener('mdlxl-hotkey-used', used); window.removeEventListener(CHANGED, changed);
     };

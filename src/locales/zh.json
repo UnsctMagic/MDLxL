@@ -7264,5 +7264,18 @@
   "Move this corner of the box along the {0} axis, in model units. Z controls height.": "沿 {0} 轴移动长方体的这个角，单位为模型单位。Z 控制高度。",
   "Collision shape coordinates must be finite.": "碰撞形状坐标必须是有限值。",
   "Sphere radius must be positive.": "球体半径必须为正数。",
-  "A box needs each maximum corner value above its minimum.": "长方体的每个最大角值都必须大于对应的最小值。"
+  "A box needs each maximum corner value above its minimum.": "长方体的每个最大角值都必须大于对应的最小值。",
+  "Workplane Constraints": "工作平面约束",
+  "On: Rotate stays locked to the chosen plane. Off: use the handles.": "开启：旋转限制在所选平面。关闭：使用手柄。",
+  "Move gizmo": "移动控件",
+  "Rotate handles": "旋转手柄",
+  "Today": "当前",
+  "Rings": "圆环",
+  "Shift rotation precision": "Shift 旋转精度",
+  "Hold Shift while rotating to multiply the speed by this amount.": "旋转时按住 Shift，将速度乘以此值。",
+  "Lines swing as levers; Rings and Arcs turn around their axis.": "轴线作为杠杆摆动；圆环和圆弧绕各自的轴旋转。",
+  "Choose the thickness and heads of the Move handles.": "选择移动手柄的线宽和箭头大小。",
+  "Workplane Constraints turns one degree per horizontal pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "工作平面约束在 1× 时每水平像素旋转一度。手柄跟随鼠标绕选择中心扫过的角度。指针灵敏度作用于两种模式。按住 Shift 可精细旋转。",
+  "Perspective workplane toolbar": "透视工作平面工具栏",
+  "Perspective Workplane Constraints": "透视工作平面约束"
 }

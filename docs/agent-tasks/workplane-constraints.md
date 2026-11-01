@@ -1,9 +1,8 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: contract agreed with the owner item by item (2026-11-01); Codex to build
-in the real app
+Status: implemented; ready to test; awaiting merge approval
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
-Updated: 2026-11-01
+Updated: 2026-11-02
 
 This is real app work, not a test build. It replaces [Gizmo Lab](gizmo-lab.md)
 and [Rotation Lab](rotation-lab.md). Port the useful pieces from Codex's lab
@@ -122,14 +121,79 @@ Claude Code if something is unclear.
   constrained arrow readout, quad Perspective toolbar, Settings rotation section.
 - Report `ready to test` with a short click-through for the owner.
 
-## Revision and local state
+## Implementation and owner clarifications
 
-- Contract on branch `claude/workplane-constraints-contract` from `origin/main`
-  `ff39174d`. Codex: a new `codex/` branch from `origin/main`.
-- Fixture: `D:\Claude\MDLxL-TestModels` (never modify or clean it).
+- Branch `codex/workplane-constraints`, based on merged contract PR #500 at
+  `0f3f80a3`, rebased onto main `af004b55`. Ported the lever, swept-angle, feedback and Move modifier rules
+  from `codex/rotation-lab` `1f27ae6f` into shared production owners.
+- Owner clarification: preserve Bones' rest-pose Select/Move restriction. It
+  receives the Move gizmos; Rotate is exercised in Vertices, Movement/POSE and
+  Forge. No rest-pose rotation was added.
+- Owner separately approved the Learn click timing repair after a minimal
+  hidden proof isolated its capture-phase reminder render suppressing checkbox
+  change events. Reminder state now updates after the native click; no checkbox
+  workaround, Learn controls or extra UI were added.
+- MDLVis `guic.pas` `TWorkPlane.FindAngles` uses horizontal `oldX-x` only.
+  `frmmain.pas` `vRotate` negates XY/YZ and keeps XZ in right-hand XYZ:
+  rightward pixels mean XY +Z, ZX -Y, YZ +X. The drawing code negates Y for
+  display only; authored coordinates are unchanged.
+- Rotation retains speed overrides, drops retired behavior keys, and adds
+  `precision` (default 0.1). Shift changes the speed of subsequent motion without
+  jumping when pressed/released. Each coalesced sample accumulates its wrapped
+  path; geometry and feedback update at most once per display frame.
+- A real-click test caught the new Perspective toolbar being intercepted by the
+  pane's capture handler. Toolbar presses now reach their own controls.
+- Hover evidence checks yellow pixels in the actual editor/pane canvas. Its
+  color predicate includes antialiased edges (quad capture: RGB 207/202/79);
+  background canvases cannot satisfy the check.
+- Forge repeat previews retain their model identity when a control/hover render
+  changes no geometry; otherwise the model-rebuild effect canceled an armed
+  rotation. The magnet fitting math and callbacks are unchanged.
+- Single-view layout, UV sources/controls, existing POSE solvers and Forge magnet
+  constraint callbacks are preserved. Settings are chosen before opening Forge,
+  following its existing modal workflow.
 
-## Blockers and next action
+## Verification evidence
 
-- None. Next: Codex builds it, opens a PR into `main` with the `Session:` line,
-  closes PR #496, removes the lab build and its desktop shortcut after
-  verification.
+- `pnpm test`: 57 passed, 0 failed, 0 skipped.
+- `pnpm run test:source`: 2,594 passed, 0 failed, 10 existing opt-in/platform
+  skips; the CI baseline was not changed.
+- New numeric assertions fail on unchanged main: constrained YZ produced
+  `-160` instead of the required `40` degrees. The new packaged check also fails
+  on main `b2365c65` before reaching the new controls.
+- Learn's new real-click regression fails on the pre-repair feature package in
+  Forge. The repaired build passes all ten editor/mode combinations (Vertices,
+  Forge, Movement, POSE, Bones × Learn on/off).
+- Packaged checks passed: `rotation-interaction` (190 checks), `learn-workplane`
+  (10 editor/mode combinations), `uv-rotate-steady` (8 checks),
+  `workplane-free-drag`, and `forge-detail-editing` (12 checks), on the invisible
+  `MDLxLTests` desktop. Forge covers magnet rotation/Move, bounds, normal changes,
+  live geometry, Apply, cancel, orbit and exact Undo/Redo.
+  Rotation uses the owner's copied 0.67× pointer preference, actual mouse/key
+  input, real Footman fixture, live geometry/native tracks and camera assertions.
+- Focused source regressions after the Forge identity repair: 82 passed, 0 failed,
+  0 skipped. The original magnet check failed first with `livePayload` null
+  after a non-geometry render cleared the gesture.
+- Fixture: `D:/Claude/MDLxL-TestModels/pose/Footman.mdx`, read-only. Original bytes
+  are checked before/after. Evidence: `D:/Codex/workplane-constraints-report`.
+- Warcraft III playback and owner feel/visual acceptance are not exercised by
+  these checks. Claude still owns independent QA and the merge/release gate.
+
+## Handover
+
+Implementation PR: [#504](https://github.com/UnsctMagic/MDLxL/pull/504).
+Ready to test; ready for review; awaiting merge approval. No merge authorized.
+PR #496 is closed and unmerged; the replacement link is recorded there.
+The exact Gizmo Lab installation and desktop shortcut were removed. The real
+installed app/profile and permanent test corpus were preserved. Disposable
+verification builds/profiles/worktree are removed after the final push, retaining
+only the small report, logs and requested captures on D:.
+
+Owner click-through on a build of this branch:
+
+1. Vertices / POSE / Forge: Rotate with Workplane Constraints on, then off;
+   hold and release Shift during a drag.
+2. Settings → Appearance → Controllers: try the three Move and Rotate styles.
+   Mouse → Rotation: change sensitivity and Shift precision.
+3. Move with Shift + arrow / square, including Bones; try the quad Perspective
+   toolbar and normal mouse orbit in all panes.

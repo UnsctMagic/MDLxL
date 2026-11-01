@@ -50,7 +50,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
       return projectPoseHandles(sourceModel, data.config, data.frame, data.sequence, camera, data.width, data.height);
     }
     async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();await tool('Move');
     const config=await page.evaluate(()=>poseProbe().props.poseConfig);results.mapping=config;
 
@@ -97,7 +97,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
         for(let i=0;i<3;i++)if(!allowed.includes(i))assert.ok(Math.abs(delta[i])<.004,label+' keeps excluded coordinate '+i+' fixed: '+delta);
         await menu('undo');await settle();assert.equal((await snap()).model,before.model,label+' exact Undo');await menu('redo');await settle();assert.equal((await snap()).model,after.model,label+' exact Redo');await menu('undo');await settle();
       }
-      assert.equal(await page.getByLabel('Workplane',{exact:true}).isChecked(),false);results.checks.push((pose?'POSE ':'Bone ')+label);
+      assert.equal(await page.getByLabel('Workplane Constraints',{exact:true}).isChecked(),false);results.checks.push((pose?'POSE ':'Bone ')+label);
     }
     for(const pose of [true,false]){
       if(!pose){await page.getByRole('button',{name:'POSE',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption(String(config.body));await tool('Move');await settle();}

@@ -14,7 +14,7 @@ const looks = {
 export function controllerAppearanceForTheme(id = 'light') {
   const theme = themes[id] || themes.light;
   const [shape, bodyShape, bendShape, pinStyle, color, selected, pinned] = looks[id] || looks.light;
-  return { shape, bodyShape, bendShape, pinStyle, color, selected, pinned, background: theme.colors.field,
+  return { moveGizmo: 'classic', rotateHandles: 'lines', shape, bodyShape, bendShape, pinStyle, color, selected, pinned, background: theme.colors.field,
     skeleton: theme.colors.link, outline: theme.colors.text, symbols: true, size: 17,
     axisX: theme.scheme === 'light' ? '#ce3434' : '#fa6975', axisY: theme.scheme === 'light' ? '#248142' : '#77cf80', axisZ: theme.scheme === 'light' ? '#236ac2' : '#77aaff' };
 }
@@ -27,6 +27,8 @@ export function normalizeControllerAppearance(value, fallback = DEFAULT_CONTROLL
   output.pinStyle = PIN_STYLES.includes(input.pinStyle) ? input.pinStyle : base.pinStyle;
   output.symbols = typeof input.symbols === 'boolean' ? input.symbols : base.symbols;
   output.size = Number.isFinite(input.size) ? Math.max(12, Math.min(24, input.size)) : base.size;
+  output.moveGizmo = ['classic', 'today', 'bold'].includes(input.moveGizmo) ? input.moveGizmo : base.moveGizmo;
+  output.rotateHandles = ['lines', 'rings', 'arcs'].includes(input.rotateHandles) ? input.rotateHandles : base.rotateHandles;
   return output;
 }
 
