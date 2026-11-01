@@ -59,6 +59,21 @@ function displaySegment(segment, words, leaf = false) {
   return (known || stem.charAt(0).toUpperCase() + stem.slice(1)) + extension;
 }
 
+// Both libraries resolve tables from the base game and strings from the same installed locale.
+async function readWorldEditorSources(names, locale, files, isString, read) {
+  const paths = new Set(names), result = {files:[], strings:[]}, decoder = new TextDecoder();
+  for (const file of files) {
+    const logical = gamePathKey(file), physical = 'war3.w3mod:' + logical;
+    if (paths.has(physical)) result.files.push([logical, decoder.decode(await read(physical))]);
+  }
+  if (locale) {
+    const prefix = 'war3.w3mod:_locales\\' + locale + '.w3mod:';
+    for (const name of paths) if (name.startsWith(prefix) && isString(name.slice(prefix.length)))
+      result.strings.push(decoder.decode(await read(name)));
+  }
+  return result;
+}
+
 class GameFileLibrary {
   constructor({ casc, catalogFile = path.join(__dirname,'data','texture-library-catalog.json'), readFile = fs.readFile } = {}) {
     Object.assign(this,{casc,catalogFile,readFile});
@@ -167,14 +182,8 @@ class GameFileLibrary {
   }
   /** Raw World Editor tables and the installed language's strings, for the Library's World Editor view. */
   async worldEditorSources(index, {files = [], isString = () => false} = {}) {
-    const result = {files:[],strings:[]}, decoder = new TextDecoder();
-    for (const path of files) { const entry = this.findPath(index,path,'classic'); if (entry) result.files.push([path.toLowerCase(),decoder.decode(await this.read(index,entry))]); }
-    const locale = index.sources[0]?.locales?.[0];
-    if (locale) {
-      const prefix = `war3.w3mod:_locales\\${locale}.w3mod:`;
-      for (const entry of index.entries) if (entry.sourcePath.toLowerCase().startsWith(prefix) && isString(entry.lower)) result.strings.push(decoder.decode(await this.read(index,entry)));
-    }
-    return result;
+    return readWorldEditorSources(index.byName.keys(), index.sources[0]?.locales?.[0], files, isString,
+      name => this.read(index, index.byName.get(name)));
   }
   /** A model's pictures come from its own module first (Reforged, Forsaken Kingdom), then the base game. */
   async resolve(index, model, names) {
@@ -204,4 +213,4 @@ class GameFileLibrary {
   }
 }
 
-module.exports = {GameFileLibrary,classifyGameFile,casingDictionary,FILE_TYPES,VARIANT_LABEL};
+module.exports = {GameFileLibrary,readWorldEditorSources,classifyGameFile,casingDictionary,FILE_TYPES,VARIANT_LABEL};

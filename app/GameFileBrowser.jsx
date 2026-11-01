@@ -8,8 +8,8 @@ import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {createThumbnailQueue} from '../src/texture-library-session.js';
-import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
+import {buildWorldEditorCatalog,WORLD_EDITOR_FILES,visibleWorldEditorRows} from '../src/world-editor-catalog.js';
+import GameIcon,{FOLDER_ICONS} from './GameIcon.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
@@ -19,8 +19,6 @@ const VARIANTS=[['classic','Classic'],['reforged','Reforged'],['forsaken-kingdom
 const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',worldeditor:'Search units, spells, items and doodads by name',sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
 const AUDIO={wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',flac:'audio/flac'},VIDEO={webm:'video/webm',mp4:'video/mp4'},IMAGE={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'};
 const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
-// Folder icons for the World Editor view's top level, taken from the game's own buttons.
-const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
 const ROW=24;
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
 const remembered=(key,fallback,allowed)=>readStoredText(key,fallback,value=>allowed.includes(value)?value:fallback);
@@ -43,21 +41,6 @@ function previewAssets(textures){
     assets.set(gamePathKey(record.name),asset);assets.set(gamePathKey(record.name.split(/[\\/]/).at(-1)),asset);
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
-}
-
-// Small icons for tree rows: decoded once per session, a few at a time.
-const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
-function loadIcon(key,read,size=48){
-  if(!icons.has(key)){
-    const job=iconQueue(key,async()=>{const file=await read();return file?.bytes?.length?decodeTextureThumbnail({name:file.name||key,bytes:file.bytes},size):null;}).catch(()=>null);
-    icons.set(key,job);if(icons.size>6000)icons.delete(icons.keys().next().value);
-  }
-  return icons.get(key);
-}
-function GameIcon({iconKey,read,fallback:Fallback=File,size=16}){
-  const [url,setUrl]=useState(null);
-  useEffect(()=>{let active=true;setUrl(null);if(iconKey&&read)loadIcon(iconKey,read,Math.max(48,size)).then(value=>{if(active)setUrl(value);});return()=>{active=false;};},[iconKey]);
-  return url?<img className="gf-icon" src={url} alt="" width={size} height={size} draggable={false}/>:<Fallback size={size-1} aria-hidden="true" className="gf-icon-glyph"/>;
 }
 
 // World Editor trees are built from the game tables once per game version.
@@ -102,15 +85,68 @@ function FileStage({entry,signature}){
   return <p className="tl-note gf-stage-note">MDLxL has no viewer for this file type. Save a copy to open it in another program.</p>;
 }
 
+function BrowserToolbar({input,query,onQuery,placeholder,label,children}){
+  return <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={placeholder} onChange={event=>onQuery(event.target.value)} aria-label={label}/>{children}</div>;
+}
+
+function BrowserTree({rows,expanded,toggle,selected,onChoose,onOpen,rowIcon,style,onStyle,standardTitle,empty,status,onVisibleRows,resetKey}){
+  const tree=useRef(),[focusKey,setFocusKey]=useState(null),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
+  useEffect(()=>{setFocusKey(null);setScrollTop(0);if(tree.current)tree.current.scrollTop=0;},[resetKey]);
+  useEffect(()=>{const element=tree.current;if(!element)return;const observer=new ResizeObserver(()=>setViewHeight(element.clientHeight));observer.observe(element);return()=>observer.disconnect();},[]);
+  const first=Math.max(0,Math.floor(scrollTop/ROW)-10),last=Math.min(rows.length,Math.ceil((scrollTop+viewHeight)/ROW)+10);
+  useEffect(()=>{onVisibleRows?.(rows.slice(first,last));},[rows,first,last,onVisibleRows]);
+  const keys=event=>{
+    const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();const next=rows[Math.max(0,Math.min(rows.length-1,index<0?0:index+(event.key==='ArrowDown'?1:-1)))];if(!next)return;
+      setFocusKey(next.key);if(!next.folder)onChoose(next);
+      const top=rows.indexOf(next)*ROW,element=tree.current;if(element&&(top<element.scrollTop||top+ROW>element.scrollTop+element.clientHeight))element.scrollTop=top-element.clientHeight/2;
+    }else if(event.key==='ArrowRight'&&row?.folder&&!expanded.has(row.key)){event.preventDefault();toggle(row);}
+    else if(event.key==='ArrowLeft'&&row){event.preventDefault();if(row.folder&&expanded.has(row.key))toggle(row);else{const parent=rows.slice(0,index).reverse().find(item=>item.folder&&item.depth<row.depth);if(parent)setFocusKey(parent.key);}}
+    else if(event.key==='Enter'&&row){event.preventDefault();if(row.folder)toggle(row);else onOpen(row);}
+  };
+  return <nav className="gf-side" aria-label="Game folders">
+    {onStyle&&<div className="gf-style" role="group" aria-label="Folder layout">
+      <button type="button" aria-pressed={style==='standard'} title={standardTitle||"The game's own folders, as they are stored"} onClick={()=>onStyle('standard')}>Standard</button>
+      <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>onStyle('worldeditor')}>World Editor Style</button>
+    </div>}
+    <div ref={tree} className="gf-tree" role="tree" aria-label="Game files" tabIndex={0} onKeyDown={keys} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
+      {status&&<div className="gf-tree-status">{status}</div>}
+      {!rows.length&&<p className="tl-empty">{empty}</p>}
+      <div style={{height:rows.length*ROW,position:'relative'}}>
+        {rows.slice(first,last).map((row,offset)=>{const open=expanded.has(row.key);return <div key={row.key} role="treeitem" aria-label={row.name} aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key} data-effect-id={row.node?.item?.id}
+          className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:(first+offset)*ROW,paddingLeft:6+row.depth*16}}
+          onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else onChoose(row);}} onDoubleClick={()=>{if(!row.folder)onOpen(row);}}
+          title={row.title||(row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name)}>
+          <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
+          {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{(row.node?.status||row.search&&row.detail)&&<small translate="no">{row.node?.status||row.detail}</small>}</span>
+          {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
+        </div>;})}
+      </div>
+    </div>
+  </nav>;
+}
+
+function BrowserFrame({toolbar,tree,stage,info,footer,detailsBelow=false}){
+  const preview=<><main className="gf-stage" aria-label="Preview">{stage}</main><aside className="gf-info">{info}</aside></>;
+  return <>{toolbar}<div className="tl-body gf-body">{tree}{detailsBelow?<div className="gf-preview-column">{preview}</div>:preview}</div><footer className="tl-footer">{footer}</footer></>;
+}
+
+/** The same browser accepts catalogue rows, stage content and actions from EMTR. */
+export default function GameFileBrowser({browser,...props}){
+  if(browser)return <BrowserFrame toolbar={<BrowserToolbar {...browser.toolbar}/>} tree={<BrowserTree {...browser.tree}/>} stage={browser.stage} info={browser.info} footer={browser.footer} detailsBelow/>;
+  return <GameFiles {...props}/>;
+}
+
 /** The Library's browser for every installed Warcraft III file: icon tree on the left, one central view. */
-export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
+function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
   const [summary,setSummary]=useState(null),[variant,setVariant]=useState(()=>remembered('mdlvis.game-files.variant','classic',VARIANTS.map(([value])=>value))),[chosenType,setChosenType]=useState('all');
   const [style,setStyle]=useState(()=>remembered('mdlvis.game-files.style','worldeditor',['standard','worldeditor']));
   const [query,setQuery]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [expanded,setExpanded]=useState(()=>new Set()),[children,setChildren]=useState(()=>new Map()),[root,setRoot]=useState(null),[we,setWe]=useState(null),[results,setResults]=useState(null);
-  const [selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
+  const [selected,setSelected]=useState(null);
   const [shown,setShown]=useState(null),[loadingModel,setLoadingModel]=useState(false),[modelChoice,setModelChoice]=useState(0),[sequence,setSequence]=useState(-1),[time,setTime]=useState(0),[playing,setPlaying]=useState(true);
-  const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),tree=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null),messageRef=useRef(null);
+  const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null),messageRef=useRef(null);
   const signature=summary?.signature;
   useEffect(()=>{input.current?.focus();},[preset]);
   useEffect(()=>{
@@ -129,7 +165,7 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     worldEditorTree(variant,signature).then(value=>{if(active)setWe(value);}).catch(caught=>{if(active&&worldEditor)setError(caught.message);});
     return()=>{active=false;};
   },[signature,variant,preset]);
-  useEffect(()=>{setExpanded(new Set());setFocusKey(null);},[worldEditor,filters]);
+  useEffect(()=>{setExpanded(new Set());},[worldEditor,filters]);
   useEffect(()=>{if(worldEditor&&!SKIN[variant])setVariant('classic');},[worldEditor,variant]);
   // Search: World Editor names in the window, game paths in the main process.
   useEffect(()=>{
@@ -152,8 +188,7 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     if(results)return results.rows.map(row=>({...row,depth:0,search:true}));
     const list=[];
     if(worldEditor){
-      const walk=(nodes,depth)=>{for(const node of nodes){list.push({key:node.key,depth,name:node.name,node,folder:!!node.children,count:node.total});if(node.children&&expanded.has(node.key))walk(node.children,depth+1);}};
-      if(we)walk(we.root.children,0);return list;
+      return visibleWorldEditorRows(we?.root.children||[],expanded);
     }
     const walk=(listing,depth)=>{
       for(const folder of listing.folders){const key='d'+folder.key;list.push({key,depth,name:folder.name,folderKey:folder.key,folder:true,count:folder.count});if(expanded.has(key)&&children.has(folder.key))walk(children.get(folder.key),depth+1);}
@@ -168,7 +203,7 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
   };
   // Selecting a leaf: models load in the background and replace the shown model when ready.
   const choose=useCallback(async(row,choice=0)=>{
-    if(!row||row.folder)return;if(pendingOpen.current!==row.key)pendingOpen.current=null;setSelected(row);setFocusKey(row.key);setMessage('');setModelChoice(choice);
+    if(!row||row.folder)return;if(pendingOpen.current!==row.key)pendingOpen.current=null;setSelected(row);setMessage('');setModelChoice(choice);
     const request=++modelRequest.current;
     let entry=row.file||null;
     if(row.node){
@@ -226,18 +261,6 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     }catch(caught){setMessage(caught.message);}finally{setGeosetBusy(false);}
   };
   const openInEditor=async()=>{if(!shown)return;setMessage('');try{await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes:shown.bytes,textures:shown.textures});onClose?.();}catch(caught){setMessage(caught.message);}};
-  const keys=event=>{
-    const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
-      event.preventDefault();const next=rows[Math.max(0,Math.min(rows.length-1,index<0?0:index+(event.key==='ArrowDown'?1:-1)))];if(!next)return;
-      setFocusKey(next.key);if(!next.folder)choose(next);
-      const top=rows.indexOf(next)*ROW,element=tree.current;if(element&&(top<element.scrollTop||top+ROW>element.scrollTop+element.clientHeight))element.scrollTop=top-element.clientHeight/2;
-    }else if(event.key==='ArrowRight'&&row?.folder&&!expanded.has(row.key)){event.preventDefault();toggle(row);}
-    else if(event.key==='ArrowLeft'&&row){event.preventDefault();if(row.folder&&expanded.has(row.key))toggle(row);else{const parent=rows.slice(0,index).reverse().find(item=>item.folder&&item.depth<row.depth);if(parent)setFocusKey(parent.key);}}
-    else if(event.key==='Enter'&&row){event.preventDefault();if(row.folder)toggle(row);else if(current)openInEditor();}
-  };
-  useEffect(()=>{const element=tree.current;if(!element)return;const observer=new ResizeObserver(()=>setViewHeight(element.clientHeight));observer.observe(element);return()=>observer.disconnect();},[]);
-  const first=Math.max(0,Math.floor(scrollTop/ROW)-10),last=Math.min(rows.length,Math.ceil((scrollTop+viewHeight)/ROW)+10);
   const rowIcon=row=>{
     if(row.folder){const path=worldEditor?(row.node?.icon||(row.depth===0?FOLDER_ICONS[row.name]:null)):null;return <GameIcon iconKey={path?'p:'+variant+':'+path:null} read={path?readPath(path):null} fallback={expanded.has(row.key)?FolderOpen:Folder}/>;}
     if(row.node)return <GameIcon iconKey={row.node.icon?'p:'+variant+':'+row.node.icon:null} read={row.node.icon?readPath(row.node.icon):null} fallback={row.node.models?.length?Box:File}/>;
@@ -246,42 +269,21 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     return <GameIcon iconKey={file.type==='textures'&&file.size<4194304?'f:'+signature+':'+file.id:null} read={readFile(file)} fallback={TYPE_ICON[file.type]||File}/>;
   };
   const interval=shown?.doc.model.Sequences[sequence]?.Interval;
-  return <>
-    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} onChange={event=>setQuery(event.target.value)} aria-label="Search game files"/>
+  return <BrowserFrame toolbar={<BrowserToolbar input={input} query={query} onQuery={setQuery} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} label="Search game files">
       <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
       {preset==='all'&&<select aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
-    </div>
-    <div className="tl-body gf-body">
-      <nav className="gf-side" aria-label="Game folders">
-        {preset==='models'&&<div className="gf-style" role="group" aria-label="Folder layout">
-          <button type="button" aria-pressed={style==='standard'} title="The game's own folders, as they are stored" onClick={()=>{setStyle('standard');remember('mdlvis.game-files.style','standard');}}>Standard</button>
-          <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>{setStyle('worldeditor');remember('mdlvis.game-files.style','worldeditor');}}>World Editor Style</button>
-        </div>}
-        <div ref={tree} className="gf-tree" role="tree" aria-label="Game files" tabIndex={0} onKeyDown={keys} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
-          {results&&<div className="gf-tree-status">{results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`}</div>}
-          {!rows.length&&<p className="tl-empty">{error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}</p>}
-          <div style={{height:rows.length*ROW,position:'relative'}}>
-            {rows.slice(first,last).map((row,offset)=>{const at=first+offset,open=expanded.has(row.key);
-              return <div key={row.key} role="treeitem" aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key}
-                className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:at*ROW,paddingLeft:6+row.depth*16}}
-                onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else{if(pendingOpen.current!==row.key)pendingOpen.current=null;choose(row);}}} onDoubleClick={()=>{if(row.folder)return;if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}}
-                title={row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name}>
-                <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
-                {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{row.search&&row.detail&&<small translate="no">{row.detail}</small>}</span>
-                {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
-              </div>;})}
-          </div>
-        </div>
-      </nav>
-      <main className="gf-stage" aria-label="Preview">
+    </BrowserToolbar>} tree={<BrowserTree rows={rows} expanded={expanded} toggle={toggle} selected={selected} onChoose={choose}
+      onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style}
+      onStyle={preset==='models'?value=>{setStyle(value);remember('mdlvis.game-files.style',value);}:undefined} resetKey={worldEditor+'|'+filters}
+      status={results&&(results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`)}
+      empty={error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}/>} stage={<>
         <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset} onHover={setHoveredGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
             :loadingModel?<span className="gf-stage-note">Loading model…</span>
             :<span className="gf-stage-note">{preset==='models'?'Choose a model on the left. Drag to turn the camera; it glides to each model you pick.':preset==='sounds'?'Choose a sound on the left to hear it. Arrow keys step through a folder.':'Choose a file on the left to view it.'}</span>}
         </div>}
-      </main>
-      <aside className="gf-info">{selected&&!selected.folder?<>
+      </>} info={selected&&!selected.folder?<>
         <h3 translate="no">{selected.name}</h3>
         {selected.node&&<p className="tl-version" translate="no">{selected.node.id}</p>}
         {selectedModels.length>1&&<select aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
@@ -305,8 +307,5 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
         </div>}
         {message&&!current&&<p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}
-      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>}</aside>
-    </div>
-    <footer className="tl-footer"><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></footer>
-  </>;
+      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>} footer={<><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></>}/>;
 }

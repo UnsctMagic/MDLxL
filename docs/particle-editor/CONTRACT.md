@@ -4,7 +4,7 @@ Prepared 30 September 2026. Refined for Astra's implementation handoff. This con
 
 **Required workflow:** **Open Particle Library → choose a well-named visual effect → experiment → save a preset or add to model.** The entry point is the effect, organized by appearance. Source units are optional provenance and search aliases. Astra must implement and run extraction against the user's configured local CASC assets; the user need not export emitters one by one. This document does not claim that extraction or a fresh repository audit has been performed.
 
-**Product statement:** Open a visual library of clearly named particles, choose one by its appearance, touch what you see, change it immediately, and save it or place it on a model. Source units are optional provenance, not a navigation requirement. Classic and Clueless are two interfaces to the same Warcraft data—not two particle engines.
+**Product statement:** Open a visual library of clearly named particles, choose one by its appearance, touch what you see, change it immediately, and save it or place it on a model. By type stays the default. At the owner’s request on 1 November 2026, the user can also pick World Editor and choose effects through their source objects. Classic and Clueless are two interfaces to the same Warcraft data—not two particle engines.
 
 This is an implementation contract, not a claim that the feature exists. The user's stated workflow and acceptance criteria are requirements. Examples, suggested labels, numerical targets, and implementation techniques are identified as such. The source register records the earlier research; its repository snapshot is historical and must be checked against current code before implementation.
 
@@ -14,7 +14,7 @@ Execute this contract against the current repository. First read its nearest AGE
 
 ## 1. Authority, baseline, and boundaries
 
-The user's explicit requirements are authoritative: an existing visual editor must become less text-heavy; offer Classic and Clueless modes; support direct manipulation and sliders; retain immediate feedback; provide a separate particle playground; reopen model effects directly; and include a genuine Warcraft particle preset library plus personal presets. The library is organized by recognizable effect names and appearance, across source units, using recipes extracted from the user's CASC files. Unit-first browsing is explicitly rejected. Earlier requirements for live editing, slow motion, and fitting weapon sweeps remain in scope.
+The user's explicit requirements are authoritative: an existing visual editor must become less text-heavy; offer Classic and Clueless modes; support direct manipulation and sliders; retain immediate feedback; provide a separate particle playground; reopen model effects directly; and include a genuine Warcraft particle preset library plus personal presets. The library is organized by recognizable effect names and appearance, across source units, using recipes extracted from the user's CASC files. By type stays the default. The owner requested World Editor as a second view on 1 November 2026. Earlier requirements for live editing, slow motion, and fitting weapon sweeps remain in scope.
 
 The inspected repository is `KlugerA/MDLxL`, `main` at commit `d492b5ccdb690197eb10371f0bde9155d3481086`, version **0.14.0**. The inspection covered source and styles, not an executed Windows application. No current GUI screenshots, performance measurements, full library inventory, or in-game tests were produced during this research. Astra must inspect the then-current main and record differences before implementing. [C1–C8]
 
@@ -267,13 +267,27 @@ Audit the installed `war3-model` version before patching private controller stat
 
 Define that fixture before implementation: model, textures, emitter count, live particle count, viewport dimensions, sampling interval, and hardware. Also test an intentionally heavy effect. Do not silently cap exported values to make the performance test pass. Any preview-only budget reduction must be visible on demand and must never masquerade as the full effect.
 
-## 11. Particle Library: effect-first browsing of extracted recipes
+## 11. Particle Library: browse extracted recipes by type or World Editor origin
 
 ### 11.1 Required discovery experience and asset identity
 
 **Open Particle Library → choose a well-named visual effect → experiment → save a preset or add to model.**
 
-The default library is a gallery of particles/effects, not a gallery of units. Do not require the user to select a race, unit, source model, or original emitter name before seeing usable effects. A stock effect belongs beside visually related effects regardless of which unit supplied it. Source units and model paths belong in optional Details and secondary search aliases; they are not the top-level organization or default card titles.
+The default library is a gallery of particles/effects, not a gallery of units. Do not require the user to select a race, unit, source model, or original emitter name before seeing usable effects. A stock effect belongs beside visually related effects regardless of which unit supplied it. The header switch opens a second, optional World Editor view, a short list of **special effects** placed where the World Editor puts their object; §11.1a is binding for it. Original emitter names and paths remain in Details and search. Source units and model paths belong in optional Details and secondary search aliases; they are not the top-level organization or default card titles.
+
+### 11.1a World Editor view: special effects only, each shown once
+
+Owner correction of 1 November 2026, after reviewing PR 491. The first World Editor view listed every association, so folders repeated blood sprays, held empty or blood-only units, and split buildings into one folder each. These rules replace that behaviour. They are structural; the examples only illustrate them.
+
+1. **Special effects only.** A row belongs in the World Editor view when it is art for an ability, spell, buff or aura (caster, target, effect, special, area, lightning, missile), an attack missile or impact, or a building/doodad's own visible effect (fire, smoke, glow, water). A priest's Heal belongs; a shaman's Bloodlust belongs.
+2. **Blood and death go to one place.** Generic blood, gore, gibs, corpse and death-explosion effects (for example the shared `Objects\Spawnmodels\` blood and large-death-explode models) never appear under an object. They appear once each in one shared top-level folder, **Blood & death**. A priest folder shows no blood.
+3. **Hide what is left empty.** An object whose only effects are blood/death, or that has none, is not listed. No folder or row with a count of 0, no "No indexed emitters" rows. Ability art with zero emitters stays reachable through search only.
+4. **Each effect appears once.** One recipe is one row in the whole World Editor view, under its owning object: the first in World Editor order (melee before campaign; the unit or building before abilities or items that reuse its art). Other users of the same recipe stay in Details and search. Campaign, level or variant copies of an object whose effects are all already shown are not listed; one is listed only for the effects it adds. Repeated identical rows (three "Red streaks" in one folder) are a defect.
+5. **Shallow folders, named the World Editor way.** Units and heroes: race → unit → its ability names (with icons) and **Attack**, nothing else. No fixed "Model", "Death/Special" or "Campaign" layers; a unit with one group shows its rows directly. Buildings: **one folder per race** (Human, Orc, Night Elf, Undead, Neutral) holding the effect rows directly, with the building name as the row's origin. No folder per building, and identical effects shared by several buildings appear once.
+6. **Correct race.** An object sits under the race and tab the World Editor gives it. Shared or neutral objects (for example the Fountain of Life and its defiled variant) go under Neutral, never inside a playable race.
+7. **Counts match what opens.** A folder's number is the rows it shows after these rules.
+
+The Standard (By type) view is unchanged: every readable recipe, grouped by appearance, blood included. Nothing is deleted from the catalogue or coverage manifest; these rules decide only where rows show in the World Editor view.
 
 A **picture/texture** is one image resource. An **emitter recipe** is native behavior plus its dependencies. An **effect group** may contain several emitters, ribbons, and other visual ingredients. These are different objects and must not be conflated. Native schemas distinguish these structures. [F1–F2]
 
@@ -299,7 +313,7 @@ Exactly duplicate recipes may share one gallery entry with all source associatio
 
 For this library requirement, classic means the SD/classic asset set of the selected Warcraft installation/build, not the editor's Classic UI mode. Inventory emitter-bearing classic models across the configured CASC source, including units and the ability, missile, spell, portrait, building, alternate-form, and other effect models needed to represent their effects. Do not limit discovery to a manually selected unit roster or a `Units` folder. Follow external effect references during extraction. The exact count and boundaries come from the source inventory, not a hard-coded claim.
 
-Unit/object associations are useful for provenance and coverage, but the gallery remains organized by effect appearance and friendly names. Unknown source associations must not hide otherwise usable recipes. Absence of a friendly label is not a reason to drop an extracted entry.
+Unit and object associations organize the optional World Editor view under §11.1a. By type groups friendly names by appearance. Unknown source associations must not hide otherwise usable recipes. Absence of a friendly label is not a reason to drop an extracted entry.
 
 Resolve source variants correctly. Do not mix SD entries with HD or other asset namespaces merely because filenames match. Record source installation, build/version identity, logical path, physical source identity, and content hash. Missing or incomplete discovery must be reported as incomplete, not “all.”
 
@@ -322,6 +336,8 @@ CASC is the required source for this user. Preserve already-supported alternativ
 Provide an isolated effect preview by default; offer the source-model context only through an explicit secondary action when useful. The user should not have to open the source unit to judge, choose, or edit a particle. Choose a known active source clip for thumbnails where possible. Never overwrite saved visibility/rate fields simply to force an otherwise inactive emitter to show in the library.
 
 When the source effect needs parent motion, retain the required motion context or offer a labeled demonstration motion. An isolated preview that drops the parent animation and changes the effect is not a faithful source preview. Support this motion internally without turning the entry point back into a unit browser.
+
+**Trails must move in the library.** A ribbon, or any effect that only draws while its parent moves, previews with movement: the parent's own flight or animation where the source has it (a missile flies), otherwise the labeled preview-only demonstration sweep from §9. Its thumbnail uses the same motion. A selected effect whose preview stage stays empty is a defect, not a valid state (owner, 1 November 2026: the Archer arrow ribbon showed an empty stage).
 
 Library playback and the editor should share the same rendering adapter. Missing pictures, missing parent dependencies, unsupported ingredients, and incomplete previews have distinct states. Avoid generic green-check “supported” status for an entry whose essential ingredient was removed.
 
@@ -361,17 +377,21 @@ Preserve binary defaults behind animated fields where the application's codec su
 
 ### 12.2 Add to model
 
-The user selects Add to model, chooses a target, places an effect anchor visually, and confirms. Show a live ghost while placing. Cancel leaves the model unchanged. Confirm inserts one undoable operation containing the effect and all required dependencies.
+**Add to model** uses the single-clicked Library row while the Library is open, otherwise the current Lab effect. Both add routes load the chosen recipe into Lab before placement. A load error leaves the Lab and target model unchanged; never substitute the previous recipe.
 
-Offer a bone/helper picker and surface/pivot snapping where applicable. Choosing a bone attaches the emitter's source; it is not the same setting as carrying already-emitted particles with that source. Keep those choices separate.
+Placement matches **Add ribbon**: selected vertices determine the centre and parent using the shared ribbon influence rule. With no vertices selected, use the selected bone/attachment pivot, otherwise the model origin. The panel contains only **Add effect**, the ribbon **Visibility** checklist (current animation ticked), **Create** and **Cancel**. Keep **Snap to surface** and its double-click interaction; the clicked face also determines the parent bone.
+
+The live model and effect remain visible while placing. The shared ribbon-style handle sits at the emitter's world position and moves the visible effect by the pointer's screen distance, including display scaling. Retain normal mouse rotation. Errors appear as one line in the panel, without removing the preview.
+
+**Create** inserts the effect and dependencies in one undoable operation, selects it in On model and shows “Effect added. Drag it to adjust.” The same handle and existing key track remain available afterwards. **Cancel** and Esc leave the model unchanged. Undo restores all copied nodes and resources; Redo restores the insertion.
 
 A copied recipe must remap ObjectIds, parents, PivotPoints, TextureIDs, MaterialIDs, texture animation references, global-sequence IDs, and other imported references correctly. Never assume source array indices remain valid in the target model.
 
 Import only the necessary effect dependency graph. Do not silently transplant an entire unit skeleton or overwrite a target animation because that was easier than isolating the effect. Use an explicit anchor wrapper and preserve internal relative motion where appropriate.
 
-For timing, default to an explicit source-clip/target-clip mapping rather than blindly copying absolute source timestamps. Offer fitting to a selected interval as a distinct operation, preserve key ordering, and never modify unrelated target sequences. Global loops remain global unless deliberately converted.
+Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons. Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion, preserving the recipe's internal relative motion. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
 
-“Keep source motion” and “use target attachment motion” are different placement choices. Reparenting while preserving one pose is not proof that all animated poses remain unchanged. Test transformed and nonuniformly scaled parents; reject or explain unsupported transformations rather than inventing exact preservation.
+See [R1–R9 and packaged P1–P10](../agent-tasks/emtr-add-like-ribbons.md) for the owner acceptance path.
 
 ### 12.3 Size versus whole-effect scale
 
@@ -445,7 +465,9 @@ Every requirement below needs an observable pass/fail result. A feature checklis
 | A24 | Measure interaction and preview performance | Hardware and fixtures are recorded; latency targets and baseline frame-rate conditions in section 10 are measured, not guessed. |
 | A25 | Read-only documents, keyboard, and close/recovery | No writes bypass read-only state; primary operations have non-hover alternatives; draft and model ownership remain clear through closing and recovery. |
 | A26 | Test exported examples in Warcraft | Record exact game build, assets, test sequence, and observed result. Label anything not run as unverified; another previewer is not a substitute. |
-| A27 | Find and open an effect without knowing a unit | The default library shows named effect thumbnails organized by appearance. A user can search/browse, choose an effect, and start experimenting without choosing a unit, race, model path, emitter ID, or texture. Both UI modes retain friendly library names. |
+| A27 | Find and open an effect without knowing a unit | By type opens by default with named thumbnails grouped by appearance. The user may pick World Editor to search or browse an object and choose the same effects. Both UI modes retain friendly names, and choosing an effect starts the same Lab workflow. |
+| A27a | World Editor view shows special effects once | Priest shows Heal and Dispel Magic with no blood; Shaman shows Bloodlust; Blood & death is one shared folder; no object is listed with only blood/death or nothing; no folder or row shows 0; no recipe appears twice anywhere in the view; Buildings has one folder per race with no per-building folders; Fountain of Life variants sit under Neutral; every folder count equals its visible rows. A script over the full installed catalogue proves the once-only, no-empty and count rules, not a screenshot. |
+| A27b | Trails preview moving | The Archer arrow ribbon and every ribbon card show a moving, non-empty trail in the stage and thumbnail (frame pixels change over time and are not just the grid); demonstration motion is never exported. |
 | A28 | Extract from the configured local CASC source | Astra demonstrates bulk extraction/indexing without manual per-model exports or source-asset uploads; source files remain unchanged. The cached catalogue opens after restart, scanning can be cancelled/resumed, and an individual bad asset does not block remaining entries. |
 | A29 | Review names, variants, and rescan persistence | Names match observed previews; exact duplicates retain all source associations, visually similar but distinct recipes remain available, and user name/tag overrides survive rescanning. Source details remain secondary rather than becoming default card clutter. |
 

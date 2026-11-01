@@ -659,7 +659,7 @@ export default function App() {
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
     const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
       ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
-    setDialog({type:'particles',nodeId,attachmentId:selectedBone?.ObjectId,selection:validSelection});
+    setDialog({type:'particles',nodeId,attachmentId:singleRigNode&&[...model.Bones,...model.Helpers,...model.Attachments].some(node=>node.ObjectId===singleRigNode.ObjectId)?singleRigNode.ObjectId:undefined,selection:validSelection});
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });

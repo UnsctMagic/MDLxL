@@ -5,6 +5,7 @@ import { samplePreviewMatrices } from './preview-pose.js';
 import { screenPlaneTranslation } from './viewport-math.js';
 import { teamColorPixels } from './viewport-quality.js';
 import { sampleTrack, skinGeoset, sampleGeosetAnimation } from '../src/animation.js';
+import {particleVertexSelection} from '../src/particle-selection.js';
 import { pickParticleSamples } from '../src/particle-handles.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 
@@ -57,6 +58,17 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
   try{return layer.call(this,emitter);}finally{if(replacement===1||replacement===2)this.rendererData.model.Textures[id]=original;}
  };
  const ribbons=native.ribbonsController,uv=ribbons.updateEmitterTexCoords,resizeRibbon=ribbons.resizeEmitterBuffers,renderRibbons=ribbons.render;
+ // KRVS defaults to one when absent or when this clip has no keys:
+ // mdx-m3-viewer sd.ts defVals.KRVS / SdSequence. Pinned 4.0.1 passes 0.
+ // Evaluate that runtime default without changing authored visibility data.
+ const updateRibbon=ribbons.updateEmitter;
+ ribbons.updateEmitter=function(emitter,delta){
+  const props=emitter.props,value=props.Visibility;if(typeof value==='number')return updateRibbon.call(this,emitter,delta);
+  const owned=Object.hasOwn(props,'Visibility'),globalTime=native.rendererData.globalSequencesFrames[value?.GlobalSeqId]??native.getFrame();
+  const sampled=sampleTrack(value,native.getFrame(),{interval:native.model.Sequences[native.getSequence()]?.Interval,globalSequences:native.model.GlobalSequences,globalTime,fallback:1});
+  props.Visibility=Number(sampled?.[0]??sampled);
+  try{return updateRibbon.call(this,emitter,delta);}finally{if(owned)props.Visibility=value;else delete props.Visibility;}
+ };
  // Upstream caps ribbon allocation at its initial rate/lifetime estimate. Authoring can exceed it.
  ribbons.resizeEmitterBuffers=function(emitter,size){emitter.baseCapacity=Math.max(emitter.baseCapacity,size);return resizeRibbon.call(this,emitter,size);};
  ribbons.render=function(...args){
@@ -142,7 +154,8 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
   let anchor;
   const anchorNode=native.model.Nodes?.[options.anchorId];
   if(anchorNode){
-    const world=new Vector3().fromArray(anchorNode.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[options.anchorId].matrix));
+    const shown=native.model.Nodes?.[selectedId]||anchorNode;
+    const world=new Vector3().fromArray(shown.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[shown.ObjectId].matrix));
     const parentMatrix=anchorNode.Parent==null?new Matrix4():new Matrix4().fromArray(native.rendererData.nodes[anchorNode.Parent].matrix),inverse=parentMatrix.clone();
     if(Math.abs(inverse.determinant())>1e-10){inverse.invert();const local=world.clone().applyMatrix4(inverse);anchor={point:project(world.toArray()),dx:world.clone().add(screenPlaneTranslation(camera,world,width,height,1,0)).applyMatrix4(inverse).sub(local).toArray(),dy:world.clone().add(screenPlaneTranslation(camera,world,width,height,0,1)).applyMatrix4(inverse).sub(local).toArray()};}
   }
@@ -300,7 +313,7 @@ export class NativeParticleSimulation {
       for(const [controller,ribbon]of [[native.particlesController,false],[native.ribbonsController,true]])for(const emitter of controller?.emitters||[]){
         const props=emitter.props,visibility=props.Visibility,rate=props.EmissionRate;
         saved.push([props,visibility,rate]);
-        const sampledVisibility=at(visibility,ribbon?0:1,sampling);
+        const sampledVisibility=at(visibility,1,sampling);
         props.Visibility=allowBirths?Number(sampledVisibility?.[0]??sampledVisibility):0;
         if(!ribbon&&props.Squirt&&rate?.Keys){
           // Native's "left key changed" heuristic can fire a future first key.
@@ -465,22 +478,24 @@ export class ParticleAuthoringPreview {
 }
 
 /** Native posed triangle hit, converted through the chosen attachment's full affine transform. */
-export function particleSurfaceAnchor(native,camera,width,height,x,y,anchorId) {
+export function particleSurfaceAnchor(native,camera,width,height,x,y,anchorId,{details=false}={}) {
  const anchor=native.model.Nodes?.[anchorId];if(!anchor)return null;
  const raycaster=new Raycaster();raycaster.setFromCamera(new Vector2(x/width*2-1,1-y/height*2),camera);
  const matrices=new Map(native.rendererData.nodes.flatMap((n,i)=>n?.matrix?[[i,new Matrix4().fromArray(n.matrix)]]:[]));
- let nearest=null,distance=Infinity;
+ let nearest=null,distance=Infinity,binding;
  for(const [index,geo]of native.model.Geosets.entries()){
   if(sampleGeosetAnimation(native.model,index,native.getFrame(),native.getSequence()).alpha<=.001)continue;
   const vertices=skinGeoset(geo,matrices);
   for(let i=0;i<geo.Faces.length;i+=3){
    const triangle=[0,1,2].map(k=>new Vector3().fromArray(vertices,geo.Faces[i+k]*3)),point=raycaster.ray.intersectTriangle(...triangle,false,new Vector3());
-   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;}}
+   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;binding={index,ids:[geo.Faces[i],geo.Faces[i+1],geo.Faces[i+2]]};}}
   }
  }
  if(!nearest)return null;
- const matrix=matrices.get(anchor.Parent)||new Matrix4();if(Math.abs(matrix.determinant())<1e-10)return null;
- return nearest.applyMatrix4(matrix.clone().invert()).toArray();
+ const parent=details?particleVertexSelection(native.model,{[binding.index]:binding.ids}).parent:anchor.Parent;
+ const matrix=matrices.get(parent)||new Matrix4();if(Math.abs(matrix.determinant())<1e-10)return null;
+ const position=nearest.applyMatrix4(matrix.clone().invert()).toArray();
+ return details?{position,parent,geoset:binding.index,vertices:binding.ids}:position;
 }
 
 /** Depth-writing mesh coverage in the pinned SD renderer. Picking uses base-level
@@ -533,7 +548,8 @@ export function particlePreviewBounds(native,{sweepRange,selectedId,camera,hidde
   const matrix=matrices.get(selectedId)||new Matrix4(),pivot=new Vector3().fromArray(selected.PivotPoint||[0,0,0]),at=field=>native.particlesController.interp.animVectorVal(selected[field],0),w=Math.max(60,Math.abs(at('Width'))),l=Math.max(60,Math.abs(at('Length')));
   for(const x of [-w,w])for(const y of [-l,l])for(const z of [-60,90])add(pivot.clone().add(new Vector3(x,y,z)).applyMatrix4(matrix).toArray());
  }
- const fitRange=sweepRange||(native.model.__particleDemoParents?native.model.Sequences[native.getSequence()]?.Interval:null);
+ // A still thumbnail frames live geometry; the moving Lab keeps its demo path.
+ const fitRange=sweepRange===false?null:sweepRange||(native.model.__particleDemoParents?native.model.Sequences[native.getSequence()]?.Interval:null);
  if(fitRange)for(const point of particleSweepPath(native.model,selectedId,native.getSequence(),fitRange,camera))add(point.world);
  if(!Number.isFinite(minimum[0]))return null;return {center:minimum.map((v,i)=>(v+maximum[i])/2),radius:Math.max(8,Math.hypot(...minimum.map((v,i)=>maximum[i]-v))/2)*1.15};
 }

@@ -30,11 +30,12 @@
 .gf-tree{flex:1;min-height:0;overflow:auto;outline:none;position:relative}
 .gf-tree:focus-visible{outline:2px solid #cbb479;outline-offset:-2px}
 .gf-tree-status{padding:4px 10px;color:#8fa1ac;font-size:11px}
-.gf-row{position:absolute;left:0;right:0;height:24px;display:flex;align-items:center;gap:5px;padding-right:8px;cursor:pointer;color:#dfe7ec;white-space:nowrap;box-sizing:border-box}
+.gf-row{position:absolute;left:0;right:0;height:24px;line-height:normal;display:flex;align-items:center;gap:5px;padding-right:8px;cursor:pointer;color:#dfe7ec;white-space:nowrap;box-sizing:border-box}
 .gf-row:hover{background:#2d3b43}
 .gf-row.focused{outline:1px dotted #8fa1ac;outline-offset:-1px}
 .gf-row.selected{background:#4a4a37;color:#fff0c6}
 .gf-twist{width:12px;flex-shrink:0;display:inline-flex;color:#8fa1ac}
+.gf-tree .gf-twist svg,.gf-tree svg.gf-icon-glyph{display:block}
 .gf-icon{width:16px;height:16px;flex-shrink:0;object-fit:contain;image-rendering:auto}
 .gf-icon-glyph{flex-shrink:0;color:#a9bccb}
 .gf-row.folder .gf-icon-glyph{color:#cbb479}
@@ -84,3 +85,9 @@
 .gf-geosets .classic-geoset-count{color:#8fa1ac;font-size:11px}
 .gf-geosets .gf-geoset-actions{margin-top:4px}
 .gf-info>*{flex-shrink:0}
+
+/* A catalogue may put its compact actions below the shared preview stage. */
+.gf-preview-column{display:flex;flex:1;flex-direction:column;min-width:0;min-height:0}
+.gf-preview-column>.gf-stage{min-height:120px}
+.gf-preview-column>.gf-info{width:auto;max-height:38%;border-left:0;border-top:1px solid #4b5860}
+.gf-preview-column>.gf-info:empty{display:none}
