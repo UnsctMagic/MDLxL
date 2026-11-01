@@ -1,5 +1,5 @@
 // Opt-in: a real signed-in provider works on several model tabs at once, with
-// birds editing in the background while other tabs are showing. Run on the hidden
+// model chats editing in the background while other tabs are showing. Run on the hidden
 // desktop. Uses only generated models and a disposable profile:
 //   MDLXL_AI_LIVE_PROFILE  a copy of a signed-in MDLxL profile (it is used as is)
 //   MDLXL_TEST_EXE         the packaged app
@@ -216,7 +216,7 @@ let app, page;
   await show('A'); // both work while Alpha is showing
   const viewBefore = await page.locator('.classic-view canvas').first().screenshot();
   await settleJobs('batch 4');
-  check("10/11 the birds' pictures never moved the view on screen", viewBefore.equals(await page.locator('.classic-view canvas').first().screenshot()));
+  check("10/11 the AI's pictures never moved the view on screen", viewBefore.equals(await page.locator('.classic-view canvas').first().screenshot()));
   await show('C');
   const colour = await reply();
   check('10 Charlie: the AI sees the yellow marker in its picture', /yellow/i.test(colour), colour.slice(-300));
