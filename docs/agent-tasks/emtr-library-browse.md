@@ -2,6 +2,10 @@
 
 Owner layout round ready for review; awaiting merge approval. Codex, 1 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch `codex/emtr-library-browse`, continued from `c4ad28aec9a9fd393f8904687940906534c2ee26`. No merge or release is authorized.
 
+## Next round: owner review of the World Editor view (1 November 2026)
+
+The owner rejected the World Editor view's contents (layout itself kept). Binding rules are in [the contract §11.1a, §11.5 and A27a/A27b](../particle-editor/CONTRACT.md#111a-world-editor-view-special-effects-only-each-shown-once): special effects only; blood/death once in one shared folder; hide blood-only or empty objects and 0-count rows; every recipe once in the whole view; buildings one folder per race, no per-building folders; World Editor race placement (Fountain of Life under Neutral); ribbon/trail previews must move. Standard (By type) is unchanged. Not started.
+
 ## Current layout round
 
 The owner rejected the separate card layout. ParticleLibrary now supplies catalogue rows, a live particle stage and existing actions to GameFileBrowser. Both it and Models render the same BrowserToolbar, BrowserTree and BrowserFrame: 24-pixel rows, virtual scrolling, game icons, Standard / World Editor Style, arrow keys, Enter and double-click. Standard means By type for particles. Warcraft opens expanded; My presets, My work and Favorites are tree folders. Actions, name/tags and source paths sit below the selected effect. Scan/cancel and Coverage remain in the Library footer.
