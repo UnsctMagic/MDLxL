@@ -4,7 +4,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
 (async()=>{
  const {GLOBAL_LOOKS}=await import('../src/global-animation-looks.js');
  const out=path.join(root,'out/review/motion');fs.mkdirSync(out,{recursive:true});
- const targets=[['slaanesh',testModel('WH_WOC_WarriorSlaaneshDual01.mdx'),28,26,27],['khorne',testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),18,12,16],['nurgle',testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx'),19,8],['footman',testModel('pose/Footman.mdx'),0,0],['paladin',testModel('corpus-sd/human__heropaladin.mdx'),0,0],['abomination',testModel('corpus-sd/undead__abomination.mdx'),0,0]];
+ const targets=[['slaanesh',testModel('WH_WOC_WarriorSlaaneshDual01.mdx'),28,26,27],['khorne',testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),18,12,16],['nurgle',testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx'),19,8],['wolf',testModel('corpus-sd/creeps__direwolf.mdx'),0,0],['footman',testModel('pose/Footman.mdx'),0,0],['paladin',testModel('corpus-sd/human__heropaladin.mdx'),0,0],['abomination',testModel('corpus-sd/undead__abomination.mdx'),0,0]];
  const selected=(process.env.FX_MODELS||'slaanesh').split(','),lookIds=process.env.FX_LOOKS?.split(',');
  const {app,page,errors}=await launchApp({fixture:targets.find(t=>selected.includes(t[0]))[1],out:path.join(root,'out/motion-profile'),bounds:{x:0,y:0,width:1450,height:960}});
  const fx=page.getByRole('dialog',{name:'Surface Effects',exact:true}),button=n=>fx.getByRole('button',{name:n,exact:true});

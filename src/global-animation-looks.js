@@ -10,22 +10,27 @@ const waterFrames=Array.from({length:8},(_,i)=>texture('Lords000'+i));
 const skin=(label,image,extra={})=>({type:'Moving skin',label,image,...extra});
 const glow=(label,image,extra={})=>({type:'Glow',label,image,...extra});
 const dust=(label,kind,image,extra={})=>({type:'Particles',label,kind,image,...extra});
-const frost=()=>dust('Falling mist','mist',texture('Clouds8x8Grey'),{atlas:8,tint:[.83,.93,1]});
+const frost=()=>dust('Falling mist','mist','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint:[.96,.98,1]});
+const fire=(label,extra={})=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,...extra});
 const embers=()=>dust('Rising embers','embers',texture('Star4'));
 const shine=()=>glow('Crystal glints',texture('FX\\Flare\\FlareNarrow'),{pulse:'glint',strength:.56});
 const pulse=()=>glow('Glowing texture',null,{strength:.56,pulse:'breathe'});
 const edge=()=>({type:'Edge',label:'Light edge',image:texture('RibbonBlur1'),strength:.28});
-const rune=()=>({type:'Rune',label:'Runes',image:'Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp',strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
+export const RUNE_IMAGES=[
+ ['Icecrown','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp'],
+ ['Eye',texture('DemonRune3')],['Fork',texture('DemonRune5')],['Sigil',texture('DemonRune2')],
+];
+const rune=()=>({type:'Rune',label:'Runes',image:RUNE_IMAGES[0][1],strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
 const make=(id,name,group,loop,palette,layers)=>({id,name,group,loop,palette,layers});
 export const GLOBAL_LOOKS=[
- make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),dust('Blade flames','flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8}),embers()]),
+ make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames'),embers()]),
  make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',existing('frost-edge').texture,{strength:.94,base:true,filter:2,tint:[.84,.94,1]}),shine(),frost()]),
  make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),dust('Jumping sparks','sparks',texture('Star4'))]),
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
  make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
- make('ice-skin','Ice skin','Skins',4200,'glacier',[skin('Crystal surface',texture('CrystalOpaque'),{base:true,strength:.95,nativeSurface:{...existing('glacial'),texture:texture('CrystalOpaque'),atlas:undefined,description:undefined},tint:[.82,.95,1]}),shine(),frost()]),
- make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers()]),
+ make('ice-skin','Ice skin','Skins',4200,'glacier',[skin('Ice surface',texture('Ice_Natural01'),{fixed:true,atlasRect:[.52,.18,.46,.76],bodyUV:true,filter:2,strength:.97,tint:[1,1,1]}),glow('Ice sheen',texture('Ice3b'),{bodyUV:true,pulse:'glint',strength:.24,tint:[.9,.96,1]}),frost()]),
+ make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers(),fire('Fire',{enabled:false})]),
  make('glowing-skin','Glowing skin','Skins',2500,'azure',[pulse()]),
  make('poison-skin','Poison skin','Skins',3400,'moss',[skin('Poison surface',existing('poison').texture,{base:true,strength:.9,nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1]}),dust('Heavy drops','drops',texture('WaterBlobs1'))]),
  make('crystal-veins','Crystal veins','Terrain',3600,'glacier',[skin('Crystal veins',existing('glacial').texture,{atlasRect:existing('glacial').atlas,strength:.88,pulse:'breathe',bodyUV:true}),shine()]),
@@ -43,12 +48,16 @@ export const RETAINED_CARD_IDS=['iron-hit','frost-hit','ember-hit','quake-hit','
 export const REMOVED_CARDS=SURFACE_EFFECTS.filter(e=>!RETAINED_CARD_IDS.includes(e.id));
 for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id))){
  const impact=e.category==='Impacts',layers=[];
- if(!impact){
+ if(e.id==='glacial'){
+  // The crack tile carries transparent holes. Keep solid ice behind the pulsing details.
+  layers.push(skin('Ice surface',texture('Ice_IceDull'),{fixed:true,bodyUV:true,filter:2,strength:.94,tint:[.78,.9,1]}),
+   glow('Fissures',e.texture,{atlasRect:[.625,.25,.125,.25],bodyUV:true,pulse:'breathe',strength:1.7,tint:[.8,.97,1]}));
+ }else if(!impact){
   for(const [i,spec] of (e.layers||[null]).entries())layers.push(skin(e.layers?'Surface '+(i+1):e.name,spec?.texture||e.texture||e.picture,{
    nativeSurface:{...e,description:undefined,layers:spec?[spec]:undefined,accents:[],stamp:undefined,cue:undefined},base:e.defaultMode==='replace',strength:e.opacity??1}));
  }
- for(const [i,spec] of (e.accents||[]).entries())layers.push(dust((spec.flat?'Ground piece':'Particles')+' '+(i+1),'native',spec.texture,{nativeSpec:spec,ground:!!spec.flat,enabled:!spec.flat,impact}));
- if(e.stamp)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
+ for(const [i,spec] of (e.accents||[]).entries())layers.push(dust((spec.flat?(impact?'Flash':'Ground piece'):'Particles')+' '+(i+1),'native',spec.texture,{nativeSpec:spec,ground:!!spec.flat,enabled:!spec.flat,impact}));
+ if(e.stamp&&!impact)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
  GLOBAL_LOOKS.push({...make(e.id,e.name,e.category,e.duration||3000,e.palette||'native',layers),impact});
 }
 export const LAYER_CHOICES=[skin('Moving skin',existing('energy').texture),pulse(),rune(),embers(),edge()];
@@ -104,8 +113,8 @@ export function makeLayer(spec,frame,palette,id) {
  frame=frame.regions?.[0]?.frame||frame;
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
  const properties={
-  flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,12,.68,unit*2.8,-unit*4,unit*.22],
-  sparks:[4,9,.23,unit*5,unit*.5,unit*.28],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
+  flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,46,.72,unit*3.6,-unit*5,unit*.40],
+  sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
   drops:[4,7,.69,-unit*.5,unit*7,unit*.33],motes:[4,11,1.05,unit*.7,-unit*.35,unit*.53],
   flies:[5,5,.09,0,0,Math.max(2.1,Math.min(8,length*.066+radius*.037))],
  };

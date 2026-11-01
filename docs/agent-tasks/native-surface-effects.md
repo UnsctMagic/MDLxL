@@ -2,7 +2,16 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
-## Owner hand-test round · 1 November 2026 · ready for review
+## Second hand test · 1 November 2026
+
+Starting point: `ae13c9ab`. The owner rejected dark frost mist, sparse sparks,
+crystal ice and translucent Glacial fissures. Rune blade must offer glyph,
+position and glow choices. Lava fire is optional. Attack bursts belong on the
+striking weapon or creature limb regardless of the geoset the user clicks.
+See the updated feature contract for the current requirements; the prior
+results below describe the earlier package.
+
+## First hand-test round · 1 November 2026
 
 Continues `46ff2fa900147c540492e27bfc3ad4e7bbe09255` on the same branch and PR.
 The complete owner contract is folded into the feature guide. This round removes

@@ -7511,5 +7511,20 @@
   "A silver rune brightens across the surface, then settles into a soft sheen.": "Серебристая руна вспыхивает на поверхности и оставляет мягкий блеск.",
   "Violet wisps bloom across the surface and drift off its edge.": "Фиолетовые огни вспыхивают на поверхности и отплывают от края.",
   "At birth a warm star opens on the part and a few motes rise after it.": "При появлении части на ней раскрывается звезда и поднимаются искры.",
-  "A teleport seal opens at the feet and bright motes climb away from it.": "У ног раскрывается печать телепортации, от неё поднимаются яркие искры."
+  "A teleport seal opens at the feet and bright motes climb away from it.": "У ног раскрывается печать телепортации, от неё поднимаются яркие искры.",
+  "Ice surface": "Поверхность льда",
+  "Ice sheen": "Ледяной блеск",
+  "Fissures": "Трещины",
+  "Eye": "Глаз",
+  "Fork": "Развилка",
+  "Sigil": "Знак",
+  "Rune": "Руна",
+  "Rune glow": "Свечение руны",
+  "Steady": "Постоянно",
+  "Pulse": "Пульсация",
+  "Flicker": "Мерцание",
+  "Flash": "Вспышка",
+  "Move UVs": "Сдвинуть UV",
+  "Drag the UV map to position the runes.": "Перетащите UV-карту, чтобы переместить руны.",
+  "Drag the corners to resize the burst.": "Перетащите углы, чтобы изменить размер вспышки."
 }

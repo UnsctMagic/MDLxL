@@ -72,3 +72,46 @@ test('native infantry, hero and large-body seam bindings do not break FX fitting
   for(const geo of d.model.Geosets.filter(g=>g._FxTag))assert.ok(geo.TVertices.every(uv=>uv.every(Number.isFinite)),file+' finite surface UVs');
  }
 });
+
+test('the shared falling mist saves the bright Freezing Breath cloud in each look',()=>{
+ for(const id of ['frost-blade','frost-mist','ice-skin']){
+  const doc=fixture(),s=stack(doc,id),mist=s.layers.find(l=>l.kind==='mist');
+  doc.apply('FX',FX_SECTIONS,m=>compileAnimation(m,28,s));
+  for(const format of ['mdx','mdl']){
+   const m=openDocument(doc.serialize(format),'mist.'+format).model,emitters=m.ParticleEmitters2.filter(n=>n._FxTag?.startsWith(s.owner+'/'+mist.id+'/'));
+   assert.ok(emitters.length,id+' contains mist');
+   for(const p of emitters){
+    assert.equal(p.FilterMode,1,id+' must brighten the surface, never darken it');
+    assert.equal(m.Textures[p.TextureID].Image,'ReplaceableTextures\\Weather\\Clouds8x8.blp');
+    assert.deepEqual([p.Rows,p.Columns],[8,8]);assert.deepEqual([...p.LifeSpanUVAnim],[0,12,1]);assert.deepEqual([...p.DecayUVAnim],[13,25,1]);
+   }
+  }
+ }
+});
+
+test('unchecked ingredients are absent from MDX and MDL after disabling a previously applied look',()=>{
+ for(const look of ['frost-blade','fly-swarm','recall-seal','iron-hit']){
+  const doc=fixture(),s=stack(doc,look),base=doc.model,counts=m=>[m.ParticleEmitters2.length,m.RibbonEmitters.length,m.Bones.length,m.Geosets.length,m.Materials.length,m.Textures.length,m.TextureAnims.length,m.GlobalSequences.length,m.EventObjects.length],original=counts(base);
+  s.layers.forEach(l=>l.enabled=true);doc.apply('All on',FX_SECTIONS,m=>compileAnimation(m,28,s));
+  const off=readAnimationStack(base,28);off.layers.forEach(l=>l.enabled=false);doc.apply('All off',FX_SECTIONS,m=>compileAnimation(m,28,off));
+  for(const format of ['mdl','mdx']){const m=openDocument(doc.serialize(format),'off.'+format).model;assert.deepEqual(counts(m),original,look+' off has no extra native records');assert.ok(readAnimationStack(m,28).layers.every(l=>!l.enabled));}
+ }
+});
+
+test('default weapon sparks and embers are visible concurrently on both weapons',async()=>{
+ const {ModelRenderer}=await import('war3-model');
+ for(const [id,kind] of [['lightning-blade','sparks'],['flaming-sword','embers'],['rising-embers','embers']]){
+  const d=fixture(),s=stack(d,id),layer=s.layers.find(l=>l.kind===kind);compileAnimation(d.model,28,s);const native=new ModelRenderer(d.model);native.setSequence(0);let visible=0;
+  for(let i=0;i<120;i++){native.update(17);const parts=[19,22].map(id=>native.particlesController.emitters.filter(e=>e.props.Parent===id&&e.props._FxTag?.startsWith(s.owner+'/'+layer.id+'/')).reduce((n,e)=>n+e.particles.length,0));if(i>=40&&parts.every(n=>n>=2))visible++;}
+  assert.ok(visible>=60,id+' must show multiple particles on both blades at its default; frames: '+visible+'/80');
+ }
+});
+test('Attack contact uses the same striking surface from the helmet or either blade',async()=>{
+ const d=fixture(),m=d.model;
+ for(const seq of m.Sequences.keys()){if(!/^attack/i.test(m.Sequences[seq].Name))continue;
+  const poses=[];for(const part of [0,26,28]){const model=structuredClone(m),s=stack(d,'iron-hit');s.sequence=seq;s.hit=undefined;compileAnimation(model,part,s);
+   const emitters=model.ParticleEmitters2.filter(n=>n._FxTag);assert.equal(emitters.length,s.layers.filter(l=>l.enabled&&!l.stamp).length,'one burst source per layer, not per clicked skin binding');
+   assert.ok([19,22].includes(emitters[0].Parent),'contact is on an attacking weapon');poses.push(emitters.map(n=>[n.Parent,...n.PivotPoint]));}
+  assert.deepEqual(poses[0],poses[1]);assert.deepEqual(poses[1],poses[2]);
+ }
+});

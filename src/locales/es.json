@@ -7527,5 +7527,20 @@
   "A silver rune brightens across the surface, then settles into a soft sheen.": "Una runa plateada se ilumina sobre la superficie y deja un brillo suave.",
   "Violet wisps bloom across the surface and drift off its edge.": "Luces violetas florecen en la superficie y se alejan de su borde.",
   "At birth a warm star opens on the part and a few motes rise after it.": "Al aparecer, una estrella cálida se abre en la pieza y libera motas ascendentes.",
-  "A teleport seal opens at the feet and bright motes climb away from it.": "Un sello de teletransporte se abre a los pies y libera motas brillantes."
+  "A teleport seal opens at the feet and bright motes climb away from it.": "Un sello de teletransporte se abre a los pies y libera motas brillantes.",
+  "Ice surface": "Superficie de hielo",
+  "Ice sheen": "Brillo del hielo",
+  "Fissures": "Grietas",
+  "Eye": "Ojo",
+  "Fork": "Horquilla",
+  "Sigil": "Sello",
+  "Rune": "Runa",
+  "Rune glow": "Brillo de la runa",
+  "Steady": "Constante",
+  "Pulse": "Pulso",
+  "Flicker": "Parpadeo",
+  "Flash": "Destello",
+  "Move UVs": "Mover UV",
+  "Drag the UV map to position the runes.": "Arrastra el mapa UV para colocar las runas.",
+  "Drag the corners to resize the burst.": "Arrastra las esquinas para ajustar el tamaño del impacto."
 }

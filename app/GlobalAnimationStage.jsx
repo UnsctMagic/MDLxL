@@ -20,7 +20,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  let snapshot=null;
  if(center&&snap.anchor){
   const [x,y,,,r]=center,points=[[-1,-1],[-1,1],[1,-1],[1,1]].map(([a,b])=>[x+a*r,y+b*r,0]);
-  snapshot={...snap,anchor:{...snap.anchor,point:center},guide:{...snap.guide,...snap.marks,origin:center},
+  snapshot={...snap,anchor:layer.impact?null:{...snap.anchor,point:center},guide:{...snap.guide,...snap.marks,origin:center},
    samples:radius?[{owner:result?.id,age:.5,points}]:[]};
  }
  const fieldKeys={Translation:'offset',ParticleScaling:'size',HeightAbove:'upper',HeightBelow:'lower'};

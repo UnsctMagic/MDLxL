@@ -2,7 +2,7 @@ import {gamePathKey} from '../src/game-path.js';
 import {resolveGameFiles} from './desktop.js';
 
 export function globalAssetKey(stack){
- return JSON.stringify([...new Set(stack?.layers.flatMap(l=>[l.image,...l.frames||[],null]).filter(Boolean)||[])].sort());
+ return JSON.stringify([...new Set(stack?.layers.filter(l=>l.enabled!==false).flatMap(l=>[l.image,...l.frames||[],null]).filter(Boolean)||[])].sort());
 }
 export function createGlobalLibrary(){
  const cached=new Map();

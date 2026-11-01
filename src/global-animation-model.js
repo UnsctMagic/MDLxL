@@ -13,6 +13,8 @@ import {addParticles} from './visual-effect-composition.js';
 import {particleBurstTrack} from './particle-sweep.js';
 import {deleteGlobalSequence} from './sequence-editor.js';
 import {gamePathKey} from './game-path.js';
+import {attackContact} from './fx-attack-contact.js';
+import {vertexBoneWeights} from './part-bones.js';
 import {FLY_PATHS} from './global-animation-flies.js';
 
 const vec=v=>Float32Array.from(v);
@@ -114,8 +116,8 @@ function skinLayer(c,l){
   }
  }else if(!paintedAtlas)for(let i=0;i<coords.length;i+=2){
   const u=coords[i]-.5,v=coords[i+1]-.5;
-  coords[i]=.5+tiles*(u*Math.cos(angle)+v*Math.sin(angle));
-  coords[i+1]=.5+tiles*(v*Math.cos(angle)-u*Math.sin(angle));
+  coords[i]=.5+(l.uvOffset?.[0]||0)+tiles*(u*Math.cos(angle)+v*Math.sin(angle));
+  coords[i+1]=.5+(l.uvOffset?.[1]||0)+tiles*(v*Math.cos(angle)-u*Math.sin(angle));
  }
  g.TVertices=[coords];
  let tex=own?structuredClone(original.TextureID):texture(m,l.image,!rect,tag);
@@ -125,12 +127,12 @@ function skinLayer(c,l){
  }
  const previous=m.Materials.find(mat=>mat._FxTag===tag+'/material')?.Layers[0];
  const prior=c.prior?.type===l.type&&c.prior.image===l.image?c.prior:null;
- const shape=curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
+ const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
  const strength=Math.min(1,l.strength);
  const alphaFor=value=>shape?keys(id,ms,shape.map(([t,a])=>[t,a*value])):value;
  const alpha=alphaFor(strength);
  const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
- if(l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
+ if(!l.fixed&&!l.glyphs&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
   const turns=Math.max(1,Math.round(l.speed));
   // Painted unit atlases do not repeat. Drift a few texels and return to the same face.
@@ -143,7 +145,7 @@ function skinLayer(c,l){
   else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(id,ms,pairs)});
  }
  if(prior&&previous){
-  if(c.sameClock&&prior.strength===l.strength)layer.Alpha=previous.Alpha;
+  if(c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)layer.Alpha=previous.Alpha;
   if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
   layer.FilterMode=previous.FilterMode;layer.Shading=previous.Shading;
  }
@@ -165,46 +167,36 @@ function nativeSurface(c,l){
  for(let i=animCount;i<m.TextureAnims.length;i++){m.TextureAnims[i]._FxTag=c.tag+'/native-motion'+i;visitTracks(m.TextureAnims[i],t=>{if(t.GlobalSeqId==null||t.GlobalSeqId<0){t.GlobalSeqId=c.id;t.Keys=[{...t.Keys[0],Frame:0}];}});}
  return {geoset:overlay(c,temp.Geosets[0],material,l.tint,m.GeosetAnims.find(a=>a.GeosetId===c.index))};
 }
-export function impactDefaults(model,index,sequence){
- const seq=model.Sequences[sequence]?.Name?.match(/^attack\b/i)?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));
- if(seq<0)return {sequence:-1,hit:0};
- const [a,b]=model.Sequences[seq].Interval;
- // Native event markers take precedence. MDX has no universal attack-point field.
- const events=model.EventObjects.filter(n=>n.GlobalSeqId==null||n.GlobalSeqId<0).flatMap(n=>Array.from(n.EventTrack||[])).filter(t=>t>a&&t<b);
- if(events.length)return {sequence:seq,hit:events.reduce((x,y)=>Math.abs(x-(a+b)/2)<Math.abs(y-(a+b)/2)?x:y)};
- const g=model.Geosets[index],frame=partFrame(g),region=frame.regions?.[0],f=region?.frame||frame,parent=region?.weights?.[0]?.[0]??effectAnchor(model,g);
- const pivot=new Vector3().fromArray(model.PivotPoints[parent]||f.center.toArray());
- const ends=[f.surfaceAt(-f.length/2),f.surfaceAt(f.length/2)],point=ends[0].distanceToSquared(pivot)>ends[1].distanceToSquared(pivot)?ends[0]:ends[1];
- let previous=null,best=-1,hit=Math.round((a+b)/2);
- for(let i=0;i<=64;i++){const t=Math.round(a+(b-a)*i/64),matrix=sampleNodeMatrices(model,t,seq,t).get(parent),p=point.clone();if(matrix)p.applyMatrix4(matrix);if(previous&&i>4&&i<61){const speed=p.distanceToSquared(previous);if(speed>best){best=speed;hit=t;}}previous=p;}
- return {sequence:seq,hit};
+export function impactDefaults(model,_index,sequence,hit){
+ const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));
+ return seq<0?{sequence:-1,hit:0,contact:null}:attackContact(model,seq,hit);
 }
 function nativeParticles(c,l){
- const {model:m,tag,id,ms}=c,regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ const {model:m,tag,id,ms}=c,contact=l.impact?c.stack.contact:null;
+ if(l.impact&&!contact)throw Error('Choose an Attack animation.');
+ const sourceGeo=contact?m.Geosets[contact.geoset]:c.source;
+ const regions=contact?[{frame:null,vertices:[contact.vertex],weights:vertexBoneWeights(sourceGeo,contact.vertex)}]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
  for(const [i,region] of regions.entries()){
-  const f=region.frame,parent=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
-  const radius=Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
+  const f=region.frame;
+  const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
   const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24,tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});
   const texCount=m.Textures.length;
   source.TextureID=importer.textureRef(source.TextureID);importer.globalRef(source);
   for(let t=texCount;t<m.Textures.length;t++)m.Textures[t]._FxTag=tag+'/native-texture'+t;
-  let pos=f.surfaceAt(0);
+  const pos=contact?new Vector3().fromArray(sourceGeo.Vertices,3*contact.vertex):f.surfaceAt(0);
   if(l.impact){
-   const pivot=new Vector3().fromArray(m.PivotPoints[parent]||f.center.toArray()),ends=[f.surfaceAt(-f.length/2),f.surfaceAt(f.length/2)];
-   pos=ends[0].distanceToSquared(pivot)>ends[1].distanceToSquared(pivot)?ends[0]:ends[1];
    const interval=m.Sequences[c.stack.sequence]?.Interval;if(!interval)throw Error('Choose an Attack animation.');
    source.Squirt=true;source.EmissionRate={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap(s=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([0])})))};
-   source.EmissionRate=particleBurstTrack(source,interval,Math.min(interval[1]-1,c.stack.hit+Math.round((spec.delay||0)*ms)),Math.max(1,Math.round(l.burst??(spec.burst||16)*options.density)));
+   source.EmissionRate=particleBurstTrack(source,interval,Math.min(interval[1]-1,c.stack.hit),Math.max(1,Math.round(l.burst??(spec.burst||16)*options.density)));
    // Squirt emits once at a positive key; hold its value until the clip end so
    // ordinary frame stepping cannot skip a one-millisecond positive interval.
    source.EmissionRate.Keys=source.EmissionRate.Keys.filter((k,j,all)=>!(k.Frame<interval[1]&&k.Vector[0]===0&&j>0&&all[j-1].Vector[0]>0&&k.Frame===all[j-1].Frame+1));
    source.Visibility={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap((s,j)=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([j===c.stack.sequence?1:0])})))};
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
-  if(l.ground)pos.set(0,0,1.5);
-  pos.add(new Vector3(...l.offset));if(!l.impact)pos.z+=radius*(spec.height||0);
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground?null:regionParent(c,region,pos,'native-'+i));
+  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.add(new Vector3(...l.offset));pos.z+=radius*(spec.height||0);}
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):structuredClone(value);
   if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
@@ -261,16 +253,16 @@ function particles(c,l){
   }else if(l.kind==='drops')pos.z-=frame.girth*.35;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+regionIndex+'-'+i,l.label+' '+(i+1),pos,parent);
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
-  const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,l.tint.map(v=>v*.75)];
+  const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
   const current={...p},prior=c.prior;
-  Object.assign(p,{Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly?0:mist||l.kind==='drops'?0:1,Rows:fly?12:atlas,Columns:fly?16:atlas,
+  Object.assign(p,{Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly?12:atlas,Columns:fly?16:atlas,
    Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
    EmissionRate:fly?1.3/l.lasts:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,l.amount/(count*regions.length)*(.76+.24*Math.cos((k%8)*Math.PI/4+i*1.7))])),
    Visibility:keys(id,ms,[[0,1],[1,1]]),FrameFlags:1,Time:fly?.5:.36,SegmentColor:colors.map(vec),
    ParticleScaling:vec(fly?[size,size,size]:flame?[size*.94,size,size*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
-   Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,180,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});
-  const first=fly?9*16+7:0,end=fly?first:atlas*atlas-1,mid=fly?first:Math.floor(end*.4);
+   Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});
+  const first=fly?9*16+7:0,end=fly?first:mist?25:atlas*atlas-1,mid=fly?first:mist?12:Math.floor(end*.4);
   p.LifeSpanUVAnim=Uint32Array.from([first,mid,1]);p.DecayUVAnim=Uint32Array.from([Math.min(end,mid+1),end,1]);
   if(prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
    // A layer adjustment preserves independent native fields already edited in EMTR.
@@ -303,7 +295,7 @@ function edgeLayer(c,l){
  return {id:ids[0],ids,family:'RibbonEmitters'};
 }
 function runeLayer(c,l){
- return skinLayer({...c,prior:c.prior?{...c.prior,type:'Glow'}:null},{...l,type:'Glow',pulse:'breathe',axis:'v',band:.8,bodyUV:false});
+ return skinLayer({...c,prior:c.prior?{...c.prior,type:'Glow',pulse:c.prior.pulse||'breathe'}:null},{...l,type:'Glow',pulse:l.pulse||'breathe',axis:'v',band:.8,bodyUV:false});
 }
 function compact(list,isUnused,refs){
  const used=new Set();refs((id)=>used.add(id));
@@ -388,7 +380,8 @@ export function readAnimationStack(model,index){
 export function compileAnimation(model,index,draft,{rune}={}){
  const source=model.Geosets[index];if(!source)throw Error('Select a part first.');
  const before=readAnimationStack(model,index), base=before?.baseMaterial??source.MaterialID,owner=draft.owner;
- if(draft.impact&&draft.sequence==null)draft={...draft,...impactDefaults(model,index,0)};
+ const strikeGeo=draft.impact?model.Geosets[draft.contact?.geoset]:null;
+ if(draft.impact&&(!strikeGeo||strikeGeo._FxTag||!(draft.contact.vertex>=0&&draft.contact.vertex*3<strikeGeo.Vertices.length)))draft={...draft,...impactDefaults(model,index,draft.sequence,draft.hit)};
  const attachmentCache=new Map(),originalClocks=[...model.GlobalSequences];
  const frame=partFrame(source),created=[...(before?.createdClocks||[])],used=new Set();
  const ms=Math.max(200,Math.round(draft.loop)),id=draft.layers.length&&!draft.impact?clockFor(model,ms,created):-1;
@@ -413,7 +406,7 @@ export function compileAnimation(model,index,draft,{rune}={}){
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
   const tag=owner+'/'+l.id,context={model,source,index,base,frame,parent:effectAnchor(model,source),id,ms,tag,used,rune,prior,stack:draft,attachmentCache,sameClock:before?.loop===ms};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if((!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);

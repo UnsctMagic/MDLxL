@@ -10,7 +10,7 @@ as a question in the PR. No merge or release in this round.
 ## Intention and scope
 
 FX gives parts of the user's own model permanent, adjustable animation: a burning
-sword, glowing runes, flowing water, crystal ice, lava and flies. Global sequences
+sword, glowing runes, flowing water, solid ice, lava and flies. Global sequences
 run independently of Stand, Walk, Attack and Death. The model carries the result
 without triggers, abilities or map scripts.
 
@@ -32,7 +32,9 @@ adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
 Every ingredient is a listed, selectable layer with an on/off switch. Emitters and
 ground pieces are independent. Ground seals and rings start **off**, including
 Recall seal's ground aura. Reopening an applied part restores its layer list and
-current values. Apply updates that stack; it does not append duplicates. One Apply
+current values. An unchecked layer is stored only as an editor choice. Do not resolve
+its assets or write its native emitters, nodes, materials, clocks or geometry; remove
+its unreferenced resources if it was previously applied. Apply updates that stack; it does not append duplicates. One Apply
 is one Undo step. Removing a layer removes only its owned resources.
 
 | Layer | Native data |
@@ -59,8 +61,9 @@ Animation Manager and UV controls. Do not invent another control scheme.
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
 For impacts, expose the selected Attack and EMTR's Impact moment control. Default
-to that Attack's hit time and the far end of the selected weapon. Both timing and
-position are adjustable with the existing controls.
+to the contact frame of the striking weapon or creature limb. Changing the geoset
+selection does not move the hit. Timing can be fine-tuned; placement follows the
+attacker automatically. No free placement or ground decals on impacts.
 
 Controls commit on release. Live gestures update at most once per display frame
 and update only what changed. Every control must make a clear visible difference
@@ -77,7 +80,7 @@ region's skin binding, including blended weights. Test every sequence, not only 
 rest pose. Surface copies retain the original triangles and skin weights.
 
 Permanent regression: `WH_WOC_WarriorSlaaneshDual01.mdx` in
-`D:\Claude\MDLxL-TestModels`, displayed geoset **29 · EredarPurple**, Flaming sword.
+`D:\Claude\MDLxL-TestModels`, displayed geoset **29 Â· EredarPurple**, Flaming sword.
 The owner saw flames beside the body. Cover Stand, Walk and Attack in captures.
 Read this fixture through `test/helpers/fixtures.cjs`; never edit or delete it.
 
@@ -99,21 +102,21 @@ Judge at ordinary game camera distance as well as close up, in motion.
 
 | Look | Target |
 | --- | --- |
-| Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. |
-| Frost blade | A cold sheen and occasional sharp glints; mist falls rather than rising like fire. |
+| Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
+| Frost blade | A cold sheen and occasional sharp glints; soft white mist falls and fades. It must not darken the model or background. |
 | Lightning blade | Short irregular arcs along the blade, never a solid white shape. |
 | Arcane blade | Energy flows along the blade with a pulse. |
-| Rune blade | Glowing native rune glyphs on the blade surface, pulsing on the global sequence. No turning collars, rings or aura geometry. Find native rune-glow textures in CASC. |
+| Rune blade | Choose a native glyph, move/rotate/scale its UVs on the blade and choose steady, pulsing or flickering light. No rings or aura geometry. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
-| Ice skin | Use the game's crystal texture with the Glacial fissures technique. It reads as crystal ice, never water. |
-| Lava skin | Dark crust and pulsing cracks, with occasional embers. |
+| Ice skin | Solid, striated ice from Blizzardâ€™s natural ice texture, with a separate sheen. No crystal texture or crystals; no scrolling water. |
+| Lava skin | Dark crust and pulsing cracks with visible embers. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
 | Fly swarm | Compare with the native fly swarm. Correct atlas cell, rows/columns and blend preserve transparent corners. A few dark flies follow separate irregular paths, never an orderly glowing ring. |
 | Motes / Rising embers / Frost mist | Distinct drifting points, rising sparks and falling mist respectively. |
-| Glacial fissures | Keep the liked terrain look. Its crystal-texture counterpart supplies Ice skin. |
+| Glacial fissures | Cold cracks brighten over a solid ice surface. The part remains visible through the whole pulse. |
 | Buffs & curses | Keep the good looks. Every emitter and ground ingredient is optional; ground starts off. |
-| Impacts | At the weapon tip on the Attack hit, with editable timing and placement. |
+| Impacts | At the striking weapon or creature limb when Attack connects, independent of which geoset was clicked. |
 
 The good terrain looks are the quality bar. Reuse their technique when it produces
 a better skin, including Felwood poison. Do not preserve a weak card merely to
@@ -125,21 +128,23 @@ keep its count.
   vertices have no span and do not produce an emitter region. The original
   surface is never deleted. The Slaanesh private regression measures both weapon
   bindings and blended attachments against the shared skin evaluator in every clip.
-- Rune blade uses the native Icecrown obelisk `glow_runes.blp` strip, fitted by the
-  existing surface-island mapper. It adds no ring mesh or orbit bone. Select the
-  actual blade face when a model separates its face, edge and handle into different
-  geosets; the enchantment must not jump to a neighbouring material.
-- Ice skin reuses Glacial fissures with `Textures\CrystalOpaque.blp`; Poison skin
-  reuses Felwood poison. Crystal veins and Felwood curse are the two added looks.
+- Rune blade offers the Icecrown obelisk strip and three distinct native demon rune
+  textures. Move, Rotate and Scale use the existing UV editor and affect only the
+  generated surface, not the authored weapon UVs.
+- Falling mist uses Freezing Breath’s additive weather cloud and its 0–12 / 13–25
+  atlas phases. Ice skin uses a fixed section of Ice_Natural01. Glacial fissures
+  keeps Ice_IceDull behind the Dungeon2 crack tile; only the cracks pulse.
+  Poison skin continues to reuse Felwood poison.
 - Fly swarm uses the five native `Flies.mdx` Hermite paths (1233 ms) and the
   `Doodads0` fly cell (12 rows, 16 columns, cell 151). Native Blend retains dark
   bodies and transparent corners. Amount is the total across skin regions.
 - Maximum Glow uses up to four additive native material passes, with a fractional
   final pass. Intensity therefore changes continuously and survives reopening.
-- MDX has no universal gameplay attack-point field. Impact defaults use an event
-  inside the chosen Attack, otherwise the strongest sampled weapon-tip motion.
-  The owner can move that default with Impact moment. A native Squirt amount key
-  lasts until the clip end so ordinary playback frame steps cannot miss it.
+- MDX has no universal gameplay damage-point field. FX recognises a named hit marker
+  or estimates contact from the visible skinned surfaces in the chosen Attack.
+  Weapon references and bones help identify the attacking part; an unnamed rig can
+  use its posed geometry. All ingredients burst from the same moving surface at
+  the chosen moment. This is an attacker animation, not a runtime damage event.
 
 The source checks are `test/global-animations.test.js` and the private real-model
 `test/manual/fx-owner-round.test.js`. Hidden packaged checks are
@@ -189,9 +194,9 @@ motion before being reported done. Passing structural tests is insufficient.
    known-failures baseline. Follow TESTING-RULES.md, including fail-first evidence.
    Claude's independent QA gate still applies before any merge.
 6. Owner click-through: Slaanesh flames fit; three colours edit; runes are glyphs;
-   ice is crystal; poison uses the tileset; maximum glow is strong; flies have no
+   ice reads as solid ice without crystals; poison uses the tileset; maximum glow is strong; flies have no
    black corners; Recall seal has no ground aura by default; impacts occur at the
-   blade tip on Attack. No descriptions remain.
+   striking weapon or limb on Attack. No descriptions remain.
 
 Work only under `D:\Codex`. Owner checkout, models, game files and installed MDLxL
 are read-only. Never delete anything from `D:\Claude\MDLxL-TestModels`. Clean task

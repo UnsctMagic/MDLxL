@@ -7391,5 +7391,20 @@
   "A silver rune brightens across the surface, then settles into a soft sheen.": "银色符文在表面亮起，随后化为柔和的光泽。",
   "Violet wisps bloom across the surface and drift off its edge.": "紫色灵火在表面绽放，随后从边缘飘散。",
   "At birth a warm star opens on the part and a few motes rise after it.": "出生时暖色星光在部件上绽放，随后有光点升起。",
-  "A teleport seal opens at the feet and bright motes climb away from it.": "传送法印在脚下展开，亮点从中向上升起。"
+  "A teleport seal opens at the feet and bright motes climb away from it.": "传送法印在脚下展开，亮点从中向上升起。",
+  "Ice surface": "冰面",
+  "Ice sheen": "冰面光泽",
+  "Fissures": "裂隙",
+  "Eye": "眼纹",
+  "Fork": "叉纹",
+  "Sigil": "印纹",
+  "Rune": "符文",
+  "Rune glow": "符文辉光",
+  "Steady": "常亮",
+  "Pulse": "脉动",
+  "Flicker": "闪烁",
+  "Flash": "闪光",
+  "Move UVs": "移动 UV",
+  "Drag the UV map to position the runes.": "拖动 UV 图以移动符文。",
+  "Drag the corners to resize the burst.": "拖动角点调整冲击效果的大小。"
 }
