@@ -1,91 +1,54 @@
-import React,{useMemo,useState} from 'react';
-import {Box,ChevronDown,ChevronRight,Folder,FolderOpen} from 'lucide-react';
-import GameIcon,{FOLDER_ICONS} from './GameIcon.jsx';
+import {appearanceTypes} from '../src/particle-library-browse.js';
+import {worldEditorRaceOrder} from '../src/world-editor-catalog.js';
+import {FOLDER_ICONS} from './GameIcon.jsx';
 
-import {visibleWorldEditorRows,worldEditorRaceOrder} from '../src/world-editor-catalog.js';
-const order = ['Units','Buildings','Heroes','Items','Doodads','Destructibles'];
-const matches = (text,terms) => terms.every(term => text.toLowerCase().includes(term));
+const order=['Units','Buildings','Heroes','Items','Doodads','Destructibles',...worldEditorRaceOrder];
+const status=item=>item.blocked?'Unavailable':item.previewError?'Preview unavailable':item.unsupported?.length?'Incomplete preview':item.empty?'Empty effect':'';
+const leaf=(item,key)=>({key:key+'/'+item.id,name:item.name,item,status:status(item)});
+const folder=(name,key,children=[])=>({name,key,children,icon:FOLDER_ICONS[name]});
 
-// Use the existing grid below the current folder. Browsing a large palette never
-// mounts all its icons or previews at once.
-export function worldPage(browse, collectionItems, matchedItems, terms, selected) {
-  const rows=[], sections=[], available=new Map(collectionItems.map(item=>[item.id,item]));
-  const matched=new Set(matchedItems.map(item=>item.id)), searching=terms.length>0;
-  const other=browse.other.filter(id=>available.has(id));
-  const isFavorites=collectionItems.some(item=>item.collection!=='Warcraft');
-  const addPersonal=title=>collectionItems.filter(item=>item.collection===title).map(item=>item.id);
-  const specials=[['Other effects',other],...(isFavorites?['My presets','My work'].map(name=>[name,addPersonal(name)]):[])];
-  const special=specials.find(([title])=>title===selected);
-  if(special) {
-    sections.push({title:special[0],items:special[1].filter(id=>matched.has(id)).map(id=>available.get(id))});
-    return {rows,sections,title:selected};
-  }
-  for(const object of browse.objects) {
-    if(selected && selected!==object.id)continue;
-    const objectMatch=matches(object.name,terms);
-    const ids=new Set(),groups=[];
-    for(const {title,refs} of object.groups) {
-      const groupMatch=objectMatch || matches(object.name+' '+title,terms);
-      const groupIds=new Set();
-      for(const ref of refs)for(const id of browse.buckets[ref]) {
-        if(!available.has(id) || (!groupMatch && !matched.has(id)))continue;
-        groupIds.add(id);ids.add(id);
-      }
-      if(groupIds.size || (!refs.length && groupMatch))groups.push({title,items:[...groupIds].map(id=>available.get(id))});
-    }
-    if(selected)return {rows,sections:groups,title:object.name};
-    if(!ids.size && !(searching && groups.length && object.groups.some(g=>g.refs.some(ref=>browse.buckets[ref].some(id=>available.has(id))))))continue;
-    rows.push({id:object.id,name:object.name,folders:object.folders,icon:object.icon,count:ids.size});
-  }
-  rows.sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
-  for(const [name,ids] of specials) {
-    const count=ids.filter(id=>matched.has(id)).length;
-    if((!searching && name==='Other effects') || count)rows.unshift({id:name,name,count});
-  }
-  return {rows,sections,title:''};
-}
-
-function originTree(rows,searching) {
-  const root=[],folders=new Map(),rank=name=>[...order,...worldEditorRaceOrder].indexOf(name);
-  for(const object of rows){
-    for(const path of (searching ? [[]] : object.folders || [[]])){
-      let siblings=root,key='';
-      for(const name of path){
-        key+=JSON.stringify(name);
-        if(!folders.has(key)){
-          const folder={key,name,icon:FOLDER_ICONS[name],children:[]};
-          folders.set(key,folder);siblings.push(folder);
+/** Row data only. GameFileBrowser owns all rendering, navigation and scrolling. */
+export function particleBrowserTree(catalog,style,query=''){
+  const sorted=[...catalog.items].sort((a,b)=>Number(!!a.blocked)-Number(!!b.blocked)||Number(['reviewed','user-reviewed'].includes(b.naming?.state))-Number(['reviewed','user-reviewed'].includes(a.naming?.state)));
+  const stock=sorted.filter(item=>item.collection==='Warcraft'),available=new Map(stock.map(item=>[item.id,item]));
+  const warcraft=folder('Warcraft','Warcraft');
+  if(style==='worldeditor'){
+    const browse=catalog.browse||{objects:[],buckets:[],other:stock.map(item=>item.id)};
+    for(const object of browse.objects){
+      const groups=object.groups.map(group=>({...group,items:[...new Set(group.refs.flatMap(ref=>browse.buckets[ref]||[]))].map(id=>available.get(id)).filter(Boolean)}));
+      if(!groups.some(group=>group.items.length))continue;
+      for(const path of object.folders||[[]]){
+        let parent=warcraft;
+        for(const name of path){let next=parent.children.find(node=>node.name===name);if(!next){next=folder(name,parent.key+'/'+name);parent.children.push(next);}parent=next;}
+        const node=folder(object.name,parent.key+'/'+object.id);node.icon=object.icon;parent.children.push(node);
+        for(const group of groups){
+          const art=folder(group.title,node.key+'/'+group.title);
+          art.children=group.items.map(item=>leaf(item,art.key));
+          if(!art.children.length)art.status='No indexed emitters';
+          node.children.push(art);
         }
-        siblings=folders.get(key).children;
       }
-      siblings.push({...object,key:key+'#'+object.id,total:object.count});
     }
+    const sort=nodes=>{nodes.sort((a,b)=>order.indexOf(a.name)-order.indexOf(b.name)||a.name.localeCompare(b.name));for(const node of nodes)if(node.children&&!node.children.some(child=>child.item))sort(node.children);};
+    sort(warcraft.children);
+    const other=folder('Other effects','Warcraft/Other effects');
+    other.children=browse.other.map(id=>available.get(id)).filter(Boolean).map(item=>leaf(item,other.key));warcraft.children.push(other);
+  }else{
+    for(const name of appearanceTypes){const node=folder(name,'Warcraft/'+name);node.children=stock.filter(item=>(item.categories?.[0]||'Other')===name).map(item=>leaf(item,node.key));warcraft.children.push(node);}
   }
-  const sort=nodes=>{
-    nodes.sort((a,b)=>Number(b.name==='Other effects')-Number(a.name==='Other effects')||
-      Number(!!b.children)-Number(!!a.children)||rank(a.name)-rank(b.name)||a.name.localeCompare(b.name));
-    for(const node of nodes)if(node.children)sort(node.children);
+  const root=[warcraft,...['My presets','My work','Favorites'].map(name=>{
+    const node=folder(name,name),items=sorted.filter(item=>name==='Favorites'?item.favorite:item.collection===name);
+    if(name==='My work')items.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    node.children=items.map(item=>leaf(item,node.key));return node;
+  })];
+  const terms=query.toLowerCase().split(/\s+/).filter(Boolean),autoExpanded=new Set();
+  const filter=(node,trail='')=>{
+    const text=trail+' '+node.name;
+    if(node.item){const item=node.item,haystack=[text,...item.tags||[],...item.aliases||[],...(item.sources||[]).flatMap(source=>[source.emitterName,source.physicalPath])].join(' ').toLowerCase();return terms.every(term=>haystack.includes(term))?node:null;}
+    node.children=node.children.map(child=>filter(child,text)).filter(Boolean);
+    const ids=new Set();const count=child=>{if(child.item)ids.add(child.item.id);else child.children.forEach(count);};node.children.forEach(count);node.total=ids.size;
+    if(terms.length&&node.children.length)autoExpanded.add(node.key);
+    return !terms.length||node.children.length||node.status&&terms.every(term=>text.toLowerCase().includes(term))?node:null;
   };
-  sort(root);return root;
-}
-
-export function WorldRows({rows,searching,limit,onMore,onChoose}) {
-  const [expanded,setExpanded]=useState(new Set());
-  const tree=useMemo(()=>originTree(rows,searching),[rows,searching]);
-  const visible=useMemo(()=>visibleWorldEditorRows(tree,expanded),[tree,expanded]);
-  const toggle=key=>setExpanded(previous=>{
-    const next=new Set(previous);if(next.has(key))next.delete(key);else next.add(key);return next;
-  });
-  if(!visible.length)return null;
-  return <><div className="pe-origin-rows" role="tree" aria-label="World Editor objects">{visible.slice(0,limit).map(({key,node,folder,depth})=>{
-    const open=expanded.has(key),Arrow=open?ChevronDown:ChevronRight;
-    return <button key={key} role="treeitem" aria-label={node.name} aria-level={depth+1} aria-expanded={folder?open:undefined}
-      style={{paddingLeft:6+depth*16}} onClick={()=>folder?toggle(key):onChoose(node.id)}
-      onKeyDown={event=>{if(folder&&((event.key==='ArrowRight'&&!open)||(event.key==='ArrowLeft'&&open))){event.preventDefault();toggle(key);}}}>
-      {folder?<Arrow size={12}/>:<span className="pe-tree-indent"/>}
-      <GameIcon iconKey={node.icon?'p:classic:'+node.icon:null} read={node.icon?()=>window.desktop.gameFilesReadPath({path:node.icon,variant:'classic'}):null}
-        fallback={folder?(open?FolderOpen:Folder):Box}/>
-      <span translate="no">{node.name}</span>{node.count!=null&&<small>{node.count}</small>}
-    </button>;
-  })}</div>{visible.length>limit&&<button onClick={onMore}>Show more</button>}</>;
+  return {nodes:root.map(node=>filter(node)).filter(Boolean),autoExpanded};
 }

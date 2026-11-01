@@ -1,5 +1,6 @@
-const { launchApp, closeApp } = require('./helpers/app.cjs');
+const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 
+const {click,type,waitFile}=require('./helpers/library-browser.cjs');
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 const {ParticleLibrary}=require('../electron/particle-library.cjs');
 (async()=>{
@@ -28,25 +29,47 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   const launched = await launchApp({ out, fixture, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
   const page=launched.page;
 
-  await page.waitForFunction(()=>mdlxlProbe('.game-preview-root').session?.doc?.name==='target.mdx',null,{polling:100});await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();
+  await page.waitForFunction(()=>mdlxlProbe('.game-preview-root').session?.doc?.name==='target.mdx',null,{polling:100});await click(page,page.getByRole('button',{name:'Emitter Editor',exact:true}));
   await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();await page.waitForFunction(()=>document.querySelector('.pe-library')?.getAttribute('aria-busy')==='false');return page;
  };
  const lab=page=>page.evaluate(()=>{let f=document.querySelector('.pe-window');{ const v = findFiberState(f, v => v?.doc?.model&&v?.recipe); if (v) return {key:v.key,undo:v.doc.historyStats.undoSteps,scaling:Array.from(v.doc.model.ParticleEmitters2[0].ParticleScaling)}; }throw Error('Lab missing');});
  try{
   const page=await launch(),dialog=page.getByRole('dialog',{name:'Particle Editor',exact:true}),size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});
-  const openStock=async()=>{await page.getByRole('button',{name:'Warcraft',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'Stock sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});};
+  const library=page.locator('.pe-library'),row=name=>library.getByRole('treeitem',{name,exact:true});
+  assert.equal(await library.locator('.gf-tree').count(),1,'Personal collections use the shared Library tree');
+  const openStock=async()=>{await click(page,row('Sparks'));await click(page,row('Stock sparks'));await page.keyboard.press('Enter');await library.waitFor({state:'hidden'});};
+  const openPreset=async()=>{await click(page,row('My presets'));await click(page,row('My changed sparks'),{clickCount:2});await library.waitFor({state:'hidden'});};
   await openStock();const original=await lab(page);assert.match(original.key,/^lab-/);assert.deepEqual(original.scaling,Array.from(recipe.native.ParticleEmitters2[0].ParticleScaling),'Legacy default-linked edits must be ignored');
-  await size.fill(String(Number(await size.inputValue())+25));await size.press('Enter');const edited=await lab(page);assert.ok(edited.undo>0);assert.notDeepEqual(edited.scaling,original.scaling);
-  await dialog.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByLabel('Preset name',{exact:true}).fill('My changed sparks');await page.getByRole('button',{name:'Save to My presets',exact:true}).click();await page.getByText('Saved My changed sparks',{exact:true}).waitFor();
-  await dialog.getByRole('button',{name:'Library',exact:true}).click();await openStock();const fresh=await lab(page);assert.notEqual(fresh.key,edited.key);assert.equal(fresh.undo,0);assert.deepEqual(fresh.scaling,original.scaling);
-  await dialog.getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'My presets',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'My changed sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});assert.deepEqual((await lab(page)).scaling,edited.scaling);
-  await size.fill('0');await size.press('Enter');await dialog.getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'My presets',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'My changed sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});assert.deepEqual((await lab(page)).scaling,edited.scaling,'Saved presets also start from saved values');
+  await type(page,size,String(Number(await size.inputValue())+25));await page.keyboard.press('Enter');const edited=await lab(page);assert.ok(edited.undo>0);assert.notDeepEqual(edited.scaling,original.scaling);
+  await click(page,dialog.getByRole('button',{name:'Save preset',exact:true}));await type(page,page.getByLabel('Preset name',{exact:true}),'My changed sparks');await click(page,page.getByRole('button',{name:'Save to My presets',exact:true}));await page.getByText('Saved My changed sparks',{exact:true}).waitFor();
+  await click(page,dialog.getByRole('button',{name:'Library',exact:true}));await openStock();const fresh=await lab(page);assert.notEqual(fresh.key,edited.key);assert.equal(fresh.undo,0);assert.deepEqual(fresh.scaling,original.scaling);
+  await click(page,dialog.getByRole('button',{name:'Library',exact:true}));await openPreset();assert.deepEqual((await lab(page)).scaling,edited.scaling);
+  await type(page,size,'0');await page.keyboard.press('Enter');await click(page,dialog.getByRole('button',{name:'Library',exact:true}));await openPreset();assert.deepEqual((await lab(page)).scaling,edited.scaling,'Saved presets also start from saved values');
   const presets=(await store.catalog()).items.filter(i=>i.collection==='My presets');assert.equal(presets.length,1);assert.deepEqual(Array.from(parseParticleData(await store.read(presets[0].id)).native.ParticleEmitters2[0].ParticleScaling),edited.scaling);
   assert.equal(await fs.readFile(stockFile,'utf8'),stockData);assert.deepEqual(await fs.readFile(fixture),fixtureBytes);
+  await click(page,dialog.getByRole('button',{name:'Library',exact:true}));await click(page,row('My presets'));await click(page,row('My changed sparks'));
+  await type(page,page.getByLabel('Effect display name'),'Renamed sparks');await page.keyboard.press('Tab');await row('Renamed sparks').waitFor();
+  await type(page,page.getByLabel('Effect tags'),'warm, test');await page.keyboard.press('Tab');
+  await page.waitForFunction(()=>findFiberState(document.querySelector('.pe-library'),v=>v?.items)?.items.some(i=>i.name==='Renamed sparks'&&i.tags?.includes('warm')));
+  const selectedId=await library.locator('.gf-row.selected').getAttribute('data-effect-id');
+  await click(page,library.getByRole('button',{name:'Duplicate',exact:true}));
+  await page.waitForFunction(()=>findFiberState(document.querySelector('.pe-library'),v=>v?.items)?.items.filter(i=>i.collection==='My presets').length===2);
+  const exported=path.join(out,'exported.mdlxl-particle');await stubDialogs(app,{save:exported});await click(page,library.getByRole('button',{name:'Export preset',exact:true}));
+  assert.equal(parseParticleData(await waitFile(exported)).name,'Renamed sparks');
+  await click(page,library.getByRole('button',{name:'Delete',exact:true}));await library.locator('[data-effect-id="'+selectedId+'"]').waitFor({state:'hidden'});
+  await click(page,row('My presets'));await click(page,row('My work'));
+  const work=library.locator('[data-effect-id^="work-"]').first();await click(page,work);
+  assert.equal(await library.getByRole('button',{name:'Delete',exact:true}).count(),0,'Only My presets can be deleted');
+  await type(page,page.getByLabel('Effect display name'),'Renamed working sparks');await page.keyboard.press('Tab');await row('Renamed working sparks').waitFor();
+  const workExport=path.join(out,'working-export.mdlxl-particle');await stubDialogs(app,{save:workExport});await click(page,library.getByRole('button',{name:'Export preset',exact:true}));assert.equal(parseParticleData(await waitFile(workExport)).name,'Renamed working sparks');
+  await click(page,library.getByRole('button',{name:'Duplicate',exact:true}));
+  await page.waitForFunction(()=>findFiberState(document.querySelector('.pe-library'),v=>v?.items)?.items.filter(i=>i.collection==='My presets').length===2);
+  await click(page,row('Renamed working sparks'));await page.keyboard.press('Enter');await library.waitFor({state:'hidden'});
+  const resumed=await lab(page);assert.ok(resumed.key);
   await page.screenshot({path:path.join(out,'library-copy.png')});
-  await dialog.getByRole('button',{name:'Close Particle Editor',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await click(page,dialog.getByRole('button',{name:'Close Particle Editor',exact:true}));await dialog.waitFor({state:'hidden'});
   await closeApp(app, { keepProfile: true });app=null;
-  const restarted=await launch();assert.deepEqual((await lab(restarted)).scaling,edited.scaling,'Current draft survives restart independently');
+  const restarted=await launch();assert.deepEqual((await lab(restarted)).scaling,resumed.scaling,'Current draft survives restart independently');
   assert.deepEqual(errors,[]);console.log('Default-linked legacy edits ignored; independent default copies, save preset, immutable saved presets, draft restart and unchanged model file passed.');
  }finally{if(app)await closeApp(app);await store.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

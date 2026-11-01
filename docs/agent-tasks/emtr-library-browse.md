@@ -1,14 +1,32 @@
 # EMTR Particle Library browsing
 
-Owner correction round applied. Codex, 1 November 2026. Branch `codex/emtr-library-browse`, based on `f75e407def9badcee9e7080a8d0b050433c85879`. Merge requires owner approval.
+Owner layout round ready for review; awaiting merge approval. Codex, 1 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch `codex/emtr-library-browse`, continued from `c4ad28aec9a9fd393f8904687940906534c2ee26`. No merge or release is authorized.
 
-## What changed
+## Current layout round
 
-The library opens in **By type** with appearance headings. **World Editor** uses the main Library’s installed tables, localized object names, icons and expandable folder rows. Both views use the same card, thumbnail queue, favorite annotation, Details and recipe-opening control. Personal collections keep their existing ordering and storage.
+The owner rejected the separate card layout. ParticleLibrary now supplies catalogue rows, a live particle stage and existing actions to GameFileBrowser. Both it and Models render the same BrowserToolbar, BrowserTree and BrowserFrame: 24-pixel rows, virtual scrolling, game icons, Standard / World Editor Style, arrow keys, Enter and double-click. Standard means By type for particles. Warcraft opens expanded; My presets, My work and Favorites are tree folders. Actions, name/tags and source paths sit below the selected effect. Scan/cancel and Coverage remain in the Library footer.
 
-The extraction worker joins physical source paths from every card against unit, hero, building, item, doodad and destructible art. It follows spells, level-specific buffs and effects, summoned units and upgrades with model art. Missing model paths can resolve to a unique sibling folder within the same parent. An exact installed model with zero emitters takes precedence. Other effects keeps every unlinked card. Searching a spell can also find a referenced model with zero indexed emitters.
+ParticleWorldBrowser only adapts the existing catalogue into row data. ParticleLibraryStage shares recipe/asset preparation with the thumbnail queue. The recipe files, IDs, appearance names, sidecar revision, service, World Editor catalogue and placement mechanism are unchanged.
 
-The browse sidecar lives beside the catalogue. The source key covers the install, build and installed locale tags. Catalogue size, modification time and the browse schema identify the sidecar revision. Existing complete catalogues acquire it in the utility process. User display names take precedence over reviewed names, followed by generated suggestions. Recipe IDs, extracted files and personal metadata require no rewrite for this upgrade.
+Verification used a disposable D: package on the hidden Windows desktop with real mouse and keyboard input. The owner-profile comparison copied settings and personal data, excluding Chromium and regenerated texture caches. The installed app and source profile stayed read-only. The updated layout, browse, previews, copy and indexing checks failed on the old package because `.gf-tree` was absent (0 !== 1). The folder-arrow visibility assertion also failed before correcting EMTR's inherited SVG hiding rule. Search now expands newly arriving matches without reopening folders the user has collapsed. The selected preview uses Lab's existing fit-when-ready callback, followed by normal mouse controls.
+
+Final build/package verification passed (1,372 runtime/asset files, 55 locales). Compatibility: **57 passed, 0 failed, 0 skipped**. Full source: **2,630 passed, 0 failed, 10 existing skips**, with zero new failures against the unchanged baseline. All five final packaged checks passed with zero skips:
+
+- `particle-library-layout`: copied owner profile; main Models comparison; identical row height/font; visible shared arrows/icons; Standard default and expanded Warcraft; ArrowDown through Fire; playing preview and real mouse orbit; double-click Lab.
+- `particle-library-browse`: real Disease Cloud path; Left/Right keys; shared favorite; zero-emitter search; source context and Lab mouse orbit; double-click opening; placement on a real Footman; Escape.
+- `particle-library-previews`: 72 thumbnails through virtual scrolling, retained thumbnails across progress refresh, repeated preview/Lab round trips, blocked/incomplete suffixes, missing/changed/no-sidecar offline views, personal favorites, offline presets and starter effects.
+- `particle-library-copy`: independent stock/preset edits, immutable saved presets, draft restart, rename/tags, duplicate/export/delete for My presets, rename/duplicate/export/open for My work (no Delete), unchanged source model bytes.
+- `particle-library-indexing`: cancel/resume on a disposable partial catalogue; background utility; all 3,501 candidates completed; 137 thumbnails across 144 browsed effects; ten reopens **363–445 ms** against the unchanged three-second limit. The measured interaction/scan run took 57.2 seconds.
+
+The ten source skips remain: Windows SIGTERM semantics; opt-in archer armor (`MDLXL_ARCHER`); opt-in broken/rebuilt skin pair; opt-in private Fx; two POSE corpus checks without the optional manifest; opt-in dense twin-head rider; Windows symlink privileges; opt-in Tinker/Brown Magnataur (`MDLXL_SORT_NURGLE`); and no 8.3 short names on this volume. No test or baseline entry was added to suppress a failure.
+
+Screenshots: [rejected layout](../../test/evidence/particle-library/before.png), [shared browser](../../test/evidence/particle-library/after.png), [main Models reference](../../test/evidence/particle-library/models.png). Small logs and evidence: `D:\Codex\mdlxl-491-owner-browser\report`. Warcraft III playback, non-enUS installed data and owner visual acceptance remain unverified; Claude retains final QA ownership.
+
+## Retained data work
+
+The extraction worker joins physical source paths against unit, hero, building, item, doodad and destructible art, including spells, buffs, effects, summoned units and upgrades. An exact installed zero-emitter model takes precedence over a sibling fallback. Other effects retains unlinked recipes. Spell search can show referenced art with no indexed emitters.
+
+The separate browse sidecar covers the install, build, locale, catalogue timestamp and browse schema. User names override reviewed names and generated names. The installed-game evidence below belongs to the earlier data round; it is retained as provenance, not a new extraction claim.
 
 ## Installed game proof
 
