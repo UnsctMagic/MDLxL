@@ -1436,7 +1436,15 @@
     "Fix and save",
     "Fix keyframe values",
     "Turn single animation values into keyframes.",
-    "{0} is a single value; Warcraft III needs keyframes here."
+    "{0} is a single value; Warcraft III needs keyframes here.",
+    "Nuclear",
+    "Splits the selected geometry into one geoset per separate piece.",
+    "Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece.",
+    "Nuclear Weld",
+    "Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL.",
+    "Nuclear Weld found no selected vertices on the same spot.",
+    "Nuclear Weld: vertices welded: {0}.",
+    "Nuclear Weld: vertices welded: {0}, geosets merged: {1}."
   ],
   "paint": [
     "Citadel Paint",

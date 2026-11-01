@@ -36,16 +36,16 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
 
 test('quick display follows editor buttons; WC3 dock is above the full-width tabs',()=>{
   const toolbar=bar.slice(bar.indexOf('<div className="classic-toolbar">'),bar.indexOf('<div className="classic-modules"'));
-  const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('<div className="module-divider"'));
+  const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('</div>\n    </div>'));
   assert.match(toolbar,/\{moduleDock\}/);
   assert.doesNotMatch(toolbar,/quickDisplay/);
   assert.doesNotMatch(editor,/RGB Preview|RGB preview animation/);
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<Tool className="smooth-edges-toggle"[^\n]+<\/Tool><\/div>/);
+  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<Tool className="smooth-edges-toggle"[^\n]+<\/Tool><button data-hotkey="convertVersion"[^\n]+\{inputStrength\}<\/div>/);
   assert.match(toolbar,/\{visUI && inputStrength\}/);
-  assert.match(app,/\{!visUI && inputStrength\}<\/div>/);
+  assert.doesNotMatch(app,/\{!visUI && inputStrength\}/);
   assert.doesNotMatch(app,/<LanguageSwitch/);
   assert.match(css,/team-picker select\{width:auto;min-width:0;max-width:none\}/);
 });
@@ -58,4 +58,12 @@ test('module menu remains available with the custom module row hidden',()=>{
   assert.deepEqual(dispatched,['animation','animations']);
   assert.match(bar,/\['Modules', \[\['Vertices', 'vertices'\]/);
   assert.match(app,/mode === 'animation' && <PortraitToolbar/);
+});
+
+// The owner's top-bar contract replaces the former status controls and model row.
+test('model controls are above and open models are below the viewport',()=>{
+  assert.doesNotMatch(bar, /ModelTabs|module-divider/);
+  assert.match(app, /<div className="classic-status"><ModelTabs /);
+  assert.doesNotMatch(app, /statusAlert|\[status, setStatus\]|status-model-actions/);
+  assert.match(app, /<WarningToasts /);
 });

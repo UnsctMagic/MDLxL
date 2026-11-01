@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 import { gatherStreams, updateBounds } from '../src/mesh-tools.js';
-import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
+import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 
 test('merging animated extents accepts omitted optional radii without losing bounds', () => {
   const model = createDemoDocument().model, original = model.Geosets[0];
@@ -391,4 +391,39 @@ test('partial merges leave the settings of geosets kept separate by format limit
   assert.deepEqual(model.Geosets[0], before.Geosets[0]);
   assert.deepEqual(model.GeosetAnims[0], before.GeosetAnims[0]);
   assert.deepEqual(model.GeosetAnims.find(anim => anim.GeosetId === 5).Color, before.GeosetAnims[0].Color);
+});
+
+test('nuclear weld joins same-spot selected vertices whatever their UVs, inside one geoset', () => {
+  const model = createDemoDocument().model, g = model.Geosets[0];
+  Object.assign(g, gatherStreams(g, [...Array(14).keys(), 0]));
+  g.TVertices[0][28] = 0.9; g.Faces = Uint16Array.from([...g.Faces, 14, 2, 1]);
+  const keptUV = [g.TVertices[0][0], g.TVertices[0][1]];
+  const result = nuclearWeldVertices(model, { 0: [0, 14] });
+  assert.equal(result.welded, 1); assert.equal(result.geosetsMerged, 0);
+  assert.equal(g.Vertices.length / 3, 14); assert.equal(g.Faces.length / 3, 25); assert.equal(g.PrimitiveCounts[0], 75);
+  assert.deepEqual([g.TVertices[0][0], g.TVertices[0][1]], keptUV);
+  assert.deepEqual(result.selection, { 0: [0] });
+});
+
+test('nuclear weld merges geosets that share a material and a selected spot; other materials stay apart', () => {
+  const model = createDemoDocument().model, [, a, other, b] = model.Geosets;
+  b.Vertices.set(a.Vertices.subarray(0, 3), 0); other.Vertices.set(a.Vertices.subarray(0, 3), 0);
+  const faces = a.Faces.length + b.Faces.length;
+  // Geoset 2 uses another material at the same spot; it is selected but never joins.
+  const result = nuclearWeldVertices(model, { 1: [0], 2: [0], 3: [0] });
+  assert.equal(result.welded, 1); assert.equal(result.geosetsMerged, 1);
+  assert.equal(model.Geosets.length, 4); assert.equal(model.GeosetAnims.length, 4);
+  assert.equal(model.Geosets[1].Vertices.length / 3, 19); assert.equal(model.Geosets[1].Faces.length, faces);
+  assert.equal(model.Geosets[2], other); assert.equal(other.Vertices.length / 3, 8);
+  assert.deepEqual(result.oldToNew, { 0: 0, 1: 1, 2: 2, 3: 1, 4: 3 });
+  assert.deepEqual(result.selection, { 1: [0], 2: [0] });
+});
+
+test('nuclear weld ignores unselected vertices and reports when nothing shares a spot', () => {
+  const model = createDemoDocument().model, b = model.Geosets[3];
+  b.Vertices.set(model.Geosets[1].Vertices.subarray(0, 3), 0);
+  const before = structuredClone(model.Geosets);
+  assert.equal(nuclearWeldVertices(model, { 1: [0], 3: [1] }), false);
+  assert.equal(nuclearWeldVertices(model, { 1: [0, 1] }), false);
+  assert.deepEqual(model.Geosets, before);
 });
