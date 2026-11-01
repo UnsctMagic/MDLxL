@@ -26,6 +26,20 @@ export function particleTravelDistance(model,sequenceIndex,elapsed){
 }
 export function installParticleNativeCompatibility(native,{getTravelDistance=delta=>particleTravelDistance(native.model,native.getSequence(),delta)}={}){
  if(compatibleParticleRuntimes.has(native))return;compatibleParticleRuntimes.add(native);
+ const ribbons=native.ribbonsController;
+ if(native.model.RibbonEmitters?.some(n=>n._FxTag)){
+  const update=ribbons.updateEmitter;
+  ribbons.updateEmitter=function(emitter,delta){
+   update.call(this,emitter,delta);
+   if(!emitter.props._FxTag||!emitter.props.Gravity||delta<=0)return;
+   const now=Date.now();
+   for(let i=0;i<emitter.creationTimes.length;i++){
+    const age=Math.max(0,(now-emitter.creationTimes[i])/1000),previous=Math.max(0,age-delta/1000);
+    const drop=.5*emitter.props.Gravity*(age*age-previous*previous);
+    emitter.vertices[i*6+2]-=drop;emitter.vertices[i*6+5]-=drop;
+   }
+  };
+ }
  const particles=native.particlesController,create=particles.createParticle,buffers=particles.updateParticleBuffers,updateParticle=particles.updateParticle;
  // Keep the unit centered while emitted world-space particles retain their
  // position behind it. Model-space particles still follow their emitter.
@@ -56,7 +70,7 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
   if(replacement===1||replacement===2)this.rendererData.model.Textures[id]={Image:'',ReplaceableId:replacement,Flags:original?.Flags||0};
   try{return layer.call(this,emitter);}finally{if(replacement===1||replacement===2)this.rendererData.model.Textures[id]=original;}
  };
- const ribbons=native.ribbonsController,uv=ribbons.updateEmitterTexCoords,resizeRibbon=ribbons.resizeEmitterBuffers,renderRibbons=ribbons.render;
+ const uv=ribbons.updateEmitterTexCoords,resizeRibbon=ribbons.resizeEmitterBuffers,renderRibbons=ribbons.render;
  // Upstream caps ribbon allocation at its initial rate/lifetime estimate. Authoring can exceed it.
  ribbons.resizeEmitterBuffers=function(emitter,size){emitter.baseCapacity=Math.max(emitter.baseCapacity,size);return resizeRibbon.call(this,emitter,size);};
  ribbons.render=function(...args){
@@ -73,7 +87,7 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
 /** All Particle Editor private access is pinned to war3-model 4.0.1 here. */
 export function updateParticlePreview(native, source) {
   if (!native || !source) return;
-  for (const family of ['ParticleEmitters2','RibbonEmitters','Helpers']) {
+  for (const family of ['ParticleEmitters2','RibbonEmitters','Helpers',...(source.eventPlacement?['EventObjects']:[])]) {
     for (const node of source[family] || []) {
       const target=native.model[family]?.find(item=>item.ObjectId===node.ObjectId);
       if (!target) continue;

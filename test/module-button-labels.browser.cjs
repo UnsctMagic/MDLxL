@@ -35,12 +35,12 @@ const ready=new Promise((resolve,reject)=>{
     await page.goto(url);
     const toolbar=page.locator('.toolbar-modules');
     await toolbar.waitFor();
-    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['AI','LIBR','FRG','BITZ','OPXL','EMTR','ANIM','CORP','KEY','LER','VIS']);
+    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['AI','LIBR','FRG','BITZ','OPXL','EMTR','FX','ANIM','CORP','KEY','LER','VIS']);
     // New look (VIS off), docs/TOOLBAR-DOCK.md: every label in its own colour, bold 10px Oxanium, on a transparent background.
-    assert.deepEqual(await toolbar.locator('.ai-tool,.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.emitter-tool,.animxl-tool,.auto-corpse-tool,.pressed-keys-tool,.learner-tool,.vis-toggle').evaluateAll(buttons=>buttons.map(button=>{
+    assert.deepEqual(await toolbar.locator('.ai-tool,.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.emitter-tool,.surface-effects-tool,.animxl-tool,.auto-corpse-tool,.pressed-keys-tool,.learner-tool,.vis-toggle').evaluateAll(buttons=>buttons.map(button=>{
       const style=getComputedStyle(button.querySelector('.module-icon-badge,span:not(.hotkey-badge)'));
       return [style.color,style.backgroundColor,style.fontSize,style.fontWeight];
-    })),['rgb(201, 162, 255)','rgb(255, 191, 71)','rgb(124, 196, 255)','rgb(236, 232, 222)','rgb(143, 224, 127)','rgb(95, 224, 207)','rgb(255, 133, 116)','rgb(230, 199, 161)','rgb(255, 162, 87)','rgb(242, 227, 92)','rgb(255, 143, 208)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','700']));
+    })),['rgb(201, 162, 255)','rgb(255, 191, 71)','rgb(124, 196, 255)','rgb(236, 232, 222)','rgb(143, 224, 127)','rgb(95, 224, 207)','rgb(182, 242, 255)','rgb(255, 133, 116)','rgb(230, 199, 161)','rgb(255, 162, 87)','rgb(242, 227, 92)','rgb(255, 143, 208)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','700']));
     const dockColors=await toolbar.locator(':scope>button').evaluateAll(buttons=>buttons.map(button=>getComputedStyle(button.querySelector('.module-icon-badge,span:not(.hotkey-badge)')).color));
     assert.equal(new Set(dockColors).size,dockColors.length,'every dock icon, including new ones, has its own label colour');
     // Every dock icon wears the same WC3 frame, switched on or off: a 64px picture filling the button, no ring or border, one label font and place.

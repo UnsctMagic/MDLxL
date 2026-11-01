@@ -243,7 +243,7 @@ ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(va
 ipcMain.on('menu:state',(event,value)=>{
   if(!editorOnly(event)||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
   const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks};
+  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();

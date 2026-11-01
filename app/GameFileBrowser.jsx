@@ -7,8 +7,8 @@ import {collectPart} from '../src/bits-and-parts.js';
 import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
-import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {createThumbnailQueue} from '../src/texture-library-session.js';
+import GameIcon from './GameIcon.jsx';
+import GameLibraryRow from './GameLibraryRow.jsx';
 import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
 import { gamePathKey } from '../src/game-path.js';
 
@@ -43,21 +43,6 @@ function previewAssets(textures){
     assets.set(gamePathKey(record.name),asset);assets.set(gamePathKey(record.name.split(/[\\/]/).at(-1)),asset);
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
-}
-
-// Small icons for tree rows: decoded once per session, a few at a time.
-const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
-function loadIcon(key,read,size=48){
-  if(!icons.has(key)){
-    const job=iconQueue(key,async()=>{const file=await read();return file?.bytes?.length?decodeTextureThumbnail({name:file.name||key,bytes:file.bytes},size):null;}).catch(()=>null);
-    icons.set(key,job);if(icons.size>6000)icons.delete(icons.keys().next().value);
-  }
-  return icons.get(key);
-}
-function GameIcon({iconKey,read,fallback:Fallback=File,size=16}){
-  const [url,setUrl]=useState(null);
-  useEffect(()=>{let active=true;setUrl(null);if(iconKey&&read)loadIcon(iconKey,read,Math.max(48,size)).then(value=>{if(active)setUrl(value);});return()=>{active=false;};},[iconKey]);
-  return url?<img className="gf-icon" src={url} alt="" width={size} height={size} draggable={false}/>:<Fallback size={size-1} aria-hidden="true" className="gf-icon-glyph"/>;
 }
 
 // World Editor trees are built from the game tables once per game version.
@@ -262,14 +247,11 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
           {!rows.length&&<p className="tl-empty">{error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}</p>}
           <div style={{height:rows.length*ROW,position:'relative'}}>
             {rows.slice(first,last).map((row,offset)=>{const at=first+offset,open=expanded.has(row.key);
-              return <div key={row.key} role="treeitem" aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key}
+              return <GameLibraryRow folder={row.folder} open={open} icon={rowIcon(row)} name={row.name} detail={row.search&&row.detail} count={row.count} key={row.key} role="treeitem" aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key}
                 className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:at*ROW,paddingLeft:6+row.depth*16}}
                 onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else{if(pendingOpen.current!==row.key)pendingOpen.current=null;choose(row);}}} onDoubleClick={()=>{if(row.folder)return;if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}}
                 title={row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name}>
-                <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
-                {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{row.search&&row.detail&&<small translate="no">{row.detail}</small>}</span>
-                {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
-              </div>;})}
+</GameLibraryRow>;})}
           </div>
         </div>
       </nav>

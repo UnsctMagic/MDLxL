@@ -14,7 +14,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
   const page=launched.page;
 
-  await page.getByText('Opened Blademaster.mdx',{exact:true}).waitFor();
+  await page.waitForFunction(name=>mdlxlProbe().session?.path?.endsWith(name),path.basename(fixture));
   await page.locator('.classic-geosets').getByRole('button',{name:'Clear',exact:true}).click();
   await page.getByLabel('Select geoset 3',{exact:true}).check();await page.getByLabel('Show all geosets',{exact:true}).uncheck();
   await page.getByLabel('View direction',{exact:true}).selectOption('top');

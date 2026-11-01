@@ -12,10 +12,10 @@ import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js
 const indicesOf = selection => Array.from(selection || []);
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = [], eligibleVertices, hiddenVertices = [], onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, showWires = true, showVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = [], eligibleVertices, hiddenVertices = [], onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, showWires, showVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -23,12 +23,12 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
   // History can patch typed arrays in place; revision must invalidate this drawing copy.
   const eligibilityKey = eligibleVertices === undefined ? '*' : indicesOf(eligibleVertices).join(',');
   useLayoutEffect(() => { state.current.uv = new Float32Array(geoset?.TVertices?.[uvSet] || []); state.current.drag = null; current.current.onPreviewChange?.(null); state.current.draw(); }, [geoset, uvSet, geoset?.TVertices?.[uvSet], revision, textureUrl, eligibilityKey]);
-  useEffect(() => { state.current.draw(); }, [selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
+  useEffect(() => { state.current.draw(); }, [selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, showSelectedVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
   useEffect(() => {
     let cancelled = false; state.current.image = null; setImageError(false);
     if (!textureUrl || !graphics.textures) { state.current.draw(); return; }
     const image = new Image();
-    image.onload = () => { if (!cancelled) { state.current.image = image; state.current.draw(); } };
+    image.onload = () => { if (!cancelled) { state.current.image = image; if(current.current.fitUVs){state.current.centered=false;state.current.resize?.();}else state.current.draw(); } };
     image.onerror = () => { if (!cancelled) { setImageError(true); state.current.draw(); } };
     image.src = textureUrl;
     return () => { cancelled = true; };
@@ -64,6 +64,13 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     function centerInitialTextureFrame() {
       if (s.centered || width <= 1 || height <= 1) return;
       const p = current.current, allowed = eligible(), faces = eligibleUVFaces(p.geoset, allowed, p.uvSet);
+      if(p.fitUVs&&allowed.length){
+        let minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;
+        for(const index of allowed){const u=s.uv[index*2],v=s.uv[index*2+1];minU=Math.min(minU,u);maxU=Math.max(maxU,u);minV=Math.min(minV,v);maxV=Math.max(maxV,v);}
+        const initial=mapping();
+        s.zoom=constrainZoom(s.zoom*.86*Math.min(width/(initial.sizeX*Math.max(.6,maxU-minU)),height/(initial.sizeY*Math.max(.6,maxV-minV))));
+        const {sizeX,sizeY}=mapping();s.panX=(1-minU-maxU)*sizeX/2;s.panY=(1-minV-maxV)*sizeY/2;s.centered=true;return;
+      }
       const [frameU, frameV] = occupiedUVTextureFrames(s.uv, faces, allowed)[0] || [0, 0];
       const { sizeX, sizeY } = mapping();
       s.panX = -frameU * sizeX; s.panY = -frameV * sizeY; s.centered = true;
@@ -118,7 +125,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       }
       context.stroke();
       for (const i of allowed) {
-        if (!p.showVertices && !selected.has(i)) continue;
+        if (!p.showVertices && !(p.showSelectedVertices && selected.has(i))) continue;
         const sx = x + uv[i * 2] * sizeX, sy = y + uv[i * 2 + 1] * sizeY;
         if (sx < -5 || sy < -5 || sx > width + 5 || sy > height + 5) continue;
         context.fillStyle = selected.has(i) ? visuals.selectedVertex : visuals.vertex; context.fillRect(sx - visuals.vertexSize / 2, sy - visuals.vertexSize / 2, visuals.vertexSize, visuals.vertexSize);

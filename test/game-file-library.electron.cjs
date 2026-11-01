@@ -1,6 +1,9 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+// Wait for the rendered subject and camera to settle, not a fixed delay.
+const settlePage=page=>page.evaluate(()=>new Promise(resolve=>{let last,stable=0;const check=()=>{const host=document.querySelector('.gf-stage .game-preview-root'),runtime=host&&mdlxlProbe(host).runtime,busy=!!document.querySelector('.gf-stage-busy');const value=JSON.stringify([runtime?.controls?.object.position.toArray().map(v=>Math.round(v*1e6)),runtime?.controls?.target.toArray().map(v=>Math.round(v*1e6)),busy]);stable=value===last&&!busy&&(!runtime||runtime.captureApi?.isReady)?stable+1:0;last=value;if(stable>=3)resolve();else requestAnimationFrame(check);};check();}));
+const nextFrame=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 // The Library button browses every installed game file; texture pickers stay texture-only.
 // Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, else gameFolder()).
 // MDLXL_PACKAGED_EXE runs a packaged MDLxL.exe instead of the source checkout.
@@ -20,8 +23,9 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   try{
 
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).waitFor();
+    const originalUV=await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model));
     // The UV Wrapper's library is the unchanged texture picker: no tabs, same title.
-    await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').focus();await page.keyboard.press('Control+a');
+    await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').click({position:{x:12,y:12}});await page.keyboard.press('Control+a');
     await page.locator('[data-hotkey="uv"]').click();await page.locator('.uv-tab-window .uv-editor canvas').waitFor();
     await page.getByRole('button',{name:'Replace Texture…',exact:true}).click();
     const picker=page.locator('[aria-modal="true"][aria-label="Material and Texture Library"]');await picker.waitFor();
@@ -29,7 +33,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await page.getByRole('searchbox',{name:'Search textures'}).fill('footman');
     const footmanTile=page.locator('.tl-tile').filter({hasText:/^Footman/}).first();await footmanTile.waitFor();
     await page.waitForFunction(()=>[...document.querySelectorAll('.tl-tile')].some(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)));
-    await page.evaluate(()=>[...document.querySelectorAll('.tl-tile')].find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).click());
+    await page.getByTitle(await page.locator('.tl-tile').evaluateAll(tiles=>tiles.find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).title),{exact:true}).click();
     const preview=page.getByRole('button',{name:'Preview Texture in Editor',exact:true});await page.waitForFunction(()=>{const b=[...document.querySelectorAll('.tl-actions button')].find(b=>b.textContent==='Preview Texture in Editor');return b&&!b.disabled;});
     await preview.click();
     // The choice is a small popup: one button per material that shows the texture, one click decides.
@@ -42,9 +46,10 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await picker.waitFor({state:'hidden'});
     checks.push('UV Replace Texture opens the unchanged texture picker; a texture already in the model pops up one-click material buttons');
     await page.getByRole('button',{name:'Save texture',exact:true}).click();
-    await page.getByText('Texture kept: the model already uses this material.').waitFor({timeout:10000});
+    await page.getByRole('button',{name:'Save texture',exact:true}).waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model)),originalUV,'saving an already used material ends the preview without changing model data');
     checks.push('Saving a preview that reuses the existing material ends the temporary preview');
-    await page.getByRole('button',{name:'Close UV Wrapper',exact:true}).click().catch(()=>{});
+    await page.getByRole('button',{name:'Exit UV Wrapper',exact:true}).click();
     // The toolbar Library button is the full viewer.
     await page.locator('[data-hotkey="textureLibrary"]').click();
     const library=page.locator('[aria-modal="true"][aria-label="Warcraft III Library"]');await library.waitFor();
@@ -59,11 +64,12 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     // Material prompt from the Library's Add button, making a new material.
     await page.getByRole('searchbox',{name:'Search textures'}).fill('footman');
     await page.waitForFunction(()=>[...document.querySelectorAll('.tl-tile')].some(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)));
-    await page.evaluate(()=>[...document.querySelectorAll('.tl-tile')].find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).click());
+    await page.getByTitle(await page.locator('.tl-tile').evaluateAll(tiles=>tiles.find(tile=>/textures\\footman\.(blp|dds)$/i.test(tile.title)).title),{exact:true}).click();
     const add=page.getByRole('button',{name:'Texture already in model…',exact:true});await page.waitForFunction(()=>{const b=[...document.querySelectorAll('.tl-actions button')].find(b=>b.textContent==='Texture already in model…');return b&&!b.disabled;});
+    const materialsBefore=await page.evaluate(()=>mdlxlProbe().session.doc.model.Materials.length);
     await add.click();await choice.waitFor();await choice.getByRole('button',{name:'New material',exact:true}).click();
     await page.getByText('Added a new material.',{exact:true}).waitFor();
-    await page.waitForFunction(()=>/Added Material \d+ using Textures\\Footman\.blp/.test(document.body.innerText));
+    await page.waitForFunction(count=>mdlxlProbe().session.doc.model.Materials.length===count+1,materialsBefore);
     checks.push('Add texture on an existing texture pops up the choice and "New material" adds one');
     // Models, World Editor Style: races with icons, one central view that glides between models.
     const row=name=>page.locator('.gf-row').filter({has:page.locator('.gf-name',{hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first();
@@ -90,7 +96,7 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     checks.push('A real mouse drag turns the camera in the central view');
     // A much larger model: the camera keeps its turned angle and glides out to frame it.
     await row('Altar of Kings').click();
-    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await settlePage(page, 100);}
+    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await nextFrame(page);}
     await waitModel('Altar of Kings');await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2000);
     frames.forEach((frame,i)=>fs.writeFileSync(path.join(out,`glide-${i}.png`),frame));await shot(page,'glide-end');
     checks.push('Choosing another model keeps the turned angle and glides to frame it (frames saved)');
