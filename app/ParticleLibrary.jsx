@@ -3,7 +3,7 @@ import ParticleThumbnailQueue from './ParticleThumbnailQueue.jsx';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Box,Folder,FolderOpen} from 'lucide-react';
 import GameFileBrowser from './GameFileBrowser.jsx';
-import GameIcon,{FOLDER_ICONS} from './GameIcon.jsx';
+import {GameIcon,FOLDER_ICONS} from './WorldEditorTree.jsx';
 import ParticleLibraryStage from './ParticleLibraryStage.jsx';
 import {visibleWorldEditorRows} from '../src/world-editor-catalog.js';
 import {parseParticleData} from '../src/particle-data.js';

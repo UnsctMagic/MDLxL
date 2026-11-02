@@ -9,7 +9,7 @@ export const WORLD_EDITOR_NO_GAME='No Warcraft III game files were found. Choose
 export const WORLD_EDITOR_NO_MATCHES='No matches. Try fewer words or another game version.';
 const ROW=24;
 // Folder icons for the World Editor view's top level, taken from the game's own buttons.
-const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
+export const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
 // Small icons for tree rows: decoded once per session, a few at a time.
 const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
 function loadIcon(key,read,size=48){

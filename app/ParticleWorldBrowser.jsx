@@ -1,6 +1,6 @@
 import {particleWorldEffects} from '../src/particle-world-effects.js';
 import {appearanceTypes} from '../src/particle-library-browse.js';
-import {FOLDER_ICONS} from './GameIcon.jsx';
+import {FOLDER_ICONS} from './WorldEditorTree.jsx';
 
 const status=item=>item.blocked?'Unavailable':item.previewError?'Preview unavailable':item.unsupported?.length?'Incomplete preview':item.empty?'Empty effect':'';
 const leaf=(item,key)=>({key:key+'/'+item.id,name:item.name,item,status:status(item)});
