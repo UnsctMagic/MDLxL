@@ -1,6 +1,6 @@
 # Pre-release day-test build of current main
 
-Status: active (Codex builds; owner tests by hand for a day)
+Status: ready for owner day test; handoff PR awaiting review
 Owner / consolidator: Codex builds and hands over; owner tests; Claude merges
 Updated: 2026-11-02
 
@@ -23,12 +23,12 @@ check fails, stop and report it; do not fix it in this task.
 
 ## Revision and local state
 
-- Build from: the newest `origin/main` at the moment you start. At writing it was
-  `d505914b` (Merge PR #492, FX global animation maker), last release `v0.37.2`.
-  Record the exact SHA you built in this note and in the folder name.
+- Built from newest `origin/main` fetched on 2026-11-02:
+  `7612078a8f41a9c515aaf1070b64dbca24d7016c` (merged PR #514).
+  Last release and packaged version: `0.37.2`; no version bump.
 - Workspace: `D:\Codex\prerelease-day-test` (a `git worktree` of main at that SHA,
   detached). Link `node_modules` from the main checkout with a junction; do not copy.
-- Output folder for the owner: `D:\Claude\MDLxL-TestBuilds\Main-<short sha>\`.
+- Output folder for the owner: `D:\Claude\MDLxL-TestBuilds\Main-7612078a\`.
 - Owner's real install (read-only source of settings/personal files):
   `D:\MDLxLVisButton\MDLxL-win32-x64-0.20.0\resources\app\profile\`.
   The folder name says 0.20.0 but it has been updated in place; it is the live install.
@@ -103,7 +103,7 @@ line is inside your own workspace or output folder, never the owner's MDLxL.
    `.mdx`/`.mdl` file associations in `HKCU\Software\Classes` must still point at
    the owner's real install, not the test build (#467). If they changed, restore
    them and report it.
-10. **Deliver.** Move the package to `D:\Claude\MDLxL-TestBuilds\Main-<short sha>\`.
+10. **Deliver.** Move the package to `D:\Claude\MDLxL-TestBuilds\Main-7612078a\`.
     Put the owner checklist below in that folder as `TEST-CHECKLIST.md`. Remove the
     worktree registration and task-made scratch files; remove the `node_modules`
     junction as a link before deleting anything. Do not open the build.
@@ -111,13 +111,64 @@ line is inside your own workspace or output folder, never the owner's MDLxL.
     `codex/prerelease-day-test`, push, open a PR into `main` with
     `Session: codex <task name>`, and report `ready to test` with the folder path.
 
+## Build and verification result — 2026-11-02
+
+- Delivered: `D:\Claude\MDLxL-TestBuilds\Main-7612078a\`, with `MDLxL.exe`,
+  `BUILD-SHA.txt` and the complete `TEST-CHECKLIST.md` beside it.
+- SHA: `7612078a8f41a9c515aaf1070b64dbca24d7016c`; version remains `0.37.2`.
+  PR #514's vertex Move corrections are included in this main build.
+- Matching dependency lockfile verified; `node_modules` was a junction.
+  FFmpeg 8.1.2: six binaries verified. Build passed; chunk-size warning only.
+- Compatibility: **57 passed / 0 failed / 0 skipped**. Focused source checks:
+  **31 files, 303 passed / 0 failed / 0 skipped**, selected by the names in step 4.
+  No known-failure exclusions were needed. Full source/packaged suites were not run.
+- Fresh packaging verified **1,422 runtime/asset files and 55 locales**.
+  Packaged bundle timestamps are 2026-11-02 and the FX global `fly-swarm` code is
+  present. SHA recorded beside the executable.
+- Profile: **100,106 files / 5,056,319,426 bytes** copied and hash-verified;
+  source size/mtime metadata remained unchanged throughout the copy. Source was
+  read-only. Preserved settings, personal data, libraries and caches.
+- Initial `EBUSY` was traced exactly to `Local Storage\leveldb\LOCK`.
+  The owner authorized fixing the blockers and continuing. Only three zero-byte
+  LevelDB process locks were omitted, each verified by adjacent `CURRENT` and
+  `MANIFEST-*`: IndexedDB's `file__0.indexeddb.leveldb\LOCK`,
+  `Local Storage\leveldb\LOCK`, and `Session Storage\LOCK`. These are transient
+  access locks, not database records; all durable database files were readable.
+  No owner's process was stopped or interrupted.
+- Credentials excluded: `ai\codex\auth.json`, `ai\claude\.credentials.json`,
+  `Network\Cookies` and `Network\Cookies-journal`. Removed stored API-key fields
+  and the external token field only from copied `ai\connections.json`.
+  Smoke-created cookie stores were confirmed empty (zero records) and removed.
+- Two real packaged runs used **`WinSta0\MDLxLTests` only** with the copied
+  package profile and ordinary packaged registration behavior (no headless or
+  profile override). Main window and Footman preview rendered without dialogs or
+  renderer errors; screenshots were visually inspected. A real Alt + mouse drag
+  changed the camera quaternion. F12 → Save MDX wrote a 105,022-byte scratch file;
+  a fresh packaged launch reopened it with matching geometry, bones, sequences
+  and model name. Source Footman hash unchanged; both runs fully exited.
+  Native save-path selection was supplied by the harness; the app's Save As UI
+  and save/write path were exercised. Copied settings/recents were restored after
+  smoke and verified against the source.
+- Stale associations already pointed at `sphereomancer-v2`. With owner approval,
+  restored only four HKCU open-command default values: `MDLxL.Model`,
+  `MDLxL.MDX`, `MDLxL.MDL`, and `Applications\MDLxL.exe`. Windows' effective
+  `.mdx`/`.mdl` handlers were queried through `AssocQueryString` before and after
+  smoke; both resolve to the real installed
+  `D:\MDLxLVisButton\MDLxL-win32-x64-0.20.0\MDLxL.exe`.
+- No windows appeared on the owner's desktop. No application source changes,
+  version bump, release, tag or installed-profile edits. Worktree, dependency
+  junction and scratch/build/cache files were removed after delivery. Small logs,
+  two screenshots and the report remain in `D:\Codex\prerelease-day-test-report`.
+- Not exercised: full feature acceptance, native Warcraft III/World Editor, or
+  paid AI use. The owner day-test checklist below remains for manual acceptance.
+
 ## Owner checklist (copy to `TEST-CHECKLIST.md` in the build folder)
 
 Use this build for normal work for a day. Tick what works; write down what doesn't
 (what you did, what happened). Your real install is untouched.
 
 **Start**
-- [ ] Open `MDLxL.exe` in `D:\Claude\MDLxL-TestBuilds\Main-<sha>\`. Your settings,
+- [ ] Open `MDLxL.exe` in `D:\Claude\MDLxL-TestBuilds\Main-7612078a\`. Your settings,
       hotkeys and libraries are there.
 - [ ] Open a few of your own models (File → Open, not double-click: double-click
       still opens your real install, on purpose).
@@ -160,6 +211,6 @@ Use this build for normal work for a day. Tick what works; write down what doesn
 
 ## Blockers and next action
 
-- None. Next: Codex runs the steps above on the newest main.
-- On completion: build path, SHA, check results here; owner tests; release waits
-  for the owner's "release it".
+- No build blockers remain. Ready for the owner's day test in `D:\Claude\MDLxL-TestBuilds\Main-7612078a\`.
+- Handoff branch: `codex/prerelease-day-test`; PR is for review, not merging.
+- Release waits for the owner's explicit `release it` after manual acceptance.
