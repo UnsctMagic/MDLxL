@@ -1461,7 +1461,8 @@
     "Choose one of five fixed collision presets. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.",
     "Drag Move to move; drag the edge handles to resize",
     "Center horizontally and keep the current height.",
-    "Move. Hold Shift to lock direction."
+    "Move. Hold Shift to lock direction.",
+    "Select and drag to move. Hold Shift to lock direction."
   ],
   "paint": [
     "Citadel Paint",

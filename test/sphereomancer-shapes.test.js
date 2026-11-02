@@ -90,6 +90,7 @@ test('each sphere has a separate right-side selection box and boxes keep their e
  const shapes=[{ObjectId:-1,Shape:2,Vertices:new Float32Array([0,0,40]),BoundsRadius:30},{ObjectId:-2,Shape:2,Vertices:new Float32Array([0,0,90]),BoundsRadius:25},{ObjectId:-3,Shape:0,Vertices:new Float32Array([-30,-30,0,30,30,80])}];
  const rows=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,shapes,-1).rows;
  for(const row of rows.slice(0,2)) { assert.ok(row.selectionBox,'every sphere, selected or not, has its own box');assert.ok(row.selectionBox[0]>Math.max(...row.outlines[0].map(p=>p[0]))+12,'selection box sits to the right of the sphere');assert.equal(row.selectionBox[1],row.center[1]); }
+ assert.ok(rows[1].move,'an unselected sphere has its own number-box move mapping');assert.equal(rows[1].source.ObjectId,-2);
  assert.equal(rows[2].selectionBox,undefined);
 });
 

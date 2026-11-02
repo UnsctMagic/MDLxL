@@ -32,7 +32,7 @@
 .mm-overlay .mm-outline-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke}
 .mm-overlay .mm-select-center{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
 .mm-overlay .mm-sphere-select{outline:none;cursor:pointer}
-.mm-overlay .mm-sphere-select rect{fill:#223b4b;stroke:#51d7ff;stroke-width:1.5;pointer-events:all;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-sphere-select rect{touch-action:none;fill:#223b4b;stroke:#51d7ff;stroke-width:1.5;pointer-events:all;vector-effect:non-scaling-stroke}
 .mm-overlay .mm-sphere-select.mm-selected rect{fill:var(--ui-accent,#365f81);stroke:white}
 .mm-overlay .mm-sphere-select:focus rect{stroke:#ffb835;stroke-width:3}
 .mm-overlay .mm-sphere-select text{fill:white;stroke:none;font:bold 12px sans-serif;pointer-events:none}

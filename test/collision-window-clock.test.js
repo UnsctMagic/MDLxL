@@ -17,11 +17,13 @@ test('collision drafts use the pointer target window while the main frame clock 
   const oldRequest=globalThis.requestAnimationFrame,oldCancel=globalThis.cancelAnimationFrame;
   globalThis.requestAnimationFrame=hidden.requestAnimationFrame;globalThis.cancelAnimationFrame=hidden.cancelAnimationFrame;
   t.after(()=>{if(oldRequest===undefined)delete globalThis.requestAnimationFrame;else globalThis.requestAnimationFrame=oldRequest;if(oldCancel===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=oldCancel;});
+  const refs=[],effects=[];let refIndex=0;
   const useGesture=new Function('useRef','useEffect','useWindowKeyClaim','createFrameCoalescer','moveCollision','resizeCollision','movementDragAmount','moveDragPoint','visible','requestAnimationFrame','cancelAnimationFrame','window','return ('+hook+');')(
-    value=>({current:value}),()=>{},()=>{},createFrameCoalescer,moveCollision,resizeCollision,movementDragAmount,moveDragPoint,()=>true,hidden.requestAnimationFrame,hidden.cancelAnimationFrame,hidden);
+    value=>refs[refIndex++]||=({current:value}),(effect,deps)=>{if(deps.length)effects.push(effect);},()=>{},createFrameCoalescer,moveCollision,resizeCollision,movementDragAmount,moveDragPoint,()=>true,hidden.requestAnimationFrame,hidden.cancelAnimationFrame,hidden);
   const selected={ObjectId:0,Shape:2,Vertices:new Float32Array([0,0,40]),BoundsRadius:30};
   const move={dx:[1,0,0],dy:[0,0,-1]},stage={rows:[{id:0,center:[0,0,0],move,handles:[]}]};
-  const gesture=useGesture({selected,readOnly:false,stage,selectedId:0,setDraft:value=>drafts.push(value),onCommit:value=>commits.push(value)});
+  const render=(shape=selected)=>{refIndex=0;return useGesture({selected:shape,readOnly:false,stage,selectedId:shape.ObjectId,setDraft:value=>drafts.push(value),onCommit:value=>commits.push(value)});};
+  const gesture=render();
   const target={ownerDocument:{defaultView:owner},setPointerCapture(){},focus(){}};
   const event=(x,y,shiftKey=false)=>({shiftKey,button:0,pointerId:1,clientX:x,clientY:y,currentTarget:target,preventDefault(){},stopPropagation(){}});
   const handlers=gesture.handleProps({move});handlers.onPointerDown(event(0,0));
@@ -37,4 +39,8 @@ test('collision drafts use the pointer target window while the main frame clock 
   handlers.onKeyUp({key:'Shift',shiftKey:false});gesture.drag(event(30,40,false));draw();assert.deepEqual([...drafts.at(-1).Vertices],[30,0,30],'release only adds new travel');
   handlers.onKeyDown({key:'Shift',shiftKey:true});gesture.drag(event(31,60,true));draw();assert.deepEqual([...drafts.at(-1).Vertices],[30,0,10],'a new Shift hold can latch vertical movement');
   handlers.onPointerUp(event(31,60,true));
+  const second={ObjectId:1,Shape:2,Vertices:new Float32Array([10,20,50]),BoundsRadius:15};stage.rows.push({id:1,center:[0,0,0],move,handles:[]});
+  const number=gesture.handleProps({move},second),count=commits.length;number.onPointerDown(event(5,6));number.onPointerUp(event(5,6));assert.equal(commits.length,count,'clicking a number selects without committing a shape edit');
+  number.onPointerDown(event(5,6));effects.at(-1)();gesture.drag(event(17,9));draw();assert.equal(drafts.at(-1)?.ObjectId,1,'a pending previous-selection effect must not cancel the number drag');render(second);effects.at(-1)();number.onPointerUp(event(17,9));assert.equal(commits.at(-1).ObjectId,1,'number drag targets its sphere even if another was selected');assert.deepEqual([...commits.at(-1).Vertices],[22,20,47]);assert.deepEqual([...selected.Vertices],[0,0,40]);
+  const switched=render(second);switched.handleProps({move}).onPointerDown(event(0,0));switched.drag(event(10,0));draw();render();effects.at(-1)();assert.equal(drafts.at(-1),null,'a later unrelated selection still cancels the drag');
 });

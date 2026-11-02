@@ -7252,5 +7252,6 @@
   "Drag Move to move; drag the edge handles to resize": "拖动“移动”以移动；拖动边缘控制点以调整大小",
   "Choose a unit, spell, item or doodad to see its textures.": "选择单位、技能、物品或装饰物以查看其纹理。",
   "Center horizontally and keep the current height.": "水平居中并保持当前高度。",
-  "Move. Hold Shift to lock direction.": "移动。按住 Shift 锁定方向。"
+  "Move. Hold Shift to lock direction.": "移动。按住 Shift 锁定方向。",
+  "Select and drag to move. Hold Shift to lock direction.": "选择并拖动以移动。按住 Shift 锁定方向。"
 }

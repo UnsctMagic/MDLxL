@@ -7389,5 +7389,6 @@
   "Drag Move to move; drag the edge handles to resize": "Arrastra Mover para mover; arrastra los controles del borde para cambiar el tamaño",
   "Choose a unit, spell, item or doodad to see its textures.": "Elige una unidad, hechizo, objeto o decorado para ver sus texturas.",
   "Center horizontally and keep the current height.": "Centrar horizontalmente y mantener la altura actual.",
-  "Move. Hold Shift to lock direction.": "Mover. Mantén Mayús para bloquear la dirección."
+  "Move. Hold Shift to lock direction.": "Mover. Mantén Mayús para bloquear la dirección.",
+  "Select and drag to move. Hold Shift to lock direction.": "Selecciona y arrastra para mover. Mantén Mayús para bloquear la dirección."
 }

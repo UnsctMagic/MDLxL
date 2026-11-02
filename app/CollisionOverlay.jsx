@@ -36,17 +36,20 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     const active = gesture.current;
     if (!active) return;
     const row = stage?.rows.find(item => item.id === active.before.ObjectId);
-    const retained = selectedId === active.before.ObjectId && row &&
+    // Selecting and grabbing a number happen in one event. An older stage's
+    // passive effect can still arrive before that selection has rendered.
+    if (selectedId === active.before.ObjectId) active.selectingFrom = undefined;
+    const retained = (selectedId === active.before.ObjectId || selectedId === active.selectingFrom) && row &&
       (!active.handle.move || row.move && visible(row.center));
     if (!retained) cancel();
   }, [stage, selectedId]);
-  const beginDrag = (event, handle) => {
-    if (readOnly || !selected || event.button !== 0) return;
+  const beginDrag = (event, handle, shape = selected) => {
+    if (readOnly || !shape || event.button !== 0) return;
     frame.current.cancel();
     ownerWindow.current = event.currentTarget.ownerDocument.defaultView || window;
     event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
     const start = { x: event.clientX, y: event.clientY };
-    gesture.current = { x: event.clientX, y: event.clientY, move: { pointer: start, point: start, shift: !!event.shiftKey, axis: null }, before: structuredClone(selected), handle, handles: stage.rows.find(row => row.id === selectedId).handles.filter(item => visible(item.point)) };
+    gesture.current = { selectingFrom: shape.ObjectId === selectedId ? undefined : selectedId, x: event.clientX, y: event.clientY, move: { pointer: start, point: start, shift: !!event.shiftKey, axis: null }, before: structuredClone(shape), handle, handles: stage.rows.find(row => row.id === shape.ObjectId).handles.filter(item => visible(item.point)) };
     event.currentTarget.focus();
   };
   // A move records the pointer; cloning, resizing and the preview update run once per frame.
@@ -58,6 +61,7 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
   };
   function applyDrag() {
     const active = gesture.current; if (!active?.point) return;
+    if (!pending.current && active.point.x === active.x && active.point.y === active.y) return;
     const next = structuredClone(active.before), dx = active.point.x - active.x, dy = active.point.y - active.y;
     if (active.handle.move) moveCollision(next, [0, 1, 2].map(i => dx * active.handle.move.dx[i] + dy * active.handle.move.dy[i]));
     else {
@@ -85,9 +89,9 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     const active = gesture.current;
     if (event.key === 'Shift' && active?.handle.move) moveDragPoint(active.move, active.move.pointer, event.shiftKey);
   };
-  const handleProps = handle => ({
+  const handleProps = (handle, shape = selected) => ({
     tabIndex: readOnly ? -1 : 0, role: 'slider',
-    onPointerDown: event => beginDrag(event, handle), onPointerMove: drag,
+    onPointerDown: event => beginDrag(event, handle, shape), onPointerMove: drag,
     onPointerUp: event => { if (gesture.current) { drag(event); frame.current.flush(); commit(); } },
     onPointerCancel: cancel, onLostPointerCapture: () => { if (gesture.current) cancel(); },
     onKeyUp: shiftKey,
@@ -116,6 +120,13 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
   </g>;
   const selectedRow = stage.rows.find(row => row.id === selectedId);
   const select = (event, id) => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); onSelect(id); };
+  const selectorProps = row => {
+    const props = gesture.handleProps({move: row.move}, row.source);
+    return {...props, role: 'button', tabIndex: 0,
+      onPointerDown: event => { select(event, row.id); if (row.move) props.onPointerDown(event); },
+      onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(row.id); } else if (row.id === selectedId) props.onKeyDown(event); },
+    };
+  };
   return <svg className={`mm-overlay ${className}`} viewBox={`0 0 ${stage.width} ${stage.height}`} aria-label="Collision shapes" onPointerMove={gesture.drag}>
     {stage.rows.map(row => <g key={row.id} className={row.id === selectedId ? 'mm-selected' : ''}>
       {(row.guides || []).filter(line => line.every(visible)).map((line, index) => <polyline key={'g' + index} points={line.map(p => p.slice(0, 2).join(',')).join(' ')} className="mm-guide"/>)}
@@ -125,11 +136,10 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
       </React.Fragment>)}
       {visible(row.center) && <circle className="mm-select-center" cx={row.center[0]} cy={row.center[1]} r="20" onPointerDown={event => select(event, row.id)}><title>Select collision shape</title></circle>}
     </g>)}
-    {stage.rows.map((row, index) => row.selectionBox && visible(row.selectionBox) && <g key={'select-' + row.id} className={`mm-sphere-select ${row.id === selectedId ? 'mm-selected' : ''}`} role="button" tabIndex="0" aria-label={`Select collision shape ${index + 1}`} aria-pressed={row.id === selectedId}
-      onPointerDown={event => select(event, row.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(row.id); } }}>
+    {stage.rows.map((row, index) => row.selectionBox && visible(row.selectionBox) && <g key={'select-' + row.id} className={`mm-sphere-select ${row.id === selectedId ? 'mm-selected' : ''}`} {...selectorProps(row)} aria-label={`Select collision shape ${index + 1}`} aria-pressed={row.id === selectedId}>
       <rect x={row.selectionBox[0] - 12} y={row.selectionBox[1] - 12} width="24" height="24" rx="2"/>
       <text x={row.selectionBox[0]} y={row.selectionBox[1] + 4} textAnchor="middle">{index + 1}</text>
-      <title>Select collision shape</title>
+      <title>Select and drag to move. Hold Shift to lock direction.</title>
     </g>)}
     {/* Selected controls are painted last so another shape cannot swallow a grab or trash click. */}
     {selectedRow && !readOnly && <g key={selectedId} className="mm-selected">

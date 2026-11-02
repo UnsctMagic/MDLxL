@@ -7373,5 +7373,6 @@
   "Drag Move to move; drag the edge handles to resize": "Перетаскивайте «Переместить» для перемещения, а крайние ручки — для изменения размера",
   "Choose a unit, spell, item or doodad to see its textures.": "Выберите юнита, заклинание, предмет или декорацию, чтобы увидеть текстуры.",
   "Center horizontally and keep the current height.": "Центрировать по горизонтали, сохранив текущую высоту.",
-  "Move. Hold Shift to lock direction.": "Перемещение. Удерживайте Shift, чтобы зафиксировать направление."
+  "Move. Hold Shift to lock direction.": "Перемещение. Удерживайте Shift, чтобы зафиксировать направление.",
+  "Select and drag to move. Hold Shift to lock direction.": "Выберите и перетащите для перемещения. Удерживайте Shift, чтобы зафиксировать направление."
 }

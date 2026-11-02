@@ -3,7 +3,7 @@ const {PROBE_SOURCE}=require('./fiber-probe.cjs');
 exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  await popup.evaluate(PROBE_SOURCE);
  const report={checks:[],failures:[],hits:[]};
- const check=async(name,run)=>{try{await run();report.checks.push(name);}catch(error){report.failures.push({name,error:error.message});}finally{await popup.mouse.up();await popup.keyboard.up('Shift');await ready();}};
+ const check=async(name,run)=>{try{await run();report.checks.push(name);}catch(error){report.failures.push({name,error:error.message,step:report.numberDragStep});}finally{await popup.mouse.up();await popup.keyboard.up('Shift');await ready();}};
  const overlay=()=>popup.evaluate(()=>{const p=findFiberProps('.ox-collision',p=>p?.stage);return {stage:p.stage,selected:p.selectedId};});
  const at=async(point)=>{const {stage}=await overlay(),r=await popup.locator('.ox-collision').boundingBox();return {x:r.x+point[0]*r.width/stage.width,y:r.y+point[1]*r.height/stage.height};};
  const selectField=async i=>{await popup.getByRole('button',{name:'Advanced',exact:true}).click();await popup.getByLabel('X '+(i+1),{exact:true}).click();await popup.getByRole('button',{name:'Simple',exact:true}).click();};
@@ -12,6 +12,33 @@ exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  const existing=openDocument(source,'x.mdx').model.CollisionShapes.filter(s=>s.Shape===0||s.Shape===2).map(s=>s.Shape===0?[...s.Vertices]:[...s.Vertices,s.BoundsRadius]);
  await check('authored collision proposal',async()=>assert.deepEqual((await shapeState()).rows,existing,'proposal starts from the model collisions'));
  await preset.selectOption('1');await ready();
+ await check('number boxes move their own sphere with Shift and Escape',async()=>{
+  const startNumber=async index=>{
+   await popup.waitForFunction(()=>{const {rows,size}=oxShapes(),stage=findFiberProps('.ox-collision',p=>p?.stage).stage;return stage.rows.length===rows.length&&stage.rows.every((r,i)=>r.source&&[...r.source.Vertices].every((v,j)=>v===Math.fround(rows[i][j]*size)));});
+   const b=await boxes.nth(index).boundingBox(),x=b.x+b.width/2,y=b.y+b.height/2;
+   assert.equal(await popup.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[aria-label]')?.getAttribute('aria-label'),{x,y}),'Select collision shape '+(index+1),'drag starts on the intended number');
+   return {x,y,before:await overlay()};
+  };
+  report.numberDragStep='plain click';
+  await popup.getByLabel('Sphere size',{exact:true}).fill('1.23');await ready();const boxes=popup.locator('.ox-collision .mm-sphere-select');
+  const untouched=await shapeState();await boxes.nth(1).click();assert.deepEqual(await shapeState(),untouched,'a number click selects without changing fractional-size geometry');
+  report.numberDragStep='move second number';
+  let {x,y,before}=await startNumber(1);
+  await popup.mouse.move(x,y);await popup.mouse.down();await popup.mouse.move(x+36,y+8,{steps:10});
+  await popup.waitForFunction(x=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[1].center[0]-x)>5,before.stage.rows[1].center[0],{timeout:1500});
+  await popup.mouse.up();await ready();const moved=await shapeState();assert.notDeepEqual(moved.rows[1],untouched.rows[1],'second number moves the second sphere');assert.deepEqual(moved.rows[0],untouched.rows[0],'other sphere stays unchanged');
+  report.numberDragStep='Escape from first number';
+  ({x,y,before}=await startNumber(0));
+  await popup.mouse.move(x,y);await popup.mouse.down();await popup.mouse.move(x+32,y+10,{steps:10});report.numberDragStep='Escape movement';await popup.waitForFunction(x=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[0].center[0]-x)>5,before.stage.rows[0].center[0]);
+  await popup.keyboard.press('Escape');await popup.mouse.up();await ready();assert.deepEqual(await shapeState(),moved,'Escape cancels a drag begun on an unselected number');assert.equal(await popup.locator('.ox-root').count(),1);
+  report.numberDragStep='Shift from second number';
+  ({x,y,before}=await startNumber(1));
+  await popup.keyboard.down('Shift');await popup.mouse.move(x,y);await popup.mouse.down();await popup.mouse.move(x+30,y+4,{steps:8});await popup.waitForFunction(x=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[1].center[0]-x)>5,before.stage.rows[1].center[0]);
+  await popup.mouse.move(x+40,y+34,{steps:8});let current=await overlay();assert.ok(Math.abs(current.stage.rows[1].center[1]-before.stage.rows[1].center[1])<.1,'number Shift drag stays locked');
+  report.numberDragStep='release Shift';
+  await popup.keyboard.up('Shift');await popup.mouse.move(x+45,y+42,{steps:8});await popup.waitForFunction(y=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[1].center[1]-y)>3,before.stage.rows[1].center[1]);current=await overlay();assert.ok(Math.abs(current.stage.rows[1].center[1]-before.stage.rows[1].center[1])<12,'release adds only new perpendicular travel');await popup.mouse.up();await ready();report.numberDragStep='done';
+ });
+ await popup.getByLabel('Sphere size',{exact:true}).fill('1');await preset.selectOption('0');await preset.selectOption('1');await ready();
  await check('Center preserves sphere height and radius',async()=>{
   const before=(await shapeState()).rows[0];await popup.locator('.ox-collision').getByRole('button',{name:'Center',exact:true}).click({timeout:1500});await ready();
   const after=(await shapeState()).rows[0];assert.deepEqual(after,[0,0,before[2],before[3]]);
