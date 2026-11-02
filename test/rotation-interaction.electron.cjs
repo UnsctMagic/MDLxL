@@ -91,7 +91,7 @@ function readViewport(selector){
   await page.locator('[data-hotkey="animation"]').click();await page.getByLabel('Movement current sequence').selectOption('0');await page.getByLabel('Movement bone or node').selectOption('0');await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
   const tools=page.getByRole('group',{name:'Movement tool',exact:true});await tools.getByRole('button',{name:'Rotate',exact:true}).click();
   const gameData=async()=>{await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&(p.restPose||Math.round(r.native.getFrame())===Math.round(p.time));});return page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe(),c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});};
-  async function checkMarkerClicks(label) {
+  async function checkMarkerClicks(label, moveBones=false) {
    const before = await gameData(), camera = new ObjectLoader().parse(before.camera);
    camera.updateMatrixWorld(true);
    const matrices = new Map(before.matrices.map(([id,m]) => [id,new Matrix4().fromArray(m)]));
@@ -122,9 +122,25 @@ function readViewport(selector){
    };
    const a=first.node.ObjectId,b=second.node.ObjectId,blank={x:box.width*.86,y:box.height*.22};
    await click(first,null,[a]);
+   if(moveBones){
+    const start={x:box.x+first.x,y:box.y+first.y};
+    for(const key of ['Shift','Control']){
+     await page.keyboard.down(key);
+     await rawDrag(start,{x:start.x+28,y:start.y+17});
+     await page.keyboard.up(key);
+     const pivot=before.model.PivotPoints[a];
+     await page.waitForFunction(({id,pivot})=>Object.values(mdlxlProbe().session.doc.model.PivotPoints[id]).some((v,i)=>Math.abs(v-pivot[i])>.001),{id:a,pivot});
+     if(key==='Shift'){
+      const moved=(await gameData()).model.PivotPoints[a];
+      assert.equal(Object.values(moved).filter((v,i)=>Math.abs(v-pivot[i])>.001).length,1,'Shift marker drag stays on one workplane axis');
+     }
+     await page.keyboard.press('Control+z');
+     await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)===old,before.document);
+    }
+   }
    await click(second,'Shift',[a,b]);
    await click(second,'Control',[a]);
-   await click(blank,null,[]);
+   if(!moveBones) await click(blank,null,[]);
    assert.equal((await gameData()).document,before.document);
    if(label!=='Bones'){
     await click(first,null,[a]);
@@ -134,7 +150,7 @@ function readViewport(selector){
     await page.keyboard.press('Control+z');
     await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)===old,before.document);
    }
-   check(label+' marker selection and undo history'+(label==='Bones'?'':' plus drag-away rotation'));
+   check(label+(moveBones?' Move modifier drags and clicks':' marker selection and undo history')+(label==='Bones'?'':' plus drag-away rotation'));
   }
   async function gameOrbit(label){const before=await gameData(),b=await page.locator('[data-clean-model-canvas]').boundingBox();await page.keyboard.down('Alt');await rawDrag({x:b.x+b.width*.65,y:b.y+b.height*.65},{x:b.x+b.width*.65+30,y:b.y+b.height*.65+20});await page.keyboard.up('Alt');await page.waitForFunction(old=>mdlxlProbe().runtime.controls.object.quaternion.toArray().some((v,i)=>Math.abs(v-old[i])>1e-5),new ObjectLoader().parse(before.camera).quaternion.toArray());assert.equal((await gameData()).document,before.document);check(label+' actual mouse orbit preserves document');}
   async function ensurePoseBody(mode){
@@ -162,16 +178,27 @@ function readViewport(selector){
    await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&Math.round(r.native.getFrame())===Math.round(p.time);});
    const state=await page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe();const c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),quaternion:r.controls.object.quaternion.toArray(),position:r.controls.object.position.toArray(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});
    const b=await page.locator('[data-clean-model-canvas]').boundingBox(),camera=new ObjectLoader().parse(state.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();const points=pose?projectPoseHandles(state.model,state.config,state.frame,state.sequence,camera,state.width,state.height):projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height);const active=pose?points.find(h=>h.selected):points.find(h=>h.node.ObjectId===state.selected.at(-1));assert.ok(active,'active control');let start={x:b.x+active.x+100,y:b.y+active.y+80},end={x:start.x+40,y:start.y+17};
+   let crossingAxis;
    if(off){
     const handles=movementAxisHandles(active,camera,state.width,state.height,state.radius,state.space,'rotate',state.appearance);
     const nodes=projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height,state.frame,new Map(state.matrices.map(([i,m])=>[i,new Matrix4().fromArray(m)])));
-    const at=handles.flatMap(h=>(h.ring?h.points:[h]).filter(pt=>{
-     if(Math.hypot(pt.x-active.x,pt.y-active.y)<22 || pt.x<10 || pt.y<10 || pt.x>state.width-10 || pt.y>state.height-10) return false;
-     if(pickMovementHandle(handles,pt.x,pt.y,'rotate')!==h) return false;
-     return !pose || pickMovementHandle(handles,pt.x,pt.y,'tip')===h || !pickPoseHandle(points,pt.x,pt.y,state.config.target,nodes,true);
-    }))[0];
-    assert.ok(at,'visible '+style+' handle clear of higher-priority POSE markers');start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};}
-   await rawDrag(start,end,{shift,live:async()=>{const expected=(off ? .45*180/Math.PI : 40*({xy:1,xz:-1,yz:1}[plane]))*dpi*speed*(shift?precision:1);await page.waitForFunction(expected=>{const el=document.querySelector('[data-rotation-feedback]:not([data-rotation-feedback=""])');const angle=Number(el?.getAttribute('data-rotation-feedback')?.split(' ').at(-1));return !!el&&Math.abs(Math.abs(angle)-Math.abs(expected))<.06;},expected);const value=await page.locator('[data-rotation-feedback]:not([data-rotation-feedback=""])').getAttribute('data-rotation-feedback');if(!off)almost(Number(value.split(' ').at(-1)),40*({xy:1,xz:-1,yz:1}[plane])*dpi*speed*(shift?precision:1),.06);await shot(pose?'pose-'+style:'movement-'+style);}});
+    const crossing=pose && style!=='lines';
+    const candidates=handles.flatMap(handle=>(handle.ring?handle.points:[handle]).map(point=>({handle,point})));
+    const hit=candidates.find(({handle,point})=>{
+     if(Math.hypot(point.x-active.x,point.y-active.y)<22 || point.x<10 || point.y<10 || point.x>state.width-10 || point.y>state.height-10) return false;
+     if(pickMovementHandle(handles,point.x,point.y,'rotate')!==handle) return false;
+     if(crossing){
+      // Just beside the intersection, only this visible stroke is nearest, inside another axis's invisible tip radius.
+      if(!handles.some(other=>other!==handle && Math.hypot(point.x-other.x,point.y-other.y)<9)) return false;
+      if(pickMovementHandle(handles,Math.round(point.x),Math.round(point.y),'rotate')!==handle) return false;
+     }
+     return !pose || !handle.ring || !pickPoseHandle(points,point.x,point.y,state.config.target,nodes,true);
+    });
+    assert.ok(hit,'visible '+style+(crossing?' crossing another axis':' handle'));
+    const at=hit.point;
+    if(crossing) crossingAxis=hit.handle.axis;
+    start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};}
+   await rawDrag(start,end,{shift,live:async()=>{const expected=(off ? .45*180/Math.PI : 40*({xy:1,xz:-1,yz:1}[plane]))*dpi*speed*(shift?precision:1);await page.waitForFunction(expected=>{const el=document.querySelector('[data-rotation-feedback]:not([data-rotation-feedback=""])');const angle=Number(el?.getAttribute('data-rotation-feedback')?.split(' ').at(-1));return !!el&&Math.abs(Math.abs(angle)-Math.abs(expected))<.06;},expected);const value=await page.locator('[data-rotation-feedback]:not([data-rotation-feedback=""])').getAttribute('data-rotation-feedback');if(crossingAxis)assert.equal(value.split(' ')[0],crossingAxis,style+' turns around the visible ring at the crossing');if(!off)almost(Number(value.split(' ').at(-1)),40*({xy:1,xz:-1,yz:1}[plane])*dpi*speed*(shift?precision:1),.06);await shot(pose?'pose-'+style:'movement-'+style);}});
    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)!==old,state.document);check((pose?'POSE':'Movement')+' '+(off?style:plane)+(shift?' precision':'')+' changes authored tracks');
   }
   await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
@@ -193,7 +220,7 @@ function readViewport(selector){
   await page.getByLabel('Workplane Constraints',{exact:true}).check();for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);for(const plane of ['xy','xz','yz']){await page.locator(`[data-hotkey="plane:${plane}"]`).check();for(let turn=0;turn<3;turn++)await movementTurn({pose:true,plane});}}await movementTurn({pose:true,plane:'yz',shift:true});await setSpeed('movement',2,.2);await movementTurn({pose:true,plane:'yz',shift:true,speed:2,precision:.2});await setSpeed('movement',1,.1);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['lines','rings','arcs']){await setStyle(style);await movementTurn({pose:true,off:true,style});}
   await tools.getByRole('button',{name:'Move',exact:true}).click();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('POSE',style,true);}}
   await gameOrbit('POSE');
-  await page.locator('[data-hotkey="bones"]').click();await page.getByLabel('Movement bone or node').selectOption('0');const bonesTools=page.getByRole('group',{name:'Bones tools',exact:true});await bonesTools.getByRole('button',{name:'Select Tool',exact:true}).click();await checkMarkerClicks('Bones');await page.getByLabel('Movement bone or node').selectOption('0');assert.equal(await bonesTools.getByRole('button',{name:'Rotate',exact:true}).count(),0);await bonesTools.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('Bones',style);}}await gameOrbit('Bones');check('Bones preserves Select/Move restriction');
+  await page.locator('[data-hotkey="bones"]').click();await page.getByLabel('Movement bone or node').selectOption('0');const bonesTools=page.getByRole('group',{name:'Bones tools',exact:true});await bonesTools.getByRole('button',{name:'Select Tool',exact:true}).click();await checkMarkerClicks('Bones');await page.getByLabel('Movement bone or node').selectOption('0');assert.equal(await bonesTools.getByRole('button',{name:'Rotate',exact:true}).count(),0);await bonesTools.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).check();await checkMarkerClicks('Bones',true);await page.getByLabel('Movement bone or node').selectOption('0');await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('Bones',style);}}await gameOrbit('Bones');check('Bones preserves Select/Move restriction');
   assert.equal(sha256File(fixture),hash);assert.deepEqual(errors,[]);check('Original Footman bytes preserved; no renderer errors');
  }catch(error){await shot('failure');throw error;}finally{fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,dpi,fixture,fixtureHash:hash,target:process.env.MDLXL_ROTATION_TARGET||'full',packaged:appTarget().packaged,executableHash:sha256File(appTarget().executablePath),bundle:bundleHashes()},null,2));await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -76,10 +76,12 @@ test('Forge precision override changes only shifted samples in a batch', () => {
   }
 });
 
-test('ring and arc segments use the rotate threshold and tip mode uses the tip', async () => {
+test('ring and arc segments use the rotate threshold and ignore hidden line tips', async () => {
   const { pickMovementHandle } = await import('../app/movement-overlay.js');
   const ring = {ring:true, x:50, y:0, points:[{x:0,y:0},{x:50,y:0}]};
   assert.equal(pickMovementHandle([ring],20,9,'rotate'), ring);
   assert.equal(pickMovementHandle([ring],20,11,'rotate'), null);
   assert.equal(pickMovementHandle([ring],20,0,'tip'), null);
+  assert.equal(pickMovementHandle([ring],50,0,'tip'), null);
+  assert.equal(pickMovementHandle([ring],50,0,'rotate'), ring);
 });

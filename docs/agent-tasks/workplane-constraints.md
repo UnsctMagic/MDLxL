@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: all ten review fixes implemented and verified on the feature branch. Ready to test, awaiting owner review.
+Status: Claude Code accepted the ten review fixes. The two follow-up regressions are fixed and ready to test.
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -166,6 +166,19 @@ Claude Code if something is unclear.
 
 ## Verification evidence
 
+**Bones Move and POSE crossing follow-up.** At `eaf5a629`, a real Shift-drag left the rest-pose bone pivot unchanged,
+and a press on the visible X ring at a crossing reported Z. A unit check also
+returned the ring for a tip-only pick at its hidden endpoint.
+
+The follow-up passed 11 focused tests, 57 compatibility tests, and 2,597
+source tests with zero failures and the same 10 existing skips. The CI baseline
+is unchanged. The production build passed. Both targeted hidden-desktop
+real-mouse reruns passed: rotation-interaction (194 checks) and movement-gizmo
+(32 checks). The Footman test measured the pivot after Shift/Ctrl drags, checked
+the Shift axis constraint and exact Undo, then verified modifier-click selection.
+POSE Rings and Arcs reported the visible stroke's axis inside another axis's
+hidden tip radius.
+
 **2 Nov review rerun.** 131 focused checks passed. Compatibility passed 57/57.
 The full source suite passed 2,597 with 0 failures and the same 10 existing
 opt-in/platform skips. The CI baseline is unchanged. The production build and
@@ -212,7 +225,7 @@ and a missed ring hit 9 px from the stroke.
 ## Handover
 
 Implementation PR: [#504](https://github.com/UnsctMagic/MDLxL/pull/504).
-All ten review fixes are included on `codex/workplane-constraints`. Ready to test and awaiting merge approval.
+Claude Code accepted the ten review fixes at `eaf5a629`. This follow-up covers only Bones Move modifier presses and POSE ring/arc crossings on the same branch.
 PR #496 is closed and unmerged; the replacement link is recorded there.
 The exact Gizmo Lab installation and desktop shortcut were removed. The real
 installed app/profile and permanent test corpus were preserved. Disposable
@@ -221,11 +234,8 @@ only the small report, logs and requested captures on D:.
 
 Owner click-through on a build of this branch:
 
-1. In Bones with Select, Shift-click and Ctrl-click bones, then click empty
-   space. Repeat in Movement and POSE with Rotate, then drag away from the handles.
-2. In Quad View, orbit the Top pane, then Rotate and Move a selection there.
-3. In Settings → Mouse → Rotation, set Shift precision for Forge only and
-   check that the other editors kept theirs.
+1. Bones, Move tool: hold Shift and drag a bone; then Shift-click and Ctrl-click bones.
+2. POSE, Settings → Appearance → Rotate handles = Rings, then Arcs: grab each ring where it crosses another axis and check it turns around its own axis.
 
 ## Review fixes (Claude Code review, 2 Nov)
 

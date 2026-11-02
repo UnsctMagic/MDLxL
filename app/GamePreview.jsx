@@ -593,19 +593,24 @@ export default function GamePreview(inputProps) {
         if (target) p.onAttachTarget?.(target.node.ObjectId);
         invalidate(); event.preventDefault(); event.stopImmediatePropagation(); return;
       }
+      let moveClickSelection = null;
       if (event.button === 0 && work && (p.restPose || p.transformMode === 'rotate') && !p.poseConfig?.picking && p.onSelectNodes && (event.shiftKey || event.ctrlKey || event.metaKey)) {
         const rect = canvas.getBoundingClientRect();
         const marker = pickMovementNode(pickable, event.clientX - rect.left, event.clientY - rect.top, p.selectedNodeIds, 13, event.ctrlKey || event.metaKey);
         if (marker) {
-          p.onSelectNodes(movementNodeSelection(p.selectedNodeIds, marker.node.ObjectId, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }));
-          event.preventDefault(); event.stopImmediatePropagation(); return;
+          const ids = movementNodeSelection(p.selectedNodeIds, marker.node.ObjectId, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey });
+          if (p.restPose && p.transformMode === 'move') moveClickSelection = ids;
+          else {
+            p.onSelectNodes(ids);
+            event.preventDefault(); event.stopImmediatePropagation(); return;
+          }
         }
       }
       if (event.button === 0 && work && !(event.ctrlKey && p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         if (beginPoseGesture(event, p, event.clientX - rect.left, event.clientY - rect.top, rect)) return;
       }
-      if (event.button === 0 && work && !(event.ctrlKey && p.onInspectGeoset) && pickable.length) {
+      if (event.button === 0 && work && (moveClickSelection || !(event.ctrlKey && p.onInspectGeoset)) && pickable.length) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         const editSequence = nodeEditSequence(p, Math.round(native.getFrame()));
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
@@ -623,9 +628,13 @@ export default function GamePreview(inputProps) {
         const handle = active && editable && (workplaneDrag ? movementWorkplaneHandle(p.workplane, active.unitsPerPixel) : viewRotationHandle || (axisHandle || freeScaleDrag || screenMove ? axisHandle || { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: active.unitsPerPixel } : null));
         if (handle) {
           const ids = (directMove||markerRotate)&&!p.selectedNodeIds?.includes(picked.node.ObjectId)?[picked.node.ObjectId]:[...(p.selectedNodeIds || [])], snapshots = new Map();
-          if(directMove||markerRotate)p.onSelectNodes?.(ids, { record: !markerRotate });
+          if((directMove && !moveClickSelection)||markerRotate)p.onSelectNodes?.(ids, { record: !markerRotate });
           for (const node of allNodes(ownedModel)) if (ids.includes(node.ObjectId)) snapshots.set(node.ObjectId, structuredClone({ Translation: node.Translation, Rotation: node.Rotation, Scaling: node.Scaling, PivotPoint: node.PivotPoint }));
           nodeGesture = { id: event.pointerId, x, y, handle: { ...handle, offHandle: !!directRotate }, clickSelection: p.transformMode === 'rotate' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !axisHandle ? (picked ? [picked.node.ObjectId] : []) : null, camera: camera.clone(), width: rect.width, height: rect.height, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'world', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
+          if (moveClickSelection) {
+            nodeGesture.clickSelection = moveClickSelection;
+            nodeGesture.selectOnMove = directMove;
+          }
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
           nodeGesture.dragPlane = axisHandle?.plane || p.workplane;
@@ -644,7 +653,7 @@ export default function GamePreview(inputProps) {
         }
         if (picked && p.onSelectNodes) {
           const ids = p.selectedNodeIds || [], id = picked.node.ObjectId;
-          p.onSelectNodes(movementNodeSelection(ids, id, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }), { record: p.transformMode !== 'rotate' });
+          p.onSelectNodes(moveClickSelection || movementNodeSelection(ids, id, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }), { record: p.transformMode !== 'rotate' });
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
@@ -758,11 +767,13 @@ export default function GamePreview(inputProps) {
       const p = latest.current;
       const rect = canvas.getBoundingClientRect(), dx = event.clientX - rect.left - nodeGesture.x, dy = event.clientY - rect.top - nodeGesture.y;
       const distance = Math.hypot(dx, dy);
-      if (!nodeGesture.moved && (nodeGesture.clickSelection || nodeGesture.pose && nodeGesture.mode === 'rotate' && nodeGesture.handle.free ? distance <= 5 : distance < 2)) return;
+      const rotateClick = nodeGesture.mode === 'rotate' && (nodeGesture.clickSelection || nodeGesture.pose && nodeGesture.handle.free);
+      if (!nodeGesture.moved && (rotateClick ? distance <= 5 : distance < 2)) return;
       if (nodeGesture.pose) {
         nodeGesture.moved = true; previewPoseGesture(nodeGesture, event, p, rect, dx, dy); invalidate(); return;
       }
       if (movementRestricted(nodeGesture.mode, p.restrictions)) { restoreGestureTracks(nodeGesture); nodeGesture.adjusted = true; invalidate(); return; }
+      if (nodeGesture.selectOnMove && !nodeGesture.moved) p.onSelectNodes?.(nodeGesture.ids);
       const [dragX, dragY] = nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
       nodeGesture.moved = true;
       if (nodeGesture.freeScaleDrag) {
@@ -819,7 +830,7 @@ export default function GamePreview(inputProps) {
       posedGeometryCache = null;
       latest.current.onNodePosePreview?.(null);
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      if (event.type === 'pointerup' && gesture.clickSelection && !gesture.moved && !gesture.adjusted) latest.current.onSelectNodes?.(gesture.clickSelection, { record: false });
+      if (event.type === 'pointerup' && gesture.clickSelection && !gesture.moved && !gesture.adjusted) latest.current.onSelectNodes?.(gesture.clickSelection, { record: gesture.mode === 'move' });
       if (gesture.pose) {
         const valid = poseContextValid(gesture, latest.current);
         if (event.type === 'pointercancel' || event.type === 'lostpointercapture' || !gesture.moved || gesture.adjusted || !gesture.changes?.length || !valid) restoreGestureTracks(gesture);

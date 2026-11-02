@@ -333,6 +333,7 @@ function pointSegmentDistance(x, y, handle) {
 }
 
 export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
+  if (mode === 'tip') handles = handles.filter(handle => !handle.ring);
   if (mode === 'rotate' && handles.some(handle => handle.ring)) return handles.map(handle => ({ handle, distance: Math.min(...handle.points.slice(1).map((point, i) => pointSegmentDistance(x, y, { startX: handle.points[i].x, startY: handle.points[i].y, x: point.x, y: point.y }))) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
   if (mode === 'rotate') {
     // A short camera-facing axis can sit on another axis's shaft. Its visible
