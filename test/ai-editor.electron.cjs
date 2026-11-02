@@ -197,9 +197,6 @@ const sse = (res, value) => res.write('data: ' + JSON.stringify(value) + '\n\n')
   const { profile, errors } = launched;
   await page.waitForSelector('.classic-toolbar', { timeout: 60000 });
   await settle(page, 1000);
-  // This workflow checks direct editing by one chat; Offload Mode (organiser and
-  // workers) has its own test in ai-console.electron.cjs.
-  await page.evaluate(() => window.desktop.aiOffload(false));
   check('AI panel is closed by default', (await page.locator('.ai-assistant').count()) === 0);
   // Exercise the native sign-in UI through real provider child processes. The
   // browser launch is intercepted, so this never opens a window on the desktop.

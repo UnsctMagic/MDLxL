@@ -41,7 +41,6 @@ contextBridge.exposeInMainWorld('desktop', {
   aiCleanup:value=>call('ai:cleanup',value),
   aiRememberCleanup:value=>call('ai:rememberCleanup',value),
   aiImportant:value=>call('ai:important',value),
-  aiOffload:value=>call('ai:offload',value),
   aiSdBrain:value=>call('ai:sdBrain',value),
   aiEditingHandbook:value=>call('ai:editingHandbook',value),
   aiWebResearch:value=>call('ai:webResearch',value),

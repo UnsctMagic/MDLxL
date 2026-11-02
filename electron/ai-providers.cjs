@@ -33,7 +33,7 @@ function apiBase(settings) {
   );
 }
 const ANTHROPIC_HEADERS = Object.freeze({ 'anthropic-version': '2023-06-01' });
-// Worker jobs and pauses outlast the CLIs' default MCP tool timeouts.
+// Editing jobs and pauses outlast the CLIs' default MCP tool timeouts.
 const MCP_TOOL_TIMEOUT_MS = 3600000;
 async function requestJson(url, body, key, signal, headers = {}) {
   const response = await fetch(url, {
@@ -388,7 +388,7 @@ async function runApi({
       for await (const data of sseEvents(response)) {
         if (data.type === 'error') throw Error(data.error?.message || 'Claude stream failed.');
         if (data.type === 'content_block_start') content[data.index] = { ...data.content_block, _json: '' };
-        // How full the context is, for retiring Offload workers at half.
+        // Actual provider context usage for the chat.
         if (data.type === 'message_start' && data.message?.usage) {
           const u = data.message.usage;
           spent.input += u.input_tokens || 0;
