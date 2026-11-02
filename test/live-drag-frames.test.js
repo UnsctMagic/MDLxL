@@ -72,7 +72,7 @@ test('a fast pivot turn keeps its direction when every sample feeds the angle', 
 for (const { name, file, from, feed } of [
   { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
   { name: 'UV rotate', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', feed: 'uvTurn(s.drag' },
-  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY)' },
+  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, dx, dy,' },
   { name: 'Showcase text rotate', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', feed: 'rotationDragDegrees(row.rotationDrag' },
 ]) test(`${name} feeds every sample to the turn`, () => {
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -84,6 +84,7 @@ for (const { name, file, from, feed } of [
 // event. Each listed per-event code path only records the point and schedules
 // a frame; `forbidden` is the expensive work that moved into the frame callback.
 const coalescedDrags = [
+  { name: 'Preview gizmo hover', file: 'app/GamePreview.jsx', from: 'if (!nodeGesture) {', to: 'if (event.pointerId !== nodeGesture.id)', forbidden: /pickPoseHandle|pickMovementHandle|pickMovementNode/ },
   { name: 'UV Wrapper drag', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', to: 'function applyMove()', forbidden: /\bdraw\(|onPreviewChange|restrictUVChange/ },
   { name: 'Vertex move/rotate/scale', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', to: 'function applyTransformMove()', forbidden: /onTransformPreview|updateWideWireGeometry|computeBoundingSphere/ },
   { name: 'Viewport camera report', file: 'app/Viewport.jsx', from: 'const invalidate = () => {', to: 'const markerTexture', forbidden: /onCameraAnglesChange|setCompassAxes/ },
@@ -107,7 +108,7 @@ const coalescedDrags = [
   { name: 'AnimXL strip drag', file: 'app/AnimXL.jsx', from: 'const stripMove = event => {', to: 'stripApply.current = () => {', forbidden: /\bupdate\(|setSettings|setTime|setDraft|stripTime/ },
   { name: 'Showcase layer drag', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', to: 'function applyMove(){', forbidden: /onChange|scaleTextRuns/ },
   { name: 'Showcase crop drag', file: 'app/ShowcaseWorkspace.jsx', from: 'function moveCrop(event) {', to: 'function applyCropMove() {', forbidden: /setCrop|cropBetween|getBoundingClientRect/ },
-  { name: 'Model Manager collision drag', file: 'app/ModelManager.jsx', from: 'const drag = event => {', to: 'function applyDrag() {', forbidden: /structuredClone|previewDraft|setDraft|moveCollision|resizeCollision/ },
+  { name: 'Collision shape drag (Managers, Sphereomancer)', file: 'app/CollisionOverlay.jsx', from: 'const drag = event => {', to: 'function applyDrag() {', forbidden: /structuredClone|previewDraft|setDraft|moveCollision|resizeCollision/ },
   { name: 'UV splitters', file: 'app/UVWorkspace.jsx', from: 'onPointerMove={event => { if (pointer.current === event.pointerId) {', to: 'onPointerUp={stop}', forbidden: /onPointerValue|report\.current\(/ },
   { name: 'AI console resize', file: 'app/AiAssistant.jsx', from: 'const move = moveEvent => {', to: 'const end = () => {', forbidden: /setWidth/ },
   { name: 'Geoset list resize', file: 'app/GeosetListBox.jsx', from: 'onPointerMove={event => {', to: 'onPointerUp={stop}', forbidden: /setHeight/ },

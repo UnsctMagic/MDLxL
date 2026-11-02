@@ -305,7 +305,7 @@ test('the outside check can be switched off in connection settings', async t => 
   assert.equal(f.checks.length, 0, 'no extra AI call while it is off');
 });
 
-test('outside check receives the app motion table independently of the worker checks', async t => {
+test('outside check receives the app motion table independently of the editing AI checks', async t => {
   const f = await setup(t, ({ requests }) => requests === 1 ? plan() : requests === 2 ? edit() : requests === 3
     ? tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }) : requests === 4
       ? tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Measured.' }) : done());
@@ -317,8 +317,49 @@ test('outside check receives the app motion table independently of the worker ch
   };
   await f.service.send({ id: 'motion-table', text: 'Make the animation smaller, keep its motion.', context });
   const question = JSON.stringify(f.checks[0].messages);
-  assert.match(question, /MDLxL's own measurement, not written by the worker/);
+  assert.match(question, /MDLxL's own measurement, not written by the editing AI/);
   assert.match(question, /First.*distance.*40/);
+});
+
+test('a recorded sweep travels to inspection and its measured rows reach the outside check', async t => {
+  const rule = { name: 'Keep grip', sweep: { kind: 'attached', a: { geoset: 0, vertices: [1] }, b: { nodeId: 0 } } };
+  const updated = Array.from({ length: 20 }, (_, i) => ({
+    name: 'Revised grip ' + i, sweep: { ...rule.sweep, limit: i + 2 },
+  }));
+  const f = await setup(t, ({ requests }) => requests === 1 ? plan({ checks: ['Preserve UVs', rule] }) : requests === 2 ? edit() : requests === 3
+    ? tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }) : requests === 4
+      ? plan({ checks: updated }) : requests === 5
+        ? tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Measured.' }) : done());
+  const call = f.service.call;
+  let sent, outsideRules;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'status' && args.sweepChecks) {
+      outsideRules = args.sweepChecks;
+      const rows = Array.from({ length: 35 }, (_, i) => ['Measured sequence ' + i, 1001, 1, 1001, 6.98765, 7241, 2.34567, 5.4321]);
+      const worst = { clip: 'Stand Alternate Work - Long Variation With Attachment', frame: 7241 };
+      return { sweeps: updated.map(({ name }) => ({ name,
+        before: { worst: { ...worst, value: 14 }, rows }, edited: { worst: { ...worst, value: 7 }, rows },
+      })) };
+    }
+    const result = await call(name, args, ...rest);
+    if (name === 'mdlxl_review' && args.action === 'inspect') {
+      sent = args.sweepChecks;
+      result.review.sweeps = [{ name: rule.name, before: { worst: { value: 14 } }, edited: { worst: { value: 2 } } }];
+    }
+    return result;
+  };
+  await f.service.send({ id: 'plan-sweep', text: 'Keep the grip through every animation.', context });
+  assert.deepEqual(sent, [rule]);
+  const question = JSON.stringify(f.checks[0].messages);
+  assert.deepEqual(outsideRules, updated);
+  const prompt = f.checks[0].messages.at(-1).content.find(part => part.type === 'text').text;
+  const block = prompt.split('\n\n').find(section => section.startsWith('MDLxL plan sweep measurements:'));
+  assert.ok(block.length <= 4000, `outside sweep block contains ${block.length} characters`);
+  assert.match(block, /truncated/i);
+  assert.match(block, /before.*14.*edited.*7/s);
+  assert.match(question, /Revised grip.*edited.*7/s);
+  assert.doesNotMatch(question, /Keep grip/);
+  assert.doesNotMatch(question, /\[object Object\]/);
 });
 
 test('with the handbook on, a job carries the guides its request touches; effort defaults to high', async t => {
@@ -757,22 +798,22 @@ test('owner replay: absent comparison evidence is a note and does not block fini
 });
 
 
-for (const offload of [false, true]) test(`owner replay: explicit delivery completes the kept result without another provider call (${offload ? 'offload' : 'direct'})`, async t => {
+test('owner replay: explicit delivery completes the kept result without another provider call', async t => {
   const actions = [plan(), edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The picture packet omits baseline and wireframe.' })];
   const f = await setup(t, () => actions.shift() || done());
-  const id = offload ? (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id : 'test';
+  const id = (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id;
   assert.equal((await f.service.send({ id, text: ownerTurns.turns['27'].text, context })).ok, false);
   const owner = await f.service.conversation(id, 'compatible');
-  const bird = offload ? await f.service.conversation(owner.currentWorker, 'compatible') : owner;
-  bird.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
+  const chat = owner;
+  chat.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
   const before = f.counts();
   assert.equal(before.edits, 1);
   assert.equal((await f.service.send({ id, text: ownerTurns.turns['33'].text, context })).ok, true);
   assert.deepEqual(f.counts(), before, 'acceptance performs no edit and makes no provider request');
   assert.equal(owner.task.status, 'complete');
-  assert.equal(bird.task.status, 'complete');
-  assert.equal(bird.task.phase, 'verified');
-  assert.equal(bird.task.acceptedByUser, true);
+  assert.equal(chat.task.status, 'complete');
+  assert.equal(chat.task.phase, 'verified');
+  assert.equal(chat.task.acceptedByUser, true);
   assert.match(owner.transcript.at(-1).text, /accepted|accepting/i);
   assert.match(owner.transcript.at(-1).text, /wireframe/);
   assert.equal((await f.service.taskInfo(id)).canResume, false);

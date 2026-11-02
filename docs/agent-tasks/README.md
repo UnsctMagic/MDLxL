@@ -8,15 +8,19 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Shift lock: one shared lock rule and an orange lock badge at the cursor | Contract ready; Codex to build after PR #504 merges | [Shift lock badge](shift-lock-badge.md) / Codex |
+| Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
 | OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
 | AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
-| AI every-frame checks: MDLxL sweeps a rule over every animation | Plan approved; not started | [Every-frame checks](ai-every-frame-checks.md) / Codex |
+| AI every-frame checks: MDLxL sweeps a rule over every animation | Ready for review; awaiting merge approval | [Every-frame checks](ai-every-frame-checks.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 | Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
+| Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
+| EMTR Particle Library browsing and placement | Main integration ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md), [Add like ribbons](emtr-add-like-ribbons.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

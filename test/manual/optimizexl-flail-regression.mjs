@@ -127,7 +127,7 @@ for (const path of paths) {
     for (const stage of ['duplicates', 'animation', 'unused']) bytes = runOptimizeStage(bytes, stage, simpleSettings(stage, strength, openDocument(bytes, 'current.mdx').model)).bytes;
     put(`pipeline:${strength}`, bytes, simpleSettings('duplicates', strength, model));
   }
-  put('mounted-spheres', runOptimizeStage(source, 'spheres', { preset: 4, size: 1 }).bytes);
+  put('mounted-spheres', runOptimizeStage(source, 'spheres', { preset: 3, size: 1 }).bytes);
   assert.deepEqual(new Uint8Array(fs.readFileSync(path)), source);
   reports.push({ model: path.split(/[\\/]/).at(-1), source: hash(source), results, comparison, additionalRepairs, preservedMotion, approvedChanges });
 }

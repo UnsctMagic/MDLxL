@@ -1,0 +1,42 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createDemoDocument} from '../src/editor-document.js';
+import {modelTextureNames,createEntryTextureLists,matchEntryTextures} from '../src/world-editor-textures.js';
+
+test('reads the model texture list, skipping fileless replaceables',()=>{
+ const doc=createDemoDocument();doc.model.Textures=[{Image:'Textures\\One.blp',ReplaceableId:0,Flags:0},{Image:'',ReplaceableId:1,Flags:0},{Image:'Textures\\Two.blp',ReplaceableId:0,Flags:0}];
+ assert.deepEqual(modelTextureNames(doc.serialize('mdx'),'x.mdx'),['Textures\\One.blp','Textures\\Two.blp']);
+ assert.deepEqual(modelTextureNames(doc.serialize('mdl'),'x.mdl'),['Textures\\One.blp','Textures\\Two.blp']);
+});
+test('all arts and variations in order, normalized dedupe, icon last, session/version cache',async()=>{
+ const calls=[];const load=createEntryTextureLists(async(path,variant)=>{calls.push([path,variant]);return path==='a'?[{path:'Textures/One.dds',variant},{path:'Textures/Two.dds',variant}]:[{path:'textures\\one.dds',variant},{path:'Textures/Three.dds',variant}];},async(path,variant)=>({path,variant}));
+ const entry={key:'we/0',models:[{path:'a'},{path:'b'}],icon:'Icon.blp'};
+ const first=await load(entry,'reforged','sig');
+ assert.deepEqual(first.map(x=>x.path),['Textures/One.dds','Textures/Two.dds','Textures/Three.dds','Icon.blp']);
+ assert.equal(await load(entry,'reforged','sig'),first);assert.equal(calls.length,2);
+ await load(entry,'classic','sig');assert.equal(calls.length,4);
+ await load(entry,'classic','new');assert.equal(calls.length,6);
+ const items=[{path:'Textures\\One.dds',variant:'reforged',id:1},{path:'textures\\one.dds',variant:'classic',id:2},{path:'Two.dds',sourcePath:'war3.w3mod:_hd.w3mod:Textures\\Two.dds',variant:'reforged',id:3}];
+ const matched=matchEntryTextures(first,items);
+ assert.deepEqual(matched.items.map(x=>x.id),[1,3]);assert.deepEqual(matched.missing,['Textures/Three.dds','Icon.blp']);
+});
+test('an unreadable art keeps the other arts, is retried, and missing names are listed once',async()=>{
+ let calls=0;const load=createEntryTextureLists(async(path,variant)=>{calls++;if(path==='bad')throw Error('unreadable');return [{path:'One.blp',variant}];},async()=>null);
+ const entry={key:'we/1',models:[{path:'bad'},{path:'good'}]};
+ assert.deepEqual((await load(entry,'classic','sig')).map(x=>x.path),['One.blp']);
+ await load(entry,'classic','sig');assert.equal(calls,4,'a partial list is not cached');
+ await assert.rejects(load({key:'we/2',models:[{path:'bad'}]},'classic','sig'),/unreadable/);
+ assert.deepEqual(matchEntryTextures([{path:'Gone.blp',variant:'classic'},{path:'Gone.blp',variant:'reforged'}],[]).missing,['Gone.blp']);
+});
+
+test('a rejected icon keeps model textures, reports the icon missing, and retries the entry',async()=>{
+ let models=0,icons=0;
+ const load=createEntryTextureLists(async(path,variant)=>{models++;return [{path:'Textures\\Footman.blp',variant}];},async(path,variant)=>{icons++;if(icons===1)throw Error('icon read failed');return {path,variant};});
+ const entry={key:'we/icon-failure',models:[{path:'Footman.mdx'}],icon:'BTNFootman.blp'};
+ const first=await load(entry,'classic','sig');
+ assert.deepEqual(first.map(record=>record.path),['Textures\\Footman.blp','BTNFootman.blp']);
+ const catalog=[{id:'footman',path:'Textures\\Footman.blp',variant:'classic'}];
+ assert.deepEqual(matchEntryTextures(first,catalog),{items:catalog,missing:['BTNFootman.blp']});
+ const second=await load(entry,'classic','sig');assert.notEqual(second,first,'a failed icon must not cache a complete entry');
+ assert.equal(models,2);assert.equal(icons,2,'next call retries the icon');assert.equal(await load(entry,'classic','sig'),second,'the successful retry is cached');
+});

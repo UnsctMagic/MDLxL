@@ -1,0 +1,36 @@
+{
+  "sourceBase": "518c1a5ca9d0a2ad621d9c522f1034d41ccb3713",
+  "bundle": {
+    "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+    "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+  },
+  "passed": 4,
+  "failed": 0,
+  "skipped": 0,
+  "checks": [
+    {
+      "id": "P1",
+      "emitter": "BlizParticle01",
+      "parent": 18,
+      "center": [
+        3.0026267369588218,
+        24.41200002034505,
+        40.84843444824219
+      ]
+    },
+    {
+      "id": "P4"
+    },
+    {
+      "id": "P5",
+      "pixels": 100.00000370737604,
+      "renderedParticlesPixels": 100.84902388228056
+    },
+    {
+      "id": "P6",
+      "parent": 19,
+      "snapError": 0.000005591521240258232,
+      "motionError": 0.0000034424734488436845
+    }
+  ]
+}

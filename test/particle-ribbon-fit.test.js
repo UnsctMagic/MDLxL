@@ -56,13 +56,15 @@ test('ribbon creation uses whole checked animations and preserves its fitted axi
  for(const format of ['mdl','mdx']){const reopened=openDocument(doc.serialize(format),'ribbon.'+format).model.RibbonEmitters[0];assert.deepEqual(reopened.Visibility,ribbon.Visibility);assert.deepEqual(reopened.Rotation,ribbon.Rotation);}
  doc.undo();assert.deepEqual(doc.model,before);
 });
-test('ribbons can be created with no checked animations or on a static model',()=>{
+test('ribbons require a checked animation but still support a static model',()=>{
  for(const animated of [true,false]){
   const doc=fixture();if(!animated)doc.model.Sequences=[];
   const fit=fitRibbonToPolygons(doc.model,{0:[0,1,2,3]});
-  const result=placeTimedParticleRecipe(doc.model,fit.recipe,{ribbon:fit,sequences:[],sequence:0,from:0,to:'',parent:'0',position:[0,0,0],motion:'target',fit:true});
+  const placement={ribbon:fit,sequences:[],sequence:0,from:0,to:'',parent:'0',position:[0,0,0],motion:'target',fit:true};
+  if(animated){assert.throws(()=>placeTimedParticleRecipe(doc.model,fit.recipe,placement),/Choose an animation/);continue;}
+  const result=placeTimedParticleRecipe(doc.model,fit.recipe,placement);
   const r=doc.model.Nodes[result.ids[0]];
-  if(animated)assert.ok(r.Visibility.Keys.every(key=>key.Vector[0]===0));else assert.equal(r.Visibility,1);
+  assert.equal(r.Visibility,1);
  }
 });
 

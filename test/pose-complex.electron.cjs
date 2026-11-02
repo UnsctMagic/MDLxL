@@ -104,7 +104,7 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     await page.getByLabel('Render mode',{exact:true}).selectOption('textured');
     {const b=await viewportBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.wheel(0,-480);await settle();await page.mouse.move(b.x+b.width*.25,b.y+b.height*.3);await page.mouse.down({button:'right'});await page.mouse.move(b.x+b.width*.25+48,b.y+b.height*.3+16,{steps:6});await page.mouse.up({button:'right'});await settle();}
     await page.getByRole('checkbox',{name:'Bones',exact:true}).uncheck();
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),config=await page.evaluate(()=>poseProbe().props.poseConfig),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     results.mapping=config;await shot('01-auto-handles');

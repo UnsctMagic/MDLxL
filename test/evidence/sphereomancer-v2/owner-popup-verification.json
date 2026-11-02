@@ -1,0 +1,150 @@
+{
+  "startingHead": "ece19d84a5bd3a7cbd4f5be450092ca6254e9dce",
+  "source": {
+    "passed": 82,
+    "failed": 0,
+    "skipped": 0,
+    "oldClockAssertion": "an occluded main-window frame must not own the live drag: 1 !== 0"
+  },
+  "packaged": {
+    "suites": {
+      "optimizexl": {
+        "passed": true,
+        "seconds": 155
+      },
+      "model-manager-regressions": {
+        "passed": true,
+        "seconds": 6
+      }
+    },
+    "failed": 0,
+    "skipped": 0,
+    "rendererAssetsHash": "40424c5759c8bbd0ca76f026cbfd2d6ef565fe8b9ec9a4e3546819f7e6573eed"
+  },
+  "oldRenderer": {
+    "failures": [
+      "authored collision proposal",
+      "second shape center selection",
+      "wide outline selection",
+      "overlapping outline cannot swallow trash"
+    ],
+    "trashHit": "<polyline points=\"471.1845051086742,530.3213455456544 470.7854422195613,522.1982338259819 469.5920967459945,514.1533521127145 467.61596125723355,506.2641770145306 464.87606701830055,498.60668560028745 461.3988007084949,491.25462369831484 457.21765030324735,484.2787956837746 452.37288256660963,477.74"
+  },
+  "ownerChecks": [
+    "authored collision proposal",
+    "second shape center selection",
+    "wide outline selection",
+    "main frame clock is actually backgrounded",
+    "Move collision shape live with covered main",
+    "Resize sphere radius live with covered main",
+    "overlapping outline cannot swallow trash",
+    "trash deletes every shape in maximized popup"
+  ],
+  "ownerFailures": [],
+  "background": {
+    "flags": [
+      [
+        "disable-background-timer-throttling",
+        false
+      ],
+      [
+        "disable-backgrounding-occluded-windows",
+        false
+      ],
+      [
+        "disable-renderer-backgrounding",
+        false
+      ]
+    ],
+    "windows": [
+      {
+        "visible": true,
+        "minimized": false,
+        "parent": true
+      },
+      {
+        "visible": false,
+        "minimized": true,
+        "parent": false
+      }
+    ]
+  },
+  "windows": [
+    {
+      "maximized": true,
+      "throttled": true,
+      "bounds": {
+        "x": -8,
+        "y": -8,
+        "width": 1936,
+        "height": 1048
+      }
+    },
+    {
+      "maximized": false,
+      "throttled": true,
+      "bounds": {
+        "x": 410,
+        "y": 136,
+        "width": 1100,
+        "height": 760
+      }
+    }
+  ],
+  "staleFiberReads": 2,
+  "frames": [
+    {
+      "name": "flash-paused",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flash-playing",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flash-presets",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flash-size",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flash-drag",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flash-other-stage",
+      "count": 120,
+      "mostlyBlack": [
+        0,
+        0
+      ]
+    }
+  ],
+  "limits": [
+    "The local old-clock-only renderer comparison advanced enough frames to pass live assertions even with the main document hidden; suspended-main fail-first proof is the executable production-hook source test.",
+    "Only the requested two packaged suites were run.",
+    "Native Warcraft III and owner acceptance remain unverified."
+  ]
+}

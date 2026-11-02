@@ -1,5 +1,10 @@
 import { VIEW_PRESETS } from './viewport-math.js';
 import { planeAxes } from './classic-gestures.js';
+import { facingAxis, PERPENDICULAR } from '../src/rotation-drag.js';
+
+export function lockedQuadPlane(flatPlane, direction) {
+  return flatPlane ? PERPENDICULAR[facingAxis(direction)] : null;
+}
 
 // Keep editing planes derived from the same presets used by the View menu.
 export function viewWorkplane(view) {

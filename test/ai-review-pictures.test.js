@@ -193,6 +193,33 @@ test('an accepted baseline replaces checks before, pictures and motion in a foll
   await assert.rejects(inspect(bridge, { baseline: 'missing' }), /no version/);
 });
 
+test('plan sweeps reuse one revision and remeasure edited and named baseline versions', async () => {
+  const { bridge, sessions, target, edit } = editor();
+  const model = sessions[0].doc.model;
+  // Two pivots: only the first follows the edited track.
+  model.Helpers.push({ ObjectId: 1 });
+  await edit();
+  bridge.versionStore.save('target', 'candidate', model);
+  const sweepChecks = [{ name: 'relative drift', sweep: { kind: 'attached', a: { nodeId: 0 }, b: { nodeId: 1 } } }];
+  const read = async extra => (await inspect(bridge, { sweepChecks, ...extra })).review.sweeps;
+  const first = await read();
+  assert.equal(first?.[0].edited.worst.value, 30);
+  assert.equal(first[0].before.worst.value, 5);
+  assert.strictEqual(await read(), first);
+  const outside = () => reviewAiModel(bridge, { target: 't', action: 'status', sweepChecks }, {});
+  assert.strictEqual((await outside()).sweeps, first, 'outside check shares the inspected revision');
+
+  model.Bones[0].Translation.Keys[2].Vector[0] = 42;
+  sessions[0].doc.revision++; recordAiChange(target.review, {}, model);
+  const [next] = await read({ baseline: 'candidate' });
+  assert.equal(next.edited.worst.value, 42);
+  assert.equal(next.before.worst.value, 30);
+  const refreshed = (await outside()).sweeps;
+  assert.equal(refreshed[0].edited.worst.value, 42);
+  assert.equal(refreshed[0].before.worst.value, 5);
+  assert.strictEqual(await read(), refreshed);
+});
+
 test('implicit pictures add worst-difference and worst-speed frames and label their measured distances', async () => {
   const { bridge, target, sessions } = editor({ sequence: 1 });
   await beginAiReview(bridge, 't');

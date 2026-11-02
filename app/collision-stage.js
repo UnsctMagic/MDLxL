@@ -11,25 +11,42 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
     if (![0, 2].includes(shape.Shape)) continue;
     const matrix = new Matrix4().fromArray(native.rendererData.nodes[shape.ObjectId]?.matrix || new Matrix4().elements);
     const point = local => project(new Vector3().fromArray(local).applyMatrix4(matrix));
-    const center = collisionCenter(shape), outlines = [];
+    const center = collisionCenter(shape), outlines = [], guides = [];
     if (shape.Shape === 2) {
-      for (const [a, b] of [[0, 1], [0, 2], [1, 2]]) outlines.push(Array.from({ length: 65 }, (_, i) => {
+      // One outline facing the camera reads as a ball; a faint ground ring
+      // shows its height. Three crossing rings per sphere were hard to read.
+      const world = new Vector3().fromArray(center).applyMatrix4(matrix), radius = shape.BoundsRadius * matrix.getMaxScaleOnAxis();
+      const right = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize(), up = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      outlines.push(Array.from({ length: 65 }, (_, i) => project(world.clone().addScaledVector(right, Math.cos(i * Math.PI / 32) * radius).addScaledVector(up, Math.sin(i * Math.PI / 32) * radius))));
+      guides.push(Array.from({ length: 65 }, (_, i) => {
         const local = [...center], angle = i * Math.PI / 32;
-        local[a] += Math.cos(angle) * shape.BoundsRadius; local[b] += Math.sin(angle) * shape.BoundsRadius;
+        local[0] += Math.cos(angle) * shape.BoundsRadius; local[1] += Math.sin(angle) * shape.BoundsRadius;
         return point(local);
       }));
     } else {
       const corners = Array.from({ length: 8 }, (_, i) => [0, 1, 2].map(axis => shape.Vertices[axis + ((i >> axis) & 1) * 3]));
       for (let i = 0; i < 8; i++) for (let axis = 0; axis < 3; axis++) if (!(i & (1 << axis))) outlines.push([point(corners[i]), point(corners[i | (1 << axis)])]);
     }
-    const row = { id: shape.ObjectId, center: point(center), outlines, handles: [] };
-    if (shape.ObjectId === selectedId && Math.abs(matrix.determinant()) > 1e-10) {
+    const row = { id: shape.ObjectId, source: shape, center: point(center), outlines, guides, handles: [] };
+    if (shape.Shape === 2) row.selectionBox = [
+      Math.min(width - 14, Math.max(14, Math.max(...outlines[0].map(point => point[0])) + 26)),
+      Math.min(height - 14, Math.max(14, row.center[1])), row.center[2],
+    ];
+    if ((shape.ObjectId === selectedId || shape.Shape === 2) && Math.abs(matrix.determinant()) > 1e-10) {
       const world = new Vector3().fromArray(center).applyMatrix4(matrix), inverse = matrix.clone().invert();
+      row.centerDelta = new Vector3(0, 0, world.z).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray();
       row.move = Object.fromEntries([['dx', 1, 0], ['dy', 0, 1]].map(([key, x, y]) => [key, world.clone().add(screenPlaneTranslation(camera, world, width, height, x, y)).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray()]));
-      for (let axis = 0; axis < 3; axis++) for (const sign of [-1, 1]) {
+      if (shape.Shape === 2 && shape.ObjectId === selectedId) {
+        const scale=matrix.getMaxScaleOnAxis(), right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+        const at=outlines[0][0], unit=project(world.clone().addScaledVector(right,(shape.BoundsRadius+1)*scale));
+        const basis=particleAxisMapping(at,unit);
+        if(basis)row.handles.push({axis:0,sign:1,point:at,basis});
+      } else if (shape.Shape === 0) for (let axis = 0; axis < 3; axis++) for (const sign of [-1, 1]) {
         const local = [...center], unit = [...center];
         const distance = shape.Shape === 2 ? shape.BoundsRadius : (shape.Vertices[axis + 3] - shape.Vertices[axis]) / 2;
         local[axis] += sign * distance; unit[axis] += sign * (distance + 1);
+        // Match Managers' outline controls: only axes with a useful screen
+        // projection can be resized here. A face aimed at the camera is depth.
         const at = point(local), basis = particleAxisMapping(at, point(unit));
         if (basis) row.handles.push({ axis, sign, point: at, basis });
       }
