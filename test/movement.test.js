@@ -568,7 +568,8 @@ test('Swept Local X follows the mouse circle after a 180 degree Y turn; constrai
       // Compare the visible world delta, not the opposite signed Local angle.
       results.push(actual.multiply(orientation.clone().invert()));
       const constrained = beginGizmoRotation({ ...options, workplaneEnabled: true, workplane: 'yz' });
-      near(movementRotationAmount(constrained, constrained.tangent.x * 30, constrained.tangent.y * 30), 30);
+      assert.equal(constrained.circle,true);
+      near(Math.abs(movementRotationAmount(constrained, -100, 100)), 90);
     }
     near(Math.abs(results[0].dot(results[1])), 1);
     const expected = new Quaternion().setFromAxisAngle(view, Math.PI / 2);

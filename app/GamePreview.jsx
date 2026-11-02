@@ -1619,6 +1619,9 @@ export default function GamePreview(inputProps) {
         drawGizmoRotationFeedback(nodeCanvas.getContext('2d'), nodeGesture?.rotationDrag, canvas.width / Math.max(1, width));
         nodeCanvas.dataset.activeHandle = activeAxis || '';
         nodeCanvas.dataset.rotationFeedback = nodeGesture?.rotationDrag ? `${nodeGesture.rotationDrag.axisName || ''} ${nodeGesture.rotationDrag.degrees}` : '';
+        nodeCanvas.dataset.rotationMode = nodeGesture?.rotationDrag ? nodeGesture.rotationDrag.circle ? 'circle' : 'line' : '';
+        nodeCanvas.dataset.rotationPivot = nodeGesture?.rotationDrag?.circle ? `${nodeGesture.rotationDrag.pivot.x},${nodeGesture.rotationDrag.pivot.y}` : '';
+        nodeCanvas.dataset.rotationSign = nodeGesture?.rotationDrag?.circle ? String(nodeGesture.rotationDrag.sign) : '';
         nodeCanvas.dataset.rotationDirection = nodeGesture?.rotationDrag?.tangent ? `${nodeGesture.rotationDrag.tangent.x},${nodeGesture.rotationDrag.tangent.y}` : '';
         if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {

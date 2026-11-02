@@ -485,13 +485,10 @@ before merge. If anything here is unclear, stop and ask Claude Code.
 
 ### What the owner sees
 
-In the Front pane, with Rotate and the plane picked:
-- **XY** (turn around Z, upright on screen): drag **left/right**; the arrow is
-  horizontal.
-- **YZ** (turn around X, sideways on screen): drag **up/down**; the arrow is
-  vertical.
-- **ZX** (turn around Y, pointing at you): **circle the mouse round the centre**
-  like a clock; the arrow is curved.
+In the Front pane, with Rotate and the plane picked (using the current camera):
+- **XY**: drag **left/right**; the arrow is horizontal.
+- **ZX**: drag **up/down**; the arrow is vertical.
+- **YZ**: **circle the mouse round the centre**; the arrow is curved.
 Top and Side work the same way with their own axes, and so does Perspective.
 
 ### Rule
@@ -501,8 +498,8 @@ Top and Side work the same way with their own axes, and so does Perspective.
    look and behaviour as `quad-workplane-toolbar` in
    [app/Viewport.jsx](../../app/Viewport.jsx) ~288; reuse it, no new control).
    No Workplane Constraints checkbox there: flat panes stay constrained. Each
-   pane remembers its own choice, defaulting to the pane's own plane (Front ZX,
-   Top XY, Side YZ), so nothing changes until a button is pressed. Rotate uses
+   pane remembers its own choice, defaulting to the plane that actually faces
+   its current camera (Front YZ, Top XY, Side ZX), so nothing changes until a button is pressed. Rotate uses
    this choice in place of `lockedQuadPlane`.
 2. **Move in flat panes is unchanged**: still locked to the plane the pane
    faces (`lockedQuadPlane`). The buttons in a flat pane affect Rotate only. Say
@@ -510,7 +507,7 @@ Top and Side work the same way with their own axes, and so does Perspective.
    stays in the view's own plane."
 3. **Direction**: keep the camera-only `T` rule from `455b409c` (arrow from
    the camera, never the press point) for planes that do *not* face the camera.
-   That already gives left/right for XY and up/down for YZ in Front.
+   That gives left/right for XY and up/down for ZX in Front.
 4. **Plane facing the camera** (within about 15°, the same test
    `constrainedRotationTangent` uses): turn by the **angle swept around the
    centre**, as with constraints off. Reuse the existing swept-angle path in
@@ -529,8 +526,8 @@ Top and Side work the same way with their own axes, and so does Perspective.
 
 ### Tests
 
-- Unit: for an orthographic Front camera, XY gives a horizontal `T`, YZ a
-  vertical `T`, ZX the circle mode; Top and Side likewise with their axes.
+- Unit: for the current orthographic Front camera, XY gives a horizontal `T`, ZX a
+  vertical `T`, YZ the circle mode; Top and Side likewise with their axes.
   Circle mode: a quarter turn of the mouse around the centre gives about 90° at
   1× and is wrap-safe past 180°.
 - Packaged, real mouse on the hidden desktop, Vertices quad view: in each of
@@ -542,7 +539,31 @@ Top and Side work the same way with their own axes, and so does Perspective.
 
 ### Owner click-through when ready
 
-1. Quad view, Front pane, Rotate: press XY and drag left/right, YZ and drag
-   up/down, ZX and circle round the centre. Follow the yellow arrow each time.
+1. Quad view, Front pane, Rotate: press XY and drag left/right, ZX and drag
+   up/down, YZ and circle round the centre. Follow the yellow arrow each time.
 2. Do the same in Top and Side.
 3. Switch to Move in a flat pane: it still moves in that view's own plane.
+
+### Option B implementation handoff
+
+The owner clarified that the current cameras stay: Front faces YZ, Top faces XY,
+and Side faces ZX. The toolbar defaults and the test expectations follow those
+actual cameras. The existing toolbar button row appears in all four quad panes;
+flat panes have no checkbox. The button controls Rotate only. A face-on plane
+uses the existing wrap-safe swept-angle path and a yellow double-headed quarter
+circle around the selection centre; all other planes retain the camera-only
+fixed line direction. Feedback exposes `rotationMode` and line `rotationDirection`.
+The Settings hint and es/ru/zh catalogs describe both modes.
+
+Fail-first: the new unit file run against `1b06e2b6` failed the flat-pane mode,
+10° tilt, and swept-circle assertions (3 failures). On the implementation,
+`pnpm test` passed 57/57; `pnpm run test:source` passed 2,603 with 0 failures and
+9 existing skips after the build, with the CI baseline unchanged. The pre-build
+source run had 8 missing generated asset failures and one now-updated old
+face-on tangent assertion. `pnpm run build` and package passed. The targeted
+hidden-desktop `quad-view` and `rotation-interaction` reruns passed, the latter
+with 209 checks and no renderer errors. The quad test changes a flat Rotate
+button before verifying Move still preserves its original depth.
+
+Ready to test; ready for review; awaiting merge approval. Full release suite,
+Warcraft III playback, and owner feel remain untested.

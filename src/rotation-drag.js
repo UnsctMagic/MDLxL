@@ -40,9 +40,9 @@ export function moveConstraint(handle, shift) {
   if (handle.plane) return { plane: handle.plane, axis: null, dominant: !!shift };
   return shift ? { plane: PERPENDICULAR[handle.axis], axis: null, dominant: false } : { plane: null, axis: handle.axis, dominant: false };
 }
-export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings, tangent } = {}) {
+export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings, tangent, circle = false } = {}) {
   const px = x - pivot.x, py = y - pivot.y;
-  return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, px, py,
+  return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, circle, px, py,
     sign: axis?.[2] > 0 ? -1 : 1, previous: Math.hypot(px, py) >= 8 ? Math.atan2(py, px) : null, swept: 0, degrees: 0, pointer: { x, y } };
 }
 /** Samples accumulate the wrapped path; geometry and drawing run once per frame. */
@@ -53,12 +53,12 @@ export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1, shift 
     drag.axisName = chooseLeverAxis(drag.lever, drag.tangents, dx, dy);
     if (drag.axisName) drag.sign = drag.facings[drag.axisName] > 0 ? -1 : 1;
   }
-  if (!drag.constrained && Math.hypot(x, y) >= 8) {
+  if ((!drag.constrained || drag.circle) && Math.hypot(x, y) >= 8) {
     const angle = Math.atan2(y, x);
     if (drag.previous !== null) { const delta = angle - drag.previous; drag.swept += Math.atan2(Math.sin(delta), Math.cos(delta)); }
     drag.previous = angle;
   }
-  const raw = drag.constrained ? dx * drag.tangent.x + dy * drag.tangent.y : drag.lever && !drag.axisName ? 0 : drag.swept * 180 / Math.PI * drag.sign;
+  const raw = drag.constrained && !drag.circle ? dx * drag.tangent.x + dy * drag.tangent.y : drag.lever && !drag.axisName ? 0 : drag.swept * 180 / Math.PI * drag.sign;
   drag.preciseSwept = (drag.preciseSwept || 0) + (raw - (drag.previousRaw || 0)) * (shift ? drag.precision : 1);
   drag.previousRaw = raw;
   drag.degrees = drag.preciseSwept * drag.sensitivity * pointerSensitivity;

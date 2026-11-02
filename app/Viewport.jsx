@@ -284,19 +284,22 @@ export default function Viewport(inputProps) {
           paneControls.object = camera;
           const pane = { ...definition, workplane: viewWorkplane(definition.view), surface: element, perspective, ortho, camera, controls: paneControls, grid: createViewportGrid(), center: singlePane.center.clone(), radius: singlePane.radius, floor: singlePane.floor };
           scene.add(pane.grid);
-          if (pane.id === 'perspective') {
-            pane.constraintPlane = 'xy'; pane.constraints = true;
-            const toolbar = document.createElement('div'); toolbar.className = 'quad-workplane-toolbar'; toolbar.setAttribute('role', 'toolbar'); toolbar.setAttribute('aria-label', 'Perspective workplane toolbar');
+          {
+            pane.constraintPlane = pane.workplane || 'xy'; pane.constraints = true;
+            const toolbar = document.createElement('div'); toolbar.className = 'quad-workplane-toolbar'; toolbar.setAttribute('role', 'toolbar'); toolbar.setAttribute('aria-label', pane.id === 'perspective' ? 'Perspective workplane toolbar' : 'Rotate plane toolbar');
             toolbar.style.cssText = 'position:absolute;bottom:3px;left:4px;display:flex;gap:4px;align-items:center;z-index:4;font:11px Tahoma,sans-serif;background:#18202bdd;color:white;padding:2px 4px;border-radius:3px';
             toolbar.addEventListener('pointerdown', event => event.stopPropagation());
             for (const [value, name] of [['xy', 'XY'], ['xz', 'ZX'], ['yz', 'YZ']]) {
-              const button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-pressed', String(value === pane.constraintPlane));
+              const button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-pressed', String(value === pane.constraintPlane)); if (pane.id !== 'perspective') button.title = 'Rotate plane in this view. Move stays in the view\'s own plane.';
               button.addEventListener('click', () => { cancelGesture(); pane.constraintPlane = value; for (const item of toolbar.querySelectorAll('button')) item.setAttribute('aria-pressed', String(item === button)); invalidate(); }); toolbar.appendChild(button);
             }
-            const label = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.setAttribute('aria-label', 'Perspective Workplane Constraints');
-            label.title = 'On: Rotate stays locked to the chosen plane. Off: use the handles.'; label.append(check, 'Workplane Constraints');
-            check.addEventListener('change', () => { cancelGesture(); pane.constraints = check.checked; invalidate(); }); toolbar.appendChild(label); element.appendChild(toolbar);
-            Object.assign(pane, { constraintToolbar: toolbar, constraintLabel: label, constraintToggle: check });
+            if (pane.id === 'perspective') {
+              const label = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.setAttribute('aria-label', 'Perspective Workplane Constraints');
+              label.title = 'On: Rotate stays locked to the chosen plane. Off: use the handles.'; label.append(check, 'Workplane Constraints');
+              check.addEventListener('change', () => { cancelGesture(); pane.constraints = check.checked; invalidate(); }); toolbar.appendChild(label);
+              Object.assign(pane, { constraintLabel: label, constraintToggle: check });
+            }
+            element.appendChild(toolbar); pane.constraintToolbar = toolbar;
           }
           panes.push(pane); bindInput(pane); bindPane(pane);
           const saved = cameraMemory.current?.panes?.find(item => item.id === pane.id);
@@ -455,7 +458,7 @@ export default function Viewport(inputProps) {
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(pivot, start);
-      const lockedPlane = currentLockedPlane(), dragPlane = lockedPlane || (quad ? boundPane.constraintPlane || p.workplane : p.workplane), constrained = !!lockedPlane || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
+      const lockedPlane = currentLockedPlane(), dragPlane = down.action === 'rotate' && quad ? boundPane.constraintPlane || lockedPlane || p.workplane : lockedPlane || (quad ? boundPane.constraintPlane || p.workplane : p.workplane), constrained = !!lockedPlane || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
       if (down.action === 'rotate') {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: pivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor: p.rotationEditor || 'vertices' });
@@ -905,10 +908,12 @@ export default function Viewport(inputProps) {
         } else if (editCanvas) { editCanvas.remove(); editCanvas = null; }
         if (boundPane.constraintToolbar && boundPane.constraintLanguage !== p.preferences?.language) {
           const language = p.preferences?.language;
-          boundPane.constraintToolbar.setAttribute('aria-label', translate('Perspective workplane toolbar', language));
-          boundPane.constraintToggle.setAttribute('aria-label', translate('Perspective Workplane Constraints', language));
-          boundPane.constraintLabel.title = translate('On: Rotate stays locked to the chosen plane. Off: use the handles.', language);
-          boundPane.constraintLabel.lastChild.textContent = translate('Workplane Constraints', language);
+          boundPane.constraintToolbar.setAttribute('aria-label', translate(boundPane.id === 'perspective' ? 'Perspective workplane toolbar' : 'Rotate plane toolbar', language));
+          if (boundPane.constraintToggle) {
+            boundPane.constraintToggle.setAttribute('aria-label', translate('Perspective Workplane Constraints', language));
+            boundPane.constraintLabel.title = translate('On: Rotate stays locked to the chosen plane. Off: use the handles.', language);
+            boundPane.constraintLabel.lastChild.textContent = translate('Workplane Constraints', language);
+          } else for (const button of boundPane.constraintToolbar.querySelectorAll('button')) button.title = translate('Rotate plane in this view. Move stays in the view\'s own plane.', language);
           boundPane.constraintLanguage = language;
         }
         const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera), locked = !!currentLockedPlane() || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
@@ -923,6 +928,7 @@ export default function Viewport(inputProps) {
           drawGizmoRotationFeedback(gizmoCanvas.getContext('2d'), feedback, renderer.getPixelRatio());
           gizmoCanvas.dataset.activeHandle = state.drag?.handle?.axis || boundPane.hoverAxis || '';
           gizmoCanvas.dataset.rotationFeedback = feedback ? `${feedback.axisName || ''} ${feedback.degrees}` : '';
+          gizmoCanvas.dataset.rotationMode = feedback ? feedback.circle ? 'circle' : 'line' : '';
           gizmoCanvas.dataset.rotationDirection = feedback?.tangent ? `${feedback.tangent.x},${feedback.tangent.y}` : '';
         } else if (gizmoCanvas) { gizmoCanvas.remove(); gizmoCanvas = null; }
         if(p.detailMagnet&&(!quad||boundPane===activePane)){

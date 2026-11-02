@@ -7397,7 +7397,9 @@
   "Hold Shift while rotating to multiply the speed by this amount.": "Удерживайте Shift при вращении, чтобы умножить скорость на это значение.",
   "Lines swing as levers; Rings and Arcs turn around their axis.": "Линии работают как рычаги; кольца и дуги вращают вокруг своей оси.",
   "Choose the thickness and heads of the Move handles.": "Выберите толщину и наконечники рукояток перемещения.",
-  "With Workplane Constraints on, move the mouse along the yellow arrow; one degree per pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "При включённых ограничениях плоскости двигайте мышь вдоль жёлтой стрелки; при 1× один пиксель равен одному градусу. Рукоятки следуют углу движения мыши вокруг центра выделения. Чувствительность указателя влияет на оба режима. Shift — точное вращение.",
+  "With Workplane Constraints on, follow the yellow arrow: drag along a straight arrow for one degree per pixel at 1×, or circle around the selection centre when the plane faces you. Handles follow the angle swept around the centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "При включённых ограничениях плоскости следуйте жёлтой стрелке: вдоль прямой стрелки один пиксель равен одному градусу при 1×; если плоскость обращена к вам, ведите мышь по кругу вокруг центра выделения. Рукоятки следуют углу движения вокруг центра. Чувствительность указателя влияет на оба режима. Shift — точное вращение.",
   "Perspective workplane toolbar": "Панель рабочей плоскости перспективы",
-  "Perspective Workplane Constraints": "Ограничения плоскости в перспективе"
+  "Perspective Workplane Constraints": "Ограничения плоскости в перспективе",
+  "Rotate plane toolbar": "Панель плоскости вращения",
+  "Rotate plane in this view. Move stays in the view's own plane.": "Плоскость вращения в этом виде. Перемещение остаётся в плоскости вида."
 }
