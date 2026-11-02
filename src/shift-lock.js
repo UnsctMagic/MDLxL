@@ -146,7 +146,7 @@ export function solveMove(gesture, pointer, shift, {basis, screen, quad = false,
       const world = projectedPlaneTranslation(plane, basis, x, y);
       return localAxes ? [0,1,2].map(i => localAxes.reduce((sum, axis, j) => sum + axis[i] * world[j], 0)) : world;
     }
-    if (!gesture.workplaneEnabled) return screen(x, y, held);
+    if (!gesture.workplaneEnabled || (gesture.moveWorkplaneOnShift && !held)) return screen(x, y, held);
     if (held) label = 'XYZ'[constrainedAxis(plane)];
     return projectedPlaneTranslation(plane, basis, x, y, held);
   });

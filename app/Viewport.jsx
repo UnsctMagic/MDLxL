@@ -461,7 +461,7 @@ export default function Viewport(inputProps) {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: pivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor: p.rotationEditor || 'vertices' });
       }
-      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, event.shiftKey) };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, event.shiftKey) };
       if (down.rotationDrag?.constrained) invalidate();
     }
     function moveTranslation(drag, end, event) {
