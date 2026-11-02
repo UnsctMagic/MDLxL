@@ -1,6 +1,6 @@
 # Library: World Editor Style for textures
 
-Status: contract ready; Codex to build
+Status: completed — merged as PR #502 (`69cdf108`). Review follow-up: [library-textures-review-fixes.md](library-textures-review-fixes.md)
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-01
 
@@ -137,9 +137,43 @@ Library → Textures → Human → Units → Normal → Footman → click a text
 - Update [GAME-FILE-LIBRARY.md](../GAME-FILE-LIBRARY.md) ("Two ways in" / a short Textures
   bullet) and the map row.
 
-## Blockers and next action
+## Implementation and verification
 
-- None. Next: Codex implements R1–R8 on a `codex/` branch from `main`, runs T1–T11 and
-  reports `ready to test` with the PR. No merge or release without the owner.
-- On completion: mark completed with PR and revision. Move the durable parts into
-  [GAME-FILE-LIBRARY.md](../GAME-FILE-LIBRARY.md).
+- Branch: `codex/library-textures-world-editor`, rebased onto current main `463bfef5`
+  (contract PR #499 is merged; original contract base `f3cbd71d`).
+- Implementation complete. PR/revision are recorded in the review handoff below.
+- Durable ownership: [GAME-FILE-LIBRARY.md](../GAME-FILE-LIBRARY.md).
+- [Verification and T1/T2/T5 captures](../../test/evidence/library-textures-world-editor/README.md):
+  57 compatibility + 52 focused source tests; 31 named packaged checks across
+  the contract/existing workflow phases; T1–T11 passed, 0 failed, 0 skipped.
+  Both phases ran on the hidden desktop against the same final bundle.
+- Footman: 69 ms first click, 37 ms cached. Multi-art Dispel Magic and
+  four Mushrooms variations verified; Reforged Footman has 24 resolved textures.
+- Fail-first: missing World Editor Style button on main `b2365c65`; metadata
+  lookup failed `0 !== 1` on the old resolver. Baseline packaging also proved
+  the two global info-message assertions stale: App's unchanged `say` suppresses
+  success messages. Tests now assert the actual preview/material/model effects.
+- Next: owner click-through below and independent Claude QA. No merge or release
+  without explicit owner authorization.
+
+Owner click-through: Library → Textures → Human → Units → Normal → Footman →
+click a texture → Add texture to model.
+
+## Review handoff
+
+PR: [#502](https://github.com/UnsctMagic/MDLxL/pull/502), into `main`, unmerged.
+Implementation revision: `6ec1091db2fa92f0d730dca1cb35e4939458085a`.
+The follow-up records final rebased verification, PR references and the strict
+locale-size update for the one new prompt per language. No runtime change after
+this packaged verification.
+
+## Claude review fixes
+
+Claude reviewed PR #502 and fixed, on this branch: an unreadable art/variation no
+longer hides an entry's other textures (partial lists are not cached); the
+Textures tree shows the "No Warcraft III game files were found" message instead of
+"No matches"/endless loading; Model folder/All installed is restored when going
+back to Standard; the "not found" list names each path once; entry clicks reuse
+the tree's signature and read each model with one `gameFilesReadPath` call;
+metadata-only resolve skips its dead read guard. Source tests and `pnpm run build`
+pass; the packaged Library check was not rerun after these fixes (`ready to test`).

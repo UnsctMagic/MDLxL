@@ -659,7 +659,7 @@ export default function App() {
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
     const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
       ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
-    setDialog({type:'particles',nodeId,attachmentId:selectedBone?.ObjectId,selection:validSelection});
+    setDialog({type:'particles',nodeId,attachmentId:singleRigNode&&[...model.Bones,...model.Helpers,...model.Attachments].some(node=>node.ObjectId===singleRigNode.ObjectId)?singleRigNode.ObjectId:undefined,selection:validSelection});
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });
@@ -1535,6 +1535,8 @@ export default function App() {
   // until the user explicitly pauses it.
   const previewLoop = true;
   const previewSelection = getUVPreviewSelection(model, (uvEditing || dialog?.host === 'uv')?[activeGeoset]:[...selectable]);
+  // Movement and Animations show Rotate around Axis under Current Sequence.
+  const sequenceShown = mode === 'animation' && (!cameraGesture || animationPanel === 'movement');
   const cameraPanel = <fieldset className="camera-angle-panel"><legend>Rotate around Axis</legend>{['x','y','z'].map(axis=><Coordinate key={axis} axis={'Camera '+axis.toUpperCase()} displayAxis={axis.toUpperCase()} value={cameraAngles[axis]} onCommit={value=>setCameraAnglesRequest(previous=>({...cameraAngles,[axis]:value,revision:(previous?.revision||0)+1}))}/>)}<small>World XYZ · degrees</small></fieldset>;
   const boundBoneIds=directlyBoundBoneIds(model,validSelection);
   const bindingPanel=<SidebarSection className="binding-panel" title="Connected Bones"><section className="binding-inspection" aria-label="List of bones connected to selected vertices">{boundBoneIds.map(id=>{const name=model.Nodes.find(node=>node?.ObjectId===id)?.Name||'Bone '+id;return <button type="button" className="binding-bone" aria-pressed={selectedNodeIds.includes(id)} title={`Select ${name} without clearing selected vertices`} key={id} onClick={()=>setSelectedNodeIds([id])}>{name}</button>;})}</section></SidebarSection>;
@@ -1777,7 +1779,7 @@ export default function App() {
 
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <aside className="classic-sidebar">
       <SidebarResizer/>
-      {cameraRotating && !activePortrait && cameraPanel}
+      {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
@@ -1785,7 +1787,7 @@ export default function App() {
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
-        activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
+        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen,
         cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,

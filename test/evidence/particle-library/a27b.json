@@ -1,0 +1,2988 @@
+{
+  "sourceKey": "8754b8173377452011ba05ceaea1490aa9c70cfcce2ff87923e4b7bb1a268267",
+  "catalogue": 5032,
+  "catalogueSha256": "e79210188614af1e1456e9044730bf463da1c77bae148bce41e9ca7aa360812d",
+  "passed": 424,
+  "total": 424,
+  "capture": "synchronized actual viewport layers",
+  "pixelRgbDelta": 3,
+  "minimumChangedPixels": 20,
+  "minimumThumbnailPixels": 19,
+  "cameraStable": true,
+  "nativeValuesUnchanged": true,
+  "demonstrationRecipeIsolation": "test/particle-sweep.test.js",
+  "finalBundle": {
+    "indexHash": "bf5ece2f1e4ee947c200790ef76d15e9f6d7d60d1360e444a9d1e388e53d011e",
+    "assetsHash": "6c1b29986a3db6bedf73a5c6a68d810698680c7d102d973bfbffe345cc53ef20"
+  },
+  "results": [
+    {
+      "id": "wc3-6b3a8ce9ad46ef37f37fba98",
+      "changed": 7729,
+      "thumbnailPixels": 915,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a42837acacbf287ec7b4b3b3",
+      "changed": 5296,
+      "thumbnailPixels": 872,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f05831a1a296c400c189fc94",
+      "changed": 5219,
+      "thumbnailPixels": 546,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1679e713d5af6681bac2cbff",
+      "changed": 1013,
+      "thumbnailPixels": 1138,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a6276d6e8644c99c6f10f536",
+      "changed": 2172,
+      "thumbnailPixels": 450,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a86669807cca734a75133ce3",
+      "changed": 2000,
+      "thumbnailPixels": 490,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-56444ba17fc5e84d25f1cbe4",
+      "changed": 2589,
+      "thumbnailPixels": 381,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-02aa7623c7ed68c85ef931d0",
+      "changed": 1978,
+      "thumbnailPixels": 1049,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9c90a6fc59079206d3c31a50",
+      "changed": 227,
+      "thumbnailPixels": 27,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-577fb1eadb6110f7444cb61b",
+      "changed": 146,
+      "thumbnailPixels": 27,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-69070bb31caa8db67c4b888e",
+      "changed": 237,
+      "thumbnailPixels": 22,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-172dbbf6e6bf1627235724ba",
+      "changed": 171,
+      "thumbnailPixels": 33,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-104d3f6d34e4898bcee34a5f",
+      "changed": 233,
+      "thumbnailPixels": 28,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7bee09a542fa5ef96847f1d7",
+      "changed": 134,
+      "thumbnailPixels": 26,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-41083a4a4f2aad45ff481685",
+      "changed": 257,
+      "thumbnailPixels": 19,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a3cc9b17aec9580940581479",
+      "changed": 225,
+      "thumbnailPixels": 30,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-364f0005184af560b6c3fb52",
+      "changed": 253,
+      "thumbnailPixels": 209,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a1679cb0c702058970c698e0",
+      "changed": 249,
+      "thumbnailPixels": 223,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f7b427c054c1244a90c84fcd",
+      "changed": 134,
+      "thumbnailPixels": 122,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-da87c0502428d4c830761334",
+      "changed": 203,
+      "thumbnailPixels": 121,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f5c793464a36b3c04d9e55d2",
+      "changed": 622,
+      "thumbnailPixels": 313,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0c58830fde64550aee871d2d",
+      "changed": 2284,
+      "thumbnailPixels": 478,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c525e4c476fe04ca744845af",
+      "changed": 2182,
+      "thumbnailPixels": 517,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c02280494713b66ad0accaa5",
+      "changed": 2858,
+      "thumbnailPixels": 408,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-34dfe7df01654336d0eb401c",
+      "changed": 3983,
+      "thumbnailPixels": 544,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-205531b152a1776062957d05",
+      "changed": 3609,
+      "thumbnailPixels": 127,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7d4311a18ff9c41f5049d190",
+      "changed": 7297,
+      "thumbnailPixels": 895,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-899809d682572ec2d7a20507",
+      "changed": 5832,
+      "thumbnailPixels": 667,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-98481faa9a93fa671f421b12",
+      "changed": 7127,
+      "thumbnailPixels": 560,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2bee560c52bb1675459dc7ca",
+      "changed": 15907,
+      "thumbnailPixels": 1671,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9c9712e4498b0693a99e80d7",
+      "changed": 3007,
+      "thumbnailPixels": 457,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9954be9c302a95839a62d237",
+      "changed": 6034,
+      "thumbnailPixels": 530,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7fc5738f1008bffd37d2670d",
+      "changed": 6419,
+      "thumbnailPixels": 325,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-54388e5bf4370463819a5157",
+      "changed": 10899,
+      "thumbnailPixels": 2630,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-dbfd9aa16c55852b3eb2f017",
+      "changed": 2887,
+      "thumbnailPixels": 440,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e042354d5f6f058d14e8972e",
+      "changed": 7692,
+      "thumbnailPixels": 604,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8b95157aa6938fb1abe7b351",
+      "changed": 6232,
+      "thumbnailPixels": 228,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fa0662cf5ba24247e0f2a3e4",
+      "changed": 9289,
+      "thumbnailPixels": 653,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-522bc8767a0472869f4553fa",
+      "changed": 292,
+      "thumbnailPixels": 567,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1e94b9706d8de46d9368c273",
+      "changed": 1692,
+      "thumbnailPixels": 417,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3feee8062d1660da2aae4aec",
+      "changed": 459,
+      "thumbnailPixels": 681,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6ae39dadb23a59406e9cbe5a",
+      "changed": 2693,
+      "thumbnailPixels": 609,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8dcc00adb564efa95d847e5b",
+      "changed": 5018,
+      "thumbnailPixels": 1378,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-297b4fedf335eab1b77bd1dc",
+      "changed": 3949,
+      "thumbnailPixels": 96,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4ca5a5529ae9e9166a1a26b0",
+      "changed": 8746,
+      "thumbnailPixels": 748,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1c6a06df3c60a986709714ec",
+      "changed": 6313,
+      "thumbnailPixels": 806,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0a70705592f83c993cb31d10",
+      "changed": 15561,
+      "thumbnailPixels": 1583,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-06e3f6ea70a801344a69d627",
+      "changed": 3522,
+      "thumbnailPixels": 106,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ba229c2838b0b257600283ef",
+      "changed": 5606,
+      "thumbnailPixels": 303,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3217a4d78a3a4e92ff66086c",
+      "changed": 7459,
+      "thumbnailPixels": 579,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-602826d5c979938971445cc5",
+      "changed": 5964,
+      "thumbnailPixels": 609,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fb7841e4444e8e9a6c17c9c8",
+      "changed": 14268,
+      "thumbnailPixels": 1419,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b1747fde71819c7dd241c956",
+      "changed": 47,
+      "thumbnailPixels": 134,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ef7b4f416cc836c84eea08bd",
+      "changed": 24,
+      "thumbnailPixels": 121,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ca1e1b947a6fc32419d2fb30",
+      "changed": 49,
+      "thumbnailPixels": 131,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c45c4dc350610713feeedcb1",
+      "changed": 20,
+      "thumbnailPixels": 122,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3ab77b8c839d63110262e638",
+      "changed": 8459,
+      "thumbnailPixels": 1115,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c03a3e6faa39e7203b51ffb2",
+      "changed": 5212,
+      "thumbnailPixels": 361,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b766b27f772fb39b8ea965d3",
+      "changed": 9752,
+      "thumbnailPixels": 767,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bb274a702399dbedfa241452",
+      "changed": 11176,
+      "thumbnailPixels": 574,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-019dc1ac2ca129c0d44eeced",
+      "changed": 1780,
+      "thumbnailPixels": 505,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e580010be8f1d66e2cea8dec",
+      "changed": 13471,
+      "thumbnailPixels": 1166,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-efc7b0bfe527665cc21ac1da",
+      "changed": 2159,
+      "thumbnailPixels": 1118,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1ef025fd62442f368d37d093",
+      "changed": 2159,
+      "thumbnailPixels": 1118,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0ca927f7274417e216e682df",
+      "changed": 2753,
+      "thumbnailPixels": 545,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-095d0bee5092f9c728e4f653",
+      "changed": 4539,
+      "thumbnailPixels": 1254,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4945f1e22c5e4174220596d2",
+      "changed": 1979,
+      "thumbnailPixels": 786,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-30eeb978b5a4d0faa0186519",
+      "changed": 1781,
+      "thumbnailPixels": 401,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-daca26b2a259370933940204",
+      "changed": 1795,
+      "thumbnailPixels": 994,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-876bd3e28f219557b42897cb",
+      "changed": 3436,
+      "thumbnailPixels": 332,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bd5014d2f65f724eee28ad97",
+      "changed": 5031,
+      "thumbnailPixels": 261,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5fb22080799f42d8d1a25a90",
+      "changed": 7642,
+      "thumbnailPixels": 63,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-74d0b151122ad4d0d48a5334",
+      "changed": 3919,
+      "thumbnailPixels": 322,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2180513569a62e5be13edc62",
+      "changed": 8188,
+      "thumbnailPixels": 390,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-40e9184d97956cc84cdcc9a8",
+      "changed": 1086,
+      "thumbnailPixels": 919,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-856d580593c8dd37a664db84",
+      "changed": 403,
+      "thumbnailPixels": 333,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-44c7bc08676458a58d9c7c54",
+      "changed": 575,
+      "thumbnailPixels": 444,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-85b272268690f05f314c70fe",
+      "changed": 280,
+      "thumbnailPixels": 224,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0f10036853b5c1e725d2a72a",
+      "changed": 374,
+      "thumbnailPixels": 320,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b1ae2e248ab6e97f7f34dcca",
+      "changed": 800,
+      "thumbnailPixels": 101,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c67801dde50a218010b0a1b9",
+      "changed": 3428,
+      "thumbnailPixels": 254,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-90a73661652565eab5011716",
+      "changed": 2871,
+      "thumbnailPixels": 304,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-db800958052152563ac56f15",
+      "changed": 2296,
+      "thumbnailPixels": 355,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-81a83a3f0be65c25196f9f48",
+      "changed": 9932,
+      "thumbnailPixels": 1114,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f4eaa34baa0baa651b61db3e",
+      "changed": 9090,
+      "thumbnailPixels": 1067,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d97b66242e3d43accda1e0a5",
+      "changed": 2216,
+      "thumbnailPixels": 286,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9c3d313daa97f8ebdd32dea6",
+      "changed": 2345,
+      "thumbnailPixels": 419,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e5feed0e621d3bfebe7e1f0d",
+      "changed": 3539,
+      "thumbnailPixels": 333,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-774f701b818ffd914b68c1a6",
+      "changed": 5501,
+      "thumbnailPixels": 566,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ff5d7f4abb575fa9e0ab169f",
+      "changed": 295,
+      "thumbnailPixels": 63,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-832b1486de5f28fa3ad32b04",
+      "changed": 154,
+      "thumbnailPixels": 54,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0fee016bd4fe11c41cde641c",
+      "changed": 681,
+      "thumbnailPixels": 80,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b9a7ceca7e4e3411bfbda643",
+      "changed": 318,
+      "thumbnailPixels": 65,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7ee747baa00368f5c3dbaa20",
+      "changed": 676,
+      "thumbnailPixels": 89,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cd3dd5c8e38363a157bd358f",
+      "changed": 357,
+      "thumbnailPixels": 56,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-88386d43d3c7ceeee4abf379",
+      "changed": 558,
+      "thumbnailPixels": 82,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bbf7e572f43e54ace145c9d0",
+      "changed": 272,
+      "thumbnailPixels": 69,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d9ad08442a8eaa6dbacc1f98",
+      "changed": 2928,
+      "thumbnailPixels": 383,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a1b9796bf4bdba52b1732589",
+      "changed": 2520,
+      "thumbnailPixels": 601,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-71b9821f9c415035e2090166",
+      "changed": 2743,
+      "thumbnailPixels": 506,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3bbb2306026a766eed4aa18e",
+      "changed": 4028,
+      "thumbnailPixels": 485,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8a18c5c5b9eaf242e6b6c5fe",
+      "changed": 1949,
+      "thumbnailPixels": 934,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d5bcb4c62e4505c8c209dd32",
+      "changed": 1535,
+      "thumbnailPixels": 526,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9ac45e73ebe78266a21c714c",
+      "changed": 1865,
+      "thumbnailPixels": 1355,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-85c0078a5e79d9aa06c45639",
+      "changed": 7603,
+      "thumbnailPixels": 1227,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-845fc0a47b6afa1f580e1b7d",
+      "changed": 13035,
+      "thumbnailPixels": 299,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3fb74fdadeb04c77280d7000",
+      "changed": 11295,
+      "thumbnailPixels": 514,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cc99b6216cea61da70e5f639",
+      "changed": 7982,
+      "thumbnailPixels": 216,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cb3f2429c02d761ed0ae4742",
+      "changed": 38173,
+      "thumbnailPixels": 2403,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-66ef275fe2e442f963fd0bfa",
+      "changed": 13765,
+      "thumbnailPixels": 2573,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fb0848018534a39e5c252b2d",
+      "changed": 17416,
+      "thumbnailPixels": 3394,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f8057585f7ed1722f4e95cfd",
+      "changed": 863,
+      "thumbnailPixels": 48,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bf1ce3c8a456ac96f6b55c2b",
+      "changed": 863,
+      "thumbnailPixels": 48,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f2a2b1653f1e379fe56907cf",
+      "changed": 3485,
+      "thumbnailPixels": 410,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-36c4df58068c66c0df936a36",
+      "changed": 12761,
+      "thumbnailPixels": 2482,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5f5b35257257424e99ebdea8",
+      "changed": 8771,
+      "thumbnailPixels": 731,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0fe5cc2a7c1e62a1f7ba1048",
+      "changed": 1707,
+      "thumbnailPixels": 263,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-457eda10c05e7e8f65162657",
+      "changed": 5736,
+      "thumbnailPixels": 976,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5a9653453b9092167afa3986",
+      "changed": 3876,
+      "thumbnailPixels": 497,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7b0a3b5313719703900464ae",
+      "changed": 3808,
+      "thumbnailPixels": 564,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d8ac072a6c7b455aa9f73fd4",
+      "changed": 4791,
+      "thumbnailPixels": 831,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f1a2a621f5b903d35e0fc69a",
+      "changed": 14261,
+      "thumbnailPixels": 2299,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-35b20996d2ec36c8b29aaa84",
+      "changed": 1124,
+      "thumbnailPixels": 275,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-908120c3d64a76f40b16d6bb",
+      "changed": 8041,
+      "thumbnailPixels": 1253,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1c277525ca131a5aef88dfbf",
+      "changed": 6046,
+      "thumbnailPixels": 397,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9be4566f5036bc6bae9dccc3",
+      "changed": 2051,
+      "thumbnailPixels": 423,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-64084964a33dbc6eab55c3c6",
+      "changed": 7716,
+      "thumbnailPixels": 1345,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6560db0b8ee2b5070f903134",
+      "changed": 9982,
+      "thumbnailPixels": 1460,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e3076af90d7b04feb780b436",
+      "changed": 5023,
+      "thumbnailPixels": 1612,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-06da3262485ca86f5a36dafe",
+      "changed": 5023,
+      "thumbnailPixels": 1612,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1ddd9b1cc4f938e2fa0f5b17",
+      "changed": 13557,
+      "thumbnailPixels": 319,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a6e9529eb425bc5591f318da",
+      "changed": 11563,
+      "thumbnailPixels": 586,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cd43b49aa5fe35538df4d02f",
+      "changed": 8198,
+      "thumbnailPixels": 249,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-11a2cbb6e44a31b39e7064bc",
+      "changed": 18844,
+      "thumbnailPixels": 1668,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a2e72d13de2e2de4dc4f5137",
+      "changed": 7456,
+      "thumbnailPixels": 625,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8a08fe086014c252ee083e75",
+      "changed": 7103,
+      "thumbnailPixels": 517,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5dabcb625f3ff9f8107f2b3f",
+      "changed": 1136,
+      "thumbnailPixels": 492,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e8cd569cd1befb92edb5639d",
+      "changed": 10084,
+      "thumbnailPixels": 1117,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-575c61fd532a7ca52575ac9d",
+      "changed": 4642,
+      "thumbnailPixels": 418,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-be17909281150c233107887c",
+      "changed": 2109,
+      "thumbnailPixels": 743,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-221835ab14e13b8dfed47488",
+      "changed": 4404,
+      "thumbnailPixels": 784,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9a7ba647a30d2806380d3232",
+      "changed": 4786,
+      "thumbnailPixels": 217,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6bf4b1ac0b96797eb0365047",
+      "changed": 6363,
+      "thumbnailPixels": 239,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7d1cacc25ca9396e6a37fd4b",
+      "changed": 11003,
+      "thumbnailPixels": 523,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-19f055828eb871815ef1a7f9",
+      "changed": 12027,
+      "thumbnailPixels": 1435,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1b9a0a649edcf866fe143412",
+      "changed": 5630,
+      "thumbnailPixels": 1732,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9085b0a1444d2bc5a90a17f2",
+      "changed": 5630,
+      "thumbnailPixels": 1732,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-007a5db468f1e375663652fa",
+      "changed": 90,
+      "thumbnailPixels": 446,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6aabe6f0083f8c000c70e8c1",
+      "changed": 58,
+      "thumbnailPixels": 468,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-34d266cb787e08855dfdc443",
+      "changed": 97,
+      "thumbnailPixels": 446,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-980c0f68b1cfa52876a79750",
+      "changed": 43,
+      "thumbnailPixels": 468,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-962aa2670ad20995a789dfa1",
+      "changed": 10298,
+      "thumbnailPixels": 2773,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e8ac1cc87927552834486d08",
+      "changed": 19653,
+      "thumbnailPixels": 5837,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6b57c4eef1dc5fde57399d7f",
+      "changed": 12744,
+      "thumbnailPixels": 5963,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5fe55a4c1557b0d1111d032b",
+      "changed": 15830,
+      "thumbnailPixels": 6052,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a14a0c4c57642da3cda0c66c",
+      "changed": 1743,
+      "thumbnailPixels": 563,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ada9c3258d1ee223d974157f",
+      "changed": 900,
+      "thumbnailPixels": 574,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-49380f024f27a080675ff40a",
+      "changed": 1654,
+      "thumbnailPixels": 255,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ea24950d64dba65f20f716eb",
+      "changed": 5125,
+      "thumbnailPixels": 1867,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e9a2867c9f5bcbb8db869e97",
+      "changed": 314,
+      "thumbnailPixels": 370,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-af4438695bd52f5f43888534",
+      "changed": 10116,
+      "thumbnailPixels": 883,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-266a73cfa8dc4e2b7720d74f",
+      "changed": 9239,
+      "thumbnailPixels": 1303,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f46b221a2a0a3f48d0767220",
+      "changed": 1963,
+      "thumbnailPixels": 346,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ce12d360ab217257201381f0",
+      "changed": 11877,
+      "thumbnailPixels": 1223,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-97e00a8224bb3c029f00ef8c",
+      "changed": 1304,
+      "thumbnailPixels": 684,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-646099412d96e8fe3a430176",
+      "changed": 1304,
+      "thumbnailPixels": 684,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3ee8f18a72402d5fd6567883",
+      "changed": 9855,
+      "thumbnailPixels": 721,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f46603fda2eca960ed28f374",
+      "changed": 10650,
+      "thumbnailPixels": 2036,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ccacde45abeb43080033d2d8",
+      "changed": 21416,
+      "thumbnailPixels": 3225,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9cc00fd3096af556e7183da4",
+      "changed": 7825,
+      "thumbnailPixels": 551,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0d03842cc0f7e2168f7c5f5a",
+      "changed": 8865,
+      "thumbnailPixels": 1732,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2ffc33b321283d400d10b348",
+      "changed": 21416,
+      "thumbnailPixels": 3106,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-034fa7d390b416c596ba0495",
+      "changed": 2539,
+      "thumbnailPixels": 248,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-44f23a959af0d6e29153b397",
+      "changed": 1363,
+      "thumbnailPixels": 110,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fafc978bef37b5b2337aa964",
+      "changed": 5361,
+      "thumbnailPixels": 197,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e5cb6af260f0b6709c1ecf12",
+      "changed": 3547,
+      "thumbnailPixels": 119,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-51383fab76c87590f7e7654a",
+      "changed": 2028,
+      "thumbnailPixels": 538,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8b4ab0ff427b01148bc0ac1d",
+      "changed": 882,
+      "thumbnailPixels": 305,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-72ad7973e483177a0a74098d",
+      "changed": 1016,
+      "thumbnailPixels": 244,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-770dd81b17c9b6d8ae071806",
+      "changed": 650,
+      "thumbnailPixels": 106,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5fc70f7efc93ec7862178c2b",
+      "changed": 5558,
+      "thumbnailPixels": 409,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-829058b6ae985b89e2ce9e27",
+      "changed": 1171,
+      "thumbnailPixels": 361,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3f5ce2b1b895969084a683ed",
+      "changed": 227,
+      "thumbnailPixels": 209,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-be98879201fb286c8d2baae5",
+      "changed": 1312,
+      "thumbnailPixels": 148,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-41da70cc1bd198779de4c6a0",
+      "changed": 5409,
+      "thumbnailPixels": 1695,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-45f6a5e782c2724a1646b3a3",
+      "changed": 23714,
+      "thumbnailPixels": 2057,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-aa35e92712e310fe0448ce19",
+      "changed": 151,
+      "thumbnailPixels": 768,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-493dc5f8ea7b3c40abb25dd0",
+      "changed": 11124,
+      "thumbnailPixels": 1395,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c963b71eb238539e4c592c3f",
+      "changed": 10155,
+      "thumbnailPixels": 2482,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-11b12206947e046dac1eb4f8",
+      "changed": 3941,
+      "thumbnailPixels": 1210,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0a448d369a4b594bae813da5",
+      "changed": 14148,
+      "thumbnailPixels": 2306,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c04168f8b0ab464276ab72b1",
+      "changed": 638,
+      "thumbnailPixels": 832,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c16fd9b84e49a4c2a098bba1",
+      "changed": 638,
+      "thumbnailPixels": 832,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8c1088825857043e2ec82d4d",
+      "changed": 314,
+      "thumbnailPixels": 370,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-91b800b2f37b6f9f0a6bf71d",
+      "changed": 6196,
+      "thumbnailPixels": 1634,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-95f1a4eeabe54f5eb31f1907",
+      "changed": 6580,
+      "thumbnailPixels": 1476,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5ddc76e19e50fca185a81e32",
+      "changed": 14870,
+      "thumbnailPixels": 3620,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0fd3897bde605eb2f194ba47",
+      "changed": 8513,
+      "thumbnailPixels": 1714,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d4071d28c57d7b1a726c6014",
+      "changed": 8604,
+      "thumbnailPixels": 3011,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-457545478b1408e5aab2e97d",
+      "changed": 2807,
+      "thumbnailPixels": 957,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-336d052ea1084455ff12cf7f",
+      "changed": 11233,
+      "thumbnailPixels": 2432,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d76576372045e0fad5ab59f7",
+      "changed": 1086,
+      "thumbnailPixels": 523,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-680e974d8db8db3eeeb1908a",
+      "changed": 1086,
+      "thumbnailPixels": 523,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4b763a9c8d27712370f37877",
+      "changed": 2951,
+      "thumbnailPixels": 397,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-911e82183f768aa5338b259c",
+      "changed": 2951,
+      "thumbnailPixels": 397,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1ae3b754b75692d797212c34",
+      "changed": 7551,
+      "thumbnailPixels": 953,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-07d1547704c120f8843337a2",
+      "changed": 20134,
+      "thumbnailPixels": 4289,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fa4c9f3569fa0fadabf53400",
+      "changed": 4627,
+      "thumbnailPixels": 680,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e71c3e4bb8cbb8e7023763a9",
+      "changed": 11710,
+      "thumbnailPixels": 1723,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-dd1cf760564439bafb757227",
+      "changed": 1087,
+      "thumbnailPixels": 533,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2aa76c1de549674b102c7ca1",
+      "changed": 1087,
+      "thumbnailPixels": 533,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0e211d21eacba7242da8944b",
+      "changed": 7787,
+      "thumbnailPixels": 1037,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-17541b6a20ee7f69eed77bd7",
+      "changed": 18408,
+      "thumbnailPixels": 4281,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4689663bd2411decd962e570",
+      "changed": 7887,
+      "thumbnailPixels": 1068,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-87820e011bbf21f3051e265d",
+      "changed": 21596,
+      "thumbnailPixels": 4294,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4a1940d934f280b413b06f6b",
+      "changed": 88,
+      "thumbnailPixels": 818,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7253918fa8919c1df83fc245",
+      "changed": 11140,
+      "thumbnailPixels": 2011,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bac6c864cb1b3b5c7037aa0d",
+      "changed": 16135,
+      "thumbnailPixels": 1825,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7d60420b468680a0b3c3a2bf",
+      "changed": 13789,
+      "thumbnailPixels": 3121,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-13345ce7fc1bbb403a33dfc4",
+      "changed": 10120,
+      "thumbnailPixels": 1316,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-80b1d2d8cfe00167470fffbe",
+      "changed": 9376,
+      "thumbnailPixels": 2683,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a8d4397bfc69b1122fe61d44",
+      "changed": 954,
+      "thumbnailPixels": 541,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9a343573b008f43325fc6333",
+      "changed": 12749,
+      "thumbnailPixels": 2103,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b9457fb68f855b8823232c7d",
+      "changed": 11171,
+      "thumbnailPixels": 762,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-18dadd69c3f59f13cf3fe261",
+      "changed": 5800,
+      "thumbnailPixels": 744,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5053890fdb6b7fe7bcec4fa0",
+      "changed": 11082,
+      "thumbnailPixels": 621,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-35e5b18e2b5e425909c72cce",
+      "changed": 15471,
+      "thumbnailPixels": 1440,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4066f8c4196d55ac0e908b21",
+      "changed": 2541,
+      "thumbnailPixels": 1311,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f22a69d50a7eefbaf446faaa",
+      "changed": 6247,
+      "thumbnailPixels": 2020,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-717429254290f0ea772249d6",
+      "changed": 1875,
+      "thumbnailPixels": 274,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-38e7540997ee4dfb5fd905d0",
+      "changed": 1878,
+      "thumbnailPixels": 975,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b337b4423e142ef16819445b",
+      "changed": 5008,
+      "thumbnailPixels": 1113,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5c96e1fc34ad9eab2ce07178",
+      "changed": 2046,
+      "thumbnailPixels": 338,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-41d629f57f4219eba944af1a",
+      "changed": 5114,
+      "thumbnailPixels": 460,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-09a7a8941cddffc858e59b40",
+      "changed": 7680,
+      "thumbnailPixels": 882,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b3e7fc14e3228e4213d8eb6c",
+      "changed": 10652,
+      "thumbnailPixels": 397,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9b506a41c71cf839d5d6f35f",
+      "changed": 15148,
+      "thumbnailPixels": 1145,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7c2d1430b5e1f8e8c20ae36b",
+      "changed": 4791,
+      "thumbnailPixels": 345,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-24679d104daa069058307462",
+      "changed": 7374,
+      "thumbnailPixels": 717,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c411dcc7fcee754d71102be2",
+      "changed": 9724,
+      "thumbnailPixels": 279,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f1661605cb846484249f7717",
+      "changed": 14633,
+      "thumbnailPixels": 943,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8899574b9e5ea07ed4e2c6d3",
+      "changed": 4751,
+      "thumbnailPixels": 304,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3151723f23f99d8d0a790387",
+      "changed": 7011,
+      "thumbnailPixels": 573,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c87073d2a4f714aed0465145",
+      "changed": 9648,
+      "thumbnailPixels": 241,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-051baf45bb5e2a042b1ec8f9",
+      "changed": 14267,
+      "thumbnailPixels": 838,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-13724e18c4b772c21e3d1650",
+      "changed": 5114,
+      "thumbnailPixels": 460,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9af9b2b69b7d16a1192cfb5a",
+      "changed": 7680,
+      "thumbnailPixels": 882,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-33710344ea00b9aef8f6257b",
+      "changed": 10652,
+      "thumbnailPixels": 397,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4f13d0b60092b6ff2d9fe8f7",
+      "changed": 15148,
+      "thumbnailPixels": 1145,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2afebc2fd20c09d3b7ca408f",
+      "changed": 3475,
+      "thumbnailPixels": 139,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bc9db39f11305d3bdb18836b",
+      "changed": 10211,
+      "thumbnailPixels": 434,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1828031ef637109fac410e6f",
+      "changed": 4941,
+      "thumbnailPixels": 523,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3213c332188feafeb90eae05",
+      "changed": 8897,
+      "thumbnailPixels": 246,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d217544aef26f9394fd79016",
+      "changed": 7839,
+      "thumbnailPixels": 368,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-35ade24af9e1fb0bd8c59c55",
+      "changed": 5585,
+      "thumbnailPixels": 29,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-91ba171b43361bd40320db4c",
+      "changed": 10835,
+      "thumbnailPixels": 446,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c140a9e34b2dc84bf8e6dab8",
+      "changed": 4143,
+      "thumbnailPixels": 232,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6834a7379e2140c93298f0e6",
+      "changed": 5055,
+      "thumbnailPixels": 240,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-384f4a1ce12ad566eb7015c4",
+      "changed": 3732,
+      "thumbnailPixels": 260,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0a723463d60b0e42405c7ce4",
+      "changed": 9497,
+      "thumbnailPixels": 500,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d7a1419f19d998b59aa1170c",
+      "changed": 4542,
+      "thumbnailPixels": 227,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f7d31739b3a9149e13e84fa3",
+      "changed": 11100,
+      "thumbnailPixels": 700,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2a4b3ca0b162b5a140fd943b",
+      "changed": 1130,
+      "thumbnailPixels": 1045,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-aa63ae1c7b4db037dc6464f9",
+      "changed": 1247,
+      "thumbnailPixels": 687,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1ad76c42bec9de8441823bea",
+      "changed": 1370,
+      "thumbnailPixels": 663,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-39eb4b671bc32808df821c6b",
+      "changed": 2467,
+      "thumbnailPixels": 1084,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-440b222a5bffb52e0f47d48a",
+      "changed": 149,
+      "thumbnailPixels": 380,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-49d16df35ee74fd327943a58",
+      "changed": 136,
+      "thumbnailPixels": 423,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1bd7ac355004b748eec81ba8",
+      "changed": 251,
+      "thumbnailPixels": 355,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-506c11f4309653d13b22b231",
+      "changed": 700,
+      "thumbnailPixels": 599,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1b1e79572f6167608f2483f8",
+      "changed": 1121,
+      "thumbnailPixels": 940,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-516afae05cabb5b023082a81",
+      "changed": 1912,
+      "thumbnailPixels": 346,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-44324dbb56030ec1ca213165",
+      "changed": 458,
+      "thumbnailPixels": 518,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-73f4fa4bf0b21e7dfa496ce1",
+      "changed": 2469,
+      "thumbnailPixels": 557,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a27162a07c9b8b327e636aec",
+      "changed": 929,
+      "thumbnailPixels": 842,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fea78360c9270d5f47b6d1ec",
+      "changed": 1376,
+      "thumbnailPixels": 713,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-96eea379b6ec4f6cd42fdee3",
+      "changed": 3333,
+      "thumbnailPixels": 622,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5ffc9c00a097a321345a6890",
+      "changed": 153,
+      "thumbnailPixels": 380,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f83db8dcd5eb104e2fdf9bbe",
+      "changed": 140,
+      "thumbnailPixels": 423,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-419e8bd8672d8163ed949e1d",
+      "changed": 252,
+      "thumbnailPixels": 355,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6ddca79ea0c092c2b880570b",
+      "changed": 84,
+      "thumbnailPixels": 332,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c5de4e5575c257e6d7e13281",
+      "changed": 84,
+      "thumbnailPixels": 332,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f0fb057034e64a5e015a3134",
+      "changed": 1654,
+      "thumbnailPixels": 1659,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-40348b78ae85f56462e08d6d",
+      "changed": 1641,
+      "thumbnailPixels": 1659,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-01cd34a3ffa5ca44c08992df",
+      "changed": 4194,
+      "thumbnailPixels": 591,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-42fa67d6df33add9ae08df90",
+      "changed": 1903,
+      "thumbnailPixels": 476,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-657f33b80496289461262f96",
+      "changed": 6360,
+      "thumbnailPixels": 1113,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fda849b4727e0080f897179d",
+      "changed": 3593,
+      "thumbnailPixels": 661,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e48b20605239efb98c5d58ae",
+      "changed": 692,
+      "thumbnailPixels": 66,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-317b7d9a20532f7310faca87",
+      "changed": 9663,
+      "thumbnailPixels": 2029,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ae4910a352dcaa8578a44f4a",
+      "changed": 420,
+      "thumbnailPixels": 342,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1537924c4c026f39c97b88ba",
+      "changed": 490,
+      "thumbnailPixels": 232,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-06b13a1ace5bf1b1dcb63b00",
+      "changed": 386,
+      "thumbnailPixels": 1542,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f36302b8f156f5ea6127eb3b",
+      "changed": 263,
+      "thumbnailPixels": 810,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-30a38ced865ae12d6f7ed89d",
+      "changed": 561,
+      "thumbnailPixels": 232,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1fde2e6e503417bcf832d8ca",
+      "changed": 419,
+      "thumbnailPixels": 1004,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-01d560bae275d93a02531d0d",
+      "changed": 5413,
+      "thumbnailPixels": 1740,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-66a5d29f8fb5fb9c24e752e5",
+      "changed": 7457,
+      "thumbnailPixels": 663,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-06615eef1939b4ba00767313",
+      "changed": 6837,
+      "thumbnailPixels": 354,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-90fd6f651a67da51ad2ce37c",
+      "changed": 8926,
+      "thumbnailPixels": 1252,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-58eaade525a1d9d66ee3000d",
+      "changed": 7036,
+      "thumbnailPixels": 445,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e294e901195a046fef972aac",
+      "changed": 4325,
+      "thumbnailPixels": 132,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c90556fe121210555ba0ab94",
+      "changed": 4978,
+      "thumbnailPixels": 706,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ef2e51f36d0cfd7d0144b44a",
+      "changed": 7213,
+      "thumbnailPixels": 765,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2287d2e06f623d9231e67c58",
+      "changed": 6507,
+      "thumbnailPixels": 259,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0e0d665362ca9cd5cad4178f",
+      "changed": 9657,
+      "thumbnailPixels": 1153,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7d9bf21f927b7cfb99cd1c08",
+      "changed": 6786,
+      "thumbnailPixels": 928,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-75a42e1f320ac73e0259136f",
+      "changed": 8242,
+      "thumbnailPixels": 223,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b1d95f402e565dcd6a859ccf",
+      "changed": 9279,
+      "thumbnailPixels": 1057,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-06cef8b04e30cf91dda4b0e9",
+      "changed": 11005,
+      "thumbnailPixels": 2104,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-881896bed543c85bdc6384a8",
+      "changed": 9486,
+      "thumbnailPixels": 2300,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-27394444a3aeecf4d7301261",
+      "changed": 10371,
+      "thumbnailPixels": 1000,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-afdeae712ad8e659922a9812",
+      "changed": 4374,
+      "thumbnailPixels": 1438,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8aff4fdbb0139111d94efe67",
+      "changed": 7457,
+      "thumbnailPixels": 663,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f487b8a7c5eb55e615f230d1",
+      "changed": 6837,
+      "thumbnailPixels": 354,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-29fbd20fd3d9095a965e2017",
+      "changed": 8926,
+      "thumbnailPixels": 1252,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3d3b4445604ec2fc7b86c8a2",
+      "changed": 113,
+      "thumbnailPixels": 347,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2afcab21102c3beb222639b5",
+      "changed": 106,
+      "thumbnailPixels": 202,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e63c8aa374a9f71aeab001ea",
+      "changed": 634,
+      "thumbnailPixels": 474,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ece925df395e6dd13ab18ca9",
+      "changed": 1297,
+      "thumbnailPixels": 788,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-98caa0a3a6c4eef373833614",
+      "changed": 113,
+      "thumbnailPixels": 347,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-2f237320a6411901392a2960",
+      "changed": 109,
+      "thumbnailPixels": 202,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-87b39817ed8c2fa7c7cf4de9",
+      "changed": 634,
+      "thumbnailPixels": 474,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-36c6da0a14aadc39ff23479d",
+      "changed": 2371,
+      "thumbnailPixels": 1025,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c3ca5abdafc5b4cb7690bfef",
+      "changed": 113,
+      "thumbnailPixels": 347,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f8cb345cb4fc43128faec46d",
+      "changed": 106,
+      "thumbnailPixels": 202,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a0e4bfe57823c3de0bf292e7",
+      "changed": 634,
+      "thumbnailPixels": 474,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5aa404e153948f2842cc9600",
+      "changed": 1297,
+      "thumbnailPixels": 788,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-840bc576603f03df961369d0",
+      "changed": 1551,
+      "thumbnailPixels": 314,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7cc78c5f8e3f652ae3cf7970",
+      "changed": 3540,
+      "thumbnailPixels": 428,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e52b3a3076fe7432f7cf7e49",
+      "changed": 2526,
+      "thumbnailPixels": 933,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-26229d2f11edfc5047573772",
+      "changed": 2431,
+      "thumbnailPixels": 257,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-87c9500134cb7fbb3f1919c7",
+      "changed": 1086,
+      "thumbnailPixels": 215,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e5c32faeb6bafed2aa4ee964",
+      "changed": 1383,
+      "thumbnailPixels": 411,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5b02fe8afebe079c49c0c734",
+      "changed": 3064,
+      "thumbnailPixels": 146,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-35caeac7d39489a512b1c6be",
+      "changed": 6062,
+      "thumbnailPixels": 1331,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7e7bef27ade90bee0904e9dc",
+      "changed": 2605,
+      "thumbnailPixels": 697,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a5cced10987cce516ab29660",
+      "changed": 9679,
+      "thumbnailPixels": 1238,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-515d35a0dda950e1c2c893bc",
+      "changed": 1091,
+      "thumbnailPixels": 339,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e913e8f792f2a09555c2b460",
+      "changed": 5673,
+      "thumbnailPixels": 521,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cbe4ecd5f92dc13737c0f45e",
+      "changed": 9584,
+      "thumbnailPixels": 2408,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b1e17540ea8d1d81fa2a9cca",
+      "changed": 6851,
+      "thumbnailPixels": 1795,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b77c9b1c56c50dec1ffcfd04",
+      "changed": 8793,
+      "thumbnailPixels": 1914,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-88fdfd1d69c02bb976598ddf",
+      "changed": 5249,
+      "thumbnailPixels": 371,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-9e4a86918bc8271089022c23",
+      "changed": 3782,
+      "thumbnailPixels": 300,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0d8c9993e3e77875aa0c0e8a",
+      "changed": 2542,
+      "thumbnailPixels": 188,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-57b044dc9ecdb3f9397e05dd",
+      "changed": 31,
+      "thumbnailPixels": 730,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0ec0557ba06103eb990c0a5b",
+      "changed": 31,
+      "thumbnailPixels": 730,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e78d6ed952bb7952a7c72951",
+      "changed": 1787,
+      "thumbnailPixels": 366,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a03f1ef362472599813284a6",
+      "changed": 1491,
+      "thumbnailPixels": 739,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f0d9c84633036afef492d608",
+      "changed": 2045,
+      "thumbnailPixels": 618,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-98572e27d26cab609111d387",
+      "changed": 12214,
+      "thumbnailPixels": 398,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cb99829c17658d83b66ab27c",
+      "changed": 9401,
+      "thumbnailPixels": 1003,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-50730ec7868619f8dabb97dc",
+      "changed": 12214,
+      "thumbnailPixels": 398,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-48fcb2cd7258c600af8f7318",
+      "changed": 23,
+      "thumbnailPixels": 1607,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-24729a1e5e48e1c09855cd31",
+      "changed": 630,
+      "thumbnailPixels": 1171,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7d498a507ffc8454bc25ea8a",
+      "changed": 369,
+      "thumbnailPixels": 988,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6a36fa761de46ac1eb6e6a8f",
+      "changed": 10960,
+      "thumbnailPixels": 2620,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ed0f8b194a2a4e238c88ee04",
+      "changed": 153,
+      "thumbnailPixels": 37,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a65a22baaa86879ff698b5e4",
+      "changed": 293,
+      "thumbnailPixels": 625,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fbf6dcc495ba68e10d78b0f8",
+      "changed": 375,
+      "thumbnailPixels": 565,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3418389596092ff5c09842a5",
+      "changed": 153,
+      "thumbnailPixels": 37,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6b93f7c9e039075022691987",
+      "changed": 293,
+      "thumbnailPixels": 625,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3a3bd99f33c4f5ee74fb5de2",
+      "changed": 375,
+      "thumbnailPixels": 565,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d7d54cdb1ae9de74878dfe46",
+      "changed": 9156,
+      "thumbnailPixels": 2639,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8a834008ca4f35ed68b3124e",
+      "changed": 5133,
+      "thumbnailPixels": 1908,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cd03f0a2d18569e07988a200",
+      "changed": 6901,
+      "thumbnailPixels": 775,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a7e21babb8f7dec3f51e61c3",
+      "changed": 9451,
+      "thumbnailPixels": 2628,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-02126abb56ae1cbf8c92a8cd",
+      "changed": 5944,
+      "thumbnailPixels": 1889,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-578a6e7f057875f75a16b1ef",
+      "changed": 7285,
+      "thumbnailPixels": 770,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-acc9c69588ff6ba8e4f3bf54",
+      "changed": 7255,
+      "thumbnailPixels": 407,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7e9ec8180e469d5e1d6310c4",
+      "changed": 7255,
+      "thumbnailPixels": 407,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-fda1998853aebacd6cce2424",
+      "changed": 4655,
+      "thumbnailPixels": 675,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0d9a9299c1d0169a554543a6",
+      "changed": 4655,
+      "thumbnailPixels": 675,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-48edea42a475153e83a54807",
+      "changed": 5297,
+      "thumbnailPixels": 1768,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-38cd0030472c1703cc1ced51",
+      "changed": 70,
+      "thumbnailPixels": 36,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4a599a8db43358aeb6f6cd18",
+      "changed": 7785,
+      "thumbnailPixels": 1780,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e0969b469c4f88853ad3174d",
+      "changed": 6041,
+      "thumbnailPixels": 2748,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1b345e643a3a935db5efe74c",
+      "changed": 6041,
+      "thumbnailPixels": 2748,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e42289dcece3ff79378c6942",
+      "changed": 3785,
+      "thumbnailPixels": 255,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-47cd8991263d3638227dcda6",
+      "changed": 5916,
+      "thumbnailPixels": 2552,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-20e05f48cd195ce512a55f35",
+      "changed": 5916,
+      "thumbnailPixels": 2552,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d92dffb5ed0472de5edbba1d",
+      "changed": 6612,
+      "thumbnailPixels": 2498,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-cf1ec7402fb03a68170aede4",
+      "changed": 6612,
+      "thumbnailPixels": 2498,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-31c85dfa01444de536d646f7",
+      "changed": 6612,
+      "thumbnailPixels": 2498,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4eb4d72a4895c9137fef8a8f",
+      "changed": 6612,
+      "thumbnailPixels": 2498,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f3f315c829dcf7928591f2e2",
+      "changed": 3425,
+      "thumbnailPixels": 646,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1afc98131f9ff007a22a871f",
+      "changed": 6056,
+      "thumbnailPixels": 1156,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8384479009119b6c7751b230",
+      "changed": 9833,
+      "thumbnailPixels": 703,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6f718189e7ee035c08a8bf00",
+      "changed": 4203,
+      "thumbnailPixels": 816,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a1e3c338dbfe09a310eaf367",
+      "changed": 15589,
+      "thumbnailPixels": 2453,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-171bd154f653634dd3beadc0",
+      "changed": 4511,
+      "thumbnailPixels": 1092,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6046629f2fbafaae76f0056a",
+      "changed": 20017,
+      "thumbnailPixels": 2966,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-33cd285abaf4a3d591a53fb3",
+      "changed": 2377,
+      "thumbnailPixels": 72,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-67c1b135e85818a493442f8d",
+      "changed": 2347,
+      "thumbnailPixels": 145,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-3e874fd12ae68431d2d8a909",
+      "changed": 17833,
+      "thumbnailPixels": 1782,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6594fa6ce70daaf79532a58a",
+      "changed": 3394,
+      "thumbnailPixels": 1578,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-e0b3eb2d4656eac8c418b302",
+      "changed": 5827,
+      "thumbnailPixels": 1536,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0bd8769a7d20932fdfed4f0a",
+      "changed": 4999,
+      "thumbnailPixels": 717,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8ddff7d6784b89ee65700c97",
+      "changed": 4499,
+      "thumbnailPixels": 1103,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5e64350b41588d18cfc3dd9d",
+      "changed": 5495,
+      "thumbnailPixels": 1350,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-8da006ca1919abb56fbf9f20",
+      "changed": 3390,
+      "thumbnailPixels": 978,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-d66c2840da2bb753d153d132",
+      "changed": 1854,
+      "thumbnailPixels": 207,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-f4a73340b4e27e497ddea1d2",
+      "changed": 1783,
+      "thumbnailPixels": 435,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-c51490fefea60de1eb4b5c50",
+      "changed": 21688,
+      "thumbnailPixels": 2387,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4fd518e96d9c7772b9106a83",
+      "changed": 7255,
+      "thumbnailPixels": 407,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-a3d40d80dbdcce7fe0f7a8c0",
+      "changed": 7255,
+      "thumbnailPixels": 407,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-6417192e07672eda337c0f17",
+      "changed": 4655,
+      "thumbnailPixels": 675,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-4cd165f6658266131cc1bfc1",
+      "changed": 3635,
+      "thumbnailPixels": 1599,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-09632824dbd063d14c5835d8",
+      "changed": 4015,
+      "thumbnailPixels": 369,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-0325bc3a3f5b4673a81a1caf",
+      "changed": 4015,
+      "thumbnailPixels": 369,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-02875dd41270c59c88095474",
+      "changed": 3374,
+      "thumbnailPixels": 360,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-5d81ab6f9fe04eea754651c9",
+      "changed": 9776,
+      "thumbnailPixels": 940,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-101a66e70d862ed515a3ed70",
+      "changed": 2112,
+      "thumbnailPixels": 184,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b5f3702fcda02f666e14a99c",
+      "changed": 1684,
+      "thumbnailPixels": 841,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-bab7873f995e657a1b71f17e",
+      "changed": 1839,
+      "thumbnailPixels": 1166,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-47595c0324069b6d3261e490",
+      "changed": 3536,
+      "thumbnailPixels": 1142,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-67350b881dccca0722ae8a84",
+      "changed": 406,
+      "thumbnailPixels": 529,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1c036e7ea126db48d274ebea",
+      "changed": 406,
+      "thumbnailPixels": 529,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-edacad050bb38504c20fa650",
+      "changed": 10507,
+      "thumbnailPixels": 1873,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-b9530be5bf20745bc6a1e5d1",
+      "changed": 7678,
+      "thumbnailPixels": 795,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-1aa285dc5a04dd7bda5ec7b0",
+      "changed": 22839,
+      "thumbnailPixels": 2266,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-7f8ac0dec2004535ba6c0b9c",
+      "changed": 7845,
+      "thumbnailPixels": 1605,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    },
+    {
+      "id": "wc3-ac50d0dea91d2ca7b18cf6fd",
+      "changed": 22688,
+      "thumbnailPixels": 2173,
+      "cameraStable": true,
+      "pixelRgbDelta": 3
+    }
+  ]
+}

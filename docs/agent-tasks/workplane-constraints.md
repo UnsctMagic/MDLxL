@@ -639,3 +639,5 @@ those new turns to restore the model; the full targeted rerun then passed.
 
 Ready to test; ready for review; awaiting merge approval. Full release suite,
 Warcraft III playback, and owner feel remain untested.
+
+Owner accepted the gizmo changes and approved PR #504 for merge. The quad Move handle now commits the final preview. Free gizmo Rotate uses rim strength through the centre.

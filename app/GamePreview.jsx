@@ -135,12 +135,14 @@ export default function GamePreview(inputProps) {
   const layerComposite = useRef(null);
   const cameraMemory = useRef(null), glidedKey = useRef(undefined), framedKey = useRef(undefined);
   const rendererSource = useRef({ input: null, build: null, revision: null });
-  if (rendererSource.current.input !== model) {
+  // Collision-only proposals share all rendered resources with their accepted model.
+  const previewModel = props.collisionPreviewModel || model;
+  if (rendererSource.current.input !== previewModel) {
     // UV Wrapper fingerprints material and texture contents. A temporary
     // texture can create new arrays on every UV edit without changing either.
     const stableResourceRevision = typeof revision === 'string' && props.uvRevision !== undefined && rendererSource.current.revision === revision;
-    if (!isUVOnlyPreviewChange(rendererSource.current.input, model, stableResourceRevision)) rendererSource.current.build = model;
-    rendererSource.current.input = model;
+    if (!isUVOnlyPreviewChange(rendererSource.current.input, previewModel, stableResourceRevision)) rendererSource.current.build = previewModel;
+    rendererSource.current.input = previewModel;
     rendererSource.current.revision = revision;
   }
   const rendererModel = rendererSource.current.build;
@@ -861,7 +863,7 @@ export default function GamePreview(inputProps) {
     // The first click of a double-click may select the bone under an emitter
     // (Bones show by default), so cycling continues from the emitter picked last.
     let lastPickedParticle=null;
-    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId);if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
+    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId,{details:true});if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point.position,point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
     canvas.addEventListener('dblclick',pickParticle,true);
     // Double-click a bone or a part of the model: its bones are selected with Focused Skeleton on.
     const pickPartBones=event=>{const p=latest.current;if(event.button!==0||event.altKey||!p.onPartBones)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,bone=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='bones'),x,y);
@@ -967,7 +969,11 @@ export default function GamePreview(inputProps) {
     function resize() {
       const rect=latest.current.pixelAligned?host.current?.getBoundingClientRect():null;
       const width = Math.max(1, rect?.width || host.current?.clientWidth || 1), height = Math.max(1, rect?.height || host.current?.clientHeight || 1), pixelRatio = latest.current.showcase ? graphicsOptions(latest.current.preferences).pixelRatio : viewportPixelRatio(graphicsOptions(latest.current.preferences), ownerWindow.devicePixelRatio);
-      canvas.height = Math.round(height * pixelRatio); canvas.width = portraitHasFrame(latest.current) && !portraitComposition(latest.current) ? Math.round(canvas.height * PORTRAIT_ASPECT) : Math.round(width * pixelRatio); gl.viewport(0, 0, canvas.width, canvas.height);
+      const pixelHeight = Math.round(height * pixelRatio), pixelWidth = portraitHasFrame(latest.current) && !portraitComposition(latest.current) ? Math.round(pixelHeight * PORTRAIT_ASPECT) : Math.round(width * pixelRatio);
+      // Assigning even the same dimensions clears WebGL's visible surface.
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      gl.viewport(0, 0, canvas.width, canvas.height);
       perspective.aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height; perspective.updateProjectionMatrix();
       const aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height;
       const half = orthographicHalfHeight(radius, aspect);
@@ -1463,7 +1469,7 @@ export default function GamePreview(inputProps) {
             // A paused view may draw only once after a seek, edit or camera change.
             // Publish that pose immediately; playback still uses the normal report rate.
             const reportKey=p.playing?'':[native.getFrame(),p.particleSelectedId,p.particleLiveRevision,particleStatusKey,canvas.width,canvas.height,...displayCamera.matrixWorldInverse.elements,...displayCamera.projectionMatrix.elements].join(':');
-            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;p.onParticleStage(particleStageSnapshot(native,displayCamera,canvas.clientWidth,canvas.clientHeight,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
+            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
           }
         }
         finally { gl.colorMask(true, true, true, true); }
@@ -1670,6 +1676,7 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      frames: state.scheduler.frames,
       captureView() {
         if (disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
         return composeViewportLayers(hostElement, canvas);
@@ -1800,6 +1807,8 @@ export default function GamePreview(inputProps) {
     latest.current.onCaptureReady?.(state.captureApi);
     ownerDocument.addEventListener('visibilitychange', scheduler.sync);
     window.addEventListener('mdlvis-frame', fit);
+    // Publish a fully drawn surface before the compositor can see the new canvas.
+    render(performance.now(), 0);
     scheduler.invalidate();
     return () => {
       cameraMemory.current = portraitBackup
@@ -1839,7 +1848,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => { runtime.current?.drawBackground(); }, [props.preferences?.visuals?.background, props.preferences?.viewportAppearance?.background]);
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
-  useEffect(() => { if (model) runtime.current?.updateUV(model, `${revision}|${props.uvRevision}`); }, [model, revision, props.uvRevision]);
+  useEffect(() => { if (previewModel) runtime.current?.updateUV(previewModel, `${revision}|${props.uvRevision}`); }, [previewModel, revision, props.uvRevision]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
