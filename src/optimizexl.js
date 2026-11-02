@@ -52,7 +52,10 @@ export function simpleSettings(stage,strength,m,mode){const s=clamp(strength,0,1
  case 'duplicates':return {position:d*.005*s*s,uv:.01*s*s,normal:10*s*s,bones:true};
  case 'animation':return {position:d*.005*s*s,rotation:3*s*s,scale:.02*s*s,...(mode==='world'?{mode,worldTolerance:d*.01*s*s}:{})};
  case 'unused':return {vertices:true,resources:true,nodes:true};
- case 'spheres':return {preset:1,size:1,spheres:presetShapes(1)};
+ case 'spheres':{
+  const shapes=m.CollisionShapes.filter(n=>n.Shape===0||n.Shape===2).map(n=>n.Shape===0?Array.from(n.Vertices):[...n.Vertices,n.BoundsRadius]);
+  return {preset:shapes.length?null:1,size:1,spheres:shapes.length?shapes:presetShapes(1)};
+ }
  case 'nuclear':return {target:Math.round(triangleCount(m)*(1-.98*s)),error:.2*s*s,normalLimit:45,protectNormals:true,protectSeams:true,protectSkin:true};
  default:return {};
 }}

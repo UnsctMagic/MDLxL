@@ -71,3 +71,15 @@ for (const [view, position, perspective, expected] of [
   assert.deepEqual(row.handles.map(h=>[h.axis,h.sign]),expected,view+' exposes visible dimensions, excluding projected depth');
   for(const handle of row.handles) assert.ok(handle.basis.unitsPerPixel>0 && Number.isFinite(handle.basis.unitsPerPixel));
 });
+
+test('Sphereomancer begins with authored spheres and boxes, copied independently of presets', () => {
+ const doc=createStarterDocument();doc.apply('Authored collisions',['CollisionShapes','Nodes','PivotPoints'],m=>{
+  Object.assign(createNode(m,'CollisionShape'),{Shape:2,Vertices:new Float32Array([12,-8,61]),BoundsRadius:27});
+  Object.assign(createNode(m,'CollisionShape'),{Shape:0,Vertices:new Float32Array([-20,-30,0,45,65,92])});
+ });
+ const settings=simpleSettings('spheres',0,doc.model);
+ assert.deepEqual(settings.spheres,[[12,-8,61,27],[-20,-30,0,45,65,92]]);
+ assert.equal(settings.size,1);assert.equal(settings.preset,null,'authored shapes are distinct from a chosen preset');
+ settings.spheres[0][0]=999;assert.equal(doc.model.CollisionShapes[0].Vertices[0],12);
+ assert.deepEqual(presetShapes(1),SPHERE_PRESETS[1].spheres,'choosing a preset replaces authored rows');
+});

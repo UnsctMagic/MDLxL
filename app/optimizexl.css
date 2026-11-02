@@ -17,7 +17,7 @@
 .ox-stage{flex:1;min-height:0;position:relative}.ox-stage>.game-preview-root{position:absolute;inset:0;width:100%;height:100%}
 /* Shared collision controls must be present when the popup copies its styles. */
 .mm-overlay{position:absolute;z-index:50;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
-.mm-overlay .mm-outline{fill:none;stroke:#51d7ff;stroke-width:1.5;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-outline{fill:none;stroke:#51d7ff;stroke-width:1.5;pointer-events:none;vector-effect:non-scaling-stroke}
 .mm-overlay .mm-guide{fill:none;stroke:#51d7ff;stroke-width:1;opacity:.45;pointer-events:none;vector-effect:non-scaling-stroke}
 .mm-overlay .mm-selected .mm-outline{stroke:var(--ui-accent,#365f81);stroke-width:2.5}
 .mm-overlay :is(.mm-handle,.mm-center){pointer-events:none;outline:none}
@@ -28,3 +28,6 @@
 .mm-overlay text{fill:white;stroke:#111;stroke-width:2px;paint-order:stroke;font:12px sans-serif;pointer-events:all;cursor:pointer}
 .mm-overlay .mm-remove{pointer-events:all}.mm-overlay .mm-remove button{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:4px;cursor:pointer}
 .ox-spheres fieldset[aria-current=true]{border-color:var(--ui-accent,#365f81)}
+
+.mm-overlay .mm-outline-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-select-center{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
