@@ -29,6 +29,8 @@ separate and are not a shared handover.
 
 ## Essential constraints
 
+- No flavour text. UI shows names and short functional labels only; do not write descriptions, slogans or atmospheric copy unless the owner asks for that text.
+
 - Make the smallest requested change in the existing workflow. Preserve unrelated
   work, authored model data and intended motion. Do not edit imported libraries.
 - On the owner's Windows PC, keep all task-controlled work, builds, caches,
