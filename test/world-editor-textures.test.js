@@ -28,3 +28,15 @@ test('an unreadable art keeps the other arts, is retried, and missing names are 
  await assert.rejects(load({key:'we/2',models:[{path:'bad'}]},'classic','sig'),/unreadable/);
  assert.deepEqual(matchEntryTextures([{path:'Gone.blp',variant:'classic'},{path:'Gone.blp',variant:'reforged'}],[]).missing,['Gone.blp']);
 });
+
+test('a rejected icon keeps model textures, reports the icon missing, and retries the entry',async()=>{
+ let models=0,icons=0;
+ const load=createEntryTextureLists(async(path,variant)=>{models++;return [{path:'Textures\\Footman.blp',variant}];},async(path,variant)=>{icons++;if(icons===1)throw Error('icon read failed');return {path,variant};});
+ const entry={key:'we/icon-failure',models:[{path:'Footman.mdx'}],icon:'BTNFootman.blp'};
+ const first=await load(entry,'classic','sig');
+ assert.deepEqual(first.map(record=>record.path),['Textures\\Footman.blp','BTNFootman.blp']);
+ const catalog=[{id:'footman',path:'Textures\\Footman.blp',variant:'classic'}];
+ assert.deepEqual(matchEntryTextures(first,catalog),{items:catalog,missing:['BTNFootman.blp']});
+ const second=await load(entry,'classic','sig');assert.notEqual(second,first,'a failed icon must not cache a complete entry');
+ assert.equal(models,2);assert.equal(icons,2,'next call retries the icon');assert.equal(await load(entry,'classic','sig'),second,'the successful retry is cached');
+});

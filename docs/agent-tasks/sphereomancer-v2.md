@@ -1,6 +1,6 @@
 # Sphereomancer v2: five presets, Add sphere/square, EMTR-style handles, no black flashing
 
-Status: ready to test; ready for review; awaiting merge approval
+Status: owner approved merge; integration verification passed
 Owner / consolidator: Codex implements; Claude reviews and merges on the owner's word
 Updated: 2026-11-02
 
@@ -166,8 +166,12 @@ Existing source skips (not enabled by this task):
 
 Evidence: [before flash](../../test/evidence/sphereomancer-v2/before-flash.png), [final controls](../../test/evidence/sphereomancer-v2/after-controls.png), [baseline measurements](../../test/evidence/sphereomancer-v2/baseline-frames.json), [all final frame measurements](../../test/evidence/sphereomancer-v2/after-frames.json), [results and renderer hashes](../../test/evidence/sphereomancer-v2/results.json).
 
-Not exercised: native Warcraft III playback and owner visual acceptance. Claude retains independent QA/review; no merge or release is authorized.
+Not exercised: native Warcraft III playback. The owner authorized merging after the interactive test; no release is authorized.
+
+### Owner merge authorization and main integration (2026-11-02)
+
+The owner explicitly approved merging PR #507 after trying the updated test. Current main 04082fb4 is integrated on the feature branch; conflicts were limited to adjacent rows in the agent map and task index. Both the collision-clock reference and main's Library review reference are retained; unrelated current task rows follow main. The completed Sphereomancer row is removed from the current-task index. GamePreview auto-merges main's particle preview sizing/frame-scheduler additions with the collision renderer lifetime changes. Integrated verification: 96 focused source passed / 0 failed / 0 skipped; the same rebuilt bundle passed hidden optimizexl (153s) and model-manager-regressions (6s), 2 passed / 0 failed / 0 skipped. All thirteen owner-popup checks pass and all six 120-frame cases show zero mostly-black frames in either pane. Small evidence is retained at D:\Codex\sphereomancer-v2-owner-results\merge. No release, tag or owner installation change.
 
 ## Blockers and next action
 
-- Implementation and required hidden verification complete on `codex/sphereomancer-v2`, started at main `af004b55` and integrated concurrent main `f6a5c0d2`. [PR #507](https://github.com/UnsctMagic/MDLxL/pull/507). Owner-settings corrections recorded above. Next: independent Claude re-review and owner click-through. Merge only after owner approval.
+- Owner approved merge of [PR #507](https://github.com/UnsctMagic/MDLxL/pull/507); main integration verification passed. Merge through that PR, verify online main and record the merge revision. No release or tag.
