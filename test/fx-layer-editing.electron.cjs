@@ -32,6 +32,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await choose('Living ink');assert.equal(await fx.getByLabel('Enable Ink seal').count(),0);
   await fx.getByLabel('Add layer',{exact:true}).selectOption('Ink seal');await ready();
   await fx.getByRole('button',{name:'Change texture',exact:true}).click();
+  await page.getByRole('button',{name:'Standard',exact:true}).click();
   const search=page.getByRole('searchbox',{name:'Search textures'});await page.getByRole('checkbox',{name:'Vibe search'}).uncheck();await search.fill('DemonRune5');
   const tile=page.locator('.tl-grid button').filter({has:page.getByText('Demon Rune5',{exact:true})});await tile.click({timeout:60000});
   await page.getByRole('button',{name:'Use picture',exact:true}).click();await search.waitFor({state:'hidden'});await ready();
