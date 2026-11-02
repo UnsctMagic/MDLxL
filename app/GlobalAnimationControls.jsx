@@ -73,11 +73,6 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
-  {l.powerArcs&&<>
-   {row('Burst duration (s)','burstWindow',.06,1,.01,'How long the arcs flash along the blade.')}
-   {row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time between flashes.')}
-   {row('Flashes per burst','amount',1,12,1,'Number of flashes along the blade in each burst.')}
-  </>}
   {p&&<>
    {real&&<LifeTable emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
     begin={(field,stage)=>{gesture.current={field,stage,emitter:structuredClone(real)};}}

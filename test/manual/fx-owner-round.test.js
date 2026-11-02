@@ -108,7 +108,7 @@ test('default weapon sparks and embers are visible concurrently on both weapons'
 });
 test('lightning flashes alternate between blades with quiet intervals, and the burst controls survive reopen',async()=>{
  const {ModelRenderer}=await import('war3-model');
- const d=fixture(),s=stack(d,'lightning-blade'),l=makeLayer(LAYER_CHOICES.find(l=>l.kind==='crackle'),partFrame(d.model.Geosets[28]),'azure',3);s.layers.push(l);
+ const d=fixture(),s=stack(d,'lightning-blade'),l=makeLayer(LAYER_CHOICES.find(l=>l.kind==='crackle'),partFrame(d.model.Geosets[28]),'azure',Math.max(...s.layers.map(l=>l.id))+1);s.layers.push(l);
  for(const [gap,amount,window] of [[3,4,.22],[1,9,.36]]){
   l.burstGap=gap;l.amount=amount;l.burstWindow=window;d.apply('Change lightning',FX_SECTIONS,m=>compileAnimation(m,28,s));
   const renderer=new ModelRenderer(structuredClone(d.model));renderer.setSequence(0);

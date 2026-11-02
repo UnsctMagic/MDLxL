@@ -2,6 +2,14 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Lightning restoration · 2 November 2026
+
+Continued from `3411282a`. Restore the Lightning surface defaults from `44f8c6c8`. Storm steel and Blade arcs start enabled. Forked arcs is available and starts off. The original replacement-material default is restored. The global empty Particles → Add emitter choice remains available. Remove the direct burst controls from the Blade arcs surface.
+
+Compared the full native Slaanesh export with the `44f8c6c8` source, excluding editor grouping metadata. Both MDX and MDL are byte-identical. The original material treatment and animation data match that reference. New authored effects still begin without an emitter.
+
+Passed 2,665 source checks, 57 compatibility checks and 14 real-model checks, with zero failures and seven existing source skips. All nine hidden-desktop FX checks passed, including the absence of the removed surface controls. The previous package fails the restored material-default assertion (`true !== false`). Lightning passed MDX and MDL save, reopen, re-edit and exact Undo. Warcraft III playback and independent QA remain open.
+
 ## Sixth hand test · 2 November 2026
 
 Continued from `44f8c6c8`. Lightning blade starts as an overlay with Storm steel and Blade arcs. Every preset has an empty Particles → Add emitter choice. Choosing an emitter uses the existing layer builder and native controls. New Ice skin stacks start on White ice with Falling mist. Dark ice and older saved stacks remain editable.

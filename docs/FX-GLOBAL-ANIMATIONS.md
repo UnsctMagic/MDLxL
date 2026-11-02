@@ -107,7 +107,7 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | A Warhammer 40,000 power sword with branching native Lightning4b arcs running along the skinned blade metal. Flash three times over 0.25 seconds, with three seconds quiet between bursts. Expose duration, quiet interval and flashes per burst. New stacks contain only Storm steel and Blade arcs and start as overlays. The Particles choice is empty until the artist chooses an emitter. |
+| Lightning blade | Use the surface defaults from `44f8c6c8`. Storm steel and Blade arcs start enabled. Forked arcs starts off. Use the original replacement material by default. The Particles choice starts empty. The Blade arcs surface has no direct burst-duration, burst-interval or flash-count controls. |
 | Arcane blade | Energy flows along the blade with a pulse. |
 | Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
 | Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
