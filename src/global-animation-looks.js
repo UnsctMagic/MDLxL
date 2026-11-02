@@ -189,5 +189,6 @@ export function makeLayer(spec,frame,palette,id) {
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {
- return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.flatMap((s,i)=>!look.impact&&s.type==='Particles'?[]:[makeLayer(s,frame,look.palette,i+1)])};
+ const emitterOnly=look.layers.length>0&&look.layers.every(spec=>spec.type==='Particles');
+ return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.flatMap((s,i)=>!look.impact&&s.type==='Particles'&&(!emitterOnly||i>0)?[]:[makeLayer(s,frame,look.palette,i+1)])};
 }

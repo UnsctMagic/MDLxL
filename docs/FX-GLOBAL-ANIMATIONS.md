@@ -33,7 +33,7 @@ adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
 
 ## Layers and native fields
 
-Every new library preset starts without Particles layers. Particles → Add emitter lists that preset's own emitters first, in their original order, with only the first labelled `(recommended)`, followed by the other existing ingredients. Choosing one uses the original native values, fit and controls. Presets without their own emitters mark none recommended. Saved stacks keep their existing emitters; retired impacts and ribbon layers are unchanged. The Lightning surface burst controls stay removed. This 2 November decision supersedes earlier default-emitter descriptions below.
+A preset with nothing but emitters starts with its first own emitter already added; every other new library preset starts without Particles layers. Particles → Add emitter lists that preset's own emitters first, in their original order, with only the first labelled `(recommended)`, followed by the other existing ingredients. Choosing one uses the original native values, fit and controls. Presets without their own emitters mark none recommended. Saved stacks keep their existing emitters; retired impacts and ribbon layers are unchanged. The Lightning surface burst controls stay removed. This 2 November decision supersedes earlier default-emitter descriptions below.
 
 Every ingredient is a listed, selectable layer with an on/off switch. Emitters and
 ground pieces are independent. Ground seals and rings start **off**, including
