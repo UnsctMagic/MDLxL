@@ -156,6 +156,8 @@ Normal → Footman → tiles appear → press Standard → search "painting" →
 
 ## Review handoff
 
-PR and implementation revision are recorded after the verification commit.
+PR: [#506](https://github.com/UnsctMagic/MDLxL/pull/506), into `main`, unmerged.
+Implementation revision: `f8ebeb3c16bf4aff65896b5c649edc21cfa5f95d`.
+All runtime changes and tests were verified before this documentation-only handoff.
 Owner click-through: Library → Textures → Human → Units → Normal → Footman →
 tiles appear → Standard → search "painting" → tiles appear.
