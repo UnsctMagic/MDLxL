@@ -2,6 +2,11 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Code review fixes · 2 November 2026
+
+Merged main at 04082fb4 into PR 492, keeping its particle placement, ribbon visibility, stage handles and library map alongside FX part picking and capture. Restored main Preview rotation; separated fly orbit radius from sprite scaling; tracked FX-owned global clocks by index; kept later material assignments; retained per-part unapplied drafts; applied gravity preview and one tooltip to all ribbons; removed unused FX code; and cached the FX dirty comparison by revision. The owner-approved FX look and controls remain unchanged.
+
+Focused source checks and the packaged offscreen mouse checks passed for fly radius, part switching, ribbon handles and main Preview Ctrl+drag; a real Blademaster EMTR ribbon visibly fell under gravity. Two older packaged EMTR harnesses stopped before their ribbon checks on stale opening or selection assertions; the direct real-model check covered the affected behavior. CI-equivalent verification passed: FFmpeg, build, 57 compatibility tests, and 2,750 source passes with zero failures and 10 existing skips; Claude's independent QA remains pending.
 ## Empty emitter defaults · 2 November 2026
 
 Continues `676aaf6f`, following `D:\Codex\mdlxl-491-492-review\contract-492-empty-emitters.md`. A preset with nothing but emitters now starts with its first own emitter already added, while every other new preset starts without Particles layers. Add emitter lists each preset's own ingredients first and marks only the first `(recommended)`; native values match the captured `676aaf6f` makeLayer output. Non-particle IDs, ribbons, saved stacks, retired impacts, White ice and restored Lightning are unchanged. Existing particle-behaviour checks now explicitly choose or seed their emitters.

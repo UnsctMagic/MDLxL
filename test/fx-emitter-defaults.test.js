@@ -37,3 +37,10 @@ test('retired impacts retain their original particle layers',()=>{
  const doc=fixture(),frame=looks.partFrame(doc.model.Geosets[0]),look=looks.findLook('iron-hit');
  assert.deepEqual(looks.newStack(look,frame,'impact').layers,look.layers.map((s,i)=>looks.makeLayer(s,frame,look.palette,i+1)));
 });
+
+test('fly orbit size leaves native sprite scaling alone',()=>{
+ const layer={kind:'flies',size:10,spriteSize:3,native:{ParticleScaling:[3,4,5]}};
+ assert.deepEqual(looks.withLayerSize(layer,{...layer,size:16}),{...layer,size:16});
+ const flame={...layer,kind:'flame'};
+ assert.deepEqual(looks.withLayerSize(flame,{...flame,size:16}).native.ParticleScaling,[4.8,6.4,8]);
+});

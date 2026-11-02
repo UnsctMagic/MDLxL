@@ -641,7 +641,7 @@ export default function GamePreview(inputProps) {
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
-      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && (!p.emptyDragRotates || event.ctrlKey && p.onInspectGeoset) && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
+      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && !p.emptyDragRotates && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
         controls.enabled = false; canvas.setPointerCapture(event.pointerId);

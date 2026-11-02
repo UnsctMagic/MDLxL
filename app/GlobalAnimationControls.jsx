@@ -1,14 +1,13 @@
 import React,{useRef,useState} from 'react';
 import ParticleTimingTool from './ParticleTimingTool.jsx';
 import {particleValue} from '../src/particle-bindings.js';
-import {impactDefaults} from '../src/global-animation-model.js';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
-import {textureRepeats} from '../src/global-animation-model.js';
+import {impactDefaults,textureRepeats} from '../src/global-animation-model.js';
 import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withLayerSize,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
@@ -18,7 +17,7 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null);
  const setLayer=next=>setStack({...stack,layers:stack.layers.map(v=>v.id===next.id?next:v)});
- const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}if(key==='size'&&l.native?.ParticleScaling)next.native={...l.native,ParticleScaling:l.native.ParticleScaling.map(v=>v*val/l.size)};setLayer(next);};
+ const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}setLayer(key==='size'?withLayerSize(l,next):next);};
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
  const result=graph?.layers?.[l?.id],p=l?.type==='Particles',edge=l?.type==='Edge',fly=l?.kind==='flies';
  const real=result?.id!=null?graph.model.Nodes[result.id]:null;

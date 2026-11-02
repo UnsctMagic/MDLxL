@@ -108,10 +108,6 @@ export const VISUAL_EFFECTS=[
     [layer('Star4',.52,{light:after})],[burst('Star10_Alpha',{burst:9,delay:.06,life:1.3,velocity:1.1,spread:15,filter:0,size:[.08,.17,.04]})],{cue:'birth',at:'ground',stamp:'UBRxSCTP',palette:'azure'}),
 ];
 
-export function visualPaths(effect){
-  return [...new Set([effect.undercoat,...(effect.layers||[]),...(effect.accents||[])].filter(part=>part?.texture).map(part=>part.texture))];
-}
-
 const searchTerms={
   'Energy streaks':'missile projectile bolt energy streak moving texture',
   Auras:'aura magic ward', Ambient:'ambient idle glow atmosphere', Weapons:'weapon enchant blade sword',

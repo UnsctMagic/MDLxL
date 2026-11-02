@@ -159,3 +159,43 @@ test('runes remain on the exact selected triangles and their authored skin weigh
  assert.equal(m.Bones.filter(n=>n._FxTag?.startsWith('rune/')).length,0,'no aura pivot or ring geometry');
  const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);assert.ok(layer.Alpha.GlobalSeqId>=0);
 });
+
+test('FX clocks do not reuse or delete an authored clock with the same duration',()=>{
+ const {doc,frame,donors}=fixture(),model=doc.model;
+ model.GlobalSequences.push(2800);
+ const stack=authoredStack(GLOBAL_LOOKS.find(look=>look.id==='water-skin'),frame,'owned-clock');
+ stack.loop=2800;
+ compileAnimation(model,0,stack,donors);
+ assert.deepEqual(model.GlobalSequences.filter(duration=>duration===2800),[2800,2800],'FX creates a separate clock');
+ const changed={...stack,loop:3200};
+ compileAnimation(model,0,changed,donors);
+ compileAnimation(model,0,{...changed,layers:[]},donors);
+ assert.deepEqual(model.GlobalSequences,[2800],'the authored clock survives and FX clocks are gone');
+});
+
+test('reapplying FX keeps a newer material assignment as its base',()=>{
+ const {doc,frame,donors}=fixture(),model=doc.model;
+ const stack=authoredStack(GLOBAL_LOOKS.find(look=>look.id==='flaming-sword'),frame,'new-material');
+ stack.asOverlay=false;
+ compileAnimation(model,0,stack,donors);
+ const replacement=model.Materials.push(structuredClone(model.Materials[0]))-1;
+ model.Geosets[0].MaterialID=replacement;
+ compileAnimation(model,0,stack,donors);
+ assert.equal(model.Geosets[0]._FxStack.baseMaterial,replacement);
+});
+test('an EMTR ribbon already present at startup previews gravity',async()=>{
+ const {NativeParticleSimulation}=await import('../app/particle-preview-adapter.js');
+ const {doc,frame,donors}=fixture(),edge=makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',1);
+ edge.lasts=1.5;
+ compileAnimation(doc.model,0,{...authoredStack(GLOBAL_LOOKS[0],frame,'emtr-gravity'),layers:[edge]},donors);
+ const simulate=gravity=>{
+  const model=structuredClone(doc.model);
+  delete model.RibbonEmitters[0]._FxTag;
+  model.RibbonEmitters[0].Gravity=gravity;
+  const sim=new NativeParticleSimulation(model);
+  sim.advance(650);
+  return sim.snapshot().ribbons[0];
+ };
+ const falling=simulate(80),level=simulate(0);
+ assert.ok(level.vertices[2]-falling.vertices[2]>8,'ordinary ribbon gravity drops the trail: '+JSON.stringify({level:level.vertices[2],falling:falling.vertices[2],count:level.creationTimes.length}));
+});

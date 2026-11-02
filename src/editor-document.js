@@ -360,7 +360,11 @@ export class EditorDocument {
     }
     return this._changeCache.keys;
   }
-  get _fxChanged() { return JSON.stringify(fxData(this.model)) !== JSON.stringify(fxData(this._savedModel)); }
+  get _fxChanged() {
+    if(this._fxChangeCache?.revision!==this.revision||this._fxChangeCache.model!==this.model||this._fxChangeCache.saved!==this._savedModel)
+      this._fxChangeCache={revision:this.revision,model:this.model,saved:this._savedModel,changed:JSON.stringify(fxData(this.model))!==JSON.stringify(fxData(this._savedModel))};
+    return this._fxChangeCache.changed;
+  }
   get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
   get _commentsChanged() { return (this.model[MODEL_COMMENTS_KEY] || '') !== (this._savedModel[MODEL_COMMENTS_KEY] || ''); }
   get dirty() { return this._changedKeys().length > 0 || this._fxChanged || this._tabsChanged || this._commentsChanged; }

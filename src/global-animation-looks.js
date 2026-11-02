@@ -54,7 +54,6 @@ const retiredImpacts=[];
 const retiredLooks=GLOBAL_LOOKS.filter(l=>['white-ice-skin','lava-skin'].includes(l.id));
 GLOBAL_LOOKS.splice(0,GLOBAL_LOOKS.length,...GLOBAL_LOOKS.filter(l=>!retiredLooks.includes(l)));
 export const RETAINED_CARD_IDS=['sun-mend','hex-mark','venom-seep','spell-ward','spirit-veil','recall-seal','revenant','lava','fissures','glacial','poison'];
-export const REMOVED_CARDS=SURFACE_EFFECTS.filter(e=>!RETAINED_CARD_IDS.includes(e.id));
 for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.category==='Impacts'&&e.cue==='attack')){
  const impact=e.category==='Impacts',layers=[];
  if(e.id==='glacial'){
@@ -107,6 +106,10 @@ export function emitterChoices(look) {
  return [...own.map((spec,i)=>({spec,label:spec.label+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:spec.menuLabel||spec.label}))];
 }
 export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
+export function withLayerSize(layer,next){
+ if(next.size===layer.size||layer.kind==='flies'||!layer.native?.ParticleScaling)return next;
+ return {...next,native:{...next.native,ParticleScaling:layer.native.ParticleScaling.map(value=>value*next.size/layer.size)}};
+}
 export function withParticleStrength(layer,currentAlpha,value){
  const opacityBase=layer.opacityBase||Array.from(currentAlpha);
  return {...layer,opacityBase,particleStrength:value,native:{...layer.native,Alpha:opacityBase.map(a=>Math.round(a*value))}};

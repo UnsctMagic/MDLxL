@@ -34,8 +34,10 @@ function keys(clock,ms,pairs,type=1,ArrayType=Float32Array){
  return {GlobalSeqId:clock,LineType:type,Keys:pairs.map(([t,value])=>({Frame:Math.round(t*ms),Vector:ArrayType.from(Array.isArray(value)?value:[value])}))};
 }
 function clockFor(m,ms,created){
- let id=m.GlobalSequences.indexOf(ms);
- if(id<0){id=m.GlobalSequences.push(ms)-1;created.push(ms);}
+ const owned=[...created,...m.Geosets.flatMap(g=>g._FxStack?.createdClockIds||[])];
+ let id=owned.find(i=>m.GlobalSequences[i]===ms);
+ if(id==null)id=m.GlobalSequences.push(ms)-1;
+ if(!created.includes(id))created.push(id);
  return id;
 }
 function texture(m,name,wrap,tag){
@@ -439,13 +441,14 @@ export function readAnimationStack(model,index){
 }
 export function compileAnimation(model,index,draft,{rune}={}){
  const source=model.Geosets[index];if(!source)throw Error('Select a part first.');
- const before=readAnimationStack(model,index), base=before?.baseMaterial??source.MaterialID,owner=draft.owner;
+ const before=readAnimationStack(model,index),owner=draft.owner;
+ const base=before&&source.MaterialID!==before.baseMaterial&&model.Materials[source.MaterialID]?._FxTag!==before.owner+'/underlay'?source.MaterialID:before?.baseMaterial??source.MaterialID;
  const strikeGeo=draft.impact?model.Geosets[draft.contact?.geoset]:null;
  if(draft.impact&&(!strikeGeo||strikeGeo._FxTag||!(draft.contact.vertex>=0&&draft.contact.vertex*3<strikeGeo.Vertices.length)))draft={...draft,...impactDefaults(model,index,draft.sequence,draft.hit)};
- const attachmentCache=new Map(),originalClocks=[...model.GlobalSequences];
- const frame=partFrame(source),created=[...(before?.createdClocks||[])],used=new Set();
+ const attachmentCache=new Map(),originalClockCount=model.GlobalSequences.length;
+ const frame=partFrame(source),created=[...(before?.createdClockIds||[])],used=new Set();
  const ms=Math.max(200,Math.round(draft.loop)),id=draft.layers.length&&!draft.impact?clockFor(model,ms,created):-1;
- const state=JSON.parse(JSON.stringify(draft));state.baseMaterial=base;state.createdClocks=created;
+ const state=JSON.parse(JSON.stringify(draft));state.baseMaterial=base;state.createdClockIds=created;state.createdClocks=[];
  source.MaterialID=base;source._FxStack=state;
  if(!createsOverlay(draft)&&draft.layers.some(l=>l.enabled!==false&&surfaceIngredient(l))){
   const original=model.Materials[base].Layers[0];
@@ -476,16 +479,16 @@ export function compileAnimation(model,index,draft,{rune}={}){
   else if(l.type==='Rune')runeLayer(context,l);
   else skinLayer(context,l);
  }
- for(const duration of model.GlobalSequences)if(!originalClocks.includes(duration)&&!created.includes(duration))created.push(duration);
+ for(let i=originalClockCount;i<model.GlobalSequences.length;i++)if(!created.includes(i))created.push(i);
  if(!draft.layers.length)delete source._FxStack;
- for(const duration of [...created]){
-  if(draft.layers.length&&ms===duration)continue;
-  const peer=model.Geosets.find(g=>g!==source&&g._FxStack?.loop===duration)?._FxStack;
-  if(peer){if(!peer.createdClocks.includes(duration))peer.createdClocks.push(duration);created.splice(created.indexOf(duration),1);}
- }
  sweep(model,owner,used);
  const clocks=new Set();visitTracks(model,t=>clocks.add(t.GlobalSeqId),{skip:['Nodes','_FxStack'],event:n=>clocks.add(n.GlobalSeqId)});
- for(const duration of [...created]){const i=model.GlobalSequences.indexOf(duration);if(i>=0&&!clocks.has(i)){deleteGlobalSequence(model,i);for(const k of [...clocks].sort((a,b)=>a-b))if(k>i){clocks.delete(k);clocks.add(k-1);}created.splice(created.indexOf(duration),1);}}
+ for(const i of [...new Set(created)].sort((a,b)=>b-a))if(model.GlobalSequences[i]!=null&&!clocks.has(i)){
+  deleteGlobalSequence(model,i);
+  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClockIds=g._FxStack.createdClockIds.filter(id=>id!==i).map(id=>id>i?id-1:id);
+  for(const k of [...clocks])if(k>i){clocks.delete(k);clocks.add(k-1);}
+ }
+ for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
   results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
