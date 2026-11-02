@@ -30,7 +30,7 @@ async function main() {
   fs.mkdirSync(out, { recursive: true });
   let round = 0, failure, firstContext, actual;
   let offRequests = 0;
-  const reason = 'I can reuse the same grip analysis across the selected parts and compare candidates before selecting the helmet.';
+  const reason = 'I can check the marked vertices against the head bone in one pass and preview the helmet before changing your selection.';
   const toolCall = (id, args) => ({ tool_calls: [{ index: 0, id, function: { name: 'mdlxl_workspace', arguments: JSON.stringify(args) } }] });
   const actions = [
     { action: 'write', file: 'part.json', text: '{"bone":"Bone_Head"}' },
