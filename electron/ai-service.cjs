@@ -56,10 +56,12 @@ function editingPrompt(contract, { handbook, web, functions }) {
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
-// Legacy native chats may have a local ledger without a provider thread; API
-// routes send it as history instead.
+// Old Offload organisers kept a local ledger of requests and bird reports in
+// `messages`. It is not provider history: a native chat sends it until it has a
+// thread, an API chat once (runTask then starts its history afresh).
 function ledgerText(conversation, settings) {
-  if (!providerInfo(settings.provider)?.native || conversation.threadId || !conversation.messages?.length) return '';
+  const native = providerInfo(settings.provider)?.native;
+  if (!conversation.messages?.length || (native ? conversation.threadId : !conversation.workers?.length || conversation.ledgerFolded)) return '';
   return (
     '\n\nThe requests and reports from this conversation, oldest first:\n' +
     conversation.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
@@ -550,7 +552,9 @@ class AiService {
   // so the review, saved task and organiser all leave the blocked state together.
   async acceptDelivery({ conversation, recorder, text, context, signal }) {
     if (!acceptsDelivery(text)) return false;
-    const task = conversation.task;
+    // An old Offload job waits for acceptance in its bird's chat.
+    const owner = conversation.task?.workerId && conversation.task.status !== 'complete' ? await this.readConversation(conversation.task.workerId) : conversation,
+      task = owner?.task;
     if (!task || task.status === 'complete' || !task.checkpoint?.review?.changed) return false;
     await this.call('mdlxl_checkpoint', { target: context.target, baseline: task.baseline, restoreReview: task.checkpoint.review }, signal);
     const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
@@ -562,6 +566,10 @@ class AiService {
     delete task.images;
     recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
     recorder.event({ type: 'text', text: summary });
+    if (owner !== conversation) {
+      Object.assign(conversation.task, { status: 'complete', phase: review.phase, summary, acceptedByUser: true });
+      await this.persistConversation(owner);
+    }
     return true;
   }
   // One tool-free turn in a throwaway chat; returns the reply text. Usage goes to
@@ -748,13 +756,18 @@ class AiService {
       conversation.sentToolAreas = [...sent, ...areas];
     }
     // A chat without provider history starts with the model's memory note. A legacy
-    // native chat's local ledger is not history either, so it travels in the prompt.
-    const ledger = conversation.toolsOff ? '' : ledgerText(conversation, settings);
+    // ledger is not history either, so it travels in the prompt (a memory note
+    // request already carries it).
+    const ledger = ledgerText(conversation, settings);
     if (!conversation.toolsOff && conversation.modelKey && !conversation.threadId && (ledger || !conversation.messages?.length)) {
       const entry = await this.registry.model(conversation.modelKey);
       if (entry.note) prompt += memoryNoteText(entry.note);
     }
-    prompt += ledger;
+    if (!conversation.toolsOff) prompt += ledger;
+    if (ledger && !providerInfo(settings.provider)?.native) {
+      conversation.messages = [];
+      conversation.ledgerFolded = true;
+    }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!conversation.toolsOff && conversation.modelKey) {
       const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
@@ -954,7 +967,8 @@ class AiService {
     };
     const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
     const web = sd.web === true;
-    const system = editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
+    // A tool-free memory note needs only the opening line, not the editing rules.
+    const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())

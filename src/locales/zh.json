@@ -7249,5 +7249,6 @@
   "Add square": "添加方框",
   "Resize sphere radius": "调整球体半径",
   "Choose one of five fixed collision presets. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.": "选择五种固定碰撞预设之一。在“之后”预览中拖动形状进行调整。仅在批准后替换当前碰撞形状。",
-  "Drag Move to move; drag the edge handles to resize": "拖动“移动”以移动；拖动边缘控制点以调整大小"
+  "Drag Move to move; drag the edge handles to resize": "拖动“移动”以移动；拖动边缘控制点以调整大小",
+  "Choose a unit, spell, item or doodad to see its textures.": "选择单位、技能、物品或装饰物以查看其纹理。"
 }

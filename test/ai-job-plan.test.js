@@ -30,3 +30,9 @@ test('editing and read-only calls keep their existing queue behavior', async () 
   assert.equal(aiToolRunsUnqueued('mdlxl_script', { edit: true }), false);
   assert.equal(aiToolEditsModel('mdlxl_script', { edit: true }), true);
 });
+
+test('exact value requests keep their exemption after a leading name or courtesy word', () => {
+ const {exactValueRequest}=createRequire(import.meta.url)('../electron/ai-job-plan.cjs');
+ for (const text of ['Please, rename Bone_Head to Head','Footman: set Alpha to 0','ask Crow to rename Bone_Head to Head','rename Bone_Head to Head']) assert.equal(exactValueRequest(text),true,text);
+ assert.equal(exactValueRequest('Please, fix the shoulders'),false);
+});
