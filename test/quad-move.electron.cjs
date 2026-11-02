@@ -6,7 +6,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
 (async () => {
   assert.ok(appTarget().packaged, 'run this regression against a packaged app');
   const errors = [], out = path.resolve('out/quad-move');
-  const { app, page } = await launchApp({ fixture: fixturePath('footman'), out, errors });
+  const { app, page } = await launchApp({ fixture: fixturePath('footman'), out, errors, settings: {preferences:{graphics:{maxFps:30}}} });
   try {
     const viewport = page.getByLabel('3D model viewport', { exact: true });
     await viewport.waitFor();
@@ -21,7 +21,12 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       window.quadPreview = () => Array.from(quadState().entries[0].geometry.attributes.position.array);
     });
     await page.waitForFunction(() => quadState().entries[0].selectedPoints.geometry.index?.count === 447);
-    const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    // Browser rAFs can run before the viewport's capped render scheduler.
+    // Observe the processed pointer, never flush or advance the app from the test.
+    const processedMove = (x, y, shift = false) => page.waitForFunction(({x,y,shift}) => {
+      const move = quadState().drag?.lastMove;
+      return move && Math.abs(move.clientX - x) < .001 && Math.abs(move.clientY - y) < .001 && move.shiftKey === shift;
+    }, {x,y,shift});
     const same = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-4);
     const paintedSelection = box => app.evaluate(async ({ BrowserWindow }, box) => {
       const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage({ x: Math.round(box.x), y: Math.round(box.y), width: Math.floor(box.width), height: Math.floor(box.height) }, { stayHidden: true, stayAwake: true });
@@ -37,7 +42,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       let start = { x: Math.round(box.x + box.width * .18), y: Math.round(box.y + box.height * .25) };
       if (handle) {
         await pane.click({ position: { x: 24, y: 45 } });
-        await frames();
+        await page.waitForFunction(() => quadState().controls.domElement.dataset.viewport === 'perspective' && quadState().gizmoHandles?.some(h => h.axis === 'X' && !h.plane));
         start = await page.evaluate(() => {
           const s = quadState(), h = s.gizmoHandles.find(h => h.axis === 'X' && !h.plane), r = s.controls.domElement.getBoundingClientRect();
           return h && { x: r.x + h.startX + h.dx * .7, y: r.y + h.startY + h.dy * .7 };
@@ -48,10 +53,10 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.mouse.move(start.x, start.y); await page.mouse.down();
       if (shift) {
         await page.mouse.move(start.x + 8, start.y + 3);
-        await frames(); await page.keyboard.down('Shift');
+        await processedMove(start.x + 8, start.y + 3); await page.keyboard.down('Shift');
       }
       await page.mouse.move(start.x + dx, start.y + dy, { steps: 6 });
-      await frames();
+      await processedMove(start.x + dx, start.y + dy, shift);
       assert.deepEqual(errors, [], `${id}: ordinary Move must not throw renderer exceptions`);
       await page.waitForFunction(before => quadPreview().some((v, i) => Math.abs(v - before[i]) > .001), before);
       const paintedHeld = await paintedSelection(box);
@@ -59,10 +64,13 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       assert.deepEqual(await page.evaluate(() => quadVertices()), before, `${id}: held preview does not commit`);
       if (shift) {
         const held = await page.evaluate(() => quadPreview());
-        await page.keyboard.up('Shift'); await frames();
+        await page.keyboard.up('Shift'); await processedMove(start.x + dx, start.y + dy);
         assert.ok(same(await page.evaluate(() => quadPreview()), held), `${id}: releasing Shift keeps the accumulated preview`);
         await page.mouse.move(start.x + dx + 9, start.y + dy + 7, { steps: 3 });
-        await frames();
+        await processedMove(start.x + dx + 9, start.y + dy + 7);
+        const finalPainted = await paintedSelection(box);
+        assert.ok(finalPainted.length > 20 && finalPainted.filter(pixel => !paintedBefore.has(pixel)).length > 20, `${id}: final Shift-release sample is visibly rendered while held`);
+        assert.deepEqual(await page.evaluate(() => quadVertices()), before, `${id}: final held sample has not committed`);
       }
       const preview = await page.evaluate(() => quadPreview());
       await page.mouse.up();
@@ -81,7 +89,10 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       const x = Math.round(box.x + box.width * .18), y = Math.round(box.y + box.height * .25);
       for (const distance of [.5, 1]) {
         await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + distance, y);
-        await frames(); await page.mouse.up(); await frames();
+        await processedMove(x + distance, y);
+        const renderedBeforeUp = await page.evaluate(() => quadState().renderer.info.render.frame);
+        await page.mouse.up();
+        await page.waitForFunction(frame => !quadState().drag && quadState().renderer.info.render.frame > frame, renderedBeforeUp);
         assert.deepEqual(await page.evaluate(() => quadVertices()), before, `${id}: ${distance} pixel does not commit`);
       }
       await drag(id, { constraints: id !== 'perspective', dx: 2, dy: 0 });
