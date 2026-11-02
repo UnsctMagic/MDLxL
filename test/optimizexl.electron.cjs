@@ -1,3 +1,5 @@
+const {checkOwnerPopup}=require('./helpers/sphereomancer-owner.cjs');
+const {captureFlashFrames}=require('./helpers/collision-frames.cjs');
 const { testModel } = require('./helpers/fixtures.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
@@ -7,16 +9,17 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
  const previousFiles=new Set(fs.readdirSync(out));
  const model=process.env.MDLXL_OPTIMIZEXL_MODEL||testModel('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
  const source=fs.readFileSync(model),workDir=path.join(out,'work-'+Date.now()),work=path.join(workDir,path.basename(model));fs.mkdirSync(workDir,{recursive:true});fs.copyFileSync(model,work);
- const packaged=process.env.MDLXL_OPTIMIZEXL_EXE;
- const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile,{recursive:true});fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{wheelMode:'scroll'}}));
- const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[work]:[process.cwd(),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+ const packaged=process.env.MDLXL_OPTIMIZEXL_EXE||process.env.MDLXL_TEST_EXE;
+ const testPreferences=process.env.MDLXL_OPTIMIZEXL_SETTINGS?JSON.parse(fs.readFileSync(process.env.MDLXL_OPTIMIZEXL_SETTINGS,'utf8')).preferences:{wheelMode:'scroll'};
+ const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile,{recursive:true});fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:testPreferences}));
+ const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[work]:[process.cwd(),work],env:{...process.env,MDLVIS_HEADLESS:'',MDLXL_PROFILE:profile},timeout:60000});
  const errors=[];
  try{
   const main=await app.firstWindow();main.setDefaultTimeout(20000);main.on('pageerror',e=>errors.push(e.message));
   await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
   assert.equal(await main.locator('.ox-root').count(),0);
   const popupPromise=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const popup=await popupPromise;popup.setDefaultTimeout(20000);popup.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1280,height:800});w.showInactive();}});
+  await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(true);w.setBounds({x:0,y:0,width:1280,height:800});w.showInactive();w.maximize();}BrowserWindow.getAllWindows().find(w=>w.getParentWindow()).show();});
   await popup.getByRole('heading',{name:'OptimizeXL',exact:true}).waitFor();
   await popup.getByRole('button',{name:'Approve',exact:true}).waitFor();
   await popup.waitForFunction(()=>!document.querySelector('.ox-savings')?.textContent.includes('Updating'));
@@ -49,20 +52,54 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   await popup.waitForFunction(()=>!document.querySelector('.ox-savings')?.textContent.includes('Updating'));
   await popup.screenshot({path:path.join(out,'02-irregularity.png')});
   await popup.getByRole('button',{name:'Approve',exact:true}).click();
-  await popup.getByRole('button',{name:'Sphereomancer',exact:true}).click();await popup.getByLabel('Sphere preset',{exact:true}).selectOption('4');
-  await popup.getByLabel('Sphere preset',{exact:true}).hover();await popup.mouse.wheel(0,-100);
-  await popup.waitForFunction(()=>document.querySelector('[aria-label="Sphere preset"]').value==='3');
-  await popup.getByLabel('Sphere preset',{exact:true}).selectOption('4');
-  // Before draws the original shapes; After draws the proposal with the Managers collision handles.
-  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===1&&document.querySelectorAll('.ox-collision .mm-outline').length===3&&getComputedStyle(document.querySelector('.ox-collision')).position==='absolute');
-  const dot=popup.locator('.ox-collision .mm-center'),startX=Number(await dot.getAttribute('cx')),box=await dot.boundingBox();
-  await popup.mouse.move(box.x+box.width/2,box.y+box.height/2);await popup.mouse.down();await popup.mouse.move(box.x+box.width/2+40,box.y+box.height/2,{steps:6});await popup.mouse.up();
-  await popup.waitForFunction(x=>Math.abs(Number(document.querySelector('.ox-collision .mm-center')?.getAttribute('cx'))-x)>20,startX);
-  await popup.getByLabel('Sphere preset',{exact:true}).selectOption({label:'Cavalry'});
-  await popup.waitForFunction(()=>document.querySelectorAll('.ox-collision .mm-outline').length===13);
-  await popup.waitForFunction(()=>document.querySelector('.ox-savings strong'));
-  assert.equal(await popup.getByRole('alert').count(),0);
+  await popup.getByRole('button',{name:'Sphereomancer',exact:true}).click();
+  const preset=popup.getByLabel('Sphere preset',{exact:true});
+
+  await popup.evaluate(()=>{window.oxShapes=()=>{
+    const live=findFiberState('.ox-root',s=>s?.spheres&&Number.isFinite(s.size),{current:true});
+    if(!live)throw Error('Sphere proposal unavailable');
+    let previous;for(let f=document.querySelector('.ox-root')[Object.keys(document.querySelector('.ox-root')).find(k=>k.startsWith('__reactFiber'))];f&&!previous;f=f.return)for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState;if(s?.spheres&&Number.isFinite(s.size)){previous=s;break;}}
+    if(previous&&JSON.stringify(previous)!==JSON.stringify(live))window.oxStaleReads=(window.oxStaleReads||0)+1;
+    return {rows:live.spheres.map(r=>[...r]),size:live.size};
+  };});
+  const shapeState=()=>popup.evaluate(()=>oxShapes());
+  const ready=()=>popup.waitForFunction(()=>document.querySelector('.ox-savings strong')&&!document.querySelector('.ox-savings').textContent.includes('Updating'));
+  await ready();
+  await popup.evaluate(()=>{window.__ownerPointerDown=false;document.addEventListener('pointerdown',()=>window.__ownerPointerDown=true,true);document.addEventListener('pointerup',()=>window.__ownerPointerDown=false,true);});
+  await checkOwnerPopup({app,main,popup,source,out,shapeState,ready});
+  assert.deepEqual(await preset.locator('option').allTextContents(),['x1','x2 standard unit','x3','Mounted','Square']);
+  assert.equal(await preset.inputValue(),'1');
+  const flash=[];
+  const capture=async(name,action)=>{const result=await captureFlashFrames(popup,app,out,'flash-'+name,action);flash.push(result);for(const [pane,row]of result.panes.entries())assert.equal(row.mostlyBlack,0,name+' preview '+pane+' has no mostly-black compositor frame');};
+  await capture('paused');
+  await popup.getByRole('button',{name:'Play',exact:true}).click();await capture('playing');await popup.getByRole('button',{name:'Pause',exact:true}).click();
+  await capture('presets',async()=>{for(const value of ['0','2','3','4','1']){await preset.selectOption(value);await ready();}});
+  await preset.hover();await popup.mouse.wheel(0,100);await popup.waitForFunction(()=>document.querySelector('[aria-label="Sphere preset"]').value==='2');
+  await preset.selectOption('1');await ready();
+  await capture('size',async()=>{for(const value of ['1.2','1.5','1']){await popup.getByLabel('Sphere size',{exact:true}).fill(value);await ready();}});
+  await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===1&&document.querySelectorAll('.ox-collision .mm-outline').length===2&&getComputedStyle(document.querySelector('.ox-collision')).position==='absolute');
+  const grab=popup.getByRole('slider',{name:'Move collision shape',exact:true});
+  const drag=async(locator,dx,dy)=>{await ready();const box=await locator.locator('circle:not(.pe-grab)').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2,label=await locator.getAttribute('aria-label');const hit=await popup.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[role=slider]')?.getAttribute('aria-label'),{x,y});assert.equal(hit,label,'mouse starts on the requested grab');await popup.mouse.move(x,y);await popup.mouse.down();await popup.mouse.move(x+dx,y+dy,{steps:20});await popup.mouse.up();await ready();};
+  const movedBefore=await shapeState();await capture('drag',()=>drag(grab,40,0));await ready();
+  const movedAfter=await shapeState();assert.notDeepEqual(movedAfter.rows[0].slice(0,3),movedBefore.rows[0].slice(0,3),'Move changes the selected shape');assert.deepEqual(movedAfter.rows[1],movedBefore.rows[1],'Move preserves other shapes');
+  const beforeCancel=await shapeState(),center=grab.locator('circle:not(.pe-grab)'),cx=await center.getAttribute('cx'),box=await center.boundingBox();
+  await popup.mouse.move(box.x+7,box.y+7);await popup.mouse.down();await popup.mouse.move(box.x+47,box.y+7,{steps:10});
+  await popup.waitForFunction(cx=>document.querySelector('.ox-collision .mm-center circle:not(.pe-grab)').getAttribute('cx')!==cx,cx);
+  await popup.keyboard.press('Escape');await popup.mouse.up();assert.deepEqual(await shapeState(),beforeCancel,'Escape cancels the actual mouse drag');assert.equal(await popup.locator('.ox-root').count(),1,'Escape keeps OptimizeXL open');
+  await popup.keyboard.press('ArrowRight');await ready();const nudged=await shapeState();assert.notDeepEqual(nudged,beforeCancel,'arrow after a real grab nudges');
+  await popup.keyboard.press('Shift+ArrowRight');await ready();const shifted=await shapeState();const norm=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));assert.ok(Math.abs(norm(shifted.rows[0].slice(0,3),nudged.rows[0])-10*norm(nudged.rows[0].slice(0,3),beforeCancel.rows[0]))<.01,'Shift nudge is ten times');
+  const radiusBefore=(await shapeState()).rows[0][3];await drag(popup.getByRole('slider',{name:'Resize sphere radius',exact:true}),30,0);assert.ok((await shapeState()).rows[0][3]>radiusBefore,'outward edge drag grows the radius');
+  let beforeAdd=await shapeState();await popup.getByRole('button',{name:'Add sphere',exact:true}).click();let added=await shapeState();assert.equal(added.rows.length,beforeAdd.rows.length+1);assert.equal(added.rows.at(-1)[3],beforeAdd.rows[0][3],'new sphere copies selected radius');
+  await popup.locator('.ox-collision').getByRole('button',{name:'Remove collision shape',exact:true}).click();assert.equal((await shapeState()).rows.length,beforeAdd.rows.length,'trash removes newly selected shape');
+  await popup.getByRole('button',{name:'Add square',exact:true}).click();const square=await shapeState();assert.equal(square.rows.at(-1).length,6);assert.deepEqual([0,1,2].map(i=>(square.rows.at(-1)[i+3]-square.rows.at(-1)[i])*square.size),[60,60,80]);assert.equal(square.rows.at(-1)[2],0);
+  const face=popup.getByRole('slider',{name:'Resize Z positive',exact:true});await face.waitFor();const squareBefore=await shapeState();await drag(face,0,-35);assert.notDeepEqual((await shapeState()).rows.at(-1),squareBefore.rows.at(-1),'face grab resizes the selected square');
+  await popup.getByRole('button',{name:'Advanced',exact:true}).click();assert.equal(await popup.getByLabel('Min X 3',{exact:true}).count(),1);await popup.getByRole('button',{name:'Simple',exact:true}).click();
+  // Camera navigation remains live outside the handles/outlines after all edits.
+  const camBefore=await popup.evaluate(()=>oxState()),stageBox=await popup.locator('.ox-stage').boundingBox();await popup.mouse.move(stageBox.x+40,stageBox.y+50);await popup.mouse.down();await popup.mouse.move(stageBox.x+100,stageBox.y+70,{steps:10});await popup.mouse.up();await popup.waitForFunction(before=>oxState()[1].position.some((v,i)=>Math.abs(v-before[i])>.1),camBefore[1].position);const cams=await popup.evaluate(()=>oxState());nearVector(cams[0].position,cams[1].position);
+  await ready();assert.equal(await popup.getByRole('alert').count(),0);
   await popup.screenshot({path:path.join(out,'03-spheres.png')});
+  await capture('other-stage',async()=>{await popup.getByRole('button',{name:'Duplicate data',exact:true}).click();await popup.getByLabel('Strength',{exact:true}).fill('40');await ready();});
+  fs.writeFileSync(path.join(out,'flash-summary.json'),JSON.stringify(flash.map(({frames,...r})=>r),null,2));
   await popup.getByRole('button',{name:'Nuclear Polygon Destroyer',exact:true}).click();
   await popup.waitForFunction(()=>document.querySelectorAll('[data-collision-overlay]').length===0&&!document.querySelector('.ox-collision'));
   await popup.getByLabel('Strength',{exact:true}).fill('40');
@@ -91,8 +128,8 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   await app.evaluate(({dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});},out);
   await popup.getByRole('button',{name:'Save',exact:true}).click();await popup.getByRole('button',{name:'Back up, then save',exact:true}).click();await popup.waitForFunction(()=>document.querySelector('.ox-error')||Array.from(document.querySelectorAll('[role=status]')).some(el=>/^Saved /.test(el.textContent)));assert.deepEqual(await popup.locator('.ox-error').allTextContents(),[]);
   assert.deepEqual(fs.readdirSync(workDir).sort(),[path.basename(work).replace(/\.mdx$/i,'_backup.mdx'),path.basename(work)].sort());assert.deepEqual(fs.readFileSync(model),source);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8')).preferences.wheelMode,'scroll','OptimizeXL must not change the main editor wheel preference');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8')).preferences.wheelMode,testPreferences.wheelMode,'OptimizeXL must not change the main editor wheel preference');
   await popup.screenshot({path:path.join(out,'05-saved.png')});
-  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!packaged,errors,sourceUnchanged:true},null,2));
- }finally{await app.close();}
+  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!packaged,errors,sourceUnchanged:true,staleFiberReads:await popup.evaluate(()=>window.oxStaleReads||0)},null,2));
+ }catch(error){const p=app.windows().at(-1);if(p){console.error(await p.locator('body').innerText());await p.screenshot({path:path.join(out,'failure.png')});}throw error;}finally{await app.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

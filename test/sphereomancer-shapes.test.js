@@ -1,22 +1,23 @@
+import { collisionCenter, moveCollision } from '../src/model-collisions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PerspectiveCamera } from 'three';
+import { Matrix4, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
-import { createDemoDocument, createNode, openDocument } from '../src/editor-document.js';
-import { runOptimizeStage, SPHERE_PRESETS, presetShapes } from '../src/optimizexl.js';
+import { createNode, openDocument } from '../src/editor-document.js';
+import { runOptimizeStage, SPHERE_PRESETS, presetShapes, simpleSettings } from '../src/optimizexl.js';
 import { stageAvailability } from '../src/optimizexl-availability.js';
-import { fitCollisionShapes, fitSpheres } from '../src/model-collisions.js';
 import { collisionStageSnapshot } from '../app/collision-stage.js';
 
 const preset = name => SPHERE_PRESETS.findIndex(p => p.name === name);
 
 test('Sphereomancer saves boxes and mixed presets as native collision shapes', () => {
   const bytes = createStarterDocument().serialize('mdx');
-  const cavalry = runOptimizeStage(bytes, 'spheres', { preset: preset('Cavalry'), size: 2 }), m = openDocument(cavalry.bytes, 'x.mdx').model;
+  const rows = [...presetShapes(preset('Square')), ...presetShapes(preset('x1'))];
+  const cavalry = runOptimizeStage(bytes, 'spheres', { spheres: rows, size: 2 }), m = openDocument(cavalry.bytes, 'x.mdx').model;
   assert.deepEqual(m.CollisionShapes.map(n => n.Shape), [0, 2]);
-  assert.deepEqual(Array.from(m.CollisionShapes[0].Vertices), SPHERE_PRESETS[preset('Cavalry')].spheres[0].map(v => Math.fround(v * 2)));
+  assert.deepEqual(Array.from(m.CollisionShapes[0].Vertices), rows[0].map(v => Math.fround(v * 2)));
   assert.equal(m.CollisionShapes[0].Name, 'OptimizeXL Box 1');
-  assert.equal(m.CollisionShapes[1].BoundsRadius, Math.fround(SPHERE_PRESETS[preset('Cavalry')].spheres[1][3] * 2));
+  assert.equal(m.CollisionShapes[1].BoundsRadius, Math.fround(rows[1][3] * 2));
   for (const format of ['mdl', 'mdx']) {
     const doc = openDocument(cavalry.bytes, 'x.mdx'), again = openDocument(doc.serialize(format), 'again.' + format).model;
     assert.deepEqual(again.CollisionShapes.map(n => [n.Shape, Array.from(n.Vertices).length]), [[0, 6], [2, 3]], format);
@@ -27,30 +28,20 @@ test('Sphereomancer saves boxes and mixed presets as native collision shapes', (
 test('a model whose collision is one valid box needs no Sphereomancer star', async () => {
   const doc = createStarterDocument();
   doc.apply('Origin', ['Attachments', 'PivotPoints'], m => { createNode(m, 'Attachment').Name = 'Origin Ref'; });
-  const boxed = runOptimizeStage(doc.serialize('mdx'), 'spheres', { size: 1, preset: preset('Small building') }).bytes;
+  const boxed = runOptimizeStage(doc.serialize('mdx'), 'spheres', { size: 1, preset: preset('Square') }).bytes;
   for await (const item of stageAvailability(boxed)) if (item.stage === 'spheres') assert.equal(item.hasChanges, false);
 });
 
-test('fitting stacks equal spheres along a standing body and stands boxes on the ground', () => {
-  // A footman-sized column: 60 wide, 100 tall, standing on Z=0.
-  const points = [];
-  for (let z = 0; z <= 100; z += 5) for (let a = 0; a < 16; a++) points.push([Math.cos(a / 16 * Math.PI * 2) * 30, Math.sin(a / 16 * Math.PI * 2) * 30, z]);
-  const spheres = fitSpheres(points);
-  assert.equal(spheres.length, 2);
-  assert.ok(spheres.every(s => Math.abs(s[0]) < 1 && Math.abs(s[1]) < 1 && Math.abs(s[3] - spheres[0][3]) < 1e-4));
-  assert.ok(spheres[0][2] < 50 && spheres[1][2] > 50);
-  // Lying down (a wolf or horse), the same body stacks along its length.
-  const lying = fitSpheres(points.map(([x, y, z]) => [z, y, x + 30]));
-  assert.ok(lying.length >= 2 && Math.abs(lying[0][0] - lying[1][0]) > 30 && Math.abs(lying[0][2] - lying[1][2]) < 1);
-
-  const model = createDemoDocument().model;
-  const [box] = fitCollisionShapes(model, 'box');
-  assert.equal(box.length, 6);
-  assert.ok([0, 1, 2].every(axis => box[axis + 3] > box[axis]));
-  assert.deepEqual(presetShapes(preset('Fit to model (box)'), model), [box]);
-  const fitted = presetShapes(preset('Fit to model (spheres)'), model);
-  assert.ok(fitted.length >= 1 && fitted.every(s => s.length === 4 && s[3] > 0));
-  assert.ok(openDocument(runOptimizeStage(createDemoDocument().serialize('mdx'), 'spheres', { size: 1, preset: preset('Fit to model (spheres)') }).bytes, 'x.mdx').model.CollisionShapes.length === fitted.length);
+test('five fixed native presets in owner order, with x2 standard unit as default', () => {
+  assert.deepEqual(SPHERE_PRESETS.map(p => p.name), ['x1','x2 standard unit','x3','Mounted','Square']);
+  const model = createStarterDocument().model, settings = simpleSettings('spheres',0,model);
+  assert.equal(settings.preset,1); assert.deepEqual(settings.spheres,presetShapes(1));
+  assert.deepEqual(presetShapes(0),[[3.5388801097869873,3.874919891357422,41.05950164794922,52.40719985961914]]);
+  assert.deepEqual(presetShapes(1),[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]]);
+  assert.deepEqual(presetShapes(2),[...presetShapes(1),[5.257450103759766,0,63.22100067138672+40.3736,38.07600021362305]]);
+  assert.deepEqual(presetShapes(3),[[0,0,45,55],[35,0,95,55],[-15,0,75,55]]);
+  assert.deepEqual(presetShapes(4),[[-56.55099868774414,-64.06929779052734,0,56.55099868774414,64.06929779052734,113.10199737548828]]);
+  settings.spheres[0][0]=999; assert.notEqual(presetShapes(1)[0][0],999,'presets are copied');
 });
 
 test('a sphere draws as one camera-facing outline plus a faint ground ring', () => {
@@ -60,5 +51,57 @@ test('a sphere draws as one camera-facing outline plus a faint ground ring', () 
   assert.equal(row.outlines.length, 1); assert.equal(row.guides.length, 1);
   const distances = row.outlines[0].map(p => Math.hypot(p[0] - row.center[0], p[1] - row.center[1]));
   assert.ok(Math.max(...distances) - Math.min(...distances) < Math.max(...distances) * .02, 'outline is a circle around the center');
-  assert.equal(row.handles.length, 6);
+  assert.equal(row.handles.length, 1);
+  assert.deepEqual(row.handles[0].point,row.outlines[0][0],'radius grab is on the visible outline');
+  assert.ok(row.handles[0].basis.unitsPerPixel>0);
+  assert.ok(row.move.dx.every(Number.isFinite)&&row.move.dy.every(Number.isFinite));
+});
+
+// Outline faces resize the dimensions visible in this view; depth stays out of the way.
+for (const [view, position, perspective, expected] of [
+  ['Front', [0,-300,40], false, [[0,-1],[0,1],[2,-1],[2,1]]],
+  ['Side', [300,0,40], false, [[1,-1],[1,1],[2,-1],[2,1]]],
+  ['Top', [0,0,340], false, [[0,-1],[0,1],[1,-1],[1,1]]],
+  ['angled Perspective', [180,-220,140], true, [[0,-1],[0,1],[1,-1],[1,1],[2,-1],[2,1]]],
+  ['level centred Perspective', [0,-300,40], true, [[0,-1],[0,1],[2,-1],[2,1]]],
+]) test('box outline handles in '+view, () => {
+  const camera=perspective?new PerspectiveCamera(45,1.5,.1,10000):new OrthographicCamera(-150,150,100,-100,.1,10000);
+  camera.up.set(0,0,1);camera.position.fromArray(position);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+  const shape={ObjectId:-1,Shape:0,Vertices:new Float32Array([-30,-30,0,30,30,80])};
+  const row=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,[shape],-1).rows[0];
+  assert.deepEqual(row.handles.map(h=>[h.axis,h.sign]),expected,view+' exposes visible dimensions, excluding projected depth');
+  for(const handle of row.handles) assert.ok(handle.basis.unitsPerPixel>0 && Number.isFinite(handle.basis.unitsPerPixel));
+});
+
+test('Sphereomancer begins with authored spheres and boxes, copied independently of presets', () => {
+ const doc=createStarterDocument();doc.apply('Authored collisions',['CollisionShapes','Nodes','PivotPoints'],m=>{
+  Object.assign(createNode(m,'CollisionShape'),{Shape:2,Vertices:new Float32Array([12,-8,61]),BoundsRadius:27});
+  Object.assign(createNode(m,'CollisionShape'),{Shape:0,Vertices:new Float32Array([-20,-30,0,45,65,92])});
+ });
+ const settings=simpleSettings('spheres',0,doc.model);
+ assert.deepEqual(settings.spheres,[[12,-8,61,27],[-20,-30,0,45,65,92]]);
+ assert.equal(settings.size,1);assert.equal(settings.preset,null,'authored shapes are distinct from a chosen preset');
+ settings.spheres[0][0]=999;assert.equal(doc.model.CollisionShapes[0].Vertices[0],12);
+ assert.deepEqual(presetShapes(1),SPHERE_PRESETS[1].spheres,'choosing a preset replaces authored rows');
+});
+
+test('each sphere has a separate right-side selection box and boxes keep their existing controls', () => {
+ const camera=new PerspectiveCamera(45,1.5,.1,10000);camera.position.set(180,-220,140);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+ const shapes=[{ObjectId:-1,Shape:2,Vertices:new Float32Array([0,0,40]),BoundsRadius:30},{ObjectId:-2,Shape:2,Vertices:new Float32Array([0,0,90]),BoundsRadius:25},{ObjectId:-3,Shape:0,Vertices:new Float32Array([-30,-30,0,30,30,80])}];
+ const rows=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,shapes,-1).rows;
+ for(const row of rows.slice(0,2)) { assert.ok(row.selectionBox,'every sphere, selected or not, has its own box');assert.ok(row.selectionBox[0]>Math.max(...row.outlines[0].map(p=>p[0]))+12,'selection box sits to the right of the sphere');assert.equal(row.selectionBox[1],row.center[1]); }
+ assert.ok(rows[1].move,'an unselected sphere has its own number-box move mapping');assert.equal(rows[1].source.ObjectId,-2);
+ assert.equal(rows[2].selectionBox,undefined);
+});
+
+test('Center targets the model vertical axis at the existing world height, including parent transforms', () => {
+ const camera=new PerspectiveCamera(45,1.5,.1,10000);camera.position.set(180,-220,140);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+ const matrix=new Matrix4().makeRotationX(.3).premultiply(new Matrix4().makeTranslation(15,-22,5));
+ for(const shape of [{ObjectId:0,Shape:2,Vertices:new Float32Array([14,-8,40]),BoundsRadius:25},{ObjectId:0,Shape:0,Vertices:new Float32Array([-10,-20,10,50,60,90])}]){
+  const world=new Vector3().fromArray(collisionCenter(shape)).applyMatrix4(matrix),size=shape.Shape===0?[0,1,2].map(a=>shape.Vertices[a+3]-shape.Vertices[a]):shape.BoundsRadius;
+  const row=collisionStageSnapshot({rendererData:{nodes:[{matrix:matrix.elements}]}},camera,900,600,[shape],0).rows[0];
+  assert.ok(row.centerDelta,'selected sphere or box exposes its Center translation');moveCollision(shape,row.centerDelta);
+  const centered=new Vector3().fromArray(collisionCenter(shape)).applyMatrix4(matrix);assert.ok(Math.abs(centered.x)<.00001&&Math.abs(centered.y)<.00001);assert.ok(Math.abs(centered.z-world.z)<.00001);
+  if(shape.Shape===0)[0,1,2].forEach(a=>assert.ok(Math.abs((shape.Vertices[a+3]-shape.Vertices[a])-size[a])<.00001,'dimensions preserved within Float32 translation roundoff'));else assert.equal(shape.BoundsRadius,size);
+ }
 });
