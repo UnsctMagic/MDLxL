@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: arrow rule corrected 2 Nov (camera only, never the press point); implement before merge (see [Owner change](#owner-change-constrained-rotate-follows-the-plane-2-nov)); review fixes accepted at `c3282939`
+Status: owner chose option B (plane buttons in Front/Top/Side, face-on planes circle); implement before merge (see [Owner change B](#owner-change-b-plane-buttons-in-fronttopside-2-nov))
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -474,3 +474,75 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
   including four horizontal-arrow presses in each of Front, Top and Side,
   with no renderer errors; `quad-view` passed. The full release suite and
   Warcraft III playback were not run. Ready to test; awaiting merge approval.
+
+## Owner change B: plane buttons in Front/Top/Side (2 Nov)
+
+The owner tried `455b409c` in quad view and found every flat pane turning
+left/right. Claude Code showed three options for the Front pane, and the owner
+chose **B: the plane button decides**. It changes item 7 (flat panes locked to
+their own plane) **for Rotate only**. Implement on this branch from `455b409c`
+before merge. If anything here is unclear, stop and ask Claude Code.
+
+### What the owner sees
+
+In the Front pane, with Rotate and the plane picked:
+- **XY** (turn around Z, upright on screen): drag **left/right**; the arrow is
+  horizontal.
+- **YZ** (turn around X, sideways on screen): drag **up/down**; the arrow is
+  vertical.
+- **ZX** (turn around Y, pointing at you): **circle the mouse round the centre**
+  like a clock; the arrow is curved.
+Top and Side work the same way with their own axes, and so does Perspective.
+
+### Rule
+
+1. **Plane choice in Front, Top and Side**: give each of these panes the same
+   small XY / ZX / YZ button row the Perspective pane already has (same element,
+   look and behaviour as `quad-workplane-toolbar` in
+   [app/Viewport.jsx](../../app/Viewport.jsx) ~288; reuse it, no new control).
+   No Workplane Constraints checkbox there: flat panes stay constrained. Each
+   pane remembers its own choice, defaulting to the pane's own plane (Front ZX,
+   Top XY, Side YZ), so nothing changes until a button is pressed. Rotate uses
+   this choice in place of `lockedQuadPlane`.
+2. **Move in flat panes is unchanged**: still locked to the plane the pane
+   faces (`lockedQuadPlane`). The buttons in a flat pane affect Rotate only. Say
+   so in the buttons' tooltip, for example: "Rotate plane in this view. Move
+   stays in the view's own plane."
+3. **Direction**: keep the camera-only `T` rule from `455b409c` (arrow from
+   the camera, never the press point) for planes that do *not* face the camera.
+   That already gives left/right for XY and up/down for YZ in Front.
+4. **Plane facing the camera** (within about 15°, the same test
+   `constrainedRotationTangent` uses): turn by the **angle swept around the
+   centre**, as with constraints off. Reuse the existing swept-angle path in
+   `rotationDragDegrees` (wrap-safe, hold within 8 px of the centre, direction
+   fixed at press), not a new one. Sensitivity and Shift precision apply as now.
+   This holds in every pane and in single view, so a plane seen face-on always
+   circles. It replaces the "horizontal fallback" in the camera-only rule.
+5. **Arrow**: straight double-headed arrow as now for the left/right and
+   up/down cases. For the circling case, draw a yellow curved arrow around the
+   centre (about a quarter circle, radius about 40 px, both ends with heads),
+   in the same yellow and outline. Expose on the existing feedback dataset
+   whether the drag is `line` or `circle`, plus `T` for lines.
+6. **Unchanged**: Perspective pane toolbar and checkbox, single view, Workplane
+   Constraints off, Move everywhere, Bones rest-pose Select/Move only, UV
+   `uvTurn`.
+
+### Tests
+
+- Unit: for an orthographic Front camera, XY gives a horizontal `T`, YZ a
+  vertical `T`, ZX the circle mode; Top and Side likewise with their axes.
+  Circle mode: a quarter turn of the mouse around the centre gives about 90° at
+  1× and is wrap-safe past 180°.
+- Packaged, real mouse on the hidden desktop, Vertices quad view: in each of
+  Front, Top and Side press each of XY / ZX / YZ, check the arrow (horizontal,
+  vertical or curved), drag along it and check the turn. Check that Move in a
+  flat pane still stays in the pane's own plane after changing its Rotate
+  plane. Rerun only `rotation-interaction` and `quad-view`.
+- `pnpm test`, `pnpm run test:source` against the CI baseline.
+
+### Owner click-through when ready
+
+1. Quad view, Front pane, Rotate: press XY and drag left/right, YZ and drag
+   up/down, ZX and circle round the centre. Follow the yellow arrow each time.
+2. Do the same in Top and Side.
+3. Switch to Move in a flat pane: it still moves in that view's own plane.
