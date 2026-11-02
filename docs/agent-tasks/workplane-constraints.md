@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: implemented; ready to test; awaiting merge approval
+Status: review fixes requested (see [Review fixes](#review-fixes-claude-code-review-2-nov)); not ready to merge
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -197,3 +197,108 @@ Owner click-through on a build of this branch:
    Mouse → Rotation: change sensitivity and Shift precision.
 3. Move with Shift + arrow / square, including Bones; try the quad Perspective
    toolbar and normal mouse orbit in all panes.
+
+## Review fixes (Claude Code review, 2 Nov)
+
+Claude Code reviewed PR #504 at `dae245ab` and found ten problems. Fix all ten on
+this branch (`codex/workplane-constraints`) in one push. Line numbers below are at
+`dae245ab`; the function names are what to search for. Only what is listed here:
+no new behaviour, controls or UI. Agreed behaviour items 1–11 above still apply.
+Where a fix seems to clash with them, stop and ask Claude Code.
+
+### Must fix
+
+1. **Rotate tool takes every click (Bones/Movement/POSE).**
+   `pointerDown` in [app/GamePreview.jsx](../../app/GamePreview.jsx) ~612:
+   `directRotate` is now true for any left press that misses the gizmo. Item 3
+   says a *drag* away from the handles turns around the axis facing the camera,
+   so that stays. These broke and must work again exactly as on `main`:
+   - Shift- or Ctrl-click on a marker adds it to or removes it from the selection
+     and never rotates. Today `markerRotate` is false with a modifier held, so
+     `active` falls back to the old selection and a rotate gesture starts.
+   - A plain click that doesn't move (same click distance the editors already
+     use) on a different marker selects it, and on empty space clears the
+     selection like on `main`. No rotation is committed and no undo step is added.
+   - The same applies to the POSE path (`handle = picked || (axis || active &&
+     !realPicked && (… || p.transformMode === 'rotate') …)` ~119).
+   Box select while Rotate is active was replaced by item 3 (drag away = turn).
+   Don't bring it back; note this in the PR description.
+   Test: a packaged real-mouse check in Bones and Movement with Rotate: Shift-click
+   adds a bone, Ctrl-click removes it, click on empty space clears, and a drag
+   away from the handles still turns.
+
+2. **Quad Front/Top/Side lock to the wrong plane after orbiting.**
+   [app/Viewport.jsx](../../app/Viewport.jsx): orbit is now allowed in every pane
+   (`controls.enableRotate = true` ~492, the rotate-as-pan swap removed ~539),
+   which AGENTS.md requires. But drags still use `lockedPlane = quad &&
+   boundPane.workplane` (~572 and `locked` ~682), the plane fixed when the pane
+   was created. Rule (Claude Code's decision; the owner can overrule it): a flat
+   pane stays locked to one plane, and that plane is the X/Y/Z plane the pane's
+   camera looks along most *right now* (the largest component of the camera
+   direction, same as `facingAxis`). Unrotated it is exactly today's plane.
+   Compute it at drag start and for the gizmo/`locked` check, in one helper used
+   by both. Don't change the pane's name or its view preset.
+   Test: unit test of the helper for the three unrotated views and for a Top view
+   orbited about 80° (it must pick the plane facing the camera). Packaged check:
+   orbit the Top pane, then Rotate and Move there; the drag follows the hand.
+
+### Should fix
+
+3. **Hover highlight stays after leaving the preview.** GamePreview's
+   `gizmoHoverAxis` (~254) is never cleared. Clear it (and `invalidate()`) on
+   pointer leave, on tool change and when `nodeHandles` becomes empty. Copy what
+   Viewport's `pointerLeave` does with `hoverAxis` (~663).
+4. **Shift rotation precision ignores "Apply to".** In
+   [app/Settings.jsx](../../app/Settings.jsx) `RotationSettings` (~429) the field
+   always writes the global value. Give it the same per-editor override as
+   Rotation sensitivity right above it: same `change()` path, a "Use default"
+   checkbox, disabled while inherited. `normalizeRotationPreferences` and
+   `rotationOptions` in [src/rotation-drag.js](../../src/rotation-drag.js) keep a
+   per-editor `precision` the same way as `sensitivity`. One way of doing things:
+   reuse the existing control, don't invent a new one. Add the new strings to the
+   locale catalogs.
+5. **Coalesced samples use the wrong Shift state.** In the coalesced-sample loops
+   (Viewport `pointerMove` ~603, GamePreview `nodePointerMove` ~236), pass each
+   sample's own `sample.shiftKey` to `rotationDragDegrees` /
+   `movementRotationAmount`, not the parent `event.shiftKey`. Unit test: a sample
+   batch where Shift goes down halfway gives full speed before and precision speed
+   after.
+6. **Rings and Arcs are harder to grab than Lines.** The ring branch of
+   `pickMovementHandle` in [app/movement-overlay.js](../../app/movement-overlay.js)
+   (~814) uses a fixed 7 px and ignores `threshold` and `mode`. Use the same
+   `threshold` as the line handles, and respect `mode` the way the line branch
+   does (for example `'tip'` in the POSE path). Unit test: a point 9 px from a
+   ring is picked, 11 px is not.
+
+### Tidy up
+
+7. [app/ForgeEditor.jsx](../../app/ForgeEditor.jsx) ~68: inside `{!quad && …}`,
+   `locked={quad && pane?.workplane}` is always false. Remove the prop.
+8. [app/Viewport.jsx](../../app/Viewport.jsx) ~358: `gizmoTranslation` has no
+   callers left. Delete it.
+9. [app/movement-overlay.js](../../app/movement-overlay.js) ~283–300:
+   `movementRotationNormal`, `movementRotationFacing` and the
+   `movementRotationGesture` wrapper are only called from
+   `test/movement.test.js`. Delete them and point those tests at
+   `beginGizmoRotation` / `beginRotationDrag`, so the tests cover the path the
+   app really runs. Keep what those tests check (world/local facing sign, POSE
+   body/node world override).
+10. [app/GamePreview.jsx](../../app/GamePreview.jsx) ~249–257: the body of
+    `nodeHoverFrame` kept its old, deeper indentation. Re-indent it. No logic
+    change.
+
+### Verification for the fixes
+
+- Unit tests named above, plus `pnpm test` and `pnpm run test:source` against the
+  CI baseline. Don't widen `.github/known-test-failures.txt`.
+- `pnpm run build`, then targeted packaged reruns on the hidden desktop only:
+  `rotation-interaction`, `quad-view`, `movement-gizmo`, `learn-workplane`, plus
+  the new checks for fixes 1 and 2. Don't rerun the full packaged suite.
+- Update this note (Implementation, Verification evidence, Handover) and the PR
+  description, keep the `Session:` line, push to this branch, and report
+  `ready to test` with a short click-through for the owner:
+  1. Bones/Movement, Rotate: Shift-click and Ctrl-click bones, click empty
+     space, then drag away from the handles.
+  2. Quad view: orbit the Top pane, then Rotate and Move a selection there.
+  3. Settings → Mouse → Rotation: set Shift precision for Forge only and check
+     the other editors kept theirs.
