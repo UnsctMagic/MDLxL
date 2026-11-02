@@ -1,5 +1,6 @@
 import { Vector3 } from 'three';
-import { constrainedAxis, planeAxes } from './classic-gestures.js';
+import { screenPlaneTranslation } from '../src/shift-lock.js';
+export { freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation, screenPlaneTranslation } from '../src/shift-lock.js';
 import { applyEvaluatedModelCamera, evaluateModelCamera } from './portrait-view.js';
 
 // Warcraft models face +X and use +Z as up. Top view faces down the screen.
@@ -89,51 +90,6 @@ export function applyModelCamera(camera, controls, source, options = {}) {
   return applyEvaluatedModelCamera(camera, controls, evaluated, options.aspect);
 }
 
-/** Solve an axis directly BEFORE solving the plane: a near edge-on plane must
- * never amplify its almost-zero determinant into a huge constrained move. */
-export function projectedPlaneTranslation(workplane, basis, dx, dy, constrain = false) {
-  const axes = planeAxes(workplane), out = [0, 0, 0];
-  const projection = i => {
-    const [x, y] = basis[i], lengthSq = x * x + y * y;
-    return lengthSq > 1e-4 ? (dx * x + dy * y) / lengthSq : 0;
-  };
-  if (constrain) { const axis = constrainedAxis(workplane); out[axis] = projection(axes.indexOf(axis)); return out; }
-  const [[ax, ay], [bx, by]] = basis, determinant = ax * by - ay * bx;
-  const product = Math.hypot(ax, ay) * Math.hypot(bx, by);
-  if (product > 1e-4 && Math.abs(determinant) / product > .04) {
-    out[axes[0]] = (dx * by - dy * bx) / determinant;
-    out[axes[1]] = (dy * ax - dx * ay) / determinant;
-  } else {
-    const visible = ax * ax + ay * ay >= bx * bx + by * by ? 0 : 1;
-    out[axes[visible]] = projection(visible);
-  }
-  return out;
-}
-
-/** Quad View alone uses a screen-axis constraint instead of the classic
- * workplane-axis constraint. */
-export function quadProjectedPlaneTranslation(workplane, basis, dx, dy, constrain = false) {
-  if (constrain) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
-  return projectedPlaneTranslation(workplane, basis, dx, dy);
-}
-
-/** Screen pixels (y down) covered by one model unit along each axis of a
- * XY/ZX/YZ plane, measured at a point. */
-export function planeScreenBasis(camera, point, width, height, workplane = 'xy') {
-  const origin = point.clone().project(camera);
-  return planeAxes(workplane).map(axis => {
-    const end = point.clone().add(new Vector3().setComponent(axis, 1)).project(camera);
-    return [(end.x - origin.x) * width / 2, (origin.y - end.y) * height / 2];
-  });
-}
-
-/** Single view with the workplane off (MDLVis): a plain drag follows the
- * screen; Shift locks it to the chosen XY/ZX/YZ plane, whatever the camera angle. */
-export function freeDragTranslation(camera, pivot, width, height, dx, dy, { shift = false, workplane = 'xy' } = {}) {
-  if (!shift) return screenPlaneTranslation(camera, pivot, width, height, dx, dy);
-  return new Vector3().fromArray(projectedPlaneTranslation(workplane, planeScreenBasis(camera, pivot, width, height, workplane), dx, dy));
-}
-
 /** A face follows its normal; when viewed head-on, dragging up pulls it outward. */
 export function normalDragTranslation(camera, pivot, normal, width, height, dx, dy) {
   const origin = pivot.clone().project(camera), tip = pivot.clone().add(normal).project(camera);
@@ -145,12 +101,6 @@ export function normalDragTranslation(camera, pivot, normal, width, height, dx, 
 }
 
 /** Free mesh dragging uses the view plane through the selection pivot. */
-export function screenPlaneTranslation(camera, pivot, width, height, dx, dy, constrain = false) {
-  if (constrain) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
-  const screen = pivot.clone().project(camera);
-  return new Vector3(screen.x + dx * 2 / width, screen.y - dy * 2 / height, screen.z).unproject(camera).sub(pivot);
-}
-
 export function snapshotPreviewCamera(camera, perspective, ortho, controls) {
   return { camera: camera === ortho ? 'ortho' : 'perspective', perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone() };
 }

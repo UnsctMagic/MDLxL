@@ -1,4 +1,4 @@
-import { moveDragPoint } from '../app/classic-gestures.js';
+import { shiftDragLatch, solveCollisionMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,8 +18,8 @@ test('collision drafts use the pointer target window while the main frame clock 
   globalThis.requestAnimationFrame=hidden.requestAnimationFrame;globalThis.cancelAnimationFrame=hidden.cancelAnimationFrame;
   t.after(()=>{if(oldRequest===undefined)delete globalThis.requestAnimationFrame;else globalThis.requestAnimationFrame=oldRequest;if(oldCancel===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=oldCancel;});
   const refs=[],effects=[];let refIndex=0;
-  const useGesture=new Function('useRef','useEffect','useWindowKeyClaim','createFrameCoalescer','moveCollision','resizeCollision','movementDragAmount','moveDragPoint','visible','requestAnimationFrame','cancelAnimationFrame','window','return ('+hook+');')(
-    value=>refs[refIndex++]||=({current:value}),(effect,deps)=>{if(deps.length)effects.push(effect);},()=>{},createFrameCoalescer,moveCollision,resizeCollision,movementDragAmount,moveDragPoint,()=>true,hidden.requestAnimationFrame,hidden.cancelAnimationFrame,hidden);
+  const useGesture=new Function('useRef','useEffect','useWindowKeyClaim','createFrameCoalescer','moveCollision','resizeCollision','movementDragAmount','shiftDragLatch','solveCollisionMove','moveOffset','clearMoveLock','visible','requestAnimationFrame','cancelAnimationFrame','window','return ('+hook+');')(
+    value=>refs[refIndex++]||=({current:value}),(effect,deps)=>{if(deps.length)effects.push(effect);},()=>{},createFrameCoalescer,moveCollision,resizeCollision,movementDragAmount,shiftDragLatch,solveCollisionMove,moveOffset,clearMoveLock,()=>true,hidden.requestAnimationFrame,hidden.cancelAnimationFrame,hidden);
   const selected={ObjectId:0,Shape:2,Vertices:new Float32Array([0,0,40]),BoundsRadius:30};
   const move={dx:[1,0,0],dy:[0,0,-1]},stage={rows:[{id:0,center:[0,0,0],move,handles:[]}]};
   const render=(shape=selected)=>{refIndex=0;return useGesture({selected:shape,readOnly:false,stage,selectedId:shape.ObjectId,setDraft:value=>drafts.push(value),onCommit:value=>commits.push(value)});};
