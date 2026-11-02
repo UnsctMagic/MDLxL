@@ -1,4 +1,4 @@
-import { moveDragPoint } from './classic-gestures.js';
+import { shiftDragLatch, solveCollisionMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
 import {useWindowKeyClaim} from './Hotkeys.jsx';
 import { Trash2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
@@ -25,8 +25,8 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     const value = pending.current; pending.current = null; gesture.current = null; latest.current.setDraft(null);
     if (value) latest.current.onCommit(value);
   };
-  const cancel = () => { frame.current.cancel(); pending.current = null; gesture.current = null; latest.current.setDraft(null); };
-  const reset = () => { frame.current.cancel(); pending.current = null; gesture.current = null; latest.current.setDraft(null); };
+  const cancel = () => { if (gesture.current) clearMoveLock(ownerWindow.current); frame.current.cancel(); pending.current = null; gesture.current = null; latest.current.setDraft(null); };
+  const reset = cancel;
   useWindowKeyClaim(({event})=>{
     if(event.key!=='Escape'||!gesture.current)return false;
     cancel();return true;
@@ -49,21 +49,24 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     ownerWindow.current = event.currentTarget.ownerDocument.defaultView || window;
     event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
     const start = { x: event.clientX, y: event.clientY };
-    gesture.current = { selectingFrom: shape.ObjectId === selectedId ? undefined : selectedId, x: event.clientX, y: event.clientY, move: { pointer: start, point: start, shift: !!event.shiftKey, axis: null }, before: structuredClone(shape), handle, handles: stage.rows.find(row => row.id === shape.ObjectId).handles.filter(item => visible(item.point)) };
+    gesture.current = { selectingFrom: shape.ObjectId === selectedId ? undefined : selectedId, x: event.clientX, y: event.clientY, workplane: handle.move?.plane, workplaneEnabled: !!handle.move?.plane, latch: shiftDragLatch(start, event.shiftKey), before: structuredClone(shape), handle, handles: stage.rows.find(row => row.id === shape.ObjectId).handles.filter(item => visible(item.point)) };
     event.currentTarget.focus();
   };
   // A move records the pointer; cloning, resizing and the preview update run once per frame.
   const drag = event => {
     const active = gesture.current; if (!active) return;
     const pointer = { x: event.clientX, y: event.clientY };
-    active.point = active.handle.move ? moveDragPoint(active.move, pointer, !!event.shiftKey) : pointer;
+    active.point = pointer; active.shift = event.shiftKey;
     frame.current.schedule();
   };
   function applyDrag() {
     const active = gesture.current; if (!active?.point) return;
     if (!pending.current && active.point.x === active.x && active.point.y === active.y) return;
     const next = structuredClone(active.before), dx = active.point.x - active.x, dy = active.point.y - active.y;
-    if (active.handle.move) moveCollision(next, [0, 1, 2].map(i => dx * active.handle.move.dx[i] + dy * active.handle.move.dy[i]));
+    if (active.handle.move) {
+      const result = solveCollisionMove(active, active.point, active.shift);
+      moveCollision(next, moveOffset(result, ownerWindow.current, {clientX: active.point.x, clientY: active.point.y}));
+    }
     else {
       const { axis, basis } = active.handle;
       const amount = movementDragAmount(basis, dx, dy, 'move');
@@ -87,7 +90,9 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
   };
   const shiftKey = event => {
     const active = gesture.current;
-    if (event.key === 'Shift' && active?.handle.move) moveDragPoint(active.move, active.move.pointer, event.shiftKey);
+    if (event.key === 'Shift' && active?.handle.move && active.point) {
+      frame.current.flush(); active.shift = event.shiftKey; frame.current.schedule();
+    }
   };
   const handleProps = (handle, shape = selected) => ({
     tabIndex: readOnly ? -1 : 0, role: 'slider',

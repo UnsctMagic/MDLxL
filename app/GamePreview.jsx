@@ -1,3 +1,4 @@
+import { solveViewMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
 import { usePreferencesContext } from './PreferencesContext.jsx';
 import { createNativeModelSmoothing } from './model-smoothing.js';
 import { collisionStageSnapshot } from './collision-stage.js';
@@ -28,7 +29,7 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
@@ -44,8 +45,8 @@ import { previewBillboarding, previewPresentationProps, previewOverlaySettings }
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
-import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
-import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, screenPlaneTranslation } from './viewport-math.js';
+import { shiftDragLatch } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
 import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout, portraitCompositionRect } from './portrait-view.js';
@@ -495,11 +496,6 @@ export default function GamePreview(inputProps) {
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
         gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
         beginRotationDrag(gesture, handle.rotation);
-        gesture.dragPlane = axis?.plane || p.workplane;
-        if (p.workplaneEnabled || axis?.plane) {
-          const axes = gesture.dragPlane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(gesture.dragPlane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
-          gesture.basis = axes.map(axis => { const end = handle.world.clone().add(new THREE.Vector3().setComponent(axis, 1)).project(camera); return [(end.x - origin.x) * rect.width / 2, (origin.y - end.y) * rect.height / 2]; });
-        }
         nodeGesture = gesture; controls.enabled = false; posedGeometryCache = null;
         p.onPlayingChange?.(false); p.onTimeChange?.(frame); canvas.setPointerCapture(event.pointerId);
         canvas.style.cursor = viewportCursor('work', gesture.mode);
@@ -511,17 +507,18 @@ export default function GamePreview(inputProps) {
       const identity = JSON.stringify(targets), now = ownerWindow.performance.now();
       if (posePing?.identity !== identity || now - posePing.started > 1200) posePing = { identity, targets, started: now };
     };
-    /** Workplane off: Shift locks a free drag to the chosen XY/ZX/YZ plane; toggling it mid-drag continues from the visible position. */
-    const freeShiftDrag = (gesture, view, rect, dx, dy, shift) => shiftDragOffset(gesture.latch, { x: dx, y: dy }, shift, (from, to, held) =>
-      freeDragTranslation(view, gesture.origin, rect.width, rect.height, to.x - from.x, to.y - from.y, { shift: held, workplane: gesture.workplane || 'xy' }).toArray());
+    const moveNodeOffset = (gesture, event, dx, dy, sensitivity) => {
+      if (!gesture.workplaneEnabled && !gesture.handle.free && !gesture.screenMove) return gizmoMoveTranslation(gesture, dx, dy, event.shiftKey, sensitivity);
+      const pointer = {x: dx * sensitivity, y: dy * sensitivity};
+      return moveOffset(solveViewMove(gesture, pointer, event.shiftKey, gesture.camera, gesture.origin, gesture.width, gesture.height), ownerWindow, event);
+    };
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
       restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
-        let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.dragPlane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
-          : new THREE.Vector3().fromArray(freeShiftDrag(gesture, gesture.camera, rect, dx * sensitivity, dy * sensitivity, event.shiftKey));
-        if (!gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') offset.fromArray(gizmoMoveTranslation(gesture, dx, dy, event.shiftKey, sensitivity));
+        const offset = new THREE.Vector3();
+        if (gesture.mode === 'move') offset.fromArray(moveNodeOffset(gesture, event, dx, dy, sensitivity));
         if (gesture.mode === 'move' && offset.lengthSq() < 1e-20) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
         let result;
         if (gesture.target.kind === 'body' || gesture.target.kind === 'node' || gesture.mode === 'scale') {
@@ -639,16 +636,9 @@ export default function GamePreview(inputProps) {
           }
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
-          nodeGesture.dragPlane = axisHandle?.plane || p.workplane;
-          if ((workplaneDrag || axisHandle?.plane) && p.transformMode === 'move') {
-            const axes = nodeGesture.dragPlane === 'yz' ? [1,2] : ['xz','zx'].includes(nodeGesture.dragPlane) ? [0,2] : [0,1];
-            const origin = active.world.clone().project(camera);
-            nodeGesture.basis = axes.map(axis => { const end = active.world.clone().add(new THREE.Vector3().setComponent(axis,1)).project(camera); return [(end.x-origin.x)*rect.width/2, (origin.y-end.y)*rect.height/2]; });
-            nodeGesture.space = 'world';
-          }
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
-          nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
+          nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
           beginRotationDrag(nodeGesture, active.rotation);
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
@@ -775,17 +765,16 @@ export default function GamePreview(inputProps) {
       }
       if (movementRestricted(nodeGesture.mode, p.restrictions)) { restoreGestureTracks(nodeGesture); nodeGesture.adjusted = true; invalidate(); return; }
       if (nodeGesture.selectOnMove && !nodeGesture.moved) p.onSelectNodes?.(nodeGesture.ids);
-      const [dragX, dragY] = nodeGesture.mode === 'move' && nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
       nodeGesture.moved = true;
-      if (nodeGesture.freeScaleDrag) {
+      if (nodeGesture.mode === 'move') {
+        nodeGesture.values = moveNodeOffset(nodeGesture, event, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity));
+        nodeGesture.amount = 0;
+      } else if (nodeGesture.freeScaleDrag) {
         nodeGesture.values = movementFreeScaleValues(dx, dy, { sensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), workplaneEnabled: nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, shiftKey: event.shiftKey });
         nodeGesture.amount = Math.max(...nodeGesture.values); nodeGesture.scaleConstrained = nodeGesture.workplaneEnabled && event.shiftKey;
       } else nodeGesture.amount = nodeGesture.mode === 'rotate'
-        ? rotationAmount(nodeGesture, dragX, dragY, pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey)
-        : nodeGesture.basis ? 0 : movementDragAmount(nodeGesture.handle, dragX, dragY, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
-      if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.dragPlane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
-      if(nodeGesture.screenMove)nodeGesture.values=freeShiftDrag(nodeGesture,camera,rect,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey);
-      if (nodeGesture.mode === 'move' && !nodeGesture.workplaneEnabled && !nodeGesture.handle.free && !nodeGesture.screenMove) { nodeGesture.values = gizmoMoveTranslation(nodeGesture, dx, dy, event.shiftKey, pointerSensitivityValue(p.preferences?.pointerSensitivity)); nodeGesture.amount = 0; }
+        ? rotationAmount(nodeGesture, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey)
+        : movementDragAmount(nodeGesture.handle, dx, dy, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
       if (event.shiftKey && nodeGesture.mode === 'scale' && !nodeGesture.freeScaleDrag) nodeGesture.amount = Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
       try {
@@ -827,6 +816,7 @@ export default function GamePreview(inputProps) {
       if (!nodeGesture || event.pointerId !== nodeGesture.id) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (event.type === 'pointerup') nodeFrame.flush(); else { nodeFrame.cancel(); nodeMove = null; }
+      clearMoveLock(ownerWindow);
       const gesture = nodeGesture; nodeGesture = null; controls.enabled = true; canvas.style.cursor = cursorFor(latest.current); setGestureLabel('');
       posedGeometryCache = null;
       latest.current.onNodePosePreview?.(null);
@@ -1459,10 +1449,10 @@ export default function GamePreview(inputProps) {
         try {
           native.render(displayCamera.matrixWorldInverse.elements, displayCamera.projectionMatrix.elements, { wireframe: false, useEnvironmentMap: p.shaded !== false && graphics.lighting });
           if (p.onCollisionStage) {
-            const key = [native.getFrame(), p.collisionSelectedId, JSON.stringify(p.collisionShapes), canvas.width, canvas.height, ...displayCamera.matrixWorldInverse.elements, ...displayCamera.projectionMatrix.elements].join(':');
+            const key = [native.getFrame(), p.collisionSelectedId, p.collisionMovePlane, JSON.stringify(p.collisionShapes), canvas.width, canvas.height, ...displayCamera.matrixWorldInverse.elements, ...displayCamera.projectionMatrix.elements].join(':');
             if (key !== collisionReportKey) {
               collisionReportKey = key;
-              p.onCollisionStage(collisionStageSnapshot(native, displayCamera, canvas.clientWidth, canvas.clientHeight, p.collisionShapes, p.collisionSelectedId));
+              p.onCollisionStage(collisionStageSnapshot(native, displayCamera, canvas.clientWidth, canvas.clientHeight, p.collisionShapes, p.collisionSelectedId, p.collisionMovePlane));
             }
           }
           if(p.onParticleStage){
@@ -1852,7 +1842,7 @@ export default function GamePreview(inputProps) {
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.collisionMovePlane, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;
   const frame = portraitFrame.current, portrait = !!props.portraitMode, framed = portraitHasFrame(props), hasCamera = !!model?.Cameras?.[props.portraitCameraIndex];
   const composition = portraitComposition(props), crop = portraitCompositionRect(portraitArea.width,portraitArea.height);

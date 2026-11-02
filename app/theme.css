@@ -1,5 +1,5 @@
 /* Shared document theme. Canvas backgrounds stay under visual preferences. */
-:root{--ui-panel:#f0f0f0;--ui-surface:#f0f0f0;--ui-field:#fff;--ui-trim:#000080;--ui-text:#16191e;--ui-muted:#555;--ui-border:#8b8b87;--ui-selected:#c5d6ec;--ui-selected-text:#101820;--ui-link:#174aa1;--ui-hover:#e7e3db}
+:root{--shift-lock:#ff981e;--ui-panel:#f0f0f0;--ui-surface:#f0f0f0;--ui-field:#fff;--ui-trim:#000080;--ui-text:#16191e;--ui-muted:#555;--ui-border:#8b8b87;--ui-selected:#c5d6ec;--ui-selected-text:#101820;--ui-link:#174aa1;--ui-hover:#e7e3db}
 /* Window layers: classic dialogs and resource editors, XL tool windows, dialogs over a full workspace such as Paint. */
 :root{--z-modal:100;--z-tool-window:2100;--z-workspace-modal:16000}
 :root[data-theme=dark]{color-scheme:dark;--ui-panel:#2c3037;--ui-surface:#353b45;--ui-field:#242a32;--ui-trim:#183654;--ui-text:#e4e9f0;--ui-muted:#adb8c8;--ui-border:#41536c;--ui-selected:#274d70;--ui-selected-text:#fff;--ui-link:#8ac6ff;--ui-hover:#3b4657}

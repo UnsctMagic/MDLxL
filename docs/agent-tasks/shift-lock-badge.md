@@ -1,6 +1,6 @@
 # Shift lock: one lock rule and an orange lock badge at the cursor
 
-Status: contract ready; Codex to build after PR #504 merges (see Sequencing)
+Status: implemented for owner testing on `codex/shift-lock-badge` from `55fc271e`, after #504 and #507 merged.
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-02
 
@@ -16,7 +16,7 @@ piece of code** so the rule and the badge are written once, not once per editor.
 
 Done means:
 
-1. Start dragging a selection in any 3D editor and hold Shift. The badge appears
+1. With Move active and Workplane Constraints on, drag a selection and hold Shift. The badge appears
    beside the cursor at once and shows the locked plane (`XY`, `ZX`, `YZ`) or
    axis (`X`, `Y`, `Z`).
 2. The badge follows the cursor, never blocks clicks, and disappears the moment
@@ -33,27 +33,27 @@ Done means:
 
 ## What counts as a Shift lock (badge shows)
 
-Only gestures where Shift **restricts where something can move**:
+Owner clarification, 2 November 2026: show the badge only for **Move**, only
+with **Workplane Constraints on**, and only while Shift restricts a drag.
+This also applies to Movement/POSE, Forge and Sphereomancer.
 
-- Free Move with the workplane off (`freeDragTranslation` shift path, single view):
-  plane label from the workplane setting.
-- Quad flat pane screen-axis latch (`moveDragPoint`): the pane is already its
-  plane, Shift picks one screen axis. Show the **model axis** that screen axis
-  maps to (`X`, `Y` or `Z`), not "horizontal".
-- Move gizmo Shift + arrow / square (`gizmoMoveTranslation` / `moveConstraint`
-  in PR #504's `app/movement-overlay.js`): axis or plane from the constraint,
-  including the `dominantPlaneAxis` case (shows the chosen axis once picked).
-- Bones / Movement / POSE / Forge node Move drags that already use
-  `shiftDragLatch` (`app/Viewport.jsx`, `app/GamePreview.jsx`).
-- Free-scale with Shift constraint (`scaleConstrained`, GamePreview): axis label
-  already computed there as `axisLabel`; reuse it.
-- Sphereomancer Move drag (new, PR #507's `app/CollisionOverlay.jsx`), using the
-  same plane rule as free Move in its preview.
+- In single view the workplane's existing one-axis Move rule reports X on XY,
+  Z on ZX and Y on YZ.
+- In quad view, a flat pane reports the model axis of the latched screen
+  direction. When an oblique pane's direction uses both model axes it reports
+  their plane. Perspective uses its own checkbox.
+- Sphereomancer takes the workplane from the main editor. Its center and
+  numbered grabs retain the screen-direction latch. With constraints on,
+  their held segment is solved in the chosen plane, then transformed into
+  the shape's local space.
 
 ## What does not (no badge)
 
 Shift means something else here; leave behaviour and visuals untouched:
 
+- Workplane-off free Move and Move gizmo arrows/squares retain their existing
+  Shift solves without feedback. Handles are available with constraints off.
+- Every Scale gesture, including free-scale constraints.
 - Rotate precision (`rotationAmount`, `rotationDragDegrees`, `movementRotationAmount`).
 - Scale step snapping (`amount * 20 / 20`).
 - Shift-click to add to a selection, Shift with marquee.
@@ -64,30 +64,12 @@ If a site is unclear, list it in the PR and ask Claude Code; do not guess.
 
 ## Centralize
 
-Today the latch maths is already shared (`app/classic-gestures.js`:
-`shiftDragLatch`, `shiftDragOffset`, `moveDragPoint`; `app/viewport-math.js`:
-`freeDragTranslation`), but each editor decides on its own *what* Shift locks
-and reads `event.shiftKey` itself. The badge needs that decision in one place.
-
-Required shape (names are suggestions; keep them if they fit the code):
-
-- **One lock module** (extend `app/classic-gestures.js`, or a small new
-  `app/shift-lock.js` next to it): a function that, given the gesture state and
-  whether Shift is held, returns both the locked solve and a lock description
-  `{ kind: 'plane' | 'axis', label: 'XY' | 'ZX' | 'YZ' | 'X' | 'Y' | 'Z' } | null`.
-  Every site in "What counts" calls it instead of branching on `shiftKey` for
-  the lock itself. Plane labels use the app's existing words: `xz` shows as `ZX`
-  (same mapping as `EditorControls.jsx` and the Movement Workplane radios).
-- **One badge component** (for example `ShiftLockBadge`), mounted once per
-  window that hosts 3D drags (main window and any popped-out preview window,
-  like Sphereomancer's), fed by a tiny shared store/event the lock module
-  updates (`setShiftLock(label, clientX, clientY)` / `clearShiftLock()`).
-  Editors do not render their own badge.
-- Clearing is owned by the lock module on drag end, cancel, Escape and window
-  blur, so no editor can leave a stale badge behind.
-- No new Settings, toggles or text strings beyond the label. The label letters
-  are already allowed literals in `src/localization.js`; the badge is
-  `aria-hidden` with no tooltip (it is feedback, not a control).
+[shift-lock.js](../../src/shift-lock.js) owns the latch, model-space offset,
+axis/plane description and feedback lifetime. Legacy math imports re-export
+the shared functions. [ShiftLockBadge.jsx](../../app/ShiftLockBadge.jsx) renders
+the document's single badge in the main window or the detached preview.
+Pressing or releasing Shift keeps the accumulated offset. Pointer release,
+capture loss, cancellation, Escape and window blur clear feedback.
 
 ## Look
 
@@ -104,34 +86,23 @@ Required shape (names are suggestions; keep them if they fit the code):
 - Same badge in single view, every quad pane, VIS classic mode, Movement/POSE,
   Forge and Sphereomancer.
 
-## Sequencing
+## Implementation and verification
 
-- **PR #504** (`codex/workplane-constraints`) rewrites the same Shift-lock sites
-  (`Viewport.jsx` `currentLockedPlane`, `GamePreview.jsx`, `movement-overlay.js`
-  `gizmoMoveTranslation`). Build this **after #504 merges**, on fresh `main`,
-  or the two will conflict and the lock rule will be duplicated.
-- **PR #507** (`codex/sphereomancer-v2`) has no Shift lock yet (only the Shift +
-  arrow-key ×10 nudge). The owner's new Sphereomancer Shift-lock request must use
-  this shared module. If #507 adds Shift locking before this lands, it must call
-  the shared module (or be moved onto it here) rather than adding its own.
-- Note for the owner: the quad-view Shift work is in PR #504; PR #507 is the
-  sphere placer.
+PRs #504 (workplanes), #507 (Sphereomancer) and #510 (contract) were merged
+before the implementation branch was created from `55fc271e`.
 
-## Tests
-
-- Source: unit tests for the lock function: each plane/axis label, `xz → ZX`,
-  quad screen axis → correct model axis per pane, gizmo arrow/square/dominant,
-  `null` for Rotate/Scale-step/selection Shift.
-- Source guard: a test that greps `app/` for Shift-lock decisions outside the
-  shared module (allow-list the non-lock uses above) so a future feature cannot
-  add a second copy.
-- Packaged, hidden desktop, real mouse drags (AGENTS.md): hold Shift during a
-  Move drag in single view (each workplane), each quad pane, a gizmo arrow and
-  square, Movement/POSE bone, Forge, Sphereomancer. Read the painted badge text
-  and position; release Shift mid-drag and check it is gone; Escape clears it;
-  Rotate + Shift shows no badge. Camera orbit still works in every pane.
-- Targeted reruns only (failed and related tests), not the full suite.
-- Captures of the badge in light and dark themes and VIS mode for the owner.
+- [Solver and source guard](../../test/shift-lock-badge.test.js) covers the
+  single-view axis rules, plane names, screen latches and their owning module.
+- [Packaged badge workflow](../../test/shift-lock-badge.electron.cjs) drives
+  a Footman selection, quad panes, gizmo handles, Forge, Movement and POSE.
+  A Classic flail model exercises the actual Sphereomancer popup. Checks
+  include cursor position, release, Escape, mouse orbit and excluded gestures.
+- [Free Move regression](../../test/workplane-free-drag.electron.cjs) measures
+  committed geometry and bone positions. [Sphereomancer regression](../../test/optimizexl.electron.cjs)
+  exercises live drafts, selection, Escape, nudges and saving.
+- The badge workflow first failed on the unmodified packaged base while
+  waiting for a visible badge during a ZX Move drag. Light, dark and VIS
+  [captures](../../test/evidence/shift-lock-badge/) show the implemented badge.
 
 ## Out of scope
 

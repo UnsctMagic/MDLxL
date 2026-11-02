@@ -3,7 +3,7 @@ export const ROTATION_EDITORS = Object.freeze({ vertices: 'Vertices', bones: 'Bo
 export const DEFAULT_ROTATION = Object.freeze({ sensitivity: 1, precision: .1, editors: Object.freeze({}) });
 export const AXES = ['X', 'Y', 'Z'];
 export const NORMAL = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
-export const PERPENDICULAR = { X: 'yz', Y: 'xz', Z: 'xy' };
+export { PERPENDICULAR } from './shift-lock.js';
 const record = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const speed = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.round(Math.max(.01, Math.min(4, Number(value))) * 100) / 100 : undefined;
 export function normalizeRotationPreferences(value) {
@@ -30,16 +30,7 @@ export function chooseLeverAxis(grabAxis, tangents, dx, dy) {
     return !best || score(axis) > score(best) ? axis : best;
   }, null);
 }
-export function dominantPlaneAxis(plane, basis, dx, dy) {
-  return plane.toUpperCase().split('').reduce((best, axis) => {
-    const score = a => Math.abs(basis[a][0] * dx + basis[a][1] * dy) / (Math.hypot(...basis[a]) || 1);
-    return !best || score(axis) > score(best) ? axis : best;
-  }, null);
-}
-export function moveConstraint(handle, shift) {
-  if (handle.plane) return { plane: handle.plane, axis: null, dominant: !!shift };
-  return shift ? { plane: PERPENDICULAR[handle.axis], axis: null, dominant: false } : { plane: null, axis: handle.axis, dominant: false };
-}
+export { dominantPlaneAxis, moveConstraint } from './shift-lock.js';
 export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings, tangent, circle = false } = {}) {
   const px = x - pivot.x, py = y - pivot.y;
   return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, circle, px, py,

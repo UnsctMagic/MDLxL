@@ -1,6 +1,5 @@
-import { planeScreenBasis, projectedPlaneTranslation } from './viewport-math.js';
-import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
-import { beginRotationDrag, rotationDragDegrees, rotationOptions, facingAxis, chooseLeverAxis, moveConstraint, dominantPlaneAxis, NORMAL } from '../src/rotation-drag.js';
+import { solveGizmoMove } from '../src/shift-lock.js';
+import { beginRotationDrag, rotationDragDegrees, rotationOptions, facingAxis, chooseLeverAxis, NORMAL } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
@@ -490,7 +489,6 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
 /** The same Shift latch as free Move, with the lab's arrow/plane constraints. */
 export function gizmoMoveTranslation(gesture, dx, dy, shift = false, sensitivity = 1) {
   const { camera, origin: world, handle, width, height } = gesture;
-  gesture.handleLatch ||= shiftDragLatch({ x: 0, y: 0 }, shift);
   const axisDelta = (axis, x, y) => {
     const index = 'XYZ'.indexOf(axis), at = projectGizmo(world, camera, width, height), tip = projectGizmo(world.clone().setComponent(index, world.getComponent(index) + 1), camera, width, height);
     const ax = tip.x - at.x, ay = tip.y - at.y, length = ax * ax + ay * ay;
@@ -500,17 +498,7 @@ export function gizmoMoveTranslation(gesture, dx, dy, shift = false, sensitivity
     // must not divide a tiny screen projection into a huge world displacement.
     return new Vector3().setComponent(index, Math.hypot(arrow.projectedDx, arrow.projectedDy) < 18 ? movementDragAmount(arrow, x, y, 'move') : (x * ax + y * ay) / length).toArray();
   };
-  return shiftDragOffset(gesture.handleLatch, { x: dx * sensitivity, y: dy * sensitivity }, shift, (from, to, held) => {
-    if (gesture.handleSegment !== from) { gesture.handleSegment = from; gesture.dominantAxis = null; }
-    const constraint = moveConstraint(handle, held), x = to.x - from.x, y = to.y - from.y;
-    if (constraint.axis) return axisDelta(constraint.axis, x, y);
-    const plane = constraint.plane, basis = planeScreenBasis(camera, world, width, height, plane);
-    if (constraint.dominant) {
-      gesture.dominantAxis ||= dominantPlaneAxis(plane, Object.fromEntries(plane.toUpperCase().split('').map((a, i) => [a, basis[i]])), x, y);
-      return axisDelta(gesture.dominantAxis, x, y);
-    }
-    return projectedPlaneTranslation(plane, basis, x, y);
-  });
+  return solveGizmoMove(gesture, dx, dy, shift, sensitivity, axisDelta);
 }
 /** Brighter lab feedback; no ghost geometry. All consumers call this in their draw. */
 export function drawGizmoRotationFeedback(context, drag, ratio = 1) {
