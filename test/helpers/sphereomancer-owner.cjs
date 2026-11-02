@@ -64,4 +64,3 @@ exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  assert.deepEqual(report.failures,[],'owner popup regression checks');
  await preset.selectOption('1');await ready();
 };
-
