@@ -40,7 +40,6 @@ const SPECIAL = {
   'surface-effects-uv': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects-warriors': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects': { needs: [footman,testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx')] },
-  'particle-native-placement': { env: {MDLXL_PARTICLE_INDEX:particleIndex}, needs: [footman,particleIndex] },
   'ai-real-use': { env: { MDLVIS_HEADLESS: '' }, timeout: Number(process.env.MDLXL_AI_REAL_USE_REPEATS || 3) * (10 + 6 * Number(process.env.MDLXL_AI_REAL_USE_RESUMES || 2)) * (Number(process.env.MDLXL_AI_REAL_USE_TURN_MS || 240000) + 30000) + 120000 },
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },

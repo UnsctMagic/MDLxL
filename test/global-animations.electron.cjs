@@ -48,11 +48,11 @@ const {testModel}=require('./helpers/fixtures.cjs');
    await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();await addEmitter(page,fx,'Orbiting flies (recommended)',ready);
    await button('Fit selection').click();await button('Position & size').click();
    if(await button('Pause').count())await button('Pause').click();
-   const before=(await stack()).layers[0];await drag('Resize particle',18,-8);
-   assert.notEqual((await stack()).layers[0][key],before[key],name+' radius');
-   await drag('Move emitter',14,3);assert.notDeepEqual((await stack()).layers[0].offset,before.offset,name+' position');
+   const before=(await stack()).layers.at(-1);await drag('Resize particle',18,-8);
+   assert.notEqual((await stack()).layers.at(-1)[key],before[key],name+' radius');
+   await drag('Move emitter',14,3);assert.notDeepEqual((await stack()).layers.at(-1).offset,before.offset,name+' position');
    if(name==='Fly swarm'){
-    await fx.getByLabel('Amount value').fill('3');await fx.getByLabel('Amount value').press('Enter');await ready();assert.equal((await stack()).layers[0].amount,3);
+    await fx.getByLabel('Amount value').fill('3');await fx.getByLabel('Amount value').press('Enter');await ready();assert.equal((await stack()).layers.at(-1).amount,3);
    }
    await button('Cancel').click();await fx.waitFor({state:'hidden'});
   }
