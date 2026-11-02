@@ -8,7 +8,7 @@ import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER} from './WorldEditorTree.jsx';
+import {FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER,WORLD_EDITOR_NO_GAME,WORLD_EDITOR_NO_MATCHES} from './WorldEditorTree.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
@@ -227,7 +227,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
       onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style} focusKey={focusKey} setFocusKey={setFocusKey}
       onStyle={preset==='models'?value=>{setStyle(value);remember('mdlvis.game-files.style',value);}:undefined} resetKey={worldEditor+'|'+filters}
       status={results&&(results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`)}
-      empty={error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}/>} stage={<>
+      empty={error?'':query.trim()?WORLD_EDITOR_NO_MATCHES:summary&&!summary.folder?WORLD_EDITOR_NO_GAME:'Loading game files…'}/>} stage={<>
         <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset} onHover={setHoveredGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>

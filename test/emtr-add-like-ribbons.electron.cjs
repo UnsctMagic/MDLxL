@@ -43,7 +43,7 @@ const A='wc3-3a9daedd87ac3591076e786a',B='wc3-185857af2b55ebd7f61dd150';
   const picked=[];for(const point of points.filter(p=>p.wanted&&!points.some(q=>!q.wanted&&Math.hypot(p.x-q.x,p.y-q.y)<8)))if(picked.every(p=>Math.hypot(p.x-point.x,p.y-point.y)>10)&&picked.length<vertexCount)picked.push(point);assert.equal(picked.length,vertexCount);
   for(let i=0;i<picked.length;i++){if(i)await page.keyboard.down('Shift');await page.mouse.click(picked[i].x,picked[i].y);if(i)await page.keyboard.up('Shift');}
   const selection=await page.evaluate(()=>findFiberProps('.viewport',p=>p.selectionByGeoset).selectionByGeoset);assert.equal(Object.values(selection).flat().length,vertexCount,'Hand vertices were selected through pointer input');assert.ok(selection[0].every(id=>vertexBones(original.Geosets[0],id).includes(18)),'Actual selected vertices are on the hand');
-  const before=await documentState();await click(page,button('Emitter Editor'));await library.waitFor();await choose(A);await add();
+  const before=await documentState();await click(page,button('Emitter Editor'));await library.waitFor();if(singleVertex)assert.notEqual(await labId(),A,'Owner workflow starts with a different Lab recipe');await choose(A);await add();
   await page.waitForFunction(()=>!!findFiberProps('.pe-preview .game-preview-root',p=>p.model&&p.particleAuthoring));
   const preview=await page.evaluate(()=>{const p=findFiberProps('.pe-preview .game-preview-root',p=>p.model&&p.particleAuthoring);return p.model.ParticleEmitters2.map(n=>n.Name);});
   assert.ok(preview.includes(recipeA.native.ParticleEmitters2[0].Name),'P1 placement must contain the clicked Library effect, not starter Soft sparks: '+preview.join(', '));

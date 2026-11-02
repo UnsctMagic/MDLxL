@@ -1,8 +1,8 @@
 {
-  "sourceBase": "4f6e7bd745273623494c873752bbe33f57daaa7a",
+  "sourceBase": "518c1a5ca9d0a2ad621d9c522f1034d41ccb3713",
   "bundle": {
-    "indexHash": "fb138933d5c75c0f71db7b9c49013e9f8c934560c5e58edff68a3bff8e6eac68",
-    "assetsHash": "7e9e098d16d2dcf799cdcd248ba4e8bec0b6b4e19bc90212fd1252d7b9fee756"
+    "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+    "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
   },
   "passed": 4,
   "failed": 0,
@@ -23,8 +23,8 @@
     },
     {
       "id": "P5",
-      "pixels": 100.00000036466213,
-      "renderedParticlesPixels": 100.81612170408414
+      "pixels": 100.00000370737604,
+      "renderedParticlesPixels": 100.84902388228056
     },
     {
       "id": "P6",
@@ -32,35 +32,5 @@
       "snapError": 0.000005591521240258232,
       "motionError": 0.0000034424734488436845
     }
-  ],
-  "units": {
-    "passed": 114,
-    "failed": 0,
-    "skipped": 0
-  },
-  "library": {
-    "passed": 2,
-    "failed": 0,
-    "skipped": 0,
-    "checks": [
-      "browse",
-      "indexing"
-    ]
-  },
-  "checkpointFrequency": {
-    "checkpoints": 10,
-    "beforeBuilds": 10,
-    "afterBuilds": 4
-  },
-  "notRerun": [
-    "local full suite",
-    "P2",
-    "P3",
-    "P7",
-    "P8",
-    "P9",
-    "P10",
-    "Warcraft III gameplay",
-    "independent Claude QA"
   ]
 }

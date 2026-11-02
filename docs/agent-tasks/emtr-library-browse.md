@@ -1,6 +1,10 @@
 # EMTR Particle Library browsing
 
-Static-review corrections ready for review; awaiting merge approval. Codex, 2 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch codex/emtr-library-browse. No merge or release is authorized.
+Main integration ready for review; awaiting merge approval. Codex, 2 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch codex/emtr-library-browse. No PR merge or release is authorized.
+
+## Main integration — 2 November
+
+Merged main through af85b712, preserving its WorldEditorTree/texture refactor and the shared GameFileBrowser shell/browser prop. **144/0/0 focused units**, build/package, and **8/0/0 hidden packaged workflows** passed, including main Models/Sounds/All files, both layouts, texture checks, browse/indexing, P1/P4/P5/P6 and the exact single-vertex owner sequence. No local full suite. [Current integration account and resume checkpoint trade-off](emtr-add-like-ribbons.md#main-integration-2-november-2026), [results/bundle hashes](../../test/evidence/emtr-add/integration-results.json). Prior rounds below are historical; preserved owner apps/profiles were untouched.
 
 ## Static-review corrections — 2 November
 
