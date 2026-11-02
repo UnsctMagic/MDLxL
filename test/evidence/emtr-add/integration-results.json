@@ -1,0 +1,177 @@
+{
+  "base": "518c1a5ca9d0a2ad621d9c522f1034d41ccb3713",
+  "main": "af85b71208e2602a2cba6dd1e4b4f850b2d727c1",
+  "bundle": {
+    "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+    "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+  },
+  "focusedUnits": {
+    "passed": 144,
+    "failed": 0,
+    "skipped": 0
+  },
+  "packaged": [
+    {
+      "name": "layout",
+      "status": 0,
+      "elapsedMs": 91907
+    },
+    {
+      "name": "browse",
+      "status": 0,
+      "elapsedMs": 68320
+    },
+    {
+      "name": "indexing",
+      "status": 0,
+      "elapsedMs": 164255
+    },
+    {
+      "name": "textures",
+      "status": 0,
+      "elapsedMs": 37944
+    },
+    {
+      "name": "texture-review",
+      "status": 0,
+      "elapsedMs": 12446
+    },
+    {
+      "name": "game-files",
+      "status": 0,
+      "elapsedMs": 43189
+    },
+    {
+      "name": "placement",
+      "status": 0,
+      "elapsedMs": 78377
+    },
+    {
+      "name": "owner-workflow",
+      "status": 0,
+      "elapsedMs": 18025
+    }
+  ],
+  "gameBrowser": {
+    "bundle": {
+      "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+      "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+    },
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "checks": [
+      "Models: real Left/Right/Down navigation, native preview, camera drag and Enter opens Footman",
+      "World Editor model double-click opens the native model",
+      "Models: Standard native folders and World Editor Style toggle retain both layouts",
+      "Sounds: native voice decodes; real ArrowDown changes the selected voice",
+      "All files: file-type control, native file search and rotating model preview"
+    ]
+  },
+  "textureReview": {
+    "checks": [
+      "A1 fresh World Editor open starts catalogue directly, without Standard preview",
+      "A4 entry selected before catalogue arrival shows Loading texture library\u2026, never 0 textures",
+      "A2 Standard results (261 ms), painting/vibe/kinds work; worker first initialized in Standard"
+    ],
+    "initial": {
+      "preview": 0,
+      "catalog": 1
+    },
+    "loading": "Loading texture library\u2026",
+    "inits": [
+      {
+        "layout": "Standard",
+        "signature": "e195196fb0b58929262b6047"
+      }
+    ],
+    "standardMs": 261,
+    "bundle": {
+      "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+      "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+    }
+  },
+  "indexing": {
+    "passed": true,
+    "ms": 109317,
+    "processed": 3501,
+    "recipes": 4589,
+    "previews": 142,
+    "returns": [
+      383,
+      374,
+      332,
+      505,
+      474,
+      439,
+      450,
+      356,
+      463,
+      507
+    ]
+  },
+  "placement": {
+    "sourceBase": "518c1a5ca9d0a2ad621d9c522f1034d41ccb3713",
+    "bundle": {
+      "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+      "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+    },
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "checks": [
+      {
+        "id": "P1",
+        "emitter": "BlizParticle01",
+        "parent": 18,
+        "center": [
+          3.0026267369588218,
+          24.41200002034505,
+          40.84843444824219
+        ]
+      },
+      {
+        "id": "P4"
+      },
+      {
+        "id": "P5",
+        "pixels": 100.00000370737604,
+        "renderedParticlesPixels": 100.84902388228056
+      },
+      {
+        "id": "P6",
+        "parent": 19,
+        "snapError": 5.591521240258232e-06,
+        "motionError": 3.4424734488436845e-06
+      }
+    ]
+  },
+  "ownerWorkflow": {
+    "sourceBase": "518c1a5c",
+    "bundle": {
+      "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+      "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+    },
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "selection": {
+      "0": [
+        274
+      ]
+    },
+    "checks": [
+      {
+        "id": "P1",
+        "emitter": "BlizParticle01",
+        "parent": 18,
+        "center": [
+          -3.8743700981140137,
+          21.938199996948242,
+          40.307701110839844
+        ]
+      }
+    ]
+  },
+  "notRun": "No local full suite, P2/P3/P7-P10, full ribbon corpus, Warcraft III gameplay or independent QA on the integrated head."
+}

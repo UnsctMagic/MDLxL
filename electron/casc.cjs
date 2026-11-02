@@ -223,4 +223,4 @@ class CascTextures {
   }
   async close() { await this.queue.catch(() => {}); for (const {reader,timer} of this.readers.values()) { clearTimeout(timer); reader.close(); } this.readers.clear(); }
 }
-module.exports = { CascReader, CascTextures, soundCandidates, installKey };
+module.exports = { CascReader, CascTextures, soundCandidates, installKey, buildLocales };

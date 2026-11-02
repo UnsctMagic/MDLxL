@@ -9,7 +9,6 @@ const nextFrame=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFra
 // MDLXL_TEST_EXE runs a packaged MDLxL.exe instead of the source checkout.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-library'+(process.env.MDLXL_LIBRARY_EXISTING_ONLY?'-existing':'')),checks=[];
-const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
 (async()=>{
   fs.rmSync(out,{recursive:true,force:true});fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument}=await import('../src/editor-document.js');
@@ -19,11 +18,12 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
   const fixture=path.join(out,'demo.mdx');fs.writeFileSync(fixture,document.serialize('mdx'));
   fs.mkdirSync(path.join(out,'profile'),{recursive:true});fs.writeFileSync(path.join(out,'profile','settings.json'),JSON.stringify({preferences:{graphics:{pauseWhenHidden:false},...(process.env.MDLXL_TEST_THEME?{theme:process.env.MDLXL_TEST_THEME}:{})}}));
   const packaged=appTarget().packaged,flags=['--disable-gpu-vsync','--disable-frame-rate-limit'];
-  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile'), args: [...flags], env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||await gameFolder() }, timeout: 90000, fixture: fixture , pageTimeout: 45000, bounds: { x: -3000, y: 0, width: 1440, height: 980 }, show: 'inactive' });
+  const { app, page } = await launchApp({ out: out, profile: path.join(out,'profile'), args: [...flags], env: { MDLVIS_HEADLESS:'1', MDLVIS_GAME_DATA:process.env.MDLVIS_GAME_DATA||await gameFolder() }, timeout: 90000, fixture: fixture , pageTimeout: 45000, bounds: { x: -3000, y: 0, width: 1440, height: 980 }, show: 'hide' });
+  const shot=async(_page,name)=>{const png=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(png,'base64'));};
   try{
 
     await page.getByRole('tab',{name:'demo.mdx',exact:true}).waitFor();
-    if(!process.env.MDLXL_LIBRARY_EXISTING_ONLY)await require('./library-textures-contract.cjs')(page,out,checks);
+    if(!process.env.MDLXL_LIBRARY_EXISTING_ONLY)await require('./library-textures-contract.cjs')(page,out,checks,name=>shot(page,name));
     if(process.env.MDLXL_TEXTURES_ONLY){console.log('PASS:\n- '+checks.join('\n- '));return;}
     // The UV Wrapper's library is the unchanged texture picker: no tabs, same title.
     await page.locator('[data-hotkey="geosetsClear"]').click();
@@ -244,5 +244,5 @@ return null;});
     checks.push('Click a model in the list, Enter opens it in the editor as a new tab');
     checks.push('T11 existing Models tree/icons/search, real mouse rotation, double-click/Enter opening and geoset tools unchanged');
     console.log('PASS:\n- '+checks.join('\n- '));
-  }catch(error){await shot(page,'failure');console.error('COMPLETED',checks);console.error('FAILURE',error.message);console.error('LIBRARY',await page.locator('.tl-dialog').count()?await page.locator('.tl-dialog').innerText():'closed');throw error;}finally{await closeApp(app).catch(()=>{});}
+  }catch(error){await shot(page,'failure').catch(()=>{});console.error('COMPLETED',checks);console.error('FAILURE',error.message);await page.locator('.tl-dialog').count().then(count=>count?page.locator('.tl-dialog').innerText():'closed').then(text=>console.error('LIBRARY',text)).catch(()=>{});throw error;}finally{await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

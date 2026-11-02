@@ -85,7 +85,7 @@ function FloatingGeosets({ at, onMove, onContextMenu, children }) {
 
 /** Bones mode (Movement controller with the rig tools) and Animation mode (Movement or Animations panel). */
 export function RigSidebar({
-  activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen, cameraGesture,
+  activePortrait, animationPanel, attachSourceIds, cameraPanel, beginAttach, bindSelectedVertices, boneCreateOpen, cameraGesture,
   controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, doc, edit, geosetPicker,
   globalSeqId, materialVisibility, mode, model, movementControllerProps, openAttachemator, parentedRigNodes,
   renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes, selectionCount,
@@ -98,8 +98,8 @@ export function RigSidebar({
           drag may swap the Animations controls for the camera view. */}
       {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
-        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
-          <AnimationController materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
+        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
+          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
           <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
 

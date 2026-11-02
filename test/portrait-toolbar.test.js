@@ -91,7 +91,9 @@ test('Portrait retains compact camera controls and permits vertical orbit',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(app,/const cameraRotating = cameraMode === 'rotate' && !lockedVertexPlane \|\| cameraGesture;/);
-  assert.match(app,/\{cameraRotating && !activePortrait && cameraPanel\}/);
+  // Rotate around Axis shows in the sidebar, or under Current Sequence in Movement/Animations; never in Portrait.
+  assert.match(app,/\{cameraRotating && !activePortrait && !sequenceShown && cameraPanel\}/);
+  assert.match(app,/cameraPanel: cameraRotating && !activePortrait \? cameraPanel : null/);
   assert.doesNotMatch(preview,/controls\.minPolarAngle = controls\.maxPolarAngle = controls\.getPolarAngle\(\)/);
   assert.match(preview,/setCameraAngles: values => \{ if \(state\.portraitActive \|\| latest\.current\.suspended\) return;/);
 });

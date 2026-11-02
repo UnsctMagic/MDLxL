@@ -74,10 +74,14 @@ existing hotkey behaviour.
     by case-sensitive unit rawcode. Entries hidden from the
     editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
+- GameFileBrowser keeps the shared BrowserToolbar / BrowserTree / BrowserFrame shell and accepts EMTR's `browser` prop. BrowserTree delegates rows and navigation to WorldEditorTree's LibraryTree; EMTR forwards its visible-row thumbnail callback and keeps preview details below the stage.
 - [WorldEditorTree.jsx](../app/WorldEditorTree.jsx) owns both tabs' layout
   buttons, virtualized rows, mouse/keyboard navigation, game icons and the one
   catalogue promise per game signature/version. Models also use its icons in
   Standard. No second tree implementation or catalogue cache is maintained.
+- A cold World Editor texture view loads its catalogue directly. The Standard
+  first-page preview and phrase-search worker are deferred until Standard is
+  shown; Standard keeps its first page and warm-signature/readiness flow.
 - [world-editor-textures.js](../src/world-editor-textures.js) reads only MDX TEXS
   records or the MDL Textures block; it creates no preview or editor document.
   [the texture client](../app/world-editor-textures.js) collects every art/variation,

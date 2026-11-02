@@ -8,7 +8,8 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Library: World Editor Style for textures, like models | Ready to test; awaiting merge approval ([PR #502](https://github.com/UnsctMagic/MDLxL/pull/502)) | [Library textures World Editor](library-textures-world-editor.md) / Codex |
+| Shift lock: one shared lock rule and an orange lock badge at the cursor | Contract ready; Codex to build after PR #504 merges | [Shift lock badge](shift-lock-badge.md) / Codex |
+| Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | Workplane Constraints and one gizmo for every 3D editor (real app) | Contract agreed; Codex to build | [Workplane Constraints](workplane-constraints.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
@@ -22,6 +23,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | FX global animation maker | PR #492 · sixth owner hand test; ready for retest | [Surface Effects](native-surface-effects.md) / Codex |
 | Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
+| EMTR Particle Library browsing and placement | Main integration ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md), [Add like ribbons](emtr-add-like-ribbons.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable
