@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: Claude Code accepted the ten review fixes. The two follow-up regressions are fixed and ready to test.
+Status: owner change requested before merge (see [Owner change](#owner-change-constrained-rotate-follows-the-plane-2-nov)); review fixes accepted at `c3282939`
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -36,11 +36,11 @@ Claude Code if something is unclear.
    with a short tooltip: on = Rotate locked to the chosen plane; off = use the
    handles.
 2. **Workplane Constraints on, Rotate**: locked to the chosen plane's axis
-   (XY / ZX / YZ). Drag left/right only. Same direction every time, whatever the
-   click point, camera or earlier turns. MDLVis direction and speed: derive the
-   sign from the MDLVis source above (mind MDLVis drawing Y negated) and record it
-   here. While dragging: a yellow double arrow (↔) next to the cursor with the axis
-   and angle beside it (for example `Z 37°`). No handles.
+   (XY / ZX / YZ). **Changed by the owner on 2 Nov; see
+   [Owner change: constrained Rotate follows the plane](#owner-change-constrained-rotate-follows-the-plane-2-nov).**
+   The mouse direction follows how the plane looks on screen, and yellow arrows
+   show exactly which way to move. The old rule (left/right only, MDLVis sign,
+   `↔` in the label) is replaced. No handles.
 3. **Workplane Constraints off, Rotate**: handles in the chosen Rotate style
    (item 9). Lines works as levers: grab an X/Y/Z ball and swing it; the first few
    pixels pick which of the other two axes it swings around; the turn follows the
@@ -342,3 +342,84 @@ Where a fix seems to clash with them, stop and ask Claude Code.
   2. Quad view: orbit the Top pane, then Rotate and Move a selection there.
   3. Settings → Mouse → Rotation: set Shift precision for Forge only and check
      the other editors kept theirs.
+
+## Owner change: constrained Rotate follows the plane (2 Nov)
+
+Before merge, the owner rejected the "left/right only" rule in item 2. In
+their words: in Workplane Constraints each plane rotates the way that plane is,
+and arrows show exactly which direction to move the mouse to get a rotation,
+whatever the camera angle. This replaces the old item 2 rule (left/right only,
+`MDLVIS_SIGN`, `↔` in the label). Everything else in this note stays. Implement
+it on this branch (`codex/workplane-constraints`, from `c3282939`) before merge.
+If something here is unclear, stop and ask Claude Code.
+
+### Rule (every 3D editor: Vertices, Bones/Movement/POSE, Forge; single view and all quad panes)
+
+Workplane Constraints on, Rotate tool. `N` is the chosen plane's axis (XY → Z,
+ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
+
+1. **At mouse-down, work out one screen direction `T`** for a positive turn
+   (right-hand rule about `N`):
+   - Cast the ray from the camera through the press point and hit the plane
+     through `P` with normal `N`, giving `H`. If the ray hits it and `H` lies at
+     least 12 px from `P` on screen, `T` = the screen projection of `N × (H − P)`.
+     That is the way the plane's circle through the press point moves under the
+     cursor, as if you grabbed the plane there and pushed it round.
+   - Otherwise (the plane is seen edge-on, or the press is on the centre), use
+     the near side of the plane: `u` = the direction from `P` toward the camera
+     flattened into the plane. If that is near zero (the plane faces the camera),
+     use the in-plane direction that points down on screen. `T` = the screen
+     projection of `N × u`.
+   - Normalise `T`. It stays fixed for the whole drag: no flips, whatever the
+     pointer does.
+2. **Turn amount** = mouse movement along `T`: `(dx, dy) · T` pixels = degrees at
+   1×. Movement across `T` does nothing. Rotation sensitivity, pointer
+   sensitivity and Shift precision work exactly as they do now. Coalesced samples
+   and the Shift latch stay as they are.
+3. **Arrows**: from mouse-down (before the mouse moves) until release, draw one
+   yellow double-headed arrow along `T`, centred on the press point, about 48 px
+   long, in the same yellow and dark outline as the existing drag feedback
+   (`drawGizmoRotationFeedback`). The readout beside the cursor stays as it is
+   without the `↔` glyph, for example `Z 37°`. Nothing is drawn while hovering.
+   The owner can ask for a hover preview later; don't add one now.
+4. **Remove** what only served the old rule: the `MDLVIS_SIGN` branch for
+   constrained Rotate in `rotationDragDegrees`
+   ([src/rotation-drag.js](../../src/rotation-drag.js) ~64), the
+   `movementWorkplanePointer` remap for *rotate* gestures in
+   [app/GamePreview.jsx](../../app/GamePreview.jsx) (~734 and ~777; Move keeps its
+   own use), and the `↔ ` prefix in the readout and `data-rotation-feedback`. One
+   helper computes `T` and every editor calls it, from `beginGizmoRotation` in
+   [app/movement-overlay.js](../../app/movement-overlay.js). No per-editor copies.
+5. **Settings hint** ([app/Settings.jsx](../../app/Settings.jsx) ~110): replace
+   "turns one degree per horizontal pixel" with plain wording, for example:
+   "With Workplane Constraints on, move the mouse along the yellow arrow; one
+   degree per pixel at 1×." Update the es/ru/zh catalogs.
+6. **Unchanged**: Workplane Constraints off (handles, levers, swept angle), Move
+   in every mode, quad plane locking (`lockedQuadPlane`), Bones rest-pose
+   Select/Move only, the UV map's own `uvTurn`.
+
+### Tests
+
+- Unit tests for the `T` helper: a plane facing the camera with a press to the
+  right of the centre gives a vertical `T`; an edge-on plane gives `T` along the
+  plane's line on screen; after orbiting the camera to several angles, moving
+  along `T` always turns positively and moving along `−T` negatively; the same
+  hand movement along the arrow gives the same degrees in every quad pane and
+  editor.
+- Replace the MDLVis-sign assertions (for example the `40*({xy:1,xz:-1,yz:1}[plane])`
+  expectation in `test/rotation-interaction.electron.cjs` and the matching unit
+  tests) with the new rule. Don't keep tests for the removed rule.
+- Packaged, real mouse on the hidden desktop: in Vertices (single view at three
+  camera angles, plus all four quad panes), Movement, POSE and Forge, press, check
+  the arrow is drawn before any movement, drag along the arrow (turns positively),
+  drag back along it (returns), drag across it (no turn). Expose `T` on the
+  existing feedback canvas dataset so the harness can read it.
+- `pnpm test`, `pnpm run test:source` against the CI baseline; targeted packaged
+  reruns only (`rotation-interaction`, `quad-view`, `learn-workplane`).
+
+### Owner click-through when ready
+
+1. Vertices, Workplane Constraints on, Rotate: press on the model and follow the
+   yellow arrow; try XY, ZX and YZ, then orbit the camera and try again.
+2. Quad view: do the same in each of the four panes.
+3. Movement / POSE and Forge: the same with a bone or a shape.
