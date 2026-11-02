@@ -7397,7 +7397,7 @@
   "Hold Shift while rotating to multiply the speed by this amount.": "Удерживайте Shift при вращении, чтобы умножить скорость на это значение.",
   "Lines swing as levers; Rings and Arcs turn around their axis.": "Линии работают как рычаги; кольца и дуги вращают вокруг своей оси.",
   "Choose the thickness and heads of the Move handles.": "Выберите толщину и наконечники рукояток перемещения.",
-  "Workplane Constraints turns one degree per horizontal pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "Ограничения плоскости: при 1× один горизонтальный пиксель равен одному градусу. Рукоятки следуют углу движения мыши вокруг центра выделения. Чувствительность указателя влияет на оба режима. Shift — точное вращение.",
+  "With Workplane Constraints on, move the mouse along the yellow arrow; one degree per pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "При включённых ограничениях плоскости двигайте мышь вдоль жёлтой стрелки; при 1× один пиксель равен одному градусу. Рукоятки следуют углу движения мыши вокруг центра выделения. Чувствительность указателя влияет на оба режима. Shift — точное вращение.",
   "Perspective workplane toolbar": "Панель рабочей плоскости перспективы",
   "Perspective Workplane Constraints": "Ограничения плоскости в перспективе"
 }

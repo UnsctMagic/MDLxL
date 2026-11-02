@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { beginRotationDrag, rotationDragDegrees, normalizeRotationPreferences, rotationOptions, chooseLeverAxis, moveConstraint, dominantPlaneAxis } = await import('../src/rotation-drag.js');
-for (const [plane,sign] of [['yz',1],['xz',-1],['xy',1]]) test(`MDLVis ${plane}: horizontal, fixed sign, speed and precision`,()=>{
- for(const x of [-80,0,80]) for(const facing of [-1,0,1]) for(const earlierTurns of [0,720]) {
-  const d=beginRotationDrag({x,y:23,constrained:true,plane,axis:[0,0,facing],earlierTurns});
-  assert.equal(rotationDragDegrees(d,40,200),sign*40);
+for (const plane of ['yz','xz','xy']) test(`${plane}: constrained turn follows its fixed press direction, speed and precision`,()=>{
+ for(const x of [-80,0,80]) for(const facing of [-1,0,1]) {
+  const d=beginRotationDrag({x,y:23,constrained:true,plane,axis:[0,0,facing],tangent:{x:0,y:1}});
+  assert.equal(rotationDragDegrees(d,40,200),200);
+  assert.equal(rotationDragDegrees(d,40,-200),-200);
  }
- const d=beginRotationDrag({constrained:true,plane,sensitivity:2,precision:.2});
- assert.equal(rotationDragDegrees(d,40,90,1.5,true),sign*24);
+ const d=beginRotationDrag({constrained:true,plane,tangent:{x:0,y:1},sensitivity:2,precision:.2});
+ assert.equal(rotationDragDegrees(d,40,90,1.5,true),54);
 });
 test('sweep wraps through 360, holds within 8 px, including edge-on axes',()=>{
  for(const z of [1,.01,1e-10,-1e-10,-.01,-1]) {
@@ -46,8 +47,8 @@ test('Shift on Move arrows selects perpendicular plane; squares select dominant 
 
 test('Shift precision changes the speed of subsequent motion without jumping on press or release',()=>{
  for(const constrained of [true,false]){
-  const d=beginRotationDrag({x:100,constrained,plane:'xy'});
-  const at=angle=>constrained?[angle,0]:[100*Math.cos(angle*Math.PI/180)-100,100*Math.sin(angle*Math.PI/180)];
+  const d=beginRotationDrag({x:100,constrained,plane:'xy',tangent:{x:0,y:1}});
+  const at=angle=>constrained?[0,angle]:[100*Math.cos(angle*Math.PI/180)-100,100*Math.sin(angle*Math.PI/180)];
   const run=(angle,shift)=>rotationDragDegrees(d,...at(angle),1,shift);
   assert.ok(Math.abs(run(40,false)-40)<1e-8);
   assert.ok(Math.abs(run(40,true)-40)<1e-8);
@@ -69,7 +70,7 @@ test('flat quad panes follow the dominant camera direction at drag start', async
 test('Forge precision override changes only shifted samples in a batch', () => {
   const preferences = { rotation: { precision: .1, editors: { forge: { precision: .25 } } } };
   for (const [editor, expected] of [['forge',25], ['movement',22]]) {
-    const drag = beginRotationDrag({ constrained: true, ...rotationOptions(preferences, editor) });
+    const drag = beginRotationDrag({ constrained: true, tangent: { x: 1, y: 0 }, ...rotationOptions(preferences, editor) });
     for (const [dx, shift] of [[10,false], [20,false], [30,true], [40,true]])
       rotationDragDegrees(drag, dx, 0, 1, shift);
     assert.equal(drag.degrees, expected);

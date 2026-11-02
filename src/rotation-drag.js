@@ -4,9 +4,6 @@ export const DEFAULT_ROTATION = Object.freeze({ sensitivity: 1, precision: .1, e
 export const AXES = ['X', 'Y', 'Z'];
 export const NORMAL = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
 export const PERPENDICULAR = { X: 'yz', Y: 'xz', Z: 'xy' };
-// MDLVis 1.40 FindAngles: oldX-x. vRotate negates XY/YZ, keeps XZ.
-// mdlDraw negates Y for display only; authored coordinates are unchanged.
-export const MDLVIS_SIGN = { xy: 1, xz: -1, zx: -1, yz: 1 };
 const record = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const speed = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.round(Math.max(.01, Math.min(4, Number(value))) * 100) / 100 : undefined;
 export function normalizeRotationPreferences(value) {
@@ -43,9 +40,9 @@ export function moveConstraint(handle, shift) {
   if (handle.plane) return { plane: handle.plane, axis: null, dominant: !!shift };
   return shift ? { plane: PERPENDICULAR[handle.axis], axis: null, dominant: false } : { plane: null, axis: handle.axis, dominant: false };
 }
-export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings } = {}) {
+export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings, tangent } = {}) {
   const px = x - pivot.x, py = y - pivot.y;
-  return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, px, py,
+  return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, px, py,
     sign: axis?.[2] > 0 ? -1 : 1, previous: Math.hypot(px, py) >= 8 ? Math.atan2(py, px) : null, swept: 0, degrees: 0, pointer: { x, y } };
 }
 /** Samples accumulate the wrapped path; geometry and drawing run once per frame. */
@@ -61,7 +58,7 @@ export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1, shift 
     if (drag.previous !== null) { const delta = angle - drag.previous; drag.swept += Math.atan2(Math.sin(delta), Math.cos(delta)); }
     drag.previous = angle;
   }
-  const raw = drag.constrained ? dx * MDLVIS_SIGN[drag.plane] : drag.lever && !drag.axisName ? 0 : drag.swept * 180 / Math.PI * drag.sign;
+  const raw = drag.constrained ? dx * drag.tangent.x + dy * drag.tangent.y : drag.lever && !drag.axisName ? 0 : drag.swept * 180 / Math.PI * drag.sign;
   drag.preciseSwept = (drag.preciseSwept || 0) + (raw - (drag.previousRaw || 0)) * (shift ? drag.precision : 1);
   drag.previousRaw = raw;
   drag.degrees = drag.preciseSwept * drag.sensitivity * pointerSensitivity;

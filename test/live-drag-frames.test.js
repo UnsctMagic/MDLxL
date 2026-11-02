@@ -72,7 +72,7 @@ test('a fast pivot turn keeps its direction when every sample feeds the angle', 
 for (const { name, file, from, feed } of [
   { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
   { name: 'UV rotate', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', feed: 'uvTurn(s.drag' },
-  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY,' },
+  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, dx, dy,' },
   { name: 'Showcase text rotate', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', feed: 'rotationDragDegrees(row.rotationDrag' },
 ]) test(`${name} feeds every sample to the turn`, () => {
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');

@@ -444,6 +444,35 @@ function drawRotationRing(context, points, color, active) {
     context.strokeStyle = active ? '#fff64a' : color; context.lineWidth = active ? 3.2 : points[i].near ? 2 : .8; context.stroke();
   }
 }
+/** Screen direction of a positive turn about the locked plane, fixed at press time. */
+export function constrainedRotationTangent({ x, y, world, camera, width, height, normal }) {
+  const pivot = projectGizmo(world, camera, width, height);
+  const near = new Vector3(x / width * 2 - 1, 1 - y / height * 2, -1).unproject(camera);
+  const far = new Vector3(x / width * 2 - 1, 1 - y / height * 2, 1).unproject(camera);
+  const origin = camera.isOrthographicCamera ? near : camera.position;
+  const ray = far.sub(origin).normalize(), denominator = ray.dot(normal);
+  let radial;
+  if (Math.abs(denominator) > 1e-8) {
+    const distance = world.clone().sub(origin).dot(normal) / denominator;
+    if (distance >= 0) {
+      const hit = origin.clone().addScaledVector(ray, distance);
+      if (Math.hypot(x - pivot.x, y - pivot.y) >= 12) radial = hit.sub(world);
+    }
+  }
+  if (!radial) {
+    radial = camera.isOrthographicCamera ? camera.getWorldDirection(new Vector3()).negate() : camera.position.clone().sub(world);
+    radial.addScaledVector(normal, -radial.dot(normal));
+    if (radial.lengthSq() < 1e-10) {
+      radial = new Vector3(0, -1, 0).applyQuaternion(camera.quaternion);
+      radial.addScaledVector(normal, -radial.dot(normal));
+    }
+  }
+  radial.normalize();
+  const tangentWorld = new Vector3().crossVectors(normal, radial);
+  const tip = projectGizmo(world.clone().add(tangentWorld), camera, width, height);
+  const tx = tip.x - pivot.x, ty = tip.y - pivot.y, length = Math.hypot(tx, ty);
+  return { x: tx / length, y: ty / length };
+}
 /** Capture the actual world/local axes, camera and speed once for every editor. */
 export function beginGizmoRotation({ x, y, world, camera, width, height, handle, rotation, space = 'world', workplaneEnabled = false, workplane = 'xy', preferences, editor = 'vertices' }) {
   const pivot = projectGizmo(world, camera, width, height), directions = {}, facings = {}, tangents = {};
@@ -464,7 +493,8 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
       tangents[axis] = [end.x - at.x, end.y - at.y];
     }
   }
-  const drag = beginRotationDrag({ ...rotationOptions(preferences, editor), x, y, pivot, constrained: workplaneEnabled, plane: workplane, axisName, lever, tangents, facings, axis: axisName ? [0, 0, facings[axisName]] : undefined });
+  const tangent = workplaneEnabled ? constrainedRotationTangent({ x, y, world, camera, width, height, normal: directions[axisName] }) : undefined;
+  const drag = beginRotationDrag({ ...rotationOptions(preferences, editor), x, y, pivot, constrained: workplaneEnabled, plane: workplane, axisName, lever, tangents, facings, tangent, axis: axisName ? [0, 0, facings[axisName]] : undefined });
   const normal = axisName ? directions[axisName] : directions[defaultAxis];
   const [u, v] = rotationBasis(normal), su = projectGizmo(world.clone().addScaledVector(u, unit * 68), camera, width, height), sv = projectGizmo(world.clone().addScaledVector(v, unit * 68), camera, width, height);
   const ax = su.x - pivot.x, ay = su.y - pivot.y, bx = sv.x - pivot.x, by = sv.y - pivot.y, gx = x - pivot.x, gy = y - pivot.y;
@@ -500,6 +530,20 @@ export function gizmoMoveTranslation(gesture, dx, dy, shift = false, sensitivity
 export function drawGizmoRotationFeedback(context, drag, ratio = 1) {
   if (!drag) return;
   context.save(); context.scale(ratio, ratio);
+  if (drag.constrained) {
+    const { x, y } = drag.start, { x: tx, y: ty } = drag.tangent;
+    const a = { x: x - tx * 24, y: y - ty * 24 }, b = { x: x + tx * 24, y: y + ty * 24 };
+    const stroke = (color, width) => {
+      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y);
+      for (const [tip, sign] of [[a, 1], [b, -1]]) {
+        context.moveTo(tip.x + sign * tx * 9 - ty * 6, tip.y + sign * ty * 9 + tx * 6);
+        context.lineTo(tip.x, tip.y);
+        context.lineTo(tip.x + sign * tx * 9 + ty * 6, tip.y + sign * ty * 9 - tx * 6);
+      }
+      context.strokeStyle = color; context.lineWidth = width; context.lineJoin = 'round'; context.stroke();
+    };
+    stroke('#162137', 5); stroke('#fff64a', 2.5);
+  }
   if (!drag.constrained && drag.axisName) {
     const normal = drag.directions[drag.axisName], radius = drag.unit * 68;
     drawRotationRing(context, rotationRingPoints(drag.world, normal, radius, drag.camera, drag.width, drag.height), '#fff64a', true);
@@ -508,7 +552,7 @@ export function drawGizmoRotationFeedback(context, drag, ratio = 1) {
     context.beginPath(); context.moveTo(drag.pivot.x, drag.pivot.y); points.forEach(point => context.lineTo(point.x, point.y)); context.closePath();
     context.fillStyle = '#fff64a'; context.globalAlpha = .32; context.fill(); context.globalAlpha = 1;
   }
-  const text = `${drag.constrained ? '↔ ' : ''}${drag.axisName || '–'} ${Math.round(drag.degrees * 10) / 10}°`;
+  const text = `${drag.axisName || '–'} ${Math.round(drag.degrees * 10) / 10}°`;
   const x = Math.max(6, Math.min(drag.width - 140, drag.pointer.x + 16)), y = Math.max(22, Math.min(drag.height - 8, drag.pointer.y + 28));
   context.font = 'bold 15px Tahoma, sans-serif'; context.textAlign = 'left'; context.lineWidth = 4; context.strokeStyle = '#162137'; context.strokeText(text, x, y); context.fillStyle = '#fff64a'; context.fillText(text, x, y);
   context.restore();

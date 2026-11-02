@@ -107,7 +107,7 @@ function RotationSettings({ value, onChange }) {
     <div className="settings-rotation-speed"><label className="settings-number" title="Hold Shift while rotating to multiply the speed by this amount."><span>Shift rotation precision</span><span><SettingsNumberInput aria-label="Shift rotation precision" min="0.01" max="1" step="0.01" disabled={inheritPrecision} value={override.precision ?? value.precision} onChange={precision => change({ precision })}/>×</span></label>
       {!global && <label><input type="checkbox" aria-label="Use default rotation precision" checked={inheritPrecision} onChange={event => change({ precision: event.target.checked ? undefined : value.precision })}/>Use default</label>}
     </div>
-    <p className="settings-hint">Workplane Constraints turns one degree per horizontal pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.</p>
+    <p className="settings-hint">With Workplane Constraints on, move the mouse along the yellow arrow; one degree per pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.</p>
   </div></section>;
 }
 const LEARN_CHOICES = [

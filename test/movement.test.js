@@ -280,12 +280,12 @@ test('Bare bone Rotate chooses the nearest fixed grid axis for either camera sid
   }
 });
 
-test('constrained Rotate ignores click position and camera, using MDLVis signs', () => {
- for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) for (const x of [-100, 0, 100]) for (const facing of [-1, 0, 1]) {
-  const drag = beginRotationDrag({ constrained: true, plane, x, axis: [0, 0, facing] });
+test('constrained Rotate follows the captured screen direction regardless of axis facing', () => {
+ for (const plane of ['xy', 'xz', 'yz']) for (const x of [-100, 0, 100]) for (const facing of [-1, 0, 1]) {
+  const drag = beginRotationDrag({ constrained: true, plane, x, axis: [0, 0, facing], tangent: { x: 0, y: 1 } });
   for (const distance of [1, 5, 30, 360, -30, 0]) {
-   near(movementRotationAmount(drag, distance, 200), sign * distance);
-   near(movementRotationAmount(drag, distance, 0, .4), sign * distance * .4);
+   near(movementRotationAmount(drag, 200, distance), distance);
+   near(movementRotationAmount(drag, 0, distance, .4), distance * .4);
   }
  }
 });
@@ -297,11 +297,11 @@ test('free Rotate accumulates circles, holding the last angle at the centre', ()
  }
  near(movementRotationAmount(drag, -68, 0), 720);
 });
-test('constrained Rotate Shift is precision in every plane, with no snapping', () => {
- for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) {
-  const drag = beginRotationDrag({ constrained: true, plane });
-  near(movementRotationAmount(drag, 37, -120, 1, true), sign * 3.7);
-  near(movementRotationAmount(beginRotationDrag({ constrained: true, plane }), 0, -20), 0);
+test('constrained Rotate Shift is precision along the arrow in every plane', () => {
+ for (const plane of ['xy', 'xz', 'yz']) {
+  const drag = beginRotationDrag({ constrained: true, plane, tangent: { x: 0, y: 1 } });
+  near(movementRotationAmount(drag, 37, 120, 1, true), 12);
+  near(movementRotationAmount(beginRotationDrag({ constrained: true, plane, tangent: { x: 0, y: 1 } }), 20, 0), 0);
  }
 });
 
@@ -555,7 +555,7 @@ function facingGesture(view, options) {
   return { x: 300, y: 200, world: new Vector3(), width: 400, height: 400, camera, handle: {offHandle:true}, ...options };
 }
 
-test('Swept Local X follows the mouse circle after a 180 degree Y turn; constraints keep their fixed sign', async () => {
+test('Swept Local X follows the mouse circle after a 180 degree Y turn; constraints follow the plane', async () => {
   const rotated = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
   for (const view of [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)]) {
     const results = [];
@@ -567,7 +567,8 @@ test('Swept Local X follows the mouse circle after a 180 degree Y turn; constrai
       const actual = new Quaternion().fromArray(sampleMovement(model, model.Bones[0], 'Rotation', 500, 0));
       // Compare the visible world delta, not the opposite signed Local angle.
       results.push(actual.multiply(orientation.clone().invert()));
-      near(movementRotationAmount(beginGizmoRotation({ ...options, workplaneEnabled: true, workplane: 'yz' }), 30, -20), 30);
+      const constrained = beginGizmoRotation({ ...options, workplaneEnabled: true, workplane: 'yz' });
+      near(movementRotationAmount(constrained, constrained.tangent.x * 30, constrained.tangent.y * 30), 30);
     }
     near(Math.abs(results[0].dot(results[1])), 1);
     const expected = new Quaternion().setFromAxisAngle(view, Math.PI / 2);

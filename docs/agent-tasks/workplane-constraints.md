@@ -423,3 +423,26 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
    yellow arrow; try XY, ZX and YZ, then orbit the camera and try again.
 2. Quad view: do the same in each of the four panes.
 3. Movement / POSE and Forge: the same with a bone or a shape.
+
+### 2 Nov implementation handoff
+
+- `beginGizmoRotation` captures one normalized screen tangent from the press ray and
+  locked plane. Constrained samples use only their projection onto that tangent;
+  the existing sensitivity and Shift latch still apply. The shared feedback draws
+  the yellow double-headed press arrow and exposes its direction on the canvas.
+- Removed the old constrained MDLVis sign, rotate pointer remap and `↔` readout.
+  Unconstrained handles, Move remapping, quad plane locks, Bones rest-pose limits
+  and UV rotation retain their existing paths.
+- Unit assertions now cover face-on, edge-on and orbited cameras, quad/editor
+  parity, positive/back/across motion, sensitivity and Shift. The packaged
+  rotation harness reads the painted arrow before moving the real mouse.
+- Fail-first on the old `8dc2279d` turn: a 40 px move along a vertical arrow
+  returned 0° instead of 40°. `pnpm test` passed 57/57; with `dist/` built,
+  `pnpm run test:source` passed 2,601 with no failures and 9 existing skips.
+  `pnpm run build` and packaging passed. Targeted `quad-view` and
+  `learn-workplane` packaged checks passed (the latter 10/10 real-click cases).
+  `rotation-interaction` passed 188 checks, including constrained Rotate in
+  Vertices, Forge, Movement and POSE, then timed out twice at its existing
+  Bones Shift+Move check in `gameMove` (perspective, Today style). Move remains
+  outside this owner change and its remap is preserved; this is an open
+  packaged-check gap for review. No full release suite or Warcraft III run.

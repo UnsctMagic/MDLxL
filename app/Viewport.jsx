@@ -461,6 +461,7 @@ export default function Viewport(inputProps) {
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor: p.rotationEditor || 'vertices' });
       }
       state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
+      if (down.rotationDrag?.constrained) invalidate();
     }
     function translateInPlane(start, end, drag, constrain) {
       if (drag.handle) return new THREE.Vector3().fromArray(gizmoMoveTranslation(drag.handleGesture ||= { handle: drag.handle, origin: drag.pivot, camera: camera.clone(), width: end.width, height: end.height }, end.x - start.x, end.y - start.y, constrain));
@@ -921,7 +922,8 @@ export default function Viewport(inputProps) {
           drawMovementGizmo(gizmoCanvas.getContext('2d'), rotationDisplayHandles(boundPane.gizmoHandles, feedback), renderer.getPixelRatio(), state.drag?.handle?.axis || boundPane.hoverAxis, appearance);
           drawGizmoRotationFeedback(gizmoCanvas.getContext('2d'), feedback, renderer.getPixelRatio());
           gizmoCanvas.dataset.activeHandle = state.drag?.handle?.axis || boundPane.hoverAxis || '';
-          gizmoCanvas.dataset.rotationFeedback = feedback ? `${feedback.constrained ? '↔ ' : ''}${feedback.axisName || ''} ${feedback.degrees}` : '';
+          gizmoCanvas.dataset.rotationFeedback = feedback ? `${feedback.axisName || ''} ${feedback.degrees}` : '';
+          gizmoCanvas.dataset.rotationDirection = feedback?.tangent ? `${feedback.tangent.x},${feedback.tangent.y}` : '';
         } else if (gizmoCanvas) { gizmoCanvas.remove(); gizmoCanvas = null; }
         if(p.detailMagnet&&(!quad||boundPane===activePane)){
           if(!magnetButton){

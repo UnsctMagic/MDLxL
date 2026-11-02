@@ -731,8 +731,7 @@ export default function GamePreview(inputProps) {
         const rect = canvas.getBoundingClientRect();
         for (const sample of [...(event.getCoalescedEvents?.() || []), event]) {
           const dx = sample.clientX - rect.left - nodeGesture.x, dy = sample.clientY - rect.top - nodeGesture.y;
-          const [turnX, turnY] = !nodeGesture.pose && nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
-          movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY, pointerSensitivityValue(p.preferences?.pointerSensitivity), sample.shiftKey);
+          movementRotationAmount(nodeGesture.rotationDrag, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), sample.shiftKey);
         }
       }
       nodeGesture.lastPointer = { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey };
@@ -774,7 +773,7 @@ export default function GamePreview(inputProps) {
       }
       if (movementRestricted(nodeGesture.mode, p.restrictions)) { restoreGestureTracks(nodeGesture); nodeGesture.adjusted = true; invalidate(); return; }
       if (nodeGesture.selectOnMove && !nodeGesture.moved) p.onSelectNodes?.(nodeGesture.ids);
-      const [dragX, dragY] = nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
+      const [dragX, dragY] = nodeGesture.mode === 'move' && nodeGesture.workplaneDrag ? movementWorkplanePointer(nodeGesture.workplane, dx, dy) : [dx, dy];
       nodeGesture.moved = true;
       if (nodeGesture.freeScaleDrag) {
         nodeGesture.values = movementFreeScaleValues(dx, dy, { sensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), workplaneEnabled: nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, shiftKey: event.shiftKey });
@@ -1619,7 +1618,8 @@ export default function GamePreview(inputProps) {
         if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), rotationDisplayHandles(nodeHandles, nodeGesture?.rotationDrag), canvas.width / Math.max(1, width), activeAxis, controllerAppearance);
         drawGizmoRotationFeedback(nodeCanvas.getContext('2d'), nodeGesture?.rotationDrag, canvas.width / Math.max(1, width));
         nodeCanvas.dataset.activeHandle = activeAxis || '';
-        nodeCanvas.dataset.rotationFeedback = nodeGesture?.rotationDrag ? `${nodeGesture.rotationDrag.constrained ? '↔ ' : ''}${nodeGesture.rotationDrag.axisName || ''} ${nodeGesture.rotationDrag.degrees}` : '';
+        nodeCanvas.dataset.rotationFeedback = nodeGesture?.rotationDrag ? `${nodeGesture.rotationDrag.axisName || ''} ${nodeGesture.rotationDrag.degrees}` : '';
+        nodeCanvas.dataset.rotationDirection = nodeGesture?.rotationDrag?.tangent ? `${nodeGesture.rotationDrag.tangent.x},${nodeGesture.rotationDrag.tangent.y}` : '';
         if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
