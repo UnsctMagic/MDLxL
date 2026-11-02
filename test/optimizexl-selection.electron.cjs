@@ -85,7 +85,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
     await selection.getByRole('checkbox', { name: 'Select ' + labels[1], exact: true }).uncheck();
     await p.waitForFunction(() => !document.querySelector('.ox-savings strong')); assert.equal(await p.getByRole('button', { name: 'Approve', exact: true }).isEnabled(), false);
     await preview.click(); await ready(); assert.notEqual(await p.evaluate(() => JSON.stringify(sides()[1].props.model)), after, 'Unchecked fixes are excluded from the proposal');
-    await stage('Sphereomancer'); await ready(); const preset = p.getByLabel('Sphere preset', { exact: true }), previous = Number(await preset.inputValue());
+    await stage('Sphereomancer'); await ready(); const preset = p.getByLabel('Sphere preset', { exact: true }); await preset.selectOption('0'); await ready(); const previous = Number(await preset.inputValue());
     await preset.hover(); await p.mouse.wheel(0, 100); await p.waitForFunction(n => Number(document.querySelector('[aria-label="Sphere preset"]').value) === n + 1, previous); await ready();
     await stage('Insanity FIxer'); await p.getByLabel('Proposed fix', { exact: true }).waitFor(); await summary.click(); await selection.getByRole('button', { name: 'Select all', exact: true }).click(); await preview.click(); await ready();
     assert.equal(await p.getByRole('button', { name: 'Approve selected', exact: true }).isEnabled(), true); await p.getByRole('button', { name: 'Approve selected', exact: true }).click();

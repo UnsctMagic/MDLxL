@@ -21,7 +21,7 @@ const explanations={
  'Protect UV seams and boundaries':'Keep texture seams and open mesh borders. Disabling this allows more reduction but can damage texture alignment and edges.',
  'Protect sharp edges':'Keep edges where surface normals differ by more than the Sharp-edge angle. Helps preserve hard armor edges.',
  'Protect skinning boundaries':'Protect vertices where bone bindings differ. Helps preserve joints during animation.',
- 'Preset':'Choose collision spheres or boxes, or let them fit this model. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.',
+ 'Preset':'Choose one of five fixed collision presets. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.',
  'Size':'Scale all preset shapes together. It changes click/selection bounds, not the visible model.',
  'Add sphere':'Add one more collision sphere to this proposal. Adjust its position and radius, then review before approving.',
  'Static gravity':'Use one gravity value for this particle emitter in every animation. This clears the animated-gravity warning but can change particle motion.',

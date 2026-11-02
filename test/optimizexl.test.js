@@ -28,7 +28,7 @@ test('sphere presets replace collision-only parent chains, preserving other node
  const doc=createStarterDocument();doc.apply('collision chain',['CollisionShapes','PivotPoints'],m=>{
   const first=createNode(m,'CollisionShape'),second=createNode(m,'CollisionShape');second.Parent=first.ObjectId;
  });const bytes=doc.serialize('mdx'),before=openDocument(bytes,'x.mdx').model;
- const result=runOptimizeStage(bytes,'spheres',{size:1,preset:4,spheres:SPHERE_PRESETS[4].spheres}),m=openDocument(result.bytes,'x.mdx').model;
+ const result=runOptimizeStage(bytes,'spheres',{size:1,preset:3,spheres:SPHERE_PRESETS[3].spheres}),m=openDocument(result.bytes,'x.mdx').model;
  assert.equal(m.CollisionShapes.length,3);assert.ok(m.CollisionShapes.every(n=>n.Parent==null));assert.deepEqual(m.Geosets,before.Geosets);assert.deepEqual(m.Bones,before.Bones);
 });
 test('equivalent leaf bone merging retains the skinned pose and does not merge different pivots',()=>{
@@ -52,7 +52,7 @@ test('mdx-m3-viewer findings include unused objects with no child messages and s
 });
 test('each candidate starts from accepted bytes; approval, skipping and Back never mutate source',()=>{
  const source=fixture(),session=new OptimizeXLSession(source,'original.mdx'),original=new Uint8Array(source);
- const model=openDocument(source,'x.mdx').model,settings=simpleSettings('spheres',0,model);settings.preset=4;settings.spheres=SPHERE_PRESETS[4].spheres;
+ const model=openDocument(source,'x.mdx').model,settings=simpleSettings('spheres',0,model);settings.preset=3;settings.spheres=SPHERE_PRESETS[3].spheres;
  const result=runOptimizeStage(source,'spheres',settings);assert.ok(session.propose(result,0));assert.deepEqual(session.accepted,source);
  session.approve('spheres',settings);assert.equal(openDocument(session.accepted,'x.mdx').model.CollisionShapes.length,3);
  assert.equal(session.propose(result,0),false);session.skip('nuclear');session.back();session.back();assert.deepEqual(session.accepted,original);assert.deepEqual(source,original);

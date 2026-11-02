@@ -34,7 +34,7 @@ for(const file of process.argv.slice(2)){
  const findings=findIrregularities(m),transition=findings.find(f=>f.label==='Death → Decay Flesh pose mismatch');
  let deathTransitionDifference;
  if(transition){apply('irregularities',{},transition);const repaired=openDocument(bytes,'x.mdx').model;deathTransitionDifference=difference(pose(repaired,transition.from,transition.fromFrame),pose(repaired,transition.sequence,transition.frame));assert.ok(deathTransitionDifference<1e-5,`Death transition mismatch ${deathTransitionDifference}`);}
- apply('spheres',{size:1,preset:4,spheres:SPHERE_PRESETS[4].spheres});
+ apply('spheres',{size:1,preset:3,spheres:SPHERE_PRESETS[3].spheres});
  const nuclearBaseline=bytes,nuclearModel=openDocument(bytes,'x.mdx').model;
  apply('nuclear',simpleSettings('nuclear',40,openDocument(bytes,'x.mdx').model));
  const nuclearRetainedPoseDifference=retainedPoseDifference(nuclearModel,openDocument(bytes,'x.mdx').model);
