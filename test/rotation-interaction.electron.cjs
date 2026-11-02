@@ -62,6 +62,17 @@ function readViewport(selector){
    await page.waitForFunction(({selector,old})=>{let p;findFiberState(document.querySelector(selector+' [aria-label="3D model viewport"]'),(v,q)=>{if(v?.renderer&&v?.entries){p=q;return true;}return false;},{current:true});return p&&JSON.stringify(p.model)!==old;},{selector:scope,old:before.model});
    const after=await read();after.position.forEach((v,i)=>almost(v,before.position[i],1e-8));after.quaternion.forEach((v,i)=>almost(v,before.quaternion[i],1e-8));check(`${label} ${off?style:plane} ${shift?'precision':'normal'} commits and keeps camera`);
   }
+  async function flatPanePresses(pane,id){
+   const b=await pane.boundingBox(),cx=b.x+b.width/2,cy=b.y+b.height/2;
+   for(const [name,dx,dy] of [['above',0,-55],['below',0,55],['left',-55,0],['right',55,0]]){
+    await page.mouse.move(cx+dx,cy+dy);await page.mouse.down();
+    const canvas=pane.locator('[data-rotation-direction]:not([data-rotation-direction=""])');await canvas.waitFor();
+    const [x,y]=(await canvas.getAttribute('data-rotation-direction')).split(',').map(Number);
+    assert.ok(Math.abs(x)>.99&&Math.abs(y)<.02,`${id} ${name} press must show a horizontal arrow; got ${x},${y}`);
+    await page.mouse.up();
+   }
+   check(`Quad ${id} four press points keep one horizontal arrow`);
+  }
   async function vertexMove(label,style){
    await sidebar.getByRole('button',{name:'Move',exact:true}).click();
    const b=await root.getByLabel('3D model viewport',{exact:true}).boundingBox();
@@ -85,7 +96,7 @@ function readViewport(selector){
   for(const style of ['classic','today','bold']){await setStyle(null,style);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();await vertexMove('Vertices',style);}
   await sidebar.getByRole('button',{name:'Rotate',exact:true}).click();
   await page.getByRole('button',{name:'Quad View',exact:true}).click();assert.equal(await sidebar.locator('.classic-planes').count(),0);await shot('quad-perspective-toolbar');
-  for(const [id,plane] of [['front','yz'],['top','xy'],['side','xz'],['perspective','xy']]){const pane=page.locator(`[data-viewport="${id}"]`);await vertexTurn(pane,plane,{label:'Quad '+id});const b=await pane.boundingBox(),beforeOrbit=await read();await page.keyboard.down('Alt');await rawDrag({x:b.x+b.width*.5,y:b.y+b.height*.5},{x:b.x+b.width*.5+25,y:b.y+b.height*.5+15});await page.keyboard.up('Alt');const afterOrbit=await read();assert.ok(afterOrbit.quaternion.some((v,i)=>Math.abs(v-beforeOrbit.quaternion[i])>1e-5),'real mouse orbit changes camera');check('Quad '+id+' orbit changes camera');}
+  for(const [id,plane] of [['front','yz'],['top','xy'],['side','xz'],['perspective','xy']]){const pane=page.locator(`[data-viewport="${id}"]`);await vertexTurn(pane,plane,{label:'Quad '+id});if(id!=='perspective')await flatPanePresses(pane,id);const b=await pane.boundingBox(),beforeOrbit=await read();await page.keyboard.down('Alt');await rawDrag({x:b.x+b.width*.5,y:b.y+b.height*.5},{x:b.x+b.width*.5+25,y:b.y+b.height*.5+15});await page.keyboard.up('Alt');const afterOrbit=await read();assert.ok(afterOrbit.quaternion.some((v,i)=>Math.abs(v-beforeOrbit.quaternion[i])>1e-5),'real mouse orbit changes camera');check('Quad '+id+' orbit changes camera');}
   await page.locator('[data-viewport="perspective"]').getByRole('button',{name:'ZX',exact:true}).click();assert.equal(await page.locator('[data-viewport="perspective"]').getByRole('button',{name:'ZX',exact:true}).getAttribute('aria-pressed'),'true');await vertexTurn(page.locator('[data-viewport="perspective"]'),'xz',{label:'Quad perspective toolbar ZX'});
   await page.locator('[data-viewport="perspective"]').getByRole('checkbox',{name:'Perspective Workplane Constraints',exact:true}).uncheck();await vertexTurn(page.locator('[data-viewport="perspective"]'),'xy',{off:true,style:'arcs',label:'Quad perspective off'});
   await page.getByRole('button',{name:'Quad View',exact:true}).click();assert.equal(await sidebar.locator('.classic-planes').count(),1);assert.ok(normalControls.includes('Workplane Constraints'));check('Single controls remain; quad sidebar removes plane controls');
@@ -184,11 +195,13 @@ function readViewport(selector){
    const state=await gameData(),c=new ObjectLoader().parse(state.camera);c.updateMatrixWorld(true);c.updateProjectionMatrix();
    const points=pose?projectPoseHandles(state.model,state.config,state.frame,state.sequence,c,state.width,state.height):projectMovementNodes(state.model,state.frame,state.sequence,c,state.width,state.height,state.frame,new Map(state.matrices.map(([id,m])=>[id,new Matrix4().fromArray(m)]))),active=pose?points.find(h=>h.selected):points.find(h=>h.node.ObjectId===state.selected.at(-1));assert.ok(active);
    const handles=movementAxisHandles(active,c,state.width,state.height,state.radius,'world','move',state.appearance),h=handles.find(h=>h.axis==='X'&&!h.plane),b=await page.locator('[data-clean-model-canvas]').boundingBox();
+   if(label==='Bones')assert.ok(h.x>10&&h.y>10&&h.x<state.width-34&&h.y<state.height-29,'Bones X Move handle and drag stay inside the viewport');
    await rawDrag({x:b.x+h.x,y:b.y+h.y},{x:b.x+h.x+24,y:b.y+h.y+19},{shift:true});
    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)!==old,state.document);
    const after=await gameData();if(pose)assert.equal(after.config.target.kind,'body','Move handle keeps the selected Body');const cc=new ObjectLoader().parse(after.camera);cc.updateMatrixWorld(true);
    const moved=pose?projectPoseHandles(after.model,after.config,after.frame,after.sequence,cc,after.width,after.height).find(h=>h.selected):projectMovementNodes(after.model,after.frame,after.sequence,cc,after.width,after.height,after.frame,new Map(after.matrices.map(([id,m])=>[id,new Matrix4().fromArray(m)]))).find(p=>p.node.ObjectId===state.selected.at(-1));
    const delta=moved.world.clone().sub(active.world);if(Math.abs(delta.x)>.015)fs.writeFileSync(path.join(out,'move-oracle.json'),JSON.stringify({state,after,delta:delta.toArray(),before:active.world.toArray(),moved:moved.world.toArray(),label,style},null,2));almost(delta.x,0,.015);assert.ok(delta.length()>.001);check(`${label} ${style} Shift+arrow changes visible world position in YZ`);
+   if(label==='Bones'){await page.keyboard.press('Control+z');await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)===old,state.document);}
   }
   async function movementTurn({pose=false,plane='xy',off=false,shift=false,speed=1,precision=.1,style='arcs'}={}){
    await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&Math.round(r.native.getFrame())===Math.round(p.time);});

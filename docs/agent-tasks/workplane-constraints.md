@@ -430,7 +430,7 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
 2. Quad view: do the same in each of the four panes.
 3. Movement / POSE and Forge: the same with a bone or a shape.
 
-### 2 Nov implementation handoff
+### 2 Nov initial implementation handoff (superseded tangent rule)
 
 - `beginGizmoRotation` captures one normalized screen tangent from the press ray and
   locked plane. Constrained samples use only their projection onto that tangent;
@@ -449,6 +449,28 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
   `learn-workplane` packaged checks passed (the latter 10/10 real-click cases).
   `rotation-interaction` passed 188 checks, including constrained Rotate in
   Vertices, Forge, Movement and POSE, then timed out twice at its existing
-  Bones Shift+Move check in `gameMove` (perspective, Today style). Move remains
-  outside this owner change and its remap is preserved; this is an open
-  packaged-check gap for review. No full release suite or Warcraft III run.
+  Bones Shift+Move check in `gameMove`. The last passing line was Today/
+  Perspective; the failure was the next Bold/Front drag. The correction below
+  resolves this harness gap. No full release suite or Warcraft III run.
+
+### 2 Nov camera-only correction
+
+- `constrainedRotationTangent` now derives `T` only from the camera and locked
+  plane. The press ray and hit point are gone. When the camera direction
+  flattened into the plane is shorter than 0.26 of its original length, the
+  in-plane screen-down direction supplies `u`. The press point still anchors
+  the yellow arrow; it no longer changes its direction.
+- The prior Bones timeout was a test error. Nine cumulative Bones Shift+Move
+  drags pushed the selected bone's X handle below the viewport before the
+  Bold/Front case. The harness now asserts the handle is on screen and undoes
+  each measured Bones move. All nine Bones cases passed both on the previous
+  package and on the new one; no Move product code changed.
+- Fail-first: the four-press flat-pane and 10° facing unit tests failed on
+  `91913789` before the helper change. `pnpm test` passed 57/57. The source
+  suite passed 2,602 with 0 failures and 9 existing skips after build; its
+  pre-build eight missing-`dist/` failures were generated-asset dependencies,
+  and the CI baseline was not widened. Build and package passed.
+- Targeted hidden-desktop reruns passed: `rotation-interaction` 197 checks,
+  including four horizontal-arrow presses in each of Front, Top and Side,
+  with no renderer errors; `quad-view` passed. The full release suite and
+  Warcraft III playback were not run. Ready to test; awaiting merge approval.

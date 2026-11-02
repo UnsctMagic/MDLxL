@@ -445,27 +445,13 @@ function drawRotationRing(context, points, color, active) {
   }
 }
 /** Screen direction of a positive turn about the locked plane, fixed at press time. */
-export function constrainedRotationTangent({ x, y, world, camera, width, height, normal }) {
+export function constrainedRotationTangent({ world, camera, width, height, normal }) {
   const pivot = projectGizmo(world, camera, width, height);
-  const near = new Vector3(x / width * 2 - 1, 1 - y / height * 2, -1).unproject(camera);
-  const far = new Vector3(x / width * 2 - 1, 1 - y / height * 2, 1).unproject(camera);
-  const origin = camera.isOrthographicCamera ? near : camera.position;
-  const ray = far.sub(origin).normalize(), denominator = ray.dot(normal);
-  let radial;
-  if (Math.abs(denominator) > 1e-8) {
-    const distance = world.clone().sub(origin).dot(normal) / denominator;
-    if (distance >= 0) {
-      const hit = origin.clone().addScaledVector(ray, distance);
-      if (Math.hypot(x - pivot.x, y - pivot.y) >= 12) radial = hit.sub(world);
-    }
-  }
-  if (!radial) {
-    radial = camera.isOrthographicCamera ? camera.getWorldDirection(new Vector3()).negate() : camera.position.clone().sub(world);
+  const toward = camera.isOrthographicCamera ? camera.getWorldDirection(new Vector3()).negate() : camera.position.clone().sub(world);
+  const radial = toward.clone().addScaledVector(normal, -toward.dot(normal));
+  if (radial.lengthSq() < .26 * .26 * toward.lengthSq()) {
+    radial.copy(new Vector3(0, -1, 0).applyQuaternion(camera.quaternion));
     radial.addScaledVector(normal, -radial.dot(normal));
-    if (radial.lengthSq() < 1e-10) {
-      radial = new Vector3(0, -1, 0).applyQuaternion(camera.quaternion);
-      radial.addScaledVector(normal, -radial.dot(normal));
-    }
   }
   radial.normalize();
   const tangentWorld = new Vector3().crossVectors(normal, radial);
@@ -493,7 +479,7 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
       tangents[axis] = [end.x - at.x, end.y - at.y];
     }
   }
-  const tangent = workplaneEnabled ? constrainedRotationTangent({ x, y, world, camera, width, height, normal: directions[axisName] }) : undefined;
+  const tangent = workplaneEnabled ? constrainedRotationTangent({ world, camera, width, height, normal: directions[axisName] }) : undefined;
   const drag = beginRotationDrag({ ...rotationOptions(preferences, editor), x, y, pivot, constrained: workplaneEnabled, plane: workplane, axisName, lever, tangents, facings, tangent, axis: axisName ? [0, 0, facings[axisName]] : undefined });
   const normal = axisName ? directions[axisName] : directions[defaultAxis];
   const [u, v] = rotationBasis(normal), su = projectGizmo(world.clone().addScaledVector(u, unit * 68), camera, width, height), sv = projectGizmo(world.clone().addScaledVector(v, unit * 68), camera, width, height);

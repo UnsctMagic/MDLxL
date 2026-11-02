@@ -12,15 +12,25 @@ for(const editor of ['vertices','bones','movement','forge'])test(`${editor}: act
  const a=beginGizmoRotation({...options,space:'local',rotation:new Quaternion().setFromAxisAngle(new Vector3(0,0,1),Math.PI/2)});
  assert.ok(a.directions.X.distanceTo(new Vector3(0,1,0))<1e-10);
 });
-test('plane-facing press to the right has a vertical arrow; edge-on arrow follows the visible plane line',()=>{
- const c=camera(),world=new Vector3();
- c.up.set(0,1,0);
- c.position.set(0,0,500);c.lookAt(world);c.updateMatrixWorld(true);
- const face=constrainedRotationTangent({x:500,y:300,world,camera:c,width:800,height:600,normal:new Vector3(0,0,1)});
- assert.ok(Math.abs(face.x)<1e-8 && face.y<-.99);
- c.up.set(0,0,1);
- c.position.set(500,0,0);c.lookAt(world);c.updateMatrixWorld(true);
- const edge=constrainedRotationTangent({x:400,y:300,world,camera:c,width:800,height:600,normal:new Vector3(0,0,1)});
+test('flat quad planes keep one horizontal arrow for four presses around the centre',()=>{
+ const presses=[[400,230],[400,370],[330,300],[470,300]],world=new Vector3();
+ for(const [position,up,normal] of [
+  [[500,0,0],[0,0,1],[1,0,0]],
+  [[0,0,500],[0,1,0],[0,0,1]],
+  [[0,-500,0],[0,0,1],[0,1,0]],
+ ]){
+  const c=new OrthographicCamera(-200,200,150,-150,.1,10000);c.up.set(...up);c.position.set(...position);c.lookAt(world);c.updateMatrixWorld(true);
+  const directions=presses.map(([x,y])=>constrainedRotationTangent({x,y,world,camera:c,width:800,height:600,normal:new Vector3(...normal)}));
+  for(const direction of directions){assert.ok(Math.abs(direction.x)>.99 && Math.abs(direction.y)<1e-8);assert.ok(Math.abs(direction.x-directions[0].x)<1e-8);}
+ }
+});
+test('10 degree tilt stays horizontal and edge-on arrow follows the visible plane line',()=>{
+ const c=camera(),world=new Vector3(),normal=new Vector3(0,0,1),tilt=10*Math.PI/180;
+ c.up.set(0,1,0);c.position.set(500*Math.sin(tilt),0,500*Math.cos(tilt));c.lookAt(world);c.updateMatrixWorld(true);
+ const nearFace=constrainedRotationTangent({x:500,y:300,world,camera:c,width:800,height:600,normal});
+ assert.ok(Math.abs(nearFace.x)>.99 && Math.abs(nearFace.y)<1e-8);
+ c.up.set(0,0,1);c.position.set(500,0,0);c.lookAt(world);c.updateMatrixWorld(true);
+ const edge=constrainedRotationTangent({x:400,y:300,world,camera:c,width:800,height:600,normal});
  assert.ok(Math.abs(edge.x)>.99 && Math.abs(edge.y)<1e-8);
 });
 test('every camera angle and editor turns positively along its captured arrow and negatively back',()=>{
