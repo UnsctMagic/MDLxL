@@ -1,0 +1,173 @@
+{
+  "flaming-sword": [
+    {
+      "label": "Blade flames",
+      "id": 2,
+      "hash": "0d7a58322a1c1970047bdd4f70d83bf375a4beddb858f5dbe2727285c4b397d9"
+    },
+    {
+      "label": "Rising embers",
+      "id": 3,
+      "hash": "b4426449bf8ee7f5fae5e3e31bcae3b510430f2b71141b35b8cc44d13ac31590"
+    }
+  ],
+  "frost-blade": [
+    {
+      "label": "Falling mist",
+      "id": 4,
+      "hash": "b1c62e39a0993a482430bce863a8dfb5a64bbb7da873743977ed5e0a0f25f787"
+    }
+  ],
+  "lightning-blade": [],
+  "arcane-blade": [],
+  "rune-blade": [],
+  "water-skin": [],
+  "ice-skin": [
+    {
+      "label": "Falling mist",
+      "id": 3,
+      "hash": "3030a0bb599b5b017dbe353704b2501b005545eb1798bc15449f96a7655a3120"
+    }
+  ],
+  "glowing-skin": [],
+  "poison-skin": [
+    {
+      "label": "Heavy drops",
+      "id": 2,
+      "hash": "e4fab8666e9812c4f3b2e18dbdd44b1d1cd900e3c80926777aeed4e36eb3d26e"
+    }
+  ],
+  "crystal-veins": [],
+  "felwood-curse": [],
+  "fly-swarm": [
+    {
+      "label": "Orbiting flies",
+      "id": 1,
+      "hash": "a5cd9571be0bb17ee2fa21961f6b96e17868e73cc79de85abde7fb268c59f994"
+    }
+  ],
+  "motes": [
+    {
+      "label": "Drifting lights",
+      "id": 1,
+      "hash": "01a6ca19bb8f37f254ad52f65b85bcacfb099ca2d67a4a348b5cb49556d1059c"
+    }
+  ],
+  "rising-embers": [
+    {
+      "label": "Rising embers",
+      "id": 1,
+      "hash": "7cd985d18953294eaacc330047fefaf5129bcd5773f7ec0ad9ddd3d85122de54"
+    }
+  ],
+  "frost-mist": [
+    {
+      "label": "Falling mist",
+      "id": 1,
+      "hash": "a9fc5751bfaac73b22a97659300d983c4444cdb08d3205d28bd3ebc0c3bfff16"
+    }
+  ],
+  "moving-own": [],
+  "colour-pulse": [],
+  "fade-pulse": [],
+  "sun-mend": [
+    {
+      "label": "Particles 1",
+      "id": 2,
+      "hash": "d0c85f267c2efcf4e35aff85352a8ccf7d3ff6225cf40a360b8380e2ea9064af"
+    }
+  ],
+  "hex-mark": [
+    {
+      "label": "Particles 1",
+      "id": 2,
+      "hash": "850b667e0f4c4f0d8800b7d3e284396a4b4e7e025a84da47f3325850294d4c28"
+    },
+    {
+      "label": "Particles 2",
+      "id": 3,
+      "hash": "f078623fd6510cf8d18af3206d47c5ea3bc603f9eaa1261e096927ea2663628f"
+    }
+  ],
+  "venom-seep": [
+    {
+      "label": "Particles 1",
+      "id": 2,
+      "hash": "4b0d9ca799a6b55bce86965066052e80885d956b74908e41dc7fb6084102b0e7"
+    }
+  ],
+  "spell-ward": [
+    {
+      "label": "Particles 1",
+      "id": 3,
+      "hash": "effd1170caaf40ba942bb3cc7fa46096c4f55c49cdaa684f2b588cd86f88414d"
+    }
+  ],
+  "spirit-veil": [
+    {
+      "label": "Particles 1",
+      "id": 2,
+      "hash": "c6fc6e9c6c62fd515f5f2aa8da3187b9d93133d25406823e978085901e5453c0"
+    }
+  ],
+  "recall-seal": [
+    {
+      "label": "Particles 1",
+      "id": 2,
+      "hash": "95cbab18eae78ca784b6462db2f19b6c4da1437577a8782673244aa82d248daa"
+    }
+  ],
+  "revenant": [],
+  "lava": [],
+  "fissures": [
+    {
+      "label": "Fire",
+      "id": 2,
+      "hash": "406438bc1797bf7720a0a6a91108ecf71c45a21c7f0c334c8b2a7499425b7245"
+    }
+  ],
+  "glacial": [],
+  "poison": [],
+  "sort-basalt": [],
+  "sort-briar": [
+    {
+      "label": "Pollen",
+      "id": 2,
+      "hash": "d210e4fbbb826edf32c4c2bbc0becaea189039b25f3f1153d9ad91e597ba847b"
+    },
+    {
+      "label": "Spores",
+      "id": 4,
+      "hash": "814fc111a69391cd1a4ab5e14289a2fa7a83cfd15a37566311e80ccac9bb4afb"
+    }
+  ],
+  "sort-abyss": [],
+  "sort-cairn": [],
+  "sort-mosaic": [],
+  "sort-eclipse": [],
+  "sort-ink": [],
+  "sort-soul": [
+    {
+      "label": "Lantern flame",
+      "id": 2,
+      "hash": "31399e6805c284f7030456fe74f4f5c1950ac7b5a10abbda021b416e569f4b78"
+    }
+  ],
+  "sort-thorn": [],
+  "sort-astral": [],
+  "sort-tide": [],
+  "sort-blood": [
+    {
+      "label": "Blood beads",
+      "id": 1,
+      "hash": "96f2a61bd4d5a794daa3529982b83db155e136b88ed2b772888a6d7ad6fd46c8"
+    }
+  ],
+  "sort-rift": [
+    {
+      "label": "Rift splinters",
+      "id": 2,
+      "hash": "c7b1604bffc9256327803a6b4b8b6c7da2ce64dc401f8b71d9d010b385c8a31b"
+    }
+  ]
+}

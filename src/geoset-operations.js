@@ -209,6 +209,11 @@ function resolveMergeConflicts(model, review, resolutions) {
   }
 }
 
+/** Indexed surface islands retain authored UV seams. No model arrays are changed. */
+export function indexedSurfaceIslands(geoset) {
+  return selectedComponents(geoset,geoset.Faces,true).parts.map(part=>part.vertices);
+}
+
 function selectedComponents(g, indices, nuclear) {
   const count = g.Vertices.length / 3;
   if (!Number.isInteger(count) || !count || g.Faces.length % 3) throw new Error('A geoset has invalid vertices or triangles.');

@@ -18,6 +18,7 @@ test('every module icon keeps its action and carries a visible short label',()=>
   ]){
     assert.match(app,new RegExp(`action="${action}" className="${className}"[^>]*badge="${label}"`));
   }
+  assert.match(app,/className="surface-effects-tool"[^>]*badge="FX"/);
   assert.ok(app.includes('action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>}'));
   assert.match(app,/className="pressed-keys-tool" data-hotkey="pressedKeys"/);
   assert.match(app,/<b>K<\/b><b>E<\/b><b>Y<\/b>/);
@@ -53,6 +54,7 @@ test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, on
     ['.bits-tool .module-icon-badge','#ece8de'],
     ['.optimizer-tool .module-icon-badge','#8fe07f'],
     ['.emitter-tool .module-icon-badge','#5fe0cf'],
+    ['.surface-effects-tool .module-icon-badge','#b6f2ff'],
     ['.animxl-tool .module-icon-badge','#ff8574'],
     ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffa257'],
     ['.learner-tool .module-icon-badge','#f2e35c'],

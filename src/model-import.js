@@ -79,21 +79,25 @@ export function createResourceImporter(source, target, {
     }
     return maps.textureAnims.get(old);
   }
+  function remapMaterial(original) {
+    const material = clone(original);
+    for (const layer of requireLayers ? material.Layers : material.Layers || []) {
+      visitTextureReferences({ Materials: [{ Layers: [layer] }] }, (id, set) => set(textureRef(id)), { arrayType: keyArrayType === 'int32' ? Int32Array : undefined, defaultsAfterSlots });
+      if (isTextureAnimRef(layer.TVertexAnimId)) layer.TVertexAnimId = textureAnimRef(layer.TVertexAnimId);
+    }
+    globalRef(material);
+    return material;
+  }
   function materialRef(old) {
     if (materialSentinels && (old == null || old === -1)) return old;
     if (!source.Materials?.[old]) fail('material', old);
     if (!maps.materials.has(old)) {
       const existing = existingMaterial(old);
       if (existing >= 0) { maps.materials.set(old, existing); return existing; }
-      const material = clone(source.Materials[old]);
-      for (const layer of requireLayers ? material.Layers : material.Layers || []) {
-        visitTextureReferences({ Materials: [{ Layers: [layer] }] }, (id, set) => set(textureRef(id)), { arrayType: keyArrayType === 'int32' ? Int32Array : undefined, defaultsAfterSlots });
-        if (isTextureAnimRef(layer.TVertexAnimId)) layer.TVertexAnimId = textureAnimRef(layer.TVertexAnimId);
-      }
-      globalRef(material);
+      const material = remapMaterial(source.Materials[old]);
       maps.materials.set(old, reuseMaterials ? reuse(target.Materials, material, materialKey) : target.Materials.push(material) - 1);
     }
     return maps.materials.get(old);
   }
-  return { requireNode, requiredNodes, globalRef, textureRef, materialRef, textureAnimRef, maps };
+  return { requireNode, requiredNodes, globalRef, textureRef, materialRef, remapMaterial, textureAnimRef, maps };
 }

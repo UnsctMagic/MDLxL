@@ -1,6 +1,9 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+// Wait for the rendered subject and camera to settle, not a fixed delay.
+const settlePage=page=>page.evaluate(()=>new Promise(resolve=>{let last,stable=0;const check=()=>{const host=document.querySelector('.gf-stage .game-preview-root'),runtime=host&&mdlxlProbe(host).runtime,busy=!!document.querySelector('.gf-stage-busy');const value=JSON.stringify([runtime?.controls?.object.position.toArray().map(v=>Math.round(v*1e6)),runtime?.controls?.target.toArray().map(v=>Math.round(v*1e6)),busy]);stable=value===last&&!busy&&(!runtime||runtime.captureApi?.isReady)?stable+1:0;last=value;if(stable>=3)resolve();else requestAnimationFrame(check);};check();}));
+const nextFrame=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 // The Library button browses every installed game file; texture pickers stay texture-only.
 // Needs an installed Warcraft III 1.30+ (MDLVIS_GAME_DATA, else gameFolder()).
 // MDLXL_TEST_EXE runs a packaged MDLxL.exe instead of the source checkout.
@@ -108,7 +111,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-librar
     checks.push('A real mouse drag turns the camera in the central view');
     // A much larger model: the camera keeps its turned angle and glides out to frame it.
     await row('Altar of Kings').click();
-    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await settlePage(page, 100);}
+    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await nextFrame(page);}
     await waitModel('Altar of Kings');await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2000);
     frames.forEach((frame,i)=>fs.writeFileSync(path.join(out,`glide-${i}.png`),frame));await shot(page,'glide-end');
     checks.push('Choosing another model keeps the turned angle and glides to frame it (frames saved)');

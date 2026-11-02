@@ -727,5 +727,37 @@
       "sequence": 3,
       "time": 18019.7
     }
+  },
+  "war3.w3mod:units\\creeps\\heroflamelord\\heroflamelord.mdx|BlizParticle20": {
+    "name": "Fire wisps",
+    "categories": [
+      "Fire"
+    ],
+    "tags": [
+      "fire",
+      "wisps",
+      "flame lord"
+    ],
+    "naming": {
+      "state": "reviewed",
+      "basis": "Owner-selected native emitter, 2026-10-31",
+      "sourceContentHash": "d64eb21a1a7846ea22fb5e792e104146d452f7c68eb47dbb504ffc1726e60c46"
+    }
+  },
+  "war3.w3mod:units\\human\\waterelemental\\waterelemental.mdx|BlizParticle04": {
+    "name": "Water droplets",
+    "categories": [
+      "Magic"
+    ],
+    "tags": [
+      "water",
+      "droplets",
+      "water elemental"
+    ],
+    "naming": {
+      "state": "reviewed",
+      "basis": "Owner-selected native emitter, 2026-10-31",
+      "sourceContentHash": "110211131410a4df90ce837fa929143293f9e97a1629b21780038e625f87f730"
+    }
   }
 }
