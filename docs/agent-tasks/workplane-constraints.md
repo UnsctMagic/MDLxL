@@ -613,3 +613,29 @@ Owner click-through when ready:
    yellow arrow round the centre.
 2. Perspective: Workplane Constraints is off at the start; turn it on in the
    bottom panel to constrain.
+
+### Confirmed quad rule implementation handoff
+
+Front, Top and Side again have no constraint toolbar. Their existing locked
+plane feeds Rotate, so pressing shows the curved yellow arrow and circling
+around the centre turns the selection. Perspective retains its plane buttons
+and checkbox, now unchecked on opening quad view. The flat-toolbar tooltip
+and its es/ru/zh catalog entries are removed. Single view and the shared
+rotation maths are unchanged.
+
+Fail-first on the `b5676282` package: the new `quad-view` assertion expected
+Perspective to start unchecked and got `true !== false`. The final `pnpm test`
+passed 57/57. `pnpm run test:source` passed 2,603 with 0 failures and the same
+9 existing skips; the CI baseline is unchanged. Build and package passed.
+The targeted hidden-desktop `quad-view` rerun passed, including Move depth in
+all three flat panes. `rotation-interaction` passed 197 real-mouse checks:
+four press points and a painted curved arrow in each flat pane, a roughly 90°
+circle drag, Perspective checkbox off then on, and the unchanged editor paths.
+No renderer errors were recorded.
+
+The first rotation rerun timed out in a later POSE case after the new 90°
+vertex checks had accumulated. The harness now uses real Ctrl+Z after each of
+those new turns to restore the model; the full targeted rerun then passed.
+
+Ready to test; ready for review; awaiting merge approval. Full release suite,
+Warcraft III playback, and owner feel remain untested.

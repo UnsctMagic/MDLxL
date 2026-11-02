@@ -7278,7 +7278,5 @@
   "Choose the thickness and heads of the Move handles.": "选择移动手柄的线宽和箭头大小。",
   "With Workplane Constraints on, follow the yellow arrow: drag along a straight arrow for one degree per pixel at 1×, or circle around the selection centre when the plane faces you. Handles follow the angle swept around the centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "启用工作平面约束时，沿黄色箭头操作：沿直箭头拖动，在 1× 时每像素旋转一度；当平面朝向你时，绕选择中心画圈。手柄跟随绕中心扫过的角度。指针灵敏度作用于两种模式。按住 Shift 可精细旋转。",
   "Perspective workplane toolbar": "透视工作平面工具栏",
-  "Perspective Workplane Constraints": "透视工作平面约束",
-  "Rotate plane toolbar": "旋转平面工具栏",
-  "Rotate plane in this view. Move stays in the view's own plane.": "此视图的旋转平面。移动仍沿视图自身的平面。"
+  "Perspective Workplane Constraints": "透视工作平面约束"
 }

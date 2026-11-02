@@ -7415,7 +7415,5 @@
   "Choose the thickness and heads of the Move handles.": "Elige el grosor y las puntas de los tiradores de movimiento.",
   "With Workplane Constraints on, follow the yellow arrow: drag along a straight arrow for one degree per pixel at 1×, or circle around the selection centre when the plane faces you. Handles follow the angle swept around the centre. Pointer sensitivity multiplies both. Hold Shift for precision.": "Con las restricciones del plano activadas, sigue la flecha amarilla: arrastra a lo largo de una flecha recta para girar un grado por píxel a 1×, o traza un círculo alrededor del centro cuando el plano mire hacia ti. Los tiradores siguen el ángulo recorrido alrededor del centro. La sensibilidad del puntero afecta a ambos modos. Mantén Shift para mayor precisión.",
   "Perspective workplane toolbar": "Barra del plano de perspectiva",
-  "Perspective Workplane Constraints": "Restricciones del plano en Perspectiva",
-  "Rotate plane toolbar": "Barra del plano de rotación",
-  "Rotate plane in this view. Move stays in the view's own plane.": "Plano de rotación en esta vista. Mover permanece en el plano propio de la vista."
+  "Perspective Workplane Constraints": "Restricciones del plano en Perspectiva"
 }

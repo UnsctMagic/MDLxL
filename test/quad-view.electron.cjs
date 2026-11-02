@@ -66,6 +66,7 @@ function sameOrientation(actual, expected, message) {
     await page.evaluate(()=>{draws={};});await toggle();await idle();
     assert.deepEqual(await toolbarOrder(),expectedToolbar);
     assert.equal(await page.locator('.quad-pane:visible').count(),4);
+    assert.equal(await page.locator('[data-viewport="perspective"]').getByRole('checkbox',{name:'Perspective Workplane Constraints'}).isChecked(),false,'Perspective starts unconstrained');
     assert.equal(await page.locator('[aria-label="3D model viewport"] > canvas').count(),1);
     assert.equal(Object.keys(await page.evaluate(()=>draws)).length,4);
     for(const draw of Object.values(await page.evaluate(()=>draws)))assert.deepEqual(draw.selected,[0]);
@@ -73,11 +74,8 @@ function sameOrientation(actual, expected, message) {
     const metrics=[];
     for(const [id,depth,plane] of [['front',0,'YZ'],['side',1,'ZX'],['top',2,'XY']]){
       await activate(id);assert.equal(await page.locator('.classic-sidebar .classic-planes').count(),0);
-      const toolbar=page.locator(`[data-viewport="${id}"] .quad-workplane-toolbar`);
-      assert.equal(await toolbar.getByRole('button').count(),3);assert.equal(await toolbar.getByRole('checkbox').count(),0);
-      assert.equal(await toolbar.getByRole('button',{name:plane,exact:true}).getAttribute('aria-pressed'),'true');
-      const other={front:'XY',side:'YZ',top:'ZX'}[id];await toolbar.getByRole('button',{name:other,exact:true}).click();
-      assert.equal(await toolbar.getByRole('button',{name:other,exact:true}).getAttribute('aria-pressed'),'true');
+      assert.equal(await page.locator(`[data-viewport="${id}"] .quad-workplane-toolbar`).count(),0,id+' has no constraint panel');
+      assert.equal(await page.locator(`[data-viewport="${id}"] [role="checkbox"]`).count(),0,id+' has no constraint checkbox');
       await page.keyboard.press('a');await clickVertex();await idle();
       await page.waitForFunction(()=>viewportState().entries[0].selectedPoints.geometry.index?.count===1);
       assert.equal(await page.evaluate(()=>viewportState().entries[0].selectedPoints.geometry.index.count),1);
@@ -194,7 +192,7 @@ function sameOrientation(actual, expected, message) {
         await page.locator('.classic-sidebar').getByRole('button',{name:'Rotate',exact:true}).click();
         await page.mouse.move(cx,cy); await page.mouse.down(); await page.mouse.move(cx+30,cy+10,{steps:5});
         await page.waitForFunction(()=>Math.abs(viewportState().drag?.rotationDrag?.degrees)>1);
-        assert.equal(await page.evaluate(()=>viewportState().drag.rotationDrag.axisName),'Y','Rotate keeps the Top pane ZX button choice after orbit');
+        assert.equal(await page.evaluate(()=>viewportState().drag.rotationDrag.axisName),'XYZ'[normal],'Rotate follows the orbited Top camera');
         await page.mouse.up();
         await page.locator('.classic-sidebar').getByRole('button',{name:'Move',exact:true}).click();
         const before=await page.evaluate(()=>({point:vertexPoint(),values:coordinates()}));
