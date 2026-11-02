@@ -4,7 +4,8 @@ const { validateArguments } = require('./ai-mcp.cjs');
 // The existing direct-chat exact-edit exemption for planning.
 function exactValueRequest(text, images = []) {
   if (images.length) return false;
-  const value=String(text).trim();
+  // A leading "Name:", "Please," or "ask X to" does not change what is asked.
+  const value=String(text).trim().replace(/^(?:ask\s+)?[A-Za-z]+(?:[:,]|\s+to\b)\s*/i,'');
   if (/\b(shape|spatial|bind|binding|deform|retarget|animate|animation feel|pose|sculpt|smooth|fit|improve|design|create|repair|fix|beautiful|natural|realistic|suggest|recommend)\b/i.test(value)) return false;
   const parts=value.split(/\s*(?:;|\n|\band then\b)\s*/).filter(Boolean);
   return parts.length>0 && parts.every(part=>

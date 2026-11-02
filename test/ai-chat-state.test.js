@@ -270,3 +270,36 @@ test('context diet: an on-demand context read becomes the diff baseline and fres
   assert.match(restored,/"selectedNodeIds":\[119\]/);
   assert.match(restored,/"parent":42/);
 });
+
+test('an old Offload ledger goes to an API chat once, in the prompt, not as history', async t => {
+  const f = await setup(t, { reply: () => say('done') });
+  const { id } = await f.service.organiser({ modelKey, name: 'Footman.mdx' });
+  const chat = await f.service.conversation(id, 'compatible');
+  chat.workers = [{ id: id + '-crow', name: 'Crow', status: 'idle' }];
+  chat.messages = [{ role: 'user', content: 'Fix the cape' }, { role: 'assistant', content: 'Crow: Cape fixed.' }, { role: 'assistant', content: 'Jackdaw: Belt checked.' }];
+  await f.service.send({ id, text: 'Now the helmet', context });
+  const first = f.requests.at(-1).data.messages;
+  assert.deepEqual(first.map(m => m.role), ['system', 'user']);
+  assert.match(userText({ messages: first }), /User: Fix the cape\n\nCrow: Cape fixed\.\n\nJackdaw: Belt checked\./);
+  await f.service.send({ id, text: 'And the boots', context });
+  const second = f.requests.at(-1).data.messages;
+  assert.doesNotMatch(userText({ messages: second }), /Crow: Cape fixed/);
+  assert.equal(second.filter(m => m.role === 'user').length, 2);
+});
+
+test('accepting an old Offload job settles the bird task it waited in', async t => {
+  const f = await setup(t, { reply: () => assert.fail('Accepting must not ask the AI') });
+  const calls = [];
+  f.service.call = async (name, args) => { calls.push(name); return name === 'mdlxl_review' ? { phase: 'verified' } : {}; };
+  const { id } = await f.service.organiser({ modelKey, name: 'Footman.mdx' });
+  const birdId = id + '-crow';
+  await f.service.persistConversation({ id: birdId, provider: 'compatible', kind: 'worker', transcript: [], messages: [], task: { status: 'incomplete', baseline: 'b', checkpoint: { review: { changed: true } } } });
+  const chat = await f.service.conversation(id, 'compatible');
+  chat.task = { status: 'incomplete', workerId: birdId, steps: [] };
+  assert.deepEqual(await f.service.send({ id, text: 'accept it', context }), { ok: true });
+  assert.deepEqual(calls, ['mdlxl_checkpoint', 'mdlxl_review']);
+  assert.equal(chat.task.status, 'complete');
+  const bird = JSON.parse(await fs.readFile(f.service.chatFile(birdId), 'utf8'));
+  assert.equal(bird.task.status, 'complete');
+  assert.equal(bird.task.acceptedByUser, true);
+});

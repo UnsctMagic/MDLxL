@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   Highlighter,
-  LoaderCircle,
   LogIn,
   Paperclip,
   PenLine,
