@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUp,
   BookOpen,
+  FolderCode,
   Brain,
   Globe,
   Check,
@@ -28,7 +29,7 @@ import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
-import { applyAiEvent } from '../src/ai-transcript.js';
+import { acceptsDelivery, applyAiEvent } from '../src/ai-transcript.js';
 import { createFrameCoalescer } from './viewport-performance.js';
 
 // What a connection supports decides which settings rows it shows.
@@ -164,6 +165,7 @@ function AiAssistant({ bridge, visUI }) {
       .catch(reason => setError(reason.message));
     return window.desktop.onAiEvent(event => {
       // Setting changes matter whichever chat is showing.
+      if (event.type === 'local-workspace') setSettings(previous => ({ ...previous, localWorkspace: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
@@ -409,7 +411,7 @@ function AiAssistant({ bridge, visUI }) {
     }
     const text = prompt,
       attached = images,
-      context = bridge.context();
+      context = bridge.startEmbeddedJob(resume || acceptsDelivery(text));
     let sending = id;
     // Drafts follow the model's current chat across asynchronous sends.
     let draftOwner = draftKey;
@@ -478,6 +480,7 @@ function AiAssistant({ bridge, visUI }) {
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
     } finally {
+      bridge.releaseEmbeddedJob(context.target);
       setSendingId(current => (current === id || current === sending ? null : current));
       if (activeId.current === sending) setStatus('');
     }
@@ -678,6 +681,17 @@ function AiAssistant({ bridge, visUI }) {
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
               >
                 <BookOpen size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-switch"
+                aria-label="Local workspace" data-hotkey="local-workspace"
+                aria-checked={!!settings.localWorkspace}
+                title="Lets the AI run local analysis scripts, keep scratch files and preview a selection on its own. Applies from the next request."
+                onClick={() => action(async () => setSettings(await window.desktop.aiLocalWorkspace(!settings.localWorkspace)))}
+              >
+                <FolderCode size={15} aria-hidden="true" />
               </button>
               <button
                 type="button"

@@ -112,6 +112,7 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
           time={job.frame || 0}
           playing={false}
           showGrid={false}
+          showParticles={job.showParticles}
           mode={job.renderMode || 'textured'}
           view={job.view || 'perspective'}
           hiddenGeosets={job.hiddenGeosets}

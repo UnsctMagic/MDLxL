@@ -34,7 +34,7 @@ export async function aiCheckpoint(
         workplane: restore.workplane,
         restore: structuredClone(restore),
       });
-      bridge.host().selectIn(target.documentId, {
+      bridge.host().selectIn(session.id, {
         vertices: restore.selection,
         nodeIds: restore.selectedNodeIds,
         geosetIds: restore.checkedGeosets,
@@ -59,7 +59,7 @@ export async function aiCheckpoint(
   bridge.requireTarget(id);
   return {
     fingerprint: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
-    path: session.path || null,
+    path: (target.job?.draft ? bridge.host().sessionOf(target.documentId).path : session.path) || null,
     name: doc.name,
     context: bridge.context(id),
     review: reviewStatus(target.review),

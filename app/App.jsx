@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
+import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
@@ -172,6 +173,7 @@ export default function App() {
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
   const aiReferences = useRef([]);
+  const aiDrafts = useRef(new Map());
   const [tick, setTick] = useState(0), [warnings, setWarnings] = useState([]), warningId = useRef(0);
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
@@ -717,7 +719,7 @@ export default function App() {
   const uvAction = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
 
   function releaseUnusedTextureUrls() {
-    const keep = new Set([...[...(latest.current.sessions || [latest.current.session]), ...aiReferences.current].flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
+    const keep = new Set([...[...(latest.current.sessions || [latest.current.session]), ...aiReferences.current, ...aiDrafts.current.values(), ...Array.from(aiBridge.targets.values(), t => t.job).filter(Boolean)].flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
     for(const url of textureUrls.current) if(!keep.has(url)) {URL.revokeObjectURL(url);textureUrls.current.delete(url);}
   }
   useEffect(() => {
@@ -797,13 +799,13 @@ export default function App() {
     if (latest.current.preferencesReady) resolveTextures(next);
     say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
   }
-  function install(next, { replace = false } = {}) {
+  function install(next, { replace = false, keepSource = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
     // Effects from earlier versions used generated pictures; point them at the stock game pictures (one undo step).
     if (!next.doc.readOnly && next.doc.model.Textures?.some(t => nativeStarterTexture(t.Image))) next.doc.apply('Use stock effect pictures', ['Textures'], repointStarterTextures);
     const currentSessions = latest.current.sessions || sessions, active = latest.current.session || session;
     const pristinePlaceholder = currentSessions.length === 1 && active === currentSessions[0] && !active.path && active.doc.name === 'Untitled.mdl' && !sessionDirty(active) && active.doc.revision === 0;
-    const replaceActive = replace || pristinePlaceholder;
+    const replaceActive = replace || (pristinePlaceholder && !keepSource);
     const nextSessions = replaceActive ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
     if (!replaceActive) rememberSessionView(active);
     setSessions(nextSessions); setSession(next); restoreSessionView(next);
@@ -820,6 +822,7 @@ export default function App() {
   function removeSession(target) {
     const currentSessions = latest.current.sessions || sessions, index = currentSessions.indexOf(target);
     if (index < 0) return;
+    aiBridge.closeDocument(target.id);
     let remaining = currentSessions.filter(item => item !== target);
     if (!remaining.length) remaining = [newSession(createEmptyDocument(preferences.newModelVersion))];
     setSessions(remaining);
@@ -1400,7 +1403,28 @@ export default function App() {
       return api.captureView().toDataURL('image/png');
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
-    sessions: () => [...latest.current.sessions, ...aiReferences.current],
+    sessions: () => [...latest.current.sessions, ...aiReferences.current, ...aiDrafts.current.values()],
+    makeAiDraft: (recovery, assets, view) => {
+      const doc = EditorDocument.restoreRecoveryState(recovery);
+      const draft = newSession(doc, null, new Map(assets));
+      Object.assign(draft.viewState, structuredClone(view), { selectable: new Set(view.checkedGeosets) });
+      aiDrafts.current.set(draft.id, draft);
+      return draft;
+    },
+    deliverAiSelection: (id, selection) => {
+      if (id === latest.current.session.id) flushSync(() => aiHost.current.select(selection));
+      else selectTab(aiHost.current.sessionOf(id), selection);
+    },
+    dropAiDraft: draft => { aiDrafts.current.delete(draft.id); releaseUnusedTextureUrls(); },
+    openAiDraft: draft => {
+      const extension = '.' + draft.doc.format;
+      const stem = draft.doc.name.replace(/\.(mdl|mdx)$/i, '');
+      const used = new Set(latest.current.sessions.map(s => s.doc.name.toLowerCase()));
+      let name = stem + ' (AI)' + extension;
+      for (let n = 2; used.has(name.toLowerCase()); n++) name = stem + ' (AI ' + n + ')' + extension;
+      draft.doc.name = name;
+      flushSync(() => install(draft, { keepSource: true }));
+    },
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
     summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
@@ -1442,6 +1466,7 @@ export default function App() {
       if (id === latest.current.session.id) return edit(...change);
       const target = aiHost.current.sessionOf(id);
       if (savingRef.current) throw Error('Wait for the current save to finish.');
+      if (aiDrafts.current.has(id)) return editTab(target, ...change);
       const result = editTab(target, ...change);
       checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
       refresh(); return result;
@@ -1451,8 +1476,10 @@ export default function App() {
       const target = aiHost.current.sessionOf(id);
       if (savingRef.current) throw Error('Wait for the current save to finish.');
       if (!undoTab(target, redo)) throw Error(redo ? 'Nothing to redo on this model.' : 'Nothing to undo on this model.');
-      checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
-      refresh();
+      if (!aiDrafts.current.has(id)) {
+        checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
+        refresh();
+      }
     },
     selectIn: (id, value) => selectTab(aiHost.current.sessionOf(id), value),
     assetsIn: id => { const target = aiHost.current.sessionOf(id); return retainedForgeAssets(target.assets, target.doc.model); },

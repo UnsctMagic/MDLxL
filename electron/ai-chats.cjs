@@ -125,7 +125,7 @@ async function cleanupUnused(service, now = Date.now()) {
   for (const name of await fs.readdir(service.directory).catch(() => [])) {
     const full = path.join(service.directory, name),
       chat = CHAT_FILE.exec(name);
-    if (chat ? kept.has(chat[1]) || service.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
+    if (chat ? kept.has(chat[1]) || service.conversations.has(chat[1]) : !/^(?:claude-run-|workspace-[A-Za-z0-9]{6}$)/.test(name)) continue;
     if (!(await old(full))) continue;
     await fs.rm(full, { recursive: true, force: true });
     files++;

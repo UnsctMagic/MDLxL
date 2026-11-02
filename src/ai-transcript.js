@@ -3,6 +3,12 @@
 // (AiRecorder) and the console applies the same events to the chat it shows, so
 // the thread looks the same live and after it is reopened.
 
+// Only an explicit instruction in the owner's own message can accept a result.
+// Negated, quoted or conditional requests must not silently finish a task.
+export function acceptsDelivery(text) {
+  return /^(?:(?:please|just|fucking)\s+)*(?:i\s+)?(?:deliver|accept)(?:\s+(?:it|this(?:\s+(?:result|edit|model))?|(?:the\s+)?(?:current\s+)?(?:result|edit|model)))?(?:\s+(?:anyway|now|as[ -]is))?(?:\s*$|[,.!;]|\s+i (?:don['’]?t|do not) care)/i.test(String(text || '').trim());
+}
+
 const newReply = () => ({ role: 'assistant', text: '', parts: [] });
 
 // One event applied to `messages`. With `copy`, nothing passed in is changed: the
@@ -62,7 +68,7 @@ function reduce(messages, event, copy) {
       break;
     }
     case 'question':
-      reply().parts.push({ type: 'question', questionId: event.questionId, questions: event.questions, name: event.name, message: event.message, status: 'running' });
+      reply().parts.push({ type: 'question', questionId: event.questionId, ...(['workspace-offer', 'model-conflict'].includes(event.kind) ? { kind: event.kind } : {}), questions: event.questions, name: event.name, message: event.message, status: 'running' });
       break;
     case 'question-result': {
       const at = find(p => p.type === 'question' && p.questionId === event.questionId, false);
