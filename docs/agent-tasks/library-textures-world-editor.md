@@ -1,6 +1,6 @@
 # Library: World Editor Style for textures
 
-Status: ready to test; ready for review; awaiting merge approval
+Status: completed — merged as PR #502 (`69cdf108`). Review follow-up: [library-textures-review-fixes.md](library-textures-review-fixes.md)
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-01
 

@@ -8,7 +8,7 @@ import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER} from './WorldEditorTree.jsx';
+import {FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER,WORLD_EDITOR_NO_GAME,WORLD_EDITOR_NO_MATCHES} from './WorldEditorTree.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
@@ -204,7 +204,7 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     <div className="tl-body gf-body">
       <nav className="gf-side" aria-label="Game folders">
         {preset==='models'&&<FolderStyle style={style} onChange={value=>{setStyle(value);remember('mdlvis.game-files.style',value);}}/>}
-        <LibraryTree rows={rows} results={results} expanded={expanded} selected={selected} focusKey={focusKey} setFocusKey={setFocusKey} toggle={toggle} choose={choose} onOpen={()=>{if(current)openInEditor();}} onDoubleClick={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} empty={error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}/>
+        <LibraryTree rows={rows} results={results} expanded={expanded} selected={selected} focusKey={focusKey} setFocusKey={setFocusKey} toggle={toggle} choose={choose} onOpen={()=>{if(current)openInEditor();}} onDoubleClick={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} empty={error?'':query.trim()?WORLD_EDITOR_NO_MATCHES:summary&&!summary.folder?WORLD_EDITOR_NO_GAME:'Loading game files…'}/>
 
       </nav>
       <main className="gf-stage" aria-label="Preview">

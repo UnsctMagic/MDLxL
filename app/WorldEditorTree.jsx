@@ -5,6 +5,8 @@ import {createThumbnailQueue} from '../src/texture-library-session.js';
 import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
 export const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
 export const WORLD_EDITOR_PLACEHOLDER='Search units, spells, items and doodads by name';
+export const WORLD_EDITOR_NO_GAME='No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.';
+export const WORLD_EDITOR_NO_MATCHES='No matches. Try fewer words or another game version.';
 const ROW=24;
 // Folder icons for the World Editor view's top level, taken from the game's own buttons.
 const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
@@ -94,8 +96,7 @@ export function WorldEditorTextureTree({variant,query,onChoose,onError}){
   window.desktop.gameFilesSummary().then(value=>{if(active)setSummary(value);return worldEditorTree(variant,value.signature);}).then(value=>{if(active)setCatalog(value);}).catch(error=>{if(active){setFailed(true);onError(error);}});
   return()=>{active=false;};
  },[variant]);
- const noGame='No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.';
- const empty=failed?'':summary&&!summary.folder?noGame:!catalog?'Loading game files…':query.trim()?'No matches. Try fewer words or another game version.':noGame;
+ const empty=failed?'':summary&&!summary.folder?WORLD_EDITOR_NO_GAME:!catalog?'Loading game files…':query.trim()?WORLD_EDITOR_NO_MATCHES:WORLD_EDITOR_NO_GAME;
  const results=useMemo(()=>worldEditorResults(catalog,query),[catalog,query]);
  const rows=useMemo(()=>results?results.rows.map(row=>({...row,depth:0,search:true})):worldEditorRows(catalog,expanded),[catalog,expanded,results]);
  const toggle=row=>setExpanded(previous=>{const next=new Set(previous);if(next.has(row.key))next.delete(row.key);else next.add(row.key);return next;});

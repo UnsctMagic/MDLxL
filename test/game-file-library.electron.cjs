@@ -241,5 +241,5 @@ return null;});
     checks.push('Click a model in the list, Enter opens it in the editor as a new tab');
     checks.push('T11 existing Models tree/icons/search, real mouse rotation, double-click/Enter opening and geoset tools unchanged');
     console.log('PASS:\n- '+checks.join('\n- '));
-  }catch(error){await shot(page,'failure');console.error('COMPLETED',checks);console.error('FAILURE',error.message);console.error('LIBRARY',await page.locator('.tl-dialog').count()?await page.locator('.tl-dialog').innerText():'closed');throw error;}finally{await closeApp(app).catch(()=>{});}
+  }catch(error){await shot(page,'failure').catch(()=>{});console.error('COMPLETED',checks);console.error('FAILURE',error.message);await page.locator('.tl-dialog').count().then(count=>count?page.locator('.tl-dialog').innerText():'closed').then(text=>console.error('LIBRARY',text)).catch(()=>{});throw error;}finally{await closeApp(app).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exitCode=1;});
