@@ -111,6 +111,12 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
       </React.Fragment>)}
       {visible(row.center) && <circle className="mm-select-center" cx={row.center[0]} cy={row.center[1]} r="20" onPointerDown={event => select(event, row.id)}><title>Select collision shape</title></circle>}
     </g>)}
+    {stage.rows.map((row, index) => row.selectionBox && visible(row.selectionBox) && <g key={'select-' + row.id} className={`mm-sphere-select ${row.id === selectedId ? 'mm-selected' : ''}`} role="button" tabIndex="0" aria-label={`Select collision shape ${index + 1}`} aria-pressed={row.id === selectedId}
+      onPointerDown={event => select(event, row.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(row.id); } }}>
+      <rect x={row.selectionBox[0] - 12} y={row.selectionBox[1] - 12} width="24" height="24" rx="2"/>
+      <text x={row.selectionBox[0]} y={row.selectionBox[1] + 4} textAnchor="middle">{index + 1}</text>
+      <title>Select collision shape</title>
+    </g>)}
     {/* Selected controls are painted last so another shape cannot swallow a grab or trash click. */}
     {selectedRow && !readOnly && <g key={selectedId} className="mm-selected">
       {gesture.resizeHandles(selectedRow).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,selectedRow.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}

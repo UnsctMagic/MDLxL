@@ -12,6 +12,10 @@ exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  const existing=openDocument(source,'x.mdx').model.CollisionShapes.filter(s=>s.Shape===0||s.Shape===2).map(s=>s.Shape===0?[...s.Vertices]:[...s.Vertices,s.BoundsRadius]);
  await check('authored collision proposal',async()=>assert.deepEqual((await shapeState()).rows,existing,'proposal starts from the model collisions'));
  await preset.selectOption('1');await ready();
+ await check('right-side boxes select every sphere',async()=>{
+  const boxes=popup.locator('.ox-collision .mm-sphere-select');await boxes.first().waitFor({timeout:1500});assert.equal(await boxes.count(),2);
+  for(const i of [1,0]){await boxes.nth(i).click();await popup.waitForFunction(id=>findFiberProps('.ox-collision',p=>p?.stage)?.selectedId===id,-1-i);assert.equal(await boxes.nth(i).getAttribute('aria-pressed'),'true');}
+ });
  await check('second shape center selection',async()=>{const {stage}=await overlay(),p=await at(stage.rows[1].center);await popup.mouse.click(p.x,p.y);await popup.waitForFunction(()=>findFiberProps('.ox-collision',p=>p?.stage)?.selectedId===-2,null,{timeout:1000});});
  await selectField(1);
  await check('wide outline selection',async()=>{const {stage}=await overlay(),row=stage.rows[0],edge=row.outlines[0][32],d=Math.hypot(edge[0]-row.center[0],edge[1]-row.center[1]);const p=await at([edge[0]+6*(edge[0]-row.center[0])/d,edge[1]+6*(edge[1]-row.center[1])/d]);await popup.mouse.click(p.x,p.y);await popup.waitForFunction(()=>findFiberProps('.ox-collision',p=>p?.stage)?.selectedId===-1,null,{timeout:1000});});

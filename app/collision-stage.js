@@ -28,6 +28,10 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
       for (let i = 0; i < 8; i++) for (let axis = 0; axis < 3; axis++) if (!(i & (1 << axis))) outlines.push([point(corners[i]), point(corners[i | (1 << axis)])]);
     }
     const row = { id: shape.ObjectId, center: point(center), outlines, guides, handles: [] };
+    if (shape.Shape === 2) row.selectionBox = [
+      Math.min(width - 14, Math.max(14, Math.max(...outlines[0].map(point => point[0])) + 26)),
+      Math.min(height - 14, Math.max(14, row.center[1])), row.center[2],
+    ];
     if (shape.ObjectId === selectedId && Math.abs(matrix.determinant()) > 1e-10) {
       const world = new Vector3().fromArray(center).applyMatrix4(matrix), inverse = matrix.clone().invert();
       row.move = Object.fromEntries([['dx', 1, 0], ['dy', 0, 1]].map(([key, x, y]) => [key, world.clone().add(screenPlaneTranslation(camera, world, width, height, x, y)).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray()]));

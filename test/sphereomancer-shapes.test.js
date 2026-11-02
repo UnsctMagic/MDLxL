@@ -83,3 +83,11 @@ test('Sphereomancer begins with authored spheres and boxes, copied independently
  settings.spheres[0][0]=999;assert.equal(doc.model.CollisionShapes[0].Vertices[0],12);
  assert.deepEqual(presetShapes(1),SPHERE_PRESETS[1].spheres,'choosing a preset replaces authored rows');
 });
+
+test('each sphere has a separate right-side selection box and boxes keep their existing controls', () => {
+ const camera=new PerspectiveCamera(45,1.5,.1,10000);camera.position.set(180,-220,140);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+ const shapes=[{ObjectId:-1,Shape:2,Vertices:new Float32Array([0,0,40]),BoundsRadius:30},{ObjectId:-2,Shape:2,Vertices:new Float32Array([0,0,90]),BoundsRadius:25},{ObjectId:-3,Shape:0,Vertices:new Float32Array([-30,-30,0,30,30,80])}];
+ const rows=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,shapes,-1).rows;
+ for(const row of rows.slice(0,2)) { assert.ok(row.selectionBox,'every sphere, selected or not, has its own box');assert.ok(row.selectionBox[0]>Math.max(...row.outlines[0].map(p=>p[0]))+12,'selection box sits to the right of the sphere');assert.equal(row.selectionBox[1],row.center[1]); }
+ assert.equal(rows[2].selectionBox,undefined);
+});
