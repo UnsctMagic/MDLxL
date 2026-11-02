@@ -70,9 +70,9 @@ test('a fast pivot turn keeps its direction when every sample feeds the angle', 
 
 // Every handler that feeds a turn does it in the per-event code, before scheduling.
 for (const { name, file, from, feed } of [
-  { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
+  { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag && !state.nodeDrag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
   { name: 'UV rotate', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', feed: 'uvTurn(s.drag' },
-  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, turnX, turnY)' },
+  { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, dx, dy,' },
   { name: 'Showcase text rotate', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', feed: 'rotationDragDegrees(row.rotationDrag' },
 ]) test(`${name} feeds every sample to the turn`, () => {
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -84,8 +84,9 @@ for (const { name, file, from, feed } of [
 // event. Each listed per-event code path only records the point and schedules
 // a frame; `forbidden` is the expensive work that moved into the frame callback.
 const coalescedDrags = [
+  { name: 'Preview gizmo hover', file: 'app/GamePreview.jsx', from: 'if (!nodeGesture) {', to: 'if (event.pointerId !== nodeGesture.id)', forbidden: /pickPoseHandle|pickMovementHandle|pickMovementNode/ },
   { name: 'UV Wrapper drag', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', to: 'function applyMove()', forbidden: /\bdraw\(|onPreviewChange|restrictUVChange/ },
-  { name: 'Vertex move/rotate/scale', file: 'app/Viewport.jsx', from: 'if (!state.drag) return;', to: 'function applyTransformMove()', forbidden: /onTransformPreview|updateWideWireGeometry|computeBoundingSphere/ },
+  { name: 'Vertex move/rotate/scale', file: 'app/Viewport.jsx', from: 'if (!state.drag && !state.nodeDrag) return;', to: 'function applyTransformMove()', forbidden: /onTransformPreview|updateWideWireGeometry|computeBoundingSphere|moveTranslation\(/ },
   { name: 'Viewport camera report', file: 'app/Viewport.jsx', from: 'const invalidate = () => {', to: 'const markerTexture', forbidden: /onCameraAnglesChange|setCompassAxes/ },
   { name: 'Paint camera report', file: 'app/PaintViewport.jsx', from: 'const invalidate = () => {', to: 'const markerTexture', forbidden: /onCameraAnglesChange/ },
   { name: 'Game preview camera report', file: 'app/GamePreview.jsx', from: 'const cameraChanged = () => {', to: 'invalidate();', forbidden: /onCameraAnglesChange/ },

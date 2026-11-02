@@ -8,16 +8,14 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Shift lock: one shared lock rule and an orange lock badge at the cursor | Contract ready; Codex to build after PR #504 merges | [Shift lock badge](shift-lock-badge.md) / Codex |
+| Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
-| Workplane Constraints and one gizmo for every 3D editor (real app) | Contract agreed; Codex to build | [Workplane Constraints](workplane-constraints.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
 | OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
 | AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
 | AI every-frame checks: MDLxL sweeps a rule over every animation | Ready for review; awaiting merge approval | [Every-frame checks](ai-every-frame-checks.md) / Codex |
-| Top bar layout: status items up, model tabs down, warning toasts | Ready to test; awaiting merge approval ([PR #485](https://github.com/UnsctMagic/MDLxL/pull/485)) | [Top bar layout](top-bar-layout.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 | Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
 | FX global animation maker | PR #492 · sixth owner hand test; ready for retest | [Surface Effects](native-surface-effects.md) / Codex |

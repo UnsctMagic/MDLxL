@@ -25,6 +25,8 @@ async function waitFor(check,timeout=60000){const end=Date.now()+timeout;while(D
 require('electron').dialog.showMessageBox=async()=>({response:0});
 require('electron').dialog.showMessageBoxSync=()=>2;
 require('electron').app.on('browser-window-created',(_,win)=>win.webContents.on('ipc-message',(_,channel)=>{if(channel==='updates:startup')win.webContents.send('menu','settings');}));
+// Test copies never count as real installed updates in LowPolyWorks.
+require('./updater.cjs').Updater.prototype.reportUpdate=async()=>{};
 require('./updater.cjs').Updater.prototype.response=async function(url){
 const fs=require('node:fs/promises'),p=require('node:path'),root=${JSON.stringify(root)};
 if(url.includes('api.github.com'))return new Response(await fs.readFile(p.join(root,'release.json')));

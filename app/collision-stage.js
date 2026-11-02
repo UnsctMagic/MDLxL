@@ -1,10 +1,10 @@
 import { Matrix4, Vector3 } from 'three';
 import { collisionCenter } from '../src/model-collisions.js';
-import { screenPlaneTranslation } from './viewport-math.js';
+import { planeScreenBasis, screenPlaneTranslation } from './viewport-math.js';
 import { particleAxisMapping } from '../src/particle-handles.js';
 
 /** Uses the renderer's evaluated node transforms, including animated parents. */
-export function collisionStageSnapshot(native, camera, width, height, shapes, selectedId) {
+export function collisionStageSnapshot(native, camera, width, height, shapes, selectedId, movePlane) {
   const project = world => { const p = world.clone().project(camera); return [(p.x + 1) * width / 2, (1 - p.y) * height / 2, p.z]; };
   const rows = [];
   for (const shape of shapes || []) {
@@ -36,6 +36,12 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
       const world = new Vector3().fromArray(center).applyMatrix4(matrix), inverse = matrix.clone().invert();
       row.centerDelta = new Vector3(0, 0, world.z).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray();
       row.move = Object.fromEntries([['dx', 1, 0], ['dy', 0, 1]].map(([key, x, y]) => [key, world.clone().add(screenPlaneTranslation(camera, world, width, height, x, y)).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray()]));
+      if (movePlane) {
+        row.move.plane = movePlane;
+        row.move.basis = planeScreenBasis(camera, world, width, height, movePlane);
+        row.move.localAxes = [0, 1, 2].map(axis => world.clone().setComponent(axis, world.getComponent(axis) + 1)
+          .applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray());
+      }
       if (shape.Shape === 2 && shape.ObjectId === selectedId) {
         const scale=matrix.getMaxScaleOnAxis(), right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
         const at=outlines[0][0], unit=project(world.clone().addScaledVector(right,(shape.BoundsRadius+1)*scale));

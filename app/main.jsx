@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import ShiftLockBadge from './ShiftLockBadge.jsx';
 import App from './App.jsx';
 import './styles.css';
 import { installAlertPing } from './alert-ping.js';
@@ -9,4 +10,4 @@ class EditorBoundary extends React.Component{
   render(){if(this.state.error)return <div className="classic-modal mdlxl-overlay"><div className="classic-modal-window mdlxl-window"><header>MDLxL</header><div className="classic-modal-body"><p>The interface could not finish drawing.</p><p>{String(this.state.error.message||this.state.error)}</p><p>The last disk recovery copy can be restored after reloading.</p></div><footer><button onClick={()=>location.reload()}>Reload editor</button></footer></div></div>;return this.props.children;}
 }
 installAlertPing();
-createRoot(document.getElementById('root')).render(<EditorBoundary><App/></EditorBoundary>);
+createRoot(document.getElementById('root')).render(<EditorBoundary><App/><ShiftLockBadge/></EditorBoundary>);

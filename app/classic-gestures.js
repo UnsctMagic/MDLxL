@@ -8,46 +8,8 @@ export function applySelection(previous, found, { shift = false, ctrl = false } 
   return [...selected];
 }
 
-export function planeAxes(workplane = 'xz') {
-  return workplane === 'xy' ? [0, 1] : workplane === 'yz' ? [1, 2] : [0, 2];
-}
-
-export function constrainedAxis(workplane = 'xz') {
-  return workplane === 'xy' ? 0 : workplane === 'yz' ? 1 : 2;
-}
-
-/** Keep a screen-axis latch for one Shift hold. Accumulating only allowed
- * motion lets release/repress continue from the visible position, without
- * restoring the pointer's discarded perpendicular travel. */
-export function moveDragPoint(gesture, pointer, shift) {
-  if (gesture.shift !== shift) { gesture.shift = shift; gesture.axis = null; }
-  const dx = pointer.x - gesture.pointer.x, dy = pointer.y - gesture.pointer.y;
-  if (shift && !gesture.axis && (dx || dy)) gesture.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
-  gesture.point = { ...pointer,
-    x: gesture.point.x + (!shift || gesture.axis === 'x' ? dx : 0),
-    y: gesture.point.y + (!shift || gesture.axis === 'y' ? dy : 0),
-  };
-  gesture.pointer = pointer;
-  return gesture.point;
-}
-
-/** Single view: pressing or releasing Shift mid-drag keeps the visible offset
- * and continues from the pointer position where the lock changed. `solve`
- * maps (from, to, shift) pointer points to a model-space [x, y, z] offset. */
-export function shiftDragOffset(latch, pointer, shift, solve) {
-  if (latch.shift !== shift) {
-    const kept = solve(latch.from, latch.pointer, latch.shift);
-    latch.base = latch.base.map((value, i) => value + kept[i]);
-    latch.from = latch.pointer; latch.shift = shift;
-  }
-  latch.pointer = pointer;
-  const offset = solve(latch.from, pointer, shift);
-  return latch.base.map((value, i) => value + offset[i]);
-}
-
-export function shiftDragLatch(start, shift) {
-  return { from: start, pointer: start, shift: !!shift, base: [0, 0, 0] };
-}
+import { constrainedAxis } from '../src/shift-lock.js';
+export { planeAxes, constrainedAxis, moveDragPoint, shiftDragOffset, shiftDragLatch } from '../src/shift-lock.js';
 
 export function dragScale(horizontalPixels, workplane = 'xz', constrain = false) {
   const factor = Math.max(0, 1 + horizontalPixels / 100);

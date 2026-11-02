@@ -2,3 +2,10 @@
 .geoset-row.hovered.selected{box-shadow:inset 3px 0 #7ed5ff}
 
 :root[data-theme=dark] .geoset-row.hovered:not(.selected){background:#234968;color:#eef7ff;box-shadow:inset 3px 0 #63c4ff}
+
+.shift-lock-badge {
+  position: fixed; z-index: 2147483647; pointer-events: none; user-select: none;
+  display: flex; align-items: center; gap: 2px; height: 16px;
+  color: var(--shift-lock); font: bold 14px/16px Tahoma, sans-serif;
+  -webkit-text-stroke: 2px black; paint-order: stroke fill;
+}

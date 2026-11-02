@@ -1,4 +1,5 @@
-import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
+import { solveGizmoMove } from '../src/shift-lock.js';
+import { beginRotationDrag, rotationDragDegrees, rotationOptions, facingAxis, chooseLeverAxis, NORMAL } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
@@ -9,6 +10,9 @@ import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-displ
 import { createPixelLineBatch } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
+const CLASSIC_COLORS = { X: '#ff0000', Y: '#00ff00', Z: '#0000ff' };
+const DEFAULT_AXIS_COLORS = { X: ['#ce3434', '#fa6975'], Y: ['#248142', '#77cf80'], Z: ['#236ac2', '#77aaff'] };
+const gizmoColor = (axis, appearance, move) => move && (appearance?.moveGizmo || 'classic') === 'classic' && (!appearance?.['axis' + axis] || DEFAULT_AXIS_COLORS[axis].includes(appearance['axis' + axis])) ? CLASSIC_COLORS[axis] : appearance?.['axis' + axis] || COLORS[axis];
 const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
@@ -34,7 +38,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
   });
 }
 
-export function movementAxisHandles(active, camera, width, height, radius, space = 'world', mode = 'rotate') {
+export function movementAxisHandles(active, camera, width, height, radius, space = 'world', mode = 'rotate', appearance = null) {
   if (!active?.visible) return [];
   // Move shrinks with the model at a distance, capped at the reference size.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
@@ -49,8 +53,11 @@ export function movementAxisHandles(active, camera, width, height, radius, space
     // An axis facing the camera still gets a usable short handle.
     if (Math.hypot(dx, dy) < 18 * MOVEMENT_GIZMO_SCALE) { dx = axis === 'Z' ? 0 : axis === 'X' ? 25 * MOVEMENT_GIZMO_SCALE : -25 * MOVEMENT_GIZMO_SCALE; dy = axis === 'Z' ? -25 * MOVEMENT_GIZMO_SCALE : 25 * MOVEMENT_GIZMO_SCALE; }
     if (mode === 'move') { const pixels = Math.hypot(dx, dy), scale = Math.max(52, Math.min(MOVEMENT_MOVE_MAX_PIXELS, pixels)) / pixels; dx *= scale; dy *= scale; }
-    return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, projectedDx, projectedDy, unitsPerPixel: unit };
+    return { axis, mode, radius, direction, world: active.world, camera, width, height, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, projectedDx, projectedDy, unitsPerPixel: unit };
   });
+  if (mode === 'rotate' && appearance?.rotateHandles && appearance.rotateHandles !== 'lines') {
+    return handles.map(handle => ({ ...handle, ring: true, points: rotationRingPoints(active.world, handle.direction, unit * 68, camera, width, height, 0, appearance.rotateHandles === 'arcs' ? Math.PI / 2 : Math.PI * 2) }));
+  }
   if (mode === 'move') for (const plane of ['xy', 'xz', 'yz']) {
     const [a, b] = plane.toUpperCase().split('').map(axis => handles.find(handle => handle.axis === axis));
     if (Math.hypot(a.projectedDx, a.projectedDy) < 1e-5 || Math.hypot(b.projectedDx, b.projectedDy) < 1e-5) continue;
@@ -62,7 +69,7 @@ export function movementAxisHandles(active, camera, width, height, radius, space
     const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
     // Edge-on planes have no usable square.
     if (area < 35) continue;
-    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[PLANE_COLORS[plane]],
+    handles.push({ axis: plane.toUpperCase(), mode, radius, plane, polygon, color: COLORS[PLANE_COLORS[plane]],
       x: active.x + (a.dx + b.dx) / 2, y: active.y + (a.dy + b.dy) / 2,
       startX: active.x, startY: active.y, unitsPerPixel: unit });
   }
@@ -112,26 +119,29 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
 export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null, appearance = null) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
-    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || handle.color;
+    const classic = (appearance?.moveGizmo || 'classic') === 'classic', active = handle.axis === activeAxis, color = active ? '#fff14e' : gizmoColor(PLANE_COLORS[handle.plane], appearance, true);
     context.save(); context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
-    context.fillStyle = color; context.globalAlpha = active ? .45 : .16; context.fill(); context.globalAlpha = 1;
-    context.shadowBlur = 0; context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = 3; context.stroke();
-    context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : 1.5; context.stroke(); context.restore();
+    context.fillStyle = color; context.globalAlpha = active ? .5 : classic ? .08 : .16; context.fill(); context.globalAlpha = 1;
+    context.shadowBlur = 0; context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = classic ? 0 : 3; if (!classic) context.stroke();
+    context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : classic ? 1 : 1.5; context.stroke(); context.restore();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
-    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || handle.color;
+    const active = handle.axis === activeAxis, color = active ? '#fff14e' : gizmoColor(handle.axis, appearance, handle.mode === 'move');
+    if (handle.ring) { drawRotationRing(context, handle.points, color, active); continue; }
+    const style = appearance?.moveGizmo || 'classic', classic = handle.mode === 'move' && style === 'classic', bold = handle.mode === 'move' && style === 'bold';
     context.save();
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
     context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);
-    context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = handle.mode === 'move' ? 3.5 : 5; context.stroke();
+    context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = handle.mode === 'move' ? bold ? 6 : 3.5 : 5; if (!classic) context.stroke();
     context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
-    context.strokeStyle = color; context.lineWidth = handle.mode === 'move' ? 2 : 3; context.stroke();
+    context.strokeStyle = color; context.lineWidth = handle.mode === 'move' ? classic ? 1 : bold ? 4 : 2 : 3; context.stroke();
     if (handle.mode === 'move') {
+      const head = classic ? 6 : bold ? 14 : 10, half = classic ? 3 : bold ? 7 : 4.5;
       context.beginPath(); context.moveTo(handle.x, handle.y);
-      context.lineTo(handle.x - ux * 10 - uy * 4.5, handle.y - uy * 10 + ux * 4.5);
-      context.lineTo(handle.x - ux * 10 + uy * 4.5, handle.y - uy * 10 - ux * 4.5); context.closePath();
-      context.fillStyle = color; context.fill(); context.shadowBlur = 0; context.lineWidth = 1; context.strokeStyle = appearance?.outline || '#162137'; context.stroke(); context.restore(); continue;
+      context.lineTo(handle.x - ux * head - uy * half, handle.y - uy * head + ux * half);
+      context.lineTo(handle.x - ux * head + uy * half, handle.y - uy * head - ux * half); context.closePath();
+      context.fillStyle = color; context.fill(); context.shadowBlur = 0; context.lineWidth = 1; context.strokeStyle = appearance?.outline || '#162137'; if (!classic) context.stroke(); context.restore(); continue;
     }
     context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = color; context.fill();
     context.lineWidth = 1; context.strokeStyle = appearance?.outline || '#162137'; context.stroke();
@@ -268,30 +278,12 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
-/** The world axis a Rotate drag turns about (positive by the right-hand rule). */
-export function movementRotationNormal(gesture, rotation, view) {
-  const normal = gesture.handle.axis === 'XYZ' ? view.clone() : new Vector3().fromArray(AXES[gesture.handle.axis]);
-  // POSE Body/Object keeps Local with a workplane. Ordinary workplane
-  // rotation and POSE endpoints instead use the world plane normal.
-  const localWorkplane = gesture.pose && (gesture.target?.kind === 'body' || gesture.target?.kind === 'node');
-  if ((!gesture.workplaneEnabled || localWorkplane) && gesture.space === 'local' && gesture.handle.axis !== 'XYZ') normal.applyQuaternion(rotation);
-  return normal;
+export function movementRotationSpace(gesture) {
+  return gesture.workplaneEnabled && !(gesture.pose && ['body', 'node'].includes(gesture.target?.kind)) ? 'world' : gesture.space;
 }
 
-/** How squarely the turn axis faces the camera (1 = straight at it). */
-export function movementRotationFacing(gesture, rotation, view) {
-  return -movementRotationNormal(gesture, rotation, view).dot(view);
-}
-
-/** Along the ring pulls along the turn ring; Straight drag uses a fixed
- * right/up-positive screen basis; Circle the pivot follows a circular drag.
- * `options.axis` is the turn axis in view space (rotationRingTangent). */
-export function movementRotationGesture(options) {
-  return beginRotationDrag(options);
-}
-
-export function movementRotationAmount(gesture, dx, dy, sensitivity = 1) {
-  return rotationDragDegrees(gesture, dx, dy, sensitivity);
+export function movementRotationAmount(gesture, dx, dy, sensitivity = 1, shift = false) {
+  return rotationDragDegrees(gesture, dx, dy, sensitivity, shift);
 }
 
 /** A bare bone drag turns around the nearest model axis to the view normal. */
@@ -340,6 +332,8 @@ function pointSegmentDistance(x, y, handle) {
 }
 
 export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
+  if (mode === 'tip') handles = handles.filter(handle => !handle.ring);
+  if (mode === 'rotate' && handles.some(handle => handle.ring)) return handles.map(handle => ({ handle, distance: Math.min(...handle.points.slice(1).map((point, i) => pointSegmentDistance(x, y, { startX: handle.points[i].x, startY: handle.points[i].y, x: point.x, y: point.y }))) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
   if (mode === 'rotate') {
     // A short camera-facing axis can sit on another axis's shaft. Its visible
     // XYZ endpoint owns that press, just as it does for the other gizmo tools.
@@ -423,4 +417,142 @@ export function movementNodeSelection(selectedIds, id, { multiple = false, shift
   if (ctrl) return selected.filter(value => value !== id);
   if (shift) return selected.includes(id) ? selected : [...selected, id];
   return [id];
+}
+
+const projectGizmo = (world, camera, width, height) => {
+  const point = world.clone().project(camera);
+  return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
+};
+function rotationBasis(normal) {
+  const seed = Math.abs(normal.z) < .9 ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0);
+  const u = seed.addScaledVector(normal, -seed.dot(normal)).normalize();
+  return [u, new Vector3().crossVectors(normal, u).normalize()];
+}
+function rotationRingPoints(world, normal, radius, camera, width, height, start = 0, end = Math.PI * 2) {
+  const [u, v] = rotationBasis(normal), points = [], eye = camera.position.clone().sub(world);
+  for (let i = 0; i <= 96; i++) {
+    const angle = start + (end - start) * i / 96, offset = u.clone().multiplyScalar(Math.cos(angle) * radius).addScaledVector(v, Math.sin(angle) * radius);
+    points.push({ ...projectGizmo(world.clone().add(offset), camera, width, height), near: offset.dot(eye) >= 0 });
+  }
+  return points;
+}
+function drawRotationRing(context, points, color, active) {
+  for (let i = 1; i < points.length; i++) {
+    context.beginPath(); context.moveTo(points[i - 1].x, points[i - 1].y); context.lineTo(points[i].x, points[i].y);
+    context.strokeStyle = '#162137'; context.lineWidth = active ? 5 : points[i].near ? 3 : 2; context.stroke();
+    context.strokeStyle = active ? '#fff64a' : color; context.lineWidth = active ? 3.2 : points[i].near ? 2 : .8; context.stroke();
+  }
+}
+/** Screen direction of a positive turn about the locked plane, fixed at press time. */
+export function constrainedRotationTangent({ world, camera, width, height, normal }) {
+  const pivot = projectGizmo(world, camera, width, height);
+  const toward = camera.isOrthographicCamera ? camera.getWorldDirection(new Vector3()).negate() : camera.position.clone().sub(world);
+  const radial = toward.clone().addScaledVector(normal, -toward.dot(normal));
+  if (radial.lengthSq() < .26 * .26 * toward.lengthSq()) {
+    return { mode: 'circle' };
+  }
+  radial.normalize();
+  const tangentWorld = new Vector3().crossVectors(normal, radial);
+  const tip = projectGizmo(world.clone().add(tangentWorld), camera, width, height);
+  const tx = tip.x - pivot.x, ty = tip.y - pivot.y, length = Math.hypot(tx, ty);
+  return { mode: 'line', x: tx / length, y: ty / length };
+}
+/** Capture the actual world/local axes, camera and speed once for every editor. */
+export function beginGizmoRotation({ x, y, world, camera, width, height, handle, rotation, space = 'world', workplaneEnabled = false, workplane = 'xy', preferences, editor = 'vertices' }) {
+  const pivot = projectGizmo(world, camera, width, height), directions = {}, facings = {}, tangents = {};
+  const unit = camera.isOrthographicCamera ? (camera.top - camera.bottom) / camera.zoom / height : 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height;
+  for (const axis of Object.keys(AXES)) {
+    directions[axis] = new Vector3().fromArray(AXES[axis]);
+    if (space === 'local' && rotation) directions[axis].applyQuaternion(rotation);
+    facings[axis] = directions[axis].clone().transformDirection(camera.matrixWorldInverse).z;
+  }
+  const style = viewportAppearanceOptions(preferences).controllers.rotateHandles;
+  const lever = !workplaneEnabled && handle && !handle.free && !handle.offHandle && style === 'lines' ? handle.axis : null;
+  const defaultAxis = facingAxis(Object.keys(AXES).map(axis => facings[axis]));
+  const axisName = workplaneEnabled ? NORMAL[workplane] : lever ? null : handle && !handle.free && !handle.offHandle ? handle.axis : defaultAxis;
+  if (lever) {
+    const arm = directions[lever].clone().multiplyScalar(unit * 68), tip = world.clone().add(arm), at = projectGizmo(tip, camera, width, height);
+    for (const axis of Object.keys(AXES)) {
+      const end = projectGizmo(tip.clone().add(new Vector3().crossVectors(directions[axis], arm)), camera, width, height);
+      tangents[axis] = [end.x - at.x, end.y - at.y];
+    }
+  }
+  const tangent = workplaneEnabled ? constrainedRotationTangent({ world, camera, width, height, normal: directions[axisName] }) : undefined;
+  const drag = beginRotationDrag({ ...rotationOptions(preferences, editor), x, y, pivot, constrained: workplaneEnabled, plane: workplane, axisName, lever, tangents, facings, tangent: tangent?.mode === 'line' ? tangent : undefined, circle: tangent?.mode === 'circle', axis: axisName ? [0, 0, facings[axisName]] : undefined });
+  const normal = axisName ? directions[axisName] : directions[defaultAxis];
+  const [u, v] = rotationBasis(normal), su = projectGizmo(world.clone().addScaledVector(u, unit * 68), camera, width, height), sv = projectGizmo(world.clone().addScaledVector(v, unit * 68), camera, width, height);
+  const ax = su.x - pivot.x, ay = su.y - pivot.y, bx = sv.x - pivot.x, by = sv.y - pivot.y, gx = x - pivot.x, gy = y - pivot.y;
+  const phase = Math.atan2(ax * gy - ay * gx, gx * by - gy * bx);
+  if (!workplaneEnabled) drag.ringRadius = 68;
+  return Object.assign(drag, { phase, world: world.clone(), camera: camera.clone(), width, height, directions, unit, pivot, start: { x, y }, handle, style });
+}
+/** The same Shift latch as free Move, with the lab's arrow/plane constraints. */
+export function gizmoMoveTranslation(gesture, dx, dy, shift = false, sensitivity = 1) {
+  const { camera, origin: world, handle, width, height } = gesture;
+  const axisDelta = (axis, x, y) => {
+    const index = 'XYZ'.indexOf(axis), at = projectGizmo(world, camera, width, height), tip = projectGizmo(world.clone().setComponent(index, world.getComponent(index) + 1), camera, width, height);
+    const ax = tip.x - at.x, ay = tip.y - at.y, length = ax * ax + ay * ay;
+    const handles = gesture.moveHandles ||= movementAxisHandles({ world, ...at, visible: true }, camera, width, height, handle.radius || 1, 'world', 'move');
+    const arrow = handle.axis === axis && !handle.plane && Number.isFinite(handle.projectedDx) ? handle : handles.find(h => h.axis === axis && !h.plane);
+    // Preserve the existing short stand-in arrow: a nearly camera-facing axis
+    // must not divide a tiny screen projection into a huge world displacement.
+    return new Vector3().setComponent(index, Math.hypot(arrow.projectedDx, arrow.projectedDy) < 18 ? movementDragAmount(arrow, x, y, 'move') : (x * ax + y * ay) / length).toArray();
+  };
+  return solveGizmoMove(gesture, dx, dy, shift, sensitivity, axisDelta);
+}
+/** Brighter lab feedback; no ghost geometry. All consumers call this in their draw. */
+export function drawGizmoRotationFeedback(context, drag, ratio = 1) {
+  if (!drag) return;
+  context.save(); context.scale(ratio, ratio);
+  if (drag.circle) {
+    const { x, y } = drag.pivot, radius = 40, start = -Math.PI * .75, end = -Math.PI * .25;
+    const stroke = (color, width) => {
+      context.beginPath(); context.arc(x, y, radius, start, end);
+      for (const angle of [start, end]) {
+        const px = x + radius * Math.cos(angle), py = y + radius * Math.sin(angle);
+        const tx = -Math.sin(angle), ty = Math.cos(angle), sign = angle === start ? 1 : -1;
+        context.moveTo(px + sign * tx * 9 - ty * 6, py + sign * ty * 9 + tx * 6);
+        context.lineTo(px, py);
+        context.lineTo(px + sign * tx * 9 + ty * 6, py + sign * ty * 9 - tx * 6);
+      }
+      context.strokeStyle = color; context.lineWidth = width; context.lineJoin = 'round'; context.stroke();
+    };
+    stroke('#162137', 5); stroke('#fff64a', 2.5);
+  } else if (drag.constrained) {
+    const { x, y } = drag.start, { x: tx, y: ty } = drag.tangent;
+    const a = { x: x - tx * 24, y: y - ty * 24 }, b = { x: x + tx * 24, y: y + ty * 24 };
+    const stroke = (color, width) => {
+      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y);
+      for (const [tip, sign] of [[a, 1], [b, -1]]) {
+        context.moveTo(tip.x + sign * tx * 9 - ty * 6, tip.y + sign * ty * 9 + tx * 6);
+        context.lineTo(tip.x, tip.y);
+        context.lineTo(tip.x + sign * tx * 9 + ty * 6, tip.y + sign * ty * 9 - tx * 6);
+      }
+      context.strokeStyle = color; context.lineWidth = width; context.lineJoin = 'round'; context.stroke();
+    };
+    stroke('#162137', 5); stroke('#fff64a', 2.5);
+  }
+  if (!drag.constrained && drag.axisName) {
+    const normal = drag.directions[drag.axisName], radius = drag.unit * 68;
+    drawRotationRing(context, rotationRingPoints(drag.world, normal, radius, drag.camera, drag.width, drag.height), '#fff64a', true);
+    const [u, v] = rotationBasis(normal), arm = drag.lever ? drag.directions[drag.lever] : u;
+    const phase = drag.lever ? Math.atan2(arm.dot(v), arm.dot(u)) : drag.phase, points = rotationRingPoints(drag.world, normal, radius, drag.camera, drag.width, drag.height, phase, phase + drag.degrees * Math.PI / 180);
+    context.beginPath(); context.moveTo(drag.pivot.x, drag.pivot.y); points.forEach(point => context.lineTo(point.x, point.y)); context.closePath();
+    context.fillStyle = '#fff64a'; context.globalAlpha = .32; context.fill(); context.globalAlpha = 1;
+  }
+  const text = `${drag.axisName || '–'} ${Math.round(drag.degrees * 10) / 10}°`;
+  const x = Math.max(6, Math.min(drag.width - 140, drag.pointer.x + 16)), y = Math.max(22, Math.min(drag.height - 8, drag.pointer.y + 28));
+  context.font = 'bold 15px Tahoma, sans-serif'; context.textAlign = 'left'; context.lineWidth = 4; context.strokeStyle = '#162137'; context.strokeText(text, x, y); context.fillStyle = '#fff64a'; context.fillText(text, x, y);
+  context.restore();
+}
+
+/** Lines swing with the captured turn; the selected turn axis stays fixed. */
+export function rotationDisplayHandles(handles, drag) {
+  if (!drag?.lever || !drag.axisName) return handles;
+  const q = new Quaternion().setFromAxisAngle(drag.directions[drag.axisName], drag.degrees * Math.PI / 180);
+  return handles.map(handle => {
+    if (handle.axis === drag.axisName || handle.plane || handle.ring) return handle;
+    const at = projectGizmo(drag.world.clone().addScaledVector(drag.directions[handle.axis].clone().applyQuaternion(q), drag.unit * 68), drag.camera, drag.width, drag.height);
+    return { ...handle, ...at, dx: at.x - drag.pivot.x || 1e-9, dy: at.y - drag.pivot.y, startX: drag.pivot.x, startY: drag.pivot.y };
+  });
 }

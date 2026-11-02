@@ -97,7 +97,8 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   }, [repeat, draft]);
   const handles = useMemo(() => mold ? forgeMoldHandles(mold) : null, [mold]);
   const displayGhost=useMemo(()=>repeatResult?.ghost && repeat?.magnet ? closeForgeDetail(repeatResult.ghost) : repeatResult?.ghost,[repeatResult,!!repeat?.magnet]);
-  const shown = displayGhost ? {...draft,shapes:[...draft.shapes,displayGhost],mode:'Faces',selection:{[displayGhost.id]:displayGhost.faces.map(f=>f.id)}} : moldResult?.draft || cutPreview?.draft || preview || draft;
+  // Keep the preview model stable while control/hover renders leave its geometry unchanged.
+  const shown = useMemo(() => displayGhost ? {...draft,shapes:[...draft.shapes,displayGhost],mode:'Faces',selection:{[displayGhost.id]:displayGhost.faces.map(f=>f.id)}} : moldResult?.draft || cutPreview?.draft || preview || draft, [displayGhost,draft,moldResult,cutPreview,preview]);
   const record = before => { history.current.push(before); if (history.current.length > 80) history.current.shift(); future.current = []; setHistorySize([history.current.length, 0]); };
   const change = next => { record(draft); setDraft(next); setError(''); };
   const undo = redo => { const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop(); if (!previous) return; to.push(draft); setDraft(previous); setError(''); setHistorySize([history.current.length, future.current.length]); };

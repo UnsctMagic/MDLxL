@@ -1,8 +1,9 @@
+import { solveViewMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
 import { usePreferencesContext } from './PreferencesContext.jsx';
 import { createModelSmoothing, MODEL_LAYER } from './model-smoothing.js';
 export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
-import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
+import { rotationDragDegrees } from '../src/rotation-drag.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
@@ -12,7 +13,7 @@ import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
-import { drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
+import { drawMovementGizmo, drawGizmoRotationFeedback, rotationDisplayHandles, beginGizmoRotation, gizmoMoveTranslation, drawMovementOverlay, movementAxisHandles, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import {drawPoseOverlay} from './pose-overlay.js';
 import {translate} from '../src/localization.js';
 import { visibleMovementPoints } from './preview-overlays.js';
@@ -28,16 +29,16 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { vertexRgbPreviewState } from './vertex-rgb-preview.js';
 import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
-import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
+import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, shiftDragLatch } from './classic-gestures.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 import { projectCompassAxes } from './viewport-compass.js';
 
-import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
-import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
+import { QUAD_VIEWS, viewWorkplane, lockedQuadPlane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
 import { composeViewportLayers, drawPreviewBackground } from './game-preview-capture.js';
 import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
@@ -103,11 +104,11 @@ export default function Viewport(inputProps) {
     // Only camera/input/overlay state is per pane. Scene, geometry, selection,
     // drag snapshots, textures and the document commit path stay shared.
     function savePane() {
-      Object.assign(boundPane, { camera, view: state.appliedView, center: state.center, radius: state.radius, floor: state.floor, cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas });
+      Object.assign(boundPane, { camera, view: state.appliedView, center: state.center, radius: state.radius, floor: state.floor, cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas });
     }
     function bindPane(pane) {
       savePane(); boundPane = pane;
-      ({ surface, perspective, ortho, camera, controls, grid, cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas } = pane);
+      ({ surface, perspective, ortho, camera, controls, grid, cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas } = pane);
       for (const item of panes) item.grid.visible = item === pane;
       Object.assign(state, { perspective, ortho, camera, controls, grid, appliedView: pane.view, center: pane.center, radius: pane.radius, floor: pane.floor });
     }
@@ -184,7 +185,7 @@ export default function Viewport(inputProps) {
       element.addEventListener('pointercancel', cancelGesture);
       element.addEventListener('pointerleave', pointerLeave);
       element.addEventListener('contextmenu', contextMenu);
-      pane.dispose = () => { unbindScroll(); pane.controls.removeEventListener('change', invalidate); pane.controls.dispose(); element.remove(); };
+      pane.dispose = () => { unbindScroll(); pane.controls.removeEventListener('change', invalidate); pane.controls.dispose(); pane.gizmoCanvas?.remove(); element.remove(); };
     }
 
     function resizePane() {
@@ -255,7 +256,7 @@ export default function Viewport(inputProps) {
         const framed = gridVisible && p.frameGrid !== false ? Math.max(state.radius, gridFrameRadius(state.center, gridOptions(p.preferences).extent)) : state.radius;
         camera = ortho; applyViewPreset(camera, next, controls.target, framed * 4);
       }
-      controls.object = camera; controls.enableRotate = !(quad && boundPane.workplane);
+      controls.object = camera; controls.enableRotate = true;
       state.camera = camera; boundPane.view = next; boundPane.camera = camera; controls.update(); invalidate();
     }
     state.setView = next => {
@@ -271,7 +272,7 @@ export default function Viewport(inputProps) {
     state.setQuad = enabled => {
       if (quad === !!enabled) return;
       cancelGesture(); savePane(); quad = !!enabled;
-      for (const overlay of [singlePane.cameraCanvas, singlePane.normalCanvas, singlePane.nodeCanvas, singlePane.previewCanvas, singlePane.anchorCanvas, singlePane.editCanvas]) if (overlay) overlay.style.display = quad ? 'none' : '';
+      for (const overlay of [singlePane.cameraCanvas, singlePane.normalCanvas, singlePane.nodeCanvas, singlePane.previewCanvas, singlePane.anchorCanvas, singlePane.editCanvas, singlePane.gizmoCanvas]) if (overlay) overlay.style.display = quad ? 'none' : '';
       if (quad && panes.length === 1) {
         for (const definition of QUAD_VIEWS) {
           const element = document.createElement('div'); element.className = 'viewport-input quad-pane'; element.tabIndex = 0;
@@ -284,6 +285,20 @@ export default function Viewport(inputProps) {
           paneControls.object = camera;
           const pane = { ...definition, workplane: viewWorkplane(definition.view), surface: element, perspective, ortho, camera, controls: paneControls, grid: createViewportGrid(), center: singlePane.center.clone(), radius: singlePane.radius, floor: singlePane.floor };
           scene.add(pane.grid);
+          if (pane.id === 'perspective') {
+            pane.constraintPlane = 'xy'; pane.constraints = false;
+            const toolbar = document.createElement('div'); toolbar.className = 'quad-workplane-toolbar'; toolbar.setAttribute('role', 'toolbar'); toolbar.setAttribute('aria-label', 'Perspective workplane toolbar');
+            toolbar.style.cssText = 'position:absolute;bottom:3px;left:4px;display:flex;gap:4px;align-items:center;z-index:4;font:11px Tahoma,sans-serif;background:#18202bdd;color:white;padding:2px 4px;border-radius:3px';
+            toolbar.addEventListener('pointerdown', event => event.stopPropagation());
+            for (const [value, name] of [['xy', 'XY'], ['xz', 'ZX'], ['yz', 'YZ']]) {
+              const button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-pressed', String(value === pane.constraintPlane));
+              button.addEventListener('click', () => { cancelGesture(); pane.constraintPlane = value; for (const item of toolbar.querySelectorAll('button')) item.setAttribute('aria-pressed', String(item === button)); invalidate(); }); toolbar.appendChild(button);
+            }
+            const label = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = false; check.setAttribute('aria-label', 'Perspective Workplane Constraints');
+            label.title = 'On: Rotate stays locked to the chosen plane. Off: use the handles.'; label.append(check, 'Workplane Constraints');
+            check.addEventListener('change', () => { cancelGesture(); pane.constraints = check.checked; invalidate(); }); toolbar.appendChild(label); element.appendChild(toolbar);
+            Object.assign(pane, { constraintToolbar: toolbar, constraintLabel: label, constraintToggle: check });
+          }
           panes.push(pane); bindInput(pane); bindPane(pane);
           const saved = cameraMemory.current?.panes?.find(item => item.id === pane.id);
           if (saved) { state.restoreCamera(saved); state.center.copy(saved.center); state.radius = saved.radius; }
@@ -328,7 +343,7 @@ export default function Viewport(inputProps) {
     function selections(p) { return p.selectionByGeoset || { [p.selectedGeoset]: selectionArray(p.selectedVertices) }; }
     /** Workplane off in a single view: the Move tool shows the POSE arrows and plane squares at the selection. */
     function gizmoPivot(p) {
-      if (quad || p.transformMode !== 'translate' || p.workplaneEnabled !== false || !p.onTransform || p.onStartPartDrag || p.normalizer || p.presentation === 'preview' || p.sequenceIndex >= 0 || p.playing) return null;
+      if (!['translate', 'rotate'].includes(p.transformMode) || !p.onTransform || p.onStartPartDrag || p.normalizer || p.presentation === 'preview' || p.sequenceIndex >= 0 || p.playing) return null;
       const active = editableGeosets(p), pivot = new THREE.Vector3(); let count = 0;
       for (const [key, ids] of Object.entries(selections(p))) {
         const entry = state.entries[key], position = entry?.geometry.attributes.position, hidden = new Set(p.hiddenVertices?.[key] || []);
@@ -340,15 +355,7 @@ export default function Viewport(inputProps) {
       if (anchorEntry && selectionArray(selections(p)[anchor.geosetIndex]).includes(anchor.vertexIndex)) return pivot.fromBufferAttribute(anchorEntry.geometry.attributes.position, anchor.vertexIndex);
       return pivot.multiplyScalar(1 / count);
     }
-    /** An arrow moves along its axis and a square within its plane, under the pointer. */
-    function gizmoTranslation(start, end, drag) {
-      const handle = drag.handle, dx = end.x - start.x, dy = end.y - start.y;
-      if (handle.plane) return new THREE.Vector3().fromArray(projectedPlaneTranslation(handle.plane, planeScreenBasis(camera, drag.pivot, end.width, end.height, handle.plane), dx, dy));
-      const axis = 'XYZ'.indexOf(handle.axis), origin = drag.pivot.clone().project(camera), tip = drag.pivot.clone().setComponent(axis, drag.pivot.getComponent(axis) + 1).project(camera);
-      const ax = (tip.x - origin.x) * end.width / 2, ay = (origin.y - tip.y) * end.height / 2, pixels = ax * ax + ay * ay;
-      // An axis pointing at the camera keeps its short stand-in arrow and a steady speed.
-      return new THREE.Vector3().setComponent(axis, Math.hypot(handle.projectedDx, handle.projectedDy) < 18 ? movementDragAmount(handle, dx, dy, 'move') : (dx * ax + dy * ay) / pixels);
-    }
+    const currentLockedPlane = () => quad && boundPane.workplane ? lockedQuadPlane(boundPane.workplane, camera.getWorldDirection(new THREE.Vector3()).toArray()) : null;
     function screenPosition(value, rect) { const projected = value.clone().project(camera); return new THREE.Vector2((projected.x + 1) * rect.width / 2, (1 - projected.y) * rect.height / 2); }
     function anchorVertexInMarquee(p, start, end) {
       const active = editableGeosets(p), selected = selections(p), screen = new THREE.Vector3(), radius = Math.max(5, visualOptions(p.preferences).vertexSize / 2);
@@ -371,11 +378,12 @@ export default function Viewport(inputProps) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
       let action = event.button === 2 ? binding.right : event.button === 1 ? binding.middle : event.altKey ? 'rotate' : p.cameraMode;
-      if (action === 'pan' || quad && boundPane.workplane && action === 'rotate') action = 'move';
+      if (action === 'pan') action = 'move';
       return action;
     }
     // OrbitControls is used only for navigation. Capture configures it before its handler runs.
     function pointerDown(event) {
+      if (event.target.closest?.('.quad-workplane-toolbar')) return;
       if (down) return;
       // A click acts on the hover it was aimed at.
       hoverFrame.flush();
@@ -394,7 +402,7 @@ export default function Viewport(inputProps) {
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
       controls.enabled = true;
-      applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work', rotateAsPan: !!(quad && boundPane.workplane), preserveShift: !quad });
+      applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work', rotateAsPan: false, preserveShift: !quad });
       if (action === 'move' || action === 'rotate') return;
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
@@ -407,14 +415,14 @@ export default function Viewport(inputProps) {
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
       if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
-      const gizmoHandle = state.gizmoHandles?.length ? pickMovementHandle(state.gizmoHandles, start.x, start.y, 'move') : null;
+      const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,state.frame,p.sequenceIndex,camera,start.width,start.height,state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
           const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:event.shiftKey,ctrl:false});
           p.onSelectNodes(ids);down.action='node';
-          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:quad&&boundPane.workplane||p.workplane,workplaneEnabled:!!(quad&&boundPane.workplane)||p.workplaneEnabled!==false,delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
+          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:currentLockedPlane()||(quad ? boundPane.constraintPlane : p.workplane),workplaneEnabled:!!currentLockedPlane()||(quad ? boundPane.constraints !== false : p.workplaneEnabled !== false),delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
@@ -448,25 +456,21 @@ export default function Viewport(inputProps) {
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(pivot, start);
-      const lockedPlane = quad && boundPane.workplane;
+      const lockedPlane = currentLockedPlane(), dragPlane = lockedPlane || (quad ? boundPane.constraintPlane || p.workplane : p.workplane), constrained = !!lockedPlane || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
       if (down.action === 'rotate') {
-        const axis = [0, 1, 2].find(i => !planeAxes(lockedPlane || p.workplane).includes(i));
-        const turn = new THREE.Vector3().setComponent(axis, 1).transformDirection(camera.matrixWorldInverse);
-        down.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, p.rotationEditor || 'vertices'), x: down.x, y: down.y, pivot: down.pivotScreen, axis: turn.toArray() });
+        down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: pivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
+          workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor: p.rotationEditor || 'vertices' });
       }
-      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, event.shiftKey) };
+      if (down.rotationDrag?.constrained) invalidate();
     }
-    function translateInPlane(start, end, drag, constrain) {
-      if (drag.handle) return gizmoTranslation(start, end, drag);
-      if (!drag.workplaneEnabled) return freeDragTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, { shift: constrain, workplane: drag.workplane });
-      const axes = planeAxes(drag.workplane), center = screenPosition(drag.pivot, end);
-      const basis = axes.map(axis => { const value = drag.pivot.clone(); value.setComponent(axis, value.getComponent(axis) + 1); return screenPosition(value, end).sub(center).toArray(); });
-      const solve = quad ? quadProjectedPlaneTranslation : projectedPlaneTranslation;
-      return new THREE.Vector3().fromArray(solve(drag.workplane, basis, end.x - start.x, end.y - start.y, constrain));
-    }
-    /** Single view: Shift toggles mid-drag continue from the visible position. */
-    function shiftTranslation(end, drag, shift) {
-      return new THREE.Vector3().fromArray(shiftDragOffset(drag.latch, end, shift, (from, to, held) => translateInPlane(from, to, drag, held).toArray()));
+    function moveTranslation(drag, end, event) {
+      if (drag.handle) {
+        const gesture = drag.handleGesture ||= { handle: drag.handle, origin: drag.pivot, camera: camera.clone(), width: end.width, height: end.height };
+        return new THREE.Vector3().fromArray(gizmoMoveTranslation(gesture, end.x - drag.x, end.y - drag.y, event.shiftKey));
+      }
+      const result = solveViewMove(drag, end, event.shiftKey, camera, drag.pivot, end.width, end.height, quad);
+      return new THREE.Vector3().fromArray(moveOffset(result, surface.ownerDocument.defaultView, event));
     }
     function showBox(value) { setBox({ ...value, left: value.left + (boundPane.rect?.left || 0), top: value.top + (boundPane.rect?.top || 0) }); }
     function hoverParts(event) {
@@ -493,17 +497,16 @@ export default function Viewport(inputProps) {
         controls.update(); return;
       }
       if (down.action === 'select') { if (Math.hypot(dx, dy) > 5) showBox({ left: Math.min(down.x, end.x), top: Math.min(down.y, end.y), width: Math.abs(dx), height: Math.abs(dy) }); return; }
-      if(down.action==='node'){
-        const drag=state.nodeDrag;if(drag){drag.delta=quad?translateInPlane(down,end,drag,event.shiftKey):shiftTranslation(end,drag,event.shiftKey);drag.moved=Math.hypot(dx,dy)>1;invalidate();}
-        return;
-      }
-      if (!state.drag) return;
+      if (!state.drag && !state.nodeDrag) return;
       // Forge double-clicks tolerate a little hand movement without moving the piece.
       if (latest.current.onDoubleClickParts && !down.traveled) return;
       // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
       // turn between frames cannot flip direction. Repeating the last point adds nothing.
-      if (state.drag.rotationDrag) rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y);
-      transformMove = { down, rawEnd, end, dx, dy, shiftKey: event.shiftKey }; transformFrame.schedule();
+      if (state.drag?.rotationDrag) {
+        for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, sample.shiftKey); }
+        rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey);
+      }
+      transformMove = { down, rawEnd, end, dx, dy, clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey }; transformFrame.schedule();
     }
     // These run at the start of the next drawn frame, so the drag is drawn in that frame.
     const drawFrames = { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) };
@@ -513,6 +516,8 @@ export default function Viewport(inputProps) {
       const move = hoverMove; hoverMove = null; if (!move || down) return;
       if (move.pane) bindPane(move.pane);
       hoverParts(move.event); inspectHoveredGeoset(move.event);
+      const at = point(move.event), hovered = latest.current.cameraMode === 'work' ? pickMovementHandle(boundPane.gizmoHandles || [], at.x, at.y, latest.current.transformMode === 'rotate' ? 'rotate' : 'move')?.axis : null;
+      if (boundPane.hoverAxis !== hovered) { boundPane.hoverAxis = hovered; invalidate(); }
       if (move.pane) bindPane(activePane);
     }, drawFrames);
     // The zoom-anchor marquee searches every vertex; once per frame with the latest point.
@@ -532,25 +537,29 @@ export default function Viewport(inputProps) {
     let transformMove = null;
     const transformFrame = createFrameCoalescer(applyTransformMove, drawFrames);
     function applyTransformMove() {
-      const drag = state.drag, move = transformMove; transformMove = null; if (!drag || !move) return;
-      const { down, rawEnd, end, dx, dy } = move, event = move;
+      const drag = state.nodeDrag || state.drag, move = transformMove;
+      transformMove = null;
+      if (!drag || !move) return;
+      const { down, rawEnd, end, dx, dy } = move, event = move; drag.lastMove = move;
+      if (drag === state.nodeDrag) {
+        drag.delta = moveTranslation(drag, end, event);
+        drag.moved = Math.hypot(dx, dy) > 1;
+        invalidate(); return;
+      }
       const payload ={ selections: drag.selections, geosetIndex: latest.current.selectedGeoset, indices: drag.selections[latest.current.selectedGeoset] || [], pivot: drag.pivot.toArray() };
       const rotation = new THREE.Euler(), scale = new THREE.Vector3(1, 1, 1), translation = new THREE.Vector3();
       if (drag.action === 'translate') {
-        translation.copy(quad
-          ? translateInPlane(down, moveDragPoint(drag.move, end, event.shiftKey), drag, false)
-          : shiftTranslation(end, drag, event.shiftKey));
+        translation.copy(moveTranslation(drag, end, event));
         payload.translation = translation.toArray();
       }
       // Align only pulls inward and stops once everything is lined up.
       if (drag.action === 'scale' && drag.align) payload.scale = [1, 1, 1].fill(Math.min(1, dragScale(dx)[0]));
       else if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
       if (drag.action === 'rotate') {
-        let angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity) * Math.PI / 180;
-        const axis = [0, 1, 2].find(i => !planeAxes(drag.workplane).includes(i));
-        if (event.shiftKey) angle = Math.round(angle / (Math.PI / 12)) * Math.PI / 12;
-        const degrees = [0, 0, 0]; degrees[axis] = THREE.MathUtils.radToDeg(angle); payload.rotation = degrees;
-        rotation.set(degrees[0] * Math.PI / 180, degrees[1] * Math.PI / 180, degrees[2] * Math.PI / 180);
+        const angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey);
+        const degrees = [0, 0, 0], axis = drag.rotationDrag.axisName;
+        if (axis) degrees['XYZ'.indexOf(axis)] = angle;
+        payload.rotation = degrees; rotation.set(...degrees.map(THREE.MathUtils.degToRad));
       }
       const constrained=latest.current.constrainTransform?.(payload);
       if(constrained)Object.assign(payload,constrained);
@@ -590,7 +599,7 @@ export default function Viewport(inputProps) {
         }
         latest.current.onTransformPreview(center.map(value => value / count));
       }
-      drag.payload = payload; drag.moved = drag.action === 'translate' && quad ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
+      drag.payload = payload; drag.moved = drag.action === 'translate' && quad && !drag.handle ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
       invalidate();
     }
     function pointerUp(event) {
@@ -608,6 +617,7 @@ export default function Viewport(inputProps) {
       if (start.action === 'sketch') { if (event.type === 'pointercancel') sketch.cancel(); else sketch.end(); return; }
       if (start.action === 'parts') { partsFrame.flush(); if (start.parts) start.parts.finish(); else latest.current.onCancelPartDrag?.(); return; }
       if(start.action==='node'){
+        transformFrame.flush();
         const drag=state.nodeDrag;state.nodeDrag=null;
         if(event.type!=='pointercancel'&&drag?.moved)latest.current.onNodeTransform?.({nodeIds:drag.ids,mode:'move',space:'world',values:drag.delta.toArray(),restPose:true,workplaneEnabled:drag.workplaneEnabled,workplane:drag.workplane});
         invalidate();return;
@@ -686,6 +696,7 @@ export default function Viewport(inputProps) {
       p.onDoubleClickParts({ start: { ...end, shift: event.shiftKey }, end, camera, grabThrough: false, mode: p.mode });
     }
     function cancelGesture() {
+      if (state.nodeDrag || state.drag) clearMoveLock(surface.ownerDocument.defaultView);
       editClicks = 0;
       partsFrame.cancel(); partsMove = null; anchorFrame.cancel(); anchorMove = null;
       if (down?.action === 'parts') down.parts?.cancel();
@@ -707,6 +718,12 @@ export default function Viewport(inputProps) {
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
     const gestureKey = event => {
+      if (event.key === 'Shift' && (state.nodeDrag || ['translate','rotate'].includes(state.drag?.action))) {
+        transformFrame.flush();
+        const last = (state.nodeDrag || state.drag)?.lastMove;
+        if (last) { transformMove = {...last, shiftKey: event.type === 'keydown'}; transformFrame.schedule(); invalidate(); }
+        return;
+      }
       if(event.key==='Shift') {
         const shift=event.type==='keydown';
         // A frame still waiting from the last move carries the old Shift; replace it now.
@@ -716,8 +733,7 @@ export default function Viewport(inputProps) {
       }
       if (!quad) return;
       if (event.key === 'Escape' && event.type === 'keydown' && down) { cancelGesture(); event.preventDefault(); event.stopPropagation(); }
-      // Modifier transitions must reset the latch even if the mouse is still.
-      if (quad && event.key === 'Shift' && state.drag?.action === 'translate') moveDragPoint(state.drag.move, state.drag.move.pointer, event.shiftKey);
+
     };
     // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
@@ -728,7 +744,7 @@ export default function Viewport(inputProps) {
       claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
     };
     const contextMenu = event => event.preventDefault();
-    const pointerLeave = () => { if (!down) { hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
+    const pointerLeave = event => { if (!down) { const pane = quad ? panes.find(pane => pane.surface === event.currentTarget) : singlePane; if (pane?.hoverAxis) { pane.hoverAxis = null; invalidate(); } hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
@@ -888,12 +904,28 @@ export default function Viewport(inputProps) {
           if (!editCanvas) { editCanvas = document.createElement('canvas'); editCanvas.dataset.editHandles = ''; editCanvas.setAttribute('aria-label', 'Shaping handles'); editCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(editCanvas); }
           drawEditHandles(editCanvas, p.editHandles, camera, surface.clientWidth, surface.clientHeight, renderer.getPixelRatio());
         } else if (editCanvas) { editCanvas.remove(); editCanvas = null; }
-        const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera);
-        state.gizmoHandles = gizmoScreen ? movementAxisHandles({ world: gizmoAt, x: (gizmoScreen.x + 1) * surface.clientWidth / 2, y: (1 - gizmoScreen.y) * surface.clientHeight / 2, visible: gizmoScreen.z >= -1 && gizmoScreen.z <= 1 }, camera, surface.clientWidth, surface.clientHeight, state.radius, 'world', 'move') : [];
-        if (state.gizmoHandles.length) {
+        if (boundPane.constraintToolbar && boundPane.constraintLanguage !== p.preferences?.language) {
+          const language = p.preferences?.language;
+          boundPane.constraintToolbar.setAttribute('aria-label', translate('Perspective workplane toolbar', language));
+          boundPane.constraintToggle.setAttribute('aria-label', translate('Perspective Workplane Constraints', language));
+          boundPane.constraintLabel.title = translate('On: Rotate stays locked to the chosen plane. Off: use the handles.', language);
+          boundPane.constraintLabel.lastChild.textContent = translate('Workplane Constraints', language);
+          boundPane.constraintLanguage = language;
+        }
+        const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera), locked = !!currentLockedPlane() || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
+        const appearance = viewportAppearanceOptions(p.preferences).controllers;
+        boundPane.gizmoHandles = gizmoScreen && !locked ? movementAxisHandles({ world: gizmoAt, x: (gizmoScreen.x + 1) * surface.clientWidth / 2, y: (1 - gizmoScreen.y) * surface.clientHeight / 2, visible: gizmoScreen.z >= -1 && gizmoScreen.z <= 1 }, camera, surface.clientWidth, surface.clientHeight, state.radius, 'world', p.transformMode === 'rotate' ? 'rotate' : 'move', appearance) : [];
+        state.gizmoHandles = boundPane.gizmoHandles;
+        const feedback = state.drag?.rotationDrag && state.drag.paneId === boundPane.id ? state.drag.rotationDrag : null;
+        if (boundPane.gizmoHandles.length || feedback) {
           if (!gizmoCanvas) { gizmoCanvas = document.createElement('canvas'); gizmoCanvas.dataset.moveGizmo = ''; gizmoCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2'; overlayHost.appendChild(gizmoCanvas); }
           gizmoCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); gizmoCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
-          drawMovementGizmo(gizmoCanvas.getContext('2d'), state.gizmoHandles, renderer.getPixelRatio(), state.drag?.handle?.axis, viewportAppearanceOptions(p.preferences).controllers);
+          drawMovementGizmo(gizmoCanvas.getContext('2d'), rotationDisplayHandles(boundPane.gizmoHandles, feedback), renderer.getPixelRatio(), state.drag?.handle?.axis || boundPane.hoverAxis, appearance);
+          drawGizmoRotationFeedback(gizmoCanvas.getContext('2d'), feedback, renderer.getPixelRatio());
+          gizmoCanvas.dataset.activeHandle = state.drag?.handle?.axis || boundPane.hoverAxis || '';
+          gizmoCanvas.dataset.rotationFeedback = feedback ? `${feedback.axisName || ''} ${feedback.degrees}` : '';
+          gizmoCanvas.dataset.rotationMode = feedback ? feedback.circle ? 'circle' : 'line' : '';
+          gizmoCanvas.dataset.rotationDirection = feedback?.tangent ? `${feedback.tangent.x},${feedback.tangent.y}` : '';
         } else if (gizmoCanvas) { gizmoCanvas.remove(); gizmoCanvas = null; }
         if(p.detailMagnet&&(!quad||boundPane===activePane)){
           if(!magnetButton){

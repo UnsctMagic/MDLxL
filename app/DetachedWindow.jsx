@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import ShiftLockBadge from './ShiftLockBadge.jsx';
 import { createPortal } from 'react-dom';
 import { applyApplicationTheme } from './theme.js';
 
@@ -71,5 +72,5 @@ export default function DetachedWindow({ childWindow, title, preferences, onClos
     if (childWindow && !childWindow.closed) applyApplicationTheme(preferences, childWindow.document);
   }, [childWindow, preferences]);
 
-  return container ? createPortal(children, container) : null;
+  return container ? createPortal(<>{children}<ShiftLockBadge ownerWindow={childWindow}/></>, container) : null;
 }
