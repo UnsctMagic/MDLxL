@@ -1,6 +1,6 @@
 # Sphereomancer v2: five presets, Add sphere/square, EMTR-style handles, no black flashing
 
-Status: owner approved merge; integration verification passed
+Status: completed; merged in PR #507 at 2afb23f75b55dd607f61a4116b79ecdb00d83567
 Owner / consolidator: Codex implements; Claude reviews and merges on the owner's word
 Updated: 2026-11-02
 
@@ -172,6 +172,6 @@ Not exercised: native Warcraft III playback. The owner authorized merging after 
 
 The owner explicitly approved merging PR #507 after trying the updated test. Current main 04082fb4 is integrated on the feature branch; conflicts were limited to adjacent rows in the agent map and task index. Both the collision-clock reference and main's Library review reference are retained; unrelated current task rows follow main. The completed Sphereomancer row is removed from the current-task index. GamePreview auto-merges main's particle preview sizing/frame-scheduler additions with the collision renderer lifetime changes. Integrated verification: 96 focused source passed / 0 failed / 0 skipped; the same rebuilt bundle passed hidden optimizexl (153s) and model-manager-regressions (6s), 2 passed / 0 failed / 0 skipped. All thirteen owner-popup checks pass and all six 120-frame cases show zero mostly-black frames in either pane. Small evidence is retained at D:\Codex\sphereomancer-v2-owner-results\merge. No release, tag or owner installation change.
 
-## Blockers and next action
+## Completion
 
-- Owner approved merge of [PR #507](https://github.com/UnsctMagic/MDLxL/pull/507); main integration verification passed. Merge through that PR, verify online main and record the merge revision. No release or tag.
+- [PR #507](https://github.com/UnsctMagic/MDLxL/pull/507) merged with owner approval at `2afb23f75b55dd607f61a4116b79ecdb00d83567` on 2026-11-02. Fetched online main contains tested integration `a1dd4552f63fab7c291ea4e79f2fc3056d545df5`; app, src and test contents match the verified bundle exactly. The task is absent from the current-task index. No release, tag or owner installation change was performed. Temporary checkout/runtime/profiles are removed after handover; small merge verification remains in D:\Codex\sphereomancer-v2-owner-results\merge.
