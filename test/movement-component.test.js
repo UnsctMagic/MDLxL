@@ -145,6 +145,15 @@ test('timeline displays the live frame without an effect-driven duplicate frame 
   assert.match(html,/<input[^>]*aria-label="Playback speed percent"[^>]*value="100"/);
 });
 
+test('Rotate around Axis sits right under Current Sequence in Movement and Animations',()=>{
+  const cameraPanel=React.createElement('fieldset',{className:'camera-angle-panel'});
+  for(const [component,next] of [[Movement,'<summary>Object</summary>'],[Animation,'<summary>Sequence Properties</summary>']]) {
+    const html=renderToStaticMarkup(React.createElement(component,{model:fixture(),sequenceIndex:0,time:0,selectedNodeIds:[],selectedGeosets:[],cameraPanel}));
+    const sequence=html.indexOf('<summary>Current Sequence</summary>'),camera=html.indexOf('camera-angle-panel');
+    assert.ok(sequence>=0 && sequence<camera && camera<html.indexOf(next));
+  }
+});
+
 test('Animations exposes every toolbox group as a default-open collapsible section',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:0,time:0,selectedGeosets:[]}));
   for(const title of ['Current Sequence','Sequence Properties','Visibility &amp; Color']) assert.match(html,new RegExp(`<summary>${title}<\\/summary>`));

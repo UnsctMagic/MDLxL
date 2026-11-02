@@ -38,7 +38,7 @@ async function run(note='') {
   }
   fs.writeFileSync(path.join(profile,'ai/codex/config.toml'),'model = "gpt-6-luna"\nmodel_reasoning_effort = "low"\n');
   // Native settings support "default", so the copied provider config owns the requested low effort.
-  fs.writeFileSync(path.join(profile,'ai','connections.json'),JSON.stringify({provider,enabled:false,offload:true,routing:'manual',outsideCheck:true,providers:{codex:{model,effort:'default',allowLighter:false}},editingHandbook:true}));
+  fs.writeFileSync(path.join(profile,'ai','connections.json'),JSON.stringify({provider,enabled:false,outsideCheck:true,providers:{codex:{model,effort:'default'}},editingHandbook:true}));
   const bytes=fs.readFileSync(path.join(__dirname,'fixtures/ai-real-use/helmet.mdx'));
   const motionSource = scenarios.some(s => s.kind === 'motion') ? fs.readFileSync(path.join(__dirname, 'fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx')) : null;
   const motionFixtures = new Map();
@@ -120,10 +120,10 @@ async function run(note='') {
     // The document serializer, rather than mesh-only snapshots, captures every
     // animation/channel for the pure motion grader.
     const serialized = () => page.evaluate(() => Array.from(window.mdlxlProbe().session.doc.serialize('mdx')));
-    // Saved chat trees include workers: their tool errors and final text matter too.
+    // Inspect the direct model chat: tool errors and final text matter too.
     const chats=id=>{
       const seen=new Set(),all=[];
-      const visit=key=>{if(!key||seen.has(key))return;seen.add(key);const file=path.join(profile,'ai','chat-'+key+'.json');if(!fs.existsSync(file))return;const c=JSON.parse(fs.readFileSync(file));all.push({id:key,task:c.task,transcript:c.transcript||[]});for(const w of c.workers||[])visit(w.id);};visit(id);return all;
+      const visit=key=>{if(!key||seen.has(key))return;seen.add(key);const file=path.join(profile,'ai','chat-'+key+'.json');if(!fs.existsSync(file))return;const c=JSON.parse(fs.readFileSync(file));all.push({id:key,task:c.task,transcript:c.transcript||[]});};visit(id);return all;
     };
     measurements: for(let repeat=1;repeat<=(authUnavailable?1:repeats);repeat++)for(const scenario of scenarios) {
       console.log(`MEASURING repeat ${repeat}/${repeats}: ${scenario.id}`);

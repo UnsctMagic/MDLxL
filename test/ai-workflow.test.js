@@ -305,7 +305,7 @@ test('the outside check can be switched off in connection settings', async t => 
   assert.equal(f.checks.length, 0, 'no extra AI call while it is off');
 });
 
-test('outside check receives the app motion table independently of the worker checks', async t => {
+test('outside check receives the app motion table independently of the editing AI checks', async t => {
   const f = await setup(t, ({ requests }) => requests === 1 ? plan() : requests === 2 ? edit() : requests === 3
     ? tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }) : requests === 4
       ? tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Measured.' }) : done());
@@ -317,7 +317,7 @@ test('outside check receives the app motion table independently of the worker ch
   };
   await f.service.send({ id: 'motion-table', text: 'Make the animation smaller, keep its motion.', context });
   const question = JSON.stringify(f.checks[0].messages);
-  assert.match(question, /MDLxL's own measurement, not written by the worker/);
+  assert.match(question, /MDLxL's own measurement, not written by the editing AI/);
   assert.match(question, /First.*distance.*40/);
 });
 
@@ -798,22 +798,22 @@ test('owner replay: absent comparison evidence is a note and does not block fini
 });
 
 
-for (const offload of [false, true]) test(`owner replay: explicit delivery completes the kept result without another provider call (${offload ? 'offload' : 'direct'})`, async t => {
+test('owner replay: explicit delivery completes the kept result without another provider call', async t => {
   const actions = [plan(), edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The picture packet omits baseline and wireframe.' })];
   const f = await setup(t, () => actions.shift() || done());
-  const id = offload ? (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id : 'test';
+  const id = (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id;
   assert.equal((await f.service.send({ id, text: ownerTurns.turns['27'].text, context })).ok, false);
   const owner = await f.service.conversation(id, 'compatible');
-  const bird = offload ? await f.service.conversation(owner.currentWorker, 'compatible') : owner;
-  bird.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
+  const chat = owner;
+  chat.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
   const before = f.counts();
   assert.equal(before.edits, 1);
   assert.equal((await f.service.send({ id, text: ownerTurns.turns['33'].text, context })).ok, true);
   assert.deepEqual(f.counts(), before, 'acceptance performs no edit and makes no provider request');
   assert.equal(owner.task.status, 'complete');
-  assert.equal(bird.task.status, 'complete');
-  assert.equal(bird.task.phase, 'verified');
-  assert.equal(bird.task.acceptedByUser, true);
+  assert.equal(chat.task.status, 'complete');
+  assert.equal(chat.task.phase, 'verified');
+  assert.equal(chat.task.acceptedByUser, true);
   assert.match(owner.transcript.at(-1).text, /accepted|accepting/i);
   assert.match(owner.transcript.at(-1).text, /wireframe/);
   assert.equal((await f.service.taskInfo(id)).canResume, false);

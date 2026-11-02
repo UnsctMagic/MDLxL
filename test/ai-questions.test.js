@@ -8,7 +8,7 @@ import { recordAiEvent } from '../src/ai-transcript.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
-const { AiRecorder, settleConversation } = require('../electron/ai-offload.cjs');
+const { AiRecorder, settleConversation } = require('../electron/ai-chat-state.cjs');
 const { runCodex, CodexProcess } = require('../electron/ai-providers.cjs');
 async function setup(t) {
   const profile = tempDir('mdlxl-questions-');
@@ -29,10 +29,9 @@ async function setup(t) {
 const question = { id: 'arms', header: 'Arms', question: 'Swap motion or physical sides?', options: [{ label: 'Motion', description: 'Keep the mesh' }, { label: 'Sides', description: 'Move the mesh' }] };
 const response = text => ({ arms: { answers: [text] } });
 
-test('native question reaches organiser and bird; selected and custom answers return to the original RPC', async t => {
+test('native question reaches the model chat; selected and custom answers return to the original RPC', async t => {
   const { service, events, chat } = await setup(t);
-  const parent = chat('organiser'), bird = chat('crow');
-  service.tasks.set('organiser', { id: 'organiser', recorder: parent.recorder, workers: new Map([['crow', {}]]), controller: new AbortController() });
+  const direct = chat('model');
   await fs.copyFile(new URL('./fixtures/ai-question-agent.cjs', import.meta.url), path.join(service.directory, 'agent.js'));
   await fs.mkdir(path.join(service.directory, 'bin'));
   const executable = path.join(service.directory, 'bin', process.platform === 'win32' ? 'codex.cmd' : 'codex');
@@ -41,30 +40,30 @@ test('native question reaches organiser and bird; selected and custom answers re
   const emit = service.emit;
   service.emit = event => {
     emit(event);
-    if (event.type === 'question' && event.id === 'organiser') {
+    if (event.type === 'question' && event.id === 'model') {
       assert.throws(() => service.answerQuestion({ questionId: event.questionId, answers: {} }), /Answer each/);
-      assert.equal(parent.conversation.transcript.at(-1).parts.at(-1).status, 'running');
+      assert.equal(direct.conversation.transcript.at(-1).parts.at(-1).status, 'running');
       service.answerQuestion({ questionId: event.questionId, answers: { arms: { answers: ['Swap animation'] }, keep: { answers: ['Keep shoulders and enlarged axe'] } } });
       assert.throws(() => service.answerQuestion({ questionId: event.questionId, answers: response('Sides') }), /no longer/);
     }
   };
-  await runCodex({ settings: { executable }, directory: service.directory, tools: [], call: () => {}, system: '', prompt: 'Switch the arms', conversation: bird.conversation, images: [], signal: new AbortController().signal,
-    event: value => bird.recorder.event(value), askUser: (params, signal) => service.askUser(bird.conversation, bird.recorder, params, signal) });
+  await runCodex({ settings: { executable }, directory: service.directory, tools: [], call: () => {}, system: '', prompt: 'Switch the arms', conversation: direct.conversation, images: [], signal: new AbortController().signal,
+    event: value => direct.recorder.event(value), askUser: (params, signal) => service.askUser(direct.conversation, direct.recorder, params, signal) });
   const received = JSON.parse((await fs.readFile(path.join(service.directory, 'question-answers.jsonl'), 'utf8')).trim());
   assert.equal(received.id, 'native-question');
   assert.deepEqual(received.result.answers, { arms: { answers: ['Swap animation'] }, keep: { answers: ['Keep shoulders and enlarged axe'] } });
-  assert.equal(events.filter(e => e.type === 'question').length, 2);
-  assert.equal(events.filter(e => e.type === 'question-result').length, 2);
-  for (const target of [parent, bird]) {
+  assert.equal(events.filter(e => e.type === 'question').length, 1);
+  assert.equal(events.filter(e => e.type === 'question-result').length, 1);
+  for (const target of [direct]) {
     const saved = JSON.parse(await fs.readFile(path.join(service.directory, 'chat-' + target.conversation.id + '.json')));
     const part = saved.transcript.flatMap(m => m.parts || []).find(p => p.type === 'question');
     assert.equal(part.status, 'done'); assert.deepEqual(part.answers, received.result.answers);
   }
-  assert.match(bird.recorder.reply.text, /Answer received: Swap animation/);
+  assert.match(direct.recorder.reply.text, /Answer received: Swap animation/);
   assert.equal(service.questions.size, 0);
 });
 
-test('concurrent birds have independent pending questions and Stop clears only its own request', async t => {
+test('concurrent model chats have independent pending questions and Stop clears only its own request', async t => {
   const { service, chat } = await setup(t), one = chat('one'), two = chat('two');
   const stopOne = new AbortController(), stopTwo = new AbortController();
   const a = service.askUser(one.conversation, one.recorder, { questions: [question] }, stopOne.signal);

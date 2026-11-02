@@ -67,6 +67,7 @@ function SpeedControl({ label, value, disabled, onCommit }) {
 
 /** Screenshot-faithful Animations toolbox. Movement remains in its own tab. */
 export default function AnimationController({
+  cameraPanel = null,
   model, revision = 0, sequenceIndex = -1, globalSeqId = null, time = 0,
   selectedGeosets = [], selectedNodeIds = [], materialVisibility = null, onEdit, onSeek, onTimelineChange,
   disabled = false,
@@ -347,7 +348,7 @@ export default function AnimationController({
       <option value={-1}>All line</option>
       {(model.Sequences || []).map((item, index) => <option key={index} value={index} translate="no">{item.Name}</option>)}
       {(model.GlobalSequences || []).map((duration, index) => <option className="global-sequence-value" style={{ color: '#d00000' }} key={`global:${index}`} value={`global:${index}`}>{duration}</option>)}
-    </select></span></label></SidebarSection>
+    </select></span></label></SidebarSection>{cameraPanel}
     <SidebarSection title="Sequence Properties">
     <div className="ac-caption">Sequence properties:</div>
     <div className="ac-properties">

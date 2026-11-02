@@ -73,6 +73,8 @@ for example) never show a popup.
   key down (auto-repeat) counts once.
 - A click that the hotkey system makes itself, or Enter/Space on a focused
   button, is not a mouse click and shows no popup.
+- Mouse reminders render after the native click completes, so React receives a
+  checkbox change before a reminder render can restore its controlled value.
 
 ## Settings
 

@@ -1,8 +1,8 @@
 # EMTR: add an effect the way ribbons are added
 
-Status: contract ready; Codex to build on PR #491's branch
+Status: ready for review; awaiting merge approval (PR #491, unmerged)
 Owner / consolidator: Codex (build); Claude Code (review and contract)
-Updated: 2026-11-01
+Updated: 2026-11-02
 
 ## Goal and completion criteria
 
@@ -28,12 +28,80 @@ things": this contract replaces the §12.2 placement panel shape with the ribbon
 ## Revision and local state
 
 - Build on: `codex/emtr-library-browse` ([PR #491](https://github.com/UnsctMagic/MDLxL/pull/491)),
-  reviewed at `a5c5a17e`. It is still blocked on the owner's placement bug; this
-  contract is that fix, widened to the whole flow.
+  based on `a5c5a17e`. This implementation addresses the owner's placement bug and the full R1–R9 flow.
 - Contract branch: `claude/emtr-placement-contract` (documentation only).
 - Owner's live review app/profile `D:\Codex\mdlxl-491-particle-review`: preserve it.
 
-## Relevant owners (at `a5c5a17e`)
+## Main integration (2 November 2026)
+
+Integrated in D:/Codex/mdlxl-491-main-integration, continuing 518c1a5c and merging origin/main a358ea18, then af85b712 after PR #506 landed during verification. Owner reports Claude independently read all ten review corrections and passed 89/89 focused units on 518c1a5c; Claude did not rerun packaged checks. This is the incoming review verdict, separate from Codex's integration checks below.
+
+Conflict resolution keeps main's WorldEditorTree data/icons/catalogue cache, FolderStyle and LibraryTree. The PR's BrowserToolbar/BrowserTree/BrowserFrame and browser prop remain; BrowserTree delegates actual virtual rows and navigation to main's LibraryTree, with the existing EMTR visible-row callback, reset key, row metadata/status and tooltip forwarded. Main's Models, Sounds and All files keep their existing data/read/selection routes. The auto-merges in App.jsx (selection attachment versus camera/sidebar changes), GamePreview.jsx (particle snap/reporting versus collision shapes), game-file-library.cjs (shared locale table reads versus optional metadata-only texture resolution), map and task index were checked against both parents; no competing owner was introduced.
+
+The interval validation message is now "This animation has no length." No controls or other wording change.
+
+Resume trade-off: manifest.json and catalog.json are saved together at checkpoint 1, then every fourth checkpoint (5/9/etc.), plus final completion or graceful cancellation. Progress still reports every checkpoint. An abrupt process/PC failure can require repeating work since the last publication (normally the three intervening checkpoint groups plus in-flight work); recipe files already written are retained and stable identities make re-extraction safe. Keeping the manifest/catalogue pair aligned avoids marking assets processed while their catalogue records are absent. This deliberately accepts limited redo after a crash to avoid serializing the full catalogue and rebuilding browse data at every checkpoint; the first usable results still publish early, and normal completion/cancellation saves the latest state. Saving manifest alone more often would invalidate that pairing.
+
+Final integrated package: **144 focused/related units passed / 0 failed / 0 skipped** (the eight requested particle files plus game-file-library, world-editor-textures, texture-library and texture-library-session). Build/package passed: 1,382 runtime/asset files and 55 locales. The updated wording test failed against the old message with `The input did not match the regular expression /This animation has no length/`; it passes with the requested plain wording. An initial nine missing-runtime failures came from starting Library units before build completion; that related file passed after the runtime was built, and the final complete focused run passed 144/144.
+
+Final hidden package, real mouse/keyboard, no visible windows: **8 workflows passed / 0 failed / 0 skipped**: particle-library-layout, particle-library-browse, particle-library-indexing, game-file-library (new texture contract only), library-textures-review, library-browser-integration, placement P1/P4/P5/P6 and the separate single-vertex owner workflow. Main's textures contract passed T1–T8/T10 and cached lookup (T9's UV/material flow was not rerun); its review harness passed A1/A4/A2 including no Standard worker during World Editor and a working Standard phrase search afterwards. The integrated browser passed five checks covering Left/Right/Down, model preview/rotation, Enter and double-click, Standard/World Editor toggle, Sounds/ArrowDown and All files. P1/P4/P5/P6: **4/0/0**; 100 px real P5 drag moved the native emitter **100.0000 px**, rendered particles **100.8490 px**. Exact owner sequence: one hand vertex (274) selected by pointer → EMTR → Library single click → Add to model → Create; the initial Lab recipe differed, and the created native emitter name/texture matched the clicked recipe, on hand bone 18 at that vertex. Indexing: 3,501 candidates resumed into 4,589 readable recipes and 142 thumbnails.
+
+Harness corrections were measured before rerun: copied Recovery opened asynchronously and hid the Library, so the layout setup now waits for that read-only startup condition before closing the copied dialog by mouse; hidden Chromium screenshot capture stalled, so the main texture checks use the existing Electron capturePage mechanism with stayHidden/stayAwake; the new browser check now targets the active opened model tab and waits for the requested search row rather than clicking stale rows. No assertion/baseline was weakened, no product controls changed for those harness corrections, and only failed/related checks were rerun. Main's newly merged texture checks use mouse/keyboard for source switching and typing.
+
+[Measured results and exact tested bundle hashes](../../test/evidence/emtr-add/integration-results.json), [single-vertex proof](../../test/evidence/emtr-add/owner-workflow-results.json). P1/P4/P5/P6 and owner-workflow screenshots are alongside them. The final revision is the merge commit carrying this entry; GitHub CI for that pushed revision is linked in the PR description/checks, and the final handoff waits for it to pass. Small logs: D:/Codex/mdlxl-491-main-integration-report.
+
+No local full-suite rerun. P2/P3/P7–P10, the other packaged workflows, the full ribbon corpus, Warcraft III gameplay and independent QA on the integrated head were not rerun. Both particle-review and add-owner-test, including their running apps and unsaved edits, were preserved unchanged. Ready for review; awaiting merge approval. No PR merge or release.
+
+## Static-review follow-up (2 November 2026)
+
+Continued 4f6e7bd7 on codex/emtr-library-browse in D:/Codex/mdlxl-491-review-fixes. The incoming review was static; the following checks were run before accepting its corrections.
+
+1. **Source motion:** no inferred parent now selects source motion; attached effects keep target motion. Surface snap infers the same default after changing parent. Authored helper Translation/Rotation/Scaling survive unattached insertion; the unit check measures travel across the fitted clip.
+2. **Visibility/window validity:** the shared placement validator rejects no checked animations and every nonpositive selected/retiming interval before copying any nodes/resources. Create uses that same validator. Models without animations remain supported. The prior invisible-ribbon/empty-list test was updated because this review explicitly changes that behaviour.
+3. **Unsupported ingredients:** the Library toolbar disables Add to model for unsupported selections. Both the selection action and the loaded-recipe add route reject unsupported ingredients before replacing the Lab, matching the copy API's compatibility rule. Open in Lab remains available for inspection.
+4. **Preview clock:** a graph rebuild keeps time and pause state while time remains in the valid interval. Selecting a different interval that excludes the current time keeps the existing start/play behaviour. No controls or wording were added.
+5. **Coverage:** unknown Standard appearance categories fall back to Other. World Editor exclusions are deliberate under the owner's special-effects-only request: unit/hero Model-only, non-blood Death/Special-only and unassociated non-ability records remain absent there. They are all retained in Standard and the catalogue. This distinction is explicit in contract §11.1a/§11.3 and tested.
+6. **Empty shared rows:** Blood & death and Other effects iterate the same nonempty, id-keyed stock map as object folders.
+7. **Wrapper names:** a unique native-style _Anchor helper name is derived from the authored emitter name, bounded to fit native name fields. It cannot collide with the emitter or another existing node; friendly catalogue names remain unchanged.
+8. **Checkpoint cost:** publish catalogue, resume manifest and browse sidecar together at checkpoints 1/5/9/etc. and final/cancel save; report progress at every checkpoint. This prevents mismatched saved revisions and keeps the first usable catalogue available before object-table preparation. The actual checkpoint-body test measures 4 full browse rebuilds for 10 checkpoints, versus 10 before correction.
+9. **Thumbnail cost:** locally arriving thumbnails live in an id→URL map outside catalogue/tree inputs. rowIcon and the visible thumbnail queue read the map, keyed also by source and preview sample. Thumbnail arrival no longer replaces catalog.items or rebuilds the 5k tree.
+10. **Cleanup:** removed the unshipped revision-2 browse fallback and the unreachable folder-status filter clause; combined the two particle-review imports. Current revision data, user names/favorites and personal presets retain their existing paths. The previous revision-2 test now asserts rejection offline and automatic rebuild when connected, as requested.
+
+Fail-first on 4f6e7bd7: eight new assertions failed for source helper motion, no checked animation, zero-duration interval, unsupported button state, unsupported loading, duplicate wrapper name, unknown Standard category, and empty shared World Editor rows. Additional old-code checks failed for revision-2 rejection and checkpoint frequency (10 rebuilds instead of 4). The deliberate World Editor subset check passes on both versions. The fixture for the native-name round trip sets native Squirt=false explicitly; no unrelated codec change was made.
+
+Verification: **114 focused/related unit tests passed / 0 failed / 0 skipped**. Files: particle-add-like-ribbons, particle-world-effects, particle-library, particle-placement, particle-ribbon-fit, particle-preview, live-drag-frames, particle-reentry and particle-library-browse. Build/package verification passed (1,381 runtime/asset files, 55 locales).
+
+Hidden packaged **P1/P4/P5/P6: 4 passed / 0 failed / 0 skipped** with real mouse/keyboard. P5's 100 px mouse drag moved the emitter 100.0 px and rendered particles 100.8 px. P4 and P6 additionally check that Visibility and surface-parent rebuilds retain a valid paused frame. **Library browse/indexing: 2 passed / 0 failed / 0 skipped**; resumed 3,501 candidates, 4,589 readable recipes, 142 visible thumbnail images, and responsive browse returns. [Current measured results/bundle hashes](../../test/evidence/emtr-add/review-results.json).
+
+Per the owner's request, no local full suite was rerun. P2/P3/P7–P10, the other packaged workflows, the full ribbon corpus, Warcraft III gameplay and independent Claude QA were not rerun in this follow-up. Earlier results below are historical, not a claim that those checks ran again. No baseline or skip was widened. Small logs: D:/Codex/mdlxl-491-review-fixes-report.
+
+Historical pre-integration check at 518c1a5c: main f6a5c0d2 conflicted in GameFileBrowser.jsx and no Actions run was available. That blocker is resolved by the main integrations above.
+
+The visible owner test and D:/Codex/mdlxl-491-particle-review were not edited or restarted. Ready for review; awaiting merge approval. No merge or release.
+
+## Implementation (1 November 2026)
+
+The toolbar and stage Add routes share Library recipe reading and load-then-place. Selected vertices use the extracted ribbon influence rule in `src/particle-selection.js`. App forwards a single selected bone, helper or attachment for the no-vertex pivot fallback; other node kinds fall back to the origin. One placement panel serves effects and ribbons. Local tracks fit each checked animation; globals and unrelated target data remain unchanged. The recipe-copy API is unchanged.
+
+Placement uses the shared ribbon circle at the native emitter point. Its pointer basis uses displayed canvas pixels, including UI scaling, and its updates use the preview frame scheduler. Moving the wrapper replays the actual particle simulation. Snap retains its button/double-click interaction and takes the parent from the hit face. The stage retains its last valid graph on error. Create selects the effect in On model with the requested message; existing move and key-track controls remain. Clicking a timing diamond now gives it keyboard focus, matching the stage handles.
+
+Native wrapper names use the authored emitter name rather than a Unicode gallery caption, so inserting a friendly-named recipe remains saveable. Catalogue metadata and source recipes are unchanged.
+
+New checks: `test/particle-add-like-ribbons.test.js` (six source cases), the real opening action in `test/particle-reentry.test.js` (bone/helper/attachment forwarding) and `test/emtr-add-like-ribbons.electron.cjs` (P1–P10, plus after-Create handle/key-track input). The latter uses the real SD Footman, three visible hand vertices, Fireball Missile and Howl of Terror recipes, and a copied indexed recipe with a deliberately unavailable source identity. All input is real mouse/keyboard on the hidden desktop. It measures native emitter and rendered particle displacement, target anchoring and animated sword attachment, exact serialized Undo/Redo/Cancel, and camera rotation.
+
+Fail-first: the frozen `a5c5a17e` package reports “P1 placement must contain the clicked Library effect, not starter Soft sparks: Soft sparks”. The first corrected package exposed a native Unicode helper-name save failure. The drag check then measured only 91.7 pixels of movement for a 100-pixel pointer drag and no particle movement; the display-pixel basis and replay correction address those two paths. The after-Create check failed “R9 existing key track changes effect visibility” before the shared diamond focus correction. The selected-helper opening check also failed `undefined !== 4` before App forwarded helpers and attachments. These failures were measured before the corresponding changes.
+
+## Previous verification — 1 November package
+
+P1–P10: **10 passed / 0 failed / 0 skipped**, hidden desktop with real mouse and keyboard. P1 compares the clicked native emitter and texture, the copied graph's hand parent, and the actual native emitter at the selected vertex centre. P5 measured 100.0 px emitter movement and 101.0 px rendered-particle movement for a 100 px drag, with unchanged camera. P6 proves the snapped point and animated sword parent (bone 19). After Create the same handle moved 50.0 px for a 50 px drag; a real click and arrow key changed the timing diamond. Cancel/Esc and Undo/Redo restore exact model bytes. P10 retains ribbon creation/edge editing, Glow Up and browsing; its camera drag starts on empty canvas, outside the glow resize handles.
+
+All five final packaged Library workflows passed: layout, previews, copy, browse and indexing (**5 / 0 / 0**). The resumed scan processed 3,501 candidates into 4,589 readable recipes; virtual scrolling loaded thumbnails beyond the initial snapshot. Source: **2,647 passed / 0 failed / 10 existing skips**; focused placement/opening/ribbon/preview/frame tests **80 / 0 / 0**; compatibility **57 / 0 / 0**. Vite build (config loader runner) and package verification passed: **1,381 runtime/asset files, 55 locales**. No failure baseline was changed. The ten source skips are the existing Windows SIGTERM/symlink/8.3 limitations and optional archer, private Fx, skin-pair, twin-head, Tinker/Brown Magnataur and two POSE corpus inputs.
+
+[Measured results and exact tested bundle hashes](../../test/evidence/emtr-add/results.json). Screenshots: [P1](../../test/evidence/emtr-add/P1.png), [P4](../../test/evidence/emtr-add/P4.png), [P5](../../test/evidence/emtr-add/P5.png), [P6](../../test/evidence/emtr-add/P6.png). Small logs are retained at D:/Codex/mdlxl-491-add-effects-report. The implementation revision is the PR #491 commit carrying this note and results; its source base is a5c5a17e.
+
+Warcraft III gameplay, non-enUS installed data and independent Claude/owner acceptance remain unverified. D:/Codex/mdlxl-491-particle-review was preserved and was not rebuilt or replaced. Test builds/profiles are disposable. No merge or release.
+
+## Relevant owners (contract review at `a5c5a17e`)
 
 - [ParticleEditor.jsx](../../app/ParticleEditor.jsx): `initialPlacement`, `beginPlacement`
   (toolbar **Add to model**), `beginRibbon` (**Add ribbon**), `place`, `placementRecipe`,
@@ -105,8 +173,7 @@ track ("Change when the ribbon shows" / `setEmitterSpans`), the same as ribbons.
 boxes in placement.
 
 **R4. Same panel.** Effect placement panel = ribbon panel: title "Add effect", Visibility, **Create**,
-**Cancel**. Remove Position & motion from placement (position is dragged, motion is the default
-target motion). If a field truly cannot be inferred, ask in one line; do not reintroduce the form.
+**Cancel**. Remove Position & motion from placement (position is dragged; motion follows the target when attached and retains source motion otherwise). If a field truly cannot be inferred, ask in one line; do not reintroduce the form.
 
 **R5. The handle sits on the effect.** The drag handle is drawn at the visible effect (the placed
 emitter's world position), not at a helper elsewhere. Dragging it moves the effect by the same
@@ -149,7 +216,5 @@ select a vertex on the hand → EMTR → Library → pick any effect → Add to 
 
 ## Blockers and next action
 
-- None. Next: Codex implements R1–R9 on PR #491's branch, runs P1–P10 and focused particle
-  tests, and reports `ready to test`. No merge or release without the owner.
-- On completion: mark completed with PR and revision; fold the placement shape into
-  [contract §12.2](../particle-editor/CONTRACT.md).
+- Ready for review; awaiting merge approval. Next: independent Claude QA and owner acceptance of the updated branch.
+- The placement shape is folded into [contract §12.2](../particle-editor/CONTRACT.md). Claude owns the independent QA verdict; owner acceptance and Warcraft III playback remain pending. No merge or release.

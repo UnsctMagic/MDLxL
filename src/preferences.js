@@ -151,16 +151,8 @@ export function migrateFollowupPreferences(value = {}) {
     ...(input.rendererRevision !== 1 && input.panelWidth === 178 ? {panelWidth:164} : {})};
 }
 /** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
-/** Rotation revision 2 makes "Along the ring" the Rotate default. Saved
- * profiles always stored the default behavior, so an earlier explicit choice
- * cannot be told apart from the old default: everyone moves once. Per-editor
- * overrides were only ever saved by choice and stay. */
-function migrateRotationDefault(input) {
-  if (input.rotationRevision === 2) return input;
-  return { ...input, rotationRevision: 2, ...(own(input, 'rotation') ? { rotation: { ...record(input.rotation), behavior: DEFAULT_ROTATION.behavior } } : {}) };
-}
 export function migratePreferences(value = {}) {
-  const input = migrateRotationDefault(migrateFollowupPreferences(value)), hotkeys = migrateHotkeyBindings(input.hotkeys);
+  const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
   const result = hotkeys === input.hotkeys ? input : { ...input, hotkeys };
   if (!own(result, 'shredder')) return result;
   const { shredder, ...current } = result;

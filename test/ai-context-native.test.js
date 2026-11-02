@@ -6,7 +6,7 @@ import {createRequire} from 'node:module';
 import {tempDir} from './helpers/fixtures.cjs';
 const require=createRequire(import.meta.url);
 const {AiService}=require('../electron/ai-service.cjs');
-const {AiSteering}=require('../electron/ai-offload.cjs');
+const {AiSteering}=require('../electron/ai-chat-state.cjs');
 
 test('a failed native steering delivery resets the context cursor before the late follow-up',async t=>{
   const profile=tempDir('ai-context-native-'),events=[];

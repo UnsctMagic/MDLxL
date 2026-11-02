@@ -13,3 +13,27 @@
 .ox-root .ox-fix-all{font-weight:600}.ox-root .ox-fix-all[aria-pressed=true]{background:var(--ui-accent,#365f81);color:white}
 /* Longer translations (Russian, Spanish) wrap the playback buttons instead of widening the panel. */
 .ox-play{flex-wrap:wrap}
+/* After preview: Sphereomancer edits its proposal with the Managers collision handles, drawn in the stage's cyan. */
+.ox-stage{flex:1;min-height:0;position:relative}.ox-stage>.game-preview-root{position:absolute;inset:0;width:100%;height:100%}
+/* Shared collision controls must be present when the popup copies its styles. */
+.mm-overlay{position:absolute;z-index:50;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
+.mm-overlay .mm-outline{fill:none;stroke:#51d7ff;stroke-width:1.5;pointer-events:none;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-guide{fill:none;stroke:#51d7ff;stroke-width:1;opacity:.45;pointer-events:none;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-selected .mm-outline{stroke:var(--ui-accent,#365f81);stroke-width:2.5}
+.mm-overlay :is(.mm-handle,.mm-center){pointer-events:none;outline:none}
+.mm-overlay :is(.mm-handle,.mm-center) circle{fill:#e5f6ff;stroke:#174961;stroke-width:2;pointer-events:all;cursor:pointer;touch-action:none;vector-effect:non-scaling-stroke}
+.mm-overlay .pe-move-emitter circle{fill:#b6ffd0}
+.mm-overlay :is(.mm-handle,.mm-center):focus circle{stroke:#ffb835;stroke-width:3}
+.mm-overlay circle.pe-grab,.mm-overlay :is(.mm-handle,.mm-center):focus circle.pe-grab{fill:transparent;stroke:none}
+.mm-overlay text{fill:white;stroke:#111;stroke-width:2px;paint-order:stroke;font:12px sans-serif;pointer-events:all;cursor:pointer}
+.mm-overlay .mm-remove{pointer-events:all}.mm-overlay .mm-remove button{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:4px;cursor:pointer}
+.ox-spheres fieldset[aria-current=true]{border-color:var(--ui-accent,#365f81)}
+
+.mm-overlay .mm-outline-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-select-center{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
+.mm-overlay .mm-sphere-select{outline:none;cursor:pointer}
+.mm-overlay .mm-sphere-select rect{touch-action:none;fill:#223b4b;stroke:#51d7ff;stroke-width:1.5;pointer-events:all;vector-effect:non-scaling-stroke}
+.mm-overlay .mm-sphere-select.mm-selected rect{fill:var(--ui-accent,#365f81);stroke:white}
+.mm-overlay .mm-sphere-select:focus rect{stroke:#ffb835;stroke-width:3}
+.mm-overlay .mm-sphere-select text{fill:white;stroke:none;font:bold 12px sans-serif;pointer-events:none}
+.mm-overlay .mm-recenter{pointer-events:all}.mm-overlay .mm-recenter button{width:60px;height:25px;padding:2px 5px;cursor:pointer}

@@ -1,6 +1,6 @@
 # Gizmo Lab: Workplane Constraints and one gizmo for Move and Rotate
 
-Status: contract ready for Codex; nothing built yet
+Status: superseded by [Workplane Constraints](workplane-constraints.md) (2026-11-01, real app work, no lab)
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-01
 

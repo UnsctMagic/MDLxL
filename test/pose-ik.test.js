@@ -1,3 +1,4 @@
+import { beginRotationDrag } from '../src/rotation-drag.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,7 +13,7 @@ import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
-import { movementRotationAmount, movementRotationGesture, movementWorkplaneHandle } from '../app/movement-overlay.js';
+import { movementRotationAmount, movementWorkplaneHandle } from '../app/movement-overlay.js';
 import {createRequire} from 'node:module';
 const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
@@ -79,15 +80,15 @@ test('leading hand respects explicit feet pins and translation restrictions; Ben
   assert.equal(applyMovementPose(structuredClone(original), still.changes, 500, 0), 0, 'no movement creates no body key');
 });
 
-test('POSE workplane rotation keeps explicit local Body/Object and world Endpoint axes with linear input', () => {
+test('POSE workplane rotation keeps explicit local Body/Object and world Endpoint axes with constrained plane input', () => {
   for (const plane of ['xy', 'xz', 'yz']) for (const space of ['local', 'world']) for (const kind of ['body', 'node', 'endpoint']) {
     const model = fixture(), handle = movementWorkplaneHandle(plane), axis = ({ X: 0, Y: 1, Z: 2 })[handle.axis];
     const normal = new Vector3().setComponent(axis, 1), flipAxis = axis === 0 ? [0, 1, 0] : [1, 0, 0];
     model.Bones[0].Rotation = track([500, q(flipAxis, Math.PI)]);
     const id = kind === 'body' ? 0 : chain.end;
     const before = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), before, new Vector3());
-    const drag = movementRotationGesture();
-    const degrees = movementRotationAmount(drag, 20, 0);
+    const drag = beginRotationDrag({ constrained: true, plane, tangent: { x: 0, y: 1 } });
+    const degrees = movementRotationAmount(drag, 0, 20);
     near(degrees, 20);
     const result = kind === 'endpoint'
       ? turnPoseEndpoint(model, chain, 500, 0, new Quaternion().setFromAxisAngle(normal, degrees * Math.PI / 180).toArray())
@@ -95,7 +96,7 @@ test('POSE workplane rotation keeps explicit local Body/Object and world Endpoin
     apply(model, result);
     const after = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), after, new Vector3());
     const axisNormal = kind !== 'endpoint' && space === 'local' ? normal.clone().applyQuaternion(before) : normal;
-    const delta = after.multiply(before.clone().invert()), expected = new Quaternion().setFromAxisAngle(axisNormal, 20 * Math.PI / 180);
+    const delta = after.multiply(before.clone().invert()), expected = new Quaternion().setFromAxisAngle(axisNormal, degrees * Math.PI / 180);
     near(Math.abs(delta.dot(expected)), 1, 1e-7);
   }
 });

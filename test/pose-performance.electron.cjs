@@ -51,7 +51,7 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     }
     async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();await tool('Move');
     const config=await page.evaluate(()=>poseProbe().props.poseConfig);results.mapping=config;
 

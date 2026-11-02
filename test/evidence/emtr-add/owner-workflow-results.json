@@ -1,0 +1,27 @@
+{
+  "sourceBase": "518c1a5c",
+  "bundle": {
+    "indexHash": "5d6193db9a6df965d566440fded0005abf0f3b448009e0eed59a6ad515889689",
+    "assetsHash": "8540d50c680791a431eff8f772024c9ae8f91341567814469c2c194a5ba960a8"
+  },
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "selection": {
+    "0": [
+      274
+    ]
+  },
+  "checks": [
+    {
+      "id": "P1",
+      "emitter": "BlizParticle01",
+      "parent": 18,
+      "center": [
+        -3.8743700981140137,
+        21.938199996948242,
+        40.307701110839844
+      ]
+    }
+  ]
+}

@@ -119,7 +119,7 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     await page.getByLabel('View direction',{exact:true}).selectOption('front');
     await page.getByLabel('Render mode',{exact:true}).selectOption('textured');
     await page.getByRole('checkbox',{name:'Bones',exact:true}).uncheck();
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     await page.getByRole('checkbox',{name:'Emitters',exact:true}).uncheck();
     await tool('Select');await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),baseline=await configNow(),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);

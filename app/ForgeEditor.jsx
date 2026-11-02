@@ -65,7 +65,7 @@ export default function ForgeEditor({ model, editorState = {}, selection = {}, o
       {cameraMode === 'rotate' ? <><div className="forge-section-title">Camera rotation</div><div className="classic-coordinates">{['X', 'Y', 'Z'].map(axis => <Coordinate key={axis} axis={axis} value={angles[axis.toLowerCase()]} onCommit={value => setAngleRequest({ ...angles, [axis.toLowerCase()]: value })}/>)}</div></> : !previewOnly && <>
         <div className="classic-counts"><div>Vertices: <span>{model.Geosets.reduce((n, g) => n + g.Vertices.length / 3, 0)}</span></div><div>Selected: <span>{points.length}</span></div><div>Triangles: <span>{model.Geosets.reduce((n, g) => n + g.Faces.length / 3, 0)}</span></div></div>
         <ForgeCoordinates center={center} preview={dragPreview} disabled={!points.length || !onTransform} onCommit={(i, value) => onTransform({ selections: selection, pivot: center, translation: center.map((n, a) => a === i ? value - n : 0) })}/>
-        <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane} locked={quad && pane?.workplane}/>
+        {!quad && <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane}/>}
         {controlPoints && <div className="forge-control-points">{controlPoints}</div>}
         <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><ToolIcon name="duplicate" className="modern-retro-icon"/></Tool>}</div>
         {shapingTools}

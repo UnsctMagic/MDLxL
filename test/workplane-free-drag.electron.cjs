@@ -61,7 +61,7 @@ const assert = require('node:assert/strict');
     await page.waitForFunction(() => viewportState().entries[0].selectedPoints.geometry.index?.count === 14);
     const planeRadio = name => page.getByLabel(name + ' workplane', { exact: true }).or(page.getByRole('radio', { name, exact: true })).first();
     const drag = async ({ workplane, shift = false, plane = 'XY' }) => {
-      const checkbox = page.getByLabel('Workplane', { exact: true });
+      const checkbox = page.getByLabel('Workplane Constraints', { exact: true });
       if (workplane) await checkbox.check(); else await checkbox.uncheck();
       await planeRadio(plane).check(); await idle();
       const before = await page.evaluate(() => ({ c: authoredCentroid(), s: screenCentroid() }));
@@ -114,7 +114,7 @@ const assert = require('node:assert/strict');
 
     // Workplane off + Move shows the POSE arrows and plane squares; an arrow keeps its axis, a square its plane.
     const gizmoDrags = async (label, scope, measure) => {
-      const checkbox = (scope ? page.locator(scope) : page).getByLabel('Workplane', { exact: true });
+      const checkbox = (scope ? page.locator(scope) : page).getByLabel('Workplane Constraints', { exact: true });
       await checkbox.check(); await idle();
       assert.equal((await page.evaluate(scope => gizmo(scope), scope)).canvas, false, `${label}: no gizmo with Workplane on`);
       await checkbox.uncheck(); await idle();
@@ -194,7 +194,7 @@ const assert = require('node:assert/strict');
       return after;
     };
     const boneDrag = async (id, { workplane, shift = false, plane = 'XY' }) => {
-      const checkbox = page.getByLabel('Workplane', { exact: true });
+      const checkbox = page.getByLabel('Workplane Constraints', { exact: true });
       if (workplane) await checkbox.check(); else await checkbox.uncheck();
       await planeRadio(plane).check(); await idle();
       const before = await page.evaluate(id => ({ c: boneWorld(id), s: boneScreen(id) }), id);

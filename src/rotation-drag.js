@@ -1,75 +1,90 @@
-/** Shared editing rotation. Camera navigation and authored transforms stay separate.
- * The flat UV map has its own turn (uvTurn in uv-tools.js) and no entry here. */
+/** Shared 3D editing input. The UV map deliberately keeps uvTurn. */
 export const ROTATION_EDITORS = Object.freeze({ vertices: 'Vertices', bones: 'Bones', movement: 'Movement / POSE', forge: 'Forge', showcase: 'Showcase' });
-export const ROTATION_BEHAVIORS = Object.freeze(['ring', 'linear', 'pivot']);
-export const DEFAULT_ROTATION = Object.freeze({ behavior: 'ring', sensitivity: 1, editors: Object.freeze({}) });
-/** Circle the pivot: below this, the turn circle is too thin on screen to follow (about 73° off the view). */
-const EDGE_ON = .3;
-/** Along the ring: a ring this thin cannot tell its near side from its far side under the pointer. */
-const THIN_RING = .3;
-/** Along the ring: an axis this short on screen points at the camera (the gizmo's own 18 of 68 pixel limit). */
-const FACING_AXIS = .26;
-/** Along the ring: a grab this close to the axis line, or to the pivot of a camera-facing axis, is on the axis. */
-const ON_AXIS = 12;
+export const DEFAULT_ROTATION = Object.freeze({ sensitivity: 1, precision: .1, editors: Object.freeze({}) });
+export const AXES = ['X', 'Y', 'Z'];
+export const NORMAL = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
+export const PERPENDICULAR = { X: 'yz', Y: 'xz', Z: 'xy' };
 const record = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-const behavior = value => ROTATION_BEHAVIORS.includes(value) ? value : undefined;
-const sensitivity = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.round(Math.max(.01, Math.min(4, Number(value))) * 100) / 100 : undefined;
+const speed = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.round(Math.max(.01, Math.min(4, Number(value))) * 100) / 100 : undefined;
 export function normalizeRotationPreferences(value) {
   const input = record(value), editors = {};
   for (const id of Object.keys(ROTATION_EDITORS)) {
-    const entry = record(input.editors?.[id]), override = {};
-    if (behavior(entry.behavior)) override.behavior = entry.behavior;
-    if (sensitivity(entry.sensitivity) !== undefined) override.sensitivity = sensitivity(entry.sensitivity);
-    if (Object.keys(override).length) editors[id] = override;
+    const sensitivity = speed(input.editors?.[id]?.sensitivity);
+    const precision = speed(input.editors?.[id]?.precision);
+    if (sensitivity !== undefined || precision !== undefined) editors[id] = {
+      ...(sensitivity !== undefined && { sensitivity }),
+      ...(precision !== undefined && { precision: Math.min(1, precision) }),
+    };
   }
-  return { behavior: behavior(input.behavior) || DEFAULT_ROTATION.behavior, sensitivity: sensitivity(input.sensitivity) ?? 1, editors };
+  return { sensitivity: speed(input.sensitivity) ?? 1, precision: Math.min(1, speed(input.precision) ?? .1), editors };
 }
 export function rotationOptions(preferences, editor) {
   const value = normalizeRotationPreferences(preferences?.rotation);
-  return { behavior: value.behavior, sensitivity: value.sensitivity, ...value.editors[editor] };
+  return { sensitivity: value.sensitivity, precision: value.precision, ...value.editors[editor] };
 }
-/** Along the ring: the unit screen direction (x right, y down) that turns the
- * grabbed point positively (right-hand rule) about `axis`. `axis` is the turn
- * axis in view space: x right, y up, z toward the viewer; `grab` is the grab
- * point relative to the pivot in screen pixels.
- * - Off the axis, the ring through the grab point gives the tangent a × (G − P).
- * - On the axis (the gizmo's axis handles), or on a ring too thin to tell its
- *   near and far sides apart, the ring's near side does: perpendicular to the
- *   axis on screen.
- * - At the pivot of an axis pointing at the camera, screen right. */
-export function rotationRingTangent(grab, axis = [0, 0, -1]) {
-  const [ax = 0, ay = 0, az = 0] = axis, gx = grab?.x || 0, gy = grab?.y || 0, length = Math.hypot(ax, ay);
-  const offAxis = length < FACING_AXIS ? Math.hypot(gx, gy) >= ON_AXIS : Math.abs(gx * ay + gy * ax) / length >= ON_AXIS;
-  if (offAxis && Math.abs(az) >= THIN_RING) {
-    // The grab point on the ring's plane, in view space: (gx, −gy, depth).
-    const depth = -(ax * gx - ay * gy) / az, tx = ay * depth + az * gy, ty = ax * depth - az * gx, size = Math.hypot(tx, ty);
-    if (size > 1e-6) return { x: tx / size, y: ty / size };
-  }
-  if (length >= FACING_AXIS) return { x: ay / length, y: ax / length };
-  return { x: 1, y: 0 };
+export function facingAxis(direction) { return AXES.reduce((best, axis, i) => Math.abs(direction[i]) > Math.abs(direction[AXES.indexOf(best)]) ? axis : best, 'X'); }
+export function chooseLeverAxis(grabAxis, tangents, dx, dy) {
+  if (Math.hypot(dx, dy) < 6) return null;
+  return AXES.filter(axis => axis !== grabAxis).reduce((best, axis) => {
+    const score = a => Math.abs(tangents[a][0] * dx + tangents[a][1] * dy);
+    return !best || score(axis) > score(best) ? axis : best;
+  }, null);
 }
-/** Capture the choice, speed, pivot and ring direction once per drag.
- * `axis` is the turn axis in view space (see rotationRingTangent); without it,
- * positive is clockwise on screen. Straight drag (linear) turns right/up
- * positive. Circle the pivot (pivot) needs the axis facing: a circle seen
- * edge-on is a line on screen, so circling its center cannot follow the turn;
- * it then uses the straight-drag rule, as it does when the drag starts on the center. */
-export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, behavior = 'linear', sensitivity = 1, axis, pivotSign = axis ? axis[2] > 0 ? -1 : 1 : 1, facing = axis ? axis[2] : 1 } = {}) {
+export function dominantPlaneAxis(plane, basis, dx, dy) {
+  return plane.toUpperCase().split('').reduce((best, axis) => {
+    const score = a => Math.abs(basis[a][0] * dx + basis[a][1] * dy) / (Math.hypot(...basis[a]) || 1);
+    return !best || score(axis) > score(best) ? axis : best;
+  }, null);
+}
+export function moveConstraint(handle, shift) {
+  if (handle.plane) return { plane: handle.plane, axis: null, dominant: !!shift };
+  return shift ? { plane: PERPENDICULAR[handle.axis], axis: null, dominant: false } : { plane: null, axis: handle.axis, dominant: false };
+}
+export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensitivity = 1, precision = .1, axis, constrained = false, plane = 'xy', axisName, lever, tangents, facings, tangent, circle = false } = {}) {
   const px = x - pivot.x, py = y - pivot.y;
-  const tangent = behavior === 'ring' ? rotationRingTangent({ x: px, y: py }, axis) : null;
-  return { behavior, sensitivity, pivotSign, tangent, px, py, previous: Math.atan2(py, px), swept: 0, atPivot: Math.hypot(px, py) < 12 || Math.abs(facing) < EDGE_ON };
+  return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, circle, px, py,
+    sign: axis?.[2] > 0 ? -1 : 1, previous: Math.hypot(px, py) >= 8 ? Math.atan2(py, px) : null, swept: 0, degrees: 0, pointer: { x, y } };
 }
-/** Degrees for the whole drag so far; `dx`/`dy` are measured from the drag start. */
-export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1) {
-  const speed = drag.sensitivity * pointerSensitivity;
-  // One degree per pixel pulled along the ring, the same for every axis.
-  if (drag.behavior === 'ring') return (dx * drag.tangent.x + dy * drag.tangent.y) * speed;
-  if (drag.behavior !== 'pivot' || drag.atPivot) return (dx - dy) * speed;
+// Split a sample at the rim so even a single event across the pivot stays continuous.
+function gizmoSweep(drag, x, y) {
+  const ax = drag.lastX ?? drag.px, ay = drag.lastY ?? drag.py;
+  const dx = x - ax, dy = y - ay, length = Math.hypot(dx, dy);
+  if (!length) return 0;
+  drag.lastX = x; drag.lastY = y;
+  const cross = ax * dy - ay * dx;
+  let direction = drag.turnDirection || 1;
+  if (Math.abs(cross) > length * 1e-6) direction = Math.sign(cross);
+  else if (dx * drag.lastDX + dy * drag.lastDY < -.99 * length * Math.hypot(drag.lastDX, drag.lastDY)) direction = -direction;
+  drag.turnDirection = direction; drag.lastDX = dx; drag.lastDY = dy;
+  const angle = (sx, sy, ex, ey) => Math.atan2(sx * ey - sy * ex, sx * ex + sy * ey);
+  const radius = drag.ringRadius, distance = cross / length;
+  if (Math.abs(distance) >= radius) return angle(ax, ay, x, y);
+  const closest = -(ax * dx + ay * dy) / length;
+  const halfChord = Math.sqrt(radius * radius - distance * distance);
+  const enter = Math.max(0, closest - halfChord), leave = Math.min(length, closest + halfChord);
+  if (leave <= enter) return angle(ax, ay, x, y);
+  const ux = dx / length, uy = dy / length;
+  return angle(ax, ay, ax + ux * enter, ay + uy * enter)
+    + direction * (leave - enter) / radius
+    + angle(ax + ux * leave, ay + uy * leave, x, y);
+}
+/** Samples accumulate the wrapped path; geometry and drawing run once per frame. */
+export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1, shift = false) {
   const x = drag.px + dx, y = drag.py + dy;
-  // The angle is undefined at the pivot. Keep the last valid angle until it exits.
-  if (Math.hypot(x, y) >= 12) {
-    const angle = Math.atan2(y, x), delta = angle - drag.previous;
-    drag.swept += Math.atan2(Math.sin(delta), Math.cos(delta)); drag.previous = angle;
+  if (drag.start) drag.pointer = { x: drag.start.x + dx, y: drag.start.y + dy };
+  if (drag.lever && !drag.axisName) {
+    drag.axisName = chooseLeverAxis(drag.lever, drag.tangents, dx, dy);
+    if (drag.axisName) drag.sign = drag.facings[drag.axisName] > 0 ? -1 : 1;
   }
-  return drag.swept * 180 / Math.PI * drag.pivotSign * speed;
+  if (drag.ringRadius) drag.swept += gizmoSweep(drag, x, y);
+  else if ((!drag.constrained || drag.circle) && Math.hypot(x, y) >= 8) {
+    const angle = Math.atan2(y, x);
+    if (drag.previous !== null) { const delta = angle - drag.previous; drag.swept += Math.atan2(Math.sin(delta), Math.cos(delta)); }
+    drag.previous = angle;
+  }
+  const raw = drag.constrained && !drag.circle ? dx * drag.tangent.x + dy * drag.tangent.y : drag.lever && !drag.axisName ? 0 : drag.swept * 180 / Math.PI * drag.sign;
+  drag.preciseSwept = (drag.preciseSwept || 0) + (raw - (drag.previousRaw || 0)) * (shift ? drag.precision : 1);
+  drag.previousRaw = raw;
+  drag.degrees = drag.preciseSwept * drag.sensitivity * pointerSensitivity;
+  return drag.degrees;
 }

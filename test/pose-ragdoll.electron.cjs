@@ -116,7 +116,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.getByLabel('Render mode',{exact:true}).selectOption('textured');
     {const b=await viewportBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.wheel(0,-260);await settle();}
     await page.getByRole('checkbox',{name:'Bones',exact:true}).uncheck();
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),config=await page.evaluate(()=>poseProbe().props.poseConfig),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     results.mapping=config;await shot('01-auto-handles');
@@ -137,9 +137,9 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.getByRole('button',{name:'Pick End',exact:true}).click();await pickBone(38);
       assert.equal(await page.getByRole('button',{name:'Save changes',exact:true}).isEnabled(),true);await shot('02b-custom-joints');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
       assert.equal(await page.getByRole('checkbox',{name:'Bones',exact:true}).isChecked(),false);results.checks.push('Symbol plus viewport bone picking replaces dropdowns; bad root selection only disables Add; overlapping bones cycle; mapping adds no keys or history and restores bone display');
-      await page.getByLabel('Workplane',{exact:true}).check();
+      await page.getByLabel('Workplane Constraints',{exact:true}).check();
       const before=await snap();await grab('node',26,28,13);const moved=await snap();connected(before.model,moved.model);assert.ok(moved.revision>before.revision);const a=points(before.model),b=points(moved.model);assert.ok(b.get(33).distanceTo(a.get(33))>1);assert.ok(b.get(26).clone().sub(a.get(26)).distanceTo(b.get(33).clone().sub(a.get(33)))<.006);await shot('03-pelvis-xy');
-      await menu('undo');await settle();assert.deepEqual((await snap()).model,before.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,moved.model);await menu('undo');await settle();await page.getByLabel('Workplane',{exact:true}).uncheck();
+      await menu('undo');await settle();assert.deepEqual((await snap()).model,before.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,moved.model);await menu('undo');await settle();await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
       await grab('node',26,0,-120);const airborne=await snap();connected(before.model,airborne.model);assert.ok(points(airborne.model).get(25).z>a.get(25).z+20);await shot('04-pelvis-jump');await grab('node',26,0,120);connected(before.model,(await snap()).model);await shot('05-pelvis-return');
       results.checks.push('Footman pelvis carries chest and head in the GIF workplane; jump and return stay connected; undo/redo restores the complete pose');
       for(const id of [33,39]){const before=await snap();await grab('node',id,18,-5);connected(before.model,(await snap()).model);}

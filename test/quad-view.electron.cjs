@@ -58,7 +58,7 @@ function sameOrientation(actual, expected, message) {
     await idle();await clickVertex();await idle();
     assert.deepEqual(await page.evaluate(()=>Array.from(viewportState().entries[0].selectedPoints.geometry.index.array)),[0]);
     const single=await page.evaluate(()=>cameraState());
-    await page.getByLabel('Workplane',{exact:true}).uncheck();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     const toggle=()=>page.getByRole('button',{name:'Quad View',exact:true}).click();
     const toolbarOrder=()=>page.locator('.classic-view-label').evaluate(el=>Array.from(el.children,item=>item.getAttribute('aria-label')||Array.from(item.childNodes).filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join('').trim()));
     const expectedToolbar=['View direction','Render mode','Quad View','Fit','Fit selection'];
@@ -66,13 +66,32 @@ function sameOrientation(actual, expected, message) {
     await page.evaluate(()=>{draws={};});await toggle();await idle();
     assert.deepEqual(await toolbarOrder(),expectedToolbar);
     assert.equal(await page.locator('.quad-pane:visible').count(),4);
+    assert.equal(await page.locator('[data-viewport="perspective"]').getByRole('checkbox',{name:'Perspective Workplane Constraints'}).isChecked(),false,'Perspective starts unconstrained');
     assert.equal(await page.locator('[aria-label="3D model viewport"] > canvas').count(),1);
     assert.equal(Object.keys(await page.evaluate(()=>draws)).length,4);
     for(const draw of Object.values(await page.evaluate(()=>draws)))assert.deepEqual(draw.selected,[0]);
     const activate=async id=>{await page.locator(`[data-viewport="${id}"]`).focus();await idle();};
+    // A quad handle must commit the coordinates shown during the drag.
+    await activate('perspective');await page.keyboard.press('m');
+    const pane=page.locator('[data-viewport="perspective"]'), bounds=await pane.boundingBox();
+    for(const axis of ['X','XY']){
+      await page.waitForFunction(axis=>viewportState().gizmoHandles?.some(h=>h.axis===axis),axis);
+      const h=await page.evaluate(axis=>{const h=viewportState().gizmoHandles.find(h=>h.axis===axis);return {x:h.x,y:h.y};},axis);
+      const original=await page.evaluate(()=>coordinates());
+      await page.mouse.move(bounds.x+h.x,bounds.y+h.y);await page.mouse.down();
+      assert.equal(await page.evaluate(()=>viewportState().drag?.handle?.axis),axis);
+      await page.mouse.move(bounds.x+h.x+32,bounds.y+h.y-15,{steps:6});
+      await page.waitForFunction(({x,y})=>{const d=viewportState().drag;return d?.payload?.translation?.some(v=>Math.abs(v)>.001)&&Math.abs(d.lastMove.rawEnd.x-x)<.01&&Math.abs(d.lastMove.rawEnd.y-y)<.01;},{x:h.x+32,y:h.y-15});
+      const preview=await page.evaluate(()=>Array.from(viewportState().entries[0].geometry.attributes.position.array.slice(0,3)));
+      await page.mouse.up();await idle();
+      assert.deepEqual(await page.evaluate(()=>coordinates()),preview,axis+' handle must commit the preview');
+      await page.keyboard.press('Control+z');await idle();assert.deepEqual(await page.evaluate(()=>coordinates()),original);
+    }
     const metrics=[];
     for(const [id,depth,plane] of [['front',0,'YZ'],['side',1,'ZX'],['top',2,'XY']]){
-      await activate(id);assert.equal(await page.getByLabel(plane+' workplane',{exact:true}).isChecked(),true);
+      await activate(id);assert.equal(await page.locator('.classic-sidebar .classic-planes').count(),0);
+      assert.equal(await page.locator(`[data-viewport="${id}"] .quad-workplane-toolbar`).count(),0,id+' has no constraint panel');
+      assert.equal(await page.locator(`[data-viewport="${id}"] [role="checkbox"]`).count(),0,id+' has no constraint checkbox');
       await page.keyboard.press('a');await clickVertex();await idle();
       await page.waitForFunction(()=>viewportState().entries[0].selectedPoints.geometry.index?.count===1);
       assert.equal(await page.evaluate(()=>viewportState().entries[0].selectedPoints.geometry.index.count),1);
@@ -166,21 +185,49 @@ function sameOrientation(actual, expected, message) {
     for(const [view,[id,depthAxis,plane]] of Object.entries(planeViews)){
       await dropdown.selectOption(view);await page.waitForFunction(value=>viewportState().appliedView===value,view);await idle();
       assert.equal(await page.locator('.quad-pane.active').getAttribute('data-viewport'),id,'view command targets its fixed plane');
-      assert.equal(await page.getByLabel(plane+' workplane',{exact:true}).isChecked(),true);
-      assert.equal(await page.getByLabel('Workplane',{exact:true}).isChecked(),true);
-      assert.equal(await page.getByLabel('Workplane',{exact:true}).isDisabled(),true);
+      assert.equal(await page.locator('.classic-sidebar .classic-planes').count(),0);
+      assert.equal(await page.getByRole('toolbar',{name:'Perspective workplane toolbar'}).count(),1);
       await activate(id);await page.getByRole('button',{name:'Fit',exact:true}).click();await idle();await activate(id);
       const fixed=await page.evaluate(()=>cameraState()),unchanged=await page.evaluate(()=>coordinates());
       const r=await page.locator(`[data-viewport="${id}"]`).boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2;
       await page.mouse.move(cx,cy);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(cx+34,cy+23,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await idle();
-      sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' Alt cannot rotate the editing plane');
+      assert.ok((await page.evaluate(()=>cameraState())).quaternion.some((v,i)=>Math.abs(v-fixed.quaternion[i])>1e-6),view+' Alt orbits while the edit plane stays constrained');
+      if (view === 'top') {
+        const depth = () => page.evaluate(() => {
+          const s = viewportState(), direction = s.camera.getWorldDirection(s.controls.target.clone()).toArray().map(Math.abs);
+          return direction.indexOf(Math.max(...direction));
+        });
+        for (let i=0; i<6 && await depth()===2; i++) {
+          await page.keyboard.down('Alt');
+          await page.mouse.move(cx,cy); await page.mouse.down();
+          await page.mouse.move(cx,cy-r.height*.12,{steps:6}); await page.mouse.up();
+          await page.keyboard.up('Alt');
+        }
+        const normal = await depth();
+        assert.notEqual(normal,2,'real orbit turns Top toward a different plane');
+        await page.locator('.classic-sidebar').getByRole('button',{name:'Rotate',exact:true}).click();
+        await page.mouse.move(cx,cy); await page.mouse.down(); await page.mouse.move(cx+30,cy+10,{steps:5});
+        await page.waitForFunction(()=>Math.abs(viewportState().drag?.rotationDrag?.degrees)>1);
+        assert.equal(await page.evaluate(()=>viewportState().drag.rotationDrag.axisName),'XYZ'[normal],'Rotate follows the orbited Top camera');
+        await page.mouse.up();
+        await page.locator('.classic-sidebar').getByRole('button',{name:'Move',exact:true}).click();
+        const before=await page.evaluate(()=>({point:vertexPoint(),values:coordinates()}));
+        await page.mouse.move(cx,cy); await page.mouse.down(); await page.mouse.move(cx+24,cy+18,{steps:5}); await page.mouse.up();
+        await page.waitForFunction(old=>coordinates().some((v,i)=>v!==old[i]),before.values);
+        const after=await page.evaluate(()=>({point:vertexPoint(),values:coordinates()}));
+        assert.equal(after.values[normal],before.values[normal],'Move preserves the new plane depth');
+        assert.ok(after.point.x>before.point.x && after.point.y>before.point.y,'Move follows the hand on screen');
+        await page.keyboard.press('Control+z');
+        await page.waitForFunction(old=>coordinates().every((v,i)=>v===old[i]),before.values);
+      }
       await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+E');await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
-      sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' camera toolbar cannot rotate the editing plane');
+      assert.ok((await page.evaluate(()=>cameraState())).quaternion.some((v,i)=>Math.abs(v-fixed.quaternion[i])>1e-6),view+' camera mode orbits');
+      const opposite={front:'back',back:'front',right:'left',left:'right',top:'bottom',bottom:'top'};await dropdown.selectOption(opposite[view]);await dropdown.selectOption(view);await idle();
       await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+Q');await activate(id);
       await page.evaluate(()=>{viewportState().setCameraAngles({x:31,y:59,z:83});viewportState().setView('orthographic');viewportState().setView('top-front-right');});await idle();
       assert.equal(await dropdown.inputValue(),view);sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' rejects arbitrary camera angles');
       assert.deepEqual(await page.evaluate(()=>coordinates()),unchanged,'navigation does not edit vertices');
-      assert.equal(await page.evaluate(()=>viewportState().controls.enableRotate),false);
+      assert.equal(await page.evaluate(()=>viewportState().controls.enableRotate),true);
       await planeDrag(view,28,-19,false);await planeDrag(view,28,9,true);await planeDrag(view,9,-28,true);
     }
     // Keep one mouse drag alive across multiple Shift holds, including a
@@ -247,7 +294,7 @@ function sameOrientation(actual, expected, message) {
     await page.keyboard.press('Control+z');await idle();assert.deepEqual(await page.evaluate(()=>coordinates()),singleBefore.coordinates);
     // With Workplane on, the pre-Quad control constrains its selected world
     // axis. The Quad screen-axis solver must not reach this path.
-    await page.getByLabel('Workplane',{exact:true}).check();
+    await page.getByLabel('Workplane Constraints',{exact:true}).check();
     await page.getByLabel('XY workplane',{exact:true}).check();
     const planeBefore=await page.evaluate(()=>({coordinates:coordinates(),camera:cameraState()}));
     await page.mouse.move(sx,sy);await page.keyboard.down('Shift');await page.mouse.down();
@@ -347,7 +394,7 @@ function sameOrientation(actual, expected, message) {
     assert.deepEqual(errors,[]);assert.deepEqual(await page.locator('[role="alert"]').allTextContents(),[]);
     assert.ok(fs.readFileSync(fixture).equals(original),'input file stays unchanged');
     fs.writeFileSync(path.join(out,'metrics.json'),JSON.stringify({metrics,shiftMetrics,latchMetrics,sizes,errors},null,2));
-    console.log('PASS',JSON.stringify({metrics,sizes,lockedPlaneDrags:shiftMetrics.length,shiftLatchDrags:latchMetrics.length,checks:'shared live preview, exact depth, undo/redo, cancel, selection, marquee, independent cameras, perspective orbit, toggle restore, resize, input preservation, permanent planes, disabled global workplane override, blocked orthographic orbit/angles, Quad Shift H/V and per-hold latch, classic single-view canvas and Workplane Shift, single-view camera handoff to Bones and Movement, Shift camera pan and rotation in Bones and Movement, adaptive zoom, appearance bundles'}));
+    console.log('PASS',JSON.stringify({metrics,sizes,lockedPlaneDrags:shiftMetrics.length,shiftLatchDrags:latchMetrics.length,checks:'shared live preview, exact depth, undo/redo, cancel, selection, marquee, independent cameras, perspective orbit, toggle restore, resize, input preservation, permanent planes, quad sidebar plane controls removed, orthographic mouse orbit, fixed plane/view commands, Quad Shift H/V and per-hold latch, classic single-view canvas and Workplane Shift, single-view camera handoff to Bones and Movement, Shift camera pan and rotation in Bones and Movement, adaptive zoom, appearance bundles'}));
   } catch(error) {
     console.error(error);
     await page.screenshot({path:path.join(out,'failure.png')});

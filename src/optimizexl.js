@@ -32,12 +32,14 @@ export const STAGES = [
   {id:'nuclear',name:'Nuclear Polygon Destroyer'},
 ];
 export const SPHERE_PRESETS = [
-  {name:'Small unit',spheres:[[0,0,24,24]],source:'Scaled from the community basic-unit starting sphere.'},
-  {name:'Standard unit',spheres:[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]],source:'Footman: two radius-38.076 collision spheres, matching its authored centers.'},
-  {name:'Large unit',spheres:[[0,0,60,60]],source:'Community collision-shape tutorial: radius 60 example.'},
-  {name:'Tall unit',spheres:[[0,0,60,60],[0,0,140,60]],source:'Community collision-shape tutorial: two radius-60 spheres, upper Z 140.'},
-  {name:'Mounted rider',spheres:[[0,0,45,55],[35,0,95,55],[-15,0,75,55]],source:'The reviewed Khorne rider: three radius-55 spheres.'},
+  {name:'x1',spheres:[[3.5388801097869873,3.874919891357422,41.05950164794922,52.40719985961914]],source:'Ghoul: one authored collision sphere.'},
+  {name:'x2 standard unit',spheres:[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]],source:'Footman: two radius-38.076 collision spheres, matching its authored centers.'},
+  {name:'x3',spheres:[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305],[5.257450103759766,0,63.22100067138672+40.3736,38.07600021362305]],source:'The Footman stack extended upward by its own sphere spacing.'},
+  {name:'Mounted',spheres:[[0,0,45,55],[35,0,95,55],[-15,0,75,55]],source:'The reviewed Khorne rider: three radius-55 spheres.'},
+  {name:'Square',spheres:[[-56.55099868774414,-64.06929779052734,0,56.55099868774414,64.06929779052734,113.10199737548828]],source:'Farm: one box standing on the ground.'},
 ];
+/** Four numbers make a sphere (x, y, z, radius), six a native box (two corners). */
+export const presetShapes=index=>structuredClone((SPHERE_PRESETS[index]||SPHERE_PRESETS[1]).spheres);
 const collections = Object.values(NODE_TYPES).map(([key])=>key);
 const sections = ['Info','Sequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences','PivotPoints',...collections];
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
@@ -50,7 +52,10 @@ export function simpleSettings(stage,strength,m,mode){const s=clamp(strength,0,1
  case 'duplicates':return {position:d*.005*s*s,uv:.01*s*s,normal:10*s*s,bones:true};
  case 'animation':return {position:d*.005*s*s,rotation:3*s*s,scale:.02*s*s,...(mode==='world'?{mode,worldTolerance:d*.01*s*s}:{})};
  case 'unused':return {vertices:true,resources:true,nodes:true};
- case 'spheres':return {preset:1,size:1,spheres:SPHERE_PRESETS[1].spheres};
+ case 'spheres':{
+  const shapes=m.CollisionShapes.filter(n=>n.Shape===0||n.Shape===2).map(n=>n.Shape===0?Array.from(n.Vertices):[...n.Vertices,n.BoundsRadius]);
+  return {preset:shapes.length?null:1,size:1,spheres:shapes.length?shapes:presetShapes(1)};
+ }
  case 'nuclear':return {target:Math.round(triangleCount(m)*(1-.98*s)),error:.2*s*s,normalLimit:45,protectNormals:true,protectSeams:true,protectSkin:true};
  default:return {};
 }}
@@ -238,9 +243,9 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
   repairBounds(m,current);return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
-function spheres(m,settings){const chosen=settings.spheres||SPHERE_PRESETS[settings.preset||0].spheres,size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
+function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset??1),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');
- for(let i=0;i<chosen.length;i++){const [x,y,z,r]=chosen[i];if(![x,y,z,r].every(Number.isFinite)||r<=0)throw Error('Sphere coordinates must be finite and radius must be positive.');let n=old[i];if(!n)n=createNode(m,'CollisionShape');Object.assign(n,{Shape:2,Name:`OptimizeXL Sphere ${i+1}`,Parent:null,Vertices:new Float32Array([x*size,y*size,z*size]),BoundsRadius:r*size});for(const k of ['Translation','Rotation','Scaling'])delete n[k];}
+ for(let i=0;i<chosen.length;i++){const row=chosen[i],box=row.length===6;if(!row.every(Number.isFinite))throw Error('Collision shape coordinates must be finite.');if(!box&&!(row[3]>0))throw Error('Sphere radius must be positive.');if(box&&[0,1,2].some(a=>!(row[a+3]>row[a])))throw Error('A box needs each maximum corner value above its minimum.');let n=old[i];if(!n)n=createNode(m,'CollisionShape');Object.assign(n,box?{Shape:0,Name:`OptimizeXL Box ${i+1}`,Parent:null,Vertices:new Float32Array(row.map(v=>v*size))}:{Shape:2,Name:`OptimizeXL Sphere ${i+1}`,Parent:null,Vertices:new Float32Array(row.slice(0,3).map(v=>v*size)),BoundsRadius:Math.fround(row[3]*size)});if(box)delete n.BoundsRadius;for(const k of ['Translation','Rotation','Scaling'])delete n[k];}
  const removed=new Set(m.CollisionShapes.slice(chosen.length).map(n=>n.ObjectId));if(removed.size)remapNodes(m,removed);rebuildNodes(m);
 }
 export function runOptimizeStage(bytes,stage,settings={},fix=null){const doc=openDocument(new Uint8Array(bytes),'working.mdx');supported(doc);const baseline=validateModel(doc.model).filter(d=>d.severity==='error').map(d=>d.code+':'+d.path),stats={},skipped=new Set(),changes=[],reviewBase=['duplicates','animation','unused'].includes(stage)?structuredClone(doc.model):null;let animationMetrics;
