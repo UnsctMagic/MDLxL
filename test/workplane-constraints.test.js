@@ -56,3 +56,30 @@ test('Shift precision changes the speed of subsequent motion without jumping on 
   assert.ok(Math.abs(run(60,false)-51)<1e-8);
  }
 });
+
+test('flat quad panes follow the dominant camera direction at drag start', async () => {
+  const { lockedQuadPlane } = await import('../app/quad-view.js');
+  for (const [plane, direction] of [['yz',[1,0,0]], ['xy',[0,0,1]], ['xz',[0,-1,0]]])
+    assert.equal(lockedQuadPlane(plane, direction), plane);
+  const tilt = 80 * Math.PI / 180;
+  assert.equal(lockedQuadPlane('xy', [Math.sin(tilt),0,Math.cos(tilt)]), 'yz');
+  assert.equal(lockedQuadPlane(null, [1,0,0]), null);
+});
+
+test('Forge precision override changes only shifted samples in a batch', () => {
+  const preferences = { rotation: { precision: .1, editors: { forge: { precision: .25 } } } };
+  for (const [editor, expected] of [['forge',25], ['movement',22]]) {
+    const drag = beginRotationDrag({ constrained: true, ...rotationOptions(preferences, editor) });
+    for (const [dx, shift] of [[10,false], [20,false], [30,true], [40,true]])
+      rotationDragDegrees(drag, dx, 0, 1, shift);
+    assert.equal(drag.degrees, expected);
+  }
+});
+
+test('ring and arc segments use the rotate threshold and tip mode uses the tip', async () => {
+  const { pickMovementHandle } = await import('../app/movement-overlay.js');
+  const ring = {ring:true, x:50, y:0, points:[{x:0,y:0},{x:50,y:0}]};
+  assert.equal(pickMovementHandle([ring],20,9,'rotate'), ring);
+  assert.equal(pickMovementHandle([ring],20,11,'rotate'), null);
+  assert.equal(pickMovementHandle([ring],20,0,'tip'), null);
+});

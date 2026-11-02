@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: review fixes requested (see [Review fixes](#review-fixes-claude-code-review-2-nov)); not ready to merge
+Status: all ten review fixes implemented and verified on the feature branch. Ready to test, awaiting owner review.
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -153,7 +153,37 @@ Claude Code if something is unclear.
   constraint callbacks are preserved. Settings are chosen before opening Forge,
   following its existing modal workflow.
 
+- 2 Nov review: Movement and POSE dispatch modified marker clicks to node selection.
+  A plain empty click clears the selection. An off-handle drag still rotates;
+  Rotate no longer box-selects. Rest-pose Bones retains Select/Move.
+- Flat quad panes choose their locked plane from the camera direction at drag
+  start. Shift precision inherits or overrides independently per editor, and
+  coalesced samples retain their individual Shift states. Rings and arcs use
+  the handle threshold and distinguish tip picking from segment picking.
+- GamePreview clears stale hover on exit, tool changes and disappearance of
+  the handles. Removed the unreachable Forge lock, unused Move calculation
+  and test-only rotation wrappers. Facing tests now exercise the live gizmo path.
+
 ## Verification evidence
+
+**2 Nov review rerun.** 131 focused checks passed. Compatibility passed 57/57.
+The full source suite passed 2,597 with 0 failures and the same 10 existing
+opt-in/platform skips. The CI baseline is unchanged. The production build and
+package verification passed. The four requested real-mouse harnesses passed on
+the hidden desktop: rotation-interaction (193 checks), quad-view (including
+Move and Rotate after orbiting Top), movement-gizmo (32 checks, including
+pointer-leave pixel checks), and learn-workplane (10 editor/mode combinations).
+Movement and POSE cover modified clicks, plain selection/clear without an undo
+entry and free drag-away rotation. Bones covers selection with its Select Tool.
+The movement-gizmo pixel check now measures the specified yellow highlight,
+with overlapping pivot crosses hidden for the measurement.
+
+At `840e4995`, Shift-click failed to add the second Movement bone, and
+orbited Top reported Z when the camera faced X. The focused checks also
+reproduced dropped Forge precision (22° instead of 25° for the mixed batch)
+and a missed ring hit 9 px from the stroke.
+
+**Earlier implementation verification**
 
 - `pnpm test`: 57 passed, 0 failed, 0 skipped.
 - `pnpm run test:source`: 2,594 passed, 0 failed, 10 existing opt-in/platform
@@ -182,7 +212,7 @@ Claude Code if something is unclear.
 ## Handover
 
 Implementation PR: [#504](https://github.com/UnsctMagic/MDLxL/pull/504).
-Ready to test; ready for review; awaiting merge approval. No merge authorized.
+All ten review fixes are included on `codex/workplane-constraints`. Ready to test and awaiting merge approval.
 PR #496 is closed and unmerged; the replacement link is recorded there.
 The exact Gizmo Lab installation and desktop shortcut were removed. The real
 installed app/profile and permanent test corpus were preserved. Disposable
@@ -191,12 +221,11 @@ only the small report, logs and requested captures on D:.
 
 Owner click-through on a build of this branch:
 
-1. Vertices / POSE / Forge: Rotate with Workplane Constraints on, then off;
-   hold and release Shift during a drag.
-2. Settings → Appearance → Controllers: try the three Move and Rotate styles.
-   Mouse → Rotation: change sensitivity and Shift precision.
-3. Move with Shift + arrow / square, including Bones; try the quad Perspective
-   toolbar and normal mouse orbit in all panes.
+1. In Bones with Select, Shift-click and Ctrl-click bones, then click empty
+   space. Repeat in Movement and POSE with Rotate, then drag away from the handles.
+2. In Quad View, orbit the Top pane, then Rotate and Move a selection there.
+3. In Settings → Mouse → Rotation, set Shift precision for Forge only and
+   check that the other editors kept theirs.
 
 ## Review fixes (Claude Code review, 2 Nov)
 
@@ -208,7 +237,7 @@ Where a fix seems to clash with them, stop and ask Claude Code.
 
 ### Must fix
 
-1. **Rotate tool takes every click (Bones/Movement/POSE).**
+1. **Rotate tool takes every click (Movement and POSE).**
    `pointerDown` in [app/GamePreview.jsx](../../app/GamePreview.jsx) ~612:
    `directRotate` is now true for any left press that misses the gizmo. Item 3
    says a *drag* away from the handles turns around the axis facing the camera,
@@ -223,9 +252,10 @@ Where a fix seems to clash with them, stop and ask Claude Code.
      !realPicked && (… || p.transformMode === 'rotate') …)` ~119).
    Box select while Rotate is active was replaced by item 3 (drag away = turn).
    Don't bring it back; note this in the PR description.
-   Test: a packaged real-mouse check in Bones and Movement with Rotate: Shift-click
-   adds a bone, Ctrl-click removes it, click on empty space clears, and a drag
-   away from the handles still turns.
+   Test with real mouse input in Movement and POSE with Rotate: Shift-click adds a
+   bone, Ctrl-click removes it, a plain click selects another marker, empty-click
+   clears, and dragging away from the handles still turns. Rest-pose Bones keeps
+   Select/Move only. Check the selection clicks there with Select.
 
 2. **Quad Front/Top/Side lock to the wrong plane after orbiting.**
    [app/Viewport.jsx](../../app/Viewport.jsx): orbit is now allowed in every pane
@@ -297,8 +327,8 @@ Where a fix seems to clash with them, stop and ask Claude Code.
 - Update this note (Implementation, Verification evidence, Handover) and the PR
   description, keep the `Session:` line, push to this branch, and report
   `ready to test` with a short click-through for the owner:
-  1. Bones/Movement, Rotate: Shift-click and Ctrl-click bones, click empty
-     space, then drag away from the handles.
+  1. In Bones with Select, Shift-click and Ctrl-click bones, then click empty
+     space. Repeat in Movement and POSE with Rotate, then drag away from the handles.
   2. Quad view: orbit the Top pane, then Rotate and Move a selection there.
   3. Settings → Mouse → Rotation: set Shift precision for Forge only and check
      the other editors kept theirs.

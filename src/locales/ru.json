@@ -6780,6 +6780,7 @@
   "Use default ·": "По умолчанию ·",
   "Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse.": "Скорость вращения умножает чувствительность указателя редактора. Меньшее значение вращает медленнее. UV-карта всегда поворачивается вместе с мышью.",
   "Rotation sensitivity": "Чувствительность вращения",
+  "Use default rotation precision": "Использовать точность вращения по умолчанию",
   "Use default rotation sensitivity": "Использовать чувствительность вращения по умолчанию",
   "Use default": "По умолчанию",
   "Where": "Где",

@@ -279,24 +279,8 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
-/** The world axis a Rotate drag turns about (positive by the right-hand rule). */
-export function movementRotationNormal(gesture, rotation, view) {
-  const normal = gesture.handle.axis === 'XYZ' ? view.clone() : new Vector3().fromArray(AXES[gesture.handle.axis]);
-  // POSE Body/Object keeps Local with a workplane. Ordinary workplane
-  // rotation and POSE endpoints instead use the world plane normal.
-  const localWorkplane = gesture.pose && (gesture.target?.kind === 'body' || gesture.target?.kind === 'node');
-  if ((!gesture.workplaneEnabled || localWorkplane) && gesture.space === 'local' && gesture.handle.axis !== 'XYZ') normal.applyQuaternion(rotation);
-  return normal;
-}
-
-/** How squarely the turn axis faces the camera (1 = straight at it). */
-export function movementRotationFacing(gesture, rotation, view) {
-  return -movementRotationNormal(gesture, rotation, view).dot(view);
-}
-
-/** Shared constrained or swept turn; the editor supplies the captured axes. */
-export function movementRotationGesture(options) {
-  return beginRotationDrag(options);
+export function movementRotationSpace(gesture) {
+  return gesture.workplaneEnabled && !(gesture.pose && ['body', 'node'].includes(gesture.target?.kind)) ? 'world' : gesture.space;
 }
 
 export function movementRotationAmount(gesture, dx, dy, sensitivity = 1, shift = false) {
@@ -349,7 +333,7 @@ function pointSegmentDistance(x, y, handle) {
 }
 
 export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
-  if (handles.some(handle => handle.ring)) return handles.map(handle => ({ handle, distance: Math.min(...handle.points.slice(1).map((point, i) => pointSegmentDistance(x, y, { startX: handle.points[i].x, startY: handle.points[i].y, x: point.x, y: point.y }))) })).filter(hit => hit.distance <= 7).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
+  if (mode === 'rotate' && handles.some(handle => handle.ring)) return handles.map(handle => ({ handle, distance: Math.min(...handle.points.slice(1).map((point, i) => pointSegmentDistance(x, y, { startX: handle.points[i].x, startY: handle.points[i].y, x: point.x, y: point.y }))) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
   if (mode === 'rotate') {
     // A short camera-facing axis can sit on another axis's shaft. Its visible
     // XYZ endpoint owns that press, just as it does for the other gizmo tools.

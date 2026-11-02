@@ -12,7 +12,7 @@ import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
-import { drawMovementGizmo, drawGizmoRotationFeedback, rotationDisplayHandles, beginGizmoRotation, gizmoMoveTranslation, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
+import { drawMovementGizmo, drawGizmoRotationFeedback, rotationDisplayHandles, beginGizmoRotation, gizmoMoveTranslation, drawMovementOverlay, movementAxisHandles, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import {drawPoseOverlay} from './pose-overlay.js';
 import {translate} from '../src/localization.js';
 import { visibleMovementPoints } from './preview-overlays.js';
@@ -34,10 +34,10 @@ import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 import { projectCompassAxes } from './viewport-compass.js';
 
-import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
-import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
+import { QUAD_VIEWS, viewWorkplane, lockedQuadPlane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
 import { composeViewportLayers, drawPreviewBackground } from './game-preview-capture.js';
 import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
@@ -354,15 +354,7 @@ export default function Viewport(inputProps) {
       if (anchorEntry && selectionArray(selections(p)[anchor.geosetIndex]).includes(anchor.vertexIndex)) return pivot.fromBufferAttribute(anchorEntry.geometry.attributes.position, anchor.vertexIndex);
       return pivot.multiplyScalar(1 / count);
     }
-    /** An arrow moves along its axis and a square within its plane, under the pointer. */
-    function gizmoTranslation(start, end, drag) {
-      const handle = drag.handle, dx = end.x - start.x, dy = end.y - start.y;
-      if (handle.plane) return new THREE.Vector3().fromArray(projectedPlaneTranslation(handle.plane, planeScreenBasis(camera, drag.pivot, end.width, end.height, handle.plane), dx, dy));
-      const axis = 'XYZ'.indexOf(handle.axis), origin = drag.pivot.clone().project(camera), tip = drag.pivot.clone().setComponent(axis, drag.pivot.getComponent(axis) + 1).project(camera);
-      const ax = (tip.x - origin.x) * end.width / 2, ay = (origin.y - tip.y) * end.height / 2, pixels = ax * ax + ay * ay;
-      // An axis pointing at the camera keeps its short stand-in arrow and a steady speed.
-      return new THREE.Vector3().setComponent(axis, Math.hypot(handle.projectedDx, handle.projectedDy) < 18 ? movementDragAmount(handle, dx, dy, 'move') : (dx * ax + dy * ay) / pixels);
-    }
+    const currentLockedPlane = () => quad && boundPane.workplane ? lockedQuadPlane(boundPane.workplane, camera.getWorldDirection(new THREE.Vector3()).toArray()) : null;
     function screenPosition(value, rect) { const projected = value.clone().project(camera); return new THREE.Vector2((projected.x + 1) * rect.width / 2, (1 - projected.y) * rect.height / 2); }
     function anchorVertexInMarquee(p, start, end) {
       const active = editableGeosets(p), selected = selections(p), screen = new THREE.Vector3(), radius = Math.max(5, visualOptions(p.preferences).vertexSize / 2);
@@ -429,7 +421,7 @@ export default function Viewport(inputProps) {
         if(picked){
           const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:event.shiftKey,ctrl:false});
           p.onSelectNodes(ids);down.action='node';
-          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:quad&&boundPane.workplane||p.workplane,workplaneEnabled:!!(quad&&boundPane.workplane)||p.workplaneEnabled!==false,delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
+          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:currentLockedPlane()||p.workplane,workplaneEnabled:!!currentLockedPlane()||p.workplaneEnabled!==false,delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
@@ -463,7 +455,7 @@ export default function Viewport(inputProps) {
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(pivot, start);
-      const lockedPlane = quad && boundPane.workplane, dragPlane = lockedPlane || (quad ? boundPane.constraintPlane || p.workplane : p.workplane), constrained = !!lockedPlane || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
+      const lockedPlane = currentLockedPlane(), dragPlane = lockedPlane || (quad ? boundPane.constraintPlane || p.workplane : p.workplane), constrained = !!lockedPlane || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
       if (down.action === 'rotate') {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: pivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor: p.rotationEditor || 'vertices' });
@@ -518,7 +510,7 @@ export default function Viewport(inputProps) {
       // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
       // turn between frames cannot flip direction. Repeating the last point adds nothing.
       if (state.drag.rotationDrag) {
-        for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, event.shiftKey); }
+        for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, sample.shiftKey); }
         rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey);
       }
       transformMove = { down, rawEnd, end, dx, dy, shiftKey: event.shiftKey }; transformFrame.schedule();
@@ -918,7 +910,7 @@ export default function Viewport(inputProps) {
           boundPane.constraintLabel.lastChild.textContent = translate('Workplane Constraints', language);
           boundPane.constraintLanguage = language;
         }
-        const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera), locked = !!(quad && boundPane.workplane) || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
+        const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera), locked = !!currentLockedPlane() || (quad ? boundPane.constraints !== false : p.workplaneEnabled !== false);
         const appearance = viewportAppearanceOptions(p.preferences).controllers;
         boundPane.gizmoHandles = gizmoScreen && !locked ? movementAxisHandles({ world: gizmoAt, x: (gizmoScreen.x + 1) * surface.clientWidth / 2, y: (1 - gizmoScreen.y) * surface.clientHeight / 2, visible: gizmoScreen.z >= -1 && gizmoScreen.z <= 1 }, camera, surface.clientWidth, surface.clientHeight, state.radius, 'world', p.transformMode === 'rotate' ? 'rotate' : 'move', appearance) : [];
         state.gizmoHandles = boundPane.gizmoHandles;

@@ -13,7 +13,11 @@ export function normalizeRotationPreferences(value) {
   const input = record(value), editors = {};
   for (const id of Object.keys(ROTATION_EDITORS)) {
     const sensitivity = speed(input.editors?.[id]?.sensitivity);
-    if (sensitivity !== undefined) editors[id] = { sensitivity };
+    const precision = speed(input.editors?.[id]?.precision);
+    if (sensitivity !== undefined || precision !== undefined) editors[id] = {
+      ...(sensitivity !== undefined && { sensitivity }),
+      ...(precision !== undefined && { precision: Math.min(1, precision) }),
+    };
   }
   return { sensitivity: speed(input.sensitivity) ?? 1, precision: Math.min(1, speed(input.precision) ?? .1), editors };
 }

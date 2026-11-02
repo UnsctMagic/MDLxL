@@ -11,7 +11,6 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
   const { projectPoseHandles } = await import('../app/pose-overlay.js');
   const { movementAxisHandles, pickMovementHandle, projectMovementNodes } = await import('../app/movement-overlay.js');
   const { openDocument } = await import('../src/editor-document.js');
-  const { viewportAppearanceOptions } = await import('../src/preferences.js');
   const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-move-gizmo-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || fixturePath('footman'));
   const executablePath = appTarget().executablePath;
   fs.mkdirSync(out, { recursive: true });
@@ -68,24 +67,41 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
     results.checks.push('Actual Alt-mouse camera rotation');
     await page.getByRole('button',{name:'Fit',exact:true}).click();await settle();
     async function gizmo(pose){
-      const data=await page.evaluate(()=>{const {runtime,props}=poseProbe(),canvas=document.querySelector('[data-clean-model-canvas]');return {camera:runtime.controls.object.toJSON(),width:canvas.clientWidth,height:canvas.clientHeight,frame:runtime.native.getFrame(),sequence:props.sequenceIndex,id:props.selectedNodeIds.at(-1),radius:runtime.captureApi.showcaseView().radius};});
+      const data=await page.evaluate(()=>{const {runtime,props}=poseProbe(),canvas=document.querySelector('[data-clean-model-canvas]');return {camera:runtime.controls.object.toJSON(),width:canvas.clientWidth,height:canvas.clientHeight,frame:runtime.native.getFrame(),sequence:props.sequenceIndex,id:props.selectedNodeIds.at(-1),matrices:(runtime.native.rendererData.nodes||[]).flatMap((n,i)=>n?.matrix?[[i,Array.from(n.matrix)]]:[]),radius:runtime.captureApi.showcaseView().radius};});
       const camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
-      const active=pose?await handleFor('body'):projectMovementNodes(sourceModel,data.frame,data.sequence,camera,data.width,data.height).find(p=>p.node.ObjectId===data.id);
+      const active=pose?await handleFor('body'):projectMovementNodes(sourceModel,data.frame,data.sequence,camera,data.width,data.height,data.frame,new Map(data.matrices.map(([i,m])=>[i,new Matrix4().fromArray(m)]))).find(p=>p.node.ObjectId===data.id);
       return {active,handles:movementAxisHandles(active,camera,data.width,data.height,data.radius,'world','move',pose?await handles():[])};
     }
     async function position(id){const data=await page.evaluate(id=>{const n=poseProbe().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id);return {pivot:Array.from(n.node.PivotPoint),matrix:Array.from(n.matrix)};},id);return new Vector3().fromArray(data.pivot).applyMatrix4(new Matrix4().fromArray(data.matrix));}
     async function checkedDrag(pose,label,point,dx,dy,allowed,cancel=false){
       const before=await snap(), g=await gizmo(pose), id=pose?config.body:g.active.node.ObjectId, from=await position(id);box=await viewportBox();console.log(pose?'POSE':'Bone',label,'pick',pickMovementHandle(g.handles,point.x,point.y,'move')?.axis);
-      // Since f771705c the gizmo uses the Appearance XYZ colors; a press makes that axis glow (shadow blur, wider stroke) in its own color.
-      const picked=pickMovementHandle(g.handles,point.x,point.y,'move'),axis=picked&&(picked.plane?({xy:'Y',xz:'X',yz:'Z'})[picked.plane]:picked.axis);
-      const rgb=picked&&(hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)))(viewportAppearanceOptions(await page.evaluate(()=>poseProbe().props.preferences)).controllers['axis'+axis]);
-      // The canvas stores premultiplied 8-bit color, so a faint pixel (e.g. a 16% plane square under the glow) reads back up to ~255/alpha off
-      // its true color; software rendering (WARP) rounds differently from a GPU. Match the axis color within that read-back precision.
-      const glow=()=>page.locator('[data-node-overlay]').evaluate((canvas,rgb)=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=0;i<pixels.length;i+=4){const alpha=pixels[i+3],tolerance=Math.max(2,384/alpha);if(alpha>40&&rgb.every((v,j)=>Math.abs(v-pixels[i+j])<=tolerance))count++;}return count;},rgb);
-      await page.mouse.move(box.x+point.x,box.y+point.y);await settle();const idle=picked?await glow():0;await page.mouse.down();
+      const picked=pickMovementHandle(g.handles,point.x,point.y,'move');
+      // Measure the contract's yellow highlight around this handle only.
+      const region = picked?.polygon || [point, picked || point];
+      const bounds = { left:Math.min(...region.map(p=>p.x))-12, right:Math.max(...region.map(p=>p.x))+12,
+        top:Math.min(...region.map(p=>p.y))-12, bottom:Math.max(...region.map(p=>p.y))+12 };
+      const glow=()=>page.locator('[data-node-overlay]').evaluate((canvas,area)=>{
+        const ratio=canvas.width/canvas.clientWidth;
+        const pixels=canvas.getContext('2d').getImageData(Math.floor(area.left*ratio),Math.floor(area.top*ratio),Math.ceil((area.right-area.left)*ratio),Math.ceil((area.bottom-area.top)*ratio)).data;
+        let count=0;
+        for(let i=0;i<pixels.length;i+=4)if(pixels[i]>190 && pixels[i+1]>180 && pixels[i+2]<140 && pixels[i+3]>80)count++;
+        return count;
+      },bounds);
+      await page.mouse.move(box.x+box.width+8,box.y+35);await settle();
+      const idle=picked?await glow():0;
+      await page.mouse.move(box.x+point.x,box.y+point.y);await settle();
+      if (picked && !pose) {
+        await page.waitForFunction(axis => document.querySelector('[data-node-overlay]')?.dataset.activeHandle===axis,picked.axis);
+        const hover=await glow();assert.ok(hover>idle,label+' highlights on hover: '+JSON.stringify({idle,hover,bounds}));
+        await page.mouse.move(box.x+box.width+8,box.y+35);await settle();
+        await page.waitForFunction(()=>document.querySelector('[data-node-overlay]')?.dataset.activeHandle==='');
+        assert.equal(await glow(),idle,label+' hover clears on pointer leave');
+        await page.mouse.move(box.x+point.x,box.y+point.y);
+      }
+      await page.mouse.down();
       if(picked){await settle();
-        const neon=await glow();results.measurements.push({pose,label,axis,idle,pressed:neon});
-        assert.ok(neon>idle,(pose?'POSE ':'Bone ')+label+' glows in its own axis color immediately on press');
+        const neon=await glow();results.measurements.push({pose,label,axis:picked.axis,idle,pressed:neon});
+        assert.ok(neon>idle,(pose?'POSE ':'Bone ')+label+' highlights yellow on press');
         if(label==='X shaft middle'||label==='XY square')await shot((pose?'pose':'bone')+'-'+picked.axis+'-neon-active');
       }
       await page.mouse.move(box.x+point.x+dx,box.y+point.y+dy,{steps:4});
@@ -100,7 +116,10 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
       assert.equal(await page.getByLabel('Workplane Constraints',{exact:true}).isChecked(),false);results.checks.push((pose?'POSE ':'Bone ')+label);
     }
     for(const pose of [true,false]){
-      if(!pose){await page.getByRole('button',{name:'POSE',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption(String(config.body));await tool('Move');await settle();}
+      if(!pose){await page.getByRole('button',{name:'POSE',exact:true}).click();
+        // Pivot crosses paint over the shafts on this Footman. Expose the handle being measured.
+        await page.locator('input[data-hotkey="display:focusedSkeleton"]').uncheck();
+        await page.getByLabel('Movement bone or node').selectOption(String(config.body));await tool('Move');await settle();}
       for(const axis of ['X','Y','Z'])for(const part of ['shaft start','shaft middle','tip']){
         const a=(await gizmo(pose)).handles.find(h=>h.axis===axis),length=Math.hypot(a.dx,a.dy),pixels=part==='tip'?length:part==='shaft start'?26:(20+length)/2;
         await checkedDrag(pose,axis+' '+part,{x:a.startX+a.dx/length*pixels,y:a.startY+a.dy/length*pixels},a.dx/length*4,a.dy/length*4,[{X:0,Y:1,Z:2}[axis]]);

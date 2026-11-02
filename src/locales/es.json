@@ -6794,6 +6794,7 @@
   "Use default ·": "Usar predeterminado ·",
   "Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse.": "La velocidad de rotación multiplica la sensibilidad del puntero del editor. Un valor menor gira más despacio. El mapa UV siempre gira con el ratón.",
   "Rotation sensitivity": "Sensibilidad de rotación",
+  "Use default rotation precision": "Usar la precisión de rotación predeterminada",
   "Use default rotation sensitivity": "Usar la sensibilidad de rotación predeterminada",
   "Use default": "Usar predeterminado",
   "Where": "Dónde",

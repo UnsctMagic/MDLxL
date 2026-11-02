@@ -1,3 +1,4 @@
+import { beginRotationDrag } from '../src/rotation-drag.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,7 +13,7 @@ import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
-import { movementRotationAmount, movementRotationGesture, movementWorkplaneHandle } from '../app/movement-overlay.js';
+import { movementRotationAmount, movementWorkplaneHandle } from '../app/movement-overlay.js';
 import {createRequire} from 'node:module';
 const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
@@ -86,7 +87,7 @@ test('POSE workplane rotation keeps explicit local Body/Object and world Endpoin
     model.Bones[0].Rotation = track([500, q(flipAxis, Math.PI)]);
     const id = kind === 'body' ? 0 : chain.end;
     const before = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), before, new Vector3());
-    const drag = movementRotationGesture({ constrained: true, plane });
+    const drag = beginRotationDrag({ constrained: true, plane });
     const degrees = movementRotationAmount(drag, 20, 0);
     near(degrees, plane === 'xz' ? -20 : 20);
     const result = kind === 'endpoint'

@@ -17,12 +17,12 @@ function readViewport(selector){
  const {app,page}=await launchApp({fixture,out,settings,errors,show:'hide',bounds:{x:0,y:0,width:1500,height:980},args:['--disable-gpu-vsync','--disable-frame-rate-limit']});
  const {Vector3,Euler,ObjectLoader,Matrix4}=await import('three');
  const {movementAxisHandles,projectMovementNodes,pickMovementHandle}=await import('../app/movement-overlay.js');
- const {projectPoseHandles}=await import('../app/pose-overlay.js');
+ const {projectPoseHandles,pickPoseHandle}=await import('../app/pose-overlay.js');
  const check=(name)=>{checks.push(name);console.log('PASS '+name);};
  const shot=async name=>{const bytes=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(bytes,'base64'));};
  const settingsDialog=async()=>{await page.keyboard.press('Control+,');const d=page.getByRole('dialog',{name:'Settings',exact:true});await d.waitFor();return d;};
  const setStyle=async(rotate,move)=>{const d=await settingsDialog();await d.getByRole('tab',{name:'Appearance',exact:true}).click();await d.getByRole('navigation',{name:'Appearance pages'}).getByRole('button',{name:'Controllers',exact:true}).click();if(rotate)await d.getByLabel('Rotate handles',{exact:true}).selectOption(rotate);if(move)await d.getByLabel('Move gizmo',{exact:true}).selectOption(move);await d.getByRole('button',{name:'Close Settings',exact:true}).click();};
- const setSpeed=async(editor,speed,precision)=>{const d=await settingsDialog();await d.getByRole('tab',{name:'Mouse',exact:true}).click();await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();assert.equal(await d.getByLabel('Rotational Behavior',{exact:true}).count(),0);await d.getByLabel('Rotation editor',{exact:true}).selectOption(editor);if(editor!=='all')await d.getByLabel('Use default rotation sensitivity').uncheck();await page.waitForFunction(editor=>{const p=findFiberProps('.settings-window',p=>p.preferences&&p.onChange),r=p?.preferences.rotation,n=document.querySelector('[aria-label="Rotation sensitivity"]');return n&&!n.disabled&&Number(n.value)===(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity??r.sensitivity);},editor);const n=d.getByLabel('Rotation sensitivity',{exact:true});await n.fill(String(speed));await n.press('Enter');await page.waitForFunction(({editor,speed})=>{const p=findFiberProps('.settings-window',p=>p.preferences&&p.onChange);const r=p?.preferences.rotation;return r&&(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity)===speed;},{editor,speed});if(precision!==undefined){const n=d.getByLabel('Shift rotation precision',{exact:true});await n.fill(String(precision));await n.press('Enter');}const r=await page.evaluate(()=>findFiberProps('.settings-window',p=>p.preferences&&p.onChange)?.preferences.rotation);console.log('SET SPEED',editor,speed,JSON.stringify(r));assert.equal(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity,speed);await shot('settings-rotation');await d.getByRole('button',{name:'Close Settings',exact:true}).click();};
+ const setSpeed=async(editor,speed,precision)=>{const d=await settingsDialog();await d.getByRole('tab',{name:'Mouse',exact:true}).click();await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();assert.equal(await d.getByLabel('Rotational Behavior',{exact:true}).count(),0);await d.getByLabel('Rotation editor',{exact:true}).selectOption(editor);if(editor!=='all')await d.getByLabel('Use default rotation sensitivity').uncheck();await page.waitForFunction(editor=>{const p=findFiberProps('.settings-window',p=>p.preferences&&p.onChange),r=p?.preferences.rotation,n=document.querySelector('[aria-label="Rotation sensitivity"]');return n&&!n.disabled&&Number(n.value)===(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity??r.sensitivity);},editor);const n=d.getByLabel('Rotation sensitivity',{exact:true});await n.fill(String(speed));await n.press('Enter');await page.waitForFunction(({editor,speed})=>{const p=findFiberProps('.settings-window',p=>p.preferences&&p.onChange);const r=p?.preferences.rotation;return r&&(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity)===speed;},{editor,speed});if(precision!==undefined){if(editor!=='all')await d.getByLabel('Use default rotation precision').uncheck();const n=d.getByLabel('Shift rotation precision',{exact:true});await n.fill(String(precision));await n.press('Enter');}const r=await page.evaluate(()=>findFiberProps('.settings-window',p=>p.preferences&&p.onChange)?.preferences.rotation);console.log('SET SPEED',editor,speed,JSON.stringify(r));assert.equal(editor==='all'?r.sensitivity:r.editors[editor]?.sensitivity,speed);await shot('settings-rotation');await d.getByRole('button',{name:'Close Settings',exact:true}).click();};
  async function rawDrag(start,end,{shift=false,live}={}){if(shift)await page.keyboard.down('Shift');await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:12});if(live)await live();await page.mouse.up();if(shift)await page.keyboard.up('Shift');}
  const almost=(a,b,t=1e-4)=>assert.ok(Math.abs(a-b)<t,`${a} != ${b}`);
  async function orbit(target,read){const rect=await target.boundingBox(),before=await read();await page.keyboard.down('Alt');await rawDrag({x:rect.x+rect.width*.55,y:rect.y+rect.height*.55},{x:rect.x+rect.width*.55+35,y:rect.y+rect.height*.55+20});await page.keyboard.up('Alt');await page.waitForFunction(({selector,old})=>{let p;const h=document.querySelector(selector+' [aria-label="3D model viewport"]'),r=findFiberState(h,(v,q)=>{if(v?.renderer&&v?.entries){p=q;return true;}return false;},{current:true});return r&&r.camera.quaternion.toArray().some((v,i)=>Math.abs(v-old[i])>1e-5);},{selector:target._scopeSelector||'.classic-view',old:before.quaternion});}
@@ -91,6 +91,51 @@ function readViewport(selector){
   await page.locator('[data-hotkey="animation"]').click();await page.getByLabel('Movement current sequence').selectOption('0');await page.getByLabel('Movement bone or node').selectOption('0');await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
   const tools=page.getByRole('group',{name:'Movement tool',exact:true});await tools.getByRole('button',{name:'Rotate',exact:true}).click();
   const gameData=async()=>{await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&(p.restPose||Math.round(r.native.getFrame())===Math.round(p.time));});return page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe(),c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});};
+  async function checkMarkerClicks(label) {
+   const before = await gameData(), camera = new ObjectLoader().parse(before.camera);
+   camera.updateMatrixWorld(true);
+   const matrices = new Map(before.matrices.map(([id,m]) => [id,new Matrix4().fromArray(m)]));
+   const points = projectMovementNodes(before.model,before.frame,before.sequence,camera,before.width,before.height,before.frame,matrices);
+   const box = await page.locator('[data-clean-model-canvas]').boundingBox();
+   const controllers = label === 'POSE' ? projectPoseHandles(before.model,before.config,before.frame,before.sequence,camera,before.width,before.height) : [];
+   const candidates = points.filter(p => p.visible && p.overlayKind === 'bones' && !p.helperNode && p.x>20 && p.y>20 && p.x<box.width-20 && p.y<box.height-20);
+   const isolated = candidates.filter(p => points.every(q => q===p || Math.hypot(p.x-q.x,p.y-q.y)>3));
+   const first = isolated.find(p => {
+    if (label !== 'POSE') return true;
+    const hit = pickPoseHandle(controllers,p.x,p.y,before.config.target,candidates,true);
+    return hit?.kind === 'node' && hit.id === p.node.ObjectId;
+   });
+   const second = isolated.find(p => first && Math.hypot(p.x-first.x,p.y-first.y)>26);
+   assert.ok(first && second, label+' has two separated bone markers');
+   const click = async (point, key, expected) => {
+    const undo = await page.evaluate(()=>mdlxlProbe().session.doc.historyStats.undoSteps);
+    if(key) await page.keyboard.down(key);
+    await page.mouse.click(box.x+point.x,box.y+point.y);
+    if(key) await page.keyboard.up(key);
+    try {
+     await page.waitForFunction(ids=>JSON.stringify(mdlxlProbe().props.selectedNodeIds)===JSON.stringify(ids),expected);
+    } catch (error) {
+     assert.deepEqual((await gameData()).selected,expected,label+' '+(key||'plain')+' click at '+point.x+','+point.y);
+     throw error;
+    }
+    if (!key && label !== 'Bones') assert.equal(await page.evaluate(()=>mdlxlProbe().session.doc.historyStats.undoSteps),undo,label+' plain click adds no undo');
+   };
+   const a=first.node.ObjectId,b=second.node.ObjectId,blank={x:box.width*.86,y:box.height*.22};
+   await click(first,null,[a]);
+   await click(second,'Shift',[a,b]);
+   await click(second,'Control',[a]);
+   await click(blank,null,[]);
+   assert.equal((await gameData()).document,before.document);
+   if(label!=='Bones'){
+    await click(first,null,[a]);
+    const start={x:box.x+blank.x,y:box.y+blank.y};
+    await rawDrag(start,{x:start.x+25,y:start.y+45});
+    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)!==old,before.document);
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)===old,before.document);
+   }
+   check(label+' marker selection and undo history'+(label==='Bones'?'':' plus drag-away rotation'));
+  }
   async function gameOrbit(label){const before=await gameData(),b=await page.locator('[data-clean-model-canvas]').boundingBox();await page.keyboard.down('Alt');await rawDrag({x:b.x+b.width*.65,y:b.y+b.height*.65},{x:b.x+b.width*.65+30,y:b.y+b.height*.65+20});await page.keyboard.up('Alt');await page.waitForFunction(old=>mdlxlProbe().runtime.controls.object.quaternion.toArray().some((v,i)=>Math.abs(v-old[i])>1e-5),new ObjectLoader().parse(before.camera).quaternion.toArray());assert.equal((await gameData()).document,before.document);check(label+' actual mouse orbit preserves document');}
   async function ensurePoseBody(mode){
    await tools.getByRole('button',{name:'Select',exact:true}).click();const current=await gameData(),camera=new ObjectLoader().parse(current.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();
@@ -117,10 +162,21 @@ function readViewport(selector){
    await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&Math.round(r.native.getFrame())===Math.round(p.time);});
    const state=await page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe();const c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),quaternion:r.controls.object.quaternion.toArray(),position:r.controls.object.position.toArray(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});
    const b=await page.locator('[data-clean-model-canvas]').boundingBox(),camera=new ObjectLoader().parse(state.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();const points=pose?projectPoseHandles(state.model,state.config,state.frame,state.sequence,camera,state.width,state.height):projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height);const active=pose?points.find(h=>h.selected):points.find(h=>h.node.ObjectId===state.selected.at(-1));assert.ok(active,'active control');let start={x:b.x+active.x+100,y:b.y+active.y+80},end={x:start.x+40,y:start.y+17};
-   if(off){const h=movementAxisHandles(active,camera,state.width,state.height,state.radius,state.space,'rotate',state.appearance)[0];const at=h.ring?h.points[20]:h;start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};}
+   if(off){
+    const handles=movementAxisHandles(active,camera,state.width,state.height,state.radius,state.space,'rotate',state.appearance);
+    const nodes=projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height,state.frame,new Map(state.matrices.map(([i,m])=>[i,new Matrix4().fromArray(m)])));
+    const at=handles.flatMap(h=>(h.ring?h.points:[h]).filter(pt=>{
+     if(Math.hypot(pt.x-active.x,pt.y-active.y)<22 || pt.x<10 || pt.y<10 || pt.x>state.width-10 || pt.y>state.height-10) return false;
+     if(pickMovementHandle(handles,pt.x,pt.y,'rotate')!==h) return false;
+     return !pose || pickMovementHandle(handles,pt.x,pt.y,'tip')===h || !pickPoseHandle(points,pt.x,pt.y,state.config.target,nodes,true);
+    }))[0];
+    assert.ok(at,'visible '+style+' handle clear of higher-priority POSE markers');start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};}
    await rawDrag(start,end,{shift,live:async()=>{const expected=(off ? .45*180/Math.PI : 40*({xy:1,xz:-1,yz:1}[plane]))*dpi*speed*(shift?precision:1);await page.waitForFunction(expected=>{const el=document.querySelector('[data-rotation-feedback]:not([data-rotation-feedback=""])');const angle=Number(el?.getAttribute('data-rotation-feedback')?.split(' ').at(-1));return !!el&&Math.abs(Math.abs(angle)-Math.abs(expected))<.06;},expected);const value=await page.locator('[data-rotation-feedback]:not([data-rotation-feedback=""])').getAttribute('data-rotation-feedback');if(!off)almost(Number(value.split(' ').at(-1)),40*({xy:1,xz:-1,yz:1}[plane])*dpi*speed*(shift?precision:1),.06);await shot(pose?'pose-'+style:'movement-'+style);}});
    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)!==old,state.document);check((pose?'POSE':'Movement')+' '+(off?style:plane)+(shift?' precision':'')+' changes authored tracks');
   }
+  await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
+  await checkMarkerClicks('Movement');
+  await page.getByLabel('Movement bone or node').selectOption('0');
   for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await page.getByLabel('Workplane Constraints',{exact:true}).check();for(const plane of ['xy','xz','yz']){await page.locator(`[data-hotkey="plane:${plane}"]`).check();for(let i=0;i<3;i++)await movementTurn({plane});}}
   await movementTurn({plane:'yz',shift:true});await setSpeed('movement',2,.2);await movementTurn({plane:'yz',shift:true,speed:2,precision:.2});await setSpeed('movement',1,.1);
   for(const style of ['lines','rings','arcs']){await setStyle(style);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();await movementTurn({off:true,style});}
@@ -128,10 +184,16 @@ function readViewport(selector){
   await gameOrbit('Movement');
   await page.getByRole('button',{name:'POSE',exact:true}).click();await tools.getByRole('button',{name:'Select',exact:true}).click();
   await ensurePoseBody('Rotate');
+  const poseBones=page.getByRole('group',{name:'Quick display',exact:true}).locator('input[data-hotkey="display:bones"]');
+  const bonesWereVisible=await poseBones.isChecked();
+  await poseBones.check();
+  await checkMarkerClicks('POSE');
+  await poseBones.setChecked(bonesWereVisible);
+  await ensurePoseBody('Rotate');
   await page.getByLabel('Workplane Constraints',{exact:true}).check();for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);for(const plane of ['xy','xz','yz']){await page.locator(`[data-hotkey="plane:${plane}"]`).check();for(let turn=0;turn<3;turn++)await movementTurn({pose:true,plane});}}await movementTurn({pose:true,plane:'yz',shift:true});await setSpeed('movement',2,.2);await movementTurn({pose:true,plane:'yz',shift:true,speed:2,precision:.2});await setSpeed('movement',1,.1);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['lines','rings','arcs']){await setStyle(style);await movementTurn({pose:true,off:true,style});}
   await tools.getByRole('button',{name:'Move',exact:true}).click();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('POSE',style,true);}}
   await gameOrbit('POSE');
-  await page.locator('[data-hotkey="bones"]').click();await page.getByLabel('Movement bone or node').selectOption('0');const bonesTools=page.getByRole('group',{name:'Bones tools',exact:true});assert.equal(await bonesTools.getByRole('button',{name:'Rotate',exact:true}).count(),0);await bonesTools.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('Bones',style);}}await gameOrbit('Bones');check('Bones preserves Select/Move restriction');
+  await page.locator('[data-hotkey="bones"]').click();await page.getByLabel('Movement bone or node').selectOption('0');const bonesTools=page.getByRole('group',{name:'Bones tools',exact:true});await bonesTools.getByRole('button',{name:'Select Tool',exact:true}).click();await checkMarkerClicks('Bones');await page.getByLabel('Movement bone or node').selectOption('0');assert.equal(await bonesTools.getByRole('button',{name:'Rotate',exact:true}).count(),0);await bonesTools.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('Bones',style);}}await gameOrbit('Bones');check('Bones preserves Select/Move restriction');
   assert.equal(sha256File(fixture),hash);assert.deepEqual(errors,[]);check('Original Footman bytes preserved; no renderer errors');
  }catch(error){await shot('failure');throw error;}finally{fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,dpi,fixture,fixtureHash:hash,target:process.env.MDLXL_ROTATION_TARGET||'full',packaged:appTarget().packaged,executableHash:sha256File(appTarget().executablePath),bundle:bundleHashes()},null,2));await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

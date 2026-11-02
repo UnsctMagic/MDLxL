@@ -97,13 +97,16 @@ function RotationSettings({ value, onChange }) {
     if (Object.keys(entry).length) editors[editor] = entry; else delete editors[editor];
     onChange({ ...value, editors });
   };
+  const inheritPrecision = !global && override.precision === undefined;
   const inheritSpeed = !global && override.sensitivity === undefined;
   return <section className="settings-appearance-section"><h4>Rotation</h4><div className="settings-appearance-content">
     <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
     <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse."><label className="settings-number"><span>Rotation sensitivity</span><span><SettingsNumberInput aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={sensitivity => change({ sensitivity })}/>×</span></label>
       {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
     </div>
-    <label className="settings-number" title="Hold Shift while rotating to multiply the speed by this amount."><span>Shift rotation precision</span><span><SettingsNumberInput aria-label="Shift rotation precision" min="0.01" max="1" step="0.01" value={value.precision} onChange={precision => onChange({ ...value, precision })}/>×</span></label>
+    <div className="settings-rotation-speed"><label className="settings-number" title="Hold Shift while rotating to multiply the speed by this amount."><span>Shift rotation precision</span><span><SettingsNumberInput aria-label="Shift rotation precision" min="0.01" max="1" step="0.01" disabled={inheritPrecision} value={override.precision ?? value.precision} onChange={precision => change({ precision })}/>×</span></label>
+      {!global && <label><input type="checkbox" aria-label="Use default rotation precision" checked={inheritPrecision} onChange={event => change({ precision: event.target.checked ? undefined : value.precision })}/>Use default</label>}
+    </div>
     <p className="settings-hint">Workplane Constraints turns one degree per horizontal pixel at 1×. Handles follow the angle swept around the selection centre. Pointer sensitivity multiplies both. Hold Shift for precision.</p>
   </div></section>;
 }

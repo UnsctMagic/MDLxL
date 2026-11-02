@@ -173,6 +173,34 @@ function sameOrientation(actual, expected, message) {
       const r=await page.locator(`[data-viewport="${id}"]`).boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2;
       await page.mouse.move(cx,cy);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(cx+34,cy+23,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await idle();
       assert.ok((await page.evaluate(()=>cameraState())).quaternion.some((v,i)=>Math.abs(v-fixed.quaternion[i])>1e-6),view+' Alt orbits while the edit plane stays constrained');
+      if (view === 'top') {
+        const depth = () => page.evaluate(() => {
+          const s = viewportState(), direction = s.camera.getWorldDirection(s.controls.target.clone()).toArray().map(Math.abs);
+          return direction.indexOf(Math.max(...direction));
+        });
+        for (let i=0; i<6 && await depth()===2; i++) {
+          await page.keyboard.down('Alt');
+          await page.mouse.move(cx,cy); await page.mouse.down();
+          await page.mouse.move(cx,cy-r.height*.12,{steps:6}); await page.mouse.up();
+          await page.keyboard.up('Alt');
+        }
+        const normal = await depth();
+        assert.notEqual(normal,2,'real orbit turns Top toward a different plane');
+        await page.locator('.classic-sidebar').getByRole('button',{name:'Rotate',exact:true}).click();
+        await page.mouse.move(cx,cy); await page.mouse.down(); await page.mouse.move(cx+30,cy+10,{steps:5});
+        await page.waitForFunction(()=>Math.abs(viewportState().drag?.rotationDrag?.degrees)>1);
+        assert.equal(await page.evaluate(()=>viewportState().drag.rotationDrag.axisName),'XYZ'[normal],'Rotate follows the orbited Top camera');
+        await page.mouse.up();
+        await page.locator('.classic-sidebar').getByRole('button',{name:'Move',exact:true}).click();
+        const before=await page.evaluate(()=>({point:vertexPoint(),values:coordinates()}));
+        await page.mouse.move(cx,cy); await page.mouse.down(); await page.mouse.move(cx+24,cy+18,{steps:5}); await page.mouse.up();
+        await page.waitForFunction(old=>coordinates().some((v,i)=>v!==old[i]),before.values);
+        const after=await page.evaluate(()=>({point:vertexPoint(),values:coordinates()}));
+        assert.equal(after.values[normal],before.values[normal],'Move preserves the new plane depth');
+        assert.ok(after.point.x>before.point.x && after.point.y>before.point.y,'Move follows the hand on screen');
+        await page.keyboard.press('Control+z');
+        await page.waitForFunction(old=>coordinates().every((v,i)=>v===old[i]),before.values);
+      }
       await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Shift+E');await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
       assert.ok((await page.evaluate(()=>cameraState())).quaternion.some((v,i)=>Math.abs(v-fixed.quaternion[i])>1e-6),view+' camera mode orbits');
       const opposite={front:'back',back:'front',right:'left',left:'right',top:'bottom',bottom:'top'};await dropdown.selectOption(opposite[view]);await dropdown.selectOption(view);await idle();

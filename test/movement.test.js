@@ -1,10 +1,11 @@
+import { beginRotationDrag } from '../src/rotation-drag.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Matrix4, OrthographicCamera, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { applyMovementTransform, deleteMovementControllers, deleteMovementKeys, insertMovementKeys, movementControllerType, movementKeyframes, sampleMovement, setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve, updateMovementKey } from '../src/movement.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
+import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, beginGizmoRotation, movementViewRotationHandle, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from '../app/game-preview-data.js';
 import { patchWarcraftMeshFragmentShader, previewGeosetTint } from '../app/warcraft-preview-adapter.js';
 import { applyViewPreset, projectedPlaneTranslation } from '../app/viewport-math.js';
@@ -281,7 +282,7 @@ test('Bare bone Rotate chooses the nearest fixed grid axis for either camera sid
 
 test('constrained Rotate ignores click position and camera, using MDLVis signs', () => {
  for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) for (const x of [-100, 0, 100]) for (const facing of [-1, 0, 1]) {
-  const drag = movementRotationGesture({ constrained: true, plane, x, axis: [0, 0, facing] });
+  const drag = beginRotationDrag({ constrained: true, plane, x, axis: [0, 0, facing] });
   for (const distance of [1, 5, 30, 360, -30, 0]) {
    near(movementRotationAmount(drag, distance, 200), sign * distance);
    near(movementRotationAmount(drag, distance, 0, .4), sign * distance * .4);
@@ -289,7 +290,7 @@ test('constrained Rotate ignores click position and camera, using MDLVis signs',
  }
 });
 test('free Rotate accumulates circles, holding the last angle at the centre', () => {
- const drag = movementRotationGesture({ x: 68 });
+ const drag = beginRotationDrag({ x: 68 });
  for (let step = 1; step <= 128; step++) {
   const a = step * Math.PI / 32;
   near(movementRotationAmount(drag, Math.cos(a) * 68 - 68, Math.sin(a) * 68), step * 180 / 32);
@@ -298,9 +299,9 @@ test('free Rotate accumulates circles, holding the last angle at the centre', ()
 });
 test('constrained Rotate Shift is precision in every plane, with no snapping', () => {
  for (const [plane, sign] of [['xy', 1], ['xz', -1], ['yz', 1]]) {
-  const drag = movementRotationGesture({ constrained: true, plane });
+  const drag = beginRotationDrag({ constrained: true, plane });
   near(movementRotationAmount(drag, 37, -120, 1, true), sign * 3.7);
-  near(movementRotationAmount(movementRotationGesture({ constrained: true, plane }), 0, -20), 0);
+  near(movementRotationAmount(beginRotationDrag({ constrained: true, plane }), 0, -20), 0);
  }
 });
 
@@ -546,21 +547,27 @@ test('a global edit never takes over a track the model sequences already animate
 });
 
 
+function facingGesture(view, options) {
+  const camera = new OrthographicCamera(-200, 200, 200, -200, .1, 100);
+  camera.position.copy(view).multiplyScalar(-10);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  return { x: 300, y: 200, world: new Vector3(), width: 400, height: 400, camera, handle: {offHandle:true}, ...options };
+}
+
 test('Swept Local X follows the mouse circle after a 180 degree Y turn; constraints keep their fixed sign', async () => {
-  const { movementRotationFacing } = await import('../app/movement-overlay.js');
   const rotated = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
   for (const view of [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)]) {
     const results = [];
     for (const [space, orientation] of [['world', new Quaternion()], ['local', rotated]]) {
-      const facing = movementRotationFacing({ handle: { axis: 'X' }, space }, orientation, view);
-      const options = { x: 100, y: 0, pivot: { x: 0, y: 0 }, axis: [0, 0, facing] };
-      const degrees = movementRotationAmount(movementRotationGesture(options), -100, 100);
+      const options = facingGesture(view, { space, rotation: orientation });
+      const degrees = movementRotationAmount(beginGizmoRotation(options), -100, 100);
       const model = fixture(); model.Bones[0].Rotation = track([100, orientation.toArray()]);
       applyMovementTransform(model, [0], 500, 0, { mode: 'rotate', space, axis: 'X', amount: degrees });
       const actual = new Quaternion().fromArray(sampleMovement(model, model.Bones[0], 'Rotation', 500, 0));
       // Compare the visible world delta, not the opposite signed Local angle.
       results.push(actual.multiply(orientation.clone().invert()));
-      near(movementRotationAmount(movementRotationGesture({ ...options, constrained: true, plane: 'yz' }), 30, -20), 30);
+      near(movementRotationAmount(beginGizmoRotation({ ...options, workplaneEnabled: true, workplane: 'yz' }), 30, -20), 30);
     }
     near(Math.abs(results[0].dot(results[1])), 1);
     const expected = new Quaternion().setFromAxisAngle(view, Math.PI / 2);
@@ -569,14 +576,16 @@ test('Swept Local X follows the mouse circle after a 180 degree Y turn; constrai
 });
 
 test('Pivot-based Local facing preserves ordinary workplane and POSE Body/Object exceptions', async () => {
-  const { movementRotationFacing } = await import('../app/movement-overlay.js');
   const rotation = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI), view = new Vector3(-1, 0, 0);
-  const base = { handle: { axis: 'X' }, space: 'local', workplaneEnabled: true };
-  near(movementRotationFacing(base, rotation, view), 1);
+  const facing = options => {
+    const gesture = { space: 'local', workplaneEnabled: true, ...options };
+    return beginGizmoRotation(facingGesture(view, { rotation, ...gesture, space: movementRotationSpace(gesture), workplane: 'yz' })).facings.X;
+  };
+  near(facing({}), 1);
   for (const kind of ['body', 'node']) {
-    near(movementRotationFacing({ ...base, pose: true, target: { kind } }, rotation, view), -1);
-    near(movementRotationFacing({ ...base, pose: true, target: { kind }, space: 'world' }, rotation, view), 1);
+    near(facing({ pose: true, target: { kind } }), -1);
+    near(facing({ pose: true, target: { kind }, space: 'world' }), 1);
   }
-  near(movementRotationFacing({ ...base, pose: true, target: { kind: 'endpoint' } }, rotation, view), 1);
-  near(movementRotationFacing({ ...base, workplaneEnabled: false, handle: { axis: 'XYZ', free: true } }, rotation, view), -1);
+  near(facing({ pose: true, target: { kind: 'endpoint' } }), 1);
+  near(facing({ workplaneEnabled: false }), -1);
 });
