@@ -55,6 +55,8 @@ Hidden packaged **P1/P4/P5/P6: 4 passed / 0 failed / 0 skipped** with real mouse
 
 Per the owner's request, no local full suite was rerun. P2/P3/P7–P10, the other packaged workflows, the full ribbon corpus, Warcraft III gameplay and independent Claude QA were not rerun in this follow-up. Earlier results below are historical, not a claim that those checks ran again. No baseline or skip was widened. Small logs: D:/Codex/mdlxl-491-review-fixes-report.
 
+Final integration check: current main f6a5c0d2 includes the separate Library World Editor extraction from PR #502. A read-only git merge-tree check reports a content conflict in app/GameFileBrowser.jsx. This review follow-up does not integrate that unrelated refactor; resolve the shared-browser conflict before merge and rerun its related checks on the integrated result. No GitHub Actions run was available for the pushed head at this check.
+
 The visible owner test and D:/Codex/mdlxl-491-particle-review were not edited or restarted. Ready for review; awaiting merge approval. No merge or release.
 
 ## Implementation (1 November 2026)
