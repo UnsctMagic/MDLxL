@@ -65,9 +65,20 @@ export function perspectiveFitDistance(radius, verticalFovDegrees, aspect) {
   return Math.max(1, radius) * 1.15 / Math.sin(Math.min(vertical, horizontal) / 2);
 }
 
-export function updateDepthClipping(camera, center, radius, extent = radius) {
-  const distance = center.clone().sub(camera.position).dot(camera.getWorldDirection(new Vector3()));
-  const { near, far } = depthClipRange(distance, radius, extent);
+export function updateDepthClipping(camera, center, radius, extent = radius, liveBounds = []) {
+  const direction = camera.getWorldDirection(new Vector3());
+  const distance = center.clone().sub(camera.position).dot(direction);
+  let { near, far } = depthClipRange(distance, radius, extent);
+  if (camera.isOrthographicCamera) {
+    // Orthographic edits can cross the eye plane without leaving the screen.
+    // Keep the existing model/grid coverage and the already updated live spheres.
+    const padding = Math.max(.001, radius * .002);
+    for (const sphere of liveBounds) {
+      const depth = (sphere.center.x - camera.position.x) * direction.x + (sphere.center.y - camera.position.y) * direction.y + (sphere.center.z - camera.position.z) * direction.z;
+      near = Math.min(near, depth - sphere.radius - padding);
+      far = Math.max(far, depth + sphere.radius + padding);
+    }
+  }
   if (camera.near !== near || camera.far !== far) { camera.near = near; camera.far = far; camera.updateProjectionMatrix(); }
 }
 

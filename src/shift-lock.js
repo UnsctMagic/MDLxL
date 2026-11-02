@@ -146,7 +146,7 @@ export function solveMove(gesture, pointer, shift, {basis, screen, quad = false,
       const world = projectedPlaneTranslation(plane, basis, x, y);
       return localAxes ? [0,1,2].map(i => localAxes.reduce((sum, axis, j) => sum + axis[i] * world[j], 0)) : world;
     }
-    if (!gesture.workplaneEnabled) return screen(x, y, held);
+    if (!gesture.workplaneEnabled || (gesture.moveWorkplaneOnShift && !held)) return screen(x, y, held);
     if (held) label = 'XYZ'[constrainedAxis(plane)];
     return projectedPlaneTranslation(plane, basis, x, y, held);
   });
@@ -162,10 +162,17 @@ export function solveCollisionMove(gesture, pointer, shift) {
 }
 
 export function solveViewMove(gesture, pointer, shift, camera, pivot, width, height, quad = false) {
-  return solveMove(gesture, pointer, shift, {
+  const result = solveMove(gesture, pointer, shift, {
     basis: gesture.workplaneEnabled && planeScreenBasis(camera, pivot, width, height, gesture.workplane), quad,
     screen: (dx, dy, held) => freeDragTranslation(camera, pivot, width, height, dx, dy, {shift: held, workplane: gesture.workplane}).toArray(),
   });
+  if (quad) {
+    // The latch can span several Shift segments. Measure the final effective
+    // displacement, not the last segment or pointer travel the lock discarded.
+    const from = pivot.clone().project(camera), to = pivot.clone().fromArray(result.offset).add(pivot).project(camera);
+    result.movementPixels = Math.hypot((to.x - from.x) * width / 2, (to.y - from.y) * height / 2);
+  }
+  return result;
 }
 
 // Bind feedback to the document that owns pointer capture, including portals.

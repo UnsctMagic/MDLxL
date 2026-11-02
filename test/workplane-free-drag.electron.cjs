@@ -2,7 +2,7 @@ const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Exercise the rebuilt production bundle: node test/workplane-free-drag.electron.cjs
 // Set MDLXL_TEST_EXE to a packaged MDLxL.exe to drive the packaged app instead.
-// Workplane off frees a Move drag to the screen plane; Shift or Workplane on keeps it in XY.
+// Single-view vertices follow the screen until Shift. Bones and Movement also constrain plain drags when the workplane is on.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -79,17 +79,23 @@ const assert = require('node:assert/strict');
       return { delta: after.c.map((value, i) => value - before.c[i]), screen: [after.s.x - before.s.x, after.s.y - before.s.y] };
     };
     const length = v => Math.hypot(...v), dot = (a, b) => a.reduce((sum, value, i) => sum + value * b[i], 0);
-    // The user's case: Front looks along X, so the screen is YZ; ZX blocks sideways (Y) movement, Workplane off must not.
+    const expectSameScreenMove = (on, off) => {
+      assert.ok(on.delta.every((v, i) => Math.abs(v - off.delta[i]) < .001), 'plain vertex Move is independent of the workplane checkbox');
+      assert.ok(Math.abs(on.screen[0] - 50) < 4 && Math.abs(on.screen[1] + 40) < 4, 'checked workplane follows the pointer before Shift');
+    };
+    // Front looks along X, so the screen is YZ and a ZX lock blocks sideways Y movement.
     const expectFront = (label, { on, off, shifted }) => {
       console.log(label, 'Front ZX', JSON.stringify({ on, off, shifted }));
-      assert.ok(length(on.delta) > 2 && Math.abs(on.delta[1]) < 1e-3, `${label} Front: Workplane on keeps the drag in ZX: ${on.delta}`);
+      if (label === 'Vertices') expectSameScreenMove(on, off);
+      else assert.ok(length(on.delta) > 2 && Math.abs(on.delta[1]) < 1e-3, `${label} Front: Workplane on keeps the drag in ZX: ${on.delta}`);
       assert.ok(length(shifted.delta) > 2 && Math.abs(shifted.delta[1]) < 1e-3, `${label} Front: Workplane off + Shift locks the drag to ZX: ${shifted.delta}`);
       assert.ok(Math.abs(off.delta[1]) > 1 && Math.abs(off.delta[2]) > 1 && Math.abs(off.delta[0]) < 1e-3, `${label} Front: Workplane off follows the screen (Y and Z): ${off.delta}`);
     };
     const threeDrags = async (dragOnce, plane) => ({ on: await dragOnce({ workplane: true, plane }), off: await dragOnce({ workplane: false, plane }), shifted: await dragOnce({ workplane: false, shift: true, plane }) });
     const expectFree = (label, facing, { on, off, shifted }) => {
       console.log(label, JSON.stringify({ facing, on, off, shifted }));
-      assert.ok(length(on.delta) > 2 && Math.abs(on.delta[2]) < 1e-3, `${label}: Workplane on keeps the drag in XY: ${on.delta}`);
+      if (label === 'Vertices') expectSameScreenMove(on, off);
+      else assert.ok(length(on.delta) > 2 && Math.abs(on.delta[2]) < 1e-3, `${label}: Workplane on keeps the drag in XY: ${on.delta}`);
       assert.ok(length(shifted.delta) > 2 && Math.abs(shifted.delta[2]) < 1e-3, `${label}: Workplane off + Shift locks the drag to XY: ${shifted.delta}`);
       assert.ok(Math.abs(off.delta[2]) > 1, `${label}: Workplane off leaves the XY plane: ${off.delta}`);
       assert.ok(Math.abs(dot(off.delta, facing)) < length(off.delta) * .03, `${label}: Workplane off drags in the screen plane: ${off.delta}`);
@@ -226,6 +232,6 @@ const assert = require('node:assert/strict');
 
     await page.screenshot({ path: path.join(out, 'vertices-free-drag.png') });
     assert.deepEqual(errors, []);
-    console.log('PASS Workplane off: free drag in Vertices, Bones, Movement; Move gizmo arrows and squares in Vertices and Forge; Shift and Workplane on keep the plane');
+    console.log('PASS single-view vertex Move, Bones and Movement workplanes, Shift, and vertex/Forge gizmo handles');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
