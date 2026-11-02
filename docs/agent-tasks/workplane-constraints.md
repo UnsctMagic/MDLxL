@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: owner chose option B (plane buttons in Front/Top/Side, face-on planes circle); implement before merge (see [Owner change B](#owner-change-b-plane-buttons-in-fronttopside-2-nov))
+Status: owner rule for quad view confirmed 2 Nov; option B rejected; implement before merge (see [Owner rule: quad view](#owner-rule-quad-view-confirmed-2-nov))
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -477,6 +477,8 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
 
 ## Owner change B: plane buttons in Front/Top/Side (2 Nov)
 
+**Rejected by the owner (2 Nov). Do not build. Undo it as described in [Owner rule: quad view](#owner-rule-quad-view-confirmed-2-nov).**
+
 The owner tried `455b409c` in quad view and found every flat pane turning
 left/right. Claude Code showed three options for the Front pane, and the owner
 chose **B: the plane button decides**. It changes item 7 (flat panes locked to
@@ -567,3 +569,47 @@ button before verifying Move still preserves its original depth.
 
 Ready to test; ready for review; awaiting merge approval. Full release suite,
 Warcraft III playback, and owner feel remain untested.
+
+## Owner rule: quad view (confirmed 2 Nov)
+
+The owner's own words, then the only changes that follow from them. This
+replaces Owner change B. Build nothing beyond this. If something is unclear,
+stop and ask; don't fill gaps yourself.
+
+> QUAD VIEW = each window DEFAULTS TO ONE OF THE THREE CONSTRAINTS. The fourth
+> IS NOT CONSTRAINED, IT HAS THE PANEL AT THE BOTTOM. I want arrows DEFAULTING
+> TO THE CONSTRAINT.
+
+Confirmed with the owner: in Front, Top and Side the window's own constraint is
+the plane facing you, so Rotate turns like a clock face. The natural arrow is a
+curved arrow around the centre, and you move the mouse round.
+
+1. **Front, Top, Side**: each window stays on its own constraint, the plane it
+   faces (`viewWorkplane` / `lockedQuadPlane`, as before `b5676282`). Remove
+   the XY / ZX / YZ buttons that `b5676282` added to these windows, and their
+   tooltip and locale strings. These windows have no plane buttons and no
+   checkbox.
+2. **Rotate in Front, Top, Side**: turn by circling the mouse round the
+   centre, using the existing swept-angle path. From mouse-down until release,
+   show a yellow curved arrow around the centre, the one `b5676282` draws for
+   the circle case. Sensitivity and Shift precision work as now.
+3. **Perspective**: not constrained by default. The bottom panel's Workplane
+   Constraints checkbox starts **off** (today `pane.constraints = true` and the
+   checkbox starts checked in [app/Viewport.jsx](../../app/Viewport.jsx) ~288).
+   With it off, Rotate uses the handles. With it on, the bottom panel's plane
+   applies, with the arrow behaviour Perspective has now.
+4. **Unchanged**: single view, Move in every window, Workplane Constraints
+   off, every other editor (Movement/POSE, Forge, Bones), UV `uvTurn`.
+
+Tests: in Front, Top and Side, press with Rotate, check the curved arrow shows
+before moving, circle the mouse a quarter turn and get about 90°. Check that
+these windows have no plane buttons, that the Perspective checkbox starts off,
+and that Move in each flat window still moves in its own plane. Run `pnpm test`
+and `pnpm run test:source` against the baseline, then rerun only `quad-view` and
+`rotation-interaction` on the hidden desktop.
+
+Owner click-through when ready:
+1. Quad view, Rotate: in Front, Top and Side, press and follow the curved
+   yellow arrow round the centre.
+2. Perspective: Workplane Constraints is off at the start; turn it on in the
+   bottom panel to constrain.
