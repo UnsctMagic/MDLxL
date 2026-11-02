@@ -32,6 +32,18 @@ things": this contract replaces the §12.2 placement panel shape with the ribbon
 - Contract branch: `claude/emtr-placement-contract` (documentation only).
 - Owner's live review app/profile `D:\Codex\mdlxl-491-particle-review`: preserve it.
 
+## Main integration (2 November 2026)
+
+In progress in D:/Codex/mdlxl-491-main-integration, continuing 518c1a5c and merging origin/main a358ea18. Owner reports Claude independently read all ten review corrections and passed 89/89 focused units on 518c1a5c; Claude did not rerun packaged checks. This is the incoming review verdict, separate from Codex's integration checks below.
+
+Conflict resolution keeps main's WorldEditorTree data/icons/catalogue cache, FolderStyle and LibraryTree. The PR's BrowserToolbar/BrowserTree/BrowserFrame and browser prop remain; BrowserTree delegates actual virtual rows and navigation to main's LibraryTree, with the existing EMTR visible-row callback, reset key, row metadata/status and tooltip forwarded. Main's Models, Sounds and All files keep their existing data/read/selection routes. The auto-merges in App.jsx (selection attachment versus camera/sidebar changes), GamePreview.jsx (particle snap/reporting versus collision shapes), game-file-library.cjs (shared locale table reads versus optional metadata-only texture resolution), map and task index were checked against both parents; no competing owner was introduced.
+
+The interval validation message is now "This animation has no length." No controls or other wording change.
+
+Resume trade-off: manifest.json and catalog.json are saved together at checkpoint 1, then every fourth checkpoint (5/9/etc.), plus final completion or graceful cancellation. Progress still reports every checkpoint. An abrupt process/PC failure can require repeating work since the last publication (normally the three intervening checkpoint groups plus in-flight work); recipe files already written are retained and stable identities make re-extraction safe. Keeping the manifest/catalogue pair aligned avoids marking assets processed while their catalogue records are absent. This deliberately accepts limited redo after a crash to avoid serializing the full catalogue and rebuilding browse data at every checkpoint; the first usable results still publish early, and normal completion/cancellation saves the latest state. Saving manifest alone more often would invalidate that pairing.
+
+Verification and final revision: pending integrated package checks and GitHub CI. No local full-suite rerun. Preserve both particle-review and add-owner-test, including running apps and unsaved edits. No merge of the PR or release.
+
 ## Static-review follow-up (2 November 2026)
 
 Continued 4f6e7bd7 on codex/emtr-library-browse in D:/Codex/mdlxl-491-review-fixes. The incoming review was static; the following checks were run before accepting its corrections.
@@ -55,7 +67,7 @@ Hidden packaged **P1/P4/P5/P6: 4 passed / 0 failed / 0 skipped** with real mouse
 
 Per the owner's request, no local full suite was rerun. P2/P3/P7–P10, the other packaged workflows, the full ribbon corpus, Warcraft III gameplay and independent Claude QA were not rerun in this follow-up. Earlier results below are historical, not a claim that those checks ran again. No baseline or skip was widened. Small logs: D:/Codex/mdlxl-491-review-fixes-report.
 
-Final integration check: current main f6a5c0d2 includes the separate Library World Editor extraction from PR #502. A read-only git merge-tree check reports a content conflict in app/GameFileBrowser.jsx. This review follow-up does not integrate that unrelated refactor; resolve the shared-browser conflict before merge and rerun its related checks on the integrated result. No GitHub Actions run was available for the pushed head at this check.
+Historical pre-integration check: main f6a5c0d2 includes the separate Library World Editor extraction from PR #502. A read-only git merge-tree check reports a content conflict in app/GameFileBrowser.jsx. This review follow-up does not integrate that unrelated refactor; resolve the shared-browser conflict before merge and rerun its related checks on the integrated result. No GitHub Actions run was available for the pushed head at this check.
 
 The visible owner test and D:/Codex/mdlxl-491-particle-review were not edited or restarted. Ready for review; awaiting merge approval. No merge or release.
 

@@ -16,6 +16,7 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
     const launched=await launchApp({out,profile,settings,show:'hide',bounds:{x:0,y:0,width:1440,height:1000},pageTimeout:60000});
     app=launched.app;const page=launched.page;
     const button=name=>page.getByRole('button',{name,exact:true});
+    const recovery=page.getByRole('dialog',{name:'Recovery',exact:true});const needsRecovery=await page.evaluate(async()=>{const initial=await window.desktop.initial();return !!(initial.recoveryPrompt&&initial.recovery?.length);});if(needsRecovery){await recovery.waitFor();await click(page,recovery.getByRole('button',{name:'Close',exact:true}));await recovery.waitFor({state:'hidden'});}
     await click(page,button('Material and Texture Library'));
     await click(page,page.getByRole('tab',{name:'Models',exact:true}));
     const main=page.getByRole('dialog',{name:'Warcraft III Library',exact:true});
@@ -56,6 +57,6 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
     await library.waitFor({state:'hidden'});
     assert.deepEqual(launched.errors,[]);
     console.log('PASS owner profile: shared rows/switch, Fire arrow preview, mouse camera rotation, double-click Lab');
-  }catch(error){console.error(error);if(app)await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png')});throw error;}
+  }catch(error){console.error(error);if(app)await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png'),timeout:10000}).catch(()=>{});throw error;}
   finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

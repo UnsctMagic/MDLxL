@@ -87,7 +87,7 @@ test('Create is disabled with no checked animation and rejection does not mutate
  assert.match(html,/<button disabled="">Create<\/button>/,'No checked animation disables Create');const before=structuredClone(model);assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/Choose an animation/);assert.deepEqual(model,before);
 });
 test('every selected animation and the retiming window must have positive duration',()=>{
- for(const sequence of [0,1]){const model=createDemoDocument().model;model.Sequences.push({...structuredClone(model.Sequences[0]),Name:'Empty',Interval:new Uint32Array([2000,2000])});const placement={...initialParticlePlacement(model,{},undefined,0),sequence,sequences:[0,1]},before=structuredClone(model);assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/valid source and target intervals/);assert.deepEqual(model,before);}
+ for(const sequence of [0,1]){const model=createDemoDocument().model;model.Sequences.push({...structuredClone(model.Sequences[0]),Name:'Empty',Interval:new Uint32Array([2000,2000])});const placement={...initialParticlePlacement(model,{},undefined,0),sequence,sequences:[0,1]},before=structuredClone(model);assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/This animation has no length/);assert.deepEqual(model,before);}
 });
 test('the Library Add to model control disables unsupported ingredients',()=>{
  const expression=editorSource.match(/disabled=\{([^{}]+)\} onClick=\{beginPlacement\}/)[1],disabled=new Function('doc','openingSelection','library','libraryChoice','effectNodes','model','return '+expression);

@@ -306,7 +306,9 @@ export default function App() {
   }, [session.id, doc.revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
   // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
-  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [model, doc.revision, hideExtras]);
+  // The list is decided when Hide extras is clicked (or the geoset count changes), not after
+  // every edit: baking a geoset's visibility to 0 must not pull it out of the list mid-work.
+  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [session.id, model.Geosets.length, hideExtras]);
   const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const selectable = useMemo(() => new Set([...checkedGeosets].filter(index => tabVisibleGeosets.has(index))), [checkedGeosets, tabVisibleGeosets]);
@@ -1533,6 +1535,8 @@ export default function App() {
   // until the user explicitly pauses it.
   const previewLoop = true;
   const previewSelection = getUVPreviewSelection(model, (uvEditing || dialog?.host === 'uv')?[activeGeoset]:[...selectable]);
+  // Movement and Animations show Rotate around Axis under Current Sequence.
+  const sequenceShown = mode === 'animation' && (!cameraGesture || animationPanel === 'movement');
   const cameraPanel = <fieldset className="camera-angle-panel"><legend>Rotate around Axis</legend>{['x','y','z'].map(axis=><Coordinate key={axis} axis={'Camera '+axis.toUpperCase()} displayAxis={axis.toUpperCase()} value={cameraAngles[axis]} onCommit={value=>setCameraAnglesRequest(previous=>({...cameraAngles,[axis]:value,revision:(previous?.revision||0)+1}))}/>)}<small>World XYZ · degrees</small></fieldset>;
   const boundBoneIds=directlyBoundBoneIds(model,validSelection);
   const bindingPanel=<SidebarSection className="binding-panel" title="Connected Bones"><section className="binding-inspection" aria-label="List of bones connected to selected vertices">{boundBoneIds.map(id=>{const name=model.Nodes.find(node=>node?.ObjectId===id)?.Name||'Bone '+id;return <button type="button" className="binding-bone" aria-pressed={selectedNodeIds.includes(id)} title={`Select ${name} without clearing selected vertices`} key={id} onClick={()=>setSelectedNodeIds([id])}>{name}</button>;})}</section></SidebarSection>;
@@ -1775,7 +1779,7 @@ export default function App() {
 
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <aside className="classic-sidebar">
       <SidebarResizer/>
-      {cameraRotating && !activePortrait && cameraPanel}
+      {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
@@ -1783,7 +1787,7 @@ export default function App() {
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
-        activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
+        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen,
         cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,

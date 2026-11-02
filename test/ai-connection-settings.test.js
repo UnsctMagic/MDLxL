@@ -37,30 +37,32 @@ const digest = html => createHash('sha256').update(html).digest('hex');
 // Model dropdown (PR #461). Each hash covers every rendered byte, including
 // labels, classes and hotkeys.
 const before = [
-  "0850ce0a6ea23d44cb368a30be22cc422a91571ce3f48c9819618668697d561d",
-  "b0a510baab3dfef8a3f80713e0b01004bf4d3bee879626d35af5428b257d9da0",
-  "e0d8b5f2c85d1eb28a90885f1e6b3f27274454797935451002a285daa6446910",
-  "c620e17f89d2c96ecf75244ede2db503be8578ac69ffc2818d0e273a14a98c1f",
-  "6b866658b77033eabd81e98bc69e87ffd78b437fd402929e3f7c2fcd7176609d",
-  "07768e1a0cb59bbba60432d5193d473c3e249408bd3c91f048c95e1d2a9282c7",
-  "7fa9acb624c2bdc1f89f060da065129311b1f6860a4d661573af26e8068f726d",
-  "a39ffb19b700d4b778ea7ba998b2e6e995d218e0af901720da7d196204f047bf",
-  "f3aec22bbb0423705b14058513b1fcc43f025e49dfea380e20a10fe411bd60bb",
-  "54384660192f2c212432a3262ca9c67baa6ea33d944e8ffcdb16c68f683804ff",
-  "0a2b3a460ae6710cdd54a1c2bc3ada4ae2b84c1e8a9d5df986c07447928df55d",
-  "a9c32d2df39979e01f832e9be72fcb4b2ed5ac1f00ef0b2625eadf9f1abbed65",
-  "d1d0d3056932f299a35fddce3630e50841c95bd9a6019cc0ecc765bb390bd37c",
-  "2be472c529c49d2e262521e5941fe6b74808c3970c6213d67cdd621ba6a4704e",
-  "2c48bdacd8272dad5b055665a72186a958226b5ccb6335cdc1a636bd365765e0",
-  "b17d443d189a1c07f278af419e5f8a675346b83e93451aeaf8b9810f994ba916",
-  "941fc6fea44f717a892d6fd477c55cab88f45af773bb0613bf09cfed643a4f4b",
-  "c977c47c769680c730e38b0d8e5b1fb04e53bd4d29210d2ec7b961e3458fb6a3",
-  "ad9acaa077687efb427fe1c14e703c3d492b84a64085098721f9e65911c0058e",
-  "f750f1a38b1e9a0144c0ff0eb915455ed3d38a6d76406f5544921d12d425eb7a"
+  "bf0e6a063925688d7ccaf0d323a3d46edd67a088a138b607889ffb6c597d3958",
+  "32d60215b515bd534422d0028164f1a99797ae65e92ec4d5872ac18b5f9720e3",
+  "0ffa1c581e1c259cf63a192624ecdc16a21c7ad6af078b81e8e139db28b21092",
+  "e3b338eb52e2ea4ce7ae5755e42367301fce45b59c611b82a1dd4466eb30ceb1",
+  "b4c419a2d6c71dd406404edb4b92a8a92364422f8678fab05497773b26c61039",
+  "31cfad87fe2a9e634e60d488537bec77a591a66c7ad6d0d333773f012d4ef8a7",
+  "c274481e61c2e331ea5985ef1196a26c2587a4f9ce2b1e03e00426160e273dda",
+  "433668edde1bf1062fc11b8f340a25ece5e6b9830ae384601e2341e250a6b8f3",
+  "34dc6d0d673be1f0a432ae359f7c2efd500e2dfd03ce36d42aef4b8641906e9d",
+  "68a67076b6469e3b2ee8f66869f23213748ecccd9e359aa4e466352ff5467919",
+  "b0f1a6030252f0f52f15b8f81f32bf1adb68fc71aa4afc878965b621b3a47582",
+  "674f7587867160592c9f87fda6ffca84bad264fe8e1710bda32c59bdef86ef97",
+  "568848573dea1757abac4b3ac860a415c784638977927e7c6ac79478a7c01aed",
+  "a9118ad636e1a4f00d072502e338e9c001c4270e0bedb17767eaa6e05665bb3e",
+  "927cf41e5b32244664604f75c7a5a5545df4058b04fda1230f8a51ddef4f8dc9",
+  "d6a6a0fdd91df7c7491038f2f17ccfb9b8da2db3fb0625f4c13c72d105ebfac3",
+  "a893dd370757330cb41f712f806df7478bbff51a81064e2edfa00160356827eb",
+  "a3a3ed69f11e7b7f85e741e1825363b0264f2a4ccdc8d9b43e9cab8a867e6619",
+  "421b488fee1d939ef970a9577f1014d2f152a4a1a99b637f302ee4bf0e14a827",
+  "34bc1a001afc90dea60be4e27bd03a41b8531f49d8280854af34e389979f1d88"
 ];
 const Component = await loadComponent(fileURLToPath(new URL('../app/AiConnectionSettings.jsx', import.meta.url)));
 for (const [index, { name, props }] of cases.entries()) {
-  test('connection settings preserve the inline markup: ' + name, () => {
-    assert.equal(digest(markup(Component, props)), before[index]);
+  test('connection settings remove only delegation controls: ' + name, () => {
+    const html = markup(Component, props);
+    assert.doesNotMatch(html, /Job routing|Lighter model|Allow lighter/);
+    assert.equal(digest(html), before[index]);
   });
 }

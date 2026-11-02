@@ -13,8 +13,9 @@ export async function* stageAvailability(bytes, excludedGeosets = []) {
       else if (stage === 'irregularities') hasChanges = findIrregularities(model).some(f => !f.inspectionOnly);
       else if (stage === 'spheres') {
         // A different preset is a choice, not evidence of a missing sphere.
-        const spheres = model.CollisionShapes.filter(s => s.Shape === 2);
-        hasChanges = !spheres.length || spheres.some(s => !Number.isFinite(s.BoundsRadius) || s.BoundsRadius <= 0 || s.Vertices?.length !== 3 || !Array.from(s.Vertices).every(Number.isFinite));
+        const spheres = model.CollisionShapes.filter(s => s.Shape === 2), boxes = model.CollisionShapes.filter(s => s.Shape === 0);
+        hasChanges = !spheres.length && !boxes.length || spheres.some(s => !Number.isFinite(s.BoundsRadius) || s.BoundsRadius <= 0 || s.Vertices?.length !== 3 || !Array.from(s.Vertices).every(Number.isFinite))
+          || boxes.some(s => s.Vertices?.length !== 6 || !Array.from(s.Vertices).every(Number.isFinite) || [0, 1, 2].some(axis => !(s.Vertices[axis + 3] > s.Vertices[axis])));
       } else {
         if (stage === 'nuclear') await prepareNuclearReduction();
         const result = runOptimizeStage(bytes, stage, { ...simpleSettings(stage, 100, model), excludedGeosets });

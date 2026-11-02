@@ -13,3 +13,11 @@
 .ox-root .ox-fix-all{font-weight:600}.ox-root .ox-fix-all[aria-pressed=true]{background:var(--ui-accent,#365f81);color:white}
 /* Longer translations (Russian, Spanish) wrap the playback buttons instead of widening the panel. */
 .ox-play{flex-wrap:wrap}
+/* After preview: Sphereomancer edits its proposal with the Managers collision handles, drawn in the stage's cyan. */
+.ox-stage{flex:1;min-height:0;position:relative}.ox-stage>.game-preview-root{position:absolute;inset:0;width:100%;height:100%}
+/* The popup copies styles when it opens, before model-manager.css loads, so the overlay rules are repeated here. */
+.ox-collision{position:absolute;z-index:50;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
+.ox-collision .mm-outline{fill:none;stroke-width:1.5;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke}.ox-collision .mm-guide{fill:none;stroke-width:1;opacity:.45;pointer-events:none;vector-effect:non-scaling-stroke}
+.ox-collision .mm-handle,.ox-collision .mm-center{fill:var(--ui-accent,#365f81);stroke:var(--ui-field,#fff);stroke-width:2;pointer-events:all;cursor:nwse-resize;touch-action:none;vector-effect:non-scaling-stroke}.ox-collision .mm-center{cursor:move;fill:var(--ui-text,#222)}.ox-collision :is(.mm-handle,.mm-center):focus{stroke:var(--ui-text,#222);stroke-width:3;outline:none}
+.ox-collision .mm-outline,.ox-collision .mm-guide{stroke:#51d7ff}.ox-collision .mm-selected .mm-outline{stroke:var(--ui-accent,#365f81);stroke-width:2.5}
+.ox-spheres fieldset[aria-current=true]{border-color:var(--ui-accent,#365f81)}

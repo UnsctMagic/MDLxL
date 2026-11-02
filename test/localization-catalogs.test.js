@@ -19,7 +19,10 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [7385, 7401, 7265]);
+  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [7388, 7404, 7267]);
+  // The removed delegation labels/tips are gone; the chat picker's texts are translated.
+  for (const pack of [ru, es, zh]) for (const key of ['Offload Mode', 'Job routing', 'Tiny job', 'Lighter model']) assert.equal(Object.hasOwn(pack, key), false);
+  for (const pack of [ru, es, zh]) for (const key of ['Current chat', 'Earlier chat', 'Earlier chats of this model are read only.', 'An earlier chat, read only. Use the current chat to continue.', 'The model for new requests.']) assert.ok(Object.hasOwn(pack, key), key);
   for (const source of Object.keys(ru)) assert.ok(Object.hasOwn(es, source), `es: ${source}`);
   for (const [locale, pack] of Object.entries({ ru, es, zh })) for (const [source, value] of Object.entries(pack)) {
     assert.equal(source, source.trim(), `${locale}: ${source}`);

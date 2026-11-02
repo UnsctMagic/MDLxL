@@ -74,7 +74,12 @@ const path = require('node:path');
     const unticked = await save('unticked'); // the checkbox itself keys Alpha 0 at the current frame
     await page.getByRole('button', { name: 'Bake All RGB', exact: true }).click();
     const rgb = await save('all-rgb'); rgbOnly(rgb, unticked);
+    // Hide extras decides its list when clicked: baking a checked geoset to 0 keeps it listed and editable.
+    await page.getByRole('button', { name: 'Hide extras', exact: true }).click();
     await page.getByRole('button', { name: 'Bake All Visibility', exact: true }).click();
+    await settlePage(page, 200);
+    assert.equal(await page.getByLabel('Select geoset 0', { exact: true }).count(), 1, 'A geoset baked to 0 stays in the geoset list');
+    await page.getByRole('button', { name: 'Hide extras', exact: true }).click();
     const visible = await save('all'); verify(visible, 0, true);
     for (const animation of visible.GeosetAnims) assert.deepEqual(animation.Color, rgb.GeosetAnims.find(item => item.GeosetId === animation.GeosetId).Color, 'Bake All Visibility leaves colour unchanged');
     verify(await save('all', 'mdl'), 0, true, openDocument(openDocument(original, 'bake.mdx').serialize('mdl'), 'baseline.mdl').model);

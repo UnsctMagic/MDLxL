@@ -49,8 +49,10 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
     assert.equal(await p.evaluate(()=>JSON.stringify(sides()[0].model)),original);
     await stage('Insanity FIxer');await p.getByText('mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 0 notices',{exact:true}).waitFor();
     await stage('Sphereomancer');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
-    // The default proposal is the Standard unit preset (SPHERE_PRESETS[1], simpleSettings('spheres',0,m)), independent of
-    // the model: out/fixture-scan/spheres.mjs on this fixture after the select-all pass returns exactly these two spheres.
+    // The default proposal fits spheres to the model; choosing Standard unit (SPHERE_PRESETS[1]) gives the Footman's own spheres,
+    // which out/fixture-scan/spheres.mjs on this fixture after the select-all pass returns exactly.
+    assert.equal(await p.getByLabel('Sphere preset',{exact:true}).evaluate(e=>e.selectedOptions[0].textContent),'Fit to model (spheres)');
+    await p.getByLabel('Sphere preset',{exact:true}).selectOption({label:'Standard unit'});await p.waitForFunction(()=>sides()[1].model.CollisionShapes.every(c=>Math.abs(c.BoundsRadius-38.076)<.001));
     const spheres=await p.evaluate(()=>sides()[1].model.CollisionShapes.map(c=>[...c.Vertices,c.BoundsRadius]));
     assert.deepEqual(spheres,[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]]);
     await p.screenshot({path:path.join(out,'footman-spheres.png')});

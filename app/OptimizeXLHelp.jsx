@@ -21,8 +21,8 @@ const explanations={
  'Protect UV seams and boundaries':'Keep texture seams and open mesh borders. Disabling this allows more reduction but can damage texture alignment and edges.',
  'Protect sharp edges':'Keep edges where surface normals differ by more than the Sharp-edge angle. Helps preserve hard armor edges.',
  'Protect skinning boundaries':'Protect vertices where bone bindings differ. Helps preserve joints during animation.',
- 'Preset':'Choose a collision-sphere arrangement. It replaces the current collision shapes only after approval.',
- 'Size':'Scale the preset sphere positions and radii together. It changes click/selection bounds, not the visible model.',
+ 'Preset':'Choose collision spheres or boxes, or let them fit this model. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.',
+ 'Size':'Scale all preset shapes together. It changes click/selection bounds, not the visible model.',
  'Add sphere':'Add one more collision sphere to this proposal. Adjust its position and radius, then review before approving.',
  'Static gravity':'Use one gravity value for this particle emitter in every animation. This clears the animated-gravity warning but can change particle motion.',
  'Use the destination pose as the reference instead':'Reverse this endpoint repair: use the destination pose to correct the source endpoint. Interior animation keys remain.',
@@ -31,6 +31,7 @@ function explanation(label){
  if(explanations[label])return explanations[label];
  if(/^Radius \d+$/.test(label))return 'Distance from the sphere center to its surface, in model units. Larger values enlarge the collision area.';
  if(/^[XYZ] \d+$/.test(label))return `Move this sphere along the ${label[0]} axis, in model units. Z controls height.`;
+ if(/^(Min|Max) [XYZ] \d+$/.test(label))return `Move this corner of the box along the ${label[4]} axis, in model units. Z controls height.`;
  if(/^Remove sphere/.test(label))return 'Remove this collision sphere from the proposal. The change is kept only after approval.';
  return '';
 }

@@ -1,6 +1,6 @@
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Box,ChevronDown,ChevronRight,File,FileText,Film,Folder,FolderOpen,Image,Map as MapIcon,Music,Type} from 'lucide-react';
+import {Box,File,FileText,Film,Folder,FolderOpen,Image,Map as MapIcon,Music,Type} from 'lucide-react';
 import {openDocument,deleteGeoset} from '../src/editor-document.js';
 import {separateGeosetsByLoosePart,nuclearSeparateGeosets} from '../src/geoset-operations.js';
 import {collectPart} from '../src/bits-and-parts.js';
@@ -8,18 +8,15 @@ import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
-import {buildWorldEditorCatalog,WORLD_EDITOR_FILES,visibleWorldEditorRows} from '../src/world-editor-catalog.js';
-import GameIcon,{FOLDER_ICONS} from './GameIcon.jsx';
+import {FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER} from './WorldEditorTree.jsx';
 import { gamePathKey } from '../src/game-path.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TYPE_ICON={models:Box,textures:Image,sounds:Music,text:FileText,maps:MapIcon,video:Film,fonts:Type,other:File};
 const TYPE_LABEL={all:'All file types',models:'Models',textures:'Textures',sounds:'Sounds',text:'Text & data',maps:'Maps',video:'Videos',fonts:'Fonts',other:'Other files'};
 const VARIANTS=[['classic','Classic'],['reforged','Reforged'],['forsaken-kingdom','Forsaken Kingdom'],['language','Other languages'],['other','Teen & retired'],['all','All installed']];
-const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',worldeditor:'Search units, spells, items and doodads by name',sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
+const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',worldeditor:WORLD_EDITOR_PLACEHOLDER,sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
 const AUDIO={wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',flac:'audio/flac'},VIDEO={webm:'video/webm',mp4:'video/mp4'},IMAGE={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'};
-const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
-const ROW=24;
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
 const remembered=(key,fallback,allowed)=>readStoredText(key,fallback,value=>allowed.includes(value)?value:fallback);
 const remember=writeStoredText;
@@ -41,21 +38,6 @@ function previewAssets(textures){
     assets.set(gamePathKey(record.name),asset);assets.set(gamePathKey(record.name.split(/[\\/]/).at(-1)),asset);
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
-}
-
-// World Editor trees are built from the game tables once per game version.
-const worldEditorTrees=new Map();
-function worldEditorTree(variant,signature){
-  const skin=SKIN[variant]||'sd',key=signature+'|'+skin;
-  if(!worldEditorTrees.has(key)){
-    const job=window.desktop.gameFilesWorldEditorSources({files:WORLD_EDITOR_FILES}).then(sources=>{
-      const catalog=buildWorldEditorCatalog(new Map(sources.files),sources.strings,{skin});
-      const index=(node,path)=>{node.key=path;if(!node.children)return 1;node.total=node.children.reduce((sum,item,at)=>sum+index(item,path+'/'+at),0);return node.total;};index(catalog.root,'we');
-      return catalog;
-    });
-    worldEditorTrees.set(key,job);job.catch(()=>worldEditorTrees.delete(key));
-  }
-  return worldEditorTrees.get(key);
 }
 
 /** Center stage: one persistent preview. A new model replaces the old one when it has loaded and the camera glides to it. */
@@ -89,41 +71,12 @@ function BrowserToolbar({input,query,onQuery,placeholder,label,children}){
   return <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={placeholder} onChange={event=>onQuery(event.target.value)} aria-label={label}/>{children}</div>;
 }
 
-function BrowserTree({rows,expanded,toggle,selected,onChoose,onOpen,rowIcon,style,onStyle,standardTitle,empty,status,onVisibleRows,resetKey}){
-  const tree=useRef(),[focusKey,setFocusKey]=useState(null),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
-  useEffect(()=>{setFocusKey(null);setScrollTop(0);if(tree.current)tree.current.scrollTop=0;},[resetKey]);
-  useEffect(()=>{const element=tree.current;if(!element)return;const observer=new ResizeObserver(()=>setViewHeight(element.clientHeight));observer.observe(element);return()=>observer.disconnect();},[]);
-  const first=Math.max(0,Math.floor(scrollTop/ROW)-10),last=Math.min(rows.length,Math.ceil((scrollTop+viewHeight)/ROW)+10);
-  useEffect(()=>{onVisibleRows?.(rows.slice(first,last));},[rows,first,last,onVisibleRows]);
-  const keys=event=>{
-    const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
-      event.preventDefault();const next=rows[Math.max(0,Math.min(rows.length-1,index<0?0:index+(event.key==='ArrowDown'?1:-1)))];if(!next)return;
-      setFocusKey(next.key);if(!next.folder)onChoose(next);
-      const top=rows.indexOf(next)*ROW,element=tree.current;if(element&&(top<element.scrollTop||top+ROW>element.scrollTop+element.clientHeight))element.scrollTop=top-element.clientHeight/2;
-    }else if(event.key==='ArrowRight'&&row?.folder&&!expanded.has(row.key)){event.preventDefault();toggle(row);}
-    else if(event.key==='ArrowLeft'&&row){event.preventDefault();if(row.folder&&expanded.has(row.key))toggle(row);else{const parent=rows.slice(0,index).reverse().find(item=>item.folder&&item.depth<row.depth);if(parent)setFocusKey(parent.key);}}
-    else if(event.key==='Enter'&&row){event.preventDefault();if(row.folder)toggle(row);else onOpen(row);}
-  };
+function BrowserTree({rows,expanded,toggle,selected,onChoose,onOpen,rowIcon,style,onStyle,standardTitle,empty,status,onVisibleRows,resetKey,focusKey:focused,setFocusKey:setFocused}){
+  const [localFocus,setLocalFocus]=useState(null);
   return <nav className="gf-side" aria-label="Game folders">
-    {onStyle&&<div className="gf-style" role="group" aria-label="Folder layout">
-      <button type="button" aria-pressed={style==='standard'} title={standardTitle||"The game's own folders, as they are stored"} onClick={()=>onStyle('standard')}>Standard</button>
-      <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>onStyle('worldeditor')}>World Editor Style</button>
-    </div>}
-    <div ref={tree} className="gf-tree" role="tree" aria-label="Game files" tabIndex={0} onKeyDown={keys} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
-      {status&&<div className="gf-tree-status">{status}</div>}
-      {!rows.length&&<p className="tl-empty">{empty}</p>}
-      <div style={{height:rows.length*ROW,position:'relative'}}>
-        {rows.slice(first,last).map((row,offset)=>{const open=expanded.has(row.key);return <div key={row.key} role="treeitem" aria-label={row.name} aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key} data-effect-id={row.node?.item?.id}
-          className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:(first+offset)*ROW,paddingLeft:6+row.depth*16}}
-          onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else onChoose(row);}} onDoubleClick={()=>{if(!row.folder)onOpen(row);}}
-          title={row.title||(row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name)}>
-          <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
-          {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{(row.node?.status||row.search&&row.detail)&&<small translate="no">{row.node?.status||row.detail}</small>}</span>
-          {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
-        </div>;})}
-      </div>
-    </div>
+    {onStyle&&<FolderStyle style={style} onChange={onStyle} standardTitle={standardTitle}/>}
+    <LibraryTree rows={rows} expanded={expanded} selected={selected} focusKey={setFocused?focused:localFocus} setFocusKey={setFocused||setLocalFocus}
+      toggle={toggle} choose={onChoose} onOpen={onOpen} onDoubleClick={onOpen} rowIcon={rowIcon} empty={empty} status={status} onVisibleRows={onVisibleRows} resetKey={resetKey}/>
   </nav>;
 }
 
@@ -144,7 +97,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
   const [style,setStyle]=useState(()=>remembered('mdlvis.game-files.style','worldeditor',['standard','worldeditor']));
   const [query,setQuery]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [expanded,setExpanded]=useState(()=>new Set()),[children,setChildren]=useState(()=>new Map()),[root,setRoot]=useState(null),[we,setWe]=useState(null),[results,setResults]=useState(null);
-  const [selected,setSelected]=useState(null);
+  const [selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null);
   const [shown,setShown]=useState(null),[loadingModel,setLoadingModel]=useState(false),[modelChoice,setModelChoice]=useState(0),[sequence,setSequence]=useState(-1),[time,setTime]=useState(0),[playing,setPlaying]=useState(true);
   const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null),messageRef=useRef(null);
   const signature=summary?.signature;
@@ -165,15 +118,13 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
     worldEditorTree(variant,signature).then(value=>{if(active)setWe(value);}).catch(caught=>{if(active&&worldEditor)setError(caught.message);});
     return()=>{active=false;};
   },[signature,variant,preset]);
-  useEffect(()=>{setExpanded(new Set());},[worldEditor,filters]);
+  useEffect(()=>{setExpanded(new Set());setFocusKey(null);},[worldEditor,filters]);
   useEffect(()=>{if(worldEditor&&!SKIN[variant])setVariant('classic');},[worldEditor,variant]);
   // Search: World Editor names in the window, game paths in the main process.
   useEffect(()=>{
     const text=query.trim().toLowerCase();if(!text){setResults(null);return;}
     if(worldEditor){
-      if(!we)return;const words=text.split(/\s+/),found=[];
-      const visit=(node,trail)=>{if(node.children){for(const item of node.children)visit(item,node.key==='we'?trail:[...trail,node.name]);return;}const haystack=(node.name+' '+node.id+' '+trail.join(' ')).toLowerCase();if(words.every(word=>haystack.includes(word)))found.push({key:node.key,name:node.name,node,detail:trail.join(' › ')});};
-      visit(we.root,[]);setResults({rows:found.slice(0,500),total:found.length});return;
+      setResults(worldEditorResults(we,query));return;
     }
     if(!signature)return;let active=true;const timer=setTimeout(()=>window.desktop.gameFilesBrowse({query:text,variant,type,limit:500}).then(value=>{if(active)setResults({rows:value.files.map(file=>({key:'f'+file.id,name:file.name,file,detail:file.path.slice(0,file.path.length-file.name.length-1)})),total:value.total});}).catch(caught=>{if(active)setError(caught.message);}),120);
     return()=>{active=false;clearTimeout(timer);};
@@ -188,7 +139,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
     if(results)return results.rows.map(row=>({...row,depth:0,search:true}));
     const list=[];
     if(worldEditor){
-      return visibleWorldEditorRows(we?.root.children||[],expanded);
+      return worldEditorRows(we,expanded);
     }
     const walk=(listing,depth)=>{
       for(const folder of listing.folders){const key='d'+folder.key;list.push({key,depth,name:folder.name,folderKey:folder.key,folder:true,count:folder.count});if(expanded.has(key)&&children.has(folder.key))walk(children.get(folder.key),depth+1);}
@@ -203,7 +154,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
   };
   // Selecting a leaf: models load in the background and replace the shown model when ready.
   const choose=useCallback(async(row,choice=0)=>{
-    if(!row||row.folder)return;if(pendingOpen.current!==row.key)pendingOpen.current=null;setSelected(row);setMessage('');setModelChoice(choice);
+    if(!row||row.folder)return;if(pendingOpen.current!==row.key)pendingOpen.current=null;setSelected(row);setFocusKey(row.key);setMessage('');setModelChoice(choice);
     const request=++modelRequest.current;
     let entry=row.file||null;
     if(row.node){
@@ -262,8 +213,8 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
   };
   const openInEditor=async()=>{if(!shown)return;setMessage('');try{await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes:shown.bytes,textures:shown.textures});onClose?.();}catch(caught){setMessage(caught.message);}};
   const rowIcon=row=>{
-    if(row.folder){const path=worldEditor?(row.node?.icon||(row.depth===0?FOLDER_ICONS[row.name]:null)):null;return <GameIcon iconKey={path?'p:'+variant+':'+path:null} read={path?readPath(path):null} fallback={expanded.has(row.key)?FolderOpen:Folder}/>;}
-    if(row.node)return <GameIcon iconKey={row.node.icon?'p:'+variant+':'+row.node.icon:null} read={row.node.icon?readPath(row.node.icon):null} fallback={row.node.models?.length?Box:File}/>;
+    if(row.node)return worldEditorRowIcon(row,variant,expanded);
+    if(row.folder)return <GameIcon fallback={expanded.has(row.key)?FolderOpen:Folder}/>;
     const file=row.file,icon=file.type==='models'?modelIcon(file):null;
     if(icon)return <GameIcon iconKey={'p:'+variant+':'+icon} read={readPath(icon)} fallback={Box}/>;
     return <GameIcon iconKey={file.type==='textures'&&file.size<4194304?'f:'+signature+':'+file.id:null} read={readFile(file)} fallback={TYPE_ICON[file.type]||File}/>;
@@ -273,7 +224,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
       <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
       {preset==='all'&&<select aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
     </BrowserToolbar>} tree={<BrowserTree rows={rows} expanded={expanded} toggle={toggle} selected={selected} onChoose={choose}
-      onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style}
+      onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style} focusKey={focusKey} setFocusKey={setFocusKey}
       onStyle={preset==='models'?value=>{setStyle(value);remember('mdlvis.game-files.style',value);}:undefined} resetKey={worldEditor+'|'+filters}
       status={results&&(results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`)}
       empty={error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}/>} stage={<>

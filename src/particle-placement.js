@@ -15,7 +15,7 @@ export function particlePlacementError(model,placement){
  if(!Array.isArray(placement.sequences)||!model.Sequences.length)return '';
  const clips=[placement.sequence,...placement.sequences].map(index=>model.Sequences[index]);
  if(!placement.sequences.length||clips.some(clip=>!clip))return 'Choose an animation.';
- return clips.some(clip=>!(clip.Interval[1]>clip.Interval[0]))?'Choose valid source and target intervals.':'';
+ return clips.some(clip=>!(clip.Interval[1]>clip.Interval[0]))?'This animation has no length.':'';
 }
 
 /** A chosen visibility window belongs to the newly inserted effect only. */
