@@ -67,8 +67,32 @@ function FileStage({entry,signature}){
   return <p className="tl-note gf-stage-note">MDLxL has no viewer for this file type. Save a copy to open it in another program.</p>;
 }
 
+function BrowserToolbar({input,query,onQuery,placeholder,label,children}){
+  return <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={placeholder} onChange={event=>onQuery(event.target.value)} aria-label={label}/>{children}</div>;
+}
+
+function BrowserTree({rows,expanded,toggle,selected,onChoose,onOpen,rowIcon,style,onStyle,standardTitle,empty,status,onVisibleRows,resetKey,focusKey:focused,setFocusKey:setFocused}){
+  const [localFocus,setLocalFocus]=useState(null);
+  return <nav className="gf-side" aria-label="Game folders">
+    {onStyle&&<FolderStyle style={style} onChange={onStyle} standardTitle={standardTitle}/>}
+    <LibraryTree rows={rows} expanded={expanded} selected={selected} focusKey={setFocused?focused:localFocus} setFocusKey={setFocused||setLocalFocus}
+      toggle={toggle} choose={onChoose} onOpen={onOpen} onDoubleClick={onOpen} rowIcon={rowIcon} empty={empty} status={status} onVisibleRows={onVisibleRows} resetKey={resetKey}/>
+  </nav>;
+}
+
+function BrowserFrame({toolbar,tree,stage,info,footer,detailsBelow=false}){
+  const preview=<><main className="gf-stage" aria-label="Preview">{stage}</main><aside className="gf-info">{info}</aside></>;
+  return <>{toolbar}<div className="tl-body gf-body">{tree}{detailsBelow?<div className="gf-preview-column">{preview}</div>:preview}</div><footer className="tl-footer">{footer}</footer></>;
+}
+
+/** The same browser accepts catalogue rows, stage content and actions from EMTR. */
+export default function GameFileBrowser({browser,...props}){
+  if(browser)return <BrowserFrame toolbar={<BrowserToolbar {...browser.toolbar}/>} tree={<BrowserTree {...browser.tree}/>} stage={browser.stage} info={browser.info} footer={browser.footer} detailsBelow/>;
+  return <GameFiles {...props}/>;
+}
+
 /** The Library's browser for every installed Warcraft III file: icon tree on the left, one central view. */
-export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
+function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
   const [summary,setSummary]=useState(null),[variant,setVariant]=useState(()=>remembered('mdlvis.game-files.variant','classic',VARIANTS.map(([value])=>value))),[chosenType,setChosenType]=useState('all');
   const [style,setStyle]=useState(()=>remembered('mdlvis.game-files.style','worldeditor',['standard','worldeditor']));
   const [query,setQuery]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -196,26 +220,21 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
     return <GameIcon iconKey={file.type==='textures'&&file.size<4194304?'f:'+signature+':'+file.id:null} read={readFile(file)} fallback={TYPE_ICON[file.type]||File}/>;
   };
   const interval=shown?.doc.model.Sequences[sequence]?.Interval;
-  return <>
-    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} onChange={event=>setQuery(event.target.value)} aria-label="Search game files"/>
+  return <BrowserFrame toolbar={<BrowserToolbar input={input} query={query} onQuery={setQuery} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} label="Search game files">
       <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
       {preset==='all'&&<select aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
-    </div>
-    <div className="tl-body gf-body">
-      <nav className="gf-side" aria-label="Game folders">
-        {preset==='models'&&<FolderStyle style={style} onChange={value=>{setStyle(value);remember('mdlvis.game-files.style',value);}}/>}
-        <LibraryTree rows={rows} results={results} expanded={expanded} selected={selected} focusKey={focusKey} setFocusKey={setFocusKey} toggle={toggle} choose={choose} onOpen={()=>{if(current)openInEditor();}} onDoubleClick={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} empty={error?'':query.trim()?WORLD_EDITOR_NO_MATCHES:summary&&!summary.folder?WORLD_EDITOR_NO_GAME:'Loading game files…'}/>
-
-      </nav>
-      <main className="gf-stage" aria-label="Preview">
+    </BrowserToolbar>} tree={<BrowserTree rows={rows} expanded={expanded} toggle={toggle} selected={selected} onChoose={choose}
+      onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style} focusKey={focusKey} setFocusKey={setFocusKey}
+      onStyle={preset==='models'?value=>{setStyle(value);remember('mdlvis.game-files.style',value);}:undefined} resetKey={worldEditor+'|'+filters}
+      status={results&&(results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`)}
+      empty={error?'':query.trim()?WORLD_EDITOR_NO_MATCHES:summary&&!summary.folder?WORLD_EDITOR_NO_GAME:'Loading game files…'}/>} stage={<>
         <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset} onHover={setHoveredGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
             :loadingModel?<span className="gf-stage-note">Loading model…</span>
             :<span className="gf-stage-note">{preset==='models'?'Choose a model on the left. Drag to turn the camera; it glides to each model you pick.':preset==='sounds'?'Choose a sound on the left to hear it. Arrow keys step through a folder.':'Choose a file on the left to view it.'}</span>}
         </div>}
-      </main>
-      <aside className="gf-info">{selected&&!selected.folder?<>
+      </>} info={selected&&!selected.folder?<>
         <h3 translate="no">{selected.name}</h3>
         {selected.node&&<p className="tl-version" translate="no">{selected.node.id}</p>}
         {selectedModels.length>1&&<select aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
@@ -239,8 +258,5 @@ export default function GameFileBrowser({preset='all',onOpenGameModel,onImportGa
         </div>}
         {message&&!current&&<p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}
-      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>}</aside>
-    </div>
-    <footer className="tl-footer"><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></footer>
-  </>;
+      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>} footer={<><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></>}/>;
 }

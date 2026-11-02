@@ -21,6 +21,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
 | Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
+| EMTR Particle Library browsing and placement | Main integration ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md), [Add like ribbons](emtr-add-like-ribbons.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

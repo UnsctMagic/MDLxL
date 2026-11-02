@@ -74,6 +74,7 @@ existing hotkey behaviour.
     by case-sensitive unit rawcode. Entries hidden from the
     editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
+- GameFileBrowser keeps the shared BrowserToolbar / BrowserTree / BrowserFrame shell and accepts EMTR's `browser` prop. BrowserTree delegates rows and navigation to WorldEditorTree's LibraryTree; EMTR forwards its visible-row thumbnail callback and keeps preview details below the stage.
 - [WorldEditorTree.jsx](../app/WorldEditorTree.jsx) owns both tabs' layout
   buttons, virtualized rows, mouse/keyboard navigation, game icons and the one
   catalogue promise per game signature/version. Models also use its icons in

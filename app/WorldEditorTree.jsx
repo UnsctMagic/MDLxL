@@ -9,7 +9,7 @@ export const WORLD_EDITOR_NO_GAME='No Warcraft III game files were found. Choose
 export const WORLD_EDITOR_NO_MATCHES='No matches. Try fewer words or another game version.';
 const ROW=24;
 // Folder icons for the World Editor view's top level, taken from the game's own buttons.
-const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
+export const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
 // Small icons for tree rows: decoded once per session, a few at a time.
 const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
 function loadIcon(key,read,size=48){
@@ -41,9 +41,9 @@ export function worldEditorTree(variant,signature){
 }
 
 
-export function FolderStyle({style,onChange}){
+export function FolderStyle({style,onChange,standardTitle}){
  return <div className="gf-style" role="group" aria-label="Folder layout">
-  <button type="button" aria-pressed={style==='standard'} title="The game's own folders, as they are stored" onClick={()=>onChange('standard')}>Standard</button>
+  <button type="button" aria-pressed={style==='standard'} title={standardTitle||"The game's own folders, as they are stored"} onClick={()=>onChange('standard')}>Standard</button>
   <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>onChange('worldeditor')}>World Editor Style</button>
  </div>;
 }
@@ -62,9 +62,10 @@ export function worldEditorRowIcon(row,variant,expanded){
  return <GameIcon iconKey={path?'p:'+variant+':'+path:null} read={path?()=>window.desktop.gameFilesReadPath({path,variant}):null} fallback={row.folder?(expanded.has(row.key)?FolderOpen:Folder):row.node.models?.length?Box:File}/>;
 }
 /** The same virtualized rows and mouse/keyboard navigation in both Library tabs. */
-export function LibraryTree({rows,results,expanded,selected,focusKey,setFocusKey,toggle,choose,onOpen,onDoubleClick,rowIcon,empty}){
+export function LibraryTree({rows,results,expanded,selected,focusKey,setFocusKey,toggle,choose,onOpen,onDoubleClick,rowIcon,empty,status,onVisibleRows,resetKey}){
  const tree=useRef(),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
  useEffect(()=>{const element=tree.current;const observer=new ResizeObserver(()=>setViewHeight(element.clientHeight));observer.observe(element);return()=>observer.disconnect();},[]);
+ useEffect(()=>{if(resetKey===undefined)return;setFocusKey(null);setScrollTop(0);if(tree.current)tree.current.scrollTop=0;},[resetKey]);
  const keys=event=>{
   const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
   if(event.key==='ArrowDown'||event.key==='ArrowUp'){
@@ -76,16 +77,17 @@ export function LibraryTree({rows,results,expanded,selected,focusKey,setFocusKey
   else if(event.key==='Enter'&&row){event.preventDefault();if(row.folder)toggle(row);else onOpen?.(row);}
  };
  const first=Math.max(0,Math.floor(scrollTop/ROW)-10),last=Math.min(rows.length,Math.ceil((scrollTop+viewHeight)/ROW)+10);
+ useEffect(()=>{onVisibleRows?.(rows.slice(first,last));},[rows,first,last,onVisibleRows]);
  return <div ref={tree} className="gf-tree" role="tree" aria-label="Game files" tabIndex={0} onKeyDown={keys} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
-  {results&&<div className="gf-tree-status">{results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`}</div>}
+  {(status||results)&&<div className="gf-tree-status">{status||(results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`)}</div>}
   {!rows.length&&<p className="tl-empty">{empty}</p>}
   <div style={{height:rows.length*ROW,position:'relative'}}>{rows.slice(first,last).map((row,offset)=>{const at=first+offset,open=expanded.has(row.key);
-   return <div key={row.key} role="treeitem" aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key}
+   return <div key={row.key} role="treeitem" aria-label={row.name} aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key} data-effect-id={row.node?.item?.id}
     className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:at*ROW,paddingLeft:6+row.depth*16}}
     onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else choose(row);}} onDoubleClick={()=>{if(!row.folder)onDoubleClick?.(row);}}
-    title={row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name}>
+    title={row.title||(row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name)}>
     <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
-    {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{row.search&&row.detail&&<small translate="no">{row.detail}</small>}</span>
+    {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{(row.node?.status||row.search&&row.detail)&&<small translate="no">{row.node?.status||row.detail}</small>}</span>
     {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
    </div>;})}</div>
  </div>;

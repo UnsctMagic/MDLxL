@@ -1,0 +1,35 @@
+{
+  "sourceKey": "8754b8173377452011ba05ceaea1490aa9c70cfcce2ff87923e4b7bb1a268267",
+  "catalogue": 5032,
+  "catalogueSha256": "e79210188614af1e1456e9044730bf463da1c77bae148bce41e9ca7aa360812d",
+  "eligibleRecipes": 3595,
+  "verifiedFirstOwners": 3230,
+  "visibleRecipes": 3595,
+  "folders": 469,
+  "blood": 213,
+  "buildings": [
+    [
+      "Human",
+      200
+    ],
+    [
+      "Orc",
+      107
+    ],
+    [
+      "Night Elf",
+      39
+    ],
+    [
+      "Undead",
+      77
+    ],
+    [
+      "Neutral",
+      751
+    ]
+  ],
+  "duplicates": 0,
+  "empty": 0,
+  "countMismatches": 0
+}
