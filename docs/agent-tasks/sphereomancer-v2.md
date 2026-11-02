@@ -1,6 +1,6 @@
 # Sphereomancer v2: five presets, Add sphere/square, EMTR-style handles, no black flashing
 
-Status: active (contract for Codex)
+Status: ready to test; ready for review; awaiting merge approval
 Owner / consolidator: Codex implements; Claude reviews and merges on the owner's word
 Updated: 2026-11-02
 
@@ -90,9 +90,34 @@ Out of scope: the other OptimizeXL stages (apart from the flash cause), new pane
 
 ## Changes and verification
 
-- Changed: none yet.
-- Remaining: everything above.
+Changed the shared collision editor and Sphereomancer as specified. Fit helpers and obsolete presets/translations are removed; default is x2 standard unit. Simple mode adds spheres/squares and removes them on the overlay. Advanced retains numeric fields. Shared EMTR-style Move, sphere edge and visible-face controls retain Escape, arrow/Shift nudges and once-per-frame drafts. Native box saving, unrelated stages, model motion and linked mouse cameras are preserved.
+
+Flash cause: settings changed the After revision at worker dispatch and again its model at completion, destroying/recreating its WebGL surface; the compositor could see that surface before its first draw. Collision-only proposals now reuse the accepted model's render resources, the worker request counter no longer owns the renderer revision, and a new renderer draws before publishing its surface. No masking or delay was added. Fractional Size exposed a browser serialization midpoint issue; edited radii now enter the native Float32 domain at the Sphereomancer write boundary.
+
+Measurements: the original #482 package had one 98.4%-black preset frame and one 97.8%-black Size frame per 120-frame sequence. Building 463bfef5^1 (a3760b73) also reproduced it (3 preset frames, 1 Size frame). Final package: 120 compositor frames each for paused, playing, preset changes, Size changes, shape drag and another-stage settings change; zero mostly-black frames in either pane (720 frames per pane). The five Sphereomancer cases replaced zero WebGL canvases. CDP captures bypass screenshot stabilization; sampled RGB <24 in >90% of preview pixels defines mostly black.
+
+Verification: full source 2585 passed / 0 failed / 10 skipped; final focused source 72/0/0; final compatibility 57/0/0. All six required packaged suites passed on the final package: optimizexl, optimizexl-selection, optimizexl-cleanup, optimizexl-workflow, optimizexl-motion, model-manager-regressions (6/0/0). Real clicks/drags verify Move, radius, square face, Simple add/remove, Escape while dragging, arrow/Shift nudge, dropdown wheel, advanced fields and camera rotation in both OptimizeXL panes and Managers. The workflow's old post-Commit text selector failed on both original and final packages; it now waits for the existing titled toolbar button. The Managers test targets a visible face that disappears in Top view, and checks that same axis.
+
+Fail-first: new preset/geometry source checks failed 4 of 5 on old code; the extended packaged check failed on the original package's preset-list assertion. Direct old-package captures reproduce the black frames. The Size interaction captured the BoundsRadius save-verification error before normalization.
+
+The immutable flail replay has one historical Mounted hash mismatch, also present on untouched main: main and this branch both emit 3920de513a8e289edffbbd10d760ae9bbb56c5dbd2b81d8e58387806938f0207; historical golden expects 084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a. All other replay cases matched. Golden/approved baseline files were not changed.
+
+Existing source skips (not enabled by this task):
+- CLI SIGTERM-stop test: Windows platform exclusion
+- Archer material stack: MDLXL_ARCHER not set
+- Skin-collapse pair: MDLXL_SKIN_COLLAPSE_BROKEN / MDLXL_SKIN_COLLAPSE_REBUILT not set
+- Private Fx replay: MDLXL_FX_MODEL not set
+- POSE corpus corrections: MDLXL_POSE_CORPUS manifest absent
+- POSE corpus source hashes: same absent manifest
+- Dense twin-head rider: MDLXL_POSE_PERFORMANCE_MODEL not set
+- Background symlink isolation: this Windows account cannot create symbolic links
+- Tinker/Brown Magnataur replay: MDLXL_SORT_NURGLE not set
+- 8.3 TEMP updater: volume has no 8.3 short names
+
+Evidence: [before flash](../../test/evidence/sphereomancer-v2/before-flash.png), [final controls](../../test/evidence/sphereomancer-v2/after-controls.png), [baseline measurements](../../test/evidence/sphereomancer-v2/baseline-frames.json), [all final frame measurements](../../test/evidence/sphereomancer-v2/after-frames.json), [results and renderer hashes](../../test/evidence/sphereomancer-v2/results.json).
+
+Not exercised: native Warcraft III playback and owner visual acceptance. Claude retains independent QA/review; no merge or release is authorized.
 
 ## Blockers and next action
 
-- No blockers. Codex implements on `codex/sphereomancer-v2` and opens a PR into `main` with `Session: codex <task>`. Claude reviews and merges after the owner approves.
+- Implementation and required hidden verification complete on `codex/sphereomancer-v2`, based on main `af004b55`. Next: owner click-through and Claude review. Merge only after owner approval.

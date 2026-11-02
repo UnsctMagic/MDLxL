@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Sphereomancer v2: fixed presets and shared collision grabs | Ready to test; awaiting merge approval | [Sphereomancer v2](sphereomancer-v2.md) / Codex |
 | Library: World Editor Style for textures, like models | Contract ready; Codex to build | [Library textures World Editor](library-textures-world-editor.md) / Codex |
 | Workplane Constraints and one gizmo for every 3D editor (real app) | Contract agreed; Codex to build | [Workplane Constraints](workplane-constraints.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |

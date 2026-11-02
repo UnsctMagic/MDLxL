@@ -1,4 +1,4 @@
-import { Matrix4, Vector3 } from 'three';
+import { Matrix3, Matrix4, Vector3 } from 'three';
 import { collisionCenter } from '../src/model-collisions.js';
 import { screenPlaneTranslation } from './viewport-math.js';
 import { particleAxisMapping } from '../src/particle-handles.js';
@@ -31,11 +31,25 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
     if (shape.ObjectId === selectedId && Math.abs(matrix.determinant()) > 1e-10) {
       const world = new Vector3().fromArray(center).applyMatrix4(matrix), inverse = matrix.clone().invert();
       row.move = Object.fromEntries([['dx', 1, 0], ['dy', 0, 1]].map(([key, x, y]) => [key, world.clone().add(screenPlaneTranslation(camera, world, width, height, x, y)).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray()]));
-      for (let axis = 0; axis < 3; axis++) for (const sign of [-1, 1]) {
+      if (shape.Shape === 2) {
+        const scale=matrix.getMaxScaleOnAxis(), right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+        const at=outlines[0][0], unit=project(world.clone().addScaledVector(right,(shape.BoundsRadius+1)*scale));
+        const basis=particleAxisMapping(at,unit);
+        if(basis)row.handles.push({axis:0,sign:1,point:at,basis});
+      } else for (let axis = 0; axis < 3; axis++) for (const sign of [-1, 1]) {
         const local = [...center], unit = [...center];
         const distance = shape.Shape === 2 ? shape.BoundsRadius : (shape.Vertices[axis + 3] - shape.Vertices[axis]) / 2;
         local[axis] += sign * distance; unit[axis] += sign * (distance + 1);
-        const at = point(local), basis = particleAxisMapping(at, point(unit));
+        const normal=new Vector3().setComponent(axis,sign).applyMatrix3(new Matrix3().getNormalMatrix(matrix)).normalize();
+        const face=new Vector3().fromArray(local).applyMatrix4(matrix);
+        const toward=camera.isOrthographicCamera?camera.getWorldDirection(new Vector3()).negate():camera.position.clone().sub(face);
+        if(normal.dot(toward)<=1e-6)continue;
+        const at = point(local);
+        // Looking straight at a face, its normal has no screen projection.
+        // Use a horizontal EMTR edge drag at that face's model-unit scale.
+        const right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+        const scale=new Vector3().setFromMatrixColumn(matrix,axis).length();
+        const basis = particleAxisMapping(at, point(unit)) || particleAxisMapping(at, project(face.clone().addScaledVector(right,scale)));
         if (basis) row.handles.push({ axis, sign, point: at, basis });
       }
     }

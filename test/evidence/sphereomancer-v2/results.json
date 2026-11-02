@@ -1,0 +1,170 @@
+{
+  "base": "af004b55a8325fb84a0a478cf19b519dca63dea9",
+  "branch": "codex/sphereomancer-v2",
+  "bundle": {
+    "indexHash": "13b5a95968fc0198a71ee2f108e2947fe2fa8db3ab69c94b667393ed082225a1",
+    "assetsHash": "3e090cf8754b01d6f0b039d3e51a44d980fcfc20335421654cf643e8e40d2d43"
+  },
+  "source": {
+    "pass": 2585,
+    "fail": 0,
+    "skip": 10
+  },
+  "finalFocused": {
+    "pass": 72,
+    "fail": 0,
+    "skip": 0
+  },
+  "compatibility": {
+    "pass": 57,
+    "fail": 0,
+    "skip": 0
+  },
+  "packaged": {
+    "pass": 6,
+    "fail": 0,
+    "skip": 0,
+    "results": {
+      "optimizexl": {
+        "status": "pass",
+        "seconds": 87
+      },
+      "optimizexl-selection": {
+        "status": "pass",
+        "seconds": 34
+      },
+      "optimizexl-cleanup": {
+        "status": "pass",
+        "seconds": 7
+      },
+      "optimizexl-workflow": {
+        "status": "pass",
+        "seconds": 8
+      },
+      "optimizexl-motion": {
+        "status": "pass",
+        "seconds": 12
+      },
+      "model-manager-regressions": {
+        "status": "pass",
+        "seconds": 5
+      }
+    }
+  },
+  "flashes": [
+    {
+      "name": "flash-paused",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.01448510438658222
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.014250527797325828
+        }
+      ],
+      "mutations": {
+        "added": 0,
+        "removed": 0
+      }
+    },
+    {
+      "name": "flash-playing",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.016713581984517945
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.01744663382594417
+        }
+      ],
+      "mutations": {
+        "added": 0,
+        "removed": 0
+      }
+    },
+    {
+      "name": "flash-presets",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011230354210649777
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011611541168191415
+        }
+      ],
+      "mutations": {
+        "added": 0,
+        "removed": 0
+      }
+    },
+    {
+      "name": "flash-size",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011230354210649777
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011318320431620925
+        }
+      ],
+      "mutations": {
+        "added": 0,
+        "removed": 0
+      }
+    },
+    {
+      "name": "flash-drag",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011230354210649777
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.011523574947220267
+        }
+      ],
+      "mutations": {
+        "added": 0,
+        "removed": 0
+      }
+    },
+    {
+      "name": "flash-other-stage",
+      "count": 120,
+      "panes": [
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.01020408163265306
+        },
+        {
+          "mostlyBlack": 0,
+          "maxBlack": 0.010321369927281257
+        }
+      ],
+      "mutations": {
+        "added": 1,
+        "removed": 1
+      }
+    }
+  ],
+  "mounted": {
+    "main": "3920de513a8e289edffbbd10d760ae9bbb56c5dbd2b81d8e58387806938f0207",
+    "branch": "3920de513a8e289edffbbd10d760ae9bbb56c5dbd2b81d8e58387806938f0207",
+    "same": true,
+    "note": "Historical mounted golden differs on main too; immutable golden files unchanged."
+  }
+}

@@ -1,14 +1,16 @@
+import {useWindowKeyClaim} from './Hotkeys.jsx';
+import { Trash2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { moveCollision, resizeCollision } from '../src/model-collisions.js';
 import { movementDragAmount } from './movement-overlay.js';
 import { createFrameCoalescer } from './viewport-performance.js';
-import './model-manager.css';
+import './optimizexl.css';
 
 export const collisionPointVisible = point => point?.every(Number.isFinite) && point[2] >= -1 && point[2] <= 1;
 const visible = collisionPointVisible;
 
-/** Drag/keyboard editing of one collision shape: the center dot moves it, the
- * edge squares resize it. A draft previews the change; release commits it. */
+/** Drag/keyboard editing of one collision shape: the labeled center grab moves it, the
+ * outline/face circles resize it. A draft previews the change; release commits it. */
 export function useCollisionGesture({ selected, readOnly, stage, selectedId, setDraft, onCommit }) {
   const gesture = useRef(null), pending = useRef(null), frame = useRef(null), latest = useRef(null);
   latest.current = { setDraft, onCommit };
@@ -19,7 +21,11 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     if (value) latest.current.onCommit(value);
   };
   const cancel = () => { frame.current.cancel(); pending.current = null; gesture.current = null; latest.current.setDraft(null); };
-  const reset = () => { pending.current = null; gesture.current = null; latest.current.setDraft(null); };
+  const reset = () => { frame.current.cancel(); pending.current = null; gesture.current = null; latest.current.setDraft(null); };
+  useWindowKeyClaim(({event})=>{
+    if(event.key!=='Escape'||!gesture.current)return false;
+    cancel();return true;
+  },0);
   useEffect(() => () => { frame.current.cancel(); pending.current = null; }, []);
   useEffect(() => {
     const active = gesture.current;
@@ -70,16 +76,25 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
   return { previewDraft, commit, cancel, reset, drag, handleProps, hasPending: () => !!pending.current };
 }
 
-/** Collision outlines over a preview, with the selected shape's handles. */
-export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect, gesture, className = '' }) {
+/** Shared EMTR-style controls for Managers and Sphereomancer. */
+export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect, onRemove, gesture, className = '' }) {
   if (!stage) return null;
+  const grab=(point,handle,label,kind,caption)=> <g className={kind} aria-label={label} {...gesture.handleProps(handle)}>
+    <circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/>
+    <circle cx={point[0]} cy={point[1]} r="7"/>
+    {caption&&<text x={point[0]+12} y={point[1]+20}>{caption}</text>}
+    <title>{handle.move?'Move':'Drag to resize'}</title>
+  </g>;
   return <svg className={`mm-overlay ${className}`} viewBox={`0 0 ${stage.width} ${stage.height}`} aria-label="Collision shapes" onPointerMove={gesture.drag}>
     {stage.rows.map(row => <g key={row.id} className={row.id === selectedId ? 'mm-selected' : ''}>
       {(row.guides || []).filter(line => line.every(visible)).map((line, index) => <polyline key={'g' + index} points={line.map(p => p.slice(0, 2).join(',')).join(' ')} className="mm-guide"/>)}
       {row.outlines.filter(line => line.every(visible)).map((line, index) => <polyline key={index} points={line.map(p => p.slice(0, 2).join(',')).join(' ')} className="mm-outline" onPointerDown={event => { event.stopPropagation(); onSelect(row.id); }}><title>Select collision shape</title></polyline>)}
       {row.id === selectedId && !readOnly && <>
-        {row.handles.filter(handle => visible(handle.point)).map(handle => <rect key={`${handle.axis}:${handle.sign}`} x={handle.point[0] - 5} y={handle.point[1] - 5} width="10" height="10" rx="2" className="mm-handle" aria-label={`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`} {...gesture.handleProps(handle)}><title>Drag to resize</title></rect>)}
-        {row.move && visible(row.center) && <circle cx={row.center[0]} cy={row.center[1]} r="8" className="mm-center" aria-label="Move collision shape" {...gesture.handleProps({ move: row.move })}><title>Drag to move</title></circle>}
+        {row.handles.filter(handle => visible(handle.point)).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,row.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}
+        {row.move && visible(row.center) && <g className="pe-move-emitter">
+          {grab(row.center,{move:row.move},'Move collision shape','mm-center','Move')}
+          {onRemove&&<foreignObject x={row.center[0]+24} y={row.center[1]-28} width="28" height="28" className="mm-remove"><button aria-label="Remove collision shape" title="Remove collision shape" onPointerDown={event=>event.stopPropagation()} onClick={onRemove}><Trash2 size={16}/></button></foreignObject>}
+        </g>}
       </>}
     </g>)}
   </svg>;

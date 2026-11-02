@@ -28,16 +28,16 @@ const root=path.resolve(__dirname,'..');
   for(const [name,count] of [['Box',3],['Sphere',1],['Plane',0],['Cylinder',0]]){
    await list.getByRole('option',{name,exact:true}).click();
    assert.equal(await page.locator('.mm-size input[type=range]').count(),count,name+' has only supported size controls');
-   assert.equal(await page.getByRole('button',{name:'Remove collision shape',exact:true}).isEnabled(),true);
+   assert.equal(await page.locator('.mm-properties').getByRole('button',{name:'Remove collision shape',exact:true}).isEnabled(),true);
   }
   await list.getByRole('option',{name:'Box',exact:true}).click();
   const before=await page.evaluate(()=>({vertices:[...managerDoc.model.CollisionShapes[0].Vertices],undo:managerDoc.historyStats.undoSteps}));
-  const handle=page.getByLabel('Resize Z positive',{exact:true}),at=await handle.boundingBox();
-  const height=await page.getByLabel('Height',{exact:true}).inputValue();
-  await page.mouse.move(at.x+5,at.y+5);await page.mouse.down();await page.mouse.move(at.x+5,at.y-35,{steps:8});
+  const handle=page.getByLabel('Resize X positive',{exact:true}),at=await handle.locator('circle:not(.pe-grab)').boundingBox();
+  const width=await page.getByLabel('Width',{exact:true}).inputValue();
+  await page.mouse.move(at.x+7,at.y+7);await page.mouse.down();await page.mouse.move(at.x+47,at.y-13,{steps:8});
   // Live drags update once per frame; wait for that frame instead of the same tick.
-  await page.waitForFunction(before=>document.querySelector('input[aria-label="Height"]')?.value!==before,height,{timeout:2000}).catch(()=>{});
-  assert.notEqual(await page.getByLabel('Height',{exact:true}).inputValue(),height,'the drag creates a live draft');
+  await page.waitForFunction(before=>document.querySelector('input[aria-label="Width"]')?.value!==before,width,{timeout:2000}).catch(()=>{});
+  assert.notEqual(await page.getByLabel('Width',{exact:true}).inputValue(),width,'the drag creates a live draft');
   await page.getByLabel('Collision view',{exact:true}).selectOption('top');
   await handle.waitFor({state:'detached'});await page.mouse.up();
   await list.getByRole('option',{name:'Sphere',exact:true}).click();

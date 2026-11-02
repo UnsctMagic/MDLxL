@@ -136,12 +136,14 @@ export default function GamePreview(inputProps) {
   const layerComposite = useRef(null);
   const cameraMemory = useRef(null), glidedKey = useRef(undefined), framedKey = useRef(undefined);
   const rendererSource = useRef({ input: null, build: null, revision: null });
-  if (rendererSource.current.input !== model) {
+  // Collision-only proposals share all rendered resources with their accepted model.
+  const previewModel = props.collisionPreviewModel || model;
+  if (rendererSource.current.input !== previewModel) {
     // UV Wrapper fingerprints material and texture contents. A temporary
     // texture can create new arrays on every UV edit without changing either.
     const stableResourceRevision = typeof revision === 'string' && props.uvRevision !== undefined && rendererSource.current.revision === revision;
-    if (!isUVOnlyPreviewChange(rendererSource.current.input, model, stableResourceRevision)) rendererSource.current.build = model;
-    rendererSource.current.input = model;
+    if (!isUVOnlyPreviewChange(rendererSource.current.input, previewModel, stableResourceRevision)) rendererSource.current.build = previewModel;
+    rendererSource.current.input = previewModel;
     rendererSource.current.revision = revision;
   }
   const rendererModel = rendererSource.current.build;
@@ -1756,6 +1758,8 @@ export default function GamePreview(inputProps) {
     latest.current.onCaptureReady?.(state.captureApi);
     ownerDocument.addEventListener('visibilitychange', scheduler.sync);
     window.addEventListener('mdlvis-frame', fit);
+    // Publish a fully drawn surface before the compositor can see the new canvas.
+    render(performance.now(), 0);
     scheduler.invalidate();
     return () => {
       cameraMemory.current = portraitBackup
@@ -1775,7 +1779,7 @@ export default function GamePreview(inputProps) {
     if (!props.portraitMode) { current.exitPortrait(); return; }
     const evaluated = evaluateModelCamera(model, model?.Cameras?.[props.portraitCameraIndex], props.time, sequenceIndex, props.time);
     current.enterPortrait(evaluated);
-  }, [props.portraitMode, props.portraitCameraIndex, props.portraitSnapRevision, model, rendererRevision]);
+  }, [props.portraitMode, props.portraitCameraIndex, props.portraitSnapRevision, previewModel, rendererRevision]);
   // Context/recipe replacement rebuilds in the passive effect above. Do not apply
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
@@ -1794,7 +1798,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => { runtime.current?.drawBackground(); }, [props.preferences?.visuals?.background, props.preferences?.viewportAppearance?.background]);
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
-  useEffect(() => { if (model) runtime.current?.updateUV(model, `${revision}|${props.uvRevision}`); }, [model, revision, props.uvRevision]);
+  useEffect(() => { if (previewModel) runtime.current?.updateUV(previewModel, `${revision}|${props.uvRevision}`); }, [previewModel, revision, props.uvRevision]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 

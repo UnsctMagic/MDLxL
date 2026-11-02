@@ -69,7 +69,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
   assert.equal(await p.getByRole('button',{name:'Commit',exact:true}).isEnabled(),true);
   const closed=p.waitForEvent('close');await p.getByRole('button',{name:'Commit',exact:true}).click();await closed;
   assert.deepEqual(fs.readFileSync(file),onDisk,'Commit does not save the file');
-  await main.getByText('OptimizeXL',{exact:true}).first().waitFor();
+  await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor();
   await main.screenshot({path:path.join(out,'05-committed-in-editor.png')});
   assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,before:[before.errors,before.severe,before.warnings],after:[check.errors,check.severe,check.warnings]},null,1));
   console.log('optimizexl-workflow passed',out);
