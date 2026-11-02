@@ -470,6 +470,7 @@ export default function Viewport(inputProps) {
         return new THREE.Vector3().fromArray(gizmoMoveTranslation(gesture, end.x - drag.x, end.y - drag.y, event.shiftKey));
       }
       const result = solveViewMove(drag, end, event.shiftKey, camera, drag.pivot, end.width, end.height, quad);
+      if (quad) drag.movementPixels = result.movementPixels;
       return new THREE.Vector3().fromArray(moveOffset(result, surface.ownerDocument.defaultView, event));
     }
     function showBox(value) { setBox({ ...value, left: value.left + (boundPane.rect?.left || 0), top: value.top + (boundPane.rect?.top || 0) }); }
@@ -599,7 +600,8 @@ export default function Viewport(inputProps) {
         }
         latest.current.onTransformPreview(center.map(value => value / count));
       }
-      drag.payload = payload; drag.moved = drag.action === 'translate' && quad && !drag.handle ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
+      // Projection roundoff must not turn exactly one pixel into a committed drag.
+      drag.payload = payload; drag.moved = drag.action === 'translate' && quad && !drag.handle ? drag.movementPixels > 1 + 1e-7 : Math.hypot(dx, dy) > 1;
       invalidate();
     }
     function pointerUp(event) {
@@ -795,6 +797,7 @@ export default function Viewport(inputProps) {
         state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
       }
       const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []);
+      const liveDepthBounds = [];
       for (let index = 0; index < state.entries.length; index++) {
         const entry = state.entries[index]; if (!entry) continue;
         const chosen = active.has(index), selection = selectionArray(selectedMap[index]);
@@ -802,6 +805,7 @@ export default function Viewport(inputProps) {
         const geosetAnim = state.geosetAnims.get(index);
         const alpha = p.sequenceIndex >= 0 ? sampleTrack(geosetAnim?.Alpha, state.frame, { ...animOptions, fallback: 1 }) : typeof geosetAnim?.Alpha === 'number' ? geosetAnim.Alpha : 1;
         entry.group.visible = hovered || (!hidden.has(index) && (alpha > .001 || p.mode !== 'textured'));
+        if (camera.isOrthographicCamera && entry.group.visible && entry.geometry.boundingSphere) liveDepthBounds.push(entry.geometry.boundingSphere);
         entry.hoverWire.visible = hovered; entry.hoverPoints.visible = hovered && appearance.geosetHighlight.type === 'wire-vertices' && (!chosen || editable.has(index));
         const pureWireframe = p.mode === 'wireframe' || p.mode === 'vertices';
         const activeAppearance = chosen ? appearance.selectedGeoset : appearance.otherGeoset;
@@ -895,7 +899,7 @@ export default function Viewport(inputProps) {
       }
       state.selectionKey = selectionKey;
       controls.update();
-      updateDepthClipping(camera, state.center, clipRadius, quad ? grid.userData.extent : gridDepthExtent(state.center, gridOptions(p.preferences).extent));
+      updateDepthClipping(camera, state.center, clipRadius, quad ? grid.userData.extent : gridDepthExtent(state.center, gridOptions(p.preferences).extent), liveDepthBounds);
       const light = cameraLeftLight(camera, controls.target, state.radius);
       key.position.copy(light.position); key.target.position.copy(controls.target);
       ambient.position.copy(light.direction);
