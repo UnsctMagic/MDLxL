@@ -934,7 +934,11 @@ export default function GamePreview(inputProps) {
     function resize() {
       const rect=latest.current.pixelAligned?host.current?.getBoundingClientRect():null;
       const width = Math.max(1, rect?.width || host.current?.clientWidth || 1), height = Math.max(1, rect?.height || host.current?.clientHeight || 1), pixelRatio = latest.current.showcase ? graphicsOptions(latest.current.preferences).pixelRatio : viewportPixelRatio(graphicsOptions(latest.current.preferences), ownerWindow.devicePixelRatio);
-      canvas.height = Math.round(height * pixelRatio); canvas.width = portraitHasFrame(latest.current) && !portraitComposition(latest.current) ? Math.round(canvas.height * PORTRAIT_ASPECT) : Math.round(width * pixelRatio); gl.viewport(0, 0, canvas.width, canvas.height);
+      const pixelHeight = Math.round(height * pixelRatio), pixelWidth = portraitHasFrame(latest.current) && !portraitComposition(latest.current) ? Math.round(pixelHeight * PORTRAIT_ASPECT) : Math.round(width * pixelRatio);
+      // Assigning even the same dimensions clears WebGL's visible surface.
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      gl.viewport(0, 0, canvas.width, canvas.height);
       perspective.aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height; perspective.updateProjectionMatrix();
       const aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height;
       const half = orthographicHalfHeight(radius, aspect);
@@ -1779,7 +1783,7 @@ export default function GamePreview(inputProps) {
     if (!props.portraitMode) { current.exitPortrait(); return; }
     const evaluated = evaluateModelCamera(model, model?.Cameras?.[props.portraitCameraIndex], props.time, sequenceIndex, props.time);
     current.enterPortrait(evaluated);
-  }, [props.portraitMode, props.portraitCameraIndex, props.portraitSnapRevision, previewModel, rendererRevision]);
+  }, [props.portraitMode, props.portraitCameraIndex, props.portraitSnapRevision, model, rendererRevision]);
   // Context/recipe replacement rebuilds in the passive effect above. Do not apply
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
