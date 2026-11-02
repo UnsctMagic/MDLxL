@@ -1,6 +1,6 @@
 # Workplane Constraints and one gizmo for every 3D editor
 
-Status: owner change requested before merge (see [Owner change](#owner-change-constrained-rotate-follows-the-plane-2-nov)); review fixes accepted at `c3282939`
+Status: arrow rule corrected 2 Nov (camera only, never the press point); implement before merge (see [Owner change](#owner-change-constrained-rotate-follows-the-plane-2-nov)); review fixes accepted at `c3282939`
 Owner / consolidator: Codex (implementation); Claude Code (contract, review)
 Updated: 2026-11-02
 
@@ -359,19 +359,22 @@ Workplane Constraints on, Rotate tool. `N` is the chosen plane's axis (XY → Z,
 ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
 
 1. **At mouse-down, work out one screen direction `T`** for a positive turn
-   (right-hand rule about `N`):
-   - Cast the ray from the camera through the press point and hit the plane
-     through `P` with normal `N`, giving `H`. If the ray hits it and `H` lies at
-     least 12 px from `P` on screen, `T` = the screen projection of `N × (H − P)`.
-     That is the way the plane's circle through the press point moves under the
-     cursor, as if you grabbed the plane there and pushed it round.
-   - Otherwise (the plane is seen edge-on, or the press is on the centre), use
-     the near side of the plane: `u` = the direction from `P` toward the camera
-     flattened into the plane. If that is near zero (the plane faces the camera),
-     use the in-plane direction that points down on screen. `T` = the screen
-     projection of `N × u`.
-   - Normalise `T`. It stays fixed for the whole drag: no flips, whatever the
-     pointer does.
+   (right-hand rule about `N`) **from the camera only. Where you press never
+   matters.** *(Corrected 2 Nov after the owner's quad-view test: the first
+   version took `T` from the press point, so in Front/Top/Side, where the
+   plane faces the camera, the arrow changed with every press.)*
+   - `u` = the direction from `P` toward the camera, flattened into the plane
+     (orthographic camera: the reverse view direction, flattened).
+   - If the plane faces the camera within about 15° (flattened `u` shorter than
+     0.26 of its unflattened length), use instead the in-plane direction that
+     points most down on screen. Front, Top and Side always land here, so their
+     arrow is always the same: left/right, wherever you press.
+   - `T` = the screen projection of `N × u`, normalised. It stays fixed for the
+     whole drag: no flips, whatever the pointer does. The arrow changes only when
+     the camera orbits.
+   - Delete the press-ray / hit-point branch of `constrainedRotationTangent` in
+     [app/movement-overlay.js](../../app/movement-overlay.js). Its fallback is
+     already this rule; add the 15° switch.
 2. **Turn amount** = mouse movement along `T`: `(dx, dy) · T` pixels = degrees at
    1×. Movement across `T` does nothing. Rotation sensitivity, pointer
    sensitivity and Shift precision work exactly as they do now. Coalesced samples
@@ -400,8 +403,9 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
 
 ### Tests
 
-- Unit tests for the `T` helper: a plane facing the camera with a press to the
-  right of the centre gives a vertical `T`; an edge-on plane gives `T` along the
+- Unit tests for the `T` helper: presses at different points give the same `T`
+  for the same camera; a plane facing the camera (every flat quad pane) gives a
+  horizontal `T`; a plane 10° off facing still gives horizontal; an edge-on plane gives `T` along the
   plane's line on screen; after orbiting the camera to several angles, moving
   along `T` always turns positively and moving along `−T` negatively; the same
   hand movement along the arrow gives the same degrees in every quad pane and
@@ -413,7 +417,9 @@ ZX → Y, YZ → X); `P` is the turn centre the editor already uses.
   camera angles, plus all four quad panes), Movement, POSE and Forge, press, check
   the arrow is drawn before any movement, drag along the arrow (turns positively),
   drag back along it (returns), drag across it (no turn). Expose `T` on the
-  existing feedback canvas dataset so the harness can read it.
+  existing feedback canvas dataset so the harness can read it. In each of Front,
+  Top and Side, press at four places around the centre (above, below, left,
+  right): the arrow is horizontal every time.
 - `pnpm test`, `pnpm run test:source` against the CI baseline; targeted packaged
   reruns only (`rotation-interaction`, `quad-view`, `learn-workplane`).
 
