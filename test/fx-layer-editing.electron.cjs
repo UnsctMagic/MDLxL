@@ -1,3 +1,4 @@
+const {addEmitter}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -38,7 +39,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await page.getByRole('button',{name:'Use picture',exact:true}).click();await search.waitFor({state:'hidden'});await ready();
   const checkImage=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack,l=s.layers.find(l=>l.label==='Ink seal'),g=m.Geosets.find(g=>g._FxTag===s.owner+'/'+l.id+'/shape');return m.Textures[m.Materials[g.MaterialID].Layers[0].TextureID].Image;});
   assert.match(await checkImage(),/DemonRune5\.blp$/i);
-  await choose('Briar binding');await fx.getByLabel('Enable Spores',{exact:true}).check();await ready();await select('Spores');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
+  await choose('Briar binding');await addEmitter(page,fx,'Pollen (recommended)',ready);await addEmitter(page,fx,'Spores',ready);await fx.getByLabel('Enable Spores',{exact:true}).check();await ready();await select('Spores');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
   assert.equal(await fx.getByLabel('Enable Rising embers',{exact:true}).isChecked(),true);
   const particle=fx.getByRole('slider',{name:'Intensity',exact:true});await particle.scrollIntoViewIfNeeded();const pb=await particle.boundingBox();
   await page.mouse.move(pb.x+pb.width-7,pb.y+pb.height/2);await page.mouse.down();await page.mouse.move(pb.x+1,pb.y+pb.height/2,{steps:8});

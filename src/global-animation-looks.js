@@ -101,6 +101,11 @@ for(const look of GLOBAL_LOOKS){
   if(!LAYER_CHOICES.some(other=>(other.menuLabel||other.label)===menuLabel))LAYER_CHOICES.push({...choice,menuLabel});
  }
 }
+export function emitterChoices(look) {
+ const own=look.layers.filter(spec=>spec.type==='Particles');
+ const other=LAYER_CHOICES.filter(spec=>spec.type==='Particles'&&!own.some(layer=>layer.label===spec.label&&layer.image===spec.image&&layer.kind===spec.kind&&layer.stamp===spec.stamp&&layer.nativeSurface?.id===spec.nativeSurface?.id));
+ return [...own.map((spec,i)=>({spec,label:spec.label+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:spec.menuLabel||spec.label}))];
+}
 export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
 export function withParticleStrength(layer,currentAlpha,value){
  const opacityBase=layer.opacityBase||Array.from(currentAlpha);
@@ -184,5 +189,5 @@ export function makeLayer(spec,frame,palette,id) {
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {
- return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
+ return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.flatMap((s,i)=>!look.impact&&s.type==='Particles'?[]:[makeLayer(s,frame,look.palette,i+1)])};
 }

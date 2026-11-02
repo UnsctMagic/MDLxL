@@ -1,10 +1,11 @@
+import {authoredStack} from '../helpers/fx-authored-stack.js';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {createRequire} from 'node:module';import {openDocument} from '../../src/editor-document.js';
-import {GLOBAL_LOOKS,findLook,newStack,partFrame,makeLayer,LAYER_CHOICES} from '../../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,partFrame,makeLayer,LAYER_CHOICES} from '../../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../../src/global-animation-model.js';
 const {testModel}=createRequire(import.meta.url)('../helpers/fixtures.cjs');
 const fixture=()=>openDocument(fs.readFileSync(testModel('WH_WOC_WarriorSlaaneshDual01.mdx')),'slaanesh.mdx');
-const stack=(doc,id)=>newStack(findLook(id),partFrame(doc.model.Geosets[28]),'owner-round');
+const stack=(doc,id)=>authoredStack(findLook(id),partFrame(doc.model.Geosets[28]),'owner-round');
 test('Slaanesh weapon geoset emits from both independently animated weapons',()=>{
  const doc=fixture(),s=stack(doc,'flaming-sword');compileAnimation(doc.model,28,s);
  const flames=doc.model.ParticleEmitters2.filter(n=>n._FxTag?.startsWith(s.owner+'/2/'));
@@ -30,7 +31,7 @@ test('a disabled FX layer creates no emitter and can be switched on after reopen
 test('Slaanesh emission origins follow the shared skin evaluator in every sequence',async()=>{
  const {sampleNodeMatrices,geosetSkinMatrix}=await import('../../src/animation.js'),{Vector3}=await import('three');
  for(const index of [26,28]){
-  const doc=fixture(),m=doc.model,g=m.Geosets[index],f=partFrame(g),s=newStack(GLOBAL_LOOKS[0],f,'positions');
+  const doc=fixture(),m=doc.model,g=m.Geosets[index],f=partFrame(g),s=authoredStack(GLOBAL_LOOKS[0],f,'positions');
   compileAnimation(m,index,s);
   for(const [seq,clip] of m.Sequences.entries())for(let step=0;step<=24;step++){
    const frame=clip.Interval[0]+(clip.Interval[1]-clip.Interval[0])*step/24,matrices=sampleNodeMatrices(m,frame,seq,frame);
@@ -68,7 +69,7 @@ test('native infantry, hero and large-body seam bindings do not break FX fitting
  for(const file of ['pose/Footman.mdx','corpus-sd/human__heropaladin.mdx','corpus-sd/undead__abomination.mdx']){
   const d=openDocument(fs.readFileSync(testModel(file)),file),g=d.model.Geosets[0],frame=partFrame(g);
   assert.ok(frame.regions.length>0,file);
-  const s=newStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'native-seams');compileAnimation(d.model,0,s);
+  const s=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'native-seams');compileAnimation(d.model,0,s);
   for(const geo of d.model.Geosets.filter(g=>g._FxTag))assert.ok(geo.TVertices.every(uv=>uv.every(Number.isFinite)),file+' finite surface UVs');
  }
 });

@@ -1,8 +1,9 @@
+import {authoredStack} from './helpers/fx-authored-stack.js';
 import test from 'node:test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {GLOBAL_LOOKS,makeLayer,LAYER_CHOICES,newStack,partFrame} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,makeLayer,LAYER_CHOICES,partFrame} from '../src/global-animation-looks.js';
 import {animationPart,compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 import {fxData} from '../src/global-animation-data.js';
 import {visitTracks} from '../src/animation.js';
@@ -15,7 +16,7 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
  const {doc,frame,donors}=fixture(look.impact),model=doc.model;
  const old=structuredClone(model.Sequences);
  const before={geos:model.Geosets.length,nodes:model.Nodes.filter(Boolean).length,mats:model.Materials.length};
- const draft=newStack(look,frame,'sample');
+ const draft=authoredStack(look,frame,'sample');
  const apply=stack=>doc.apply('Apply '+look.name,FX_SECTIONS,m=>compileAnimation(m,0,stack,donors));
  apply(draft);
  if(look.id==='fly-swarm')assert.ok(model.ParticleEmitters2.every(p=>p.FilterMode===0),'native alpha blend must preserve dark wings and transparent atlas corners');
@@ -52,7 +53,7 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
 });
 test('shared authored clock, independent ribbon ends and externally edited emitter survive another layer edit',()=>{
  const {doc,frame,donors}=fixture(),m=doc.model;
- const s=newStack(GLOBAL_LOOKS[0],frame,'blade');m.GlobalSequences.push(s.loop);
+ const s=authoredStack(GLOBAL_LOOKS[0],frame,'blade');m.GlobalSequences.push(s.loop);
  s.layers.push(makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',24));s.layers.at(-1).lower*=.4;
  let graph=compileAnimation(m,0,s,donors),r=m.Nodes[graph.layers[24].id];
  assert.ok(r.HeightAbove>2*r.HeightBelow);const flames=graph.layers[s.layers[1].id].ids.map(id=>m.Nodes[id]);
@@ -73,7 +74,7 @@ test('own texture drifts within painted unit atlases and scrolls a complete tile
   const {doc,frame}=fixture(),m=doc.model,geo=m.Geosets[0];
   const native=m.Materials[geo.MaterialID].Layers.at(-1);
   m.Textures[native.TextureID].Flags=flags;
-  const draft=newStack(GLOBAL_LOOKS.find(l=>l.id==='moving-own'),frame,'skin');
+  const draft=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='moving-own'),frame,'skin');
   draft.layers[0].direction=90;draft.layers[0].speed=2;
   const result=compileAnimation(m,0,draft),surface=m.Geosets[result.layers[1].geoset];
   const layer=m.Materials[surface.MaterialID].Layers[0],motion=m.TextureAnims[layer.TVertexAnimId].Translation.Keys;
@@ -90,7 +91,7 @@ test('own texture drifts within painted unit atlases and scrolls a complete tile
 test('an FX edge drops as it ages, and the newest points still touch the part',async()=>{
  const {NativeParticleSimulation}=await import('../app/particle-preview-adapter.js');
  const {doc,frame,donors}=fixture(),edge=makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',1);
- const stack={...newStack(GLOBAL_LOOKS[0],frame,'blade'),layers:[edge]};
+ const stack={...authoredStack(GLOBAL_LOOKS[0],frame,'blade'),layers:[edge]};
  edge.gravity=80;edge.lasts=1.5;compileAnimation(doc.model,0,stack,donors);
  const simulate=gravity=>{
   const m=structuredClone(doc.model);m.RibbonEmitters[0].Gravity=gravity;
@@ -108,7 +109,7 @@ test('emission on separated parts of a curved blade stays on its selected triang
 });
 test('saving without the layer list keeps every native emitter, clock and material in either format',async()=>{
  const {removeEditorData}=await import('../src/editor-data.js');
- const {doc,frame,donors}=fixture(),stack=newStack(GLOBAL_LOOKS[0],frame,'sword');
+ const {doc,frame,donors}=fixture(),stack=authoredStack(GLOBAL_LOOKS[0],frame,'sword');
  doc.apply('Flame',FX_SECTIONS,m=>compileAnimation(m,0,stack,donors));
  for(const format of ['mdx','mdl']){
   const bytes=doc.serialize(format),stripped=removeEditorData(bytes,format);
@@ -130,7 +131,7 @@ test('water crosses duplicated atlas seams continuously and retains a translucen
  g.VertexGroup=Uint8Array.from([...g.VertexGroup,...g.VertexGroup]);
  g.Faces=Uint16Array.from([...g.Faces,...Array.from(g.Faces,v=>v+count)]);g.PrimitiveCounts=Uint32Array.from([g.Faces.length]);
  const original=structuredClone(m.Materials[base]);
- const s=newStack(GLOBAL_LOOKS.find(l=>l.id==='water-skin'),partFrame(g),'water');
+ const s=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='water-skin'),partFrame(g),'water');
  const result=compileAnimation(m,0,s);
  assert.deepEqual(m.Materials[base],original,'the authored material stays intact');
  const underlay=m.Materials[g.MaterialID].Layers[0];
@@ -151,7 +152,7 @@ test('water crosses duplicated atlas seams continuously and retains a translucen
 
 test('runes remain on the exact selected triangles and their authored skin weights',()=>{
  const {doc,frame}=fixture(),m=doc.model,source=structuredClone(m.Geosets[0]);
- const stack=newStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'rune');
+ const stack=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'rune');
  const result=compileAnimation(m,0,stack),shape=m.Geosets[result.layers[1].geoset];
  assert.deepEqual(shape.Vertices,source.Vertices);assert.deepEqual(shape.Faces,source.Faces);
  assert.deepEqual(shape.Groups,source.Groups);assert.deepEqual(shape.VertexGroup,source.VertexGroup);

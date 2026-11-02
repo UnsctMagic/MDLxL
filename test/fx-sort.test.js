@@ -1,8 +1,9 @@
+import {authoredStack} from './helpers/fx-authored-stack.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {openDocument} from '../src/editor-document.js';
-import {GLOBAL_LOOKS,LAYER_CHOICES,findLook,newStack,partFrame,withLayerTexture,withParticleStrength} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,LAYER_CHOICES,findLook,partFrame,withLayerTexture,withParticleStrength} from '../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 
 const kept=['basalt','briar','abyss','cairn','mosaic','eclipse','ink','soul','thorn','astral','tide','blood','rift'];
@@ -21,7 +22,7 @@ const knight=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tz
 test('overlay preserves the source material, mesh and authored visibility in MDX and MDL',()=>{
  const doc=knight(),m=doc.model,g=m.Geosets[0],base=g.MaterialID;
  const original={material:structuredClone(m.Materials[base]),uv:structuredClone(g.TVertices),groups:structuredClone(g.Groups)};
- const draft=newStack(findLook('lava-skin'),partFrame(g),'overlay-test');
+ const draft=authoredStack(findLook('lava-skin'),partFrame(g),'overlay-test');
  draft.asOverlay=true;draft.layers[0].strength=.37;
  doc.apply('Overlay',FX_SECTIONS,model=>compileAnimation(model,0,draft));
  assert.equal(g.MaterialID,base);assert.deepEqual(m.Materials[base],original.material);assert.deepEqual(g.TVertices,original.uv);
@@ -41,7 +42,7 @@ test('overlay preserves the source material, mesh and authored visibility in MDX
 });
 
 test('models with a retired Attack effect retain their native emitters and timing on reopen',()=>{
- const doc=knight(),g=doc.model.Geosets[0],stack=newStack(findLook('iron-hit'),partFrame(g),'legacy-hit');
+ const doc=knight(),g=doc.model.Geosets[0],stack=authoredStack(findLook('iron-hit'),partFrame(g),'legacy-hit');
  doc.apply('Existing impact',FX_SECTIONS,m=>compileAnimation(m,0,stack));
  for(const format of ['mdx','mdl']){
   const m=openDocument(doc.serialize(format),'legacy.'+format).model;
@@ -51,7 +52,7 @@ test('models with a retired Attack effect retain their native emitters and timin
 
 test('texture edits change the saved native reference for each ingredient family and leave its siblings alone',()=>{
  for(const [id,label] of [['sort-basalt','Black stone'],['sort-ink','Ink clouds'],['sort-oath','Oath mark'],['sort-briar','Pollen'],['frost-blade','Falling mist'],['poison-skin','Poison surface'],['sort-thorn','Thorn trail'],['water-skin','Water surface']]){
-  const doc=knight(),m=doc.model,stack=newStack(findLook(id),partFrame(m.Geosets[0]),'picture'),image='Textures\\\\DemonRune5.blp';
+  const doc=knight(),m=doc.model,stack=authoredStack(findLook(id),partFrame(m.Geosets[0]),'picture'),image='Textures\\\\DemonRune5.blp';
   doc.apply('Start',FX_SECTIONS,model=>compileAnimation(model,0,stack));const change=readAnimationStack(m,0),before=structuredClone(change.layers);
   const i=change.layers.findIndex(l=>l.label===label);change.layers[i]=withLayerTexture(change.layers[i],image);
   doc.apply('Replace texture',FX_SECTIONS,model=>compileAnimation(model,0,change));
@@ -68,7 +69,7 @@ test('texture edits change the saved native reference for each ingredient family
 });
 
 test('particle intensity scales only its own life-stage alpha and can return from zero after reopening',()=>{
- const doc=knight(),m=doc.model,s=newStack(findLook('flaming-sword'),partFrame(m.Geosets[0]),'opacity');
+ const doc=knight(),m=doc.model,s=authoredStack(findLook('flaming-sword'),partFrame(m.Geosets[0]),'opacity');
  doc.apply('Start',FX_SECTIONS,model=>compileAnimation(model,0,s));
  const change=readAnimationStack(m,0),l=change.layers[1],tag=change.owner+'/'+l.id+'/';
  const tracked=m.ParticleEmitters2.find(n=>n._FxTag?.startsWith(tag)),original=Array.from(tracked.Alpha),other=m.ParticleEmitters2.find(n=>n._FxTag&&!n._FxTag.startsWith(tag)),sibling=Array.from(other.Alpha);

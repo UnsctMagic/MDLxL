@@ -2,6 +2,12 @@
 
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
+## Empty emitter defaults · 2 November 2026
+
+Continues `676aaf6f`, following `D:\Codex\mdlxl-491-492-review\contract-492-empty-emitters.md`. All 42 new presets omit Particles layers. Add emitter lists each preset's own ingredients first and marks only the first `(recommended)`; native values match the captured `676aaf6f` makeLayer output. Non-particle IDs, ribbons, saved stacks, retired impacts, White ice and restored Lightning are unchanged. Existing particle-behaviour checks now explicitly choose or seed their emitters.
+
+The new source and hidden packaged checks both failed on `676aaf6f`: Flaming sword created two particle layers instead of zero (`2 !== 0`). Related source/real-model checks: 135 pass, 0 fail, 0 skip. Seven hidden-desktop packaged FX checks pass, including all 42 empty defaults and recommendation lists, recommended flames on both Slaanesh blades, real mouse orbit, exact single Undo, MDX/MDL save/reopen/re-edit and pre-change emitters. Flames were reviewed in Stand, Walk and Attack at game distance. The legacy-fixture helper reproduces both actual `676aaf6f` saves byte for byte against their recorded SHA-256 hashes, so the regression remains repeatable after cleanup. CI results are linked in PR 492; gameplay and independent QA remain open.
+
 ## Lightning restoration · 2 November 2026
 
 Continued from `3411282a`. Restore the Lightning surface defaults from `44f8c6c8`. Storm steel and Blade arcs start enabled. Forked arcs is available and starts off. The original replacement-material default is restored. The global empty Particles → Add emitter choice remains available. Remove the direct burst controls from the Blade arcs surface.

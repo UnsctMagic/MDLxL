@@ -1,3 +1,4 @@
+const {addEmitter}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');const {testModel}=require('./helpers/fixtures.cjs');
 (async()=>{
@@ -9,7 +10,7 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs');const {testModel}=r
  const choose=async name=>{await fx.getByLabel('Find a surface effect').fill(name);await fx.getByRole('button',{name:new RegExp('^'+name+' (global animation|impact)$')}).click();await ready();};
  const edit=async(label,value)=>{await fx.getByLabel(label,{exact:true}).fill(String(value));await fx.getByLabel(label,{exact:true}).press('Enter');await ready();};
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Flaming sword');
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Flaming sword');await addEmitter(page,fx,'Blade flames (recommended)',ready);
   await fx.locator('.sfx-cards .folder svg').first().waitFor({state:'visible',timeout:3000});
   await page.waitForFunction(()=>document.querySelector('.sfx-card img.gf-icon')?.naturalWidth>0);
   for(const [i,name] of ['Born','Halfway','End'].entries()){

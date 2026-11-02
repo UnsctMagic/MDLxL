@@ -1,5 +1,6 @@
+import {authoredStack} from './helpers/fx-authored-stack.js';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {GLOBAL_LOOKS,findLook,newStack,partFrame} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,partFrame} from '../src/global-animation-looks.js';
 import {createDemoDocument} from '../src/editor-document.js';
 test('the fifth owner round exposes the consolidated skins and selected defaults',()=>{
  const names=GLOBAL_LOOKS.map(l=>l.name);
@@ -17,7 +18,7 @@ import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-ani
 import {openDocument} from '../src/editor-document.js';
 test('changing ice finish preserves extra layers and native mist through both formats',()=>{
  const doc=createDemoDocument(),frame=partFrame(doc.model.Geosets[0]);
- let s=newStack(findLook('ice-skin'),frame,'ice');s.layers.push({...s.layers[2],id:20,enabled:false});
+ let s=authoredStack(findLook('ice-skin'),frame,'ice');s.layers.push({...s.layers[2],id:20,enabled:false});
  for(const variant of ['white','dark']){
   s=withIceVariation(s,frame,variant);
   assert.equal(s.layers.find(l=>l.id===20).enabled,false);assert.equal(s.layers.filter(l=>l.kind==='mist').length,2);
@@ -31,7 +32,7 @@ test('changing ice finish preserves extra layers and native mist through both fo
 });
 test('blade arcs retain the source skin and separate native quiet and flash timing',()=>{
  const doc=createDemoDocument(),original=structuredClone(doc.model.Geosets[0]);
- const s=newStack(findLook('lightning-blade'),partFrame(original),'power'),l=s.layers.find(l=>l.powerArcs);
+ const s=authoredStack(findLook('lightning-blade'),partFrame(original),'power'),l=s.layers.find(l=>l.powerArcs);
  doc.apply('Power',FX_SECTIONS,m=>compileAnimation(m,0,s));
  assert.ok(!doc.model.ParticleEmitters2.some(p=>p.Name.startsWith('FX Blade crackle')));
  for(const ext of ['mdx','mdl']){

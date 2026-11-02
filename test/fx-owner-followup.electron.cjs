@@ -1,3 +1,4 @@
+const {addEmitter}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {root,launchApp,closeApp}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -41,7 +42,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
    assert.notDeepEqual((await frame()).uv,prior,tool+' changes the UV map');
   }
   await fx.locator('.fx-uv-fit').screenshot({path:path.join(out,'rune-uv.png')});
-  await choose('Fissures skin');const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
+  await choose('Fissures skin');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await fire.check();await ready();assert.ok((await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props.Name?.startsWith('FX Fire')&&e.particles.length));await motion(stage,'lava-fire');await fire.uncheck();await ready();assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await choose('Arcane blade');const addition=fx.getByLabel('Add layer',{exact:true});
   assert.equal(await addition.locator('option').first().innerText(),'Add layer');

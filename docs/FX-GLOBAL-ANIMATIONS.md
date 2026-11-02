@@ -26,12 +26,14 @@ The owner kept 13 of the 30 candidates after the fifth hand test. They are filed
 | Buffs & curses | Eclipse brand, Soul lantern, Astral chart |
 | Around the unit | Sanguine drip |
 
-Basalt skin, Briar binding, Carved cairn, Moon mosaic and Eclipse brand start as overlays. Black stone and Vine weave are stationary surfaces. Briar binding offers the Spore bark finish and its spores as separate, initially disabled layers. Living ink starts with the clouds alone. Ink seal remains an addable ingredient. Basalt skin's Heat seams start at 40% intensity and RGB 82, 34, 16. Soul lantern's Soul seal starts with the rotation, scale and position recovered from the owner's fifth-round UV screenshot.
+Basalt skin, Briar binding, Carved cairn, Moon mosaic and Eclipse brand start as overlays. Black stone and Vine weave are stationary surfaces. Briar binding offers the Spore bark finish as an initially disabled surface; its spores are available from Add emitter. Living ink starts with the clouds alone. Ink seal remains an addable ingredient. Basalt skin's Heat seams start at 40% intensity and RGB 82, 34, 16. Soul lantern's Soul seal starts with the rotation, scale and position recovered from the owner's fifth-round UV screenshot.
 
 Studying aura models teaches texture and alpha animation; it does not authorize
 adding aura rings to Rune blade. Rune blade means glowing glyphs on the blade.
 
 ## Layers and native fields
+
+Every new library preset starts without Particles layers. Particles → Add emitter lists that preset's own emitters first, in their original order, with only the first labelled `(recommended)`, followed by the other existing ingredients. Choosing one uses the original native values, fit and controls. Presets without their own emitters mark none recommended. Saved stacks keep their existing emitters; retired impacts and ribbon layers are unchanged. The Lightning surface burst controls stay removed. This 2 November decision supersedes earlier default-emitter descriptions below.
 
 Every ingredient is a listed, selectable layer with an on/off switch. Emitters and
 ground pieces are independent. Ground seals and rings start **off**, including
@@ -191,8 +193,8 @@ motion before being reported done. Passing structural tests is insufficient.
 4. Use real mouse clicks/drags for the library, Highlight, double-click selection,
    camera rotation, placement and timing. Undo and save/reopen both formats for
    every remaining look/card, including disabled layers and later re-editing.
-5. Run compatibility, focused source and the full source suite against the unchanged
-   known-failures baseline. Follow TESTING-RULES.md, including fail-first evidence.
+5. For the 2 November empty-emitter change, run only the related FX tests plus CI
+   against the unchanged known-failures baseline. Follow TESTING-RULES.md, including fail-first evidence.
    Claude's independent QA gate still applies before any merge.
 6. Owner click-through: Slaanesh flames fit; three colours edit; runes are glyphs;
    ice reads as solid ice without crystals; poison uses the tileset; maximum glow is strong; flies have no

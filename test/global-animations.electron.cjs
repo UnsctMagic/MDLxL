@@ -1,3 +1,4 @@
+const {addEmitter}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {launchApp,closeApp,stubDialogs,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -16,6 +17,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
  try{
   await stubDialogs(app,{message:1});await open();
   await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Flaming sword global animation').click();await ready();
+  await addEmitter(page,fx,'Blade flames (recommended)',ready);await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade flames/}).click();
   const previous=await stack();assert.equal(previous.layers.length,3);
   const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
   const cam=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray());
@@ -43,7 +45,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const dest=path.join(out,'reopened.mdx');await stubDialogs(app,{save:dest});await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save model'}).getByRole('button',{name:'Save',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[role=dialog][aria-label="Save as"]'));await page.waitForFunction(()=>!mdlxlProbe().session.doc.dirty);
   const {openDocument}=await import('../src/editor-document.js');assert.equal(openDocument(fs.readFileSync(dest),dest).model.Geosets[18]._FxStack.loop,2380);
   for(const [name,key] of [['Fly swarm','size']]){
-   await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();
+   await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();await addEmitter(page,fx,'Orbiting flies (recommended)',ready);
    await button('Fit selection').click();await button('Position & size').click();
    if(await button('Pause').count())await button('Pause').click();
    const before=(await stack()).layers[0];await drag('Resize particle',18,-8);

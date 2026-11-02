@@ -1,3 +1,4 @@
+const {addEmitter}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {root,launchApp,closeApp}=require('./helpers/app.cjs'),{testModel}=require('./helpers/fixtures.cjs');
 (async()=>{
@@ -9,6 +10,7 @@ const {root,launchApp,closeApp}=require('./helpers/app.cjs'),{testModel}=require
  try{
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('0');await choose('Ice skin');
   assert.equal(await fx.getByLabel('Ice variation',{exact:true}).count(),1,'Ice skin has its finish selector');
+  await addEmitter(page,fx,'Falling mist (recommended)',ready);
   for(const variation of ['dark','white','dark']){
    await fx.getByLabel('Ice variation',{exact:true}).selectOption(variation);await ready();
    const state=await page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.props.model,g=m.Geosets.find(g=>g._FxStack);return {stack:g._FxStack,images:m.Textures.map(t=>t.Image),mist:m.ParticleEmitters2.filter(e=>e.Name.startsWith('FX Falling mist')).length};});
