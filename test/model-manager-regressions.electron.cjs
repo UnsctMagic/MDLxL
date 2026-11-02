@@ -31,24 +31,41 @@ const root=path.resolve(__dirname,'..');
    assert.equal(await page.locator('.mm-properties').getByRole('button',{name:'Remove collision shape',exact:true}).isEnabled(),true);
   }
   await list.getByRole('option',{name:'Box',exact:true}).click();
-  const before=await page.evaluate(()=>({vertices:[...managerDoc.model.CollisionShapes[0].Vertices],undo:managerDoc.historyStats.undoSteps}));
-  const handle=page.getByLabel('Resize X positive',{exact:true}),at=await handle.locator('circle:not(.pe-grab)').boundingBox();
+  const view=page.getByLabel('Collision view',{exact:true});
+  await view.selectOption('top');
+  const handle=page.getByLabel('Resize X positive',{exact:true});
+  await page.getByLabel('Resize Z positive',{exact:true}).waitFor({state:'detached'});
+  await handle.waitFor();
   const width=await page.getByLabel('Width',{exact:true}).inputValue();
-  await page.mouse.move(at.x+7,at.y+7);await page.mouse.down();await page.mouse.move(at.x+47,at.y-13,{steps:8});
-  // Live drags update once per frame; wait for that frame instead of the same tick.
-  await page.waitForFunction(before=>document.querySelector('input[aria-label="Width"]')?.value!==before,width,{timeout:2000}).catch(()=>{});
-  assert.notEqual(await page.getByLabel('Width',{exact:true}).inputValue(),width,'the drag creates a live draft');
-  await page.getByLabel('Collision view',{exact:true}).selectOption('top');
-  await handle.waitFor({state:'detached'});await page.mouse.up();
+  const at=await handle.locator('circle:not(.pe-grab)').boundingBox();
+  await page.mouse.move(at.x+7,at.y+7);await page.mouse.down();await page.mouse.move(at.x+7,at.y+47,{steps:8});
+  await page.waitForFunction(before=>document.querySelector('input[aria-label="Width"]')?.value!==before,width);
+  assert.notEqual(await page.getByLabel('Width',{exact:true}).inputValue(),width,'Top width creates a visible live draft');
+  await page.mouse.up();
+  const committed=await page.evaluate(()=>managerDoc.model.CollisionShapes[0].Vertices[3]-managerDoc.model.CollisionShapes[0].Vertices[0]);
+  assert.notEqual(committed,64,'Top width drag commits');
+  // Keep the grabbed circle and its starting mapping even if the new view hides its axis.
+  const next=await handle.locator('circle:not(.pe-grab)').boundingBox();
+  await page.mouse.move(next.x+7,next.y+7);await page.mouse.down();await page.mouse.move(next.x+7,next.y+27,{steps:8});
+  const draft=await page.getByLabel('Width',{exact:true}).inputValue();
+  await view.selectOption('front');
+  await page.waitForFunction(()=>findFiberProps('svg.mm-overlay',props=>props?.stage)?.stage.rows[0]?.handles.some(handle=>handle.axis===2));
+  await handle.waitFor();
+  await page.mouse.move(next.x+7,next.y+67,{steps:8});
+  await page.waitForFunction(before=>document.querySelector('input[aria-label="Width"]')?.value!==before,draft);
+  assert.notEqual(await page.getByLabel('Width',{exact:true}).inputValue(),draft,'drag continues after its axis loses projection');
+  const finalDraft=await page.getByLabel('Width',{exact:true}).inputValue();
+  await page.mouse.up();await handle.waitFor({state:'detached'});
+  const after=await page.evaluate(()=>managerDoc.model.CollisionShapes[0].Vertices[3]-managerDoc.model.CollisionShapes[0].Vertices[0]);
+  assert.ok(after>committed,'latched drag commits the full width change');
+  assert.ok(Math.abs(after-Number(finalDraft))<.02,'release commits the final live draft');
   await list.getByRole('option',{name:'Sphere',exact:true}).click();
-  const after=await page.evaluate(()=>({vertices:[...managerDoc.model.CollisionShapes[0].Vertices],undo:managerDoc.historyStats.undoSteps}));
-  assert.deepEqual(after,before,'selecting another shape cannot commit the vanished-handle draft');
   await page.getByLabel('Collision view',{exact:true}).selectOption('perspective');
   const canvas=page.locator('.mm-stage canvas[data-clean-model-canvas]'),box=await canvas.boundingBox(),picture=await canvas.screenshot();
   await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width*.4,box.y+box.height*.6);await page.mouse.down();await page.mouse.move(box.x+box.width*.65,box.y+box.height*.7,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');await settlePage(page, 150);
   assert(!picture.equals(await canvas.screenshot()),'normal mouse input rotates the manager preview');
   assert.deepEqual(errors,[]);
-  console.log('PASS packaged manager: sphere/box-only sliders, disappearing-handle cancellation, no stale commit, normal mouse rotation');
+  console.log('PASS packaged manager: sphere/box-only sliders, Top width resize, latched drag across view changes, normal mouse rotation');
  }finally{
   if(app){await closeApp(app).catch(()=>{});}
   if(path.dirname(run)!==output)throw Error('Unexpected test directory');fs.rmSync(run,{recursive:true,force:true});

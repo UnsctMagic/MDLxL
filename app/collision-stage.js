@@ -1,4 +1,4 @@
-import { Matrix3, Matrix4, Vector3 } from 'three';
+import { Matrix4, Vector3 } from 'three';
 import { collisionCenter } from '../src/model-collisions.js';
 import { screenPlaneTranslation } from './viewport-math.js';
 import { particleAxisMapping } from '../src/particle-handles.js';
@@ -40,16 +40,9 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
         const local = [...center], unit = [...center];
         const distance = shape.Shape === 2 ? shape.BoundsRadius : (shape.Vertices[axis + 3] - shape.Vertices[axis]) / 2;
         local[axis] += sign * distance; unit[axis] += sign * (distance + 1);
-        const normal=new Vector3().setComponent(axis,sign).applyMatrix3(new Matrix3().getNormalMatrix(matrix)).normalize();
-        const face=new Vector3().fromArray(local).applyMatrix4(matrix);
-        const toward=camera.isOrthographicCamera?camera.getWorldDirection(new Vector3()).negate():camera.position.clone().sub(face);
-        if(normal.dot(toward)<=1e-6)continue;
-        const at = point(local);
-        // Looking straight at a face, its normal has no screen projection.
-        // Use a horizontal EMTR edge drag at that face's model-unit scale.
-        const right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
-        const scale=new Vector3().setFromMatrixColumn(matrix,axis).length();
-        const basis = particleAxisMapping(at, point(unit)) || particleAxisMapping(at, project(face.clone().addScaledVector(right,scale)));
+        // Match Managers' outline controls: only axes with a useful screen
+        // projection can be resized here. A face aimed at the camera is depth.
+        const at = point(local), basis = particleAxisMapping(at, point(unit));
         if (basis) row.handles.push({ axis, sign, point: at, basis });
       }
     }

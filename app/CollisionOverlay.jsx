@@ -31,15 +31,14 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     const active = gesture.current;
     if (!active) return;
     const row = stage?.rows.find(item => item.id === active.before.ObjectId);
-    const retained = selectedId === active.before.ObjectId && row && (active.handle.move
-      ? row.move && visible(row.center)
-      : row.handles.some(handle => handle.axis === active.handle.axis && handle.sign === active.handle.sign && visible(handle.point)));
+    const retained = selectedId === active.before.ObjectId && row &&
+      (!active.handle.move || row.move && visible(row.center));
     if (!retained) cancel();
   }, [stage, selectedId]);
   const beginDrag = (event, handle) => {
     if (readOnly || !selected || event.button !== 0) return;
     event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current = { x: event.clientX, y: event.clientY, before: structuredClone(selected), handle };
+    gesture.current = { x: event.clientX, y: event.clientY, before: structuredClone(selected), handle, handles: stage.rows.find(row => row.id === selectedId).handles.filter(item => visible(item.point)) };
     event.currentTarget.focus();
   };
   // A move records the pointer; cloning, resizing and the preview update run once per frame.
@@ -58,6 +57,16 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     }
     previewDraft(next);
   }
+  const resizeHandles = row => {
+    const handles = row.handles.filter(handle => visible(handle.point));
+    const active = gesture.current;
+    // Keep the starting set AND order: moving a captured DOM node in the list
+    // releases pointer capture. Use live positions where available, otherwise
+    // retain that face's starting point until release or cancellation.
+    return active?.before.ObjectId === row.id && !active.handle.move
+      ? active.handles.map(start => handles.find(handle => handle.axis === start.axis && handle.sign === start.sign) || start)
+      : handles;
+  };
   const handleProps = handle => ({
     tabIndex: readOnly ? -1 : 0, role: 'slider',
     onPointerDown: event => beginDrag(event, handle), onPointerMove: drag,
@@ -73,7 +82,7 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
       }
     }
   });
-  return { previewDraft, commit, cancel, reset, drag, handleProps, hasPending: () => !!pending.current };
+  return { previewDraft, commit, cancel, reset, drag, handleProps, resizeHandles, hasPending: () => !!pending.current };
 }
 
 /** Shared EMTR-style controls for Managers and Sphereomancer. */
@@ -90,7 +99,7 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
       {(row.guides || []).filter(line => line.every(visible)).map((line, index) => <polyline key={'g' + index} points={line.map(p => p.slice(0, 2).join(',')).join(' ')} className="mm-guide"/>)}
       {row.outlines.filter(line => line.every(visible)).map((line, index) => <polyline key={index} points={line.map(p => p.slice(0, 2).join(',')).join(' ')} className="mm-outline" onPointerDown={event => { event.stopPropagation(); onSelect(row.id); }}><title>Select collision shape</title></polyline>)}
       {row.id === selectedId && !readOnly && <>
-        {row.handles.filter(handle => visible(handle.point)).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,row.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}
+        {gesture.resizeHandles(row).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,row.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}
         {row.move && visible(row.center) && <g className="pe-move-emitter">
           {grab(row.center,{move:row.move},'Move collision shape','mm-center','Move')}
           {onRemove&&<foreignObject x={row.center[0]+24} y={row.center[1]-28} width="28" height="28" className="mm-remove"><button aria-label="Remove collision shape" title="Remove collision shape" onPointerDown={event=>event.stopPropagation()} onClick={onRemove}><Trash2 size={16}/></button></foreignObject>}

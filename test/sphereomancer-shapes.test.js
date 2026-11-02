@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PerspectiveCamera } from 'three';
+import { OrthographicCamera, PerspectiveCamera } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { runOptimizeStage, SPHERE_PRESETS, presetShapes, simpleSettings } from '../src/optimizexl.js';
@@ -56,12 +56,18 @@ test('a sphere draws as one camera-facing outline plus a faint ground ring', () 
   assert.ok(row.move.dx.every(Number.isFinite)&&row.move.dy.every(Number.isFinite));
 });
 
-test('square handles appear only at camera-facing face centers', () => {
-  const camera=new PerspectiveCamera(45,1.5,.1,10000);camera.position.set(180,-220,140);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+// Outline faces resize the dimensions visible in this view; depth stays out of the way.
+for (const [view, position, perspective, expected] of [
+  ['Front', [0,-300,40], false, [[0,-1],[0,1],[2,-1],[2,1]]],
+  ['Side', [300,0,40], false, [[1,-1],[1,1],[2,-1],[2,1]]],
+  ['Top', [0,0,340], false, [[0,-1],[0,1],[1,-1],[1,1]]],
+  ['angled Perspective', [180,-220,140], true, [[0,-1],[0,1],[1,-1],[1,1],[2,-1],[2,1]]],
+  ['level centred Perspective', [0,-300,40], true, [[0,-1],[0,1],[2,-1],[2,1]]],
+]) test('box outline handles in '+view, () => {
+  const camera=perspective?new PerspectiveCamera(45,1.5,.1,10000):new OrthographicCamera(-150,150,100,-100,.1,10000);
+  camera.up.set(0,0,1);camera.position.fromArray(position);camera.lookAt(0,0,40);camera.updateMatrixWorld();
   const shape={ObjectId:-1,Shape:0,Vertices:new Float32Array([-30,-30,0,30,30,80])};
   const row=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,[shape],-1).rows[0];
-  assert.deepEqual(row.handles.map(h=>[h.axis,h.sign]),[[0,1],[1,-1],[2,1]]);
-  camera.position.set(0,0,250);camera.lookAt(0,0,40);camera.updateMatrixWorld();
-  const top=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,[shape],-1).rows[0];
-  assert.deepEqual(top.handles.map(h=>[h.axis,h.sign]),[[2,1]]);
+  assert.deepEqual(row.handles.map(h=>[h.axis,h.sign]),expected,view+' exposes visible dimensions, excluding projected depth');
+  for(const handle of row.handles) assert.ok(handle.basis.unitsPerPixel>0 && Number.isFinite(handle.basis.unitsPerPixel));
 });
