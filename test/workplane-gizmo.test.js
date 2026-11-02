@@ -76,3 +76,17 @@ test('Lines, Rings and Arcs use visible pickable handles in every camera view',(
   for(const h of handles){const at=h.ring?h.points[25]:h;assert.ok(pickMovementHandle(handles,at.x,at.y,'rotate'),'a visible handle is pickable');}
  }
 });
+
+test('free gizmo keeps rim strength and turn direction across the pivot',()=>{
+ const c=new OrthographicCamera(-200,200,150,-150,.1,10000);c.position.set(0,0,500);c.lookAt(0,0,0);c.updateMatrixWorld(true);
+ for(const editor of ['vertices','movement','bones','forge'])for(const side of [-1,1]){
+  const drag=beginGizmoRotation({x:420,y:300,world:new Vector3(),camera:c,width:800,height:600,editor});
+  const first=rotationDragDegrees(drag,0,side*2);
+  const crossed=rotationDragDegrees(drag,-40,-side*2);
+  const rimTurn=Math.hypot(40,4)/68*180/Math.PI;
+  assert.ok(Math.abs(crossed-first-Math.sign(first)*rimTurn)<1e-8);
+  assert.ok(Math.abs(rotationDragDegrees(drag,0,side*2)-first)<1e-8);
+ }
+ const drag=beginGizmoRotation({x:500,y:300,world:new Vector3(),camera:c,width:800,height:600});
+ assert.ok(Math.abs(Math.abs(rotationDragDegrees(drag,-100,100))-90)<1e-8);
+});

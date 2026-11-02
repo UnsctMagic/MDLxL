@@ -71,6 +71,22 @@ function sameOrientation(actual, expected, message) {
     assert.equal(Object.keys(await page.evaluate(()=>draws)).length,4);
     for(const draw of Object.values(await page.evaluate(()=>draws)))assert.deepEqual(draw.selected,[0]);
     const activate=async id=>{await page.locator(`[data-viewport="${id}"]`).focus();await idle();};
+    // A quad handle must commit the coordinates shown during the drag.
+    await activate('perspective');await page.keyboard.press('m');
+    const pane=page.locator('[data-viewport="perspective"]'), bounds=await pane.boundingBox();
+    for(const axis of ['X','XY']){
+      await page.waitForFunction(axis=>viewportState().gizmoHandles?.some(h=>h.axis===axis),axis);
+      const h=await page.evaluate(axis=>{const h=viewportState().gizmoHandles.find(h=>h.axis===axis);return {x:h.x,y:h.y};},axis);
+      const original=await page.evaluate(()=>coordinates());
+      await page.mouse.move(bounds.x+h.x,bounds.y+h.y);await page.mouse.down();
+      assert.equal(await page.evaluate(()=>viewportState().drag?.handle?.axis),axis);
+      await page.mouse.move(bounds.x+h.x+32,bounds.y+h.y-15,{steps:6});
+      await page.waitForFunction(({x,y})=>{const d=viewportState().drag;return d?.payload?.translation?.some(v=>Math.abs(v)>.001)&&Math.abs(d.lastMove.rawEnd.x-x)<.01&&Math.abs(d.lastMove.rawEnd.y-y)<.01;},{x:h.x+32,y:h.y-15});
+      const preview=await page.evaluate(()=>Array.from(viewportState().entries[0].geometry.attributes.position.array.slice(0,3)));
+      await page.mouse.up();await idle();
+      assert.deepEqual(await page.evaluate(()=>coordinates()),preview,axis+' handle must commit the preview');
+      await page.keyboard.press('Control+z');await idle();assert.deepEqual(await page.evaluate(()=>coordinates()),original);
+    }
     const metrics=[];
     for(const [id,depth,plane] of [['front',0,'YZ'],['side',1,'ZX'],['top',2,'XY']]){
       await activate(id);assert.equal(await page.locator('.classic-sidebar .classic-planes').count(),0);

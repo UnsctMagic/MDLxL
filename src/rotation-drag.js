@@ -45,6 +45,29 @@ export function beginRotationDrag({ x = 0, y = 0, pivot = { x: 0, y: 0 }, sensit
   return { sensitivity, precision, constrained, plane, axisName, lever, tangents, facings, tangent, circle, px, py,
     sign: axis?.[2] > 0 ? -1 : 1, previous: Math.hypot(px, py) >= 8 ? Math.atan2(py, px) : null, swept: 0, degrees: 0, pointer: { x, y } };
 }
+// Split a sample at the rim so even a single event across the pivot stays continuous.
+function gizmoSweep(drag, x, y) {
+  const ax = drag.lastX ?? drag.px, ay = drag.lastY ?? drag.py;
+  const dx = x - ax, dy = y - ay, length = Math.hypot(dx, dy);
+  if (!length) return 0;
+  drag.lastX = x; drag.lastY = y;
+  const cross = ax * dy - ay * dx;
+  let direction = drag.turnDirection || 1;
+  if (Math.abs(cross) > length * 1e-6) direction = Math.sign(cross);
+  else if (dx * drag.lastDX + dy * drag.lastDY < -.99 * length * Math.hypot(drag.lastDX, drag.lastDY)) direction = -direction;
+  drag.turnDirection = direction; drag.lastDX = dx; drag.lastDY = dy;
+  const angle = (sx, sy, ex, ey) => Math.atan2(sx * ey - sy * ex, sx * ex + sy * ey);
+  const radius = drag.ringRadius, distance = cross / length;
+  if (Math.abs(distance) >= radius) return angle(ax, ay, x, y);
+  const closest = -(ax * dx + ay * dy) / length;
+  const halfChord = Math.sqrt(radius * radius - distance * distance);
+  const enter = Math.max(0, closest - halfChord), leave = Math.min(length, closest + halfChord);
+  if (leave <= enter) return angle(ax, ay, x, y);
+  const ux = dx / length, uy = dy / length;
+  return angle(ax, ay, ax + ux * enter, ay + uy * enter)
+    + direction * (leave - enter) / radius
+    + angle(ax + ux * leave, ay + uy * leave, x, y);
+}
 /** Samples accumulate the wrapped path; geometry and drawing run once per frame. */
 export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1, shift = false) {
   const x = drag.px + dx, y = drag.py + dy;
@@ -53,7 +76,8 @@ export function rotationDragDegrees(drag, dx, dy, pointerSensitivity = 1, shift 
     drag.axisName = chooseLeverAxis(drag.lever, drag.tangents, dx, dy);
     if (drag.axisName) drag.sign = drag.facings[drag.axisName] > 0 ? -1 : 1;
   }
-  if ((!drag.constrained || drag.circle) && Math.hypot(x, y) >= 8) {
+  if (drag.ringRadius) drag.swept += gizmoSweep(drag, x, y);
+  else if ((!drag.constrained || drag.circle) && Math.hypot(x, y) >= 8) {
     const angle = Math.atan2(y, x);
     if (drag.previous !== null) { const delta = angle - drag.previous; drag.swept += Math.atan2(Math.sin(delta), Math.cos(delta)); }
     drag.previous = angle;

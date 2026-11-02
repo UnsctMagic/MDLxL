@@ -484,6 +484,7 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
   const [u, v] = rotationBasis(normal), su = projectGizmo(world.clone().addScaledVector(u, unit * 68), camera, width, height), sv = projectGizmo(world.clone().addScaledVector(v, unit * 68), camera, width, height);
   const ax = su.x - pivot.x, ay = su.y - pivot.y, bx = sv.x - pivot.x, by = sv.y - pivot.y, gx = x - pivot.x, gy = y - pivot.y;
   const phase = Math.atan2(ax * gy - ay * gx, gx * by - gy * bx);
+  if (!workplaneEnabled) drag.ringRadius = 68;
   return Object.assign(drag, { phase, world: world.clone(), camera: camera.clone(), width, height, directions, unit, pivot, start: { x, y }, handle, style });
 }
 /** The same Shift latch as free Move, with the lab's arrow/plane constraints. */

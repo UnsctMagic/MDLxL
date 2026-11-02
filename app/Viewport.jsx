@@ -602,7 +602,7 @@ export default function Viewport(inputProps) {
         }
         latest.current.onTransformPreview(center.map(value => value / count));
       }
-      drag.payload = payload; drag.moved = drag.action === 'translate' && quad ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
+      drag.payload = payload; drag.moved = drag.action === 'translate' && quad && !drag.handle ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
       invalidate();
     }
     function pointerUp(event) {

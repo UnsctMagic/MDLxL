@@ -229,7 +229,7 @@ function readViewport(selector){
    await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&Math.round(r.native.getFrame())===Math.round(p.time);});
    const state=await page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe();const c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),quaternion:r.controls.object.quaternion.toArray(),position:r.controls.object.position.toArray(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});
    const b=await page.locator('[data-clean-model-canvas]').boundingBox(),camera=new ObjectLoader().parse(state.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();const points=pose?projectPoseHandles(state.model,state.config,state.frame,state.sequence,camera,state.width,state.height):projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height);const active=pose?points.find(h=>h.selected):points.find(h=>h.node.ObjectId===state.selected.at(-1));assert.ok(active,'active control');let start={x:b.x+active.x+100,y:b.y+active.y+80},end={x:start.x+40,y:start.y+17};
-   let crossingAxis;
+   let crossingAxis, freeDegrees;
    if(off){
     const handles=movementAxisHandles(active,camera,state.width,state.height,state.radius,state.space,'rotate',state.appearance);
     const nodes=projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height,state.frame,new Map(state.matrices.map(([i,m])=>[i,new Matrix4().fromArray(m)])));
@@ -248,8 +248,18 @@ function readViewport(selector){
     assert.ok(hit,'visible '+style+(crossing?' crossing another axis':' handle'));
     const at=hit.point;
     if(crossing) crossingAxis=hit.handle.axis;
-    start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};}
-   await rawDrag(start,end,{shift,press:off?undefined:async()=>{end=await pressArrow(page.locator('[data-node-overlay][data-rotation-mode]:not([data-rotation-mode=""])'),start,40*dpi*speed*(shift?precision:1));return end;},live:async()=>{const expected=(off ? .45*180/Math.PI : 40)*dpi*speed*(shift?precision:1);await page.waitForFunction(expected=>{const el=document.querySelector('[data-rotation-feedback]:not([data-rotation-feedback=""])');const angle=Number(el?.getAttribute('data-rotation-feedback')?.split(' ').at(-1));return !!el&&Math.abs(Math.abs(angle)-Math.abs(expected))<.06;},expected);const value=await page.locator('[data-rotation-feedback]:not([data-rotation-feedback=""])').getAttribute('data-rotation-feedback');if(crossingAxis)assert.equal(value.split(' ')[0],crossingAxis,style+' turns around the visible ring at the crossing');if(!off)almost(Number(value.split(' ').at(-1)),expected,.06);await shot(pose?'pose-'+style:'movement-'+style);}});
+    start={x:b.x+at.x,y:b.y+at.y};const dx=at.x-active.x,dy=at.y-active.y;end={x:b.x+active.x+dx*Math.cos(.45)-dy*Math.sin(.45),y:b.y+active.y+dx*Math.sin(.45)+dy*Math.cos(.45)};
+    // Playwright follows a straight chord between the two handle positions.
+    // Integrate the expected rim speed inside and angular speed outside.
+    freeDegrees=0;
+    for(let i=0;i<100;i++){
+     const sx=dx+(end.x-start.x)*i/100, sy=dy+(end.y-start.y)*i/100;
+     const ex=sx+(end.x-start.x)/100, ey=sy+(end.y-start.y)/100;
+     freeDegrees+=Math.hypot((sx+ex)/2,(sy+ey)/2)<68?Math.hypot(ex-sx,ey-sy)/68:Math.abs(Math.atan2(sx*ey-sy*ex,sx*ex+sy*ey));
+    }
+    freeDegrees*=180/Math.PI;
+   }
+   await rawDrag(start,end,{shift,press:off?undefined:async()=>{end=await pressArrow(page.locator('[data-node-overlay][data-rotation-mode]:not([data-rotation-mode=""])'),start,40*dpi*speed*(shift?precision:1));return end;},live:async()=>{const expected=(off ? freeDegrees : 40)*dpi*speed*(shift?precision:1);await page.waitForFunction(expected=>{const el=document.querySelector('[data-rotation-feedback]:not([data-rotation-feedback=""])');const angle=Number(el?.getAttribute('data-rotation-feedback')?.split(' ').at(-1));return !!el&&Math.abs(Math.abs(angle)-Math.abs(expected))<.06;},expected);const value=await page.locator('[data-rotation-feedback]:not([data-rotation-feedback=""])').getAttribute('data-rotation-feedback');if(crossingAxis)assert.equal(value.split(' ')[0],crossingAxis,style+' turns around the visible ring at the crossing');if(!off)almost(Number(value.split(' ').at(-1)),expected,.06);await shot(pose?'pose-'+style:'movement-'+style);}});
    await page.waitForFunction(old=>JSON.stringify(mdlxlProbe().session.doc.model)!==old,state.document);check((pose?'POSE':'Movement')+' '+(off?style:plane)+(shift?' precision':'')+' changes authored tracks');
   }
   await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
