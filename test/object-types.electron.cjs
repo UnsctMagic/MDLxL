@@ -52,7 +52,7 @@ const { buildSync } = require('esbuild');
   const done = () => page.getByRole('button',{name:'Done',exact:true}).click();
   const drag = async id => {
     await page.getByRole('group',{name:'Bones tools',exact:true}).getByRole('button',{name:'Move',exact:true}).click();
-    await page.getByLabel('Workplane',{exact:true}).uncheck(); await idle();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck(); await idle();
     const before=await page.evaluate(id=>({world:objectWorld(id), screen:objectScreen(id)}),id);
     await page.mouse.move(before.screen.x,before.screen.y); await page.mouse.down(); await page.mouse.move(before.screen.x+42,before.screen.y-24,{steps:8}); await page.mouse.up(); await idle();
     const after=await page.evaluate(id=>objectWorld(id),id);

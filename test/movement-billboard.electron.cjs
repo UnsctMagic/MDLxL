@@ -53,7 +53,7 @@ throw Error('Vertex runtime not ready');});
     await page.getByRole('button',{name:'Fit',exact:true}).click();
     const settle=()=>settlePage(page, 220),sample=()=>page.evaluate(()=>movementSample());
     const undo=async()=>{await page.keyboard.press('Control+z');await settle();},redo=async()=>{await page.keyboard.press('Control+y');await settle();};
-    await page.getByLabel('Workplane',{exact:true}).check();await settle();
+    await page.getByLabel('Workplane Constraints',{exact:true}).check();await settle();
     async function drag(plane,cancel=false){
       if(plane)await page.getByRole('group',{name:'Movement workplane',exact:true}).getByLabel(({xy:'XY',xz:'ZX',yz:'YZ'})[plane],{exact:true}).check();
       await settle();const before=await sample(),camera=new ObjectLoader().parse(before.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();
@@ -69,7 +69,7 @@ throw Error('Vertex runtime not ready');});
       checks.push((cancel?'cancel ':'drag ')+(plane||'free'));
     }
     // Keep two consecutive edits, then orbit: camera motion must not undo placement.
-    await page.getByLabel('Workplane',{exact:true}).uncheck();await settle();
+    await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();await settle();
     for(const [dx,dy] of [[-28,0],[0,24]]){
       const before=await sample(),camera=new ObjectLoader().parse(before.camera);camera.updateMatrixWorld(true);const screen=new Vector3().fromArray(before.world).project(camera),x=before.rect.x+(screen.x+1)*before.rect.width/2,y=before.rect.y+(1-screen.y)*before.rect.height/2;
       await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:4});await page.mouse.up();await settle();
@@ -93,14 +93,14 @@ throw Error('Vertex runtime not ready');});
     }
     const continued=await sample();await page.keyboard.down('Alt');await page.mouse.move(continued.rect.x+continued.rect.width-100,continued.rect.y+continued.rect.height-100);await page.mouse.down();await page.mouse.move(continued.rect.x+continued.rect.width-170,continued.rect.y+continued.rect.height-120,{steps:5});await page.mouse.up();await page.keyboard.up('Alt');await settle();
     near((await sample()).world,continued.world,'continued placement survives the next camera orbit');checks.push('rotate then right then up then rotate keeps placement');
-    for(let i=0;i<4;i++)await undo();await page.getByLabel('Workplane',{exact:true}).check();
+    for(let i=0;i<4;i++)await undo();await page.getByLabel('Workplane Constraints',{exact:true}).check();
     for(let view=0;view<2;view++){
       const beforeCamera=(await sample()).camera;const box=(await sample()).rect;
       await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width-100,box.y+box.height-100);await page.mouse.down();await page.mouse.move(box.x+box.width-150,box.y+box.height-120,{steps:5});await page.mouse.up();await page.keyboard.up('Alt');await settle();
       assert.notDeepEqual((await sample()).camera,beforeCamera,'normal Alt+mouse camera rotation');checks.push('mouse camera rotation '+view);
       for(const plane of ['xy','xz','yz'])await drag(plane);
     }
-    await drag('xz',true);await page.getByLabel('Workplane',{exact:true}).uncheck();await drag(null);
+    await drag('xz',true);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();await drag(null);
     const editorBefore=await sample();
     assert.ok(editorBefore.nativeFlags.every(flags=>!(flags&120)),'editing disables every billboard axis');
     await page.locator('[data-hotkey="animations"]').click();await settle();
@@ -112,7 +112,7 @@ throw Error('Vertex runtime not ready');});
     near((await sample()).world,editorBefore.world,'returning to editing restores the same placement');
     assert.ok((await sample()).nativeFlags.every(flags=>!(flags&120)));checks.push('viewing billboards preserved; returning to editing restores placement');
 
-    await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByLabel('Bones controller').waitFor();await page.getByLabel('Movement bone or node').selectOption(String(choice.id));await page.getByRole('group',{name:'Bones tools',exact:true}).getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane',{exact:true}).check();await settle();
+    await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByLabel('Bones controller').waitFor();await page.getByLabel('Movement bone or node').selectOption(String(choice.id));await page.getByRole('group',{name:'Bones tools',exact:true}).getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).check();await settle();
     for(const plane of ['xy','xz','yz'])await drag(plane);
     assert.equal(hash(fixture),originalHash,'input bytes unchanged');assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({fixture,originalHash,checks,measurements,errors},null,2));console.log(JSON.stringify({checks,measurements,errors}));
