@@ -1,6 +1,7 @@
+import { collisionCenter, moveCollision } from '../src/model-collisions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { OrthographicCamera, PerspectiveCamera } from 'three';
+import { Matrix4, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { runOptimizeStage, SPHERE_PRESETS, presetShapes, simpleSettings } from '../src/optimizexl.js';
@@ -90,4 +91,16 @@ test('each sphere has a separate right-side selection box and boxes keep their e
  const rows=collisionStageSnapshot({rendererData:{nodes:[]}},camera,900,600,shapes,-1).rows;
  for(const row of rows.slice(0,2)) { assert.ok(row.selectionBox,'every sphere, selected or not, has its own box');assert.ok(row.selectionBox[0]>Math.max(...row.outlines[0].map(p=>p[0]))+12,'selection box sits to the right of the sphere');assert.equal(row.selectionBox[1],row.center[1]); }
  assert.equal(rows[2].selectionBox,undefined);
+});
+
+test('Center targets the model vertical axis at the existing world height, including parent transforms', () => {
+ const camera=new PerspectiveCamera(45,1.5,.1,10000);camera.position.set(180,-220,140);camera.lookAt(0,0,40);camera.updateMatrixWorld();
+ const matrix=new Matrix4().makeRotationX(.3).premultiply(new Matrix4().makeTranslation(15,-22,5));
+ for(const shape of [{ObjectId:0,Shape:2,Vertices:new Float32Array([14,-8,40]),BoundsRadius:25},{ObjectId:0,Shape:0,Vertices:new Float32Array([-10,-20,10,50,60,90])}]){
+  const world=new Vector3().fromArray(collisionCenter(shape)).applyMatrix4(matrix),size=shape.Shape===0?[0,1,2].map(a=>shape.Vertices[a+3]-shape.Vertices[a]):shape.BoundsRadius;
+  const row=collisionStageSnapshot({rendererData:{nodes:[{matrix:matrix.elements}]}},camera,900,600,[shape],0).rows[0];
+  assert.ok(row.centerDelta,'selected sphere or box exposes its Center translation');moveCollision(shape,row.centerDelta);
+  const centered=new Vector3().fromArray(collisionCenter(shape)).applyMatrix4(matrix);assert.ok(Math.abs(centered.x)<.00001&&Math.abs(centered.y)<.00001);assert.ok(Math.abs(centered.z-world.z)<.00001);
+  if(shape.Shape===0)[0,1,2].forEach(a=>assert.ok(Math.abs((shape.Vertices[a+3]-shape.Vertices[a])-size[a])<.00001,'dimensions preserved within Float32 translation roundoff'));else assert.equal(shape.BoundsRadius,size);
+ }
 });

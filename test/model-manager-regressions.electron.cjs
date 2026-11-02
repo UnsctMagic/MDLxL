@@ -44,6 +44,17 @@ const root=path.resolve(__dirname,'..');
   await page.mouse.up();
   const committed=await page.evaluate(()=>managerDoc.model.CollisionShapes[0].Vertices[3]-managerDoc.model.CollisionShapes[0].Vertices[0]);
   assert.notEqual(committed,64,'Top width drag commits');
+  const move=page.getByRole('slider',{name:'Move collision shape',exact:true}).locator('circle:not(.pe-grab)'),mb=await move.boundingBox();
+  await page.mouse.move(mb.x+mb.width/2,mb.y+mb.height/2);await page.mouse.down();await page.mouse.move(mb.x+mb.width/2+30,mb.y+mb.height/2+15,{steps:10});await page.mouse.up();
+  const offset=await page.evaluate(()=>[...managerDoc.model.CollisionShapes[0].Vertices]);
+  const center=v=>[0,1,2].map(a=>(v[a]+v[a+3])/2);
+  assert.ok(Math.hypot(...center(offset).slice(0,2))>1,'box moves off the model axis');
+  await page.locator('.mm-overlay').getByRole('button',{name:'Center',exact:true}).click();
+  await page.waitForFunction(()=>{const v=managerDoc.model.CollisionShapes[0].Vertices;return Math.abs(v[0]+v[3])<.00001&&Math.abs(v[1]+v[4])<.00001;});
+  const centered=await page.evaluate(()=>[...managerDoc.model.CollisionShapes[0].Vertices]);assert.equal(center(centered)[2],center(offset)[2]);
+  for(let a=0;a<3;a++)assert.ok(Math.abs((centered[a+3]-centered[a])-(offset[a+3]-offset[a]))<.00001,'Center preserves dimensions');
+  await page.keyboard.press('Control+z');await page.waitForFunction(v=>JSON.stringify([...managerDoc.model.CollisionShapes[0].Vertices])===JSON.stringify(v),offset);
+  await page.keyboard.press('Control+y');await page.waitForFunction(v=>JSON.stringify([...managerDoc.model.CollisionShapes[0].Vertices])===JSON.stringify(v),centered);
   // Keep the grabbed circle and its starting mapping even if the new view hides its axis.
   const next=await handle.locator('circle:not(.pe-grab)').boundingBox();
   await page.mouse.move(next.x+7,next.y+7);await page.mouse.down();await page.mouse.move(next.x+7,next.y+27,{steps:8});
@@ -65,7 +76,7 @@ const root=path.resolve(__dirname,'..');
   await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width*.4,box.y+box.height*.6);await page.mouse.down();await page.mouse.move(box.x+box.width*.65,box.y+box.height*.7,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');await settlePage(page, 150);
   assert(!picture.equals(await canvas.screenshot()),'normal mouse input rotates the manager preview');
   assert.deepEqual(errors,[]);
-  console.log('PASS packaged manager: sphere/box-only sliders, Top width resize, latched drag across view changes, normal mouse rotation');
+  console.log('PASS packaged manager: sphere/box-only sliders, Center with Undo/Redo, Top width resize, latched drag across view changes, normal mouse rotation');
  }finally{
   if(app){await closeApp(app).catch(()=>{});}
   if(path.dirname(run)!==output)throw Error('Unexpected test directory');fs.rmSync(run,{recursive:true,force:true});

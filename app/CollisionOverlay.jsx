@@ -1,3 +1,4 @@
+import { moveDragPoint } from './classic-gestures.js';
 import {useWindowKeyClaim} from './Hotkeys.jsx';
 import { Trash2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
@@ -44,13 +45,16 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     frame.current.cancel();
     ownerWindow.current = event.currentTarget.ownerDocument.defaultView || window;
     event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current = { x: event.clientX, y: event.clientY, before: structuredClone(selected), handle, handles: stage.rows.find(row => row.id === selectedId).handles.filter(item => visible(item.point)) };
+    const start = { x: event.clientX, y: event.clientY };
+    gesture.current = { x: event.clientX, y: event.clientY, move: { pointer: start, point: start, shift: !!event.shiftKey, axis: null }, before: structuredClone(selected), handle, handles: stage.rows.find(row => row.id === selectedId).handles.filter(item => visible(item.point)) };
     event.currentTarget.focus();
   };
   // A move records the pointer; cloning, resizing and the preview update run once per frame.
   const drag = event => {
     const active = gesture.current; if (!active) return;
-    active.point = { x: event.clientX, y: event.clientY }; frame.current.schedule();
+    const pointer = { x: event.clientX, y: event.clientY };
+    active.point = active.handle.move ? moveDragPoint(active.move, pointer, !!event.shiftKey) : pointer;
+    frame.current.schedule();
   };
   function applyDrag() {
     const active = gesture.current; if (!active?.point) return;
@@ -73,12 +77,22 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
       ? active.handles.map(start => handles.find(handle => handle.axis === start.axis && handle.sign === start.sign) || start)
       : handles;
   };
+  const center = delta => {
+    if (readOnly || !selected || !delta) return;
+    cancel(); const next = structuredClone(selected); moveCollision(next, delta); previewDraft(next); commit();
+  };
+  const shiftKey = event => {
+    const active = gesture.current;
+    if (event.key === 'Shift' && active?.handle.move) moveDragPoint(active.move, active.move.pointer, event.shiftKey);
+  };
   const handleProps = handle => ({
     tabIndex: readOnly ? -1 : 0, role: 'slider',
     onPointerDown: event => beginDrag(event, handle), onPointerMove: drag,
     onPointerUp: event => { if (gesture.current) { drag(event); frame.current.flush(); commit(); } },
     onPointerCancel: cancel, onLostPointerCapture: () => { if (gesture.current) cancel(); },
+    onKeyUp: shiftKey,
     onKeyDown: event => {
+      shiftKey(event);
       if (event.key === 'Escape') { cancel(); event.stopPropagation(); }
       if (!readOnly && selected && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); event.stopPropagation(); const next = structuredClone(selected), direction = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
@@ -88,7 +102,7 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
       }
     }
   });
-  return { previewDraft, commit, cancel, reset, drag, handleProps, resizeHandles, hasPending: () => !!pending.current };
+  return { previewDraft, commit, cancel, reset, drag, handleProps, resizeHandles, center, hasPending: () => !!pending.current };
 }
 
 /** Shared EMTR-style controls for Managers and Sphereomancer. */
@@ -98,7 +112,7 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
     <circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/>
     <circle cx={point[0]} cy={point[1]} r="7"/>
     {caption&&<text x={point[0]+12} y={point[1]+20}>{caption}</text>}
-    <title>{handle.move?'Move':'Drag to resize'}</title>
+    <title>{handle.move?'Move. Hold Shift to lock direction.':'Drag to resize'}</title>
   </g>;
   const selectedRow = stage.rows.find(row => row.id === selectedId);
   const select = (event, id) => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); onSelect(id); };
@@ -122,6 +136,7 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
       {gesture.resizeHandles(selectedRow).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,selectedRow.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}
       {selectedRow.move && visible(selectedRow.center) && <g className="pe-move-emitter">
         {grab(selectedRow.center,{move:selectedRow.move},'Move collision shape','mm-center','Move')}
+        <foreignObject x={selectedRow.center[0]-30} y={selectedRow.center[1]+28} width="60" height="25" className="mm-recenter"><button type="button" aria-label="Center" title="Center horizontally and keep the current height." onPointerDown={event=>event.stopPropagation()} onClick={()=>gesture.center(selectedRow.centerDelta)}>Center</button></foreignObject>
         {onRemove&&<foreignObject x={selectedRow.center[0]+24} y={selectedRow.center[1]-28} width="28" height="28" className="mm-remove"><button aria-label="Remove collision shape" title="Remove collision shape" onPointerDown={event=>event.stopPropagation()} onClick={onRemove}><Trash2 size={16}/></button></foreignObject>}
       </g>}
     </g>}

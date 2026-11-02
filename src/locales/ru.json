@@ -7371,5 +7371,7 @@
   "Resize sphere radius": "Изменить радиус сферы",
   "Choose one of five fixed collision presets. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.": "Выберите один из пяти готовых наборов коллизии. Перетаскивайте фигуры в окне «После» для настройки. Они заменят текущие фигуры только после одобрения.",
   "Drag Move to move; drag the edge handles to resize": "Перетаскивайте «Переместить» для перемещения, а крайние ручки — для изменения размера",
-  "Choose a unit, spell, item or doodad to see its textures.": "Выберите юнита, заклинание, предмет или декорацию, чтобы увидеть текстуры."
+  "Choose a unit, spell, item or doodad to see its textures.": "Выберите юнита, заклинание, предмет или декорацию, чтобы увидеть текстуры.",
+  "Center horizontally and keep the current height.": "Центрировать по горизонтали, сохранив текущую высоту.",
+  "Move. Hold Shift to lock direction.": "Перемещение. Удерживайте Shift, чтобы зафиксировать направление."
 }

@@ -34,6 +34,7 @@ export function collisionStageSnapshot(native, camera, width, height, shapes, se
     ];
     if (shape.ObjectId === selectedId && Math.abs(matrix.determinant()) > 1e-10) {
       const world = new Vector3().fromArray(center).applyMatrix4(matrix), inverse = matrix.clone().invert();
+      row.centerDelta = new Vector3(0, 0, world.z).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray();
       row.move = Object.fromEntries([['dx', 1, 0], ['dy', 0, 1]].map(([key, x, y]) => [key, world.clone().add(screenPlaneTranslation(camera, world, width, height, x, y)).applyMatrix4(inverse).sub(new Vector3().fromArray(center)).toArray()]));
       if (shape.Shape === 2) {
         const scale=matrix.getMaxScaleOnAxis(), right=new Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();

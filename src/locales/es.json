@@ -7387,5 +7387,7 @@
   "Resize sphere radius": "Cambiar radio de esfera",
   "Choose one of five fixed collision presets. Drag the shapes in After to adjust them. They replace the current collision shapes only after approval.": "Elige uno de los cinco conjuntos de colisión. Arrastra las formas en Después para ajustarlas. Sustituyen las formas actuales solo tras aprobarlas.",
   "Drag Move to move; drag the edge handles to resize": "Arrastra Mover para mover; arrastra los controles del borde para cambiar el tamaño",
-  "Choose a unit, spell, item or doodad to see its textures.": "Elige una unidad, hechizo, objeto o decorado para ver sus texturas."
+  "Choose a unit, spell, item or doodad to see its textures.": "Elige una unidad, hechizo, objeto o decorado para ver sus texturas.",
+  "Center horizontally and keep the current height.": "Centrar horizontalmente y mantener la altura actual.",
+  "Move. Hold Shift to lock direction.": "Mover. Mantén Mayús para bloquear la dirección."
 }

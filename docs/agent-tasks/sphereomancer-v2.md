@@ -134,6 +134,16 @@ Fail-first: the new geometry assertion fails on 31e34117 because selectionBox is
 
 The same D:\Claude\MDLxL-TestBuilds\Sphereomancer-v2 renderer files are updated in place; the currently open owner session is left running. Reopen that test to load the new controls. Old loaded bundles remain available until the owner closes that session; profiles/personal content are untouched. No merge.
 
+### Center and Quad-style Shift movement (2026-11-02)
+
+Starting head: 05ca56f1. The selected sphere or box now has a Center button immediately below Move. Center translates its world X/Y center to the model's vertical axis at X=0, Y=0, retaining the current world height and dimensions/radius. collisionStageSnapshot computes the translation using its evaluated matrix/inverse, including transformed parents; the shared gesture commits it through the existing moveCollision owner. Managers keeps normal Undo/Redo. Native Float32 coordinate storage can introduce translation roundoff (measured 0.00000763 model units), covered by a 0.00001 dimension tolerance; this is not a resize.
+
+Shift movement reuses Quad view's moveDragPoint verbatim: the first motion of each Shift hold latches horizontal or vertical screen movement, perpendicular travel is discarded for that hold, and release/repress continues from the visible position. Only pointer bookkeeping runs per event; cloning/model preview work still runs on the owner-window coalescer once per frame. Ordinary Move, Shift-arrow tenfold nudges, Escape, radius/face resizing, numbered selectors, trash and camera navigation remain available. Center and the Shift tooltip are translated in ru/es/zh.
+
+Fail-first: old geometry has no centerDelta; old real-model popup lacks Center and fails the new Shift latch check; the old production hook moves Z to 36 instead of keeping 40 on the first Shift-horizontal step. Final focused source: 96 passed / 0 failed / 0 skipped (including shared Quad gestures, parent-transform centering and modifier transitions). Final built bundle: hidden optimizexl passed (160s) and model-manager-regressions passed (6s), 2 passed / 0 failed / 0 skipped. Managers passed on the same bundle before the OptimizeXL-only Float32 expectation correction, so only that failed suite was rerun. Actual clicks verify sphere radius/height and offset-box size/height preservation; actual Shift drags verify latching and release without snapping; Managers verifies Center with Ctrl+Z/Ctrl+Y. Existing save, mouse rotation and all six 120-frame flash checks pass. No full suite was run.
+
+Small evidence: D:\Codex\sphereomancer-v2-owner-results\center-shift. The existing Sphereomancer-v2 test files are updated in place; the owner's current session stays open, so reopen that test to load the controls. No extra portable installation and no merge. Owner acceptance and independent Claude QA remain pending.
+
 Existing source skips (not enabled by this task):
 - CLI SIGTERM-stop test: Windows platform exclusion
 - Archer material stack: MDLXL_ARCHER not set

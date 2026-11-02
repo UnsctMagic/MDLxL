@@ -3,7 +3,7 @@ const {PROBE_SOURCE}=require('./fiber-probe.cjs');
 exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  await popup.evaluate(PROBE_SOURCE);
  const report={checks:[],failures:[],hits:[]};
- const check=async(name,run)=>{try{await run();report.checks.push(name);}catch(error){report.failures.push({name,error:error.message});}finally{await popup.mouse.up();await ready();}};
+ const check=async(name,run)=>{try{await run();report.checks.push(name);}catch(error){report.failures.push({name,error:error.message});}finally{await popup.mouse.up();await popup.keyboard.up('Shift');await ready();}};
  const overlay=()=>popup.evaluate(()=>{const p=findFiberProps('.ox-collision',p=>p?.stage);return {stage:p.stage,selected:p.selectedId};});
  const at=async(point)=>{const {stage}=await overlay(),r=await popup.locator('.ox-collision').boundingBox();return {x:r.x+point[0]*r.width/stage.width,y:r.y+point[1]*r.height/stage.height};};
  const selectField=async i=>{await popup.getByRole('button',{name:'Advanced',exact:true}).click();await popup.getByLabel('X '+(i+1),{exact:true}).click();await popup.getByRole('button',{name:'Simple',exact:true}).click();};
@@ -11,6 +11,29 @@ exports.checkOwnerPopup=async({app,main,popup,source,out,shapeState,ready})=>{
  const {openDocument}=await import('../../src/editor-document.js');
  const existing=openDocument(source,'x.mdx').model.CollisionShapes.filter(s=>s.Shape===0||s.Shape===2).map(s=>s.Shape===0?[...s.Vertices]:[...s.Vertices,s.BoundsRadius]);
  await check('authored collision proposal',async()=>assert.deepEqual((await shapeState()).rows,existing,'proposal starts from the model collisions'));
+ await preset.selectOption('1');await ready();
+ await check('Center preserves sphere height and radius',async()=>{
+  const before=(await shapeState()).rows[0];await popup.locator('.ox-collision').getByRole('button',{name:'Center',exact:true}).click({timeout:1500});await ready();
+  const after=(await shapeState()).rows[0];assert.deepEqual(after,[0,0,before[2],before[3]]);
+ });
+ await check('Shift Move latches direction and releases without snapping',async()=>{
+  const grab=popup.getByRole('slider',{name:'Move collision shape',exact:true}).locator('circle:not(.pe-grab)'),b=await grab.boundingBox(),before=await overlay();
+  const x=b.x+b.width/2,y=b.y+b.height/2;await popup.keyboard.down('Shift');await popup.mouse.move(x,y);await popup.mouse.down();await popup.mouse.move(x+35,y+5,{steps:8});
+  await popup.waitForFunction(y=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[0].center[0]-y)>5,before.stage.rows[0].center[0]);
+  let current=await overlay();assert.ok(Math.abs(current.stage.rows[0].center[1]-before.stage.rows[0].center[1])<.1,'Shift keeps screen height');
+  await popup.mouse.move(x+45,y+35,{steps:8});current=await overlay();assert.ok(Math.abs(current.stage.rows[0].center[1]-before.stage.rows[0].center[1])<.1,'lock stays latched despite perpendicular travel');
+  const held=current.stage.rows[0].center[1];await popup.keyboard.up('Shift');await popup.mouse.move(x+50,y+43,{steps:8});
+  await popup.waitForFunction(y=>Math.abs(findFiberProps('.ox-collision',p=>p?.stage).stage.rows[0].center[1]-y)>3,held);
+  current=await overlay();assert.ok(Math.abs(current.stage.rows[0].center[1]-held)<12,'release adds only new travel');await popup.mouse.up();await ready();
+ });
+ await preset.selectOption('4');await ready();
+ await check('Center preserves box height and dimensions',async()=>{
+  await popup.getByRole('button',{name:'Advanced',exact:true}).click();const row=(await shapeState()).rows[0];
+  await popup.getByLabel('Min X 1',{exact:true}).fill(String(row[0]+24));await popup.getByLabel('Max X 1',{exact:true}).fill(String(row[3]+24));
+  await popup.getByRole('button',{name:'Simple',exact:true}).click();await ready();
+  const before=(await shapeState()).rows[0];await popup.locator('.ox-collision').getByRole('button',{name:'Center',exact:true}).click({timeout:1500});await ready();
+  const after=(await shapeState()).rows[0];for(let a=0;a<3;a++)assert.ok(Math.abs((after[a+3]-after[a])-(before[a+3]-before[a]))<.00001,'dimensions preserved within Float32 translation roundoff');assert.equal(after[2],before[2]);assert.equal(after[5],before[5]);assert.equal(after[0]+after[3],0);assert.equal(after[1]+after[4],0);
+ });
  await preset.selectOption('1');await ready();
  await check('right-side boxes select every sphere',async()=>{
   const boxes=popup.locator('.ox-collision .mm-sphere-select');await boxes.first().waitFor({timeout:1500});assert.equal(await boxes.count(),2);
