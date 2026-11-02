@@ -6,9 +6,17 @@
   the full *Warcraft III Library* with tabs **Textures · Models · Sounds · All files**.
   The last tab is remembered.
 - **Pickers** (UV Wrapper *Replace Texture…*, Material Manager import, EMTR
-  *Use picture*, Forge, Citadel Paint): the unchanged *Material & Texture
+  *Use picture*, Forge, Citadel Paint): the *Material & Texture
   Library*, textures only, no tabs. `openLibrary(preview, full)` in
   [App.jsx](../app/App.jsx) passes `full` only from the Library button/command.
+
+- **Textures, two layouts** (full Library and every picker): the Models tab's
+  **Standard · World Editor Style** buttons. World Editor Style is the default;
+  `mdlvis.texture-library.style` remembers its choice independently of Models.
+  Choose Human › Units › Normal › Footman to see its textures, then its icon,
+  as the existing texture tiles. Standard keeps folders, vibe/art search, kinds,
+  Model folder and Show more. In World Editor Style, search matches editor names,
+  Source offers Classic/Reforged/Forsaken Kingdom and BLP only still filters tiles.
 
 The full Library declares `data-hotkey-scope="library"` so global shortcuts such
 as Escape → *Clear vertex selection* do not swallow its keys; pickers keep their
@@ -66,6 +74,20 @@ existing hotkey behaviour.
     by case-sensitive unit rawcode. Entries hidden from the
     editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
+- [WorldEditorTree.jsx](../app/WorldEditorTree.jsx) owns both tabs' layout
+  buttons, virtualized rows, mouse/keyboard navigation, game icons and the one
+  catalogue promise per game signature/version. Models also use its icons in
+  Standard. No second tree implementation or catalogue cache is maintained.
+- [world-editor-textures.js](../src/world-editor-textures.js) reads only MDX TEXS
+  records or the MDL Textures block; it creates no preview or editor document.
+  [the texture client](../app/world-editor-textures.js) collects every art/variation,
+  resolves paths through the existing model-module-first resolver (metadata only),
+  appends Art, deduplicates in order and caches each entry/version for the session.
+  Catalogue matching uses normalized logical path plus the resolved version, so
+  Classic fallbacks stay Classic and HD thumbnails retain their HD catalogue key.
+  Missing catalogue textures appear in a closed details line; superseded requests
+  cannot replace the last chosen entry. Tiles, details and actions remain shared
+  with Standard, including the existing-material choice popup.
 - **Camera**: one `GamePreview` stays mounted (`glideCamera`,
   `fitSequenceExtent`). A newly picked model replaces the old one once loaded;
   the camera keeps its turned angle and eases over 450 ms to frame the new model
@@ -118,15 +140,15 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
 ## Verification
 
 - `test/hd-library-preview.electron.cjs` uses an isolated hidden packaged app
-  (`MDLXL_PACKAGED_EXE`, `MDLXL_PLAYWRIGHT_MODULE`) and installed Classic Footman,
+  (`MDLXL_TEST_EXE`, `MDLXL_PLAYWRIGHT_MODULE`) and installed Classic Footman,
   Forsaken Kingdom Peon and Reforged Blademaster: textures, Stand/Walk/Attack,
   real mouse rotation, original-format editor opening and view-only restrictions.
   Popcorn/external event effect rendering remains a separate capability.
 - `node --test test/game-file-library.test.js` (index, search, resolve, art
   rules, material choice).
-- `node --test test/world-editor-catalog.test.js` (races, units, spells, items,
+- `node --test test/world-editor-catalog.test.js test/world-editor-textures.test.js` (races, units, spells, items,
   doodads, per-version skins, function-table fallbacks).
-- `test/game-file-library.electron.cjs` (needs Warcraft III; `MDLXL_PACKAGED_EXE`
+- `test/game-file-library.electron.cjs` (needs Warcraft III; `MDLXL_TEST_EXE`
   for a package, `MDLXL_TEST_THEME=dark`): picker unchanged + material choice,
   painting search, new material, World Editor tree with loaded icons, folder
   clicks leave the view unchanged, real mouse-drag rotation, glide to a larger
@@ -135,3 +157,16 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
   selected only, both separations, Import to current on DummyBone, Open in editor
   with only the checked geosets), sound playback, arrow
   keys, text view, Escape, screenshots.
+
+- `test/library-textures-contract.cjs`, called by the packaged Library workflow:
+  T1–T8 and T10 compare entry tiles against independently opened game models,
+  multi-art spells and doodad variations, HD sources, Add equivalence, fast keys,
+  BLP filtering and separate remembered layouts. The workflow continues through
+  UV Replace Texture in World Editor Style (T9) and the existing Models flow
+  (T11), including actual mouse rotation, double-click opening and geoset tools.
+
+The workflow checks actual model data for successful actions. App's `say` keeps
+informational messages quiet: material reuse must end its temporary preview with
+unchanged model data; *New material* must add exactly one material referencing the
+existing texture, without reassigning geosets. These replace obsolete global
+success-message expectations, not the behavior being checked.
