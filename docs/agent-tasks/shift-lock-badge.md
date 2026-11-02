@@ -1,6 +1,6 @@
 # Shift lock: one lock rule and an orange lock badge at the cursor
 
-Status: implemented for owner testing on `codex/shift-lock-badge` from `55fc271e`, after #504 and #507 merged.
+Status: completed in [PR #512](https://github.com/UnsctMagic/MDLxL/pull/512), merged at [418a2ddd](https://github.com/UnsctMagic/MDLxL/commit/418a2dddb6212407f8ea412b68075f83af5303f8).
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-02
 
