@@ -7533,5 +7533,6 @@
   "Collision shape coordinates must be finite.": "碰撞形状坐标必须是有限值。",
   "Sphere radius must be positive.": "球体半径必须为正数。",
   "A box needs each maximum corner value above its minimum.": "长方体的每个最大角值都必须大于对应的最小值。",
-  "Add emitter": "添加发射器"
+  "Add emitter": "添加发射器",
+  "Choose a unit, spell, item or doodad to see its textures.": "选择单位、技能、物品或装饰物以查看其纹理。"
 }

@@ -7669,5 +7669,6 @@
   "Collision shape coordinates must be finite.": "Las coordenadas de la forma de colisión deben ser finitas.",
   "Sphere radius must be positive.": "El radio de la esfera debe ser positivo.",
   "A box needs each maximum corner value above its minimum.": "Una caja necesita que cada valor de la esquina máxima supere al de la mínima.",
-  "Add emitter": "Añadir emisor"
+  "Add emitter": "Añadir emisor",
+  "Choose a unit, spell, item or doodad to see its textures.": "Elige una unidad, hechizo, objeto o decorado para ver sus texturas."
 }

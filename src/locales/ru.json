@@ -7653,5 +7653,6 @@
   "Collision shape coordinates must be finite.": "Координаты формы столкновения должны быть конечными.",
   "Sphere radius must be positive.": "Радиус сферы должен быть положительным.",
   "A box needs each maximum corner value above its minimum.": "У параллелепипеда каждое значение максимального угла должно быть больше минимального.",
-  "Add emitter": "Добавить эмиттер"
+  "Add emitter": "Добавить эмиттер",
+  "Choose a unit, spell, item or doodad to see its textures.": "Выберите юнита, заклинание, предмет или декорацию, чтобы увидеть текстуры."
 }

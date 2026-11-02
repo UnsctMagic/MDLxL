@@ -177,7 +177,7 @@ class GameFileLibrary {
     return result;
   }
   /** A model's pictures come from its own module first (Reforged, Forsaken Kingdom), then the base game. */
-  async resolve(index, model, names) {
+  async resolve(index, model, names, {metadataOnly=false} = {}) {
     const modules = model.sourcePath.split(':'); modules.pop();
     const prefixes = [];
     for (let depth = modules.length; depth > 0; depth--) {
@@ -198,6 +198,8 @@ class GameFileLibrary {
         if (match) break;
       }
       if (!match) { missing.push(name); continue; }
+      // Metadata lists the indexed file without reading it; an unreadable picture shows "Preview unavailable" on its tile.
+      if (metadataOnly) { found.push({name,path:match.path,sourcePath:match.sourcePath,variant:match.variant}); continue; }
       try { found.push({name,bytes:await this.read(index,match)}); } catch { missing.push(name); }
     }
     return {found,missing};
