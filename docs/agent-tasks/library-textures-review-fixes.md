@@ -154,6 +154,22 @@ Normal → Footman → tiles appear → press Standard → search "painting" →
 - Not exercised: Warcraft III gameplay, no-GPU variants, owner visual acceptance.
   Independent Claude QA remains pending. No installed profile change or merge.
 
+## Claude review (2026-11-02)
+
+Independent rerun at `9cfcd3f6` confirmed F1–F8, A3 fail-first, `pnpm test`
+57/0/0, focused 16/0/0, and both packaged tests on default and slow-cpu. Two
+follow-ups fixed on this branch:
+
+- The search-worker effect depended on `catalog?.signature` and a ref, so a new
+  catalogue with an unchanged signature (model changed while the Library is open,
+  same texture sources) never re-attached the worker: Standard search stayed on
+  "Searching…". It now depends on the catalogue object.
+- A failed catalogue load with an entry chosen kept "Loading texture library…"
+  and its placeholder tile next to the error; both now stop on an error.
+
+Rerun after the fix: packaged `game-file-library,library-textures-review` pass
+on default and slow-cpu (preview=0, catalogue=1, no early worker, loading text).
+
 ## Review handoff
 
 PR: [#506](https://github.com/UnsctMagic/MDLxL/pull/506), into `main`, unmerged.

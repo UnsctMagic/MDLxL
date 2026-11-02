@@ -130,7 +130,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     if(catalog.signature&&w.warmSignature===catalog.signature){setReady(true);setLoading(false);}
     else{setReady(false);initTimer=setTimeout(()=>w.postMessage({type:'init',items:catalog.items,signature:catalog.signature}),50);}
     return()=>{active=false;clearTimeout(initTimer);w.removeEventListener('message',onMessage);w.removeEventListener('error',onError);worker.current=null;};
-  },[worldEditor,catalog?.signature,modelPath]);
+  },[worldEditor,catalog,modelPath]);
   useEffect(()=>{setLimit(120);},[query,vibe,folder,variant,kind,format]);
   useEffect(()=>{
     if(worldEditor){requestId.current=++searchSerial;setSearching(false);return;}
@@ -200,7 +200,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
       {!worldEditor&&<select aria-label="Texture kind" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All textures</option><option value="units">Units &amp; characters</option><option value="buildings">Buildings</option><option value="doodads">Doodads</option><option value="terrain">Terrain</option><option value="effects">Effects</option><option value="icons">Icons</option><option value="art">Paintings &amp; art</option></select>}
     </div>
     <div className="tl-body"><nav className={'tl-folders'+(worldEditor?' gf-side':'')} aria-label="Native texture folders"><FolderStyle style={style} onChange={changeStyle}/>{worldEditor?<WorldEditorTextureTree variant={variant} query={query} onChoose={chooseEntry} onError={error=>setEntryError(error.message)}/>:<><button type="button" className={'tl-all-folders'+(!folder?' selected':'')} onClick={()=>setFolder('')}>All folders <small>{tree.count}</small></button>{tree.children.map(node=><FolderBranch key={node.path} node={node} selected={folder} onSelect={setFolder}/>)}</>}</nav>
-      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{worldEditor?<span>{entry&&(entryLoading||!catalog)?translate('Loading texture library…'):<>{translate('{0} textures').replace('{0}',displayed.total.toLocaleString())}{entry&&<> · <span translate="no">{entry.name}</span></>}</>}</span>:<>{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</>}</div>
+      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{worldEditor?<span>{entry&&!error&&(entryLoading||!catalog)?translate('Loading texture library…'):<>{translate('{0} textures').replace('{0}',displayed.total.toLocaleString())}{entry&&<> · <span translate="no">{entry.name}</span></>}</>}</span>:<>{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</>}</div>
         {error&&<p className="tl-error" role="alert">{error}</p>}{catalog?.errors?.map((item,index)=><p key={index} className="tl-error">{item.message}</p>)}
         {!loading&&catalog?.nativeCount===0&&<p className="tl-note">No Warcraft textures were found. Choose your Warcraft III folder in Settings.</p>}
         {!worldEditor&&result.notice&&vibe&&<p className="tl-note">{result.notice}</p>}
@@ -208,7 +208,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
         {!worldEditor&&!loading&&!searching&&!error&&result.total===0&&<p className="tl-empty">No matching textures. Try a material, a Warcraft unit name, or a broader folder.</p>}
         {worldEditor&&!entry&&<p className="tl-empty">{translate('Choose a unit, spell, item or doodad to see its textures.')}</p>}
         {worldEditor&&entryError&&<p className="tl-error" role="alert">{entryError}</p>}
-        <div className="tl-grid">{worldEditor&&entry&&(entryLoading||!catalog)&&<span className="tl-tile"><span className="tl-tile-image">…</span></span>}{displayed.items.map(item=><TextureTile key={item.id} item={item} modelPath={modelPath} cacheEpoch={cacheEpoch} selected={selected?.id===item.id} onSelect={setSelected}/>)}</div>
+        <div className="tl-grid">{worldEditor&&entry&&!error&&(entryLoading||!catalog)&&<span className="tl-tile"><span className="tl-tile-image">…</span></span>}{displayed.items.map(item=><TextureTile key={item.id} item={item} modelPath={modelPath} cacheEpoch={cacheEpoch} selected={selected?.id===item.id} onSelect={setSelected}/>)}</div>
         {worldEditor&&catalog&&entryResult.missing.length>0&&<details className="gf-missing"><summary>{translate('{0} textures not found').replace('{0}',entryResult.missing.length)}</summary>{entryResult.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
         {!worldEditor&&result.hasMore&&<button type="button" className="tl-more" onClick={()=>setLimit(n=>n+120)} disabled={searching}>Show more textures</button>}
       </main>
