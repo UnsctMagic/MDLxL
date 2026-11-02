@@ -5,7 +5,8 @@ import {placeTimedParticleRecipe} from '../src/particle-placement.js';
 import ParticleStageHandle from './ParticleStageHandle.jsx';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 export default function ParticlePlacementStage({doc,recipe,placement,onPosition,onSurface,textureAssets,preferences,teamColor,onError}){
- const [snapshot,setSnapshot]=useState(null),[surface,setSurface]=useState(false),[time,setTime]=useState(0),[playing,setPlaying]=useState(true),drag=useRef(null),follow=useRef(null),frame=useRef(null),shown=useRef(null);
+ const [snapshot,setSnapshot]=useState(null),[surface,setSurface]=useState(false),[time,setTime]=useState(0),[playing,setPlaying]=useState(true),drag=useRef(null),follow=useRef(null),frame=useRef(null),shown=useRef(null),playhead=useRef(time);
+ playhead.current=time;
  follow.current=()=>{const d=drag.current;if(d?.next)onPosition(d.next);};
  frame.current||=createFrameCoalescer(()=>follow.current());
  useEffect(()=>()=>frame.current.cancel(),[]);
@@ -20,7 +21,7 @@ export default function ParticlePlacementStage({doc,recipe,placement,onPosition,
  },[doc,doc.revision,recipe,placement.parent,placement.sequence,placement.fit,placement.motion,placement.sequences]);
  if(graph.model)shown.current=graph;
  const visible=shown.current;
- useEffect(()=>{onError?.(graph.error||'');if(graph.interval){setTime(graph.interval[0]);setPlaying(true);}},[graph,onError]);
+ useEffect(()=>{onError?.(graph.error||'');if(graph.interval&&(playhead.current<graph.interval[0]||playhead.current>graph.interval[1])){setTime(graph.interval[0]);setPlaying(true);}},[graph,onError]);
  if(visible&&!placement.ribbon){
   const anchor=visible.model.Nodes[visible.anchorId],delta=placement.position.map((value,axis)=>value-visible.position[axis]);
   anchor.Translation=structuredClone(visible.translation);

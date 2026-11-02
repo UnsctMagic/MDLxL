@@ -30,7 +30,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  assert.equal(JSON.parse(await fs.readFile(manifestFile)).extractionComplete,false,'The fixture must resume an incomplete index');
  let app;const errors=[],samples=[],returns=[],started=Date.now();
  try{
-  const launched = await launchApp({ out, fixture: process.env.MDLXL_REAL_MODEL, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1500, height: 1000 }, show: 'inactive', pageTimeout: 15000 }); app = launched.app;
+  const launched = await launchApp({ out, fixture: process.env.MDLXL_REAL_MODEL, profile, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1500, height: 1000 }, show: 'hide', pageTimeout: 15000 }); app = launched.app;
   app.process().stdout?.on('data',data=>fs.appendFile(path.join(out,'main.log'),data));app.process().stderr?.on('data',data=>fs.appendFile(path.join(out,'main.log'),data));
   const page=launched.page;
 

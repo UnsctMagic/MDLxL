@@ -4,9 +4,8 @@ import {readWorldEditorSources} from './game-file-library.cjs';
 import {buildLocales} from './casc.cjs';
 import {buildWorldEditorCatalog, WORLD_EDITOR_ORIGIN_FILES, isWorldEditorStringFile} from '../src/world-editor-catalog.js';
 import {buildParticleBrowse,particleNamingEvidence,resolveParticleArtPaths} from '../src/particle-library-browse.js';
-import {reviewFor} from './particle-review.cjs';
+import {reviewFor,browseRevision} from './particle-review.cjs';
 import {writeFileAtomic} from './atomic-file.cjs';
-import {browseRevision} from './particle-review.cjs';
 
 // Owned by the utility process. A complete old catalogue can acquire this sidecar
 // without re-extracting a single recipe or touching personal metadata.

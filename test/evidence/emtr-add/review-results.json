@@ -1,0 +1,66 @@
+{
+  "sourceBase": "4f6e7bd745273623494c873752bbe33f57daaa7a",
+  "bundle": {
+    "indexHash": "fb138933d5c75c0f71db7b9c49013e9f8c934560c5e58edff68a3bff8e6eac68",
+    "assetsHash": "7e9e098d16d2dcf799cdcd248ba4e8bec0b6b4e19bc90212fd1252d7b9fee756"
+  },
+  "passed": 4,
+  "failed": 0,
+  "skipped": 0,
+  "checks": [
+    {
+      "id": "P1",
+      "emitter": "BlizParticle01",
+      "parent": 18,
+      "center": [
+        3.0026267369588218,
+        24.41200002034505,
+        40.84843444824219
+      ]
+    },
+    {
+      "id": "P4"
+    },
+    {
+      "id": "P5",
+      "pixels": 100.00000036466213,
+      "renderedParticlesPixels": 100.81612170408414
+    },
+    {
+      "id": "P6",
+      "parent": 19,
+      "snapError": 0.000005591521240258232,
+      "motionError": 0.0000034424734488436845
+    }
+  ],
+  "units": {
+    "passed": 114,
+    "failed": 0,
+    "skipped": 0
+  },
+  "library": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "checks": [
+      "browse",
+      "indexing"
+    ]
+  },
+  "checkpointFrequency": {
+    "checkpoints": 10,
+    "beforeBuilds": 10,
+    "afterBuilds": 4
+  },
+  "notRerun": [
+    "local full suite",
+    "P2",
+    "P3",
+    "P7",
+    "P8",
+    "P9",
+    "P10",
+    "Warcraft III gameplay",
+    "independent Claude QA"
+  ]
+}

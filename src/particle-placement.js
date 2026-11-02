@@ -3,11 +3,19 @@ import {canonicalizeSerializedNodeOrder} from './node-id-order.js';
 import {sampleNodeMatrices,visitTracks,isGlobalTrack} from './animation.js';
 import {particleVertexSelection} from './particle-selection.js';
 import {Matrix4,Vector3} from 'three';
+import {uniqueName} from './node-hierarchy.js';
 
 export function initialParticlePlacement(model,selection,nodeId,sequenceIndex){
  const selected=particleVertexSelection(model,selection),node=model.Nodes[nodeId];
  const sequence=model.Sequences[sequenceIndex]?sequenceIndex:0,parent=selected.points.length?selected.parent:node?.ObjectId;
- return {parent:parent==null?'':String(parent),position:selected.points.length?selected.center:Array.from(node?.PivotPoint||[0,0,0]),sequence,sequences:model.Sequences.length?[sequence]:[],fit:true,motion:'target'};
+ return {parent:parent==null?'':String(parent),position:selected.points.length?selected.center:Array.from(node?.PivotPoint||[0,0,0]),sequence,sequences:model.Sequences.length?[sequence]:[],fit:true,motion:parent==null?'source':'target'};
+}
+
+export function particlePlacementError(model,placement){
+ if(!Array.isArray(placement.sequences)||!model.Sequences.length)return '';
+ const clips=[placement.sequence,...placement.sequences].map(index=>model.Sequences[index]);
+ if(!placement.sequences.length||clips.some(clip=>!clip))return 'Choose an animation.';
+ return clips.some(clip=>!(clip.Interval[1]>clip.Interval[0]))?'Choose valid source and target intervals.':'';
 }
 
 /** A chosen visibility window belongs to the newly inserted effect only. */
@@ -22,6 +30,7 @@ export function particlePlacementInterval(model,placement,{preview=false}={}) {
 }
 
 export function placeTimedParticleRecipe(model,recipe,placement,{preview=false,convertHD=false}={}) {
+ const error=particlePlacementError(model,placement);if(error)throw Error(error);
  const wholeAnimations=Array.isArray(placement.sequences);
  const window=placement.ribbon||wholeAnimations?model.Sequences[placement.sequence]?.Interval:particlePlacementInterval(model,placement,{preview});
  const sourceInterval=Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]);
@@ -32,7 +41,7 @@ export function placeTimedParticleRecipe(model,recipe,placement,{preview=false,c
   // source graph's relative offsets while anchoring its first ingredient.
   const matrices=sampleNodeMatrices(model,window?.[0]||0,model.Sequences.length?placement.sequence:-1),anchor=model.Nodes[result.anchorId],emitter=model.Nodes[result.ids[0]],parent=matrices.get(anchor.Parent)||new Matrix4();
   // Gallery captions may contain translated punctuation; this is a native node.
-  anchor.Name=emitter.Name;
+  anchor.Name=uniqueName(emitter.Name.slice(0,60)+'_Anchor',new Set(model.Nodes.filter(node=>node&&node!==anchor).map(node=>node.Name)));
   if(Math.abs(parent.determinant())<1e-10)throw Error('The selected bone has a zero scale. Choose another bone or animation.');
   const local=new Vector3().fromArray(emitter.PivotPoint).applyMatrix4(matrices.get(emitter.ObjectId)||new Matrix4()).applyMatrix4(parent.clone().invert());
   const delta=new Vector3(...placement.position).sub(local);

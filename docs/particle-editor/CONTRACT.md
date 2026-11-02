@@ -297,6 +297,8 @@ Provide three obvious collections: **Warcraft**, **My presets**, and **Favorites
 
 The card's primary content is its effect thumbnail and a short useful name. Choosing a card loads a working copy into Lab and shows it playing; it does not add anything to the open model. Animate the selected preview, not the entire gallery. Keep details, file paths, source units, emitter IDs, and compatibility explanations out of normal cards unless a short actionable status is necessary.
 
+World Editor is deliberately a special-effects projection, not the complete emitter catalogue: unit/hero Model-only art, non-blood Death/Special-only art, and unassociated non-ability paths are omitted there. Blood/death spawn models have their shared folder; unclaimed ability art has Other effects. These omissions never delete catalogue records. Standard retains every record, including unknown appearance categories under Other. Empty records are omitted from every World Editor folder, including the two shared folders.
+
 ### 11.2 Good names, meaningful search, and variants
 
 Use plain names that describe the effect's visible appearance or motion. A suitable pattern is **[useful descriptor] + [visible effect]**, with a motion qualifier only when it helps distinguish variants. Illustrative names include **Small flame**, **Thick smoke**, **Flying embers**, **Blue sparkles**, **Purple glow**, **Burst of sparks**, and **Blade trail**. These are naming examples, not a verified list of extracted Warcraft effects.
@@ -313,7 +315,7 @@ Exactly duplicate recipes may share one gallery entry with all source associatio
 
 For this library requirement, classic means the SD/classic asset set of the selected Warcraft installation/build, not the editor's Classic UI mode. Inventory emitter-bearing classic models across the configured CASC source, including units and the ability, missile, spell, portrait, building, alternate-form, and other effect models needed to represent their effects. Do not limit discovery to a manually selected unit roster or a `Units` folder. Follow external effect references during extraction. The exact count and boundaries come from the source inventory, not a hard-coded claim.
 
-Unit and object associations organize the optional World Editor view under §11.1a. By type groups friendly names by appearance. Unknown source associations must not hide otherwise usable recipes. Absence of a friendly label is not a reason to drop an extracted entry.
+Unit and object associations organize the optional World Editor view under §11.1a. By type groups friendly names by appearance. Unknown source associations must not hide otherwise usable recipes from Standard (By type); World Editor applies the explicit special-effects exclusions in §11.1a. Absence of a friendly label is not a reason to drop an extracted entry.
 
 Resolve source variants correctly. Do not mix SD entries with HD or other asset namespaces merely because filenames match. Record source installation, build/version identity, logical path, physical source identity, and content hash. Missing or incomplete discovery must be reported as incomplete, not “all.”
 
@@ -389,7 +391,7 @@ A copied recipe must remap ObjectIds, parents, PivotPoints, TextureIDs, Material
 
 Import only the necessary effect dependency graph. Do not silently transplant an entire unit skeleton or overwrite a target animation because that was easier than isolating the effect. Use an explicit anchor wrapper and preserve internal relative motion where appropriate.
 
-Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons. Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion, preserving the recipe's internal relative motion. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
+Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons. Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion when a bone/helper/attachment is inferred. With no parent, retain the source helper motion. A model with animations requires at least one checked clip, and every selected/retiming interval must have positive duration. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
 
 See [R1–R9 and packaged P1–P10](../agent-tasks/emtr-add-like-ribbons.md) for the owner acceptance path.
 

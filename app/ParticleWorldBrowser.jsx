@@ -14,7 +14,7 @@ export function particleBrowserTree(catalog,style,query=''){
   if(style==='worldeditor'){
     Object.assign(warcraft,particleWorldEffects(catalog.browse,stock));
   }else{
-    for(const name of appearanceTypes){const node=folder(name,'Warcraft/'+name);node.children=stock.filter(item=>(item.categories?.[0]||'Other')===name).map(item=>leaf(item,node.key));warcraft.children.push(node);}
+    for(const name of appearanceTypes){const node=folder(name,'Warcraft/'+name);node.children=stock.filter(item=>(appearanceTypes.includes(item.categories?.[0])?item.categories[0]:'Other')===name).map(item=>leaf(item,node.key));warcraft.children.push(node);}
   }
   const root=[warcraft,...['My presets','My work','Favorites'].map(name=>{
     const node=folder(name,name),items=sorted.filter(item=>name==='Favorites'?item.favorite:item.collection===name);
@@ -28,7 +28,7 @@ export function particleBrowserTree(catalog,style,query=''){
     node.children=node.children.map(child=>filter(child,text)).filter(Boolean);
     const ids=new Set();const count=child=>{if(child.item)ids.add(child.item.id);else child.children.forEach(count);};node.children.forEach(count);node.total=ids.size;
     if(terms.length&&node.children.length)autoExpanded.add(node.key);
-    return (style!=='worldeditor'||node.total>0)&&(!terms.length||node.children.length||node.status&&terms.every(term=>text.toLowerCase().includes(term)))?node:null;
+    return (style!=='worldeditor'||node.total>0)&&(!terms.length||node.children.length)?node:null;
   };
   return {nodes:root.map(node=>filter(node)).filter(Boolean),autoExpanded};
 }

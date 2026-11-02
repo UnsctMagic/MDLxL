@@ -28,9 +28,6 @@ class ParticleLibrary {
     try {
       const data=JSON.parse(await fs.readFile(path.join(this.directory,sourceKey,'browse.json'),'utf8'));
       if(data.revision===revision){this.browseCache={sourceKey,revision,data};return data;}
-      // Revision 3 adds optional ability icons. Revision 2 has the same links,
-      // names and source signature, so retain it while offline or upgrading.
-      if(data.revision===revision.replace(/^3\|/,'2|')){this.browseCache={sourceKey,revision:data.revision,data};return data;}
     } catch(error){if(error.code!=='ENOENT' && !(error instanceof SyntaxError))throw error;}
     return null;
   }

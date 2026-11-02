@@ -1,8 +1,14 @@
 # EMTR Particle Library browsing
 
-Placement R1–R9 implemented; ready to test. Codex, 1 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch `codex/emtr-library-browse`. No merge or release is authorized.
+Static-review corrections ready for review; awaiting merge approval. Codex, 2 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch codex/emtr-library-browse. No merge or release is authorized.
 
-## Add like ribbons — current placement round
+## Static-review corrections — 2 November
+
+All ten findings are fixed or explicitly accounted for in the [current placement task note](emtr-add-like-ribbons.md#static-review-follow-up-2-november-2026). Standard retains unknown categories under Other; World Editor's Model/death-only and unassociated non-ability exclusions remain deliberate and are documented in the contract. Shared World Editor folders now exclude empty records. Catalogue/manifest/browse publication is batched consistently; thumbnail arrivals are outside tree inputs. No catalogue records were deleted.
+
+Actual follow-up checks: **114 focused/related units / 0 failed / 0 skipped**, hidden packaged **P1/P4/P5/P6 4/0/0** with a real P5 drag and frame/pause retention checks, Library **browse/indexing 2/0/0**, build/package verified. [Measured results](../../test/evidence/emtr-add/review-results.json). No local full-suite rerun; earlier evidence below is historical. Existing owner review apps/profiles were preserved.
+
+## Add like ribbons — 1 November placement round
 
 Implemented the [PR #498 R1–R9 contract](emtr-add-like-ribbons.md) from source base a5c5a17e. A Library single-click now feeds the same load-then-place route as stage Add. Selected vertices determine the centre and ribbon-rule bone; a selected bone/helper/attachment supplies the no-vertex fallback. The shared ribbon panel contains Visibility, Create and Cancel. The shared handle follows the actual emitter, including UI scaling; Snap keeps its double-click interaction and binds to the hit face. The existing On model handle and visibility key track remain available. See the linked note for owners and fail-first evidence.
 

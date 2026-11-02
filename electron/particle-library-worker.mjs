@@ -53,27 +53,31 @@ export async function scanParticleLibrary({ folder, directory, originsOnly = fal
     manifest ||= { schema:3, sourceKey, source:{installation:folder, buildInfo:build}, startedAt, totalEnumerated:inventory.names.length, namespaces, candidateAssets:candidates.length, parsedAssets:0, emitterCounts:{ParticleEmitters2:0,RibbonEmitters:0,ParticleEmitters:0,ParticleEmitterPopcorns:0}, processed:[], assets:[], failures:[], missingDependencies:[], unsupported:[], duplicates:[], extractionComplete:false, fullyPreviewableRecipes:0, insertableRecipes:0, reviewedNames:0, reviewNeededNames:0 };
     const pictures=await reader.list('textures'),keys={...pictures.keys,...inventory.keys};
     const byHash = new Map(entries.filter(item=>!item.blocked).map(item => [item.recipeHash,item]));
-    let lastCheckpoint = 0;
+    let lastCheckpoint = 0, checkpoints = 0;
     async function checkpoint(final = false) {
+      const publish=final||checkpoints++%4===0;
       manifest.processed = [...completed]; manifest.updatedAt = new Date().toISOString();
       manifest.reviewedNames=entries.filter(item=>item.naming?.state==='reviewed'||!!reviewFor(item)).length;manifest.reviewNeededNames=entries.length-manifest.reviewedNames;
       manifest.recipeCount=entries.filter(item=>!item.blocked).length;manifest.blockedEntries=entries.filter(item=>item.blocked).length;manifest.catalogEntries=entries.length;manifest.sourceGroups=entries.filter(item=>item.grouping&&!item.blocked).length;
       manifest.extractionComplete = completed.size === candidates.length;
       // Renderer compatibility is recorded independently from actual render/placement validation.
       manifest.previewCandidates = entries.filter(item => !item.blocked&&!item.unsupported.length && !item.missingDependencies).length;
-      await atomic(path.join(cache,'catalog.json'),JSON.stringify(entries));
-      await atomic(path.join(cache,'manifest.json'),JSON.stringify(manifest,null,2));
-      await atomic(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));
-      if (!updateBrowse && !browseError && (!shouldCancel() || (final && entries.length))) {
-        // Publish the first usable effects before reading the larger object and locale tables.
-        onProgress({sourceKey,processed:completed.size,total:candidates.length,recipes:entries.length,complete:false});
-        try { updateBrowse=await prepareParticleBrowse(reader,build,cache); }
-        catch(error){ browseError=error.message; }
-      }
-      // Cancellation stops model extraction. Finish the small metadata transaction
-      // for the saved partial catalogue so its new revision remains browsable.
-      if (updateBrowse && (!shouldCancel() || final)) {
-        try { await updateBrowse(entries,final ? () => false : shouldCancel); } catch (error) { browseError=error.message; updateBrowse=null; }
+      // Keep all three saved revisions aligned; progress still reports each checkpoint.
+      if(publish){
+        await atomic(path.join(cache,'catalog.json'),JSON.stringify(entries));
+        await atomic(path.join(cache,'manifest.json'),JSON.stringify(manifest,null,2));
+        await atomic(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));
+        if (!updateBrowse && !browseError && (!shouldCancel() || (final && entries.length))) {
+          // Publish the first usable effects before reading the larger object and locale tables.
+          onProgress({sourceKey,processed:completed.size,total:candidates.length,recipes:entries.length,complete:false});
+          try { updateBrowse=await prepareParticleBrowse(reader,build,cache); }
+          catch(error){ browseError=error.message; }
+        }
+        // Cancellation stops model extraction. Finish the small metadata transaction
+        // for the saved partial catalogue so its new revision remains browsable.
+        if (updateBrowse && (!shouldCancel() || final)) {
+          try { await updateBrowse(entries,final ? () => false : shouldCancel); } catch (error) { browseError=error.message; updateBrowse=null; }
+        }
       }
       lastCheckpoint = Date.now();
       onProgress({ browseError, sourceKey, processed:completed.size,total:candidates.length,recipes:entries.length,complete:manifest.extractionComplete,cancelled:shouldCancel() });

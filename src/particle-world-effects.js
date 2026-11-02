@@ -14,7 +14,7 @@ export function particleWorldEffects(browse,stock){
   const root=folder('Warcraft','Warcraft'),claimed=new Set(),available=new Map(stock.filter(item=>!item.empty).map(item=>[item.id,item]));
   const get=(parent,name)=>{let node=parent.children.find(node=>node.name===name);if(!node){node=folder(name,parent.key+'/'+name);parent.children.push(node);}return node;};
   const blood=folder('Blood & death','Warcraft/Blood & death');
-  for(const item of stock)if(bloodEffect(item)){blood.children.push(leaf(item,blood.key));claimed.add(item.id);}
+  for(const item of available.values())if(bloodEffect(item)){blood.children.push(leaf(item,blood.key));claimed.add(item.id);}
   const types=['Units','Buildings','Heroes','Spells','Items','Doodads','Destructibles'],races=[...worldEditorRaceOrder,'Neutral'];
   const position=o=>o.folders?.[0]||[];
   // Stock neutral structures use the n... object namespace, including the
@@ -44,7 +44,7 @@ export function particleWorldEffects(browse,stock){
     for(const [name,items]of groups){const target=groups.size===1?node:get(node,name);if(target!==node)target.icon=icons.get(name);target.children.push(...items.map(item=>leaf(item,target.key)));}
   }
   const other=folder('Other effects','Warcraft/Other effects');
-  for(const item of stock)if(!claimed.has(item.id)&&(!paths(item).length||paths(item).some(path=>/abilities\\/.test(path)))){claimed.add(item.id);other.children.push(leaf(item,other.key));}
+  for(const item of available.values())if(!claimed.has(item.id)&&(!paths(item).length||paths(item).some(path=>/abilities\\/.test(path)))){claimed.add(item.id);other.children.push(leaf(item,other.key));}
   if(blood.children.length)root.children.push(blood);if(other.children.length)root.children.push(other);
   const count=node=>{if(node.item)return 1;node.total=node.children.reduce((n,child)=>n+count(child),0);return node.total;};count(root);
   return root;

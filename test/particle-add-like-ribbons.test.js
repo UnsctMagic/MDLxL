@@ -1,4 +1,9 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {buildSync} from 'esbuild';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
 import assert from 'node:assert/strict';
 import {Vector3,PerspectiveCamera} from 'three';
 import {createDemoDocument,createNode} from '../src/editor-document.js';
@@ -55,11 +60,42 @@ test('effect placement and all imported resources undo and redo as one transacti
  const added=Array.from(doc.serialize('mdx'));assert.equal(doc.historyStats.undoSteps,1);doc.undo();assert.deepEqual(Array.from(doc.serialize('mdx')),before);doc.redo();assert.deepEqual(Array.from(doc.serialize('mdx')),added);
 });
 
-test('visibility choices do not discard placement, including an empty list and a static model',()=>{
+test('empty animation choices are rejected while a model without animations still places',()=>{
  for(const animated of [true,false]){
   const model=createDemoDocument().model;if(!animated)model.Sequences=[];
-  const placement={...initialParticlePlacement(model,{},undefined,0),position:[13,17,23],sequences:[]},result=placeTimedParticleRecipe(model,createStarterRecipe(),placement),anchor=model.Nodes[result.anchorId];
+  const placement={...initialParticlePlacement(model,{},undefined,0),position:[13,17,23],sequences:[]};
+  if(animated){assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/Choose an animation/);continue;}
+  const result=placeTimedParticleRecipe(model,createStarterRecipe(),placement),anchor=model.Nodes[result.anchorId];
   assert.ok(anchor.Translation.Keys.length);for(const key of anchor.Translation.Keys)assert.deepEqual(Array.from(key.Vector),placement.position);
-  if(animated)assert.ok(model.Nodes[result.ids[0]].Visibility.Keys.every(key=>key.Vector[0]===0));
+
  }
+});
+
+// Review regressions exercise the owning functions and the actual JSX controls.
+const editorSource=readFileSync(new URL('../app/ParticleEditor.jsx',import.meta.url),'utf8');
+const placementControls=()=>{const code=buildSync({entryPoints:['app/ParticlePlacementControls.jsx'],bundle:true,write:false,platform:'node',format:'cjs',packages:'external'}).outputFiles[0].text,module={exports:{}};new Function('require','module','exports',code)(createRequire(import.meta.url),module,module.exports);return module.exports.default;};
+test('unattached insertion retains authored helper motion; attached insertion follows the target',()=>{
+ const recipe=createStarterRecipe(),helper=createNode(recipe.native,'Helper'),emitter=recipe.native.ParticleEmitters2[0];emitter.Parent=helper.ObjectId;
+ helper.Translation={LineType:1,GlobalSeqId:null,Keys:[{Frame:0,Vector:v(0,0,0)},{Frame:5000,Vector:v(100,0,0)}]};helper.Rotation={LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:v(0,0,0,1)}]};helper.Scaling={LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:v(1,1,1)}]};
+ const model=createDemoDocument().model,placement=initialParticlePlacement(model,{},undefined,0),result=placeTimedParticleRecipe(model,recipe,placement),copied=model.Nodes[result.maps.nodes.get(helper.ObjectId)];
+ assert.ok(copied.Translation?.Keys.length,'No parent must retain source helper Translation');assert.ok(copied.Rotation&&copied.Scaling,'No parent must retain source helper Rotation/Scaling');assert.equal(placement.motion,'source');
+ const [a,b]=model.Sequences[0].Interval,position=frame=>new Vector3().fromArray(model.Nodes[result.ids[0]].PivotPoint).applyMatrix4(sampleNodeMatrices(model,frame,0).get(result.ids[0]));assert.ok(position(a).distanceTo(position(b))>50,'Placed effect still travels');
+ assert.equal(initialParticlePlacement(model,{},model.Bones[0].ObjectId,0).motion,'target');
+});
+test('Create is disabled with no checked animation and rejection does not mutate the model',()=>{
+ const model=createDemoDocument().model,placement={...initialParticlePlacement(model,{},undefined,0),sequences:[]},Control=placementControls(),html=renderToStaticMarkup(React.createElement(Control,{model,placement}));
+ assert.match(html,/<button disabled="">Create<\/button>/,'No checked animation disables Create');const before=structuredClone(model);assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/Choose an animation/);assert.deepEqual(model,before);
+});
+test('every selected animation and the retiming window must have positive duration',()=>{
+ for(const sequence of [0,1]){const model=createDemoDocument().model;model.Sequences.push({...structuredClone(model.Sequences[0]),Name:'Empty',Interval:new Uint32Array([2000,2000])});const placement={...initialParticlePlacement(model,{},undefined,0),sequence,sequences:[0,1]},before=structuredClone(model);assert.throws(()=>placeTimedParticleRecipe(model,createStarterRecipe(),placement),/valid source and target intervals/);assert.deepEqual(model,before);}
+});
+test('the Library Add to model control disables unsupported ingredients',()=>{
+ const expression=editorSource.match(/disabled=\{([^{}]+)\} onClick=\{beginPlacement\}/)[1],disabled=new Function('doc','openingSelection','library','libraryChoice','effectNodes','model','return '+expression);
+ assert.equal(Boolean(disabled({readOnly:false},false,true,{unsupported:[{family:'ParticleEmitters'}]},()=>[],{})),true,'Incomplete preview cannot be added');assert.equal(Boolean(disabled({readOnly:false},false,true,{unsupported:[]},()=>[],{})),false);
+});
+test('an unsupported Library add never reads or replaces the current Lab recipe',async()=>{
+ const body=editorSource.match(/const beginPlacement=async\(\)=>\{([\s\S]*?)\};\s*const markedPolygons/)[1],names=['cancel','setIngredients','setMessage','setPlacementError','setPlacementStageError','library','libraryChoice','openingSelection','setOpeningSelection','chooseRecipe','readParticleLibraryRecipe','setGlow','setPlacement','initialPlacement','setPlaying'];let reads=0,loads=0;const noop=()=>{},action=new Function(...names,'return (async()=>{'+body+'})()');await action(noop,noop,noop,noop,noop,true,{unsupported:[{family:'ParticleEmitters'}]},false,noop,async()=>{loads++;},async()=>{reads++;return {};},noop,noop,noop,noop);assert.equal(reads,0,'Reject unsupported selection before loading');assert.equal(loads,0,'Keep the Lab unchanged');
+});
+test('wrapper names are distinct, unique native names and remain serializable',()=>{
+ const doc=createDemoDocument(),recipe=createStarterRecipe();recipe.name='Friendly fire · target';recipe.native.ParticleEmitters2[0].Name='X'.repeat(79);recipe.native.ParticleEmitters2[0].Squirt=false;const placement=initialParticlePlacement(doc.model,{},undefined,0),first=placeTimedParticleRecipe(doc.model,recipe,placement),used=new Set(doc.model.Nodes.filter(Boolean).map(n=>n.Name)),second=placeTimedParticleRecipe(doc.model,recipe,placement),anchor=doc.model.Nodes[second.anchorId];assert.notEqual(doc.model.Nodes[first.anchorId].Name,doc.model.Nodes[first.ids[0]].Name,'Wrapper and emitter have different names');assert.ok(!used.has(anchor.Name),'Repeated additions have unique wrapper names');assert.doesNotThrow(()=>doc.serialize('mdx'));
 });

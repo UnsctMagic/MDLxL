@@ -1,4 +1,6 @@
 import test from 'node:test';
+import {createRequire} from 'node:module';
+import {buildSync} from 'esbuild';
 import assert from 'node:assert/strict';
 import {particleWorldEffects} from '../src/particle-world-effects.js';
 import {activeParticleSample} from '../src/particle-sampling.js';
@@ -44,4 +46,15 @@ test('unit races retain World Editor neutral labels; neutral buildings share one
  const tree=particleWorldEffects({objects,buckets:[['a'],['b'],['c']]},['a','b','c'].map(id=>item(id,'abilities\\effect.mdx')));
  assert.deepEqual(tree.children.find(node=>node.name==='Units').children.map(node=>node.name),['Neutral Hostile','Neutral Passive']);
  assert.equal(tree.children.find(node=>node.name==='Buildings').children[0].name,'Neutral');
+});
+
+const browserTree=()=>{const code=buildSync({entryPoints:['app/ParticleWorldBrowser.jsx'],bundle:true,write:false,platform:'node',format:'cjs',packages:'external'}).outputFiles[0].text,module={exports:{}};new Function('require','module','exports',code)(createRequire(import.meta.url),module,module.exports);return module.exports.particleBrowserTree;};
+test('Standard retains stock records with unknown appearance categories in Other',()=>{
+ const tree=browserTree()({items:[{...item('odd','units\\odd.mdx'),categories:['Unclassified'],collection:'Warcraft'}]},'standard'),other=tree.nodes[0].children.find(n=>n.name==='Other');assert.deepEqual(other.children.map(n=>n.item.id),['odd'],'Unknown category falls back to Other');
+});
+test('World Editor deliberately omits unit Model/death-only art and unassociated non-ability art',()=>{
+ const stock=[item('model','units\\priest.mdx'),item('death','units\\priestdeath.mdx'),item('unknown','doodads\\unused.mdx'),item('spell','abilities\\spell.mdx')],browse={buckets:[['model'],['death']],objects:[{id:'unit',name:'Unit',folders:[['Units','Human']],groups:[group('Model',0),group('Death/Special',1)]}]},tree=particleWorldEffects(browse,stock);assert.equal(tree.total,1);assert.deepEqual(tree.children[0].children.map(n=>n.item.id),['spell']);assert.equal(browserTree()({items:stock.map(i=>({...i,collection:'Warcraft',categories:['Other']})),browse},'standard').nodes[0].total,4,'Standard still exposes every record');
+});
+test('Blood & death and Other effects exclude empty records like object folders',()=>{
+ const stock=[{...item('emptyBlood','objects\\spawnmodels\\human\\blood.mdx'),empty:true},{...item('emptyOther','abilities\\empty.mdx'),empty:true},{...item('emptyObject','abilities\\linked.mdx'),empty:true},item('blood','objects\\spawnmodels\\human\\blood.mdx'),item('other','abilities\\other.mdx')],tree=particleWorldEffects({buckets:[['emptyObject']],objects:[{id:'u',name:'Unit',folders:[['Units','Human']],groups:[group('Ability · Target',0)]}]},stock);assert.equal(tree.total,2,'No empty recipes in any World Editor folder');assert.deepEqual(tree.children.map(n=>[n.name,n.total]),[['Blood & death',1],['Other effects',1]]);
 });

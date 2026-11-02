@@ -29,6 +29,12 @@ export default function ParticleLibrary({onChoose,onClose,onError,onSelectionCha
   const opening=useRef(false);
   const [openingName,setOpeningName]=useState('');
   const [catalog,setCatalog]=useState({items:[]}),[search,setSearch]=useState(''),[style,setStyle]=useState('standard'),[selected,setSelected]=useState(null),[sourceContext,setSourceContext]=useState(null);
+  const [thumbnails,setThumbnails]=useState(()=>new Map());
+  const sourceKey=catalog.coverage?.sourceKey;
+  const itemsById=useMemo(()=>new Map(catalog.items.map(item=>[item.id,item])),[catalog.items]);
+  const thumbnailFor=item=>{const entry=thumbnails.get(item.id);return entry&&entry.sourceKey===sourceKey&&entry.sample===JSON.stringify(item.previewSample)?entry.url:item.thumbnail;};
+  const receiveThumbnail=useCallback((id,url)=>{const item=itemsById.get(id);if(item)setThumbnails(old=>new Map(old).set(id,{url,sourceKey,sample:JSON.stringify(item.previewSample)}));},[itemsById,sourceKey]);
+  useEffect(()=>setThumbnails(new Map()),[sourceKey]);
   const [expanded,setExpanded]=useState(()=>new Set(['Warcraft'])),[visible,setVisible]=useState([]);
   const load=()=>window.desktop?.particleCatalog?.().then(next=>setCatalog(old=>refreshCatalog(old,next))).catch(error=>onError(error.message));
   useEffect(()=>{
@@ -76,12 +82,12 @@ export default function ParticleLibrary({onChoose,onClose,onError,onSelectionCha
   const annotate=async patch=>{try{await window.desktop.particleAnnotate({id:item.id,...patch});await load();}catch(error){onError(error.message);}};
   const rowIcon=row=>{
     const effect=row.node?.item,icon=row.node?.icon||(row.folder?FOLDER_ICONS[row.name]:null);
-    if(effect?.thumbnail)return <img className="gf-icon" src={effect.thumbnail} alt="" draggable={false}/>;
+    if(effect&&thumbnailFor(effect))return <img className="gf-icon" src={thumbnailFor(effect)} alt="" draggable={false}/>;
     return <GameIcon iconKey={icon?'p:classic:'+icon:null} read={icon?()=>window.desktop.gameFilesReadPath({path:icon,variant:'classic'}):null} fallback={row.folder?(opened.has(row.key)?FolderOpen:Folder):Box}/>;
   };
   return <div className="pe-library tl-dialog" aria-label="Particle Library" aria-busy={disabled||!!openingName}>
     {(disabled||openingName)&&<div className="pe-library-loading" role="status">{openingName?'Opening '+openingName+'…':'Restoring your work…'}</div>}
-    <ParticleThumbnailQueue items={!sourceContext?visible.filter(item=>catalog.sourceStatus?.state==='ready'||item.collection!=='Warcraft'):[]} preferences={preferences} onFailure={(id,error)=>setCatalog(old=>({...old,items:old.items.map(item=>item.id===id?{...item,previewError:error}:item)}))} onThumbnail={(id,url)=>setCatalog(old=>({...old,items:old.items.map(item=>item.id===id?{...item,thumbnail:url}:item)}))}/>
+    <ParticleThumbnailQueue items={!sourceContext?visible.filter(item=>catalog.sourceStatus?.state==='ready'||item.collection!=='Warcraft').map(item=>({...item,thumbnail:thumbnailFor(item)})):[]} preferences={preferences} onFailure={(id,error)=>setCatalog(old=>({...old,items:old.items.map(item=>item.id===id?{...item,previewError:error}:item)}))} onThumbnail={receiveThumbnail}/>
     <header><strong>Particle Library</strong><button onClick={onClose} aria-label="Close Particle Library">×</button></header>
     <GameFileBrowser browser={{
       toolbar:{query:search,onQuery:setSearch,placeholder:'Find an effect…',label:'Find an effect'},

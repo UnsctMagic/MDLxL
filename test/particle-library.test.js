@@ -13,7 +13,7 @@ import {particleRecipeDocument} from '../src/particle-recipes.js';
 const {ParticleLibrary}=createRequire(import.meta.url)('../electron/particle-library.cjs');
 const directory=path.resolve('out/particle-prototype/store-tests-'+Date.now());
 const makeStore=()=>new ParticleLibrary({directory,discover:async()=>({cascFolders:[]})});
-test('revision-2 browse links remain usable offline and upgrade icons when connected',async()=>{
+test('unshipped revision-2 browse sidecars are rejected offline and rebuilt when connected',async()=>{
  const {particleSourceState}=createRequire(import.meta.url)('../electron/particle-source.cjs');
  const root=path.join(directory,'compatible-icons'),folder=path.join(root,'install');await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'same-build');
  let connected=true;const discover=async()=>({cascFolders:connected?[folder]:[]}),sourceKey=(await particleSourceState(discover)).sourceKey,cache=path.join(root,sourceKey),id='wc3-'+'4'.repeat(24);await fs.mkdir(cache);
@@ -22,8 +22,8 @@ test('revision-2 browse links remain usable offline and upgrade icons when conne
  await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({processed:[],failures:[],unsupported:[],missingDependencies:[],extractionComplete:true}));
  const stat=await fs.stat(file,{bigint:true});await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision:'2|'+stat.size+'|'+stat.mtimeNs,objects:[],buckets:[],other:[id],metadata:{}}));
  const modes=[],store=new ParticleLibrary({directory:root,discover,createWorker(){throw Error('unexpected worker');}});store.scan=async mode=>modes.push(mode);
- connected=false;assert.deepEqual((await store.catalog()).browse?.other,[id]);assert.deepEqual(modes,[]);
- connected=true;assert.deepEqual((await store.catalog()).browse?.other,[id]);assert.deepEqual(modes,[true]);await store.close();
+ connected=false;assert.equal((await store.catalog()).browse,null);assert.deepEqual(modes,[]);
+ connected=true;assert.equal((await store.catalog()).browse,null);assert.deepEqual(modes,[true]);await store.close();
 });
 
 test('opening the catalog automatically indexes missing, incomplete and changed Warcraft sources once',async()=>{
@@ -214,7 +214,7 @@ test('completed legacy catalogues gain browse metadata in the worker; edits, fav
   await store.annotate({id:preset.id,favorite:true});
   const presetBytes=await store.read(preset.id);
   const stat=await fs.stat(file,{bigint:true});
-  await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision:'1|'+stat.size+'|'+stat.mtimeNs,objects:[],other:[id],buckets:[],metadata:{[id]:{name:'Old origin title'}}}));
+  await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision:'2|'+stat.size+'|'+stat.mtimeNs,objects:[],other:[id],buckets:[],metadata:{[id]:{name:'Old origin title'}}}));
   assert.equal((await store.catalog()).browse,null);assert.deepEqual(modes,[true]);
   const revision=browseRevision(await fs.stat(file,{bigint:true}));
   await fs.writeFile(path.join(cache,'browse.json'),JSON.stringify({revision,objects:[],other:[id],buckets:[],metadata:{[id]:{name:'Origin title',categories:['Smoke']}}}));
@@ -227,4 +227,12 @@ test('completed legacy catalogues gain browse metadata in the worker; edits, fav
   assert.equal(await store.read(id),data);
   await fs.writeFile(path.join(folder,'.build.info'),'frFR text?');assert.equal((await store.catalog()).sourceStatus.state,'changed');
   assert.deepEqual(modes,[true,true,undefined]);
+});
+
+// Run the worker's actual checkpoint body with in-memory I/O and progress observers.
+test('browse checkpoints publish early, every fourth checkpoint, and on cancellation/final save',async()=>{
+ const source=await fs.readFile(new URL('../electron/particle-library-worker.mjs',import.meta.url),'utf8'),body=source.replace(/\r\n/g,'\n').match(/async function checkpoint\(final = false\) \{([\s\S]*?)\n    \}\n    function blocked/)[1],events=[],writes=[];let cancelled=false,builds=0;
+ const bindings={manifest:{},completed:new Set(['one']),entries:[{unsupported:[],naming:{state:'reviewed'}}],candidates:['one','two'],sourceKey:'test',folder:'install',cache:'cache',directory:'profile',build:'build',reader:{},reviewFor:()=>null,path,onProgress:()=>events.push('progress'),shouldCancel:()=>cancelled,atomic:async file=>{events.push(path.basename(file));writes.push(path.basename(file));},prepareParticleBrowse:async()=>{events.push('prepare');return async()=>{builds++;};}};
+ const checkpoint=new Function('bindings','const {manifest,completed,entries,candidates,sourceKey,folder,cache,directory,build,reader,reviewFor,path,onProgress,shouldCancel,atomic,prepareParticleBrowse}=bindings;let checkpoints=0,lastCheckpoint=0,updateBrowse,browseError;return async function checkpoint(final=false){'+body+'};')(bindings);
+ await checkpoint();assert.equal(builds,1);assert.ok(events.indexOf('progress')<events.indexOf('prepare'),'First usable catalogue appears before expensive browse preparation');for(let i=1;i<9;i++)await checkpoint();cancelled=true;await checkpoint(true);assert.equal(builds,4,'Do not rebuild the full browse index at every checkpoint');assert.equal(writes.filter(n=>n==='catalog.json').length,4);assert.equal(writes.filter(n=>n==='manifest.json').length,4,'Resume manifest stays aligned with the saved catalogue');
 });
