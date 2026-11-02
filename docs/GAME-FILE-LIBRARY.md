@@ -78,6 +78,9 @@ existing hotkey behaviour.
   buttons, virtualized rows, mouse/keyboard navigation, game icons and the one
   catalogue promise per game signature/version. Models also use its icons in
   Standard. No second tree implementation or catalogue cache is maintained.
+- A cold World Editor texture view loads its catalogue directly. The Standard
+  first-page preview and phrase-search worker are deferred until Standard is
+  shown; Standard keeps its first page and warm-signature/readiness flow.
 - [world-editor-textures.js](../src/world-editor-textures.js) reads only MDX TEXS
   records or the MDL Textures block; it creates no preview or editor document.
   [the texture client](../app/world-editor-textures.js) collects every art/variation,

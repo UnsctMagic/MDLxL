@@ -1,6 +1,6 @@
 # Library textures: review fixes after PR #502
 
-Status: contract agreed; Codex to build
+Status: ready for review; awaiting merge approval
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-02
 
@@ -115,3 +115,47 @@ size test stays as it is).
 
 Owner click-through for `ready to test`: Library → Textures → Human → Units →
 Normal → Footman → tiles appear → press Standard → search "painting" → tiles appear.
+
+## Implementation and verification
+
+- Continued `claude/library-textures-review-fixes` at `3863d1aa`, based on
+  `69cdf108`; no unrelated source changes were present.
+- F1/F2: World Editor skips the Standard preview and starts catalogue loading
+  directly. Worker creation, listeners and indexing now start only in Standard;
+  the existing warm-signature and result flow remains in use.
+- F3/F4: rejected icons yield their missing-path record and leave model textures
+  usable; partial results are not cached. Chosen entries show the existing loading
+  message while their model list or catalogue is pending.
+- F5/F7/F8: both timing asserts apply only with no CPU/Chromium variant flags;
+  timings remain recorded in every variant. Each failure diagnostic is guarded,
+  and both browsers import the same two unchanged empty-tree strings.
+- F6 correction: `test/helpers/fiber-probe.cjs` actually installs
+  `window.findFiberProps` (line 21), and `launchApp` installs that probe. The
+  undefined-fallback premise was inaccurate in this harness. The requested
+  cleanup is still applied: assert `window.__mdlxl.model` exists and use it alone.
+- Fail-first: the old packaged view recorded preview=1, catalogue=1, a World
+  Editor worker init and `0 textures · Footman` while its real catalogue reply
+  was held; A1 failed `1 !== 0`. The new A3 test failed `icon read failed` on
+  the old helper, then passed after F3. Diagnostic fault injection masked the
+  original error in all three old cases (screenshot/count/text) and preserved it
+  in all three fixed cases.
+- Completed checks: `pnpm test` 57 passed / 0 failed / 0 skipped; named focused
+  source files with A3 16 / 0 / 0; build and packaging passed. The required runner
+  passed `game-file-library,library-textures-review` on default (2 / 0 / 0) and
+  actual 4× slow-cpu (2 / 0 / 0), hidden on `WinSta0\MDLxLTests`.
+- A1/A2/A4 in both variants: preview=0, direct catalogue=1, worker creation/init=0
+  before Standard, one init in Standard; held-catalogue entry shows the loading
+  message. [A4 capture](../../test/evidence/library-textures-review-fixes/loading-default.png).
+- A5/A6: T1–T11 passed in both variants. Default Footman first/cached:
+  52/51 ms (both < 1 s asserted); slow-cpu 126/49 ms (recorded, not budgeted).
+  Standard first grid: 295 ms default, 1128 ms slow-cpu.
+- Exact same tested bundle: index `8c8394f3c93c9d435a997dce8c4aac1d0ce4a6691b13168a2dfc0796a2e72cb4`;
+  assets `8c18f829dceff8e3b2f5ff94ab4699429c6cd684aa4522b83be935b08c192c75`.
+- Not exercised: Warcraft III gameplay, no-GPU variants, owner visual acceptance.
+  Independent Claude QA remains pending. No installed profile change or merge.
+
+## Review handoff
+
+PR and implementation revision are recorded after the verification commit.
+Owner click-through: Library → Textures → Human → Units → Normal → Footman →
+tiles appear → Standard → search "painting" → tiles appear.

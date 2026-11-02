@@ -41,7 +41,10 @@ export function createEntryTextureLists(readModels,readIcon){
     const settled=await Promise.allSettled((entry.models||[]).map(model=>readModels(model.path,variant,signature)));
     const groups=settled.filter(result=>result.status==='fulfilled').map(result=>result.value),failed=settled.filter(result=>result.status==='rejected');
     if(failed.length){if(!groups.length)throw failed[0].reason;queueMicrotask(()=>lists.delete(key));}
-    if(entry.icon){const icon=await readIcon(entry.icon,variant);groups.push([icon||{path:entry.icon,variant}]);}
+    if(entry.icon){
+     let icon;try{icon=await readIcon(entry.icon,variant);}catch{queueMicrotask(()=>lists.delete(key));}
+     groups.push([icon||{path:entry.icon,variant}]);
+    }
     const seen=new Set();return groups.flat().filter(record=>{const id=textureKey(record);if(seen.has(id))return false;seen.add(id);return true;});
    })();
    lists.set(key,job);job.catch(()=>lists.delete(key));

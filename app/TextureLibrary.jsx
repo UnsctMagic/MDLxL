@@ -101,17 +101,14 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     const previous=document.activeElement;input.current?.focus();return()=>previous?.focus?.();
   },[]);
   useEffect(()=>{
-    let active=true,initTimer,fullCatalogTimer;expectedCatalog.current=null;setCatalogFresh(false);setLoading(!librarySessions.peek(modelPath));setReady(false);setError('');
+    let active=true,fullCatalogTimer;expectedCatalog.current=null;setCatalogFresh(false);setLoading(!librarySessions.peek(modelPath));setReady(false);setError('');
     if(!window.desktop?.textureLibraryCatalog){setLoading(false);setError('The native texture library is available in the desktop app.');return;}
-    const w=libraryWorker();worker.current=w;libraryConsumers++;
-    const onMessage=({data})=>{if(!active)return;if(data.type==='ready'&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current){setReady(true);setLoading(false);}else if(data.type==='result'&&data.id===requestId.current){librarySessions.remember(modelPath,expectedCatalog.current,requestOptions.current,data.result);setResult(data.result);setSearching(false);}else if(data.type==='error'&&(data.id===requestId.current||data.id==null&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current)){setError(data.message);setLoading(false);setSearching(false);}};
-    const onError=event=>{if(sharedWorker===w){w.terminate();sharedWorker=null;}if(active){setError(event.message||'Texture search could not start.');setLoading(false);}};
-    w.addEventListener('message',onMessage);w.addEventListener('error',onError);
-    const useCatalog=data=>{if(!active)return;clearTimeout(initTimer);if(expectedCatalog.current!==data.signature){requestId.current=++searchSerial;setSearching(false);}expectedCatalog.current=data.signature;setCatalog(data);setSelected(previous=>previous&&data.items.some(item=>item.cacheKey===previous.cacheKey)?previous:null);if(!currentFilters.current.worldEditor&&!data.items.some(item=>item.variant==='classic'))setVariant('all');if(data.signature&&w.warmSignature===data.signature){setReady(true);setLoading(false);}else{setReady(false);initTimer=setTimeout(()=>{if(active)w.postMessage({type:'init',items:data.items,signature:data.signature});},50);}};
+    libraryConsumers++;
+    const useCatalog=data=>{if(!active)return;if(expectedCatalog.current!==data.signature){requestId.current=++searchSerial;setSearching(false);}expectedCatalog.current=data.signature;setCatalog(data);setSelected(previous=>previous&&data.items.some(item=>item.cacheKey===previous.cacheKey)?previous:null);if(!currentFilters.current.worldEditor&&!data.items.some(item=>item.variant==='classic'))setVariant('all');if(data.signature&&sharedWorker?.warmSignature===data.signature){setReady(true);setLoading(false);}else{setReady(false);if(currentFilters.current.worldEditor)setLoading(false);}};
     const refreshCatalog=()=>librarySessions.load(modelPath,()=>window.desktop.textureLibraryCatalog({modelPath})).then(data=>{useCatalog(data);if(active)setCatalogFresh(true);}).catch(error=>{if(active){setError(error.message);setLoading(false);}});
     const warm=librarySessions.peek(modelPath);
     if(warm){useCatalog(warm);refreshCatalog();}
-    else if(window.desktop.textureLibraryPreview){
+    else if(!currentFilters.current.worldEditor&&window.desktop.textureLibraryPreview){
       const previewFormat=currentFilters.current.format;
       window.desktop.textureLibraryPreview({modelPath,format:previewFormat}).then(preview=>{
         if(!active)return;
@@ -121,8 +118,19 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
       }).catch(error=>{if(active)console.warn('Texture library first page:',error);}).finally(()=>{if(active)fullCatalogTimer=setTimeout(()=>{if(active)refreshCatalog();},75);});
     }else refreshCatalog();
     const unsubscribe=window.desktop.onTextureLibraryPreloadProgress?.(status=>{if(['complete','cancelled'].includes(status.state)){setCacheEpoch(value=>value+1);refreshCatalog();}});
-    return()=>{active=false;clearTimeout(initTimer);clearTimeout(fullCatalogTimer);libraryConsumers--;unsubscribe?.();w.removeEventListener('message',onMessage);w.removeEventListener('error',onError);worker.current=null;};
+    return()=>{active=false;clearTimeout(fullCatalogTimer);libraryConsumers--;unsubscribe?.();};
   },[modelPath]);
+  // Only Standard uses phrase search; World Editor does not start its worker.
+  useEffect(()=>{
+    if(worldEditor||!catalog||expectedCatalog.current!==catalog.signature)return;
+    let active=true,initTimer;const w=libraryWorker();worker.current=w;
+    const onMessage=({data})=>{if(!active)return;if(data.type==='ready'&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current){setReady(true);setLoading(false);}else if(data.type==='result'&&data.id===requestId.current){librarySessions.remember(modelPath,expectedCatalog.current,requestOptions.current,data.result);setResult(data.result);setSearching(false);}else if(data.type==='error'&&(data.id===requestId.current||data.id==null&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current)){setError(data.message);setLoading(false);setSearching(false);}};
+    const onError=event=>{if(sharedWorker===w){w.terminate();sharedWorker=null;}if(active){setError(event.message||'Texture search could not start.');setLoading(false);}};
+    w.addEventListener('message',onMessage);w.addEventListener('error',onError);
+    if(catalog.signature&&w.warmSignature===catalog.signature){setReady(true);setLoading(false);}
+    else{setReady(false);initTimer=setTimeout(()=>w.postMessage({type:'init',items:catalog.items,signature:catalog.signature}),50);}
+    return()=>{active=false;clearTimeout(initTimer);w.removeEventListener('message',onMessage);w.removeEventListener('error',onError);worker.current=null;};
+  },[worldEditor,catalog?.signature,modelPath]);
   useEffect(()=>{setLimit(120);},[query,vibe,folder,variant,kind,format]);
   useEffect(()=>{
     if(worldEditor){requestId.current=++searchSerial;setSearching(false);return;}
@@ -192,7 +200,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
       {!worldEditor&&<select aria-label="Texture kind" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All textures</option><option value="units">Units &amp; characters</option><option value="buildings">Buildings</option><option value="doodads">Doodads</option><option value="terrain">Terrain</option><option value="effects">Effects</option><option value="icons">Icons</option><option value="art">Paintings &amp; art</option></select>}
     </div>
     <div className="tl-body"><nav className={'tl-folders'+(worldEditor?' gf-side':'')} aria-label="Native texture folders"><FolderStyle style={style} onChange={changeStyle}/>{worldEditor?<WorldEditorTextureTree variant={variant} query={query} onChoose={chooseEntry} onError={error=>setEntryError(error.message)}/>:<><button type="button" className={'tl-all-folders'+(!folder?' selected':'')} onClick={()=>setFolder('')}>All folders <small>{tree.count}</small></button>{tree.children.map(node=><FolderBranch key={node.path} node={node} selected={folder} onSelect={setFolder}/>)}</>}</nav>
-      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{worldEditor?<span>{translate('{0} textures').replace('{0}',displayed.total.toLocaleString())}{entry&&<> · <span translate="no">{entry.name}</span></>}</span>:<>{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</>}</div>
+      <main className="tl-results"><div className="tl-result-status" aria-live="polite">{worldEditor?<span>{entry&&(entryLoading||!catalog)?translate('Loading texture library…'):<>{translate('{0} textures').replace('{0}',displayed.total.toLocaleString())}{entry&&<> · <span translate="no">{entry.name}</span></>}</>}</span>:<>{loading?'Loading texture library…':searching?'Searching…':`${result.total.toLocaleString()} textures`}{folder&&<span title={folder}>{folder}</span>}</>}</div>
         {error&&<p className="tl-error" role="alert">{error}</p>}{catalog?.errors?.map((item,index)=><p key={index} className="tl-error">{item.message}</p>)}
         {!loading&&catalog?.nativeCount===0&&<p className="tl-note">No Warcraft textures were found. Choose your Warcraft III folder in Settings.</p>}
         {!worldEditor&&result.notice&&vibe&&<p className="tl-note">{result.notice}</p>}
