@@ -24,6 +24,8 @@ Bones is the shared master for Bone and Helper markers. Right-click it for check
 - Hidden desktop checks run via `scripts/hidden-run.ps1`; no computer-use control or installed profile changes.
 - Warcraft III, full suites and independent Claude QA were not run. Claude owns final QA per TESTING-RULES.md.
 
+- Merge closeout: CI identified five stale source expectations in `portrait-toolbar.test.js` and `vis-mdlvis-mode.test.js`; updated only the expected combined Bones/Helpers Clear state, VIS Bones checkbox presence, and removal of forced-on markers. Original checks failed first; targeted rerun recorded in PR.
+
 ## Handoff
 
 Open feature PR into main; no merge authorized. Remove task worktree and disposable package/profile after pushing; keep the small report and menu capture on D:.
