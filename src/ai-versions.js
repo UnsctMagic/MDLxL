@@ -2,7 +2,7 @@
 // used again. Held in memory per document until MDLxL closes.
 import { createChanges } from './history-store.js';
 import { ignoreHistoryAlias } from './editor-document.js';
-import { encodeAiValue, pointer } from './ai-model.js';
+import { encodeAiValue, pointer, prepareAiEdit } from './ai-model.js';
 
 // Automatic versions beyond this many are dropped oldest first; "original" and
 // versions the AI named itself are always kept.
@@ -39,6 +39,19 @@ export function createVersionStore() {
       own.jobs++;
       return this.save(documentId, `before job ${own.jobs}`, model, "The model before this job's first edit.", true);
     },
+    stage(documentId, name, model, origin) {
+      if (!origin || typeof origin.target !== 'string' || !Number.isSafeInteger(origin.revision) || origin.revision < 0 || !origin.before) throw Error('A candidate needs its original target and model revision.');
+      prepareAiEdit(origin.before, model, origin);
+      this.save(documentId, name, model, 'Private candidate; not applied to the model.');
+      find(documentId, name).candidate = structuredClone(origin);
+      return name;
+    },
+    origin(documentId, name) {
+      const candidate = find(documentId, name).candidate;
+      if (!candidate) return null;
+      const { before, ...metadata } = candidate;
+      return structuredClone(metadata);
+    },
     get: (documentId, name) => find(documentId, name).model,
     names: documentId => versionsOf(documentId).list.map(v => v.name),
     list(documentId, current) {
@@ -47,7 +60,8 @@ export function createVersionStore() {
         return {
           name: v.name,
           note: v.note,
-          kept: v.automatic ? 'automatically' : 'saved',
+          kept: v.candidate ? 'candidate' : v.automatic ? 'automatically' : 'saved',
+          ...(v.candidate ? { candidate: this.origin(documentId, v.name) } : {}),
           savedAt: new Date(v.at).toISOString(),
           sameAsCurrent: changes.length === 0,
           differencesFromCurrent: changes.length,
@@ -70,11 +84,18 @@ export function createVersionStore() {
       };
     },
     // Patch operations that make the current model exactly this version again.
-    restore(documentId, name, current) {
-      const version = find(documentId, name).model;
+    restore(documentId, name, current, origin) {
+      const saved = find(documentId, name), version = saved.model;
+      if (saved.candidate) {
+        const staged = saved.candidate;
+        if (!origin || staged.target !== origin.target || staged.chatId !== origin.chatId || staged.plan !== origin.plan) throw Error('This candidate belongs to a different originating target, chat or plan.');
+        if (staged.revision !== origin.revision || createChanges(staged.before, current, { ignore: ignoreHistoryAlias }).length) throw Error('This candidate is stale: the originating model changed. Compare it, then stage a new candidate against the current model before use.');
+        prepareAiEdit(current, version, staged);
+      }
       const sections = [...new Set([...Object.keys(current), ...Object.keys(version)])].filter(key => key !== 'Nodes');
       return {
-        scope: sections.map(key => '/' + key),
+        scope: saved.candidate?.scope || sections.map(key => '/' + key),
+        ...(saved.candidate ? { protectedPaths: saved.candidate.protectedPaths, animationRanges: saved.candidate.animationRanges } : {}),
         operations: sections.map(key =>
           key in version ? { op: 'set', path: '/' + key, value: encodeAiValue(version[key]) } : { op: 'delete', path: '/' + key },
         ),

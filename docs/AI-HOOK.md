@@ -90,8 +90,24 @@ every request also carries a short set of general Warcraft III editing rules, an
 the AI can open the step-by-step `WC3-EDITING-*` guides (geometry, UVs and
 materials, nodes and binding, animation, emitters, game integration,
 verification). While it is off, neither is sent and the guides are not listed in
-help. Like SD Brain, a running job keeps the setting it started with; a change
-applies from the next request.
+help. A running job keeps the handbook setting it started with. A change applies
+from the next request.
+
+With the handbook enabled, the plan can attach native editing and rig checks to
+the captured part IDs. Each agreed check stays with the job across candidate
+comparisons and replans. For a rigid part, declare the support bone and the
+surface that must retain its shape. Review checks attachment and internal shape
+separately and can show the worst measured pose. Scope and preservation checks
+use the original data. The editor reports insufficient correspondence or
+coverage when a requested measurement cannot be established.
+
+Compare named candidates in the existing versions tool. A measurement or a
+rejected experiment can advance a task before a live edit is applied. Candidate
+evidence is available in the chat progress details. After a verified handbook
+review, **Save reviewed copy…** exports the model bytes retained with the chat.
+A version explicitly saved as best also supports **Save best candidate…**.
+These retained copies follow the chat's cleanup policy. Saving one does not
+require another provider request. [Procedure owners and replayable examples](agent-tasks/integrated-editing-handbook.md).
 
 ### Web research
 
@@ -382,8 +398,10 @@ setting). Higher is slower and uses more of your plan or credits. Other AI / loc
 model connections do not offer it.
 
 **Guides and patterns.** With the Editing handbook on, each job also carries the
-full guide (or two) its request touches, for example the binding guide for "the
-legs clip into the skirt", instead of only a pointer to it. Patterns from
+relevant sections of up to two guides, for example the binding guide for "the
+legs clip into the skirt". A vague reference to a marked part can use the
+captured editing area. The remaining section headings are available for
+on-demand reads through `mdlxl_help`. Patterns from
 reference models, and rules you pass on in the chat, are given to the AI as
 evidence about what is common and why, not as orders: it checks that this model
 is like the cases the pattern comes from before applying it.

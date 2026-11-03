@@ -292,3 +292,14 @@ test('worker snapshot cannot mark edits made during a save as saved', async () =
   assert(doc.dirty); assert.match(doc.model.Info.Name, / later$/);
   assert.doesNotMatch(openDocument(output.bytes, output.name).model.Info.Name, / later$/);
 });
+
+test('a reviewed candidate gets its own MDX bytes while a previous revision save is in flight', async () => {
+  const doc = fixture(); hide(doc);
+  const worker = () => nodeWorker({ count: 0 });
+  const earlier = prepareModelSaveAsync(doc, 'mdx', doc.name, worker);
+  doc.apply('Review candidate', ['Info'], m => { m.Info.Name = 'Reviewed candidate'; });
+  const reviewed = prepareModelSaveAsync(doc, 'mdx', doc.name, worker);
+  const [a, b] = await Promise.all([earlier, reviewed]);
+  assert.notEqual(openDocument(a.bytes, a.name).model.Info.Name, 'Reviewed candidate');
+  assert.equal(openDocument(b.bytes, b.name).model.Info.Name, 'Reviewed candidate');
+});

@@ -928,3 +928,77 @@ test('context diet: steering queued during an edit describes the post-edit state
   assert.ok(!steer.includes('"revision":1'));
   assert.match(steer,/"color":"red"/);
 });
+
+test('native plan checks cannot disappear on replan and are injected into every review', async t => {
+  const nativeChecks = [{ name: 'Plate keeps its motion', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  const errors = [], inspected = [];
+  const actions = [plan({ nativeChecks }), plan({ cause: 'Changed diagnosis', nativeChecks: [] }), edit(),
+    tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"looks good",passed:true}]', nativeChecks: [] }),
+    tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Compared the declared plate.' })];
+  const f = await setup(t, ({ data }) => {
+    if (data.messages.at(-1).role === 'tool') errors.push(data.messages.at(-1).content);
+    return actions.shift() || done();
+  });
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'inspect') inspected.push(args);
+    return call(name, args, ...rest);
+  };
+  const result = await f.service.send({ id: 'test', text: 'Repair the plate while preserving its shape and attachment', context });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.ok(errors.some(error => /native.*cannot.*remove|retain.*native/i.test(error)), 'dropping an agreed native check must be refused');
+  assert.deepEqual(inspected[0].nativeChecks, nativeChecks, 'custom review arguments cannot drop an agreed native check');
+  assert.deepEqual((await f.service.readConversation('test')).task.plan.nativeChecks, nativeChecks);
+});
+
+
+test('handbook rigging requests need declared native part roles before edits', async t => {
+  for (const text of ['Repair the binding of this rigid plate to its arm bone', 'Rig this model', 'Skin these selected vertices']) {
+    const actions = [plan(), edit()];
+    const f = await setup(t, () => actions.shift() || done());
+    await f.service.setEditingHandbook(true);
+    const result = await f.service.send({ id: 'test', text, context });
+    assert.equal(f.counts().edits, 0, 'a generic plan cannot bypass explicit rig roles: ' + text);
+    assert.equal(result.ok, false);
+  }
+});
+
+
+test('native contract survives the workspace merge resetting the operation plan and baseline', async t => {
+  const nativeChecks = [{ name: 'Plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  const original = { Info: { Name: 'Original job' }, Geosets: [] }, latest = { Info: { Name: 'Latest user' }, Geosets: [] };
+  let service, checkpoints = 0;
+  const received = [];
+  const actions = [plan({ nativeChecks }), edit(), plan(), edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"requested result",passed:true}]' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Merged and verified.' })];
+  const f = await setup(t, ({ requests }) => {
+    if (requests === 3) {
+      const task = [...service.conversations.values()].find(c => c.id === 'test').task;
+      delete task.plan; delete task.baseline; task.steps = [];
+    }
+    return actions.shift() || done();
+  });
+  service = f.service;
+  const call = service.call;
+  service.call = async (name, args, ...rest) => {
+    const result = await call(name, args, ...rest);
+    if (name === 'mdlxl_checkpoint' && args.includeBaseline) result.baseline = ++checkpoints === 1 ? original : latest;
+    if (name === 'mdlxl_review' && args.action === 'inspect') received.push(args);
+    return result;
+  };
+  assert.equal((await service.send({ id: 'test', text: 'Repair the plate', context })).ok, true);
+  assert.deepEqual(received[0].nativeChecks, nativeChecks, 'original mandatory measurements survive replan');
+  assert.deepEqual(received[0].nativeBaseline, original, 'original native baseline survives separately from latest confinement baseline');
+});
+
+test('a private candidate stage carries plan scope and does not create an applied task step',async t=>{
+  const actions=[plan({scope:['/Geosets/0'],protectedPaths:['/Bones']}),tool('mdlxl_patch',{target:'selected',candidate:'private A',edit:false,scope:['/Geosets/0/Vertices'],protectedPaths:['/Textures'],operations:[{op:'set',path:'/Geosets/0/Vertices/0',value:2}]}),done()];
+  const f=await setup(t,({requests})=>actions[requests-1]||done()),original=f.service.call,staged=[];
+  f.service.call=async(name,args,...rest)=>{
+    if(name==='mdlxl_patch'&&args.candidate){staged.push(args);const saved=await f.service.readConversation('test');assert.equal(saved.task.steps.length,0);return{candidate:args.candidate,staged:true,applied:false,changeCount:1};}
+    return original(name,args,...rest);
+  };
+  const result=await f.service.send({id:'test',text:'Privately test a simpler helmet candidate',context});
+  assert.equal(result.ok,true);assert.equal(f.counts().edits,0);assert.equal(staged.length,1);
+  assert.deepEqual(staged[0].protectedPaths,['/Bones','/Textures']);assert.equal(typeof staged[0]._candidatePlan,'string');
+  const saved=await f.service.readConversation('test');assert.equal(saved.task.steps.length,0);assert.equal(saved.task.unresolvedEditError,undefined);
+});

@@ -4,12 +4,40 @@ import { createChanges } from '../src/history-store.js';
 import { sweepAiRelation } from '../src/ai-relation-sweep.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
+import { isolatePaintRegion } from '../src/paint-region.js';
 import { compareMotion, motionTable } from '../src/ai-motion-compare.js';
+
+// Shipping renderer uses a disposable worker. postMessage snapshots inputs at
+// the call boundary so a later user edit cannot change a running comparison.
+export async function nativeCandidateChecks(before, candidate, specifications = [], signal, { rigBefore = before, originalBytes } = {}) {
+  if (!specifications.length) return { checks: [], reports: [], worstPoses: [] };
+  signal?.throwIfAborted();
+  const input = { before, candidate, specifications, rigBefore, originalBytes };
+  if (typeof Worker === 'undefined') {
+    const snapshot = structuredClone(input);
+    const { measureNativeCandidate } = await import('./ai-native-measure.js');
+    return measureNativeCandidate(snapshot, signal);
+  }
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./ai-native-measure.worker.js', import.meta.url), { type: 'module' });
+    const finish = (error, value) => {
+      signal?.removeEventListener('abort', cancel);
+      worker.terminate();
+      if (error) reject(error); else resolve(value);
+    };
+    const cancel = () => finish(signal.reason || new Error('Candidate measurement cancelled.'));
+    signal?.addEventListener('abort', cancel, { once: true });
+    worker.onmessage = ({ data }) => finish(data.error ? new Error(data.error) : null, data.result);
+    worker.onerror = event => finish(new Error(event.message || 'Candidate measurement worker failed.'));
+    worker.onmessageerror = () => finish(new Error('Candidate measurement worker returned unreadable data.'));
+    try { worker.postMessage(input); } catch (error) { finish(error); }
+  });
+}
 
 export async function aiCheckpoint(
   bridge,
   id,
-  { includeBaseline = false, baseline, restore, restoreReview } = {},
+  { includeBaseline = false, includeCandidate = false, baseline, restore, restoreReview } = {},
 ) {
   const target = bridge.requireTarget(id);
   if (restore) {
@@ -52,12 +80,14 @@ export async function aiCheckpoint(
       animation: !!restoreReview?.animation,
       sequences: restoreReview?.sequences || [],
       globalSequences: restoreReview?.globalSequences || [],
+      ...(restoreReview?.nativeChecks ? { nativeChecks: structuredClone(restoreReview.nativeChecks) } : {}),
     };
   const { doc, session } = bridge.env(target);
   const bytes = (await prepareModelSaveAsync(doc, 'mdx')).bytes;
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   bridge.requireTarget(id);
   return {
+    ...(includeCandidate ? { bytes: new Uint8Array(bytes) } : {}),
     fingerprint: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
     path: (target.job?.draft ? bridge.host().sessionOf(target.documentId).path : session.path) || null,
     name: doc.name,
@@ -74,17 +104,22 @@ export const reviewStatus = review => ({
   sequences: review?.sequences || [],
   globalSequences: review?.globalSequences || [],
   summary: review?.summary || '',
+  ...(review?.nativeChecks ? { nativeChecks: structuredClone(review.nativeChecks) } : {}),
 });
 export async function beginAiReview(bridge, id, options) {
-  const target = bridge.requireTarget(id);
+  const target = options?.modelOnlyTarget ? bridge.requireModelTarget(id) : bridge.requireTarget(id);
   if (target.review) return target.review;
-  const before = structuredClone(bridge.env(target).model);
+  const { model, doc } = bridge.env(target);
+  const before = structuredClone(model);
+  const byteGoal = options?.nativeChecks?.some(check => check.editing?.optimization?.measureBytes);
+  const originalBytes = byteGoal ? new Uint8Array((await prepareModelSaveAsync(doc, 'mdx')).bytes) : undefined;
   // Every job can go back to how the model was before it started.
   bridge.versionStore?.beforeJob(target.documentId, before);
   // No picture is taken now: inspect draws the kept original with the same
   // animation, frame and framing as the edited result, also after a resume.
   return (target.review = {
     before,
+    ...(originalBytes ? { originalBytes } : {}),
     changed: false,
     phase: 'unchanged',
     changes: [],
@@ -165,6 +200,7 @@ export function touchedAnimations(changes, before, model) {
 }
 // One tool result carries at most 16 pictures (ai-mcp.cjs toolContent).
 const MAX_REVIEW_PICTURES = 16;
+const hasAnimationClips = model => !!(model.Sequences?.length || model.GlobalSequences?.some(duration => duration > 0));
 const animationRange = (model, a) =>
   a.globalSequence != null
     ? model.GlobalSequences?.[a.globalSequence] > 0 && [0, model.GlobalSequences[a.globalSequence]]
@@ -192,16 +228,16 @@ function checkAnimation(model, a, what) {
     throw Error(`${what}: animation index is out of range.`);
 }
 // Corners of the posed, visible model at one frame, so a picture pair can share one framing.
-function posedCorners(model, a, frame, hidden) {
-  const vertices = {};
-  model.Geosets.forEach((g, i) => {
+function posedCorners(model, a, frame, hidden, selection) {
+  const vertices = selection || {};
+  if (!selection) model.Geosets.forEach((g, i) => {
     if (!hidden.has(i) && g.Vertices.length) vertices[i] = Array.from({ length: g.Vertices.length / 3 }, (_, v) => v);
   });
   const min = [Infinity, Infinity, Infinity],
     max = [-Infinity, -Infinity, -Infinity];
   const add = p => p.forEach((v, i) => ((min[i] = Math.min(min[i], v)), (max[i] = Math.max(max[i], v))));
   if (a.sequence < 0 && a.globalSequence == null)
-    for (const gi of Object.keys(vertices)) for (let i = 0; i < model.Geosets[gi].Vertices.length; i += 3) add(model.Geosets[gi].Vertices.subarray(i, i + 3));
+    for (const gi of Object.keys(vertices)) for (const vertex of vertices[gi]) add(model.Geosets[gi].Vertices.subarray(vertex * 3, vertex * 3 + 3));
   else {
     const count = Math.max(0, ...Object.values(vertices).map(v => v.length));
     for (let offset = 0; offset < count; offset += 1000)
@@ -215,6 +251,7 @@ function posedCorners(model, a, frame, hidden) {
 // and a donor when the task copies from one, drawn at the same animation phase
 // with the same view, display settings and framing. The user's view never decides.
 async function comparisonPictures(bridge, id, review, before, args) {
+  const pictureLimit = MAX_REVIEW_PICTURES - (args.reservedNativePictures || 0);
   const target = bridge.requireTarget(id),
     { model, state } = bridge.env(target),
     hidden = new Set(state.hiddenGeosets || []);
@@ -234,7 +271,7 @@ async function comparisonPictures(bridge, id, review, before, args) {
           ? own
           : touched[0];
   checkAnimation(model, shown, 'Review');
-  const range = animationRange(model, shown);
+  const range = animationRange(model, shown), animated = review.animation && hasAnimationClips(model);
   const original = sameAnimation(before, model, shown),
     originalRange = original && animationRange(before, original);
   let donor = null;
@@ -250,22 +287,22 @@ async function comparisonPictures(bridge, id, review, before, args) {
   }
   // Animation edits compare 3–8 phases; other edits compare one still at the task's frame.
   let frames = [];
-  if (review.animation) {
+  if (animated) {
     if (!range) throw Error('Animation verification needs an animation. Give sequence or globalSequence.');
     frames = args.frames || [range[0], (range[0] + range[1]) / 2, range[1]];
     if (new Set(frames).size < 3) throw Error('Animation verification needs at least three distinct frames. Provide frames in the edited animation.');
     if (frames.some(f => f < range[0] || f > range[1])) throw Error(`frames must lie inside ${animationName(model, shown)}: ${range[0]}–${range[1]}.`);
-  } else frames = [same(shown, own) ? (target.frame ?? range?.[0] ?? 0) : (range?.[0] ?? 0)];
+  } else frames = [args.frames?.[0] ?? (same(shown, own) ? (target.frame ?? range?.[0] ?? 0) : (range?.[0] ?? 0))];
   const motion = measured.find(row => same(row, shown));
   if (motion) frames = frames.map(frame => motion.perFrame.reduce((best, f) => Math.abs(f.frame - frame) < Math.abs(best.frame - frame) ? f : best).frame);
   const perFrame = 2 + (donor ? 1 : 0);
-  if (frames.length * perFrame + (args.turnaround ? 4 : 0) > MAX_REVIEW_PICTURES)
-    throw Error(`That is more than ${MAX_REVIEW_PICTURES} pictures. Use fewer frames.`);
+  if (frames.length * perFrame + (args.turnaround ? 4 : 0) > pictureLimit)
+    throw Error(`That is more than ${pictureLimit} pictures. Use fewer frames.`);
   if (motion) for (const frame of [motion.distance.frame, motion.speedDifference.frame]) {
-    if (!frames.includes(frame) && (frames.length + 1) * perFrame + (args.turnaround ? 4 : 0) <= MAX_REVIEW_PICTURES) frames.push(frame);
+    if (!frames.includes(frame) && (frames.length + 1) * perFrame + (args.turnaround ? 4 : 0) <= pictureLimit) frames.push(frame);
   }
   const plans = frames.map(frame => ({ frame, shown, motion, extra: false }));
-  let room = MAX_REVIEW_PICTURES - frames.length * perFrame - (args.turnaround ? 4 : 0);
+  let room = pictureLimit - frames.length * perFrame - (args.turnaround ? 4 : 0);
   for (const row of measured.filter(row => !same(row, shown))) {
     if (room < 2) break;
     plans.push({ frame: row.distance.frame, shown: row, motion: row, extra: true }); room -= 2;
@@ -281,7 +318,7 @@ async function comparisonPictures(bridge, id, review, before, args) {
     bridge.requireTarget(id);
     const phase = range && range[1] > range[0] ? (frame - range[0]) / (range[1] - range[0]) : null;
     const at = r => (phase == null || !r ? (r?.[0] ?? frame) : Math.round(r[0] + phase * (r[1] - r[0])));
-    const group = review.animation ? `frame ${frame}${measured.length ? `; ${animationName(model, shown)}` : ''}` : 'still',
+    const group = animated ? `frame ${frame}${measured.length ? `; ${animationName(model, shown)}` : ''}` : 'still',
       when = `${phase == null ? '' : `${Math.round(phase * 100)}% through; `}frame `;
     const distance = motion?.perFrame.find(f => f.frame === frame)?.max;
     const labelDistance = distance !== undefined ? `; measured distance ${distance.toFixed(4)} model units` : '';
@@ -318,6 +355,40 @@ async function comparisonPictures(bridge, id, review, before, args) {
 }
 // Both inspect and the outside check measure the current plan. A topology edit
 // can leave a named point on only one side, so preserve the other side's numbers.
+async function nativePictures(bridge, id, confinementBefore, model, worstPoses, images, reserved, rigBefore = confinementBefore) {
+  const seen = new Set(), missing = [];
+  for (const worst of worstPoses) {
+    const before = worst.baseline === 'original' ? rigBefore : confinementBefore;
+    const pose = { ...(worst.globalSequence != null ? { globalSequence: worst.globalSequence } : { sequence: worst.sequence ?? -1 }), frame: worst.frame };
+    const key = JSON.stringify([pose, worst.geoset]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (images.length + 2 + reserved > MAX_REVIEW_PICTURES) { missing.push('More native worst poses are listed in measurements than fit in the image set.'); break; }
+    const original = sameAnimation(before, model, pose);
+    if (!original) { missing.push(`No original clip for native worst pose ${worst.name}.`); continue; }
+    const originalFrame = worst.referenceFrame ?? worst.frame;
+    const hidden = new Set(worst.geoset == null ? [] : model.Geosets.map((_, geoset) => geoset).filter(geoset => geoset !== worst.geoset));
+    const selection = worst.partVertices && worst.geoset != null ? { [worst.geoset]: worst.partVertices } : undefined;
+    const isolate = source => {
+      if (!selection) return source;
+      const geoset = worst.geoset, ids = new Set(worst.partVertices), geo = source.Geosets[geoset], faces = new Set();
+      for (let index = 0; index < geo.Faces.length; index += 3) if (ids.has(geo.Faces[index]) && ids.has(geo.Faces[index + 1]) && ids.has(geo.Faces[index + 2])) faces.add(index / 3);
+      return faces.size ? isolatePaintRegion(source, { byGeoset: new Map([[geoset, faces]]) }) : null;
+    };
+    const originalPicture = isolate(before), candidatePicture = isolate(model);
+    if (!originalPicture || !candidatePicture) { missing.push(`Native worst ${worst.name}: the declared region has no complete faces to capture.`); continue; }
+    const focus = [...posedCorners(model, pose, worst.frame, hidden, selection), ...posedCorners(before, original, originalFrame, hidden, selection)];
+    const part = worst.geoset == null ? '' : `; geoset ${worst.geoset + 1}`;
+    const group = 'native worst ' + key;
+    const sample = worst.geoset == null ? {} : { geosets: [worst.geoset] };
+    images.push({ role: 'original', group, motionPriority: -2, label: `Native worst ${worst.name}${part}; original target; ${animationName(before, original)}; frame ${originalFrame}`,
+      image: (await bridge.picture(id, { ...original, ...sample, frame: originalFrame }, { model: originalPicture, focus })).image });
+    images.push({ role: 'edited', group, motionPriority: -2, label: `Native worst ${worst.name}${part}; edited target; ${animationName(model, pose)}; frame ${worst.frame}`,
+      image: (await bridge.picture(id, { ...pose, ...sample }, { ...(selection ? { model: candidatePicture } : {}), focus })).image });
+  }
+  return missing;
+}
+
 async function planSweeps(review, checks, { revision, baseline, before, model }, signal) {
   if (!checks?.length) return;
   const key = JSON.stringify(checks);
@@ -366,6 +437,7 @@ export async function reviewAiModel(bridge, args, options) {
   const env = bridge.env(target),
     revision = env.doc.revision,
     state = env.state;
+  const animated = review.animation && hasAnimationClips(state.model);
   const baseline = args.baseline !== undefined ? bridge.versionStore.get(target.documentId, args.baseline) : review.before;
   const before = baseline;
   const measurePlan = () => planSweeps(review, args.sweepChecks, { revision, baseline, before, model: state.model }, options.signal);
@@ -396,13 +468,26 @@ export async function reviewAiModel(bridge, args, options) {
     checks.some(c => !c || typeof c.name !== 'string' || !c.name.trim() || typeof c.passed !== 'boolean')
   )
     throw Error('Verification must return 1–100 named checks with boolean passed results.');
+  const nativeChecks = args.nativeChecks === undefined ? review.nativeChecks || [] : args.nativeChecks;
+  if (!Array.isArray(nativeChecks)) throw Error('Native checks must be a list.');
+  for (const previous of review.nativeChecks || []) {
+    const next = nativeChecks.find(check => check?.name === previous.name);
+    if (!next || createChanges(previous, next).length) throw Error('Retain every agreed native check unchanged on later inspections.');
+  }
+  const rigBefore = args.nativeBaseline ? decodeAiValue(args.nativeBaseline) : review.nativeBaseline || review.before;
+  if (review.nativeBaseline && createChanges(review.nativeBaseline, rigBefore, { ignore: ignoreHistoryAlias }).length)
+    throw Error('Retain the original native baseline during review.');
+  const native = await nativeCandidateChecks(review.before, state.model, nativeChecks, options.signal, { rigBefore, originalBytes: review.originalBytes || env.doc.originalBytes });
+  review.nativeChecks = structuredClone(nativeChecks);
+  if (args.nativeBaseline) review.nativeBaseline = structuredClone(rigBefore);
+  checks.push(...native.checks);
   const validation = await bridge.dispatch(
     'mdlxl_document',
     { target: args.target, action: 'validate' },
     options,
   );
   const poses = [];
-  if (review.animation) {
+  if (animated) {
     const touched = args.baseline !== undefined ? touchedAnimations(createChanges(before, state.model, { ignore: ignoreHistoryAlias }), before, state.model) : review;
     // A changed global controller plays in every local clip as well as its own
     // isolated preview. Those clips are all touched by that controller.
@@ -413,8 +498,9 @@ export async function reviewAiModel(bridge, args, options) {
       review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
   }
   const sweeps = await measurePlan();
-  const comparison = await comparisonPictures(bridge, args.target, review, before, args),
+  const comparison = await comparisonPictures(bridge, args.target, review, before, { ...args, reservedNativePictures: native.worstPoses.length ? 2 : 0 }),
     images = comparison.images;
+  const nativeMissing = await nativePictures(bridge, args.target, review.before, state.model, native.worstPoses, images, args.turnaround ? 4 : 0, rigBefore);
   if (args.turnaround)
     // The result from every side: a part that only works from the front shows here.
     // Drawn off-screen, so the user's own view and camera never move.
@@ -427,7 +513,7 @@ export async function reviewAiModel(bridge, args, options) {
         image: (await bridge.picture(args.target, { ...comparison.pose, view: side })).image,
       });
     }
-  if (review.animation) {
+  if (animated) {
     const { shown } = comparison;
     poses.push(
       await bridge.dispatch(
@@ -454,13 +540,14 @@ export async function reviewAiModel(bridge, args, options) {
       ...reviewStatus(review),
       passed: review.passed,
       checks,
+      ...(native.reports.length ? { native: { ...native, baseline: 'original job model' } } : {}),
       validation,
       poses,
       ...(args.baseline !== undefined ? { baseline: args.baseline } : {}),
       ...(sweeps ? { sweeps } : {}),
-      ...(review.animation ? { motion: motionTable(review.motionCache.value) } : {}),
+      ...(animated ? { motion: motionTable(review.motionCache.value) } : {}),
       compared: comparison.compared,
-      ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
+      ...([...comparison.missing, ...nativeMissing].length ? { missingEvidence: [...comparison.missing, ...nativeMissing] } : {}),
       pendingPreviews: !!drafts,
       next: args.turnaround
         ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, stretched or mismatched texture mapping). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'

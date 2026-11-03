@@ -7686,5 +7686,9 @@
   "How long the arcs flash along the blade.": "Cuánto tiempo destellan los arcos a lo largo de la hoja.",
   "Quiet time between flashes.": "Pausa entre los destellos.",
   "Number of flashes along the blade in each burst.": "Número de destellos por la hoja en cada ráfaga.",
-  "Add emitter": "Añadir emisor"
+  "Add emitter": "Añadir emisor",
+  "Save reviewed copy…": "Guardar copia verificada…",
+  "Save best candidate…": "Guardar el mejor candidato…",
+  "Save the model version retained with this chat.": "Guarda la versión del modelo conservada con este chat.",
+  "Candidate evidence": "Resultados de la prueba"
 }

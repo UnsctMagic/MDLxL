@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Integrated editing handbook and candidate review | In review | [Native procedures and recovery](integrated-editing-handbook.md) / Codex |
 | Local AI JavaScript workspace and model merges | In review | [Workspace and merges](ai-workspace-merge.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |

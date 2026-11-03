@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiContextChanged:value=>ipcRenderer.send('ai:contextChanged',value),
   aiAwarenessError:message=>ipcRenderer.send('ai:awarenessError',message),
   aiTask:id=>call('ai:task',id),
+  aiSaveCandidateCopy:input=>call('ai:saveCandidateCopy',input),
   aiConfig:()=>call('ai:config'),
   aiSend:value=>call('ai:send',value),
   aiCancel:id=>call('ai:cancel',id),

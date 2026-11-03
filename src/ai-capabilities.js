@@ -33,7 +33,7 @@ export const AI_AREAS = [
   {
     id: 'rig',
     description: 'Bones, helpers, hierarchy, pivots, skin weights, hard/soft binding and IK posing.',
-    modules: ['bone-tools', 'rig-node-order', 'movement', 'movement-selection', 'pose-ik'],
+    modules: ['ai-editing-procedures', 'ai-rig-checks', 'bone-tools', 'rig-node-order', 'movement', 'movement-selection', 'pose-ik'],
   },
   {
     id: 'animation',
@@ -90,7 +90,7 @@ export const AI_AREAS = [
     id: 'inspection',
     description:
       'Geometry measurements, normals, motion inspection, repair proposals and structural validation; inspect captures as well as numeric results.',
-    modules: ['animation', 'ai-motion-compare', 'normals-rebuild', 'motion-inspector', 'optimizexl', 'optimizexl-checker-repairs'],
+    modules: ['ai-editing-procedures', 'ai-rig-checks', 'animation', 'ai-motion-compare', 'normals-rebuild', 'motion-inspector', 'optimizexl', 'optimizexl-checker-repairs'],
   },
 ];
 

@@ -1,0 +1,56 @@
+{
+  "id": "selected-position-boundary",
+  "fixture": "geoset-save/Tzeentch_Knight_Max_Reduced.mdx",
+  "replay": "node --test test/ai-handbook-teaching.test.js",
+  "request": "Move only the first marked vertex one unit on X; preserve UVs, binding and every exterior vertex.",
+  "scope": [
+    "/Geosets/0"
+  ],
+  "selection": {
+    "0": [
+      0
+    ]
+  },
+  "positive": [
+    {
+      "vertex": 0,
+      "dx": 1
+    }
+  ],
+  "bad": [
+    {
+      "vertex": 0,
+      "dx": 1
+    },
+    {
+      "vertex": 1,
+      "dx": 2
+    }
+  ],
+  "badCheck": "selection confinement",
+  "correction": {
+    "restoreVertices": [
+      1
+    ]
+  },
+  "counterexample": {
+    "request": "Move both explicitly marked vertices by their requested offsets.",
+    "selection": {
+      "0": [
+        0,
+        1
+      ]
+    },
+    "edits": [
+      {
+        "vertex": 0,
+        "dx": 1
+      },
+      {
+        "vertex": 1,
+        "dx": 2
+      }
+    ]
+  },
+  "limits": "This local replay verifies model-data boundaries. Appearance and Warcraft III playback remain separate review gates. No provider, login or paid chat is used."
+}

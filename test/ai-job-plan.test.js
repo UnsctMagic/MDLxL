@@ -36,3 +36,30 @@ test('exact value requests keep their exemption after a leading name or courtesy
  for (const text of ['Please, rename Bone_Head to Head','Footman: set Alpha to 0','ask Crow to rename Bone_Head to Head','rename Bone_Head to Head']) assert.equal(exactValueRequest(text),true,text);
  assert.equal(exactValueRequest('Please, fix the shoulders'),false);
 });
+
+test('a new measured candidate with a different result can continue testing the same hypothesis', () => {
+  const task = {}, inspect = (revision, actual) => recordFailures(task, [
+    { name: 'Plate shape', passed: false, actual, expected: 0.1 },
+  ], revision);
+  inspect('A', 31);
+  inspect('B', 3);
+  assert.equal(task.replanRequired, undefined, 'changing the measured result is evidence');
+  inspect('C', 3);
+  assert.match(task.replanRequired, /Plate shape/);
+});
+
+
+test('private candidate staging obeys recorded scope/protection and remains queued without a live edit',async()=>{
+  const{candidatePolicy,candidatePlan,planScope}=createRequire(import.meta.url)('../electron/ai-job-plan.cjs');
+  const task={plan:{scope:['/Geosets/0'],protectedPaths:['/Bones'],options:[{fix:'repair',cost:'bindings'}],choice:0,keep:['keys'],checks:['shape']}};
+  const args={candidate:'A',edit:false,scope:['/Geosets/0/Vertices'],protectedPaths:['/Textures']};
+  const staged=candidatePolicy(task,args);assert.deepEqual(staged.protectedPaths,['/Bones','/Textures']);assert.equal(staged._candidatePlan,candidatePlan(task));
+  assert.throws(()=>candidatePolicy({},args),/record.*scope|mdlxl_plan/);
+  assert.throws(()=>candidatePolicy(task,{...args,edit:true}),/edit:false/);
+  assert.throws(()=>candidatePolicy(task,{...args,scope:['/Geosets']}),/exceeds.*scope/);
+  assert.throws(()=>planScope(task.plan,{scope:['/Geosets']}),/broaden/);
+  assert.deepEqual(planScope(task.plan,{scope:['/Geosets/0/Vertices']}),{scope:['/Geosets/0/Vertices'],protectedPaths:['/Bones']});
+  const{aiToolEditsModel,aiToolRunsUnqueued}=await import('../src/ai-tools.js');
+  for(const name of ['mdlxl_script','mdlxl_patch']){assert.equal(aiToolEditsModel(name,args),false);assert.equal(aiToolRunsUnqueued(name,args),false);}
+  assert.equal(aiToolRunsUnqueued('mdlxl_script',{edit:false}),true,'ordinary inspection scripts remain concurrent');
+});

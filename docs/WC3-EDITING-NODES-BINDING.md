@@ -70,6 +70,20 @@ Use [animation](WC3-EDITING-ANIMATION.md) for keys and motion transfer,
    poses. Measure pair distance and adjacent edge stretch, then inspect the
    join from both sides. Correct the correspondence or transition where it opens.
 
+## Keep rigid plates seated on their support
+
+Identify the moving part inside the geoset. A shoulder plate and a sleeve can
+touch the same joint and need different bindings. A rigid plate follows its
+support as a single piece. Straps and sleeves can bend, separate plates can
+articulate, and some drivers intentionally scale during an animation.
+
+For each declared rigid part record its vertices, driver and acceptable shape
+and attachment error before trying assignments. Run the native rig checks
+against the original. Inspect the worst pose and compare the candidate to a
+saved alternative. A stationary plate can preserve its shape but leave its
+support. A plate attached at one edge can follow the shoulder while its other
+edges stretch. Check both measurements. Keep authored UV and normal splits.
+
 ## Bind a layer to its underlying deforming surface
 
 1. In a read-only `mdlxl_script`, identify the layer's connected patches, the

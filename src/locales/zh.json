@@ -7550,5 +7550,9 @@
   "How long the arcs flash along the blade.": "电弧沿剑刃闪动的持续时间。",
   "Quiet time between flashes.": "闪光之间的停顿时间。",
   "Number of flashes along the blade in each burst.": "每轮沿剑刃出现的闪光数量。",
-  "Add emitter": "添加发射器"
+  "Add emitter": "添加发射器",
+  "Save reviewed copy…": "保存已验证的副本…",
+  "Save best candidate…": "保存最佳候选版本…",
+  "Save the model version retained with this chat.": "保存此聊天保留的模型版本。",
+  "Candidate evidence": "候选版本测试结果"
 }

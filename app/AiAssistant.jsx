@@ -866,6 +866,13 @@ function AiAssistant({ bridge, visUI }) {
                       {status && (
                         <div className="ai-status" role="status">
                           {status}
+                          {busy && (task?.evidence || task?.lastNativeTest) && (
+                            <details>
+                              <summary>Candidate evidence {task.lastNativeTest && <span translate="no">{task.lastNativeTest.passed}/{task.lastNativeTest.total}</span>}</summary>
+                              {task.lastNativeTest?.firstFailure && <div translate="no">{task.lastNativeTest.firstFailure}</div>}
+                              {task.evidence && <span translate="no">{task.evidence}</span>}
+                            </details>
+                          )}
                         </div>
                       )}
                     </div>
@@ -906,6 +913,16 @@ function AiAssistant({ bridge, visUI }) {
                     <button type="button" className="ai-icon-button" aria-label="Dismiss" data-hotkey="dismiss" title="Hide." onClick={() => setError('')}>
                       <X size={13} aria-hidden="true" />
                     </button>
+                  </div>
+                )}
+                {!busy && task?.savedCandidates?.length > 0 && (
+                  <div className="ai-resume">
+                    {task.savedCandidates.map(candidate => (
+                      <button key={candidate.fingerprint} type="button" data-hotkey={'save-' + candidate.kind + '-candidate'} title="Save the model version retained with this chat."
+                        onClick={() => action(() => window.desktop.aiSaveCandidateCopy({ id, fingerprint: candidate.fingerprint }))}>
+                        {candidate.kind === 'reviewed' ? 'Save reviewed copy…' : 'Save best candidate…'}
+                      </button>
+                    ))}
                   </div>
                 )}
                 {task?.canResume && !busy && (

@@ -7670,5 +7670,9 @@
   "How long the arcs flash along the blade.": "Как долго дуги сверкают вдоль клинка.",
   "Quiet time between flashes.": "Пауза между вспышками.",
   "Number of flashes along the blade in each burst.": "Число вспышек вдоль клинка в каждой серии.",
-  "Add emitter": "Добавить эмиттер"
+  "Add emitter": "Добавить эмиттер",
+  "Save reviewed copy…": "Сохранить проверенную копию…",
+  "Save best candidate…": "Сохранить лучший вариант…",
+  "Save the model version retained with this chat.": "Сохранить версию модели, сохранённую с этим чатом.",
+  "Candidate evidence": "Результаты проверки варианта"
 }

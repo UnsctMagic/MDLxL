@@ -67,3 +67,14 @@ test('names are checked and automatic versions do not pile up', () => {
   assert.ok(!names.includes('before job 1'));
   assert.equal(names.filter(n => n.startsWith('before job')).length, 12);
 });
+
+test('named candidates preserve origin scope and cannot be adopted after plan, target or model changes',()=>{
+  const versions=createVersionStore(),before=model(),after=structuredClone(before);after.Geosets[0].Vertices[0]=3;
+  const origin={before,target:'t1',chatId:'chat1',revision:4,plan:'plan1',scope:['/Geosets/0/Vertices'],protectedPaths:['/Bones']};
+  versions.stage('doc','A',after,origin);
+  assert.equal(versions.list('doc',before)[0].kept,'candidate');assert.equal(versions.get('doc','A').Geosets[0].Vertices[0],3);
+  assert.deepEqual(versions.restore('doc','A',before,origin).scope,origin.scope);
+  for(const changed of [{...origin,plan:'plan2'},{...origin,target:'t2'},{...origin,chatId:'chat2'},{...origin,revision:5}])assert.throws(()=>versions.restore('doc','A',before,changed),/origin|stale/i);
+  const edited=structuredClone(before);edited.Bones[0].Name='owner change';assert.throws(()=>versions.restore('doc','A',edited,origin),/stale/i);
+  assert.throws(()=>versions.stage('doc','bad',after,{...origin,scope:['/Bones']}),/scope/i);
+});

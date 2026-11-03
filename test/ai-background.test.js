@@ -21,9 +21,13 @@ register(
 globalThis.window = Object.assign(new EventTarget(), { desktop: {} });
 // Checkpoints serialize in a worker in the app; here a stand-in answers at once.
 globalThis.Worker = class {
-  postMessage() {
-    setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1, 2, 3]) } }));
-  }
+  postMessage(input) {
+      const snapshot = structuredClone(input);
+      if (snapshot.specifications) {
+        import('../app/ai-native-measure.js').then(({ measureNativeCandidate }) => measureNativeCandidate(snapshot))
+          .then(result => this.onmessage({ data: { result } }), error => this.onmessage({ data: { error: error.message } }));
+      } else setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1, 2, 3]) } }));
+    }
   terminate() {}
 };
 const { AiEditorBridge } = await import('../app/ai-editor.js');
@@ -409,4 +413,64 @@ test('a follow-up captured before the AI commit advances only over that AI own e
   const afterAI = bridge.context();
   a.doc.apply('Owner edit', ['Geosets'], m => { m.Geosets[0].Vertices[0] = 20; });
   assert.throws(() => bridge.requireTarget(afterAI.target), /model or selection changed/);
+});
+
+test('a named detached patch stages a real helmet variant without a live edit and versions use adopts one Undo', async () => {
+  const { bridge,a }=editor();
+  const fs=await import('node:fs');const{openDocument}=await import('../src/editor-document.js');
+  a.doc=openDocument(fs.readFileSync(new URL('./fixtures/ai-real-use/helmet.mdx',import.meta.url)),'Helmet.mdx');
+  const {target}=bridge.context(),before=structuredClone(a.doc.model),revision=a.doc.revision,history=a.doc._historyStore.undoEntries.length;
+  await bridge.call('mdlxl_versions',{target,action:'save',name:'accepted'});
+  const staged=await bridge.call('mdlxl_patch',{...move(target,before.Geosets[0].Vertices[0]+1),candidate:'private A',edit:false});
+  assert.equal(staged.applied,false,'staging must not count as an applied live model edit');
+  assert.equal(staged.candidate,'private A');assert.deepEqual(a.doc.model,before);assert.equal(a.doc.revision,revision);assert.equal(a.doc._historyStore.undoEntries.length,history);
+  assert.equal(bridge.targets.get(target).review?.changed||false,false);
+  const comparison=await bridge.call('mdlxl_versions',{target,action:'compare',name:'accepted',other:'private A'});assert.ok(comparison.differences>0);
+  // A pane change does not change the staged geometry's originating model.
+  a.viewState.mode='bones';
+  const adopted=await bridge.call('mdlxl_versions',{target,action:'use',name:'private A'});
+  assert.equal(adopted.applied,true);assert.equal(a.doc._historyStore.undoEntries.length,history+1);
+  await bridge.call('mdlxl_command',{target,id:'undo'});assert.deepEqual(a.doc.model,before);
+});
+
+test('detached scripts are queued versions, keep siblings comparable after adoption, and reject stale use',async t=>{
+  const {bridge,a}=editor(),{target}=bridge.context(),before=structuredClone(a.doc.model),revision=a.doc.revision,history=a.doc._historyStore.undoEntries.length;
+  const previous=window.desktop.aiScript;t.after(()=>{window.desktop.aiScript=previous;});
+  let calls=0,release;
+  window.desktop.aiScript=async payload=>{calls++;await new Promise(resolve=>{release=resolve;});payload.model.Geosets[0].Vertices[0]=Number(payload.code);return{model:payload.model,value:payload.code,logs:[]};};
+  const args=number=>({target,candidate:'candidate '+number,edit:false,scope:['/Geosets/0/Vertices'],code:String(number)});
+  const first=bridge.call('mdlxl_script',args(11)),second=bridge.call('mdlxl_script',args(12));
+  while(!release)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls,1,'a mutating version-store stage cannot run in parallel with another stage');release();await first;
+  while(calls<2)await new Promise(resolve=>setImmediate(resolve));release();await second;
+  assert.deepEqual(a.doc.model,before);assert.equal(a.doc.revision,revision);
+  await bridge.call('mdlxl_versions',{target,action:'use',name:'candidate 11'});
+  const compared=await bridge.call('mdlxl_versions',{target,action:'compare',name:'candidate 11',other:'candidate 12'});
+  assert.ok(compared.differences>0,'comparison of the other private alternative remains available after adoption');
+  await assert.rejects(bridge.call('mdlxl_versions',{target,action:'use',name:'candidate 12'}),/stale|originating model changed/i);
+  assert.equal(a.doc.model.Geosets[0].Vertices[0],11);assert.equal(a.doc._historyStore.undoEntries.length,history+1);
+});
+
+test('candidate staging refuses ambiguous live edits, new assets, protected changes and invalid save data atomically',async t=>{
+  const {bridge,a}=editor(),{target}=bridge.context(),before=structuredClone(a.doc.model),revision=a.doc.revision,history=a.doc._historyStore.undoEntries.length;
+  const previous=window.desktop.aiScript;t.after(()=>{window.desktop.aiScript=previous;});
+  let scripts=0;
+  window.desktop.aiScript=async payload=>{scripts++;return{model:payload.model,assets:[{name:'new.tga',bytes:new Uint8Array([1])}]};};
+  await assert.rejects(bridge.call('mdlxl_script',{target,candidate:'invalid',edit:true,scope:['/Geosets/0'],code:'return 1;'}),/edit:false/);
+  assert.equal(scripts,0);
+  await assert.rejects(bridge.call('mdlxl_script',{target,candidate:'asset',edit:false,scope:['/Geosets/0'],code:'return 1;'}),/texture assets/);
+  await assert.rejects(bridge.call('mdlxl_patch',{...move(target,10),candidate:'protected',edit:false,protectedPaths:['/Geosets/0/Vertices']}),/protected path/);
+  await assert.rejects(bridge.call('mdlxl_patch',{...move(target,10),candidate:'scope',edit:false,scope:['/Bones']}),/exceeds.*scope/);
+  await assert.rejects(bridge.call('mdlxl_patch',{target,candidate:'broken',edit:false,scope:['/Geosets/0/Faces'],operations:[{op:'set',path:'/Geosets/0/Faces/0',value:60000}]}),/invalid|vertex|faces/i);
+  assert.deepEqual(a.doc.model,before);assert.equal(a.doc._historyStore.undoEntries.length,history);assert.deepEqual(bridge.versionStore.names(a.id),[]);
+});
+
+test('candidate adoption checks its original target and exact model baseline, not just a revision integer',async()=>{
+  const {bridge,a}=editor(),{target}=bridge.context(),revision=a.doc.revision,history=a.doc._historyStore.undoEntries.length;
+  await bridge.call('mdlxl_patch',{...move(target,11),candidate:'private',edit:false});
+  const another=bridge.context();
+  await assert.rejects(bridge.call('mdlxl_versions',{target:another.target,action:'use',name:'private'}),/different originating target/);
+  a.doc.model.Geosets[0].Vertices[1]+=1;
+  await assert.rejects(bridge.call('mdlxl_versions',{target,action:'use',name:'private'}),/stale|originating model changed/i);
+  assert.equal(a.doc.revision,revision);assert.equal(a.doc._historyStore.undoEntries.length,history);
 });

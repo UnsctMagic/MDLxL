@@ -23,3 +23,26 @@ test('existing binding, animation, geometry, texture, effect and game routes ret
   ];
   for (const [text, guides] of examples) assert.deepEqual(guidesForRequest(text), guides.map(g => `WC3-EDITING-${g}.md`), text);
 });
+
+test('routes marked and local-language editing requests using the captured tab as a fallback', () => {
+  assert.ok(guidesForRequest('почини привязку наплечника').includes('WC3-EDITING-NODES-BINDING.md'));
+  assert.ok(guidesForRequest('修复这个动作的关键帧').includes('WC3-EDITING-ANIMATION.md'));
+  assert.ok(guidesForRequest('corrige la textura seleccionada').includes('WC3-EDITING-UV-MATERIALS.md'));
+  assert.deepEqual(guidesForRequest('fix this', { mode: 'bones', selectedNodeIds: [12] }), ['WC3-EDITING-NODES-BINDING.md']);
+  assert.deepEqual(guidesForRequest('fix this', { mode: 'vertices', selection: { 0: [3] } }), ['WC3-EDITING-GEOMETRY.md']);
+  assert.deepEqual(guidesForRequest('hello', { mode: 'vertices', selection: {} }), []);
+});
+test('carries the rig introduction and rigid plate section while leaving unrelated procedures available on demand', async () => {
+  const { initialGuideText, readGuideSection } = await import('../src/ai-guide-sections.js');
+  const text = '# Rig\n\n## Read the rig\nFind its driver.\n## Keep rigid plates seated\nTest shape and attachment.\n## Relocate a pivot\nCompensate its tracks.';
+  const sent = initialGuideText(text, 'fix this shoulder armor');
+  assert.match(sent, /Test shape and attachment/);
+  assert.doesNotMatch(sent, /Compensate its tracks/);
+  assert.match(readGuideSection(text, 'Relocate a pivot'), /Compensate its tracks/);
+  assert.throws(() => readGuideSection(text,'missing section'), /Choose a guide section/);
+});
+
+test('UV focus captured alongside vertex mode selects the UV guide before geometry selection fallback', () => {
+  assert.deepEqual(guidesForRequest('исправь это', { mode: 'vertices', uvEditing: true, selection: { 0: [0, 1] } }), ['WC3-EDITING-UV-MATERIALS.md']);
+  assert.deepEqual(guidesForRequest('исправь это', { mode: 'vertices', uvEditing: true, selectedNodeIds: [12], selection: { 0: [0, 1] } }), ['WC3-EDITING-UV-MATERIALS.md']);
+});

@@ -1,3 +1,4 @@
+const { createHash } = require('node:crypto');
 const { validateArguments } = require('./ai-mcp.cjs');
 
 // Per-job orchestration state. No editor mutations or provider calls live here.
@@ -51,12 +52,37 @@ function recordFailures(task, checks, fingerprint) {
   for (const check of failed) {
     const key = check.name.slice(0, 200);
     const previous = Object.hasOwn(failures,key) ? failures[key] : null;
-    Object.defineProperty(failures, key, { value: { count: (previous?.count || 0) + (previous && previous.fingerprint === fingerprint ? 0 : 1), fingerprint }, enumerable: true, configurable: true, writable: true });
+    const evidence = createHash('sha256').update(JSON.stringify([check.actual, check.expected])).digest('hex');
+    // A new measurement can disprove a candidate without repeating the same failure.
+    const count = previous?.evidence === evidence
+      ? previous.count + Number(previous.fingerprint !== fingerprint) : 1;
+    Object.defineProperty(failures, key, { value: { count, fingerprint, evidence }, enumerable: true, configurable: true, writable: true });
   }
   for (const check of checks || []) if (check.passed === true && typeof check.name === 'string') delete failures[check.name.slice(0, 200)];
   const repeated = Object.entries(failures).filter(([,v]) => v.count >= 2).map(([name]) => name);
   if (repeated.length) task.replanRequired = repeated.join('; ');
   return task.replanRequired;
+}
+const pointerScope = values => Array.isArray(values) && values.length > 0 && values.every(p => typeof p === 'string' && p.startsWith('/') && p !== '/' && !/^\/Nodes(?:\/|$)/.test(p) && !/~(?![01])/.test(p));
+const withinScope = (parent, child) => child === parent || child.startsWith(parent + '/');
+function candidatePlan(task) {
+  const plan = task.plan;
+  return plan?.scope ? createHash('sha256').update(JSON.stringify({ scope: plan.scope, protectedPaths: plan.protectedPaths || [], chosen: plan.options?.[plan.choice], keep: plan.keep, checks: plan.checks, nativeChecks: plan.nativeChecks })).digest('hex') : null;
+}
+function candidatePolicy(task, args) {
+  if (args.edit !== false) throw Error('Named candidates require explicit edit:false.');
+  if (!pointerScope(task.plan?.scope)) throw Error('Before staging a candidate, record its permitted scope with mdlxl_plan.');
+  if (!pointerScope(args.scope) || args.scope.some(p => !task.plan.scope.some(parent => withinScope(parent, p)))) throw Error('Candidate scope exceeds the recorded plan scope.');
+  const protectedPaths = [...new Set([...(task.plan.protectedPaths || []), ...(args.protectedPaths || [])])];
+  return { ...args, protectedPaths, _candidatePlan: candidatePlan(task) };
+}
+function planScope(previous, args) {
+  const scope = args.scope ?? previous?.scope;
+  if (scope !== undefined && !pointerScope(scope)) throw Error('Plan scope needs canonical JSON Pointers.');
+  if (previous?.scope && scope.some(p => !previous.scope.some(parent => withinScope(parent, p)))) throw Error('Retain the original permitted plan scope; a replan cannot broaden it.');
+  const protectedPaths = [...new Set([...(previous?.protectedPaths || []), ...(args.protectedPaths || [])])];
+  if (protectedPaths.length && !pointerScope(protectedPaths)) throw Error('Protected plan paths need canonical JSON Pointers.');
+  return { ...(scope ? { scope } : {}), ...(protectedPaths.length ? { protectedPaths } : {}) };
 }
 function checkpointNote(task) {
   return JSON.stringify({
@@ -70,4 +96,4 @@ function checkpointNote(task) {
     failures: task.replanRequired,
   });
 }
-module.exports = { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote };
+module.exports = { candidatePlan, candidatePolicy, planScope, planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote };

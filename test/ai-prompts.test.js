@@ -42,12 +42,12 @@ const EXPECTED = {
     9818
   ],
   "editing handbook": [
-    "8692708d4e8b6dca4cc3c0608f7d0257558c0580e47623f4c52ab890185b5e63",
-    12323
+    "92c44356629406051eb05e8a4f1cda2fe2ba7d3c328f89d6c0fedf96be671cad",
+    13689
   ],
   "editing handbook+web": [
-    "18ba6c2d33e8d2430f44bd33b95c9487aff7fe9466a2efc9448992225e5a71e7",
-    12825
+    "a01a70d8cc9c8307888ced05ae91c1a62591d15cf2b8657a782f388a04f4a5d4",
+    14191
   ],
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -65,7 +65,7 @@ test('direct editing prompt hashes retain every existing instruction', () => {
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web }).split('\n').filter(line => !/^(Quick path: inspect the captured|Choose roles before editing:|For each native candidate inspect)/.test(line)).join('\n')).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));

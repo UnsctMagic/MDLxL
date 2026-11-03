@@ -13,11 +13,13 @@ import {
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
+import { readGuideSection } from '../src/ai-guide-sections.js';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
-import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
+import { inspectEditingParts } from '../src/ai-editing-procedures.js';
+import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus, nativeCandidateChecks } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
 
@@ -264,7 +266,7 @@ export class AiEditorBridge {
       frame: captured.frame,
       liveFrame: env.live ? state.time : captured.frame,
       globalSequence: state.globalSeqId,
-      uvEditing: !!state.uvEditing,
+      uvEditing: !!(state.aiUVEditing ?? state.uvEditing),
       uvEligibleSelection: state.uvEligibleSelection,
       renderMode: state.renderMode,
       hiddenGeosets: Array.from(state.hiddenGeosets || []),
@@ -335,6 +337,14 @@ export class AiEditorBridge {
       target.offscreen = false;
     }
     checkAiTarget(target, s);
+    return target;
+  }
+  // Named candidates are bound to model state and the originating target, not
+  // the camera or pane the user happens to be viewing while comparing them.
+  requireModelTarget(id) {
+    const target = this.targets.get(id);
+    if (!target) throw Error('The original candidate target is no longer available.');
+    if (this.env(target).doc.revision !== target.revision) throw Error('The candidate target model changed; compare it and stage a new candidate for the current model.');
     return target;
   }
   // The selection a task left in a tab that is not showing becomes its own again.
@@ -414,7 +424,8 @@ export class AiEditorBridge {
           }
         };
       if (aiToolEditsModel(name, args)) {
-        review = await beginAiReview(this, args.target, options);
+        const stagedUse = name === 'mdlxl_versions' && args.action === 'use' && target && this.versionStore.origin(target.documentId, args.name);
+        review = await beginAiReview(this, args.target, { ...options, modelOnlyTarget: !!stagedUse });
         revision = current()?.doc.revision;
         paint = current()?.session.paintWorkingRevision;
       }
@@ -447,7 +458,7 @@ export class AiEditorBridge {
     settled.then(() => this.queues.get(key) === settled && this.queues.delete(key));
     return op;
   }
-  async dispatch(name, args, { signal, requestId } = {}) {
+  async dispatch(name, args, { signal, requestId, candidateAdoption = false } = {}) {
     const active = () => {
       if (signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
     };
@@ -459,7 +470,7 @@ export class AiEditorBridge {
       return result;
     }
     if (name === 'mdlxl_checkpoint') {
-      if (args.prepare) await beginAiReview(this, args.target, { signal, requestId });
+      if (args.prepare) await beginAiReview(this, args.target, { signal, requestId, nativeChecks: args.nativeChecks });
       return aiCheckpoint(this, args.target, args);
     }
     if (!AI_TOOLS.some(t => t.name === name)) throw Error('Unknown MDLxL tool: ' + name);
@@ -481,7 +492,7 @@ export class AiEditorBridge {
     if (name === 'mdlxl_help') {
       // The SD rulebook and study stay out of help while SD Brain is parked, and
       // the editing handbook's guides while the user has the handbook off.
-      const handbook = (await this.desktop?.aiStatus?.())?.editingHandbook === true;
+      const handbook = args.handbook ?? ((await this.desktop?.aiStatus?.())?.editingHandbook === true);
       const index = Object.keys(guides)
         .map(path => path.replace('../', ''))
         .filter(path => SD_BRAIN_AVAILABLE || !path.startsWith('docs/AI-SD-'))
@@ -498,7 +509,8 @@ export class AiEditorBridge {
         };
       const file = index.find(p => p === args.topic || p.split('/').at(-1) === args.topic);
       if (!file) throw Error('Unknown guide. Request the help index.');
-      return { topic: file, text: await guides['../' + file]() };
+      const markdown = await guides['../' + file]();
+      return { topic: file, text: args.section ? readGuideSection(markdown, args.section) : markdown };
     }
     if (name === 'mdlxl_read') {
       const s = this.state(),
@@ -506,11 +518,20 @@ export class AiEditorBridge {
         own = target ? this.env(target).session : s.session,
         document = args.documentId && args.documentId !== (target?.documentId || own.id) ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
       if (!document) throw Error('Reference model is no longer open.');
+      if (args.parts) {
+        const selection = document === own ? target?.selection ?? s.selection : undefined;
+        const geosets = Object.entries(selection || {}).filter(([, vertices]) => vertices.length).map(([geoset]) => Number(geoset));
+        return inspectEditingParts(document.doc.model, { selection, ...(geosets.length ? { geosets } : {}), offset: args.offset ?? 0, limit: Math.min(args.limit ?? 64, 256) });
+      }
       return readAiModel(document.doc.model, args);
     }
     if (name === 'mdlxl_document' && args.action === 'list') return this.documents(args.target ? this.requireTarget(args.target) : undefined);
     if (name === 'mdlxl_ui' && args.action === 'inspect') return this.inspectUi();
-    const target = this.requireTarget(args.target),
+    const captured = this.targets.get(args.target);
+    const stagedVersion = name === 'mdlxl_versions' && captured && ['use','compare'].includes(args.action) &&
+      (this.versionStore.origin(captured.documentId, args.name) || args.other && this.versionStore.origin(captured.documentId, args.other));
+    const modelOnly = candidateAdoption || args.candidate !== undefined || !!stagedVersion;
+    const target = modelOnly ? this.requireModelTarget(args.target) : this.requireTarget(args.target),
       host = this.host(),
       env = this.env(target),
       state = env.state;
@@ -544,13 +565,18 @@ export class AiEditorBridge {
         versions.save(id, args.name, env.doc.model, args.note);
         return { saved: args.name, versions: versions.list(id, env.doc.model) };
       }
-      if (args.action === 'compare') return versions.compare(id, args.name, env.doc.model, args.other);
+      if (args.action === 'compare') {
+        const differences = versions.compare(id, args.name, env.doc.model, args.other);
+        if (!args.nativeChecks?.length) return differences;
+        const before = versions.get(id, args.name), candidate = args.other ? versions.get(id, args.other) : env.doc.model;
+        return { ...differences, native: await nativeCandidateChecks(before, candidate, args.nativeChecks, signal, { originalBytes: env.doc.originalBytes }) };
+      }
       if (args.action === 'use') {
         // One normal Undo step through the same validation as any AI edit.
         const result = await this.dispatch(
           'mdlxl_patch',
-          { target: args.target, label: 'Back to version ' + args.name, ...versions.restore(id, args.name, env.doc.model) },
-          { signal, requestId },
+          { target: args.target, label: 'Back to version ' + args.name, ...versions.restore(id, args.name, env.doc.model, { target: args.target, chatId: target.chatId ?? null, revision: env.doc.revision, plan: args._candidatePlan ?? null }) },
+          { signal, requestId, candidateAdoption: !!stagedVersion },
         );
         return { ...result, now: args.name };
       }
@@ -565,8 +591,12 @@ export class AiEditorBridge {
       return result;
     }
     if (name === 'mdlxl_script' || name === 'mdlxl_patch') {
+      const staging = args.candidate !== undefined;
+      if (staging && (args.edit !== false || typeof args.candidate !== 'string' || !args.candidate.trim() || args.candidate.length > 80)) throw Error('A named candidate needs a short name and explicit edit:false.');
+      if (!staging && name === 'mdlxl_patch' && args.edit === false) throw Error('A read-only patch needs a named candidate.');
+      if (staging && (!Array.isArray(args.scope) || !args.scope.length)) throw Error('A named candidate needs an explicit model scope.');
       if (state.saving) throw Error('Wait for the current save to finish.');
-      if ((name === 'mdlxl_patch' || args.edit) && state.mode === 'paint')
+      if (!staging && (name === 'mdlxl_patch' || args.edit) && state.mode === 'paint')
         throw Error(
           'Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.',
         );
@@ -596,8 +626,22 @@ export class AiEditorBridge {
           ]),
         });
       active();
-      this.requireTarget(args.target);
+      if (modelOnly) this.requireModelTarget(args.target); else this.requireTarget(args.target);
       const value = encodeAiValue(result.value);
+      if (staging) {
+        if (result.assets?.length) throw Error('Private candidates cannot create texture assets. Reuse existing model or native game textures.');
+        const prepared = prepareAiEdit(before, result.model, args);
+        const detached = env.doc.constructor.restoreRecoveryState(env.doc.captureRecoveryState({ includeHistory: false }));
+        detached.apply('Validate candidate ' + args.candidate, prepared.sections, model => applyAiEdit(model, prepared), { rethrow: true });
+        for (const format of new Set([detached.format, ...(detached.saveImpact('mdx').canSave ? ['mdx'] : [])])) detached.serialize(format);
+        const validated = prepareAiEdit(before, detached.model, args);
+        active(); this.requireModelTarget(args.target);
+        this.versionStore.stage(target.documentId, args.candidate, detached.model, {
+          target: args.target, chatId: target.chatId ?? null, revision: env.doc.revision, plan: args._candidatePlan ?? null,
+          scope: args.scope, protectedPaths: args.protectedPaths || [], animationRanges: args.animationRanges, before,
+        });
+        return { candidate: args.candidate, applied: false, staged: true, revision: env.doc.revision, changeCount: validated.changeCount, changes: validated.summary, value, logs: result.logs || [] };
+      }
       if (name === 'mdlxl_script' && !args.edit) return { value, logs: result.logs || [], applied: false };
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');
@@ -864,7 +908,7 @@ export class AiEditorBridge {
       checkedGeosets: Array.from(s.selectable),
       activeGeoset: s.activeGeoset,
       uvSet: s.uvSet,
-      uvEditing: !!s.uvEditing,
+      uvEditing: !!(s.aiUVEditing ?? s.uvEditing),
       uvEligibleSelection: s.uvEligibleSelection,
       workplane: target.workplane,
       mode: s.mode,

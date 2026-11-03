@@ -1,10 +1,13 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { candidatePlan, candidatePolicy, planScope, planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
 const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
+const { keepCandidateFile, readCandidateFile, removeCandidateFile } = require('./ai-candidate-files.cjs');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { createWorkspace } = require('./ai-workspace.cjs');
@@ -56,6 +59,7 @@ function editingPrompt(contract, { handbook, web, functions }) {
     (functions ? '\n' + functions : '')
   );
 }
+const explicitRigRequest = text => /\b(?:bind|rebind|reweight|re-?rig|rigging|skinning)\b|\b(?:rig|skin)\s+(?:this|the|these|selected|my|a)\b|\b(?:fix|repair|correct|change|adjust)\s+(?:(?:the|this|its|model|bone|vertex|skin)\s+){0,4}(?:binding|rig|weights?)\b|привяж|перепривяж|исправ.{0,16}привяз|скиннинг|重新绑定|修复绑定|调整权重|蒙皮|vincular|reenlazar|corregir.{0,12}pesos/iu.test(String(text || ''));
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
 // Old Offload organisers kept a local ledger of requests and bird reports in
 // `messages`. It is not provider history: a native chat sends it until it has a
@@ -463,8 +467,26 @@ class AiService {
       phase: task.phase,
       steps: task.steps,
       summary: task.summary || '',
+      savedCandidates: Object.values(conversation.savedCandidates || {}).filter(candidate =>
+        candidate.kind === 'reviewed' || candidate.fingerprint !== conversation.savedCandidates?.reviewed?.fingerprint),
+      evidence: task.sdBrain?.handbook ? task.workCheckpoint?.evidence || '' : '',
+      lastNativeTest: task.lastNativeTest || null,
       canResume: !task.workerId && !task.regionJobs && ['interrupted', 'incomplete'].includes(task.status),
     };
+  }
+  async saveCandidateCopy({ id, fingerprint }) {
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) throw Error('Invalid candidate chat.');
+    const saved = (await this.readConversation(id))?.savedCandidates || {};
+    const candidate = Object.values(saved).find(item => item.fingerprint === fingerprint);
+    if (!candidate) throw Error('Choose the current saved candidate.');
+    const bytes = await readCandidateFile(this.directory, id, fingerprint);
+    const chosen = await this.electron.dialog.showSaveDialog(this.getWindow(), {
+      defaultPath: path.parse(path.basename(candidate.name)).name + '-candidate.mdx',
+      filters: [{ name: 'Warcraft III model', extensions: ['mdx'] }],
+    });
+    if (chosen.canceled || !chosen.filePath) return { canceled: true };
+    await writeFileAtomic(chosen.filePath, bytes, { verify: true });
+    return { canceled: false };
   }
   async send({ id, text, images = [], context, resume = false }) {
     if (this.active) throw Error('Wait for the current AI request to finish.');
@@ -642,6 +664,7 @@ class AiService {
       AI_JOB_CHECKPOINT,
       AI_PLAN_TOOL,
       guidesForRequest,
+      initialGuideText,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -752,10 +775,10 @@ class AiService {
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
     // With the handbook on, the job carries the guides its request touches.
     if (sd.handbook === true && !conversation.toolsOff && !resume)
-      for (const topic of guidesForRequest(text)) {
+      for (const topic of guidesForRequest(text, context)) {
         try {
-          const guide = await this.call('mdlxl_help', { topic }, signal);
-          if (guide?.text) prompt += `\n\nEditing guide for this job (${topic}). Use its procedures where they fit this model:\n${guide.text}`;
+          const guide = await this.call('mdlxl_help', { topic, handbook: true }, signal);
+          if (guide?.text) prompt += `\n\nEditing guide for this job (${topic}). Use its procedures where they fit this model:\n${initialGuideText(guide.text, text)}`;
         } catch {
           // A guide that cannot be read leaves the job as it was.
         }
@@ -817,6 +840,7 @@ class AiService {
         task.workCheckpoint = { phase: args.phase, evidence: args.evidence, remaining: args.remaining };
         task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, signal);
         await this.persistConversation(conversation);
+        this.emit({ id, type: 'task', task: await this.taskInfo(id) });
         return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Finish the agreed review and report; do not add polishing goals.' };
       }
       // Look first, then change once: the plan is kept with the task, not sent to the editor.
@@ -829,12 +853,25 @@ class AiService {
         if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
         const checks = planChecks(args.checks, contract.AI_SWEEP_SCHEMA);
         if (task.replanRequired && task.plan && args.cause === task.plan.cause && options[args.choice].fix === task.plan.options[task.plan.choice].fix) throw Error('The same check failed twice: ' + task.replanRequired + '. Audit the cause and choose a materially different plan, or finish blocked.');
+        const previousNative = task.nativeContract?.checks || task.plan?.nativeChecks || [];
+        const nativeChecks = args.nativeChecks === undefined ? previousNative : args.nativeChecks;
+        if (!Array.isArray(nativeChecks) || nativeChecks.length > 20 || nativeChecks.some(c => !c || typeof c.name !== 'string' || !c.name.trim() || (!c.editing && !c.rig)))
+          throw Error('Native checks need a stable name and an editing or rig measurement specification.');
+        if (new Set(nativeChecks.map(c => c.name)).size !== nativeChecks.length)
+          throw Error('Native check names must be unique.');
+        if (nativeChecks.some(check => check.rig && !check.rig.rigidParts?.length && !check.rig.flexibleParts?.length && check.rig.limits?.bounds === undefined)) throw Error('Native rig checks need declared rigid or flexible part roles, or an explicit bounds limit.');
+        for (const previous of previousNative) {
+          const next = nativeChecks.find(c => c.name === previous.name);
+          if (!next || !isDeepStrictEqual(next, previous))
+            throw Error('Retain every agreed native check unchanged when replanning; add new checks for the revised diagnosis.');
+        }
         if (!task.plan || args.cause !== task.plan.cause || options[args.choice].fix !== task.plan.options[task.plan.choice].fix) {
           delete task.replanRequired;
           task.checkFailures = {};
         }
+        if (nativeChecks.length) task.nativeContract = { ...task.nativeContract, checks: structuredClone(nativeChecks), intent: task.nativeContract?.intent || { cause: args.cause, reach: args.reach, keep: structuredClone(args.keep) } };
         const replaces = !!task.plan;
-        task.plan = { cause: args.cause, reach: args.reach, keep: args.keep, options, choice: args.choice, why: args.why, checks, afterStep: task.steps.length };
+        task.plan = { ...planScope(task.plan, args), cause: args.cause, reach: args.reach, keep: args.keep, options, choice: args.choice, why: args.why, checks, ...(nativeChecks.length ? { nativeChecks: structuredClone(nativeChecks) } : {}), afterStep: task.steps.length };
         await this.persistConversation(conversation);
         return {
           recorded: true,
@@ -870,20 +907,27 @@ class AiService {
       const edit = aiToolEditsModel(name, args);
       if (edit && task.replanRequired) throw Error('The same check failed twice: ' + task.replanRequired + '. Revise mdlxl_plan based on evidence or finish blocked before another edit.');
       args = expandRoutine(task, name, args);
+      const staging = ['mdlxl_script','mdlxl_patch'].includes(name) && args.candidate !== undefined;
+      if (staging) args = candidatePolicy(task, args);
+      if (name === 'mdlxl_versions' && args.action === 'use') args = { ...args, _candidatePlan: candidatePlan(task) };
       if (task.routines) await this.persistConversation(conversation);
       // Model edits need a plan, except exact value edits; switching the view or going
       // back to a saved version does not.
       if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !exactValueRequest(task.request || text, images))
         throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
+      if (edit && sd.handbook && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !(name === 'mdlxl_command' && ['undo', 'redo'].includes(args.id)) && explicitRigRequest(task.latestRequest || task.request || text) &&
+          !task.nativeContract?.checks?.some(check => check.rig?.rigidParts?.length || check.rig?.flexibleParts?.length))
+        throw Error('Before a rigging edit, record explicit rigid or flexible part roles and their native checks in mdlxl_plan.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
         const checkpoint = await this.call(
           'mdlxl_checkpoint',
-          { target: context.target, prepare: true, includeBaseline: !task.baseline },
+          { target: context.target, prepare: true, includeBaseline: !task.baseline, nativeChecks: task.nativeContract?.checks },
           requestSignal,
         );
         if (checkpoint.baseline) {
           task.baseline = checkpoint.baseline;
+          if (task.nativeContract && !task.nativeContract.baseline) task.nativeContract.baseline = structuredClone(checkpoint.baseline);
           delete checkpoint.baseline;
         }
         task.checkpoint = checkpoint;
@@ -933,7 +977,8 @@ class AiService {
           {
             ...args,
             ...(name === 'mdlxl_review' && args.action === 'finish' && task.acceptedByUser ? { outcome: 'passed', acceptedByUser: true } : {}),
-            ...(name === 'mdlxl_help' ? {} : { target: context.target }),
+            ...(name === 'mdlxl_help' ? { handbook: sd.handbook === true } : { target: context.target }),
+            ...(name === 'mdlxl_review' && args.action === 'inspect' && task.nativeContract?.checks?.length ? { nativeChecks: task.nativeContract.checks, ...(task.nativeContract.baseline ? { nativeBaseline: task.nativeContract.baseline } : {}) } : {}),
             ...(name === 'mdlxl_review' && args.action === 'inspect' ? { sweepChecks: (task.plan?.checks || []).filter(c => c.sweep) } : {}),
             ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
           },
@@ -974,12 +1019,31 @@ class AiService {
           await this.persistConversation(conversation);
         }
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
-          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [], motion: result.review?.motion, baseline: args.baseline };
+          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [], motion: result.review?.motion, native: result.review?.native, baseline: args.baseline };
+        if (name === 'mdlxl_review' && args.action === 'inspect' && result?.review?.native && task.nativeContract && !task.nativeContract.initialMeasurements) task.nativeContract.initialMeasurements = structuredClone(result.review.native);
         // The review judges the plan's keep list along with the request.
         if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
-          result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, checks: task.plan.checks, check: 'Confirm each keep item with a measured check or a visible comparison.' };
-        if (edit || name === 'mdlxl_review') {
-          task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, requestSignal);
+          result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, checks: task.plan.checks, nativeChecks: task.plan.nativeChecks, check: 'Confirm each keep item with a measured check or a visible comparison.' };
+        const measured = sd.handbook && (result.review?.native || result.native);
+        if (measured?.checks?.length) {
+          const failures = measured.checks.filter(check => check.passed === false);
+          task.lastNativeTest = { total: measured.checks.length, passed: measured.checks.length - failures.length,
+            firstFailure: failures[0]?.name || '', frame: measured.worstPoses?.[0]?.frame ?? null };
+          this.emit({ id, type: 'task', task: await this.taskInfo(id) });
+        }
+        const candidateKind = sd.handbook && (
+          name === 'mdlxl_versions' && args.action === 'save' && args.best === true ? 'best' :
+          name === 'mdlxl_review' && args.action === 'finish' && result?.phase === 'verified' ? 'reviewed' : null);
+        if (edit || name === 'mdlxl_review' || candidateKind) {
+          const previousCandidate = conversation.savedCandidates?.[candidateKind];
+          const checkpoint = await this.call('mdlxl_checkpoint', { target: context.target, ...(candidateKind ? { includeCandidate: true } : {}) }, requestSignal);
+          if (candidateKind) {
+            const { bytes, fingerprint, name: modelName } = checkpoint;
+            delete checkpoint.bytes;
+            await keepCandidateFile(this.directory, conversation.id, { bytes, fingerprint });
+            (conversation.savedCandidates ||= {})[candidateKind] = { fingerprint, name: modelName, kind: candidateKind };
+          }
+          task.checkpoint = checkpoint;
           if (task.checkpoint.context?.target === context.target) Object.assign(context, task.checkpoint.context);
           if (task.steeringAnnotations) context.annotations = task.steeringAnnotations;
           if (edit)
@@ -994,6 +1058,8 @@ class AiService {
           }
           if (edit || task.checkpoint.review.phase === 'verified') delete task.unresolvedEditError;
           await this.persistConversation(conversation);
+          if (previousCandidate && !Object.values(conversation.savedCandidates).some(item => item.fingerprint === previousCandidate.fingerprint))
+            await removeCandidateFile(this.directory, conversation.id, previousCandidate.fingerprint);
         }
         return result;
       } catch (error) {
@@ -1177,6 +1243,7 @@ class AiService {
           : 'The editing AI recorded no plan (an exact value edit).',
         `The editing AI's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
         ...(inspect.sweeps?.length ? [outsideSweepBlock(inspect.sweeps)] : []),
+        ...(inspect.native ? [`MDLxL native candidate measurements (original job baseline):\n${JSON.stringify(inspect.native).slice(0, 8000)}`] : []),
         ...(inspect.motion ? [`MDLxL's own measurement, not written by the editing AI:\n${JSON.stringify(inspect.motion)}`] : []),
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
         ...(left.length ? [`Not sent, to keep the set small (the editing AI saw them): ${left.join('; ')}.`] : []),
@@ -1530,6 +1597,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:enable', enabled => service.enable(enabled));
   handle('ai:awareness', enabled => service.setAwareness(enabled));
   handle('ai:task', id => service.taskInfo(id));
+  handle('ai:saveCandidateCopy', input => service.saveCandidateCopy(input));
   handle('ai:config', () => {
     if (!service.external) throw Error('Enable the AI connection first.');
     return service.external.config;

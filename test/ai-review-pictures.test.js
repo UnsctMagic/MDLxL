@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { openDocument } from '../src/editor-document.js';
 import { createRequire } from 'node:module';
-import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations } from '../app/ai-review.js';
+import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations, nativeCandidateChecks } from '../app/ai-review.js';
+import { AI_TOOLS } from '../src/ai-tools.js';
 import { createChanges } from '../src/history-store.js';
 import { encodeAiValue } from '../src/ai-model.js';
 import { createVersionStore } from '../src/ai-versions.js';
+const reviewFixture = new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', import.meta.url);
 const { choosePictures } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 
 // One bone and one triangle; Portrait Talk 0–100, Walk 200–400 (the flail swings in Walk).
@@ -48,7 +52,13 @@ function editor({ sequence = 0, frame = 50 } = {}) {
   };
   // Checkpoints fingerprint the saved bytes through the save worker.
   globalThis.Worker = class {
-    postMessage() { setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1]) } })); }
+    postMessage(input) {
+      const snapshot = structuredClone(input);
+      if (snapshot.specifications) {
+        import('../app/ai-native-measure.js').then(({ measureNativeCandidate }) => measureNativeCandidate(snapshot))
+          .then(result => this.onmessage({ data: { result } }), error => this.onmessage({ data: { error: error.message } }));
+      } else setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1]) } }));
+    }
     terminate() {}
   };
   globalThis.window = { desktop: { aiScript: async ({ model, before }) => ({ value: [{ name: 'flail swings', passed: true }], model, before }) } };
@@ -275,4 +285,161 @@ test('explicit owner acceptance uses the same review completion path after a blo
   assert.equal(result.phase, 'verified');
   assert.match(result.summary, /Owner accepted/);
   assert.equal(target.review.acceptedByUser, true);
+});
+
+test('native review catches a stretched rigid plate even if custom code passes, and captures its worst part', async () => {
+  const { bridge, sessions, target, drawn } = editor();
+  await beginAiReview(bridge, 't');
+  sessions[0].doc.model.Geosets[0].Vertices[3] = 20;
+  sessions[0].doc.revision++;
+  recordAiChange(target.review, {}, sessions[0].doc.model);
+  const nativeChecks = [{ name: 'Plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  const result = await inspect(bridge, { nativeChecks });
+  assert.equal(result.review.passed, false, 'an attached but stretched plate cannot be verified');
+  assert.ok(result.review.checks.some(check => /Plate.*rigid shape/.test(check.name) && check.passed === false));
+  assert.ok(result.images.some(image => /Native worst.*geoset 1/i.test(image.label)), 'native worst part gets actual evidence');
+  assert.ok(drawn.some(draw => draw.sample.geosets?.[0] === 0), 'native capture isolates the affected geoset');
+});
+
+
+test('native checks use the original Knight even when a named visual baseline already contains the damage', async () => {
+  const { bridge, sessions, target } = editor({ sequence: 0, frame: 0 });
+  sessions[0].doc.model = openDocument(fs.readFileSync(reviewFixture), 'Tzeentch_Knight_Max_Reduced.mdx').model;
+  const model = sessions[0].doc.model, snapshot = structuredClone(model);
+  const driver = model.Geosets[0].Groups[model.Geosets[0].VertexGroup[0]][0];
+  await beginAiReview(bridge, 't');
+  model.Geosets[0].Vertices[3] += 100;
+  sessions[0].doc.revision++;
+  recordAiChange(target.review, {}, model);
+  bridge.versionStore.save('target', 'damaged candidate', model);
+  const result = await inspect(bridge, { baseline: 'damaged candidate', nativeChecks: [{ name: 'Knight part', rig: { rigidParts: [{ geoset: 0, vertices: [0, 1, 2], driverBone: driver }], sequences: [0], step: 100 } }] });
+  assert.equal(result.review.passed, false);
+  assert.ok(result.review.checks.some(row => /rigid shape/.test(row.name) && !row.passed), 'native original cannot be replaced by a damaged named candidate');
+  assert.equal(result.review.native.baseline, 'original job model');
+  assert.deepEqual(target.review.before, snapshot);
+  assert.equal(bridge.versionStore.get('target', 'damaged candidate').Geosets[0].Vertices[3], model.Geosets[0].Vertices[3]);
+});
+
+test('unmatched native rig topology remains unverified even with passing custom checks', async () => {
+  const { bridge, sessions, target } = editor();
+  await beginAiReview(bridge, 't');
+  sessions[0].doc.model.Geosets[0].Faces = new Uint16Array([0, 2, 1]);
+  sessions[0].doc.revision++;
+  recordAiChange(target.review, {}, sessions[0].doc.model);
+  const result = await inspect(bridge, { nativeChecks: [{ name: 'Plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }] });
+  assert.equal(result.review.passed, false);
+  assert.ok(result.review.checks.some(row => /rigid shape/.test(row.name) && !row.passed && row.actual.unmeasured.length));
+});
+
+
+test('empty native rig specifications cannot certify an unchanged model', async () => {
+  const model = unit();
+  await assert.rejects(nativeCandidateChecks(model, model, [{ name: 'Empty rig', rig: {} }]), /rig.*part|rig.*role/i);
+});
+
+test('a failed native review cannot be bypassed by omitting its mandatory checks on the next inspect', async () => {
+  const { bridge, sessions, target } = editor();
+  await beginAiReview(bridge, 't');
+  sessions[0].doc.model.Geosets[0].Vertices[3] = 20;
+  sessions[0].doc.revision++;
+  recordAiChange(target.review, {}, sessions[0].doc.model);
+  const nativeChecks = [{ name: 'Plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  assert.equal((await inspect(bridge, { nativeChecks })).review.passed, false);
+  assert.equal((await inspect(bridge)).review.passed, false, 'omitted specifications still run the agreed native checks');
+  await assert.rejects(inspect(bridge, { nativeChecks: [] }), /retain.*native|native.*remove/i);
+});
+
+
+test('merged review confines against latest user data while measuring original rig identity', async () => {
+  const { bridge, sessions, target } = editor();
+  const original = structuredClone(sessions[0].doc.model);
+  sessions[0].doc.model.Geosets[0].Vertices[3] = 20;
+  sessions[0].doc.model.Textures = [{ Image: 'UserLatest.blp' }];
+  await beginAiReview(bridge, 't');
+  sessions[0].doc.revision++;
+  recordAiChange(target.review, {}, sessions[0].doc.model);
+  const result = await inspect(bridge, { nativeBaseline: encodeAiValue(original), nativeChecks: [{ name: 'Plate', editing: { scope: ['/Geosets/0'] }, rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }] });
+  assert.equal(result.review.passed, false, 'fresh merge baseline cannot erase original rigid damage');
+  assert.equal(result.review.checks.find(row => /material preservation/.test(row.name)).passed, true, 'the latest user texture is protected against further edits');
+  assert.equal(result.review.checks.find(row => /rigid shape/.test(row.name)).passed, false);
+});
+
+
+test('native candidate inspection snapshots caller inputs before asynchronous work', async () => {
+  const before = unit(), candidate = structuredClone(before), nativeChecks = [{ name: 'Plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  const pending = nativeCandidateChecks(before, candidate, nativeChecks);
+  candidate.Geosets[0].Vertices[3] = 100;
+  nativeChecks[0].rig.rigidParts[0].driverBone = 999;
+  const result = await pending;
+  assert.ok(result.checks.every(row => row.passed), 'concurrent caller mutations cannot mix a later candidate/spec into the captured comparison');
+  assert.equal(before.Geosets[0].Vertices[3], 10);
+});
+
+test('native worst pose isolates the full declared part with matching close-up framing', async () => {
+  const { bridge, sessions, target, drawn } = editor();
+  const geo = sessions[0].doc.model.Geosets[0];
+  geo.Vertices = new Float32Array([...geo.Vertices, 1000, 0, 0, 1010, 0, 0, 1000, 10, 0]);
+  geo.Faces = new Uint16Array([0, 1, 2, 3, 4, 5]); geo.VertexGroup = new Uint8Array(6);
+  await beginAiReview(bridge, 't'); geo.Vertices[3] = 20;
+  sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
+  const result = await inspect(bridge, { nativeChecks: [{ name: 'Near plate', rig: { rigidParts: [{ geoset: 0, driverBone: 0, vertices: [0, 1, 2] }] } }] });
+  const pictures = drawn.filter(draw => draw.sample.geosets?.length && draw.model);
+  assert.ok(pictures.length >= 2);
+  assert.ok(pictures.every(draw => draw.model.Geosets[0].Faces.length === 3), 'the far disconnected piece cannot appear in a declared-part comparison');
+  assert.ok(pictures.every(draw => Math.max(...draw.focus) <= 25), 'both roles frame the full declared part rather than the whole geoset');
+  assert.ok(result.images.some(image => /Native worst/.test(image.label)));
+});
+
+test('merge cannot reuse original selected vertex IDs after the source topology changed', async () => {
+  const { bridge, sessions, target } = editor(); const original = structuredClone(sessions[0].doc.model);
+  sessions[0].doc.model.Geosets[0].Faces = new Uint16Array([0, 2, 1]);
+  await beginAiReview(bridge, 't'); sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
+  const result = await inspect(bridge, { nativeBaseline: encodeAiValue(original), nativeChecks: [{ name: 'Original region', editing: { scope: ['/Geosets/0'], selection: { 0: [0, 1, 2] } } }] });
+  assert.equal(result.review.passed, false, 'original selection identity must be re-resolved or left unverified');
+  assert.ok(result.review.checks.some(row => /original selection correspondence/.test(row.name) && !row.passed));
+});
+
+
+test('native byte goals use trusted document bytes without exposing them or accepting provider bytes', async () => {
+  const bytes = new Uint8Array(fs.readFileSync(reviewFixture)), model = openDocument(bytes, 'Tzeentch_Knight_Max_Reduced.mdx').model;
+  const nativeChecks = [{ name: 'Actual saved bytes', editing: { operation: 'optimization', scope: ['/Geosets'], optimization: { measureBytes: true, maxBytes: bytes.length, sourceBytes: new Uint8Array([1]) } } }];
+  const result = await nativeCandidateChecks(model, model, nativeChecks, undefined, { originalBytes: bytes });
+  assert.equal(result.reports[0].editing.optimization.beforeBytes, bytes.length);
+  assert.equal(result.reports[0].editing.optimization.afterBytes, bytes.length);
+  assert.equal(result.checks.find(row => /serialized size/.test(row.name)).passed, true);
+  assert.ok(!JSON.stringify(result).includes('sourceBytes'), 'trusted bytes never reach the provider report');
+  assert.deepEqual(nativeChecks[0].editing.optimization.sourceBytes, new Uint8Array([1]), 'provider input is unchanged');
+  await assert.rejects(nativeCandidateChecks(model, model, nativeChecks), /trusted source MDX bytes/);
+});
+
+
+test('a clipless model accepts one explicit review frame and returns a matched static pair', async () => {
+  assert.equal(AI_TOOLS.find(tool => tool.name === 'mdlxl_review').inputSchema.properties.frames.minItems, 1);
+  for (const changesTrack of [false, true]) {
+    const { bridge, sessions, target, drawn } = editor({ sequence: -1, frame: 0 });
+    sessions[0].doc.model.Sequences = [];
+    await beginAiReview(bridge, 't');
+    if (changesTrack) sessions[0].doc.model.Bones[0].Translation.Keys[0].Vector[0] += 1;
+    else sessions[0].doc.model.Geosets[0].Vertices[0] += 1;
+    sessions[0].doc.revision++; recordAiChange(target.review, {}, sessions[0].doc.model);
+    const result = await inspect(bridge, { frames: [17] });
+    assert.equal(result.review.passed, true);
+    assert.deepEqual(result.images.map(image => image.role), ['original', 'edited']);
+    assert.ok(drawn.every(picture => picture.sample.sequence === -1 && picture.sample.frame === 17));
+  }
+});
+
+
+test('native verdict repairs a frozen original against the named driver without a repaired donor', async () => {
+  const original = unit();
+  original.Bones.push({ ObjectId: 1, Name: 'Frozen helper', Parent: -1 });
+  original.Geosets[0].Groups = [[1]];
+  const contract = [{ name: 'Shield follows arm', rig: { rigidParts: [{ geoset: 0, driverBone: 0 }] } }];
+  const broken = await nativeCandidateChecks(original, original, contract);
+  assert.ok(broken.checks.some(check => /driver attachment/.test(check.name) && !check.passed), 'an unchanged frozen original still violates the named driver contract');
+  const repaired = structuredClone(original);
+  repaired.Geosets[0].Groups = [[0]];
+  const corrected = await nativeCandidateChecks(original, repaired, contract);
+  assert.ok(corrected.checks.every(check => check.passed), 'the repaired binding satisfies the same shape and attachment contract without a golden model');
+  assert.deepEqual(original.Geosets[0].Groups, [[1]], 'native review preserves the broken input');
 });

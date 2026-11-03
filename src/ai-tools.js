@@ -26,6 +26,16 @@ export const AI_SWEEP_SCHEMA = {
   required: ['kind', 'a'],
   description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
 };
+// Native methods are shared by every provider. A named specification is kept
+// with the job, then repeated by the final review against its original baseline.
+export const AI_NATIVE_CHECKS_SCHEMA = {
+  type: 'array', minItems: 0, maxItems: 20,
+  items: { ...object({
+    name: string('Stable name for this required candidate measurement.'),
+    editing: { type: 'object', additionalProperties: true, description: 'Options for ai-editing-procedures.measureEditingCandidate; inspect the installed signature first. Include operation, original scope and protectedPaths.' },
+    rig: { type: 'object', additionalProperties: true, description: 'Options for ai-rig-checks.measureRigCandidate. Declare rigidParts with geoset and driverBone, flexibleParts as applicable; IDs are zero-based. Rigid shape and attachment must each pass. Optional limits.shape/attachment/edgeStrain/seamOpening/bounds are normalized to model diagonal; rigid shape and attachment default to 0.00001.' },
+  }), required: ['name'] },
+};
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,
   description,
@@ -35,14 +45,14 @@ const tool = (name, description, properties, required = [], readOnlyHint = true)
 // These existing display commands never change model data.
 export const AI_DISPLAY_COMMANDS = new Set(['showAllGeosets', 'clearDisplay']);
 export const aiToolEditsModel = (name, args) =>
-  name === 'mdlxl_patch' ||
-  (name === 'mdlxl_script' && args.edit === true) ||
+  (name === 'mdlxl_patch' && args.candidate === undefined) ||
+  (name === 'mdlxl_script' && args.edit === true && args.candidate === undefined) ||
   (name === 'mdlxl_command' && !AI_DISPLAY_COMMANDS.has(args.id)) ||
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
   (name === 'mdlxl_view' && !!args.mode) ||
   (name === 'mdlxl_versions' && args.action === 'use');
 export const aiToolRunsUnqueued = (name, args) =>
-  ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || (name === 'mdlxl_script' && !args.edit);
+  ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || (name === 'mdlxl_script' && !args.edit && args.candidate === undefined);
 export const AI_TOOLS = [
   tool(
     'review',
@@ -51,10 +61,11 @@ export const AI_TOOLS = [
       target,
       action: { enum: ['status', 'inspect', 'finish'] },
       baseline: string('inspect: saved version name for before, motion measurement and pictures; default is the job starting state. Versions last until MDLxL closes; after a restart use the saved file as the baseline.'),
+      nativeChecks: AI_NATIVE_CHECKS_SCHEMA,
       checksCode: string(
         'Read-only JavaScript returning named boolean checks; model, before, selection, context, api and detached read-only versions in references["version:NAME"].model are available.',
       ),
-      frames: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'number' } },
+      frames: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'number' }, description: 'One frame for a static model; animation edits require at least three distinct frames.' },
       sequence: { type: 'integer', minimum: -1, description: 'The animation to compare, by index in the edited model.' },
       globalSequence: { type: 'integer', minimum: 0, description: 'The global animation to compare instead of a sequence.' },
       donor: {
@@ -113,6 +124,7 @@ export const AI_TOOLS = [
     'Read any model property using a JSON Pointer. Typed arrays are returned as {$type,$data}. Use a narrow path and offset/limit for large arrays. No data is silently omitted: total/truncated describe pagination.',
     {
       target,
+      parts: { type: 'boolean', description: 'Inspect connected surface parts and current bindings in the captured selection. Read-only native part map; all indices zero-based and shown geoset numbers one-based.' },
       documentId: string('Optional open reference document ID.'),
       path: string('For example /Geosets/0/Vertices or /Bones/2/Rotation.'),
       offset: { type: 'integer', minimum: 0 },
@@ -122,11 +134,12 @@ export const AI_TOOLS = [
   ),
   tool(
     'script',
-    'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (models attached to this chat), api.modules, await api.module(name), api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. Code has no Node, filesystem, network, or editor DOM. Textures: reuse the model’s own textures first, then a native game texture (find it with mdlxl_assets textures or game and put its game path in model.Textures[].Image; no bytes needed). Only when the user explicitly asks for a new texture, push {name:"MDLxL_Forge/UniqueName.tga",bytes:Uint8Array} into assets and use that EXACT full name in model.Textures[].Image. assets contains only NEW outputs of this script, not existing session textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Reuse APIs already inspected in this conversation; describe only unfamiliar calls. api.source(name,offset?,limit?) returns {module,text,offset,total,truncated}: read .text. Geoset tint/alpha tracks live in model.GeosetAnims, found by GeosetId; Geosets[i].Anims holds sequence extents, not color tracks. Scope the canonical collection you edit; its derived Info.Num* counts are maintained by the editor.',
+    'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (models attached to this chat), api.modules, await api.module(name), api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. To retain a private variant, set candidate to a version name, edit:false and explicit scope; inspect it with versions compare and adopt it only with versions use. Candidate staging rejects generated texture assets. Code has no Node, filesystem, network, or editor DOM. Textures: reuse the model’s own textures first, then a native game texture (find it with mdlxl_assets textures or game and put its game path in model.Textures[].Image; no bytes needed). Only when the user explicitly asks for a new texture, push {name:"MDLxL_Forge/UniqueName.tga",bytes:Uint8Array} into assets and use that EXACT full name in model.Textures[].Image. assets contains only NEW outputs of this script, not existing session textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Reuse APIs already inspected in this conversation; describe only unfamiliar calls. api.source(name,offset?,limit?) returns {module,text,offset,total,truncated}: read .text. Geoset tint/alpha tracks live in model.GeosetAnims, found by GeosetId; Geosets[i].Anims holds sequence extents, not color tracks. Scope the canonical collection you edit; its derived Info.Num* counts are maintained by the editor.',
     {
       target,
       code: string('JavaScript async function body; return a useful result.'),
       edit: { type: 'boolean' },
+      candidate: string('With edit:false and explicit scope, validate and retain this private named version without applying it. Compare via mdlxl_versions; use adopts it as one Undo step.'),
       label: string('Short Undo label describing this edit.'),
       scope: { type: 'array', items: { type: 'string' }, minItems: 1 },
       protectedPaths: { type: 'array', items: { type: 'string' } },
@@ -141,9 +154,11 @@ export const AI_TOOLS = [
   ),
   tool(
     'patch',
-    'Apply precise typed model edits atomically through normal validation and Undo. op=set replaces a property, delete removes it, splice edits array items. All paths are JSON Pointers; typed values use {$type:"Float32Array",$data:[...]}. Unrelated model data is preserved.',
+    'With candidate and edit:false, stage a private named candidate for versions compare/use. Otherwise apply precise typed model edits atomically through normal validation and Undo. op=set replaces a property, delete removes it, splice edits array items. All paths are JSON Pointers; typed values use {$type:"Float32Array",$data:[...]}. Unrelated model data is preserved.',
     {
       target,
+      candidate: string('Optional private candidate version name. Requires edit:false; no live edit occurs.'),
+      edit: { type: 'boolean', description: 'For a named candidate use false. Ordinary patch callers omit this field.' },
       label: string('Undo label.'),
       scope: { type: 'array', items: { type: 'string' }, minItems: 1 },
       protectedPaths: { type: 'array', items: { type: 'string' } },
@@ -170,17 +185,19 @@ export const AI_TOOLS = [
         },
       },
     },
-    ['target', 'label', 'scope', 'operations'],
+    ['target', 'scope', 'operations'],
     false,
   ),
   tool(
     'versions',
-    'Keep versions of this model side by side while you work. "original" (the model before the first AI edit since it was opened) and "before job N" (the model before each job\'s first edit) are kept automatically. save stores the current model under a name; list shows every version with its note and how much it differs from the current model; compare lists what differs between a version and the current model or another version; use makes the model exactly that version again, as one Undo step. Scripts read any version as references["version:NAME"].model, so you can measure candidates side by side. Save a version before a risky change and try alternatives beside it; when a result is rejected or a plan proves wrong, go back with use instead of patching on top. Versions last until MDLxL closes.',
+    'Keep versions of this model side by side while you work. "original" (the model before the first AI edit since it was opened) and "before job N" (the model before each job\'s first edit) are kept automatically. save stores the current model under a name; list shows every version with its note and how much it differs from the current model; compare lists what differs between a version and the current model or another version, and nativeChecks measures their shape, binding, motion and protected data without changing either; use makes the model exactly that version again, as one Undo step. Scripts read any version as references["version:NAME"].model, so you can measure candidates side by side. Save a version before a risky change and try alternatives beside it; when a result is rejected or a plan proves wrong, go back with use instead of patching on top. Versions last until MDLxL closes.',
     {
       target,
       action: { enum: ['list', 'save', 'compare', 'use'] },
       name: string('Version name for save, compare or use.'),
       other: string('compare: a second version instead of the current model.'),
+      nativeChecks: AI_NATIVE_CHECKS_SCHEMA,
+      best: { type: 'boolean', description: 'save with the handbook on: retain a reopenable MDX copy of the best candidate with this chat.' },
       note: string('save: what this version is, for example "repair only, before key reduction".'),
     },
     ['target', 'action'],
@@ -328,7 +345,7 @@ export const AI_TOOLS = [
   tool(
     'help',
     'Read MDLxL user documentation or discover scripting modules and their real exported signatures. Use this to answer how-to questions based on the installed version. No model is required.',
-    { topic: string('A topic from the help index; omit for the index.') },
+    { topic: string('A topic from the help index; omit for the index.'), section: string('Optional exact section heading within the guide.') },
   ),
 ];
 
@@ -355,13 +372,16 @@ export const AI_SYSTEM_PROMPT = AI_EDITING_INTRO + '\n' + AI_EDITING_BODY;
 // The editing handbook: general Warcraft III editing rules and a map to the
 // WC3-EDITING-* help guides. Sent with every turn only while the user has it on.
 export const AI_EDITING_HANDBOOK = `Editing handbook (on). Warcraft III SD editing:
+Quick path: inspect the captured part selection using mdlxl_read with path="" and parts=true, record intended motion and explicit part roles in mdlxl_plan (cause/reach/keep and nativeChecks), measure one private candidate, then apply and review. Use (await api.module("ai-editing-procedures")).measureEditingCandidate and (await api.module("ai-rig-checks")).measureRigCandidate for read-only private copies, or mdlxl_versions compare with nativeChecks for named versions. Every provider uses these same native measures.
 Inspect the selected surface's mesh, UVs, material layers, bindings, ancestors and clips. Identify the responsible data, record protected fields, then edit that owner. Preserve the input format, authored conventions and unrelated data.
 For a continuous join, pair boundary vertices by connectivity, surface side and adjoining faces. Match their positions and resolved influences while retaining UV and hard-normal splits. Weld only compatible corners. Diagnose shape, triangle facing and shading separately; use the geometry guide's edge-split and normal-rebuild procedures.
+Choose roles before editing: a rigid plate preserves shape and stays attached to its explicit driver; a flexible transition preserves its intended bend and contact. Record each rigid geoset/vertex region and driverBone in a named nativeChecks entry under rig.rigidParts, and each flexible region under rig.flexibleParts. Both rigid shape and driver attachment are mandatory checks; frozen but detached and attached but stretched are separate failures. Keep the original scope, protected data and required checks through candidate comparisons and replans.
 Bind by intended motion. Classic groups average their bone members equally; weighted skin takes explicit normalized influences. Give seam copies the same motion and carry joint changes through blend rows. For layers, map to the correct underlying triangles by component, facing and side; copy the underlying transition through contact, then blend toward the independent driver where the layer lifts away. Keep free chains independent beyond their anchor. Sample bends, twists and intermediate poses for gaps, sliding and penetration.
 Resolve every rendered layer and its UV set before changing a wrap. Duplicate shared face corners when only one side needs different UVs. Edit visibility at its geoset, material-layer or effect owner and retain the existing local/global clock. Preserve layer order, filter modes, replaceable textures and paths; inspect the textured result at relevant times and contrasting team colours.
 Map donor motion through hierarchy, pivots and parent spaces. Copy keys only between compatible spaces; otherwise solve recipient poses from aligned trajectories. Retiming includes every local controller and event, plus shifted later clips. Preserve interpolation, controls, sequence metadata and global clocks. Keep meaningful keys, check between them and match loop endpoints.
 Place effects with their parents and resources. Separate emission timing, particle lifetime and visibility; replay from onset through residual particles and trails. Use the pivot-compensation procedure before relocating an animated pivot.
 Read the relevant mdlxl_help topic before an unfamiliar operation; reuse sections already read: shape/weld/normals -> WC3-EDITING-GEOMETRY.md; wrap/texture/colour/visibility -> WC3-EDITING-UV-MATERIALS.md; hierarchy/pivots/skin/layers -> WC3-EDITING-NODES-BINDING.md; keys/retiming/donor motion -> WC3-EDITING-ANIMATION.md; particles/ribbons/lights/events -> WC3-EDITING-EMITTERS.md; format/bounds/attachments/collision/portrait/glow/lifecycle -> WC3-EDITING-GAME-INTEGRATION.md; review/limits -> WC3-EDITING-VERIFICATION.md. Follow their ordered procedures and existing API signatures.
+For each native candidate inspect its worst pose and part with the existing capture samples; compare at the same frame, view and framing. Review automatically captures native worst poses and repeats agreed checks against the job baseline. A missing or unmeasured rigid region is unverified.
 Verify the requested result and protected data separately. Compare the same poses and views, inspect actual captures, recalculate affected bounds, validate save/reopen, then finish through mdlxl_review. Report the checks performed and remaining game tests.`;
 
 // The handbook guides a request touches, most relevant first (at most two), so
@@ -375,12 +395,30 @@ const GUIDE_WORDS = [
   ['WC3-EDITING-EMITTERS.md', /\b(particle|emitter|ribbon|glow|light|event|sound|trail|effect)/gi],
   ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay)/gi],
 ];
-export function guidesForRequest(text) {
-  return GUIDE_WORDS.map(([guide, words]) => [guide, (String(text).match(words) || []).length])
-    .filter(([, hits]) => hits > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([guide]) => guide);
+// The written request takes precedence. A short request such as “fix this” can
+// also refer to a node, marked surface, or UV selection in the captured editor.
+const guideTerms = [
+  /оптимиз|размер файла|optimiza|reducir tamaño|优化|文件大小/giu,
+  /привяз|скиннинг|кост[ьи]|ригг|huesos?|esqueleto|vincula|骨骼|绑定|蒙皮/giu,
+  /анимац|ключев|походк|ataque|animaci[oó]n|fotograma|关键帧|动作|动画/giu,
+  /вершин|полигон|геосет|vértice|triángulo|malla|顶点|网格|三角面/giu,
+  /текстур|материал|разв[её]ртк|textura|transparencia|纹理|材质|贴图/giu,
+  /частиц|эмиттер|шлейф|partícula|emisor|estela|粒子|发射器|拖尾/giu,
+  /портрет|габарит|коллизи|colisión|retrato|envolvente|碰撞|肖像|包围盒/giu,
+];
+export { initialGuideText } from './ai-guide-sections.js';
+export function guidesForRequest(text, context = {}) {
+  const request = String(text);
+  const ranked = GUIDE_WORDS.map(([guide, words], i) => [guide,
+    (request.match(words) || []).length + (request.match(guideTerms[i]) || []).length])
+    .filter(([, hits]) => hits > 0).sort((a, b) => b[1] - a[1]);
+  if (ranked.length) return ranked.slice(0, 2).map(([guide]) => guide);
+  if (context.uvEditing || context.mode === 'paint' || context.mode === 'uv') return ['WC3-EDITING-UV-MATERIALS.md'];
+  if (context.mode === 'animation' && (context.selectedNodeIds?.length || context.keyframes?.length)) return ['WC3-EDITING-ANIMATION.md'];
+  if (context.selectedNodeIds?.length) return ['WC3-EDITING-NODES-BINDING.md'];
+  if (context.uvEditing || context.mode === 'paint' || context.mode === 'uv') return ['WC3-EDITING-UV-MATERIALS.md'];
+  if (Object.values(context.selection || {}).some(ids => ids?.length) || context.annotations?.some?.(mark => mark.markedVertices || mark.nearbyVertices)) return ['WC3-EDITING-GEOMETRY.md'];
+  return [];
 }
 
 // Look first, then change once: an editing job records its plan before the
@@ -395,6 +433,9 @@ export const AI_PLAN_TOOL = {
       title: string('Short name for this job as the user sees it in the chat, 2-6 words, like "Copy trim to geosets 8 and 4". Never the request copied word for word.'),
       cause: string('What is actually wrong or needed, as measured in the model, not guessed.'),
       reach: string('How far the cause reaches: which parts, vertices, bones or animations it really involves, beyond or within what the user marked.'),
+      scope: { type: 'array', minItems: 1, items: string('Permitted canonical JSON Pointer; required before staging named candidates.') },
+      protectedPaths: { type: 'array', items: string('JSON Pointer that every staged candidate must preserve.') },
+      nativeChecks: AI_NATIVE_CHECKS_SCHEMA,
       keep: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' }, description: 'What must stay the same; the review checks these.' },
       options: {
         type: 'array',

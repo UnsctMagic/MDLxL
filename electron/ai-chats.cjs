@@ -72,6 +72,10 @@ async function removeChats(service, entry) {
     await service.writes.get(id)?.catch(() => {});
     await fs.rm(service.chatFile(id), { force: true });
     await fs.rm(service.chatFile(id) + '.tmp', { force: true });
+    const prefix = 'candidate-' + id + '.';
+    for (const name of await fs.readdir(service.directory))
+      if (name.startsWith(prefix) && /^[a-f0-9]{64}\.mdx$/.test(name.slice(prefix.length)))
+        await fs.rm(path.join(service.directory, name), { force: true });
   }
   return { ids, providerFiles: await deleteProviderSessions(service.directory, threads) };
 }
@@ -125,7 +129,9 @@ async function cleanupUnused(service, now = Date.now()) {
   for (const name of await fs.readdir(service.directory).catch(() => [])) {
     const full = path.join(service.directory, name),
       chat = CHAT_FILE.exec(name);
-    if (chat ? kept.has(chat[1]) || service.conversations.has(chat[1]) : !/^(?:claude-run-|workspace-[A-Za-z0-9]{6}$)/.test(name)) continue;
+    const candidate = /^candidate-([a-zA-Z0-9_-]{1,80})\.[a-f0-9]{64}\.mdx$/.exec(name);
+    const owner = chat?.[1] || candidate?.[1];
+    if (owner ? kept.has(owner) || service.conversations.has(owner) : !/^(?:claude-run-|workspace-[A-Za-z0-9]{6}$)/.test(name)) continue;
     if (!(await old(full))) continue;
     await fs.rm(full, { recursive: true, force: true });
     files++;

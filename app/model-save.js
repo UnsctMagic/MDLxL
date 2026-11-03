@@ -8,7 +8,10 @@ const pending = new WeakMap();
  */
 export function prepareModelSaveAsync(doc, format = doc.format, name = doc.name,
   createWorker = () => new Worker(new URL('./model-save.worker.js', import.meta.url), { type: 'module' })) {
-  if (pending.has(doc)) return pending.get(doc);
+  let jobs = pending.get(doc);
+  if (!jobs) { jobs = new Map(); pending.set(doc, jobs); }
+  const key = JSON.stringify([doc.revision, format, name]);
+  if (jobs.has(key)) return jobs.get(key);
   const operation = new Promise((resolve, reject) => {
     let worker;
     try {
@@ -31,8 +34,11 @@ export function prepareModelSaveAsync(doc, format = doc.format, name = doc.name,
       worker.postMessage({ snapshot, format, name });
     } catch (error) { worker?.terminate(); reject(error); }
   });
-  pending.set(doc, operation);
-  const clear = () => pending.delete(doc);
+  jobs.set(key, operation);
+  const clear = () => {
+    jobs.delete(key);
+    if (!jobs.size) pending.delete(doc);
+  };
   operation.then(clear, clear);
   return operation;
 }
