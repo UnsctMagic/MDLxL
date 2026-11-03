@@ -11,10 +11,10 @@ function createHandbookFixture(record) {
       const data = JSON.parse(raw), system = textOf(data.messages[0]);
       const user = [...data.messages].reverse().find(message => message.role === 'user' && /MDLxL context (?:captured when this prompt was sent|for this prompt:)/.test(textOf(message)));
       assert.ok(user, 'production provider receives captured editor context');
-      const prompt = textOf(user);
+      const prompt = textOf(user), targetFromPrompt = JSON.parse(textOf(user).slice(textOf(user).lastIndexOf('\n') + 1)).target;
       if (prompt.includes('native-staging-fixture')) {
         const key = 'staging', stage = stages.get(key) || 0; stages.set(key, stage + 1);
-        const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
+        const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify({ ...args, target: targetFromPrompt }) } }] }, finish_reason: 'tool_calls' });
         const previous = textOf([...data.messages].reverse().find(message => message.role === 'tool'));
         let value;
         if (!stage) value = tool('mdlxl_context', {});
@@ -40,7 +40,8 @@ function createHandbookFixture(record) {
       const domain = /native-domain-(optimization|emitter)-fixture/.exec(prompt);
       if (domain) {
         const kind = domain[1], key = 'domain-' + kind, stage = stages.get(key) || 0; stages.set(key, stage + 1);
-        const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
+        record.domainPrevious = { kind, stage, result: textOf([...data.messages].reverse().find(message => message.role === 'tool')).slice(0, 2000) };
+        const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify({ ...args, target: targetFromPrompt }) } }] }, finish_reason: 'tool_calls' });
         let value;
         if (!stage) value = tool('mdlxl_context', {});
         else if (stage === 1) value = tool('mdlxl_versions', { action: 'save', name: key, note: 'Read-only native domain baseline' });
@@ -83,7 +84,7 @@ function createHandbookFixture(record) {
       record.requests.push({ mode: key, stage, handbook: system.includes('Editing handbook (on)'), previous: resultText.slice(0, 3000) });
       assert.equal(system.includes('Editing handbook (on)'), on, 'handbook follows the actual switch at task start');
       const answer = content => ({ delta: { content }, finish_reason: 'stop' });
-      const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + '-' + stage, function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
+      const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + '-' + stage, function: { name, arguments: JSON.stringify({ ...args, target: targetFromPrompt }) } }] }, finish_reason: 'tool_calls' });
       let value;
       if (!on) value = stage === 0 ? tool('mdlxl_context', {}) : answer('HANDBOOK_OFF_COMPLETE');
       else if (stage === 0) value = tool('mdlxl_context', {});
