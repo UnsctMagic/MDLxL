@@ -1,4 +1,4 @@
-import {translate} from '../src/localization.js';
+import {getLanguage,translate} from '../src/localization.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Box,ChevronDown,ChevronRight,File,Folder,FolderOpen} from 'lucide-react';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
@@ -51,7 +51,7 @@ export function FolderStyle({style,onChange,standardTitle}){
 export function worldEditorResults(catalog,query){
  const text=query.trim().toLowerCase();if(!text||!catalog)return null;
  const words=text.split(/\s+/),found=[];
- const visit=(node,trail)=>{if(node.children){for(const item of node.children)visit(item,node.key==='we'?trail:[...trail,node.name]);return;}const haystack=(node.name+' '+node.id+' '+trail.join(' ')).toLowerCase();if(words.every(word=>haystack.includes(word)))found.push({key:node.key,name:node.name,node,detail:trail.join(' › ')});};
+ const visit=(node,trail)=>{if(node.children){for(const item of node.children)visit(item,node.key==='we'?trail:[...trail,node.name]);return;}const haystack=(node.name+' '+node.id+' '+trail.join(' ')).toLowerCase();if(words.every(word=>haystack.includes(word)))found.push({key:node.key,name:node.name,node,detail:trail.map(part=>translate(part)).join(' › ')});};
  visit(catalog.root,[]);return {rows:found.slice(0,500),total:found.length};
 }
 export function worldEditorRows(catalog,expanded){
@@ -100,7 +100,8 @@ export function WorldEditorTextureTree({variant,query,onChoose,onError}){
   return()=>{active=false;};
  },[variant]);
  const empty=failed?'':summary&&!summary.folder?WORLD_EDITOR_NO_GAME:!catalog?'Loading game files…':query.trim()?WORLD_EDITOR_NO_MATCHES:WORLD_EDITOR_NO_GAME;
- const results=useMemo(()=>worldEditorResults(catalog,query),[catalog,query]);
+ const locale=getLanguage();
+ const results=useMemo(()=>worldEditorResults(catalog,query),[catalog,query,locale]);
  const rows=useMemo(()=>results?results.rows.map(row=>({...row,depth:0,search:true})):worldEditorRows(catalog,expanded),[catalog,expanded,results]);
  const toggle=row=>setExpanded(previous=>{const next=new Set(previous);if(next.has(row.key))next.delete(row.key);else next.add(row.key);return next;});
  const choose=row=>{setSelected(row);setFocusKey(row.key);onChoose(row.node,summary?.signature);};
