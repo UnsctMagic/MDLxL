@@ -106,13 +106,16 @@ const check = (name, value) => { record.checks.push({ name, passed: !!value }); 
   const { setAnimationKey } = await import('../src/animation-tracks.js');
   effectsDoc.apply('Native effect timing fixture', ['ParticleEmitters2', 'PivotPoints'], model => {
     const emitter = createNode(model, 'ParticleEmitter2'), sequence = 0, start = model.Sequences[sequence].Interval[0];
-    emitter.TextureID = 0; emitter.EmissionRate = 25; emitter.LifeSpan = 1;
+    emitter.TextureID = 0; emitter.EmissionRate = 25; emitter.LifeSpan = 1; record.effectName = emitter.Name;
     const target = { kind: 'node', id: emitter.ObjectId, property: 'Visibility' };
     for (const [frame, value] of [[start, 0], [start + 10, 1], [start + 40, 0]]) setAnimationKey(model, [target], frame, value, sequence);
     emitter.Visibility.LineType = 0;
     record.effectGoal = { id: emitter.ObjectId, sequence, spans: [[start + 10, start + 40]], samples: [{ frame: start, visibility: 0 }, { frame: start + 10, visibility: 1, emissionRate: 25, lifeSpan: 1 }, { frame: start + 40, visibility: 0 }] };
   });
-  const effects = path.join(scratch, 'Effects.mdx'); fs.writeFileSync(effects, effectsDoc.serialize('mdx')); await stubDialogs(app, { open: effects });
+  const effects = path.join(scratch, 'Effects.mdx'); fs.writeFileSync(effects, effectsDoc.serialize('mdx'));
+  // The serializer canonicalizes ObjectIds; resolve the effect in the actual opened file.
+  record.effectGoal.id = openDocument(fs.readFileSync(effects), 'Effects.mdx').model.ParticleEmitters2.find(node => node.Name === record.effectName).ObjectId;
+  await stubDialogs(app, { open: effects });
   await page.keyboard.press('Control+O'); await page.getByRole('tab', { name: 'Effects.mdx', exact: true }).waitFor();
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   await send('native-domain-emitter-fixture: measure the requested visibility window, emission rate and lifetime', 'DOMAIN_emitter_COMPLETE');

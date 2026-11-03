@@ -1,6 +1,6 @@
 # Integrated editing handbook
 
-Status: implemented on `codex/integrated-editing-handbook`, pending final packaged and CI checks.
+Status: in review on `codex/integrated-editing-handbook`.
 
 ## Goal
 
@@ -22,3 +22,11 @@ The following cases run without a paid provider. Keep private models in the perm
 - `test/ai-handbook.electron.cjs` exercises the packaged book switch, unsafe candidate review refusal, correction, saved-model export and recovery in a disposable profile.
 
 Record an owner's correction with a baseline, failed result, selected part, clip, frame, and intended behavior. Pair it with an accepted result and a counterexample where the rule should not apply. Keep the expected measurement independent of the edit code. Use additional models before promoting a narrow correction to a general rule.
+
+## Integration and review
+
+[PR #522](https://github.com/UnsctMagic/MDLxL/pull/522) includes the existing #517 workspace commits as ancestors. The handbook remains an independent switch. Staged script and patch candidates declare a plan scope and use `edit:false`; comparing them leaves the active document and Undo untouched. Adopt with `mdlxl_versions use`. Stale origin/plan checks prevent applying a proposal to a changed target.
+
+On Steve the native check starts from the broken original: it rejects the frozen original and the stretched rules-only shoulder, and accepts the rigid plate that follows ObjectId 23 on the both-on result. Flexible rows expose absolute and relative seam and edge measurements. Visibility, correspondence and sampled frame coverage are reported. Native measurements run in a cancellable renderer worker. Use a declared sequence and step for a representative candidate, then the relevant full sweep on the chosen model. A sampled result is evidence at the measured times.
+
+Packaged acceptance exercises the independent book and workspace switches, Knight isolation, merge/open-new conflicts, private candidate comparison, one-step Undo/Redo, trusted MDX byte and effect-timing checks, localized/UV context routing, and recovered reviewed copies. The external provider in these tests is deterministic and local. The product/QA release gate remains with Claude; no release or installation is part of this PR.
