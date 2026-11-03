@@ -7536,5 +7536,7 @@
   "How long the arcs flash along the blade.": "电弧沿剑刃闪动的持续时间。",
   "Quiet time between flashes.": "闪光之间的停顿时间。",
   "Number of flashes along the blade in each burst.": "每轮沿剑刃出现的闪光数量。",
-  "Add emitter": "添加发射器"
+  "Add emitter": "添加发射器",
+  "X-Ray": "透视顶点",
+  "Show vertex dots through model surfaces. Grabthrough also allows selecting through the model.": "透过模型表面显示顶点。Grabthrough 还允许穿透模型选择顶点。"
 }

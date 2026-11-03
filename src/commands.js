@@ -22,7 +22,7 @@ export const COMMANDS = coreHotkeyDefaults([
   ...group('Frames', [['keyframe:copy','Copy keyframes','Alt+C'],['keyframe:copyPose','Copy Frame','Alt+P'],['keyframe:paste','Paste keyframes','Alt+V'],['keyframe:delete','Delete keyframes','Alt+Delete'],['keyframe:clear','Clear keyframes','Ctrl+D']]),
   // Append new actions so established generated core shortcut codes stay stable.
   ...group('Modules', [['bitsAndParts','BitsAndParts','P'],['particles','Particle Editor','F8'],['convertVersion','Convert MDX800 / MDX1000','Ctrl+F12']]),
-  ...group('View', [['normals','Show normals','N'],['orthographic','Orthographic view','Shift+5']]),
+  ...group('View', [['xrayVertices','X-Ray'],['normals','Show normals','N'],['orthographic','Orthographic view','Shift+5']]),
   ...group('Resources', [['GeosetAnims','Geoset Animation Manager','Alt+H']]),
   ...group('View', [['bones','Bones rest-pose workspace','F4'],['grid:small','Small grid','Alt+1'],['grid:xz','XZ-grid','Alt+3'],['grid:yz','YZ-grid','Alt+4'],['grid:xy','XY-grid','Alt+2'],['axes','Axis guides','Shift+9'],['wireframe','Wireframe','Shift+F'],['workplaneEnabled','Constrain to workplane','Shift+8']]),
   ...group('Modules', [['optimizeModel','OptimizeXL','O'],['animXL','AnimXL','F9'],['surfaceEffects','Surface Effects']]),

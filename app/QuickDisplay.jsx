@@ -2,11 +2,10 @@ import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useDismiss from './useDismiss.js';
 import VIEW_MENU from '../src/view-menu.json';
-import VIS_VIEW_MENU from '../src/vis-view-menu.json';
 import LookIcon from './LookIcon.jsx';
 import './portrait-view.css';
 
-const TIPS = { 'display:bones': 'Show bones and helpers. Right-click to choose Helpers or Bones.', rgb: 'Show the model colored the way it looks in its Stand animation (geoset colors and fades)' };
+const TIPS = { xrayVertices: 'Show vertex dots through model surfaces. Grabthrough also allows selecting through the model.', 'display:bones': 'Show bones and helpers. Right-click to choose Helpers or Bones.', rgb: 'Show the model colored the way it looks in its Stand animation (geoset colors and fades)' };
 
 // Keep icon names visible at every window width; the editor row can scroll.
 export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isEnabled, onClear }) {
@@ -15,7 +14,7 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
   return <div className="quick-display" role="group" aria-label="Quick display">
     <div className="quick-display-options">
       <button title="Remove all display options; no model data is removed" onClick={onClear}>{!vanilla && <LookIcon name="clearDisplay"/>}<span className="quick-display-name">Clear</span></button>
-      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vanilla && action === 'display:attachments')).map(([label, action]) =>
+      {VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay').map(([label, action]) =>
         <label key={action} ref={action === 'display:bones' ? trigger : undefined} onContextMenu={action === 'display:bones' ? event => {
           event.preventDefault(); if (!isEnabled(action)) return;
           const rect = event.currentTarget.getBoundingClientRect();

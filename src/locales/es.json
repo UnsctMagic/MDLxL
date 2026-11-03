@@ -7672,5 +7672,7 @@
   "How long the arcs flash along the blade.": "Cuánto tiempo destellan los arcos a lo largo de la hoja.",
   "Quiet time between flashes.": "Pausa entre los destellos.",
   "Number of flashes along the blade in each burst.": "Número de destellos por la hoja en cada ráfaga.",
-  "Add emitter": "Añadir emisor"
+  "Add emitter": "Añadir emisor",
+  "X-Ray": "Rayos X",
+  "Show vertex dots through model surfaces. Grabthrough also allows selecting through the model.": "Mostrar los puntos de los vértices a través de las superficies del modelo. Grabthrough también permite seleccionarlos a través del modelo."
 }

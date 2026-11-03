@@ -557,7 +557,10 @@ export default function App() {
   const clearDisplay = () => {
     setOverlayModes(previous => clearQuickDisplay(previous, displayMode));
     setCleanViews(previous => ({ ...previous, [mode]: false }));
-    if (mode === 'vertices') setRGBPreview(false);
+    if (mode === 'vertices') {
+      setRGBPreview(false);
+      changePreferences(previous => ({ ...previous, viewportAppearance: { ...previous.viewportAppearance, xrayVertices: false } }));
+    }
   };
   const clearZoomAnchor = () => { setZoomAnchor(null); setChoosingZoomAnchor(false); };
   const openOptimizeXL = () => {
@@ -1310,6 +1313,7 @@ export default function App() {
     axes: () => changePreferences(previous=>{const visible=Object.values(previous.grid.axes).some(Boolean);return {...previous,grid:{...previous.grid,axes:{x:!visible,y:!visible,z:!visible}}};}),
     wireframe: () => setViewRenderMode('wireframe'),
     workplaneEnabled: () => setWorkplaneEnabled(value=>!value),
+    xrayVertices: () => changePreferences(previous => ({ ...previous, viewportAppearance: { ...previous.viewportAppearance, xrayVertices: !previous.viewportAppearance.xrayVertices } })),
     normals: () => changeOverlay('normals', value => !value), rgb: () => { setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !value); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
     ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras'].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
@@ -1497,7 +1501,7 @@ export default function App() {
   useEffect(() => {aiBridge.editorChanged();});
 
 
-  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
+  const menuChecks = {xrayVertices:preferences.viewportAppearance.xrayVertices,shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
   useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,surfaceEffectsEnabled:commandEnabled('surfaceEffects'),uvEnabled:commandEnabled('uv')});},[doc.readOnly,saving,displayMode,mode,model.Geosets.length,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
@@ -1728,7 +1732,7 @@ export default function App() {
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && mode !== 'manager' && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
-        vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
+        vanilla={visUI}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}
         {...cameraProps}

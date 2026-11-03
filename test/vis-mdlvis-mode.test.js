@@ -6,7 +6,6 @@ import { build } from 'esbuild';
 import React from 'react';
 import { createSketchStore } from '../src/ai-sketch.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import VIS_MENU from '../src/vis-view-menu.json' with { type: 'json' };
 import VIEW_MENU from '../src/view-menu.json' with { type: 'json' };
 
 const toolbar = readFileSync(new URL('../app/AppToolbar.jsx', import.meta.url), 'utf8').replaceAll('\r', '');
@@ -52,9 +51,9 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', built.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const QuickDisplay = module.exports.default;
 
-for (const viewMode of Object.keys(VIS_MENU)) test(`${viewMode}: VIS renders the classic ordered checkbox list; XL retains its icons and menu`, () => {
+for (const viewMode of Object.keys(VIEW_MENU)) test(`${viewMode}: VIS renders the classic ordered checkbox list; XL retains its icons and menu`, () => {
   for (const vanilla of [true, false]) {
-    const menu = (vanilla ? VIS_MENU : VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vanilla && action === 'display:attachments'));
+    const menu = VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay');
     const checks = Object.fromEntries(menu.map(([, action], i) => [action, i % 2 === 0]));
     const html = renderToStaticMarkup(React.createElement(QuickDisplay, { viewMode, vanilla, checks, isEnabled: action => action !== 'grid', onCommand() {}, onClear() {} }));
     const inputs = [...html.matchAll(/<input ([^>]+)>/g)].map(([, attrs]) => attrs);
@@ -76,7 +75,7 @@ test('VIS keeps bottom model tabs, restores classic editors and hides AI while r
   assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>:not\(\.vis-toggle\)/);
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
-  assert.match(display, /const visibleOverlays = visUI \? \{ \.\.\.storedOverlays, attachments: true \}/);
+  assert.doesNotMatch(display, /const visibleOverlays = visUI/);
   assert.match(app, /<div className="classic-status"><ModelTabs /);
   assert.doesNotMatch(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');

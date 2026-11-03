@@ -7656,5 +7656,7 @@
   "How long the arcs flash along the blade.": "Как долго дуги сверкают вдоль клинка.",
   "Quiet time between flashes.": "Пауза между вспышками.",
   "Number of flashes along the blade in each burst.": "Число вспышек вдоль клинка в каждой серии.",
-  "Add emitter": "Добавить эмиттер"
+  "Add emitter": "Добавить эмиттер",
+  "X-Ray": "Рентген",
+  "Show vertex dots through model surfaces. Grabthrough also allows selecting through the model.": "Показывать точки вершин сквозь поверхности модели. Grabthrough также позволяет выбирать вершины сквозь модель."
 }
