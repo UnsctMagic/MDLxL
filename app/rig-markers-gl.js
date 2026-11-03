@@ -1,3 +1,4 @@
+import { rigTypeVisible } from '../src/display-overlays.js';
 import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
 import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
@@ -63,7 +64,8 @@ export function markerStyle(point, byId, preferences, highlightColors = new Map(
 
 export function rigMarkerVisible(point, options, highlights) {
   const kind = point.overlayKind || 'nodes';
-  return (point.helperNode ? !!(options.helpers ?? options.bones) : !!options[kind]) || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
+  if (kind === 'bones' && options.focusedBoneMarkers && highlights.get(point.node.ObjectId)) return true;
+  return rigTypeVisible(point, options) && (point.helperNode ? !!(options.helpers ?? options.bones) : !!options[kind]);
 }
 
 export function rigMarkerSize(point, shape, options = {}, visual = visualOptions(options.preferences)) {
