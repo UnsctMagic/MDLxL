@@ -117,6 +117,28 @@ const check = (name, value) => { record.checks.push({ name, passed: !!value }); 
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   await send('native-domain-emitter-fixture: measure the requested visibility window, emission rate and lifetime', 'DOMAIN_emitter_COMPLETE');
   check('effect timing goals sample the real document through the production endpoint', record.nativeDomains.find(row => row.kind === 'emitter')?.sampled >= 4);
+  const stageBefore = await page.evaluate(() => ({ vertices: Array.from(window.__mdlxl.model().Geosets[0].Vertices), uv: window.__mdlxl.model().Geosets.map(g => g.TVertices.map(uv => Array.from(uv))), undo: window.__mdlxl.document().historyStats.undoSteps }));
+  let releaseStage, readyStage; record.stageGate = new Promise(resolve => { releaseStage = resolve; });
+  const stagingReady = new Promise(resolve => { readyStage = resolve; }); record.stageReady = readyStage;
+  const staging = send('native-staging-fixture: stage a safe scoped private variant, compare it, then adopt and review it', 'STAGING_COMPLETE');
+  try {
+    await Promise.race([stagingReady, staging.then(() => { throw Error('Staging completed without a private comparison gate'); })]);
+    const still = await page.evaluate(() => ({ vertices: Array.from(window.__mdlxl.model().Geosets[0].Vertices), undo: window.__mdlxl.document().historyStats.undoSteps }));
+    check('staged scoped variant compares without mutating live geometry or Undo', record.stagedCompared && require('node:util').isDeepStrictEqual(still.vertices, stageBefore.vertices) && still.undo === stageBefore.undo);
+  } finally { releaseStage(); }
+  await staging;
+  check('candidate adoption adds exactly one normal Undo step', await page.evaluate(() => window.__mdlxl.document().historyStats.undoSteps) === stageBefore.undo + 1);
+  await page.getByRole('button', { name: 'Close AI assistant', exact: true }).click();
+  await page.getByRole('button', { name: 'Vertices', exact: true }).click(); await page.keyboard.press('Control+Z');
+  await page.waitForFunction(before => window.__mdlxl.model().Geosets[0].Vertices.every((value, index) => value === before[index]), stageBefore.vertices);
+  check('one real Ctrl+Z restores the adopted candidate geometry', true);
+  await page.keyboard.press('Control+Y');
+  await page.waitForFunction(before => window.__mdlxl.model().Geosets[0].Vertices[0] === before[0] + 1, stageBefore.vertices);
+  await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
+  const stagedCopy = path.join(scratch, 'Scoped-reviewed.mdx'); await stubDialogs(app, { save: stagedCopy });
+  const stagedSaved = fileReady(stagedCopy); await page.getByRole('button', { name: 'Save reviewed copy…', exact: true }).click(); await stagedSaved;
+  const stagedModel = openDocument(fs.readFileSync(stagedCopy), 'Scoped-reviewed.mdx').model;
+  check('adopted reviewed variant exports through the visible Save reviewed copy action', stagedModel.Geosets[0].Vertices[0] === stageBefore.vertices[0] + 1 && require('node:util').isDeepStrictEqual(stagedModel.Geosets.map(g => g.TVertices.map(uv => Array.from(uv))), stageBefore.uv));
   fs.rmSync(path.join(out, 'handbook-failure.png'), { force: true });
   await page.screenshot({ path: path.join(out, 'handbook-routing.png') });
 })().catch(error => { record.error = error.stack; record.checks.push({ name: 'exception', passed: false, error: error.stack }); process.exitCode = 1; }).finally(async () => {

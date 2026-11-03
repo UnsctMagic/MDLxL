@@ -11,7 +11,33 @@ function createHandbookFixture(record) {
       const data = JSON.parse(raw), system = textOf(data.messages[0]);
       const user = [...data.messages].reverse().find(message => message.role === 'user' && /MDLxL context (?:captured when this prompt was sent|for this prompt:)/.test(textOf(message)));
       assert.ok(user, 'production provider receives captured editor context');
-      const prompt = textOf(user), domain = /native-domain-(optimization|emitter)-fixture/.exec(prompt);
+      const prompt = textOf(user);
+      if (prompt.includes('native-staging-fixture')) {
+        const key = 'staging', stage = stages.get(key) || 0; stages.set(key, stage + 1);
+        const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
+        const previous = textOf([...data.messages].reverse().find(message => message.role === 'tool'));
+        let value;
+        if (!stage) value = tool('mdlxl_context', {});
+        else if (stage === 1) value = tool('mdlxl_plan', { cause: 'Stage and compare a one-unit vertex move before adoption.', reach: 'Only the first X coordinate of geoset zero.', scope: ['/Geosets/0/Vertices'], protectedPaths: ['/Geosets/0/TVertices', '/Materials', '/Textures', '/Bones'], keep: ['Every UV and exterior vertex'],
+          options: [{ fix: 'Stage the exact coordinate change', cost: 'One named private candidate' }, { fix: 'Translate the whole surface', cost: 'Changes extra coordinates' }], choice: 0, why: 'Smallest requested variant.', checks: ['Live model is unchanged before adoption', 'One Undo restores the adopted edit'],
+          nativeChecks: [{ name: 'Scoped staged position', editing: { scope: ['/Geosets/0/Vertices'] } }] });
+        else if (stage === 2) value = tool('mdlxl_versions', { action: 'save', name: 'staging accepted' });
+        else if (stage === 3) value = tool('mdlxl_script', { candidate: 'safe scoped variant', edit: false, scope: ['/Geosets/0/Vertices'], protectedPaths: ['/Geosets/0/TVertices', '/Materials', '/Textures', '/Bones'], code: 'model.Geosets[0].Vertices[0]+=1; return {scoped:true};' });
+        else if (stage === 4) {
+          const result = JSON.parse(previous.split('\n')[0]); assert.equal(result.applied, false); assert.equal(result.staged, true);
+          value = tool('mdlxl_versions', { action: 'compare', name: 'staging accepted', other: 'safe scoped variant', nativeChecks: [{ name: 'Scoped private comparison', editing: { scope: ['/Geosets/0/Vertices'] } }] });
+        } else if (stage === 5) {
+          const result = JSON.parse(previous.split('\n')[0]); assert.ok(result.differences > 0); assert.ok(result.native.checks.every(row => row.passed));
+          record.stagedCompared = true; record.stageReady?.(); await record.stageGate;
+          value = tool('mdlxl_versions', { action: 'use', name: 'safe scoped variant' });
+        } else if (stage === 6) value = tool('mdlxl_review', { action: 'inspect', checksCode: 'return [{name:"Staged coordinate adopted",passed:model.Geosets[0].Vertices[0]===before.Geosets[0].Vertices[0]+1}];' });
+        else if (stage === 7) {
+          const result = JSON.parse(previous.split('\n')[0]); assert.equal(result.review.passed, true);
+          value = tool('mdlxl_review', { action: 'finish', outcome: 'passed', summary: 'Scoped candidate adopted and verified against its original baseline.' });
+        } else value = { delta: { content: 'STAGING_COMPLETE' }, finish_reason: 'stop' };
+        res.writeHead(200, { 'content-type': 'text/event-stream' }); return res.end('data: ' + JSON.stringify({ choices: [value] }) + '\n\n');
+      }
+      const domain = /native-domain-(optimization|emitter)-fixture/.exec(prompt);
       if (domain) {
         const kind = domain[1], key = 'domain-' + kind, stage = stages.get(key) || 0; stages.set(key, stage + 1);
         const tool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: key + stage, function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
