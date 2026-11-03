@@ -12,7 +12,7 @@ import { DEFAULT_LEARN, normalizeLearn } from './learn-keycaps.js';
 import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-preview-display.js';
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
 import { DEFAULT_UV_VIEW_TILE_LIMIT, normalizeUVViewTileLimit } from './uv-view-limit.js';
-import { boneAppearanceForTheme, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_APPEARANCE, DEFAULT_VIEWPORT_PRESET_ID, normalizeViewportAppearance, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
+import { boneAppearanceForTheme, geosetSetForTheme, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_APPEARANCE, DEFAULT_VIEWPORT_PRESET_ID, normalizeViewportAppearance, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
 export const DEFAULT_VISUALS = Object.freeze({
   background: '#cccccc', vertex: '#167bff', selectedVertex: '#ff0000', occludedVertex: '#8cacd0',
   wireframe: '#eeeeee', occludedWireframe: '#67717f', selectedGeometry: '#ff9d36',
@@ -86,7 +86,7 @@ function customizedLegacyVisuals(value) {
 }
 export function viewportAppearanceOptions(preferences) {
   const fallback = !preferences?.viewportAppearance && customizedLegacyVisuals(preferences?.visuals) ? appearanceFromLegacy(legacyVisualOptions(preferences)) : DEFAULT_VIEWPORT_APPEARANCE;
-  return normalizeViewportAppearance(preferences?.viewportAppearance, { ...fallback, tree: treeAppearanceForTheme(preferences?.theme), controllers: controllerAppearanceForTheme(preferences?.theme), bones: boneAppearanceForTheme(preferences?.theme) });
+  return normalizeViewportAppearance(preferences?.viewportAppearance, { ...fallback, geosetSet: geosetSetForTheme(preferences?.theme), tree: treeAppearanceForTheme(preferences?.theme), controllers: controllerAppearanceForTheme(preferences?.theme), bones: boneAppearanceForTheme(preferences?.theme) });
 }
 export function visualOptions(preferences) {
   const legacy = legacyVisualOptions(preferences), appearance = viewportAppearanceOptions(preferences);
@@ -179,7 +179,7 @@ export function normalizePreferences(value = {}) {
   }
   const legacyVisuals = legacyVisualOptions(input), legacyCustomized = !input.viewportAppearance && customizedLegacyVisuals(input.visuals);
   const viewportPresets = normalizeViewportPresets(input.viewportPresets);
-  const viewportAppearance = normalizeViewportAppearance(input.viewportAppearance, { ...(legacyCustomized ? appearanceFromLegacy(legacyVisuals) : DEFAULT_VIEWPORT_APPEARANCE), tree: treeAppearanceForTheme(input.theme), controllers: controllerAppearanceForTheme(input.theme), bones: boneAppearanceForTheme(input.theme) });
+  const viewportAppearance = normalizeViewportAppearance(input.viewportAppearance, { ...(legacyCustomized ? appearanceFromLegacy(legacyVisuals) : DEFAULT_VIEWPORT_APPEARANCE), geosetSet: geosetSetForTheme(input.theme), tree: treeAppearanceForTheme(input.theme), controllers: controllerAppearanceForTheme(input.theme), bones: boneAppearanceForTheme(input.theme) });
   const requestedPreset = typeof input.viewportPreset === 'string' ? input.viewportPreset : '';
   const viewportPreset = requestedPreset === 'custom' || viewportPresetById(requestedPreset, viewportPresets) ? requestedPreset : legacyCustomized ? 'custom' : DEFAULT_VIEWPORT_PRESET_ID;
   return {
