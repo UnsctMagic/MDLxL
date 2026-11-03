@@ -10,6 +10,7 @@ Four nine-page A4 PDFs in EN, ES, RU and ZH-CN, with real screenshots of all nin
 
 ## Revision and handover
 
+- PR: [#536](https://github.com/UnsctMagic/MDLxL/pull/536), open into `claude/release-0.38.0`; not merged.
 - Branch: `codex/release-0.38.0-guides`.
 - Base: `claude/release-0.38.0` at `6bcacdb7b9850238688196db271d2294f7019696` (remote rechecked unchanged).
 - Working checkout: `D:\Codex\release-038-guides`; removed after push as required.
