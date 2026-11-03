@@ -1,51 +1,48 @@
 # Geoset tab strip
 
-## Goal and accepted design
+Status: completed with owner approval on 2026-11-03.
 
-Replace the Geosets dropdown with the approved Photoshop-style strip. Keep the
-sidebar width and geoset list, put New (+) and Tab actions in the existing header,
-and use a separate overflow menu for tab names. Keep create, assignment, rename,
-delete, visibility and the existing MDL/MDX annotation format.
+- [PR #529](https://github.com/UnsctMagic/MDLxL/pull/529) merged at `7240caee2d46ebe4102c3d8379b7e1d958ed2063`.
+- Compact Set, preset colors and the VIS override shipped in [PR #528](https://github.com/UnsctMagic/MDLxL/pull/528), merged at `567dcce3b7c82cfe42f553d3cf0ffb16a6fc23e2`.
+- Both merged PRs and their owning code were verified on online `main`.
 
-The owner requested testing this together with Compact Set (PR #528), from
-`codex/compact-geoset-set`. Do not offer a tabs-only build for owner testing.
-The owner explicitly approved this task's C: checkout; disposable outputs are on D:.
+## Result and ownership
 
-## Current state
+The Geosets dropdown is replaced by the approved Photoshop-style strip. Full tabs
+fit without clipped fragments, the active tab stays visible, and overflow contains
+only tab names. New (+) and Tab actions live in the existing Geosets heading and
+follow the panel when floating or docking.
 
-- Branch: `codex/geoset-tab-strip`; starting revision `356bb4ad`.
-- Owners: `app/GeosetTabs.jsx`, `app/geoset-tabs.css`, header slots in
-  `app/AppSidebar.jsx`. The header uses an explicit portal target and the existing
-  dismissal hook. Full tabs fit without fragments; the active tab stays visible.
-- No model codec, viewport or geoset-selection changes in this feature.
-- Ready for review; awaiting merge approval. No merge or installation authorized.
-- Tabs-only packaged workflow passed on the real flail model. On the combined
-  package, all 3 focused packaged workflows pass (`geoset-tabs`,
-  `compact-geoset-set`, `geoset-leave-visible`), plus 87 source checks and 57
-  compatibility checks, zero failures/skips. This is Codex verification; Claude QA
-  and the owner's visual acceptance remain pending.
-- Combined runtime is based on integration revision `1d96f95d75483e187f2c0fc5275c30662fe1077c`,
-  including Compact Set `05d7e80158e727a3bc00375e23b04b90607f7092` (PR #528).
-- Owner build: `D:\Codex\mdlxl-geoset-tabs-20261103\review\MDLxL-win32-x64`.
-  Launch `Start test.cmd`; its separate profile leaves the installed app untouched.
+`app/GeosetTabs.jsx` and `app/geoset-tabs.css` own the strip, menu and dialogs;
+`app/AppSidebar.jsx` provides explicit header portal targets. The existing dismissal
+and Hotkeys claim APIs own popup keys. Home/End navigate tabs without invoking Fit.
+The dismissal callback restores focus only for keyboard dismissal.
+
+Sidebar width, list height/resizing, selection/assignment, visibility, camera
+controls/viewpoint, model codecs and the existing MDL/MDX annotation format remain
+unchanged. Compact Set and its seven preset colors coexist with the tab strip;
+VIS displays Classic Set and restores the chosen style/color when leaving VIS.
 
 ## Verification
 
-- Updated `test/geoset-tabs.electron.cjs` uses the permanent real flail fixture and
-  real clicks, wheel and keys, replacing its old forced focus and synthetic wheel.
-- Fail-first: the existing packaged dropdown fails at
-  `Geoset tabs are a visible tab strip` (`0 !== 1`).
-- The packaged workflow also exposed Home reaching the global Fit command. Tab
-  and menu navigation now claim their keys through the existing Hotkeys API.
-- Logs: `D:\Codex\mdlxl-geoset-tabs-20261103\reports`.
-- Preserve create/move/rename/delete, context assignment, undo/redo, filtering,
-  eye visibility, MDL/MDX saves/reopen, list dimensions, camera rotation and viewpoint.
-- The final combined tab check also verifies the header controls after floating
-  Geosets and docking it again. Appearance and visibility checks exercise both
-  Compact Set and Classic Set.
-- Claude QA, owner visual approval and Warcraft III playback remain separate gates.
+- The old dropdown fails at `Geoset tabs are a visible tab strip` (`0 !== 1`).
+- Combined package: `geoset-tabs`, `compact-geoset-set`, `geoset-leave-visible`,
+  `geoset-preset-colors-vis`: 4 passed, 0 failed, 0 skipped.
+- Focused source: 87 passed; compatibility: 57 passed; no failures/skips.
+- Merge-time keyboard source check: failed before the callback correction, then
+  2 passed, 0 failed, 0 skipped. The affected packaged tab workflow was rerun on
+  the final merged candidate and passed. Both feature PRs had passing CI at merge.
+- Real flail fixture unchanged. Checked actual mouse rotation and retained viewpoint,
+  all tab actions, overflow/keys, Escape/outside dismissal, floating/docking,
+  assignment/history, visibility, both color pickers, VIS, MDL/MDX save/reopen.
+- Independent Claude QA, full packaged release suites, Warcraft III and installed-app
+  testing were not performed. The owner explicitly authorized these merges.
 
-## Next action
+## Retained owner test build
 
-Owner: test the combined package. Claude: independently rerun focused QA. Merge
-only after explicit owner approval; test package is intentionally retained.
+`D:\Codex\mdlxl-geoset-tabs-20261103\review-v2\MDLxL-win32-x64` remains available;
+run `Start test.cmd`. Its separate profile and the older owner test build/profile
+were preserved. No installation, release or version bump was requested.
+
+Disposable merge checks/builds/profiles and the finished checkout are removed;
+small results remain in `D:\Codex\mdlxl-geoset-merge-report-20261103`.
