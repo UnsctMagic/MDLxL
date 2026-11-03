@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Hive-only Sanity Check | Ready for Claude QA; awaiting merge approval | [Sanity Check](sanity-hive-only.md) / Codex |
 | 0.38.0 screenshot UI gaps | Ready for Claude QA; awaiting merge approval | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
 | 0.38.0 translation catch-up | Ready for Claude QA; awaiting merge approval | [Translation inventory](release-038-translations.md) / Codex |
 | Weapon ribbon bright edge | Ready for owner testing; awaiting merge approval | [Ribbon attachment](ribbon-attachment.md) / Codex |
