@@ -4,12 +4,12 @@ import { serializedNodes } from './node-id-order.js';
 // be saved (MDX or MDL) and stops the Warcraft preview, so it is a model error.
 const TRACK_ONLY = { Translation: [0, 0, 0], Rotation: [0, 0, 0, 1], Scaling: [1, 1, 1] };
 
-/** Track-only fields that hold a plain value: { owner, property, path, label }. */
+/** Track-only fields that hold a plain value: { owner, ownerLabel, property, path, label }. */
 export function plainTrackValues(model) {
   const found = [];
   const check = (owner, path, label) => {
     for (const property of Object.keys(TRACK_ONLY)) if (owner?.[property] != null && !Array.isArray(owner[property].Keys))
-      found.push({ owner, property, path: `${path}.${property}`, label: `${label} · ${property}` });
+      found.push({ owner, ownerLabel: label, property, path: `${path}.${property}`, label: `${label} · ${property}` });
   };
   for (const node of serializedNodes(model)) check(node, `Nodes[${node.ObjectId}]`, node.Name || `Node ${node.ObjectId}`);
   (model?.TextureAnims || []).forEach((animation, index) => check(animation, `TextureAnims[${index}]`, `Texture animation ${index + 1}`));

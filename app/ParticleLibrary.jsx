@@ -6,6 +6,7 @@ import GameFileBrowser from './GameFileBrowser.jsx';
 import {GameIcon,FOLDER_ICONS} from './WorldEditorTree.jsx';
 import ParticleLibraryStage from './ParticleLibraryStage.jsx';
 import {visibleWorldEditorRows} from '../src/world-editor-catalog.js';
+import {particleDisplayName} from '../src/particle-library-browse.js';
 import {parseParticleData} from '../src/particle-data.js';
 import {particleBrowserTree} from './ParticleWorldBrowser.jsx';
 // The service primes 36 thumbnails per snapshot. During a scan retain thumbnails
@@ -70,7 +71,7 @@ export default function ParticleLibrary({onChoose,onClose,onError,onSelectionCha
     const terms=search.toLowerCase().split(/\s+/).filter(Boolean);if(!terms.length||style!=='worldeditor')return '';
     return [...new Set((catalog.browse?.objects||[]).flatMap(object=>object.groups.filter(group=>!group.refs.length&&group.title!=='Model'&&terms.every(term=>group.title.toLowerCase().includes(term))).map(group=>group.title+' · No indexed emitters')))].join(' · ');
   },[search,style,catalog.browse]);
-  const rows=useMemo(()=>visibleWorldEditorRows(tree.nodes,opened),[tree,opened]);
+  const rows=useMemo(()=>visibleWorldEditorRows(tree.nodes,opened).map(row=>row.node?.item?{...row,name:particleDisplayName(row.node.item,preferences.language)+row.name.slice(row.node.item.name.length)}:row),[tree,opened,preferences.language]);
   const selectedItem=catalog.items.find(item=>item.id===selected?.node?.item?.id);
   useEffect(()=>{onSelectionChange?.(selectedItem||null);},[selectedItem,onSelectionChange]);
   useEffect(()=>()=>onSelectionChange?.(null),[onSelectionChange]);
@@ -96,7 +97,7 @@ export default function ParticleLibrary({onChoose,onClose,onError,onSelectionCha
         empty:search.trim()?'No matching effects.':catalog.sourceStatus?.state==='missing'?'':catalog.sourceStatus?'No effects.':'Loading effects…',onVisibleRows,resetKey:style+'|'+search},
       stage:<ParticleLibraryStage item={item} preferences={preferences} suspended={!!sourceContext}/>,
       info:item?<div key={item.id} className="pe-library-info">
-        <h3 translate="no">{item.name}</h3>
+        <h3 translate="no">{particleDisplayName(item)}</h3>
         <div className="gf-file-actions">
           <button disabled={disabled||!!item.blocked||!!openingName} onClick={()=>choose(item)}>Open in Lab</button>
           <button aria-label={'Favorite '+item.name} aria-pressed={!!item.favorite} onClick={()=>favorite(item)}>{item.favorite?'★':'☆'} Favorite</button>

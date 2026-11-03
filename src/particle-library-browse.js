@@ -1,3 +1,4 @@
+import {translate} from './localization.js';
 import {gamePathKey} from './game-path.js';
 
 export const appearanceTypes = ['Fire','Smoke','Sparks','Magic','Glows','Trails','Bursts','Other'];
@@ -184,4 +185,12 @@ export function buildParticleBrowse(objects, entries, evidence = new Map(), revi
   }
   const other = entries.filter(item => !linked.has(item.id)).map(item => item.id);
   return {objects:rows,buckets:buckets.map(ids=>[...ids]),other,metadata:distinctParticleNames(entries,origins,evidence,reviewFor)};
+}
+
+// Only the leading app-generated descriptor is UI text. Origins/qualifiers and
+// reviewed or personal names remain authored data, including English words.
+export function particleDisplayName(item, locale) {
+  if (item.collection !== 'Warcraft' || item.naming?.state !== 'review-needed') return item.name;
+  return item.name.replace(/^(?:(?:Red|Green|Blue|Golden|Purple|Pale) (?:particle burst|streaks|particles|smoke|sparks|flame|glow|magic|burst|trail)|Ribbon trail|Model particles|Smoke|Sparks|Flame|Glow|Magic|Burst|Trail)(?= · |$)/,
+    descriptor => translate(descriptor, locale));
 }
