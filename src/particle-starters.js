@@ -4,7 +4,8 @@ import { gamePathKey } from './game-path.js';
 // Stock Warcraft III pictures, read from the player's own game data like every other
 // native texture. MDLxL never generates or bundles effect pictures.
 export const STARTER_TEXTURE = 'Textures\\GenericGlow64.blp';
-export const RIBBON_TEXTURE = 'Textures\\RibbonNE1_White.blp';
+// Blademaster's weapon trail is bright at U=0 (the newest edge), fading with age.
+export const RIBBON_TEXTURE = 'Textures\\RibbonBlur1.blp';
 export const STARTER_TEXTURES = [STARTER_TEXTURE, RIBBON_TEXTURE];
 // Pictures earlier versions generated beside the model, with their stock replacements
 // (including Forge's HD helper maps, now forge.js HD_NEUTRAL_MAPS).
