@@ -40,4 +40,5 @@
 - Forge's **Add shape** menu closes again with a second click, an outside click or Escape. The language menu is no longer covered by the portrait toolbar.
 - Viewing controls say **Playback Speed**; the control that changes the model's timing says **Animation Speed**.
 - Square vertex dots are no longer hidden behind blended materials.
+- **Help > Sanity Check** shows only the Hive checker's findings; MDLxL's own structural warnings are no longer mixed in.
 - Updates: this version also accepts the single fixed download name used from 0.39.0. Older copies must update to 0.38.0 first.

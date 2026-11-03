@@ -40,4 +40,5 @@
 - El menú **Añadir forma** de Forge vuelve a cerrarse con un segundo clic, un clic fuera o Escape. El menú de idioma ya no queda tapado por la barra del retrato.
 - Los controles de visualización dicen **Velocidad de reproducción**; el control que cambia el tiempo del modelo dice **Velocidad de animación**.
 - Los puntos cuadrados de los vértices ya no quedan ocultos tras materiales mezclados.
+- **Ayuda > Comprobación del modelo** muestra solo los resultados del comprobador de Hive; ya no se mezclan las advertencias estructurales propias de MDLxL.
 - Actualizaciones: esta versión también acepta el nombre de descarga fijo que se usará desde 0.39.0. Las copias más antiguas deben actualizar primero a 0.38.0.
