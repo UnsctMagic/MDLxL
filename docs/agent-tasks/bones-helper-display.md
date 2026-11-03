@@ -1,6 +1,6 @@
 # Bones and Helpers display
 
-Status: Ready for review; awaiting merge approval ([PR #521](https://github.com/UnsctMagic/MDLxL/pull/521))
+Status: Completed — [PR #521](https://github.com/UnsctMagic/MDLxL/pull/521), merged 2026-11-03 at `edd5541e687c2a9b1755a4f2bea9f532a669af58`
 Owner: Codex
 Updated: 2026-11-03
 
@@ -28,4 +28,4 @@ Bones is the shared master for Bone and Helper markers. Right-click it for check
 
 ## Handoff
 
-Open feature PR into main; no merge authorized. Remove task worktree and disposable package/profile after pushing; keep the small report and menu capture on D:.
+Owner tested the build and authorized merge plus test-build deletion. PR #521 was merged after CI passed on the corrected head; the merged PR and owning code were verified on online main. Test build `D:\Codex\bones-helper-test-app` was deleted and absence verified. Keep only the small verification report/capture under `D:\Codex\bones-helper-display-report`; the pushed task worktree is removed after closeout. Independent Claude QA and Warcraft III remain unexercised.
