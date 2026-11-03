@@ -7,6 +7,7 @@ const number = (value, min, max, fallback) => value !== null && value !== '' && 
   ? Math.round(Math.max(min, Math.min(max, Number(value))) * 100) / 100 : fallback;
 const choice = (value, choices, fallback) => choices.includes(value) ? value : fallback;
 const record = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+export const geosetSetForTheme = theme => ({ style: 'compact', color: (themes[theme] || themes.light).accent });
 
 // New and older appearance bundles get a Quadview palette derived from their
 // own background, rather than importing another editor's colors.
@@ -29,6 +30,7 @@ export const DEFAULT_BONE_INFLUENCE = Object.freeze({ opacity: .5, ghost: '#a9b6
 const profile = (theme, value) => Object.freeze({
   controllers: Object.freeze(controllerAppearanceForTheme(theme)),
   tree: Object.freeze(treeAppearanceForTheme(theme)),
+  geosetSet: Object.freeze(geosetSetForTheme(theme)),
   selectedGeoset: Object.freeze({ ...value.selectedGeoset }),
   otherGeoset: Object.freeze({ ...value.otherGeoset }),
   selectedVertex: Object.freeze({ ...value.selectedVertex }),
@@ -171,7 +173,9 @@ export function normalizeViewportAppearance(value, fallback = DEFAULT_VIEWPORT_A
   const highlight = record(input.geosetHighlight), highlightBase = base.geosetHighlight || DEFAULT_VIEWPORT_APPEARANCE.geosetHighlight;
   const viaView = typeof highlight.viaView === 'boolean' ? highlight.viaView : highlightBase.viaView;
   const viaSelection = typeof highlight.viaSelection === 'boolean' ? highlight.viaSelection : highlightBase.viaSelection;
+  const geosetSet = record(input.geosetSet), setBase = base.geosetSet || DEFAULT_VIEWPORT_APPEARANCE.geosetSet;
   return {
+    geosetSet: { style: choice(geosetSet.style, ['compact', 'classic'], setBase.style), color: color(geosetSet.color, setBase.color) },
     controllers: normalizeControllerAppearance(input.controllers, base.controllers),
     tree: normalizeTreeAppearance(input.tree, base.tree || treeAppearanceForTheme()),
     selectedGeoset: normalizeWire(input.selectedGeoset, base.selectedGeoset || DEFAULT_VIEWPORT_APPEARANCE.selectedGeoset),
@@ -211,7 +215,7 @@ export function normalizeViewportPresets(value) {
     if (!id || !name || ids.has(id) || names.has(name.toLowerCase())) continue;
     ids.add(id); names.add(name.toLowerCase());
     const theme = Object.hasOwn(themes, item.theme) ? item.theme : null;
-    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme), bones: boneAppearanceForTheme(theme) });
+    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, geosetSet: geosetSetForTheme(theme), tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme), bones: boneAppearanceForTheme(theme) });
     output.push({ id, name, appearance, ...(theme ? { theme, accent: color(item.accent, themes[theme].accent) } : {}) });
   }
   return output;

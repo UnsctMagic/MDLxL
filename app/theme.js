@@ -25,6 +25,7 @@ export function applyApplicationTheme(preferences, targetDocument = document) {
   root.style.setProperty('--panel-scale', String(preferences?.panelScale || 1));
   root.style.setProperty('--panel-width', `${preferences?.panelWidth || 240}px`);
   const appearance = viewportAppearanceOptions(preferences), tree = appearance.tree;
+  root.style.setProperty('--geoset-set-color', appearance.geosetSet.color);
   for (const [name, value] of Object.entries(appearance.controllers)) root.style.setProperty(`--controller-${name}`, String(value));
   for (const [name, value] of Object.entries(tree)) {
     if (name === 'nodes' || name === 'folders') {

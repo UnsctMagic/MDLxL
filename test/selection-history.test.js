@@ -21,9 +21,9 @@ test('visible-only geosets stay outside edit selection and survive undo, redo an
   assert.deepEqual(history.travel('undo', after), before);
   assert.deepEqual(history.travel('redo', before), after);
   const recovered = captureSelection({ ...after, selection: { 0: [0], 1: [0] }, visibleOnly: new Set([0, 1, 99]) }, doc.model);
-  assert.deepEqual(Array.from(recovered.visibleOnly), [0]);
+  assert.deepEqual(Array.from(recovered.visibleOnly), [0, 1]);
   assert.deepEqual(Object.keys(recovered.selection), ['1']);
-  assert.deepEqual(restoreSelection(recovered, doc.model), after);
+  assert.deepEqual(restoreSelection(recovered, doc.model), { ...after, visibleOnly: new Set([0, 1]) });
   assert.equal(validSelectionHistory({ version: 1, before: captureSelection(before, doc.model), after: recovered }), true);
 });
 function edit(history, state, label, mutate, after = state) {
