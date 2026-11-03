@@ -1,3 +1,4 @@
+import { rigTypeVisible } from '../src/display-overlays.js';
 import { Vector3, Vector4, Matrix4 } from 'three';
 import { createOverlayDepth } from './preview-depth.js';
 import { gridSegments } from './viewport-grid.js';
@@ -16,6 +17,7 @@ export function previewOverlayOptions(overlays, showNodes = false, editorMode, v
   const effectSymbols = vanilla || editorMode !== 'animations' || !!overlays?.nodes;
   const focusedBoneLines = !!overlays?.focusedSkeleton;
   return {
+    boneTypesBones: overlays?.boneTypesBones ?? true, boneTypesHelpers: overlays?.boneTypesHelpers ?? true,
     bones: overlays?.bones ?? markers, helpers: overlays?.helpers ?? overlays?.bones ?? markers, nodes: grouped ? false : overlays?.nodes ?? markers,
     attachments: overlays?.attachments ?? markers, particles: !!(overlays?.particles ?? markers) && effectSymbols,
     ribbons: !!(overlays?.particles ?? markers) && effectSymbols,
@@ -48,7 +50,7 @@ export function movementNodeCategories(model, vanilla = false) {
 
 // Focused Skeleton shows the selected bone's parent and child chain even with
 // Bones off; whatever it shows must also be clickable.
-export const visibleMovementPoints = (points, options, focusHighlights) => points.filter(point => (point.helperNode ? (options.helpers ?? options.bones) : options[point.overlayKind || 'nodes']) ||
+export const visibleMovementPoints = (points, options, focusHighlights) => points.filter(point => rigTypeVisible(point, options) && (point.helperNode ? (options.helpers ?? options.bones) : options[point.overlayKind || 'nodes']) ||
   point.overlayKind === 'bones' && !!focusHighlights?.get(point.node.ObjectId));
 
 function markerPath(context, point, appearance) {

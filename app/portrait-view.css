@@ -68,3 +68,8 @@
 
 .portrait-backdrop-split{display:inline-flex}.portrait-backdrop-split>button:last-child{min-width:0;padding:0 4px;margin-left:-1px}
 .portrait-settings.portrait-backdrop-options{width:250px;left:auto;right:auto}.portrait-backdrop-body{display:grid;grid-template-columns:98px 1fr;gap:8px;align-items:start}.portrait-backdrop-preview{display:block;border:1px solid var(--ui-border,#888);background:#000}.portrait-backdrop-sliders{display:grid;gap:2px}.portrait-backdrop-sliders label{display:grid!important;grid-template-columns:38px 1fr}.portrait-backdrop-sliders input[type=range]{min-width:0;width:100%}.portrait-backdrop-ends{display:flex;justify-content:space-between;padding-left:43px;color:var(--ui-muted,#666);font-size:9px}.portrait-backdrop-sliders>button{margin-top:4px}
+
+.classic-app .bone-types-menu{z-index:200;min-width:144px;padding:3px;background:var(--ui-panel,#d4d0c8);border:1px solid var(--ui-border,#888);box-shadow:2px 3px 8px #0005;color:var(--ui-text,#111)}
+.classic-app .bone-types-menu>button{display:flex;align-items:center;gap:7px;width:100%;min-height:28px;padding:5px 10px;border:0;background:transparent;color:inherit;text-align:left;white-space:nowrap}
+.classic-app .bone-types-menu>button>span{width:12px;flex-shrink:0}
+.classic-app .bone-types-menu>button:hover{background:var(--ui-hover,#b8cce4)}

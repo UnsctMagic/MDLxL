@@ -6,6 +6,7 @@ export function viewportOverlayOptions(props) {
   const explicit = props.overlays != null, overlays = props.overlays || {};
   const markers = !!props.showSkeleton;
   return {
+    boneTypesBones: overlays.boneTypesBones ?? true, boneTypesHelpers: overlays.boneTypesHelpers ?? true,
     explicit,
     bones: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.bones : markers,
     helpers: props.editorDisplayMode === 'vertices' ? false : explicit ? !!(overlays.helpers ?? overlays.bones) : markers,

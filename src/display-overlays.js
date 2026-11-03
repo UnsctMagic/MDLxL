@@ -1,11 +1,11 @@
 export function defaultEditorDisplay(vanilla = false) {
-  const base = { shaded: true, vertices: true, bones: false, helpers: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
+  const base = { shaded: true, vertices: true, bones: false, helpers: false, boneTypesBones: true, boneTypesHelpers: true, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   return {
     vertices: { ...base, ...(vanilla && { bones: true, helpers: true, attachments: true }) },
     // Bones is one shared switch across the rig editors (see shareBones).
-    bones: { ...base, bones: true, ...(vanilla && { helpers: true, attachments: true }) },
-    movement: { ...base, bones: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
-    animations: { ...base, bones: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    bones: { ...base, bones: true, helpers: true, ...(vanilla && { helpers: true, attachments: true }) },
+    movement: { ...base, bones: true, helpers: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
+    animations: { ...base, bones: true, helpers: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -22,21 +22,23 @@ function shareBones(overlays, mode, key = 'bones') {
 
 export function setEditorDisplay(overlays, mode, key, value) {
   const current = overlays?.[mode] || {};
-  const resolved = typeof value === 'function' ? value(current[key]) : value;
+  const resolved = typeof value === 'function' ? value(current[key] ?? key.startsWith('boneTypes')) : value;
   const next = { ...current, [key]: !!resolved };
+  if (key === 'bones') next.helpers = !!resolved;
   if (resolved && key === 'skeleton') next.focusedSkeleton = false;
   if (resolved && key === 'focusedSkeleton') next.skeleton = false;
   const result = { ...overlays, [mode]: next };
-  return ['bones', 'helpers', 'attachments'].includes(key) ? shareBones(result, mode, key) : result;
+  if (key === 'bones') return shareBones(shareBones(result, mode, key), mode, 'helpers');
+  return ['helpers', 'attachments', 'boneTypesBones', 'boneTypesHelpers'].includes(key) ? shareBones(result, mode, key) : result;
 }
 
 // Clear the active editor's visible options without changing the model or selection.
 export function clearQuickDisplay(overlays, mode) {
-  return shareBones({ ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, false])) }, mode);
+  return shareBones(shareBones({ ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, key.startsWith('boneTypes') ? overlays[mode][key] : false])) }, mode), mode, 'helpers');
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.
-// Its only rig switch is Bones, so Helpers (often the spine and head) follow it.
+// Type filters remain available in the Bones context menu.
 export function defaultPoseDisplay(overlays) {
   const { helpers: _helpers, ...display } = overlays || {};
   return { ...display, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
@@ -53,7 +55,7 @@ export function storedEditorDisplay(vanilla = false, storage = globalThis.localS
   try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
   return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
-    .map(([key, value]) => [key, vanilla && ['bones', 'helpers', 'attachments'].includes(key) ? value : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+    .map(([key, value]) => [key, vanilla && key === 'attachments' ? value : key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
 }
 
 export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {
@@ -62,3 +64,8 @@ export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {
 
 /** F: Textured View, or back to the view the user last chose in this editor. */
 export const textureToggleTarget = (current, lastUntextured, fallback = 'wireframe') => current === 'textured' ? lastUntextured || fallback : 'textured';
+
+/** Shared display/picking filter; helpers retain their real hierarchy identity. */
+export function rigTypeVisible(point, options) {
+  return point.helperNode ? options.boneTypesHelpers !== false : point.overlayKind !== 'bones' || options.boneTypesBones !== false;
+}
