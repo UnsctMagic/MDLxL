@@ -1,3 +1,4 @@
+import {translate} from '../src/localization.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Box,ChevronDown,ChevronRight,File,Folder,FolderOpen} from 'lucide-react';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
@@ -87,7 +88,7 @@ export function LibraryTree({rows,results,expanded,selected,focusKey,setFocusKey
     onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else choose(row);}} onDoubleClick={()=>{if(!row.folder)onDoubleClick?.(row);}}
     title={row.title||(row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name)}>
     <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
-    {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{(row.node?.status||row.search&&row.detail)&&<small translate="no">{row.node?.status||row.detail}</small>}</span>
+    {rowIcon(row)}<span className="gf-name" translate="no">{row.folder?translate(row.name):row.name}{(row.node?.status||row.search&&row.detail)&&<small translate="no">{row.node?.status?translate(row.node.status):row.detail}</small>}</span>
     {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
    </div>;})}</div>
  </div>;
