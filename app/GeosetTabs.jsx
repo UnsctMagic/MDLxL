@@ -18,7 +18,7 @@ export default function GeosetTabs({ model, active, onActive, selected, edit, di
   const entries = [{ id: 'all', name: 'All tabs' }, ...tabs, ...(tabs.length ? [{ id: 'ungrouped', name: 'Ungrouped' }] : [])];
   useDismiss(!!menu, [root, controls], event => {
     setMenu(null);
-    if (event.key === 'Escape') trigger.current?.focus({ preventScroll: true });
+    if (event.type === 'keydown') trigger.current?.focus({ preventScroll: true });
   }, { claimEscape: true, escapePriority: -20 });
   useWindowKeyClaim(({ event }) => {
     if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return false;
