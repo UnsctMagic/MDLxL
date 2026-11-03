@@ -1,6 +1,6 @@
 # Bones and Helpers display
 
-Status: Ready for review; awaiting merge approval
+Status: Ready for review; awaiting merge approval ([PR #521](https://github.com/UnsctMagic/MDLxL/pull/521))
 Owner: Codex
 Updated: 2026-11-03
 
@@ -10,7 +10,7 @@ Bones is the shared master for Bone and Helper markers. Right-click it for check
 
 ## Revision and owners
 
-- Branch: `codex/bones-helper-display`; base: `575c57c6` (current main when work began).
+- Branch: `codex/bones-helper-display`; feature commit: `2e872b7e`; original base: `575c57c6`. Concurrent main `fa81f005` integrated before handoff; only the task-index insertion conflicted, and both task rows were retained.
 - `app/QuickDisplay.jsx`: one shared context menu in Bones, Movement, Animations, POSE and VIS; dismissed by Escape or outside press. Sidebar duplicates moved here; Refs remains.
 - `src/display-overlays.js`: defaults, persistence, legacy helper flag migration, shared rig-editor choices and type predicate. Master off/on and Clear preserve type choices.
 - Both renderer option adapters, GL markers, connectors and picking use the same predicate; focused-chain precedence is preserved. No camera or authored model changes.

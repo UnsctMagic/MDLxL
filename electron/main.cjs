@@ -600,6 +600,7 @@ ipcMain.handle('texture:folder',async(_,requested)=>{
   return loaded;
 });
 if(singleInstanceLock)app.whenReady().then(async()=>{
+  if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   const [preferences,commands,localization]=await Promise.all([import('../src/preferences.js'),import('../src/commands.js'),import('../src/localization.js')]);
   translateText=localization.translate;
   // Localize native dialog presentation while retaining paths, extensions and IDs.
