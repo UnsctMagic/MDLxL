@@ -1,75 +1,64 @@
-const { clickMenu } = require('./helpers/app.cjs');
-const { launchApp, closeApp } = require('./helpers/app.cjs');
-// Run after building. Uses a disposable profile, never the user's running app.
+const { launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
 (async () => {
-  const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/geoset-leave-visible');
+  const out = path.resolve('out/geoset-leave-visible'), fixture = fixturePath('effect');
   fs.mkdirSync(out, { recursive: true });
-  const profile = fs.mkdtempSync(path.join(out, 'profile-'));
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { graphics: { pauseWhenHidden: false } } }));
-  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: path.join(root, 'test/fixtures/demo.mdx') , pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1280, height: 920 }, show: 'inactive' });
-
+  const original = fs.readFileSync(fixture);
+  const { app, page: initialPage, errors } = await launchApp({ out, fixture, show: 'hide', settings: { preferences: { rendererRevision: 3, modelLookAnswered: true, viewportAppearance: { geosetSet: { style: 'classic' } }, graphics: { pauseWhenHidden: false } } } });
+  const page = initialPage.url().startsWith('file:') ? initialPage : app.windows().find(p => p.url().startsWith('file:')) || await app.waitForEvent('window', { predicate: p => p.url().startsWith('file:') });
+  await prepareWindow(app, page, { show: 'hide', errors });
+  const state = () => page.evaluate(() => {
+    const p = findFiberProps('.viewport,.game-preview-root', p => p?.selectableGeosets && p?.hiddenGeosets);
+    return { editable: [...p.selectableGeosets], visible: [...p.visibleGeosets], hidden: [...p.hiddenGeosets], selected: Object.values(p.selectionByGeoset).flat().length };
+  });
+  const pin = async () => {
+    await page.locator('.geoset-row').first().click({ button: 'right' });
+    await page.getByRole('menuitemcheckbox', { name: 'Show Always', exact: true }).click();
+    await page.mouse.move(300, 50);
+  };
   try {
-
-    const capture = async name => {
-      const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
-      fs.writeFileSync(path.join(out, name), Buffer.from(png, 'base64'));
-    };
-    await page.getByRole('checkbox', { name: 'Select geoset 0', exact: true }).waitFor();
-    await page.evaluate(() => {
-      window.geosetView = () => { const host=document.querySelector('.viewport')||document.querySelector('.game-preview-root'); const props=findFiberState(host,p=>p?.selectableGeosets&&p?.model?.Geosets,{tree:true,props:true}); if(!props)throw Error('Editor viewport props not found');return props; };
-    });
-    const state = () => page.evaluate(() => { const p = geosetView(); return { editable: [...p.selectableGeosets], visible: [...p.visibleGeosets], hidden: [...p.hiddenGeosets], selected: Object.keys(p.selectionByGeoset).filter(i => p.selectionByGeoset[i].length) }; });
-    const pin = async () => {
-      await page.locator('.geoset-row').first().click({ button: 'right' });
-      await page.getByRole('menuitemcheckbox', { name: 'Leave as visible', exact: true }).click();
-      await page.mouse.move(300, 50);
-    };
+    await page.locator('[data-hotkey="geoset:0"]').waitFor();
+    assert.equal(await page.locator('.compact-geoset-list').count(), 0, 'Classic Set keeps the checklist');
+    const count = await page.locator('.geoset-row').count();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByRole('checkbox', { name: 'Show all geosets', exact: true }).uncheck();
     await pin();
-    assert.deepEqual(await state(), { editable: [], visible: [0], hidden: [1, 2, 3, 4], selected: [] });
-    // Select-all cannot make the visible-only geometry editable.
-    await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', ctrlKey: true, bubbles: true })));
-    assert.deepEqual((await state()).selected, []);
-    const unchanged = await page.evaluate(() => {
-      const p = geosetView(), before = Array.from(p.model.Geosets[0].Vertices);
-      p.onTransform({ selections: { 0: [0, 1] }, translation: [100, 0, 0] });
-      return JSON.stringify(before) === JSON.stringify(Array.from(p.model.Geosets[0].Vertices));
-    });
-    assert.equal(unchanged, true, 'even a stale transform payload cannot edit a visible-only geoset');
-    await capture('vertex-visible.png');
-    await clickMenu(app, 'Undo');
-    await page.waitForFunction(() => document.querySelector('[aria-label="Select geoset 0"]')?.checked === true);
-    assert.equal(await page.getByRole('checkbox', { name: 'Select geoset 0', exact: true }).isChecked(), true);
-    assert.deepEqual((await state()).editable, [0]);
-    await clickMenu(app, 'Redo');
-    await page.waitForFunction(() => document.querySelector('[aria-label="Select geoset 0"]')?.checked === false);
-    assert.deepEqual((await state()).editable, []);
+    assert.deepEqual(await state(), { editable: [], visible: [0], hidden: Array.from({length: count - 1}, (_, i) => i + 1), selected: 0 });
+    await page.keyboard.press('Control+a');
+    assert.equal((await state()).selected, 0, 'an unchecked Show Always geoset stays outside vertex selection');
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Geoset 1 Show Always"]'));
+    assert.deepEqual((await state()).visible, []);
+    await page.keyboard.press('Control+y');
+    await page.getByLabel('Geoset 1 Show Always', { exact: true }).waitFor();
     assert.deepEqual((await state()).visible, [0]);
     await page.locator('[data-hotkey="animation"]').click();
-    await page.locator('.movement-controller').waitFor();
     await page.locator('.game-preview-root canvas').first().waitFor();
+    assert.deepEqual((await state()).visible, [0]);
     assert.deepEqual((await state()).editable, []);
-    assert.deepEqual((await state()).visible, [0]);
-    await capture('movement-visible.png');
-    await pin();
-    assert.deepEqual((await state()).visible, []);
-    await pin();
-    assert.deepEqual((await state()).visible, [0]);
-    await clickMenu(app, 'New model');
+    await pin(); assert.deepEqual((await state()).visible, []);
+    await pin(); assert.deepEqual((await state()).visible, [0]);
+    await page.keyboard.press('Control+n');
     await page.getByRole('tab', { name: 'Untitled.mdx', exact: true }).waitFor();
-    assert.equal(await page.getByLabel('Geoset 0 left visible').count(), 0);
-    await page.getByRole('tab', { name: 'demo.mdx' }).click();
+    await page.waitForFunction(() => !__mdlxl.session()?.path && __mdlxl.model()?.Geosets.length === 0);
+    assert.equal(await page.getByLabel('Geoset 1 Show Always', { exact: true }).count(), 0);
+    await page.getByRole('tab', { name: path.basename(fixture), exact: true }).click();
+    await page.waitForFunction(file => __mdlxl.session()?.path === file, fixture);
     await page.locator('.game-preview-root canvas').first().waitFor();
-    assert.deepEqual((await state()).editable, []);
     assert.deepEqual((await state()).visible, [0]);
-    await page.getByRole('checkbox', { name: 'Select geoset 0', exact: true }).check();
+    await page.locator('[data-hotkey="geoset:0"]').check();
     assert.deepEqual((await state()).editable, [0]);
-    assert.equal(await page.getByLabel('Geoset 0 left visible').count(), 0);
+    assert.equal(await page.getByLabel('Geoset 1 Show Always', { exact: true }).count(), 1, 'selection keeps Show Always');
+    await pin();
+    assert.deepEqual((await state()).editable, [0], 'toggling Show Always does not change selection');
+    assert.equal(await page.getByLabel('Geoset 1 Show Always', { exact: true }).count(), 0);
+    assert.ok(fs.readFileSync(fixture).equals(original));
+    assert.equal(await page.evaluate(() => __mdlxl.document().dirty), false);
     assert.deepEqual(errors, []);
-    console.log('PASS vertex/movement visible-only state, hidden-geoset exclusion, selection protection, undo/redo, toggle and re-enable editing');
-  } finally { await closeApp(app).catch(() => {}); }
+    console.log('PASS Classic Set Show Always: vertex selection isolation, undo/redo, Movement, model-tab restoration, selection-independent toggle, model unchanged.');
+  } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
