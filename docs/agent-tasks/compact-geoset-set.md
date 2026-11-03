@@ -21,11 +21,11 @@ Updated: 2026-11-03
 ## Verification and continuation
 
 - Fail-first source proof: `test/compact-geoset-set.test.js` fails on the old default (`actual: undefined`, `expected: 'compact'`), custom-set persistence, and selected Show Always history. Logs live outside Git under the task directory.
-- Focused source checks: 68 passed / 0 failed / 0 skipped, covering preferences, appearance, geoset selection/highlight/extras/tabs and selection history. Compatibility suite: 57 passed / 0 failed / 0 skipped.
+- Focused source checks: 87 passed / 0 failed / 0 skipped, covering preferences, appearance, geoset selection/highlight/extras/tabs and selection history. Compatibility suite: 57 passed / 0 failed / 0 skipped.
 - The older selection-history expectation stripped pins from selected geosets. Its assertion changes because Show Always now persists through selection, as requested; selected pins are covered by the new fail-first case.
 - Packaged startup diagnosis: Playwright can report a disposable `about:blank` target before Electron has any BrowserWindows. Wait for the actual `file:` editor target and then use the existing `prepareWindow`; do not change production startup to accommodate the test.
 - Packaged old-code proof: the corrected real-window harness fails on the original renderer at `Compact Set is the default for an existing profile` (`0 !== 1`). Older custom-preset migration also failed first with Blackrock getting `#71b5f3` instead of `#ff8a00`.
-- Packaged checks: `compact-geoset-set.electron.cjs`, `geoset-leave-visible.electron.cjs`, and `geoset-tabs.electron.cjs`: 3 passed / 0 failed / 0 skipped. Inputs are real clicks, mouse rotation and keyboard commands; probes only read state. The Compact/Classic checks use the permanent real flail fixture through `test/helpers/fixtures.cjs`.
+- Packaged checks: `compact-geoset-set.electron.cjs`, `geoset-leave-visible.electron.cjs`, `geoset-tabs.electron.cjs`, and `geoset-preset-colors-vis.electron.cjs`: 4 passed / 0 failed / 0 skipped on the corrected combined package. Inputs are real clicks, mouse rotation and keyboard commands; probes only read state. The Compact/Classic checks use the permanent real flail fixture through `test/helpers/fixtures.cjs`.
 - Verified: number-only selection with a light-blue glow, configurable color and preset switching, Classic checklist, hidden entry retained in the list, actual Viewport drawing disabled after Hide (including hover with Highlight Geoset on), Show Always independent of selection, Vertices/Movement behavior, history, model-tab restoration, unchanged model bytes/dirty flag, retained viewpoint and actual mouse rotation. The existing tab check also verifies metadata save/reopen and unchanged panel dimensions.
 - Replaced the obsolete deselect-on-pin test with real-input checks of the requested independent Show Always state, including Classic Set and model-tab restoration. Hidden view flags follow existing geoset index remapping. Model-authored animation visibility remains unchanged.
 - Rebased onto current upstream `a27d0553`. Resolved only the project-map overlap, retaining the incoming Animation Speed / Playback Speed guidance alongside the new Compact Set owners. The upstream viewport display fix remains intact; focused checks are repeated on the rebased renderer before handoff.
@@ -54,5 +54,6 @@ Updated: 2026-11-03
 - Correction verification: the new packaged workflow passes every preset via both
   pickers, actual grid colors, VIS round trips, saved style/color, viewpoint and
   real mouse rotation. Source checks: 87 passed; compatibility: 57 passed; zero
-  failures/skips. A new combined owner package is being assembled.
+  failures/skips. The corrected combined package passed all 4 packaged workflows.
 
+- Corrected owner build: `D:\Codex\mdlxl-geoset-tabs-20261103\review-v2\MDLxL-win32-x64`; run `Start test.cmd`. Runtime integration: `c616d86009d329dfffcf300b0f8c2e82959f4f2e`. The older build/profile were not modified. Source checkouts are removed after the pushed handoff.
