@@ -6,39 +6,38 @@ Updated: 2026-11-03
 
 ## Goal and completion criteria
 
-- Keep View consistent between ViS and XL for each editor, and allow Bones to be disabled in Vertex Manager.
-- Keep vertex dots visible through all mesh materials with Grabthrough or X-Ray; expose the existing X-Ray preference in View.
-- Preserve model data, material appearance, independent display choices, compact layout and mouse camera controls. No release or installation changes.
+- Keep View consistent between ViS and XL for each editor, including a working Bones switch in Vertex Manager.
+- Keep vertices visible through mesh materials when the existing Grabthrough is enabled.
+- Owner correction: no added X-Ray control. Remove this task's X-Ray menu/shortcut, command, tooltip, translations and Clear behavior. The original Appearance setting is unchanged.
+- Preserve authored model data, materials, viewpoint, normal mouse controls and the accepted Bones/Helpers context menu and type choices.
 
 ## Revision and local state
 
 - PR: [#525](https://github.com/UnsctMagic/MDLxL/pull/525), ready for review; awaiting merge approval.
-- Branch: `codex/view-vertex-bugs`; base `356bb4ad8004a8e24e7e0f9898a0a5217d239694` (main / #524). Original reproduction used fa81f005; rebased after #521/#524 to retain the accepted Bones/Helpers context menu, master and subtype choices.
-- Working copy: `D:/Codex/view-vertex-bugs-20261103/MDLxL`; disposable worktree removed after pushing.
-- Video: owner recording `2026-11-03 08-57-56.mp4`; Grabthrough was already checked.
-- Real fixture: `fixturePath('archer')`, the permanent collection's `material-fixture/Mecha-CL.mdx` and its textures.
-- Small evidence: `D:/Codex/view-vertex-bugs-20261103/review`; disposable package and test profiles removed after checks.
+- Branch: `codex/view-vertex-bugs`; base `356bb4ad8004a8e24e7e0f9898a0a5217d239694` (main / #524). Original reproduction used fa81f005; integration retained #521/#524.
+- Disposable worktree: `D:/Codex/view-vertex-bugs-20261103/MDLxL`, removed after pushing.
+- Evidence: `D:/Codex/view-vertex-bugs-20261103/review`; packages and test profiles removed after verification.
+- Real fixture: `fixturePath('archer')`, the permanent collection's `material-fixture/Mecha-CL.mdx` and textures. The owner's recording shows Grabthrough already checked.
 
 ## Owners and decisions
 
-- `src/view-menu.json` is the single native/browser View and Quick Display list for both looks. Combine the prior lists; Vertex Manager adds Bones, Attachment and the existing X-Ray preference.
-- `src/useEditorDisplay.js` and `src/display-overlays.js` honor and restore ViS switches instead of forcing Bones, Helpers and Attachments on. ViS defaults and separate XL/ViS display states stay intact.
-- `app/App.jsx` lets Vertex Manager render explicit overlay switches in either look; ViS retains its node manipulation controls. X-Ray uses the existing appearance preference. Clear clears it alongside RGB in Vertex Manager.
-- `app/viewport-shared.js::configurePointMaterial` keeps square markers in the transparent render queue. In Classic, square dots previously drew before blended mesh layers, which covered them. Depth tests, hidden-point passes and model materials are unchanged; Paint uses the same marker owner.
-- Historical ViS menu exclusions are superseded by this owner request; checkbox styling remains.
+- `src/view-menu.json` is the single native/browser View and Quick Display list. ViS and XL offer the same entries for each editor.
+- `src/useEditorDisplay.js` / `src/display-overlays.js` honor ViS switches. Independent XL/ViS display choices and defaults remain.
+- `app/App.jsx` lets Vertex Manager show explicit overlays in either look. ViS node manipulation and the combined Bones/Helpers control are retained.
+- `app/viewport-shared.js::configurePointMaterial` draws square vertex dots after blended model layers in Classic. Model material definitions, depth tests and hidden-point passes are unchanged; Paint uses the same marker owner.
+- No additional through-mesh control is introduced. Grabthrough already shows and selects vertices through meshes.
 
 ## Verification
 
-- Fail-first, unchanged package: `view-vertex-display`, case `menu`, failed `F1: View offers the same entries in ViS and XL`.
-- Fail-first, unchanged package: case `points` saw only **3,621 / 4,957** projected vertex targets with Grabthrough on in Classic. The first patched package saw **4,957 / 4,957** in both Classic and Smooth.
-- Focused source: 43 passed / 0 failed / 0 skipped (`display-overlays`, `vis-mdlvis-mode`, `viewport-point-selection`, `viewport-overlays`, `compact-toolbar`, `localization-quality`, `quick-display-placement`, `viewport-materials`). Compatibility: 57 passed / 0 failed / 0 skipped.
-- Built and packaged with Node 22.23.3 / pnpm. Hidden checks use explicit `no-gpu-warp`: default hidden-desktop GPU startup triggers the existing app relaunch and disconnects Playwright. No product workaround was added.
-- Final focused check measures Grabthrough and X-Ray separately in both renderers, toggles Bones and Clear with real clicks, compares View in Vertices/Bones/Movement, checks authored model data unchanged and verifies the camera quaternion changes with a real Alt+left drag.
-- Final integrated packaged checks: 2 passed / 0 failed / 0 skipped (`view-vertex-display`, `bones-helper-display`). All 4,957 projected vertex targets visible in each of four combinations: Classic/Smooth with Grabthrough, and Classic/Smooth with X-Ray and Grabthrough off. Authored model equality, Bones/Clear and real mouse quaternion change passed.
-- Legacy ViS matrix: 0 passed / 1 failed / 0 skipped on the original baseline and pre-rebase patch. It expects zero visible model tabs; both revisions show one (unchanged pre-existing assertion). No assertion was loosened. The split-menu expected list was updated to the shared table.
-- The changed compact-toolbar source assertion was also run on baseline and failed before passing on the patch. The accepted Bones subtype choices remain enabled through Clear; the packaged check excludes these stored type filters when testing visible overlays.
-- Not exercised: owner's exact model file (only its video), Warcraft III, full packaged/source release suites. Claude owns independent QA before merge.
+- Original fail-first: View parity assertion failed on fa81f005; Classic showed only 3,621 / 4,957 projected vertex targets with Grabthrough enabled.
+- Owner correction fail-first: unchanged PR head 62e1f933 failed `View has no separate X-Ray control` before removing the extra control.
+- Focused source after removal: 43 passed / 0 failed / 0 skipped across display, menus, marker materials, compact toolbar and localization checks.
+- Previous compatibility run: 57 passed / 0 failed / 0 skipped; no model codec or compatibility changes were made in this correction.
+- Final build and package passed. Hidden packaged checks `view-vertex-display` and `bones-helper-display`: 2 passed / 0 failed / 0 skipped. Grabthrough alone shows all 4,957 / 4,957 targets in both Classic and Smooth.
+- The packaged regression checks that View and display shortcuts have no added X-Ray control, compares ViS/XL menus, toggles Bones/Clear with real clicks, measures every projected vertex target with Grabthrough in Classic/Smooth and the appearance X-Ray setting off, verifies unchanged model data, and checks a real Alt+left camera rotation.
+- Existing legacy ViS matrix failed the same zero-model-tabs expectation on both the original baseline and pre-rebase patch (actual: one). No assertion was loosened; this unrelated layout was not changed.
+- Not exercised: owner's exact recorded model file, Warcraft III, full release suites, independent Claude QA. Tests run on the hidden desktop with software rendering, without taking over the user's screen.
 
 ## Next action
 
-- Review the PR linked in the Codex chat; obtain independent Claude QA and owner merge approval. No merge, release, installation or real profile change is authorized.
+- Review PR #525 and obtain independent Claude QA and owner merge approval. No merge, release or installed-profile changes are authorized.

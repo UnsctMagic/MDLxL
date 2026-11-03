@@ -29,9 +29,11 @@ const path = require('node:path');
         await page.keyboard.press(key);
         await page.waitForFunction(() => document.querySelector('.quick-display'));
         const xl = await menu();
+        assert.ok(!xl.includes('X-Ray'), 'View has no separate X-Ray control');
         await page.locator('.vis-toggle').click();
         await page.waitForFunction(() => document.querySelector('.classic-app').hasAttribute('data-vis-ui'));
         assert.deepEqual(await menu(), xl, key + ': View offers the same entries in ViS and XL');
+        assert.equal(await page.locator('.quick-display input[data-hotkey="xrayVertices"]').count(), 0, 'ViS has no extra X-Ray display shortcut');
         await page.locator('.vis-toggle').click();
         await page.waitForFunction(() => !document.querySelector('.classic-app').hasAttribute('data-vis-ui'));
       }
@@ -49,12 +51,9 @@ const path = require('node:path');
         const hidden = await page.locator('.viewport').screenshot();
         assert.notDeepEqual(shown, hidden, 'Bones changes the rendered viewport in ' + (vis ? 'ViS' : 'XL'));
         assert.deepEqual((await state()).camera, before.camera, 'display toggles preserve viewpoint');
-        const xray = page.locator('.quick-display input[data-hotkey="xrayVertices"]');
-        await xray.click();
-        await page.waitForFunction(() => displayProbe().props.preferences.viewportAppearance.xrayVertices);
+        assert.equal(await page.locator('.quick-display input[data-hotkey="xrayVertices"]').count(), 0, 'Vertex Manager has no extra X-Ray display shortcut');
         await page.locator('.quick-display button').filter({ hasText: /^Clear$/ }).click();
         await page.waitForFunction(() => Object.entries(displayProbe().props.overlays).filter(([key]) => !key.startsWith('boneTypes')).every(([, value]) => !value));
-        assert.equal(await xray.isChecked(), false, 'Clear includes X-Ray');
       }
       await page.locator('.vis-toggle').click();
     }
@@ -71,14 +70,10 @@ const path = require('node:path');
       });
       const canvas = page.locator('.viewport canvas').first();
       const measurements = [];
-      for (const { smooth, grabThrough, xray } of [
-        { smooth: false, grabThrough: true, xray: false }, { smooth: true, grabThrough: true, xray: false },
-        { smooth: true, grabThrough: false, xray: true }, { smooth: false, grabThrough: false, xray: true },
-      ]) {
+      assert.equal(await page.evaluate(() => displayProbe().props.preferences.viewportAppearance.xrayVertices), false, 'Grabthrough works with the existing appearance X-Ray setting off');
+      for (const smooth of [false, true]) {
         const current = await page.evaluate(() => displayProbe().props.preferences.graphics.antialias);
         if (smooth !== current) await page.locator('.smooth-edges-toggle').click();
-        await page.getByLabel('Grabthrough', { exact: true }).setChecked(grabThrough);
-        await page.locator('.quick-display input[data-hotkey="xrayVertices"]').setChecked(xray);
         await page.waitForFunction(value => displayProbe().props.preferences.graphics.antialias === value, smooth);
         const points = await page.evaluate(() => {
           const { runtime } = displayProbe();
@@ -106,10 +101,10 @@ const path = require('node:path');
           }
           return false;
         }).length;
-        measurements.push({ smooth, grabThrough, xray, targets: points.length, visible: found });
+        measurements.push({ smooth, grabThrough: true, targets: points.length, visible: found });
         fs.writeFileSync(path.join(out, 'pixels.json'), JSON.stringify(measurements, null, 2));
         fs.writeFileSync(path.join(out, smooth ? 'smooth.png' : 'classic.png'), shot);
-        assert.equal(found, points.length, (smooth ? 'Smooth' : 'Classic') + ': every vertex dot stays above every material with ' + (xray ? 'X-Ray' : 'Grabthrough'));
+        assert.equal(found, points.length, (smooth ? 'Smooth' : 'Classic') + ': every vertex dot stays above every material with Grabthrough');
       }
       const before = await state(), box = await canvas.boundingBox();
       await page.mouse.move(box.x + box.width * .55, box.y + box.height * .55);
@@ -126,6 +121,6 @@ const path = require('node:path');
     }
     assert.equal(await page.evaluate(() => JSON.stringify(window.__mdlxl.model())), originalModel, 'View choices and camera gestures preserve authored model data');
     assert.deepEqual(errors, []);
-    console.log('PASS View parity, ViS/XL Bones and Clear, X-Ray, real-model Grabthrough pixels and mouse rotation');
+    console.log('PASS shared View without an extra X-Ray control, ViS/XL Bones and Clear, Grabthrough pixels and mouse rotation');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
