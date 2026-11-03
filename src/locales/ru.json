@@ -6587,7 +6587,7 @@
   "Remember for this model": "Запомнить для этой модели",
   "The editor closed.": "Редактор закрыт.",
   "Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.": "Ускоряет или замедляет анимацию, изменяя время её ключевых кадров. 100% — скорость на момент открытия модели.",
-  "Adjust animation actual speed": "Настроить фактическую скорость анимации",
+  "Adjust animation speed": "Настроить скорость анимации",
   "Adjust All Speed": "Настроить всю скорость",
   "Escape": "Escape",
   "Master Controller": "Главный контроллер",
@@ -7656,5 +7656,8 @@
   "How long the arcs flash along the blade.": "Как долго дуги сверкают вдоль клинка.",
   "Quiet time between flashes.": "Пауза между вспышками.",
   "Number of flashes along the blade in each burst.": "Число вспышек вдоль клинка в каждой серии.",
-  "Add emitter": "Добавить эмиттер"
+  "Add emitter": "Добавить эмиттер",
+  "Playback Speed": "Скорость воспроизведения",
+  "Playback Speed (%)": "Скорость воспроизведения (%)",
+  "Animation Speed": "Скорость анимации"
 }
