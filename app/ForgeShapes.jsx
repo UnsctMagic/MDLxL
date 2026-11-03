@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Vector3 } from 'three';
 import { createPortal } from 'react-dom';
 import ToolIcon from './ToolIcon.jsx';
+import useDismiss from './useDismiss.js';
 import { Tool } from './EditorControls.jsx';
 import { transformVertices, setVertexPositions } from '../src/editor-commands.js';
 import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_DEFAULTS } from '../src/forge-primitives.js';
@@ -50,6 +51,16 @@ function ShapeThumbnail({ shape }) {
 
 export default function ForgeShapes({ modelPath, preferences, editorState, onClose, onCommit, onBusyChange }) {
   const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [palette, setPalette] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const paletteMenu = useRef(null), paletteControl = useRef(null);
+  useDismiss(palette, [paletteMenu, paletteControl], () => setPalette(false), { claimEscape: true, escapePriority: -10 });
+  useLayoutEffect(() => {
+    if (!palette) return;
+    const sidebar = paletteControl.current?.closest('.forge-editor-sidebar');
+    if (sidebar && paletteMenu.current) {
+      const right = sidebar.ownerDocument.defaultView.innerWidth - sidebar.getBoundingClientRect().left + 4;
+      paletteMenu.current.style.right = `${right}px`;
+    }
+  }, [palette]);
   const [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' });
   const [historySize, setHistorySize] = useState([0, 0]), [frame, setFrame] = useState(0), [toolRequest, requestTool] = useState(null);
   const history = useRef([]), future = useRef([]), clipboard = useRef([]), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] });
@@ -369,7 +380,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
       if (await onCommit({ items }) !== false) onClose();
     } catch (e) { setError(e.message); } finally { setBusy(false); onBusyChange(false); }
   };
-  const paletteUI = <div className="forge-add-menu" role="group" aria-label="Add shape"><div className="forge-shape-gallery">{FORGE_SHAPES.map(shape => <button data-hotkey={'forge:shape:primitive:'+shape} key={shape} aria-label={shape} title={'Add '+shape} onClick={() => addShape(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">{['width','height','depth'].map(key => <label key={key}>{key[0].toUpperCase()+key.slice(1)}<HotkeyBadge actionId={'forge:shape:parameter:'+key}/><input data-hotkey={'forge:shape:parameter:'+key} aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e => setting(key,+e.target.value)}/></label>)}</div><label>Detail<HotkeyBadge actionId="forge:shape:parameter:detail"/><input data-hotkey="forge:shape:parameter:detail" aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e => setting('complexity',+e.target.value)}/>{settings.complexity}</label><details><summary data-hotkey="forge:shape:thickness">Thickness<HotkeyBadge actionId="forge:shape:thickness"/></summary><label>Flat shapes<HotkeyBadge actionId="forge:shape:parameter:thickness"/><input data-hotkey="forge:shape:parameter:thickness" aria-label="Shape thickness" type="number" min="0" step=".5" value={settings.thickness} onChange={e => setting('thickness',+e.target.value)}/></label><label>Torus (%)<HotkeyBadge actionId="forge:shape:parameter:tube"/><input data-hotkey="forge:shape:parameter:tube" aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube',+e.target.value)}/></label></details></div>;
+  const paletteUI = <div ref={paletteMenu} className="forge-add-menu" role="group" aria-label="Add shape"><div className="forge-shape-gallery">{FORGE_SHAPES.map(shape => <button data-hotkey={'forge:shape:primitive:'+shape} key={shape} aria-label={shape} title={'Add '+shape} onClick={() => addShape(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">{['width','height','depth'].map(key => <label key={key}>{key[0].toUpperCase()+key.slice(1)}<HotkeyBadge actionId={'forge:shape:parameter:'+key}/><input data-hotkey={'forge:shape:parameter:'+key} aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e => setting(key,+e.target.value)}/></label>)}</div><label>Detail<HotkeyBadge actionId="forge:shape:parameter:detail"/><input data-hotkey="forge:shape:parameter:detail" aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e => setting('complexity',+e.target.value)}/>{settings.complexity}</label><details><summary data-hotkey="forge:shape:thickness">Thickness<HotkeyBadge actionId="forge:shape:thickness"/></summary><label>Flat shapes<HotkeyBadge actionId="forge:shape:parameter:thickness"/><input data-hotkey="forge:shape:parameter:thickness" aria-label="Shape thickness" type="number" min="0" step=".5" value={settings.thickness} onChange={e => setting('thickness',+e.target.value)}/></label><label>Torus (%)<HotkeyBadge actionId="forge:shape:parameter:tube"/><input data-hotkey="forge:shape:parameter:tube" aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube',+e.target.value)}/></label></details></div>;
   const cutUI = <><Tool action="forge:shape:cut" title="Cut" active={!!cut} disabled={!selected.length} description="Cut: divide the selected faces, or the whole piece in Shape mode. Preview equal sections or place your own cuts." onClick={event => cut ? cancelCut() : openCut(event)}><ToolIcon name="cut" className="modern-retro-icon"/></Tool>{cut && createPortal(<div style={cut.position} className="forge-cut-menu" role="group" aria-label="Cut controls">
         <div className="forge-cut-row"><button aria-pressed={cut.mode==='equal'} onClick={() => setCut({ ...cut, mode: 'equal', hover: null })}>Equal sections</button><button aria-pressed={cut.mode==='manual'} onClick={() => setCut({ ...cut, mode: 'manual', hover: null })}>Place cuts</button></div>
         {cut.mode==='equal' ? <label title="Preview evenly spaced sections before applying them.">Sections<input aria-label="Cut sections" type="number" min="2" max="64" value={cut.sections} onChange={e => setCut({ ...cut, sections: e.target.value })}/></label> : <small>Point to preview; click to place. Hold Shift to snap to existing cuts.</small>}
@@ -391,7 +402,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
       detailMagnet={repeat?{geoset:entries.length-1,enabled:!!repeat.magnet,onToggle:toggleMagnet}:null} constrainTransform={repeat?.magnet?constrainRepeatTransform:undefined}
       controlPoints={<div className="forge-selection-scope" role="group" aria-label="Control points">{[['Shape','Shape','shapeMode','Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.'],['Edges','Edge','edgeMode','Select and move the edges of a piece.'],['Vertices','Vertex','vertexMode','Select and move individual points to reshape a piece.']].map(([mode,label,icon,description]) => <Tool action={'forge:shape:mode:'+mode} title={label} key={mode} description={description} active={draft.mode===mode} onClick={() => chooseMode(mode)}><ToolIcon name={icon} className="modern-retro-icon"/></Tool>)}</div>}
       operations={<div className="forge-shape-operations">
-        <div className="forge-add-control"><Tool action="forge:shape:add" title="Add shape" description="Add a new piece to mold." active={palette} onClick={() => setPalette(!palette)}><ToolIcon name="addShape" className="modern-retro-icon"/></Tool></div>
+        <div ref={paletteControl} className="forge-add-control"><Tool action="forge:shape:add" title="Add shape" description="Add a new piece to mold." active={palette} onClick={() => setPalette(!palette)}><ToolIcon name="addShape" className="modern-retro-icon"/></Tool></div>
         <Tool action="forge:shape:extrude" title="Extrude" description="Extrude: drag the selected face to extend it. Hold Shift to snap to matching extrusions; release to finish." disabled={!!cut || !faceCount || draft.mode==='Shape'} active={extrudeReady} onClick={() => faceOperation('Extrude')}><ToolIcon name="extrude" className="modern-retro-icon"/></Tool>
         <Tool action="forge:shape:inset" title="Inset" description="Inset: make a smaller face inside the selected face, leaving a border around it." disabled={!!cut || !faceCount || draft.mode==='Shape'} onClick={() => faceOperation('Inset')}><ToolIcon name="inset" className="modern-retro-icon"/></Tool>
         {cutUI}
