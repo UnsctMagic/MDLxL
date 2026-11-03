@@ -18,8 +18,8 @@
 .classic-reel-ruler { position:absolute; inset:50% 0 0; cursor:pointer; font-size:10px; font-variant-numeric:tabular-nums; pointer-events:none; }
 .classic-reel-ruler>span { position:absolute; top:0; height:17px; border-left:1px solid #777; padding:3px 0 0 2px; box-sizing:border-box; line-height:12px; }
 .classic-reel-ruler>span.is-last { transform:translateX(-100%); border-left:0; border-right:1px solid #777; padding:3px 2px 0 0; }
-.classic-reel-settings { flex:0 0 76px; width:76px; min-width:0; height:48px; display:flex; flex-direction:column; justify-content:center; gap:2px; font-size:10px; }
-.classic-reel-settings label { display:grid; grid-template-columns:31px minmax(0,1fr); align-items:center; gap:2px; min-width:0; }
+.classic-reel-settings { flex:0 0 auto; width:max-content; min-width:0; height:48px; display:flex; flex-direction:column; justify-content:center; gap:2px; font-size:10px; }
+.classic-reel-settings label { display:grid; grid-template-columns:minmax(max-content,1fr) 43px; align-items:center; gap:2px; min-width:0; }
 .classic-reel-settings label>span:first-child { line-height:20px; text-align:right; }
 .classic-reel-percent { display:grid; grid-template-columns:minmax(0,1fr) 8px; align-items:center; min-width:0; }
 .classic-reel-percent>span { text-align:right; }
@@ -36,7 +36,7 @@
 .classic-sequence-picker select { flex:1 1 auto; width:100%; min-width:0; max-width:100%; min-height:23px; font-size:11px; }
 .classic-sequence-picker input[type=checkbox] { flex:none; margin:0; }
 [data-theme=dark] .classic-keyframe-reel { --panel:#2b3038; --text:#e5e9f0; border-color:#637081; }
-@media(max-width:600px) { .classic-keyframe-reel { gap:4px; padding-right:4px; } .classic-reel-settings { flex-basis:64px; width:64px; } .classic-reel-settings label { grid-template-columns:28px minmax(0,1fr); } .classic-reel-ruler>span:nth-child(even):not(.is-last) { display:none; } }
+@media(max-width:600px) { .classic-keyframe-reel { gap:4px; padding-right:4px; } .classic-reel-ruler>span:nth-child(even):not(.is-last) { display:none; } }
 
 [data-theme=dark] .classic-reel-bar{background:var(--ui-field)}
 [data-theme=dark] .classic-reel-key{background:#c8c8c8}

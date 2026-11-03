@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const VIS_MENU = require('../src/vis-view-menu.json');
 const VIEW_MENU = require('../src/view-menu.json');
 const root = path.resolve(__dirname, '..');
 const out = path.resolve(process.env.MDLXL_VIS_OUT || path.join(root, 'out/vis-mdlvis-mode'));
@@ -82,7 +81,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
               hint: document.querySelector('.classic-status').innerText, inputAtTop: !!document.querySelector('.classic-toolbar .compact-input-strength') };
           });
           assert.deepEqual(data.size, [width, height]);
-          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), (vis ? VIS_MENU : VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vis && ['display:bones', 'display:attachments'].includes(action))));
+          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay'));
           if (vis) {
             assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 0); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));

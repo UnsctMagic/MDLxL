@@ -55,7 +55,7 @@ export function storedEditorDisplay(vanilla = false, storage = globalThis.localS
   try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
   return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
-    .map(([key, value]) => [key, vanilla && key === 'attachments' ? value : key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+    .map(([key, value]) => [key, key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
 }
 
 export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {

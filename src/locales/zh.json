@@ -3804,7 +3804,7 @@
   "Values are already up to date.": "数值已是最新。",
   "Edit animation sequence properties": "编辑动画序列属性",
   "Sequence properties updated.": "序列属性已更新。",
-  "Adjust animation actual speed": "调整动画实际速度",
+  "Adjust animation speed": "调整动画速度",
   "Set global sequence interval": "设置全局序列区间",
   "Global sequence interval updated.": "全局序列区间已更新。",
   "Set animation frame interval": "设置动画帧区间",
@@ -7536,5 +7536,8 @@
   "How long the arcs flash along the blade.": "电弧沿剑刃闪动的持续时间。",
   "Quiet time between flashes.": "闪光之间的停顿时间。",
   "Number of flashes along the blade in each burst.": "每轮沿剑刃出现的闪光数量。",
-  "Add emitter": "添加发射器"
+  "Add emitter": "添加发射器",
+  "Playback Speed": "播放速度",
+  "Playback Speed (%)": "播放速度 (%)",
+  "Animation Speed": "动画速度"
 }

@@ -51,7 +51,8 @@ export function pointMarkerTexture(style) {
 
 export function configurePointMaterial(material, appearance, texture) {
   material.color.set(appearance.color); material.size = appearance.size;
-  const transparent = !!texture; if (material.map !== texture || material.transparent !== transparent) { material.map = texture; material.transparent = transparent; material.needsUpdate = true; }
+  // Even square dots belong after blended model layers in Classic rendering.
+  if (material.map !== texture || !material.transparent) { material.map = texture; material.transparent = true; material.needsUpdate = true; }
   material.alphaTest = texture ? .45 : 0;
 }
 
