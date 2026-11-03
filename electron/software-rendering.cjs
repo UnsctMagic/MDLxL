@@ -2,6 +2,8 @@
 // GPU feature status alone does not prove that WebGL can create a context.
 async function restartWithSoftwareRendering({app,WebContentsView},platform=process.platform){
   if(platform!=='win32'||app.commandLine.hasSwitch('use-angle')||app.commandLine.hasSwitch('use-gl'))return false;
+  // Playwright treats the transient probe as firstWindow; dedicated startup checks opt in.
+  if(process.env.MDLXL_TEST_HOOK==='1'&&process.env.MDLXL_TEST_WEBGL_PROBE!=='1')return false;
   const probe=new WebContentsView({webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
   let usable;
   try{
