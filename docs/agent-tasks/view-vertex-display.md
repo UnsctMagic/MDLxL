@@ -1,6 +1,6 @@
 # View parity and vertices through materials
 
-Status: active; merge authorized by the owner, completing CI
+Status: completed — merged in [PR #525](https://github.com/UnsctMagic/MDLxL/pull/525) at `b012359f5d8c9be880a85b5dd136485fc635248a`.
 Owner / consolidator: Codex
 Updated: 2026-11-03
 
@@ -13,7 +13,7 @@ Updated: 2026-11-03
 
 ## Revision and local state
 
-- PR: [#525](https://github.com/UnsctMagic/MDLxL/pull/525), ready for review; awaiting merge approval.
+- PR: [#525](https://github.com/UnsctMagic/MDLxL/pull/525), merged after explicit owner approval and green CI on `7def1b3e52d3e6a6a84ceb6314e7230deba70a50`.
 - Branch: `codex/view-vertex-bugs`; base `356bb4ad8004a8e24e7e0f9898a0a5217d239694` (main / #524). Original reproduction used fa81f005; integration retained #521/#524.
 - Disposable worktree: `D:/Codex/view-vertex-bugs-20261103/MDLxL`, removed after pushing.
 - Evidence: `D:/Codex/view-vertex-bugs-20261103/review`; packages and test profiles removed after verification.
@@ -38,6 +38,10 @@ Updated: 2026-11-03
 - Existing legacy ViS matrix failed the same zero-model-tabs expectation on both the original baseline and pre-rebase patch (actual: one). No assertion was loosened; this unrelated layout was not changed.
 - Not exercised: owner's exact recorded model file, Warcraft III, full release suites, independent Claude QA. Tests run on the hidden desktop with software rendering, without taking over the user's screen.
 
-## Next action
+## Completion
 
-- Owner authorized merging PR #525. CI identified three source tests that still asserted the old differing menu lists; reproduced locally (6 passed / 3 failed), then updated only those explicit expected lists and the Normals lookup after its row moved. Wait for green PR CI, merge, record the merge revision and remove the active index row. No release or installed-profile changes are authorized.
+- Owner authorized merging. CI identified three source assertions that still expected differing ViS/XL menu lists; reproduced locally (6 passed / 3 failed), then updated only their explicit expected labels and the moved Normals lookup. Final focused checks: 52 passed / 0 failed / 0 skipped.
+- [PR CI](https://github.com/UnsctMagic/MDLxL/actions/runs/41670230610) passed on the exact merged head. PR #525 was merged through GitHub at `b012359f5d8c9be880a85b5dd136485fc635248a`.
+- Verified the merged PR and fetched online main: shared View includes Bones, the added X-Ray control is absent, and square vertex dots retain the blended-material draw-order correction.
+- The active task-index row is removed in this documentation closeout. Disposable worktrees and test artifacts are removed; keep the small report and two captures.
+- No release, installation or real-profile changes were made. Warcraft III, the exact recorded model and independent Claude QA remain unexercised.
