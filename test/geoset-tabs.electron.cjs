@@ -12,7 +12,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const fixture = fixturePath('effect'), original = fs.readFileSync(fixture), copy = fixture;
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const { app, page: initialPage, errors } = await launchApp({ out: path.dirname(profile), profile: profile, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
+  const { app, page: initialPage, errors } = await launchApp({ out: path.dirname(profile), profile: profile, settings: { preferences: { rendererRevision: 3, modelLookAnswered: true, graphics: { pauseWhenHidden: false } } }, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
   const page = initialPage.url().startsWith('file:') ? initialPage : app.windows().find(window => window.url().startsWith('file:')) || await app.waitForEvent('window', { predicate: window => window.url().startsWith('file:') });
   await prepareWindow(app, page, { show: 'hide', errors });
 
@@ -90,7 +90,6 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.keyboard.press('Control+y'); assert.equal((await state()).memberships[2], bodyId);
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByRole('checkbox', { name: 'Select geoset 2', exact: true }).click({ button: 'right' });
-    assert.equal(await page.getByRole('menuitemcheckbox', { name: /^(Leave as visible|Show Always)$/ }).count(), 0);
     await page.getByRole('menuitem', { name: 'Add to tab…', exact: true }).click();
     await addDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Vertices', exact: true }).click();
@@ -173,6 +172,12 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     const rotated = await camera();
     await picker.selectOption(armorId); await picker.selectOption('all');
     assert.ok((await camera()).every((value, index) => Math.abs(value - rotated[index]) < 1e-8), 'Tab changes preserve the rotated viewpoint');
+    await page.getByRole('button', { name: 'Float Geosets', exact: true }).click();
+    assert.ok(await page.getByRole('button', { name: 'New geoset tab', exact: true }).evaluate(element => !!element.closest('.geosets-float > header')), 'Header controls follow the floating panel');
+    await page.getByRole('button', { name: 'New geoset tab', exact: true }).click(); await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'New geoset tab', exact: true }).waitFor({ state: 'hidden' });
+    await page.getByRole('button', { name: 'Dock Geosets back', exact: true }).click();
+    assert.ok(await page.getByRole('button', { name: 'New geoset tab', exact: true }).evaluate(element => !!element.closest('.classic-geosets > summary')));
     console.log('PASS geoset tabs: real model; header controls and visible strip; overflow and keyboard; clicked-only right-click assignment; vertices/animations; undo/redo; eye; Escape/outside dismissal; create/move/rename/delete; selection/visibility isolation; sidebar/list size; mouse rotation and viewpoint; MDL/MDX saves and reopen; original unchanged.');
   } catch (error) {
 

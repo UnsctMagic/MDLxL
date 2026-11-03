@@ -18,8 +18,16 @@ The owner explicitly approved this task's C: checkout; disposable outputs are on
   `app/AppSidebar.jsx`. The header uses an explicit portal target and the existing
   dismissal hook. Full tabs fit without fragments; the active tab stays visible.
 - No model codec, viewport or geoset-selection changes in this feature.
-- Build, 29 focused geoset source checks and 57 compatibility checks pass, zero
-  failures/skips. Packaged workflow and combined build verification are in progress.
+- Ready for review; awaiting merge approval. No merge or installation authorized.
+- Tabs-only packaged workflow passed on the real flail model. On the combined
+  package, all 3 focused packaged workflows pass (`geoset-tabs`,
+  `compact-geoset-set`, `geoset-leave-visible`), plus 87 source checks and 57
+  compatibility checks, zero failures/skips. This is Codex verification; Claude QA
+  and the owner's visual acceptance remain pending.
+- Combined runtime is based on integration revision `1d96f95d75483e187f2c0fc5275c30662fe1077c`,
+  including Compact Set `05d7e80158e727a3bc00375e23b04b90607f7092` (PR #528).
+- Owner build: `D:\Codex\mdlxl-geoset-tabs-20261103\review\MDLxL-win32-x64`.
+  Launch `Start test.cmd`; its separate profile leaves the installed app untouched.
 
 ## Verification
 
@@ -32,9 +40,12 @@ The owner explicitly approved this task's C: checkout; disposable outputs are on
 - Logs: `D:\Codex\mdlxl-geoset-tabs-20261103\reports`.
 - Preserve create/move/rename/delete, context assignment, undo/redo, filtering,
   eye visibility, MDL/MDX saves/reopen, list dimensions, camera rotation and viewpoint.
+- The final combined tab check also verifies the header controls after floating
+  Geosets and docking it again. Appearance and visibility checks exercise both
+  Compact Set and Classic Set.
 - Claude QA, owner visual approval and Warcraft III playback remain separate gates.
 
 ## Next action
 
-Finish focused verification, open the feature PR into main, and provide one
-combined test package with the verified Compact Set revision. No merge authorized.
+Owner: test the combined package. Claude: independently rerun focused QA. Merge
+only after explicit owner approval; test package is intentionally retained.

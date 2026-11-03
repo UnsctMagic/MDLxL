@@ -8,7 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Photoshop-style geoset tabs; test together with Compact Set | Implementation and combined verification | [Geoset tab strip](geoset-tab-strip.md) / Codex |
+| Photoshop-style geoset tabs; test together with Compact Set | Ready for review; combined build ready to test | [Geoset tab strip](geoset-tab-strip.md) / Codex |
 | Automatic Windows software rendering | Ready for review; awaiting merge approval | [Automatic WARP](auto-warp.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |
