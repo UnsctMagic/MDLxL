@@ -1,6 +1,6 @@
 # Automatic Windows software rendering
 
-Status: ready for review; awaiting merge approval
+Status: completed; merged in PR #519
 Owner: Codex
 Updated: 2026-11-03
 
@@ -9,11 +9,14 @@ Updated: 2026-11-03
 A Windows user whose default graphics backend cannot create WebGL contexts can
 open MDLxL without adding `--use-angle=d3d11-warp` to a shortcut. Keep normal GPU
 rendering and explicit `use-angle` / `use-gl` choices. No settings UI, version
-bump, installation change, release or merge is included.
+bump, installation change or release is included. The owner authorized merging
+once checks passed; PR #519 merged after CI succeeded.
 
 ## Revision and owners
 
 Branch: `codex/auto-warp`, based on online main `7612078a`.
+Merged: [PR #519](https://github.com/UnsctMagic/MDLxL/pull/519), revision
+`fa81f005c8c66aeee4bc385481ff3d73f9d8fb51`. The startup call and WARP implementation were verified on online main.
 Startup owner: `electron/main.cjs`; check/retry: `electron/software-rendering.cjs`.
 Packaged regression: `test/software-rendering.electron.cjs`.
 
@@ -46,6 +49,8 @@ WebContents is closed in finally.
   WebGL on an otherwise working GPU machine; it is not the friend's hardware.
 - Checks observe the editor DOM, read-only model hook and actual Chromium renderer;
   they do not invoke editor actions or replace its context-creation result.
+
+- GitHub CI run 41659762605: build, compatibility and full source-suite steps passed before merge.
 
 ## Remaining acceptance
 
