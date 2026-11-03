@@ -4,6 +4,10 @@ Status: completed — merged in #324 (1de79ac1)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
+Menu content and forced-on rig overlays below are historical. The owner's
+2026-11-03 report supersedes those restrictions: [View/vertex display](view-vertex-display.md)
+shares View controls between looks while retaining ViS checkbox styling.
+
 ## Goal and completion criteria
 
 The owner's rule: **VIS is VIS inside MDLxL.** The VIS button switches the
@@ -17,7 +21,7 @@ Done means, with VIS on, at every window size:
   Animations/Paint/Showcase). Editors are reached the MDLVis way (menus,
   existing keys), as VIS already did before the new look.
 - Visibility shortcuts are the classic VIS checkboxes from
-  [vis-view-menu.json](../../src/vis-view-menu.json), with their VIS names,
+  [shared View menu](../../src/view-menu.json), with the existing checkbox
   order and keys. No icon chips, no new-look styling, no shrinking to icons
   or first letters, no other responsive compaction.
 - None of the new-look rules, labels or measurements apply. VIS looks the

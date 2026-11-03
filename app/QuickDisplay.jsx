@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useDismiss from './useDismiss.js';
 import VIEW_MENU from '../src/view-menu.json';
-import VIS_VIEW_MENU from '../src/vis-view-menu.json';
 import LookIcon from './LookIcon.jsx';
 import './portrait-view.css';
 
@@ -15,7 +14,7 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
   return <div className="quick-display" role="group" aria-label="Quick display">
     <div className="quick-display-options">
       <button title="Remove all display options; no model data is removed" onClick={onClear}>{!vanilla && <LookIcon name="clearDisplay"/>}<span className="quick-display-name">Clear</span></button>
-      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vanilla && action === 'display:attachments')).map(([label, action]) =>
+      {VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay').map(([label, action]) =>
         <label key={action} ref={action === 'display:bones' ? trigger : undefined} onContextMenu={action === 'display:bones' ? event => {
           event.preventDefault(); if (!isEnabled(action)) return;
           const rect = event.currentTarget.getBoundingClientRect();
