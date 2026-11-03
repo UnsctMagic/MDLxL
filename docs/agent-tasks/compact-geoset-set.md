@@ -1,6 +1,6 @@
 # Compact Set and geoset visibility
 
-Status: ready for review; awaiting independent Claude QA and owner merge approval
+Status: completed; PR #528 merged with owner approval on 2026-11-03 at 567dcce3b7c82cfe42f553d3cf0ffb16a6fc23e2
 Owner / consolidator: Codex
 Updated: 2026-11-03
 
@@ -29,9 +29,9 @@ Updated: 2026-11-03
 - Verified: number-only selection with a light-blue glow, configurable color and preset switching, Classic checklist, hidden entry retained in the list, actual Viewport drawing disabled after Hide (including hover with Highlight Geoset on), Show Always independent of selection, Vertices/Movement behavior, history, model-tab restoration, unchanged model bytes/dirty flag, retained viewpoint and actual mouse rotation. The existing tab check also verifies metadata save/reopen and unchanged panel dimensions.
 - Replaced the obsolete deselect-on-pin test with real-input checks of the requested independent Show Always state, including Classic Set and model-tab restoration. Hidden view flags follow existing geoset index remapping. Model-authored animation visibility remains unchanged.
 - Rebased onto current upstream `a27d0553`. Resolved only the project-map overlap, retaining the incoming Animation Speed / Playback Speed guidance alongside the new Compact Set owners. The upstream viewport display fix remains intact; focused checks are repeated on the rebased renderer before handoff.
-- Remaining: Claude owns independent QA and final merge verdict under `docs/TESTING-RULES.md`. Full source/packaged release suites, Warcraft III, visual taste and installed-app testing were not exercised. This task does not tag, release or install anything.
+- Coverage limits: independent Claude QA, full packaged release suites, Warcraft III and installed-app testing were not exercised. The owner authorized merging after the combined test handoff; CI passed. No tag, release or installation is included.
 - Handoff: push/open PR, attach it to the chat, and delete the disposable package, profiles, baseline and finished D: checkout after verifying the pushed revision. Keep the small report/logs outside Git.
-- No release, merge or installed-profile update is authorized by this task.
+- Owner authorized merging on 2026-11-03. PR #528 is merged; no release or installed-profile update was requested.
 
 ## Owner correction: preset color paths and VIS
 
