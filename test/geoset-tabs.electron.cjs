@@ -1,43 +1,61 @@
 const { appTarget } = require('./helpers/app.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
 (async () => {
-  const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/geoset-tabs');
+  const root = path.resolve(__dirname, '..'), out = path.resolve(process.env.MDLXL_TABS_TEST_OUT || path.join(root, 'out/geoset-tabs'));
   fs.mkdirSync(out, { recursive: true });
-  const fixture = path.join(root, 'test/fixtures/demo.mdl'), original = fs.readFileSync(fixture);
-  const copy = path.join(out, 'fixture.mdl'); fs.writeFileSync(copy, original);
+  const fixture = fixturePath('effect'), original = fs.readFileSync(fixture), copy = fixture;
   const profile = fs.mkdtempSync(path.join(out, 'profile-'));
   const packaged = process.env.MDLXL_TEST_PACKAGE;
-  const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
+  const { app, page: initialPage, errors } = await launchApp({ out: path.dirname(profile), profile: profile, target: packaged ? { executablePath: path.join(packaged, 'MDLxL.exe'), args: [], packaged: true } : appTarget(), env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture: copy , pageTimeout: 15000 });
+  const page = initialPage.url().startsWith('file:') ? initialPage : app.windows().find(window => window.url().startsWith('file:')) || await app.waitForEvent('window', { predicate: window => window.url().startsWith('file:') });
+  await prepareWindow(app, page, { show: 'hide', errors });
 
   try {
 
     const screenshot = async name => {
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const png = await app.evaluate(async ({ BrowserWindow }) => {
-        const image = await BrowserWindow.getAllWindows()[0].capturePage({ x: 0, y: 0, width: 1100, height: 760 }, { stayHidden: true, stayAwake: true });
+        const image = await BrowserWindow.getAllWindows()[0].capturePage(undefined, { stayHidden: true, stayAwake: true });
         return image.toPNG().toString('base64');
       });
       fs.writeFileSync(path.join(out, name), Buffer.from(png, 'base64'));
     };
-    const picker = page.getByRole('combobox', { name: 'Geoset tabs', exact: true });
-    await picker.waitFor();
+    const strip = page.getByRole('tablist', { name: 'Geoset tabs', exact: true });
+    assert.equal(await strip.count(), 1, 'Geoset tabs are a visible tab strip');
+    const picker = {
+      inputValue: () => strip.getByRole('tab', { selected: true }).getAttribute('data-tab-id'),
+      selectOption: async value => {
+        if (value.startsWith('action:')) {
+          await page.getByRole('button', { name: 'Geoset tab actions', exact: true }).click();
+          await page.getByRole('menu', { name: 'Tab actions', exact: true }).getByRole('menuitem', { name: { create: 'New tab…', move: 'Move checked…', rename: 'Rename tab…', delete: 'Delete tab' }[value.slice(7)], exact: true }).click();
+        } else {
+          const tab = strip.locator(`[data-tab-id="${value}"]`);
+          if (await tab.isVisible()) await tab.click();
+          else {
+            await page.getByRole('button', { name: 'More geoset tabs', exact: true }).click();
+            await page.getByRole('menu', { name: 'Geoset tabs', exact: true }).locator(`[data-tab-id="${value}"]`).click();
+          }
+        }
+      }
+    };
+    await strip.getByRole('tab', { name: 'All tabs', exact: true }).waitFor();
     assert.equal(await page.getByLabel('New geoset tab name').count(), 0);
-    assert.equal(await page.locator('.geoset-tabs [role=tab],.geoset-tab-controls').count(), 0);
+    assert.equal(await page.getByRole('combobox', { name: 'Geoset tabs', exact: true }).count(), 0);
+    assert.ok(await page.getByRole('button', { name: 'New geoset tab', exact: true }).evaluate(element => !!element.closest('.classic-geosets > summary')), 'New and actions stay in the existing Geosets heading');
     const width = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
     const listHeight = await page.getByRole('listbox', { name: 'Geosets', exact: true }).evaluate(element => element.getBoundingClientRect().height);
-    const placement = await picker.evaluate(element => ({ gap: element.nextElementSibling.getBoundingClientRect().top - element.getBoundingClientRect().bottom, above: element.previousElementSibling === null }));
-    assert.equal(placement.gap, 2); assert.ok(placement.above);
+    assert.ok(await strip.evaluate(element => element.getBoundingClientRect().bottom <= element.closest('.geoset-tabs').querySelector('.geoset-list-box').getBoundingClientRect().top));
     await screenshot('default.png');
-    await picker.selectOption('action:create'); await page.getByRole('dialog', { name: 'New geoset tab', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).focus(); await page.keyboard.press('Escape');
+    await picker.selectOption('action:create'); await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'New geoset tab', exact: true }).waitFor({ state: 'detached' });
     assert.equal(await page.getByLabel('New geoset tab name').count(), 0);
     assert.equal(await picker.inputValue(), 'all');
-    const state = () => page.evaluate(async () => { await new Promise(resolve=>requestAnimationFrame(resolve));const props=findFiberState('.viewport',p=>p?.model?.Geosets&&p?.hiddenGeosets,{tree:true,props:true});if(!props)throw Error('Viewport model props not found');return {count:props.model.Geosets.length,hidden:[...props.hiddenGeosets],selectable:[...props.selectableGeosets],tabs:props.model._GeosetTabs||[],memberships:props.model.Geosets.map(g=>g._GeosetTabId||null)}; });
+    const state = () => page.evaluate(() => { const props=findFiberState('.viewport',p=>p?.model?.Geosets&&p?.hiddenGeosets,{tree:true,props:true});if(!props)throw Error('Viewport model props not found');return {count:props.model.Geosets.length,hidden:[...props.hiddenGeosets],selectable:[...props.selectableGeosets],tabs:props.model._GeosetTabs||[],memberships:props.model.Geosets.map(g=>g._GeosetTabId||null)}; });
     const initial = await state(); assert.ok(initial.count >= 3);
     const create = async name => {
       await picker.selectOption('action:create'); await page.getByLabel('New geoset tab name').fill(name);
@@ -54,13 +72,13 @@ const path = require('node:path');
     const armorId = await create('Armor');
     assert.deepEqual((await state()).selectable, [1]);
     assert.equal((await state()).hidden.includes(1), false);
-    await picker.dispatchEvent('wheel', { deltaY: 100, cancelable: true });
+    await strip.hover(); await page.mouse.wheel(0, 100);
     assert.equal(await picker.inputValue(), armorId);
     assert.equal(await page.getByRole('dialog').count(), 0);
     await picker.selectOption('all');
     await page.getByRole('checkbox', { name: 'Select geoset 2', exact: true }).click({ button: 'right' });
     assert.deepEqual((await state()).selectable, [1]);
-    assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Leave as visible', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('menuitemcheckbox', { name: /^(Leave as visible|Show Always)$/ }).count(), 1);
     await page.getByRole('menuitem', { name: 'Add to tab…', exact: true }).click();
     const addDialog = page.getByRole('dialog', { name: 'Add to tab', exact: true });
     await addDialog.getByRole('combobox', { name: 'Geoset tab', exact: true }).selectOption(bodyId);
@@ -72,7 +90,7 @@ const path = require('node:path');
     await page.keyboard.press('Control+y'); assert.equal((await state()).memberships[2], bodyId);
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByRole('checkbox', { name: 'Select geoset 2', exact: true }).click({ button: 'right' });
-    assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Leave as visible', exact: true }).count(), 0);
+    assert.equal(await page.getByRole('menuitemcheckbox', { name: /^(Leave as visible|Show Always)$/ }).count(), 0);
     await page.getByRole('menuitem', { name: 'Add to tab…', exact: true }).click();
     await addDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Vertices', exact: true }).click();
@@ -135,10 +153,31 @@ const path = require('node:path');
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), initial.count);
     assert.ok(fs.readFileSync(copy).equals(original)); assert.ok(fs.readFileSync(fixture).equals(original));
     assert.deepEqual(errors, []);
-    console.log('Geoset tabs UI passed: clicked-only right-click assignment in vertices/animations, undo/redo, single dropdown above box, view toggle inside box, dismissible actions, create, move, rename, delete, selection/visibility isolation, All tabs, unchanged sidebar/list size, worker MDL/MDX saves and MDX reopen; fixture unchanged.');
+    await page.getByRole('button', { name: 'New geoset tab', exact: true }).click();
+    await page.keyboard.press('Escape');
+    for (const name of ['A long weapon tab for overflow', 'Effects', 'Another long group']) await create(name);
+    await page.getByRole('button', { name: 'More geoset tabs', exact: true }).click();
+    await page.getByRole('menu', { name: 'Geoset tabs', exact: true }).getByRole('menuitemradio', { name: 'Armor', exact: true }).click();
+    await page.keyboard.press('End'); assert.equal(await strip.getByRole('tab', { name: 'Ungrouped', exact: true }).getAttribute('aria-selected'), 'true');
+    await page.keyboard.press('Home'); assert.equal(await picker.inputValue(), 'all');
+    await page.getByRole('button', { name: 'Geoset tab actions', exact: true }).click();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
+    await page.getByRole('menu', { name: 'Tab actions', exact: true }).waitFor({ state: 'hidden' });
+    const camera = () => page.evaluate(() => findFiberState('.viewport', value => value?.renderer && value?.entries).camera.position.toArray());
+    const beforeCamera = await camera(), canvas = await page.locator('.viewport canvas').first().boundingBox();
+    await page.mouse.move(canvas.x + canvas.width * .55, canvas.y + canvas.height * .45);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.move(canvas.x + canvas.width * .55 + 75, canvas.y + canvas.height * .45 + 35, { steps: 10 });
+    await page.mouse.up({ button: 'right' });
+    await page.waitForFunction(before => JSON.stringify(findFiberState('.viewport', value => value?.renderer && value?.entries).camera.position.toArray()) !== JSON.stringify(before), beforeCamera);
+    const rotated = await camera();
+    await picker.selectOption(armorId); await picker.selectOption('all');
+    assert.ok((await camera()).every((value, index) => Math.abs(value - rotated[index]) < 1e-8), 'Tab changes preserve the rotated viewpoint');
+    console.log('PASS geoset tabs: real model; header controls and visible strip; overflow and keyboard; clicked-only right-click assignment; vertices/animations; undo/redo; eye; Escape/outside dismissal; create/move/rename/delete; selection/visibility isolation; sidebar/list size; mouse rotation and viewpoint; MDL/MDX saves and reopen; original unchanged.');
   } catch (error) {
 
-    console.error('UI status:', await page.locator('.classic-status').innerText());
+    console.error('Tab workflow error:', error);
+    if (!page.isClosed()) console.error('UI status:', await page.locator('.classic-status').innerText());
     console.error('Renderer errors:', errors);
     throw error;
   } finally { await closeApp(app); }
