@@ -12,6 +12,7 @@ Updated: 2026-11-03
 
 ## Revision and local state
 
+- PR: [#525](https://github.com/UnsctMagic/MDLxL/pull/525), ready for review; awaiting merge approval.
 - Branch: `codex/view-vertex-bugs`; base `356bb4ad8004a8e24e7e0f9898a0a5217d239694` (main / #524). Original reproduction used fa81f005; rebased after #521/#524 to retain the accepted Bones/Helpers context menu, master and subtype choices.
 - Working copy: `D:/Codex/view-vertex-bugs-20261103/MDLxL`; disposable worktree removed after pushing.
 - Video: owner recording `2026-11-03 08-57-56.mp4`; Grabthrough was already checked.
