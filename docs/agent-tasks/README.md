@@ -10,7 +10,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | --- | --- | --- |
 | 0.38.0 translation catch-up | Ready for Claude QA; awaiting merge approval | [Translation inventory](release-038-translations.md) / Codex |
 | Weapon ribbon bright edge | Ready for owner testing; awaiting merge approval | [Ribbon attachment](ribbon-attachment.md) / Codex |
-| Automatic Windows software rendering | Ready for review; awaiting merge approval | [Automatic WARP](auto-warp.md) / Codex |
+| Automatic Windows software rendering: automated-test compatibility | Ready for review; awaiting merge approval | [Automatic WARP](auto-warp.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
