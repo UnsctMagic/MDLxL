@@ -6600,7 +6600,7 @@
   "Remember for this model": "Recordar para este modelo",
   "The editor closed.": "El editor se cerró.",
   "Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.": "Acelera o ralentiza la animación reajustando sus fotogramas clave. 100% es la velocidad al abrir el modelo.",
-  "Adjust animation actual speed": "Ajustar velocidad real de la animación",
+  "Adjust animation speed": "Ajustar velocidad de animación",
   "Adjust All Speed": "Ajustar toda la velocidad",
   "Escape": "Escape",
   "Master Controller": "Controlador maestro",
@@ -7672,5 +7672,8 @@
   "How long the arcs flash along the blade.": "Cuánto tiempo destellan los arcos a lo largo de la hoja.",
   "Quiet time between flashes.": "Pausa entre los destellos.",
   "Number of flashes along the blade in each burst.": "Número de destellos por la hoja en cada ráfaga.",
-  "Add emitter": "Añadir emisor"
+  "Add emitter": "Añadir emisor",
+  "Playback Speed": "Velocidad de reproducción",
+  "Playback Speed (%)": "Velocidad de reproducción (%)",
+  "Animation Speed": "Velocidad de animación"
 }

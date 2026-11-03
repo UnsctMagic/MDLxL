@@ -157,7 +157,7 @@ export default function AnimationController({
   function changeActualSpeed(index, percent) {
     const interval = model.Sequences?.[sequenceIndex]?.Interval;
     const progress = interval ? Math.max(0, Math.min(1, (time - interval[0]) / Math.max(1, interval[1] - interval[0]))) : 0;
-    if (!commit('Adjust animation actual speed', ANIMATION_SPEED_SECTIONS, current => setAnimationActualSpeed(current, index, percent), '')) return false;
+    if (!commit('Adjust animation speed', ANIMATION_SPEED_SECTIONS, current => setAnimationActualSpeed(current, index, percent), '')) return false;
     const updated = model.Sequences?.[sequenceIndex]?.Interval;
     if (updated) onSeek?.(updated[0] + Math.round(progress * (updated[1] - updated[0])));
     return true;
@@ -355,7 +355,7 @@ export default function AnimationController({
       <label><input type="checkbox" checked={!!sequence && !sequence.NonLooping} disabled={noLocalSequence} onChange={event => changeSequence({ nonLooping: !event.target.checked })}/>Loop</label>
       <label><input type="checkbox" checked={(sequence?.Rarity || 0) > 0} disabled={noLocalSequence} onChange={event => changeSequence({ rarity: event.target.checked ? 1 : 0 })}/>Use Rarity</label>
       <label className="ac-rarity">Rarity =<input aria-label="Sequence rarity" type="number" min="1" max="40" step="1" disabled={noLocalSequence || !(sequence?.Rarity > 0)} value={sequence?.Rarity > 0 ? sequence.Rarity : ''} onChange={event => { if (event.target.value !== '') changeSequence({ rarity: Number(event.target.value) }); }}/></label>
-      <SpeedControl label="Animation Actual Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onCommit={percent => changeActualSpeed(sequenceIndex, percent)}/>
+      <SpeedControl label="Animation Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onCommit={percent => changeActualSpeed(sequenceIndex, percent)}/>
       <button disabled={disabled || !model.Sequences?.length} onClick={() => { setError(''); setSpeedMenu(true); }}>Adjust All Speed</button>
       <label title="Enable the sequence MoveSpeed ground-speed value."><input type="checkbox" checked={moveApplied} disabled={noLocalSequence} onChange={event => toggleMoveSpeed(event.target.checked)}/>Apply Move Speed</label>
       {moveApplied && <label className="ac-move-speed">Speed=<input aria-label="Sequence move speed" type="number" min="0.001" step="any" disabled={noLocalSequence} value={moveSpeedText} onChange={event => setMoveSpeedText(event.target.value)} onBlur={commitMoveSpeed} onKeyDown={enterBlurs}/></label>}
