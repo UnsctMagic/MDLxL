@@ -1,6 +1,6 @@
 # View parity and vertices through materials
 
-Status: ready for review; awaiting merge approval
+Status: active; merge authorized by the owner, completing CI
 Owner / consolidator: Codex
 Updated: 2026-11-03
 
@@ -40,4 +40,4 @@ Updated: 2026-11-03
 
 ## Next action
 
-- Review PR #525 and obtain independent Claude QA and owner merge approval. No merge, release or installed-profile changes are authorized.
+- Owner authorized merging PR #525. CI identified three source tests that still asserted the old differing menu lists; reproduced locally (6 passed / 3 failed), then updated only those explicit expected lists and the Normals lookup after its row moved. Wait for green PR CI, merge, record the merge revision and remove the active index row. No release or installed-profile changes are authorized.
