@@ -1,4 +1,4 @@
-# MDLxL 0.37.2
+# MDLxL 0.38.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
