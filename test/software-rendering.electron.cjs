@@ -50,7 +50,7 @@ const {tempDir,fixturePath}=require('./helpers/fixtures.cjs');
         timer=setTimeout(()=>reject(Error(scenario.name+': editor did not finish loading')),45000);
       });
       try{
-        child=spawn(path.join(fixture,path.basename(target.executablePath)),[fixturePath('footman'),...scenario.args],{windowsHide:true,stdio:'ignore',env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:'1',MDLXL_TEST_HOOK:'1',MDLXL_WARP_TEST_ROOT:run}});
+        child=spawn(path.join(fixture,path.basename(target.executablePath)),[fixturePath('footman'),...scenario.args],{windowsHide:true,stdio:'ignore',env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:'1',MDLXL_TEST_HOOK:'1',MDLXL_TEST_WEBGL_PROBE:'1',MDLXL_WARP_TEST_ROOT:run}});
         await done;
         const result=JSON.parse(await fs.readFile(path.join(run,'result.json'),'utf8'));
         const launches=(await fs.readFile(path.join(run,'launches.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));
