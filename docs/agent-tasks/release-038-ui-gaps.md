@@ -9,6 +9,7 @@ Updated: 2026-11-04
 - Branch: `codex/release-0.38.0-ui-gaps`, from latest `origin/main` at `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`.
 - Working checkout: `D:\Codex\release-038-ui-gaps` (independent Git clone; C: source is read-only).
 - Session: codex release-0.38.0 ui gaps.
+- PR: [#537](https://github.com/UnsctMagic/MDLxL/pull/537), open into `main`, not merged. Implementation and screenshots: `5913304fad05e33f8c3acab5c7d8563f65719ae3`.
 - Four small presentation fixes from PR #536. No version change, merge, release, installation/profile change, or full packaged suite.
 
 ## Owners and boundaries
@@ -33,7 +34,7 @@ Updated: 2026-11-04
 - The capture script initially mangled the Unicode breadcrumb separator in its comparison, causing three false negatives. Corrected only that comparison and reran those three checks on the same package; all passed. Final result JSON and original/recheck logs are retained.
 - [Before/after screenshots](release-038-ui-gaps/) contain five RU and five ZH pairs. Spanish narrow-control screenshots and the capture/recheck scripts are in `D:\Codex\release-038-ui-gaps-report`.
 - Full packaged suite and Warcraft III not run; Claude owns release QA. No merge/release authorized.
-- Disposable packages, profiles, runtime staging and task helper processes removed after verification. Working clone will be removed after push, retaining Git history/unpushed work and the small report.
+- Disposable packages, profiles, runtime staging and task helper processes removed after verification. Working clone removed after the verified PR push; source/history remain on the feature branch and the small report remains on D:.
 
 ## Claude handoff
 
