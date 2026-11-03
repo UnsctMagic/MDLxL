@@ -1,6 +1,6 @@
 # Compact Set and geoset visibility
 
-Status: ready for review; awaiting independent Claude QA and owner merge approval
+Status: completed; merged in PR #528 at `567dcce3b7c82cfe42f553d3cf0ffb16a6fc23e2`
 Owner / consolidator: Codex
 Updated: 2026-11-03
 
@@ -14,7 +14,7 @@ Updated: 2026-11-03
 ## Revision and owners
 
 - Base: `a27d05536d5454a1ec8c405415f3379c59baa2b0`; branch `codex/compact-geoset-set`; [PR #528](https://github.com/UnsctMagic/MDLxL/pull/528).
-- Working checkout: `D:\Codex\mdlxl-geoset-color-vis-20261103`. Dependencies are a junction to the existing D: checkout. C: source and installed/user profiles are untouched.
+- Implementation checkouts were removed after their pushed handoff. The owner review builds listed below remain available. C: source and installed/user profiles are untouched.
 - Picker/menu/view state: `app/AppSidebar.jsx`, `app/geoset-set.css`, `app/AppDialogs.jsx`, `app/App.jsx`, `src/selection-history.js`.
 - Appearance: `src/viewport-appearance.js`, `src/preferences.js`, `app/theme.js`, `app/Settings.jsx`.
 
@@ -29,9 +29,9 @@ Updated: 2026-11-03
 - Verified: number-only selection with a light-blue glow, configurable color and preset switching, Classic checklist, hidden entry retained in the list, actual Viewport drawing disabled after Hide (including hover with Highlight Geoset on), Show Always independent of selection, Vertices/Movement behavior, history, model-tab restoration, unchanged model bytes/dirty flag, retained viewpoint and actual mouse rotation. The existing tab check also verifies metadata save/reopen and unchanged panel dimensions.
 - Replaced the obsolete deselect-on-pin test with real-input checks of the requested independent Show Always state, including Classic Set and model-tab restoration. Hidden view flags follow existing geoset index remapping. Model-authored animation visibility remains unchanged.
 - Rebased onto current upstream `a27d0553`. Resolved only the project-map overlap, retaining the incoming Animation Speed / Playback Speed guidance alongside the new Compact Set owners. The upstream viewport display fix remains intact; focused checks are repeated on the rebased renderer before handoff.
-- Remaining: Claude owns independent QA and final merge verdict under `docs/TESTING-RULES.md`. Full source/packaged release suites, Warcraft III, visual taste and installed-app testing were not exercised. This task does not tag, release or install anything.
-- Handoff: push/open PR, attach it to the chat, and delete the disposable package, profiles, baseline and finished D: checkout after verifying the pushed revision. Keep the small report/logs outside Git.
-- No release, merge or installed-profile update is authorized by this task.
+- Merge: PR #528 merged at `567dcce3b7c82cfe42f553d3cf0ffb16a6fc23e2` after the owner's explicit merge request. The merged revision and Compact Set / Hide Geoset / Show Always owners were verified on online main; PR CI passed. Independent Claude QA was not recorded in the PR. Full release suites, Warcraft III, owner visual acceptance and installed-app testing remain unverified.
+- Closeout: remove this task from the active README index in the documentation follow-up PR; retain the owner-requested review builds and small reports.
+- The owner authorized merging PR #528. No release or installed-profile update was performed.
 
 ## Owner correction: preset color paths and VIS
 
