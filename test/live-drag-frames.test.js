@@ -65,14 +65,13 @@ test('a fast pivot turn keeps its direction when every sample feeds the angle', 
   assert.ok(Math.abs(Math.abs(rotationDragDegrees(frameOnly, last.x - start.x, last.y - start.y)) - 120) < 1e-6, 'one sample per frame wraps to the short way round');
   const uv = { pivotScreen: [0, 0] }; uvTurn(uv, start.x, start.y);
   for (const point of samples) uvTurn(uv, point.x, point.y);
-  const uvFrame = {}; uvTurn(uvFrame, start.x);
-  assert.ok(Math.abs(uvTurn(uv, last.x, last.y) - (last.x - start.x) * .7 / 48) < 1e-6, 'UV uses horizontal distance, not a pivot sweep');
-  assert.equal(uvTurn(uvFrame, last.x), uv.turn, 'UV gives the same turn with only the final sample');
+  assert.ok(Math.abs(uvTurn(uv, last.x, last.y) - 240 * .7 * Math.PI / 180) < 1e-6, 'UV turn follows every sample');
 });
 
 // Every handler that feeds a turn does it in the per-event code, before scheduling.
 for (const { name, file, from, feed } of [
   { name: 'Vertex rotate', file: 'app/Viewport.jsx', from: 'if (!state.drag && !state.nodeDrag) return;', feed: 'rotationDragDegrees(state.drag.rotationDrag' },
+  { name: 'UV rotate', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', feed: 'uvTurn(s.drag' },
   { name: 'Preview bone and POSE rotate', file: 'app/GamePreview.jsx', from: 'if (nodeGesture.adjusted) return;', feed: 'movementRotationAmount(nodeGesture.rotationDrag, dx, dy,' },
   { name: 'Showcase text rotate', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', feed: 'rotationDragDegrees(row.rotationDrag' },
 ]) test(`${name} feeds every sample to the turn`, () => {
@@ -86,7 +85,7 @@ for (const { name, file, from, feed } of [
 // a frame; `forbidden` is the expensive work that moved into the frame callback.
 const coalescedDrags = [
   { name: 'Preview gizmo hover', file: 'app/GamePreview.jsx', from: 'if (!nodeGesture) {', to: 'if (event.pointerId !== nodeGesture.id)', forbidden: /pickPoseHandle|pickMovementHandle|pickMovementNode/ },
-  { name: 'UV Wrapper drag', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', to: 'function applyMove()', forbidden: /\bdraw\(|onPreviewChange|restrictUVChange|uvTurn/ },
+  { name: 'UV Wrapper drag', file: 'app/UVEditor.jsx', from: 'function pointerMove(event)', to: 'function applyMove()', forbidden: /\bdraw\(|onPreviewChange|restrictUVChange/ },
   { name: 'Vertex move/rotate/scale', file: 'app/Viewport.jsx', from: 'if (!state.drag && !state.nodeDrag) return;', to: 'function applyTransformMove()', forbidden: /onTransformPreview|updateWideWireGeometry|computeBoundingSphere|moveTranslation\(/ },
   { name: 'Viewport camera report', file: 'app/Viewport.jsx', from: 'const invalidate = () => {', to: 'const markerTexture', forbidden: /onCameraAnglesChange|setCompassAxes/ },
   { name: 'Paint camera report', file: 'app/PaintViewport.jsx', from: 'const invalidate = () => {', to: 'const markerTexture', forbidden: /onCameraAnglesChange/ },

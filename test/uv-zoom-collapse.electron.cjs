@@ -106,6 +106,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await uv.getByRole('button', { name: 'UV ' + axis + ' axis', exact: true }).click();
     }
     // Exercise the adjacent tools through their normal controls as preservation checks.
+    const rotateAngle = Math.PI / 2 * .7;
     for (const tool of ['Move', 'Rotate', 'Mirror by X', 'Mirror by Y', 'Fold']) {
       await uv.getByRole('button', { name: tool, exact: true }).click();
       if (tool === 'Move' || tool === 'Rotate') {
@@ -118,7 +119,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       for (const i of before.ids) {
         const u = before.uv[i * 2], v = before.uv[i * 2 + 1];
         const expected = tool === 'Move' ? [u + 50 / selectedMapping.sizeX, v + 30 / selectedMapping.sizeY]
-          : tool === 'Rotate' ? [center[0] + (u - center[0]) * Math.cos(-80 * .7 / 48) - (v - center[1]) * Math.sin(-80 * .7 / 48) * selectedMapping.sizeY / selectedMapping.sizeX, center[1] + (u - center[0]) * Math.sin(-80 * .7 / 48) * selectedMapping.sizeX / selectedMapping.sizeY + (v - center[1]) * Math.cos(-80 * .7 / 48)]
+          : tool === 'Rotate' ? [center[0] + (u - center[0]) * Math.cos(rotateAngle) - (v - center[1]) * Math.sin(rotateAngle) * selectedMapping.sizeY / selectedMapping.sizeX, center[1] + (u - center[0]) * Math.sin(rotateAngle) * selectedMapping.sizeX / selectedMapping.sizeY + (v - center[1]) * Math.cos(rotateAngle)]
           : tool === 'Mirror by X' ? [2 * center[0] - u, v]
           : tool === 'Mirror by Y' ? [u, 2 * center[1] - v]
           : [Math.min(...before.ids.map(id => before.uv[id * 2])), v];

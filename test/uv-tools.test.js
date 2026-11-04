@@ -136,15 +136,14 @@ test('selected geosets of different materials stay on one canvas and edits retur
   assert.deepEqual(splitSelectedUVGeosets(model, canvas.refs, canvas.geoset.TVertices[0]), [], 'unchanged geosets are not written');
 });
 
-test('UV map Rotate has the same drag response everywhere at 70% of its former per-pixel rate', () => {
-  for (const [x, y] of [[100, 50], [100, 51], [76, 50], [-80, 150]]) {
-    const drag = { pivotScreen: [100, 50] };
-    assert.equal(uvTurn(drag, x, y), 0);
-    assert.ok(Math.abs(uvTurn(drag, x + 48, y) - .7) < 1e-12, `48px drag from ${x},${y}`);
-    assert.ok(Math.abs(uvTurn(drag, x - 48, y) + .7) < 1e-12, 'reverse direction');
-    assert.equal(uvTurn(drag, x, y), 0, 'return to the start');
-    assert.ok(Math.abs(uvTurn(drag, x + 480, y) - 7) < 1e-12, 'past a full turn');
-  }
-  const fine = { fine: .2 }; uvTurn(fine, 100, 50);
-  assert.ok(Math.abs(uvTurn(fine, 148, 50) - .14) < 1e-12, 'Alt fine control');
+test('UV map Rotate keeps circular input with 70% angular response and no centre dead zone or slowdown', () => {
+  const deg = Math.PI / 180, circle = (drag, radius, from, to, steps = 36) => { for (let i = 0; i <= steps; i++) { const a = (from + (to - from) * i / steps) * deg; uvTurn(drag, 100 + radius * Math.cos(a), 50 + radius * Math.sin(a)); } return drag.turn / deg; };
+  for (const radius of [.5, 1, 2, 12, 48, 60, 300]) assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, radius, 30, 120) - 63) < 1e-9, `quarter turn at ${radius}px has no centre attenuation`);
+  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, 450, 90) - 315) < 1e-9, 'clockwise past a full turn');
+  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, -720, 144) + 504) < 1e-9, 'counter-clockwise full turns');
+  assert.ok(Math.abs(circle({ pivotScreen: [100, 50], fine: .2 }, 80, 0, 90) - 12.6) < 1e-9, 'Alt fine control');
+  const centre = { pivotScreen: [100, 50] }; uvTurn(centre, 100, 50); uvTurn(centre, 101, 51);
+  assert.ok(Math.abs(centre.turn / deg - 31.5) < 1e-9, 'the former centre dead zone responds immediately');
+  const radial = { pivotScreen: [100, 50] }; uvTurn(radial, 112, 50); uvTurn(radial, 172, 50);
+  assert.equal(radial.turn, 0, 'radial movement does not become left/right rotation');
 });

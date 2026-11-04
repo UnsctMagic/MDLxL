@@ -167,9 +167,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // UV Rotate uses horizontal screen distance equally anywhere on the map.
-      // Its rate is isolated from the other tools and 3D rotation settings.
-      if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x); }
+      // The map is flat: the selection follows the mouse around its centre at
+      // the same UV-only rate, near or far. The 3D editors' rotation settings never apply here.
+      if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x, y); }
       draw();
     }
     // Pointers report far more often than the display refreshes; the UV math,
@@ -181,6 +181,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     function pointerMove(event) {
       if (!s.drag) return;
       const rawEnd = point(event);
+      // Turning sums wrapped angle steps; feed every sample so a fast turn between
+      // frames cannot flip direction. Repeating the last point adds nothing.
+      if (s.drag.type === 'rotate') uvTurn(s.drag, rawEnd.x, rawEnd.y);
       s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
     }
     function applyMove() {
@@ -191,7 +194,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x) : 0;
+        const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
         const factor = Math.max(0, 1 + dx / 100);
         // An axis lock squashes a turn into a skew, so rotation ignores it.
         const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;

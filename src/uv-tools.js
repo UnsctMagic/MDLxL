@@ -2,15 +2,20 @@ import { sampleTrack } from './animation.js';
 
 const finiteIndex = value => Number.isSafeInteger(value) && value >= 0;
 const uniqueIndices = values => [...new Set(Array.from(values || []).filter(finiteIndex))];
-/** Radians per horizontal screen pixel: 30% below the former 1/48 inner rate. */
-const UV_TURN_RATE = 0.7 / 48;
+/** Only the UV map's circular Rotate is 30% less sensitive. */
+const UV_TURN_SENSITIVITY = 0.7;
 
-/** UV map Rotate: a horizontal drag turns equally anywhere on the canvas,
- * including through the selection centre. Positive is clockwise on screen.
- * Alt keeps its existing fine control; no other sensitivity setting applies. */
-export function uvTurn(drag, x) {
-  drag.turnStartX ??= x;
-  drag.turn = (x - drag.turnStartX) * UV_TURN_RATE * (drag.fine ?? 1);
+/** UV map Rotate follows the mouse around the selection's centre and adds up
+ * past a full circle. Every radius uses the same 70% angular response, without
+ * a centre dead zone or distance-based slowdown. Positive is clockwise on
+ * screen. Alt keeps its fine control; no 3D rotation setting applies.
+ * Call once at drag start and on every move. */
+export function uvTurn(drag, x, y) {
+  drag.turn ??= 0;
+  const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1];
+  const angle = Math.atan2(py, px);
+  if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
+  drag.angle = angle;
   return drag.turn;
 }
 

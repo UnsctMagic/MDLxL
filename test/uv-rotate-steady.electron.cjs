@@ -58,31 +58,47 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.waitForFunction(before => uvRotateInfo().uv.every((v, i) => Math.abs(v - before[i]) < 2e-6), before.uv);
       check('undo restores the entire model', await page.evaluate(() => JSON.stringify(__mdlxl.model())), modelBefore);
     };
-    for (const [name, offsetX, offsetY, distance, fine] of [
-      ['at the center', 0, 0, 48, false], ['inside the old dead zone', 0, 1, 48, false],
-      ['across the center', -24, 0, 48, false], ['above the center', -24, -100, 48, false],
-      ['far from the center', -180, 100, 48, false], ['reverse direction', 24, 0, -48, false],
-      ['past a full turn', -240, 80, 480, false], ['Alt precision at the center', 0, 0, 48, true],
+    const arc = async (radius, start, sweep) => {
+      const steps = Math.max(12, Math.ceil(Math.abs(sweep) / (Math.PI / 24)));
+      for (let i = 1; i <= steps; i++) {
+        const angle = start + sweep * i / steps;
+        await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+      }
+    };
+    for (const [name, radius, start, sweep, fine] of [
+      ['inside the former 2px dead zone', 1.5, 0, Math.PI / 2, false],
+      ['near the center', 12, 0, Math.PI / 2, false],
+      ['outside the former slowdown', 60, 0, Math.PI / 2, false],
+      ['far from the center', 200, Math.PI, Math.PI / 2, false],
+      ['clockwise past a full turn', 100, 0, Math.PI * 2.5, false],
+      ['counterclockwise past two turns', 100, 0, -Math.PI * 4.5, false],
+      ['Alt precision near the center', 12, 0, Math.PI / 2, true],
     ]) {
       if (fine) await page.keyboard.down('Alt');
-      await page.mouse.move(cx + offsetX, cy + offsetY); await page.mouse.down();
-      await page.mouse.move(cx + offsetX + distance, cy + offsetY, { steps: Math.max(8, Math.abs(distance) / 6) });
+      await page.mouse.move(cx + radius * Math.cos(start), cy + radius * Math.sin(start));
+      await page.mouse.down();
+      await arc(radius, start, sweep);
+      const turn = await page.evaluate(() => uvRotateState().drag.turn);
       await page.mouse.up();
       if (fine) await page.keyboard.up('Alt');
       await page.waitForFunction(() => !uvRotateState().drag);
-      const after = await page.evaluate(() => uvRotateInfo().uv), angle = distance * .7 / 48 * (fine ? .2 : 1);
-      const maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expectedUV(angle)[i])));
-      measurements.push({ name, expectedDegrees: angle * 180 / Math.PI, maxUVError });
-      check(name + ': full drag response at 70% of the previous per-pixel rate', matches(after, expectedUV(angle)));
-      if (name === 'at the center') await page.screenshot({ path: path.join(out, 'center-drag.png') });
+      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1);
+      const expected = expectedUV(angle), maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expected[i])));
+      measurements.push({ name, radius, expectedDegrees: angle * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI, maxUVError });
+      check(name + ': circular rotation at 70% with no center attenuation', Math.abs(turn - angle) < .002 && maxUVError < .002);
+      if (radius === 12 && !fine) await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
       await undo();
     }
-    // Reversing the same drag returns to the original UVs without a jump.
-    await page.mouse.move(cx, cy); await page.mouse.down();
-    await page.mouse.move(cx + 48, cy, { steps: 8 });
+    // Reversing the same circular path returns to the original coordinates.
+    await page.mouse.move(cx + 60, cy); await page.mouse.down();
+    await arc(60, 0, Math.PI / 2);
     await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
-    await page.mouse.move(cx, cy, { steps: 8 }); await page.mouse.up();
-    check('reversing a drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    await arc(60, Math.PI / 2, -Math.PI / 2); await page.mouse.up();
+    check('reversing a circular drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    // Moving along a radius does not turn: this is circular rotation, not a scrub.
+    await page.mouse.move(cx + 12, cy); await page.mouse.down();
+    await page.mouse.move(cx + 72, cy, { steps: 12 }); await page.mouse.up();
+    check('radial mouse movement does not rotate', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
     check('source model file unchanged', fs.readFileSync(fixture).equals(originalFile));
     check('no renderer errors', errors, []);
   } catch (error) {
