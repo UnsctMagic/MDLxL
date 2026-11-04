@@ -12,6 +12,7 @@ behavior and no changes to other UV tools or 3D zoom.
 
 ## Revision and owners
 
+- PR: [#549](https://github.com/UnsctMagic/MDLxL/pull/549).
 - Branch: `codex/uv-zoom-collapse`; base `f67cbb55` (current main at task start).
 - Only application change: `app/UVEditor.jsx`, `applyMove` scale factor.
 - Contract: [UV Zoom drag](../UV-ZOOM-DRAG.md).
@@ -33,7 +34,7 @@ No other UV operation, shared helper, camera or 3D editor was changed.
   live drag reaches identical coordinates`. The two vertices remained at
   different UV coordinates.
 - Rebuilt/package verified; corrected hidden-desktop packaged test passes
-  (1 test, 0 failures, 0 skips). Real clicks select two Footman UV points.
+  (1 test, 114 successful checks, 0 failures, 0 skips). Real clicks select two Footman UV points.
   Mouse drags cover collapse while held and after release, no rebound,
   left/right scaling from five starting positions, diagonal drags, Alt fine
   control, both Shift axes and exact model restoration with undo.
