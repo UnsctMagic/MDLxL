@@ -18,7 +18,11 @@ const path = require('node:path');
   fs.writeFileSync(fixture, doc.serialize('mdx'));
   const repairDoc = document();
   repairDoc.apply('Tint conflict fixture', ['GeosetAnims'], model => {
-    model.GeosetAnims = [0, 1].map(index => ({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array(index ? [0, 1, 0] : [1, 0, 0]) }));
+    // Keep every original animation index referenced by the real Footman's bones.
+    const first = model.GeosetAnims.find(anim => anim.GeosetId === 0);
+    if (first) Object.assign(first, { Flags: 2, Alpha: 1, Color: new Float32Array([1, 0, 0]) });
+    else model.GeosetAnims.push({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array([1, 0, 0]) });
+    model.GeosetAnims.push({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array([0, 1, 0]) });
   });
   const repairFixture = path.join(output, 'Tint conflict.mdx');
   fs.writeFileSync(repairFixture, repairDoc.serialize('mdx'));
@@ -53,6 +57,12 @@ const path = require('node:path');
       await page.getByRole('option', { name: label, exact: true }).click();
       await page.getByLabel(translate('Select geoset 0', locale), { exact: true }).waitFor();
       const expectedFile = translate('&File', locale);
+      // Renderer translation and the asynchronous native-menu IPC finish separately.
+      const deadline = Date.now() + 5000;
+      while ((await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].label)) !== expectedFile) {
+        if (Date.now() > deadline) throw Error(locale + ': native menu language did not update');
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
       const menu = await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.map(item => ({ label: item.label, children: item.submenu?.items.map(child => child.label) })));
       assert.equal(menu[0].label, expectedFile);
       const coordinates = await page.locator('.classic-coordinates').evaluate(element => getComputedStyle(element, '::before').content);
