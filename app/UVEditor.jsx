@@ -13,10 +13,10 @@ const indicesOf = selection => Array.from(selection || []);
 const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null, wrapperControls = false }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis, wrapperControls };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -231,18 +231,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
           s.uv.set(snapUVCoordinates(s.uv, drag.indices, p.uvGrid));
           if (lockedAxis) for (const index of drag.indices) s.uv[index * 2 + (lockedAxis === 'X' ? 1 : 0)] = drag.original[index * 2 + (lockedAxis === 'X' ? 1 : 0)];
         }
-        if ((drag.type === 'translate' || drag.type === 'move') && p.snapTextureFrame) {
-          for (const axis of [0, 1]) {
-            if (lockedAxis === 'X' && axis === 1 || lockedAxis === 'Y' && axis === 0) continue;
-            const size = axis === 0 ? drag.sizeX : drag.sizeY;
-            let adjustment = 8 / Math.abs(size);
-            for (const index of drag.indices) {
-              const value = s.uv[index * 2 + axis], delta = Math.round(value) - value;
-              if (Math.abs(delta) < Math.abs(adjustment)) adjustment = delta;
-            }
-            if (Math.abs(adjustment) < 8 / Math.abs(size)) for (const index of drag.indices) s.uv[index * 2 + axis] += adjustment;
-          }
-        }
+
       }
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         const preview = restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices);
@@ -340,7 +329,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;
       key.preventDefault(); key.stopImmediatePropagation(); event.preventDefault();
-      action({ detail: { kind: 'move', value: direction.map(value => value * .005) } });
+      const grid = normalizeUVGrid(p.uvGrid), step = p.wrapperControls && grid.enabled && grid.snap ? grid.spacing : .005;
+      action({ detail: { kind: 'move', value: direction.map(value => value * step) } });
     };
     const unbindScroll = bindScrollSensitivity(element, scrollSensitivityCallbacks(current, {
 
