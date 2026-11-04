@@ -2,11 +2,11 @@
 
 ## Status
 
-Final verification in progress. PRs pending; no merge or publication.
+Both PRs are **ready for review; awaiting merge approval**. No merge or publication.
 
 Session: codex Add French and German localization
 
-- App: `codex/french-german`; started from origin/main `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`, integrated current main `3295860ea006d68ef2c362fe202f978cf4f1d2f8`. PR pending.
+- App: `codex/french-german`; started from origin/main `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`, integrated current main `3295860ea006d68ef2c362fe202f978cf4f1d2f8`. [PR #539](https://github.com/UnsctMagic/MDLxL/pull/539).
 - Website: `codex/mdlxl-french-german`; started from origin/main `ee19e5a775cf93e81dd00f8a7623e324f08fc164`, integrated current main `2670ca941b820b543c2329e23f8284e0ced3fbcd`. PR pending.
 - All task work is in `D:\Codex\french-german`, hidden/off-screen. No installed app, real profile, version number, 0.38.0 release PR or PR #534 edits. No gh-pages push. Claude publishes at release time.
 - Translation was authored entirely within Codex. No source text was sent to an external translation service.
@@ -36,7 +36,7 @@ New releases read French/German notes; absent or empty old notes fall back to En
 
 Capture method: LowPolyWorks history and retained `lpw-tutorial-languages`/accepted Glow Up scripts establish native Electron CDP captures plus FFmpeg. Missing original ribbon/OptimizeXL authoring scripts were reconstructed from retained animation metadata using that same native workflow. Native UI is localized in the app; translated text is never painted onto English media. See the website capture-source README for reproducible scripts and permanent corpus inputs.
 
-All 50 GIF loops decode and match embedded bytes, frame counts, timings and cue ranges. Final static screenshots/pings and page-size full-loop checks are finishing. The final split labels lie outside every GIF crop; only 14 main-window tool PNGs need the final refresh.
+All 50 GIF loops decode and match embedded bytes, frame counts, timings and cue ranges. All 50 real-page complete loops and 22 native target centers passed, with zero resource/console errors and no horizontal overflow at desktop 1600x1032 and mobile 390x844. The final split labels lie outside every GIF crop; 14 main-window tool PNGs were refreshed on the final build while all GIF/embedded bytes remained identical.
 
 ## Verification
 
@@ -44,6 +44,7 @@ All 50 GIF loops decode and match embedded bytes, frame counts, timings and cue 
 - `node --test test/localization*.test.js`: 28 pass / 0 fail / 0 skip.
 - `node --test tests/*.test.js`: 57 pass / 0 fail / 0 skip.
 - Release-material tests: 2 pass / 0 fail / 0 skip. Updater language checks: 3 pass / 0 fail / 0 skip.
+- GitHub app CI [run 41745525007](https://github.com/UnsctMagic/MDLxL/actions/runs/41745525007): passed on code/verification commit `3e2081c1`; this final handover update changes documentation/results only.
 - Website MDLxL tests: 8 pass / 0 fail / 0 skip. Project checker: 139 models / 10 armies plus assets and application syntax verified.
 - Electron localization workflow: passed nine switches, native menus, particle/emitter controls, tint-conflict focus and unchanged model data/sidebar widths; passed again on the final package.
 - Citadel locale workflow: passed all seven modes (en/ru/es/zh/fr/de/Mordor), five editor/dialog views each, input accepted and no renderer errors. Stable control IDs disambiguate colliding Mordor labels without skipping assertions.
@@ -52,7 +53,7 @@ All 50 GIF loops decode and match embedded bytes, frame counts, timings and cue 
 
 ## Screenshots
 
-In [verification/french-german](../verification/french-german/): `fr-main.png`, `de-main.png`; both language menus and native menu bars; OptimizeXL, AnimXL and Forge in both languages; two Citadel captures. Native menu JSON and small logs are in `D:\Codex\french-german\report`. Captures use the task-owned window on an invisible desktop, never the user desktop.
+In [verification/french-german](../verification/french-german/): `fr-main.png`, `de-main.png`; both language menus and native menu bars; OptimizeXL, AnimXL and Forge in both languages; two Citadel captures. Native menu JSON and small logs are in `D:\Codex\french-german\report`. Captures use the task-owned window on an invisible desktop, never the user desktop. Compact [results](../verification/french-german/results.json) include the final app hashes and tutorial scope.
 
 ## Next release: six languages
 
@@ -62,4 +63,4 @@ See [release recipe](../RELEASING.md) and [updates](../AUTO_UPDATES.md). Claude 
 
 ## Remaining gates and limits
 
-Finish final static-media/page-size checks, create both ready-for-review PRs and record their links here. Owner merge approval and Claude QA remain required; this task does not merge, publish, tag or bump versions. Not every rare dialog/provider path was exercised, and editor checks do not prove Warcraft III/World Editor acceptance. No actual future release/PDF or GitHub Actions publication was run.
+Both branches are pushed and both PRs are open, non-draft and ready for review. Local verification and tutorial media work are complete. Owner merge approval and Claude QA remain required; this task does not merge, publish, tag or bump versions. Not every rare dialog/provider path was exercised, and editor checks do not prove Warcraft III/World Editor acceptance. No actual future release/PDF or GitHub Actions publication was run.
