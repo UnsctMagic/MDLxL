@@ -39,6 +39,7 @@ export const FILE_ICON_CHOICES = Object.freeze(['page', 'dark-page', 'tile', 'pr
 
 export const DEFAULT_PREFERENCES = Object.freeze({
   rendererRevision: 3,
+  grabThroughByEditor: Object.freeze({ vertices: true, bones: false }),
   citadelPaint: DEFAULT_PAINT_APPEARANCE,
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
@@ -184,6 +185,7 @@ export function normalizePreferences(value = {}) {
   const viewportPreset = requestedPreset === 'custom' || viewportPresetById(requestedPreset, viewportPresets) ? requestedPreset : legacyCustomized ? 'custom' : DEFAULT_VIEWPORT_PRESET_ID;
   return {
     rendererRevision: 3,
+    grabThroughByEditor: { vertices: boolean(input.grabThroughByEditor?.vertices, true), bones: boolean(input.grabThroughByEditor?.bones, false) },
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),

@@ -101,13 +101,15 @@ class FileTypeRegistration {
     await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', NOTIFY]).catch(() => {});
     return true;
   }
-  // True when Windows still opens .mdl or .mdx through the shared type, so both
-  // show the MDX icon until MDLxL is chosen again in Default apps.
+  // Shared legacy and Open-with types cannot distinguish MDL from MDX.
+  // Windows requires the user to choose the format-specific types in Default apps.
   async usesSharedDefault() {
+    const sharedTypes = [PROG_ID.toLowerCase(), ('Applications\\' + path.win32.basename(this.executable)).toLowerCase()];
     for (const extension of Object.keys(MODEL_TYPES)) for (const choice of ['UserChoice', 'UserChoiceLatest']) {
       try {
         const output = await this.run('reg.exe', ['query', `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\${extension}\\${choice}`, '/v', 'ProgId']);
-        if (new RegExp(`\\sREG_SZ\\s+${PROG_ID.replace('.', '\\.')}\\s*$`, 'm').test(output)) return true;
+        const progId = output.match(/\sREG_SZ\s+([^\r\n]+)/)?.[1].trim().toLowerCase();
+        if (sharedTypes.includes(progId)) return true;
       } catch {}
     }
     return false;

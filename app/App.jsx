@@ -195,9 +195,8 @@ export default function App() {
   const { portraitEnabled, setPortraitEnabled, portraitCameraIndex, setPortraitCameraIndex, portraitSnapRevision, setPortraitSnapRevision, portraitSettings, setPortraitSettings, portraitPreviewChanged, setPortraitPreviewChanged, portraitLightingStatus, setPortraitLightingStatus, controlModelIds, setControlModelIds, controlModelGroup, setControlModelGroup, lastBackdropLook, rememberBackdropLook } = usePortraitState(session.id);
   useEffect(() => { setMaterialVisibility(null); }, [session.id]);
   const receiveCameraAngles = useCallback(value => setCameraAngles(previous => ['x','y','z'].some(axis=>Math.abs(previous[axis]-value[axis])>.001)?value:previous), []);
-  const [grabThroughByEditor, setGrabThroughByEditor] = useState({vertices:true,bones:false});
-  const grabThrough = grabThroughByEditor[mode] ?? false;
-  const setGrabThrough = value => setGrabThroughByEditor(previous => ({...previous,[mode]:value}));
+  const grabThrough = preferences.grabThroughByEditor[mode] ?? false;
+  const setGrabThrough = value => changePreferences(previous => ({...previous,grabThroughByEditor:{...previous.grabThroughByEditor,[mode]:value}}));
   const cameraProps = {onCameraAnglesChange:receiveCameraAngles,cameraAnglesRequest,onCameraGestureChange:setCameraGesture,onSensitivityIndicator:setAdjustingInput,grabThrough};
   useEffect(()=>setCameraGesture(false),[mode,session.id]);
   const [tool, setTool] = useState('select'), [teamColor, setTeamColor] = useState('#ff0303'), [renderMode, setRenderMode] = useState('wireframe'), [movementRenderMode, setMovementRenderMode] = useState('influence'), untexturedModes = useRef({});
