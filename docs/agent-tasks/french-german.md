@@ -7,7 +7,7 @@ Both PRs are **ready for review; awaiting merge approval**. No merge or publicat
 Session: codex Add French and German localization
 
 - App: `codex/french-german`; started from origin/main `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`, integrated current main `3295860ea006d68ef2c362fe202f978cf4f1d2f8`. [PR #539](https://github.com/UnsctMagic/MDLxL/pull/539).
-- Website: `codex/mdlxl-french-german`; started from origin/main `ee19e5a775cf93e81dd00f8a7623e324f08fc164`, integrated current main `2670ca941b820b543c2329e23f8284e0ced3fbcd`. PR pending.
+- Website: `codex/mdlxl-french-german`; started from origin/main `ee19e5a775cf93e81dd00f8a7623e324f08fc164`, integrated current main `74670a2f2dd3ac41c081950a77f07f73792e8790`. [PR #56](https://github.com/UnsctMagic/LowPolyWorks/pull/56).
 - All task work is in `D:\Codex\french-german`, hidden/off-screen. No installed app, real profile, version number, 0.38.0 release PR or PR #534 edits. No gh-pages push. Claude publishes at release time.
 - Translation was authored entirely within Codex. No source text was sent to an external translation service.
 
