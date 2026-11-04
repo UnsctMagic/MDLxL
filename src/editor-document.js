@@ -496,20 +496,27 @@ export class EditorDocument {
     for (const change of changes) this._dirtyCandidates.add(change.path[0]);
     this._trackedModel = this.model;
   }
-  captureRecoveryState({ includeHistory = true, compact = false } = {}) {
+  get recoveryHistoryRevision() { return this._historyStore.revision; }
+  recoverySignature() { return [this.revision, this.model, this._savedModel, this._original, this.name, this._historyStore.revision]; }
+  captureRecoveryState({ includeHistory = true, compact = false, detached = true } = {}) {
     if (this._applying) throw new Error('Cannot capture recovery inside a document edit.');
+    // History changes are immutable. Selection records are replaced, not mutated.
+    // A shallow entry/list snapshot is stable while the bounded encoder yields;
+    // its caller checks recoverySignature again before publishing the result.
+    const history = includeHistory ? this._historyStore._recoveryState() : null;
+    const snapshotHistory = !detached && history ? { ...history, undoEntries: history.undoEntries.map(entry => ({ ...entry })), redoEntries: history.redoEntries.map(entry => ({ ...entry })) } : history;
     if (compact) {
       this._candidateKeys();
       // Keep the immutable source once, plus only authored changes and history.
       // Copying two complete graphs of baked animation keys through Electron's
       // context bridge caused a second UI stall after each small mesh edit.
-      return clone({ schema: 'mdlvis-document-recovery', version: 2, name: this.name,
+      return (detached ? clone : value => value)({ schema: 'mdlvis-document-recovery', version: 2, name: this.name,
         originalBytes: new Uint8Array(this._original.buffer, this._original.byteOffset, this._original.byteLength),
         savedChanges: this._recoverySavedChanges,
         // Checkpoints also capture direct in-place draft changes, even when
         // no document transaction or revision has been committed yet.
         modelChanges: createChanges(this._savedModel, this.model, { ignore: ignoreHistoryAlias }),
-        revision: this.revision, history: includeHistory ? this._historyStore._recoveryState() : null, activity: this.history });
+        revision: this.revision, history: snapshotHistory, activity: detached ? this.history : [...this.history] });
     }
     // Clone the complete graph once, avoiding two temporary copies of a large
     // undo cache while the desktop host checkpoints the document to disk.

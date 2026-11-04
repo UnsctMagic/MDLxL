@@ -113,7 +113,16 @@ import { plainTrackValues } from '../src/plain-track-values.js';
 import SidebarResizer from './SidebarResizer.jsx';
 import { exposeAppForTests, recordInfoForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
+import { createRecoveryCheckpointer } from './recovery-checkpoint.js';
 
+function sameTextureBytes(left, right) {
+  if (left === right) return true;
+  if (!left || !right || left.byteLength !== right.byteLength) return false;
+  const a = left instanceof ArrayBuffer ? new Uint8Array(left) : new Uint8Array(left.buffer, left.byteOffset, left.byteLength);
+  const b = right instanceof ArrayBuffer ? new Uint8Array(right) : new Uint8Array(right.buffer, right.byteOffset, right.byteLength);
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
 const resources = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Sequences', 'TextureAnims', 'GlobalSequences'];
 const blank = () => openDocument(new TextEncoder().encode('Version { FormatVersion 800, }\nModel "Untitled" { BlendTime 150, MinimumExtent { 0, 0, 0 }, MaximumExtent { 0, 0, 0 }, BoundsRadius 0, }\n'), 'Untitled.mdl');
@@ -247,7 +256,10 @@ export default function App() {
   const highlightKeyframes = highlightByPanel[animationPanel];
   const setHighlightKeyframes = value => { setHighlightByPanel(previous => ({ ...previous, [animationPanel]: value })); if (animationPanel === 'movement' && !value) setHighlightChain(false); };
   const changeHighlightChain = value => { setHighlightChain(value); if (value) setHighlightByPanel(previous => ({ ...previous, movement: true })); };
-  const [captureAPI, setCaptureAPI] = useState(null);
+  // Renderer handles belong in refs: storing one in render state lets a new
+  // preview's callback closure retain the previous preview, forming a chain.
+  const captureAPI = useRef(null);
+  const setCaptureAPI = useCallback(api => { captureAPI.current = api; }, []);
   const viewportCaptureAPI = useRef(null);
   const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
@@ -297,7 +309,7 @@ export default function App() {
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
-  const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), textureResolutions = useRef(new WeakMap());
+  const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), textureResolutions = useRef(new WeakMap()), pendingTextureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
   useEffect(() => {
     const was = lastRevision.current;
@@ -428,7 +440,7 @@ export default function App() {
   const vertexNodeCenter=visUI&&mode==='vertices'&&!selectionCount&&selectedRigNodes.length?[0,1,2].map(axis=>selectedRigNodes.reduce((sum,node)=>sum+(node.PivotPoint?.[axis]||0),0)/selectedRigNodes.length):null;
   const parentedRigNodes = selectedRigNodes.filter(node => model.Bones.some(bone => bone.ObjectId === node.Parent));
   const createBoneOrAttachment = type => {
-    if (type === 'Bone' && !selectionCount) captureAPI?.focusPoint?.([0, 0, 0]);
+    if (type === 'Bone' && !selectionCount) captureAPI.current?.focusPoint?.([0, 0, 0]);
     const created = edit(`Create ${type.toLowerCase()}`, ['Nodes', 'PivotPoints', 'Info'], current => createRigNode(current, type, validSelection));
     setBoneCreateOpen(false);
     if (created && created !== false) {
@@ -489,7 +501,7 @@ export default function App() {
     }
     enterPortrait(cameraIndex, portraitSequence);
   };
-  const currentCameraView = () => captureAPI?.cameraView?.();
+  const currentCameraView = () => captureAPI.current?.cameraView?.();
   const completePortraitSetup = ({ duration, sourceIndex }) => {
     const cameraIndex = model.Cameras?.[portraitCameraIndex] ? portraitCameraIndex : model.Cameras?.length ? 0 : -1;
     if (cameraIndex < 0) throw Error('Use Set Current View to create a camera first.');
@@ -754,32 +766,41 @@ export default function App() {
         const bytes = await readInputBytes(record), name = record.logicalName || record.texturePath || record.webkitRelativePath || record.name;
         if (!name) continue;
         if (source === 'gameData' && assets.get(gamePathKey(name))?.source === 'gameFile') continue;
-        const asset = { name, bytes, source: isForgeAssetPath(name) ? 'forge' : source }; const mime = /\.png$/i.test(name) ? 'image/png' : /\.jpe?g$/i.test(name) ? 'image/jpeg' : /\.webp$/i.test(name) ? 'image/webp' : null;
+        const previous = target.assets.get(gamePathKey(name)), assetSource = isForgeAssetPath(name) ? 'forge' : source;
+        if (previous?.name === name && previous.source === assetSource && sameTextureBytes(previous.bytes, bytes)) { assets.set(gamePathKey(name), previous); assets.set(gamePathKey(name.split(/[\\/]/).at(-1)), previous); count++; continue; }
+        const asset = { name, bytes, source: assetSource }; const mime = /\.png$/i.test(name) ? 'image/png' : /\.jpe?g$/i.test(name) ? 'image/jpeg' : /\.webp$/i.test(name) ? 'image/webp' : null;
         if (mime) { asset.url = URL.createObjectURL(new Blob([bytes], { type: mime })); textureUrls.current.add(asset.url); createdUrls.push(asset.url); }
         if (!current()) { discard(); return 0; }
         assets.set(gamePathKey(name), asset); assets.set(gamePathKey(name.split(/[\\/]/).at(-1)), asset); count++;
       } catch (error) { say(`${record.name || 'Texture'}: ${error.message}`, true); }
     }
     if (!current()) { discard(); return 0; }
-    target.assets = assets; releaseUnusedTextureUrls(); if (latest.current.session.id === target.id || latest.current.showcaseSession?.id === target.id) refresh(); return count;
+    const unchanged = assets.size === target.assets.size && [...assets].every(([key, asset]) => target.assets.get(key) === asset);
+    if (!unchanged) { target.assets = assets; releaseUnusedTextureUrls(); if (latest.current.session.id === target.id || latest.current.showcaseSession?.id === target.id) refresh(); }
+    return count;
   }
-  async function resolveTextures(target = session) {
-    if (!hasDesktop('resolveTextures')) return;
-    const generation = nextTextureResolution(target);
-    try {
-      // Keep referenced assets ready for final-model previews even when the
-      // work viewport has texture display disabled. This is not library preload.
-      const names = target.doc.model.Textures.map(texture => texture.Image).filter(Boolean);
-      if (!names.length) return;
-      const records = await resolveGameFiles(names, target.path);
-      if (textureResolutions.current.get(target) !== generation) return;
-      await loadTextures(records, target, { resolutionGeneration: generation, source: 'gameData' });
-    } catch (error) { say(error.message, true); }
+  function resolveTextures(target = session) {
+    if (!hasDesktop('resolveTextures')) return Promise.resolve();
+    const names = target.doc.model.Textures.map(texture => texture.Image).filter(Boolean);
+    if (!names.length) return Promise.resolve();
+    const key = JSON.stringify([target.path, names, settings.current.gameData, settings.current.gameDataSources, settings.current.gameDataDiscovery]);
+    const pending = pendingTextureResolutions.current.get(target);
+    if (pending?.key === key && textureResolutions.current.get(target) === pending.generation) return pending.promise;
+    const generation = nextTextureResolution(target), request = { key, generation };
+    request.promise = (async () => {
+      try {
+        // Validate loose files again on re-entry, but preserve the existing assets
+        // and renderer when their bytes did not change. Concurrent callers share I/O.
+        const records = await resolveGameFiles(names, target.path);
+        if (textureResolutions.current.get(target) !== generation) return;
+        await loadTextures(records, target, { resolutionGeneration: generation, source: 'gameData' });
+      } catch (error) { say(error.message, true); }
+      finally { if (pendingTextureResolutions.current.get(target) === request) pendingTextureResolutions.current.delete(target); }
+    })();
+    pendingTextureResolutions.current.set(target, request); return request.promise;
   }
-  async function checkpoint(target) {
-    const envelope = { id: target.id, version: ++target.checkpoint, path: target.path, dirty: target.doc.dirty || Object.keys(target.uvPreviews).length > 0 || Object.keys(target.animationDrafts).length > 0 || !!target.paintProject?.dirty, date: new Date().toISOString(), state: target.doc.captureRecoveryState({ compact: true }), animationDrafts: structuredClone(target.animationDrafts), uvPreviews: structuredClone(target.uvPreviews), paintProject: target.paintProject ? structuredClone(target.paintProject) : null, paintOriginalModelBytes: target.paintOriginalModelBytes ? new Uint8Array(target.paintOriginalModelBytes) : null, paintWorkingModel: target.paintWorkingModel ? structuredClone(target.paintWorkingModel) : null, paintAppliedRevision: target.paintAppliedRevision, forgeAssets: retainedForgeAssets(target.assets) };
-    if (window.desktop?.writeRecovery) await window.desktop.writeRecovery(envelope); else await browserRecovery('put', envelope);
-  }
+  const recovery = useMemo(() => createRecoveryCheckpointer(payload => window.desktop?.writeRecovery ? window.desktop.writeRecovery(payload) : browserRecovery('put', payload), { binary: !!window.desktop?.writeRecovery }), []);
+  const checkpoint = recovery.checkpoint;
   function rememberSessionView(target = session) {
     if (!target) return;
     const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hiddenByUser, selection, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets };
@@ -1399,7 +1420,7 @@ export default function App() {
   const [aiOffscreen, setAiOffscreen] = useState(null);
   aiHost.current = {
     capture: async () => {
-      const api = mode === 'vertices' ? viewportCaptureAPI.current : captureAPI;
+      const api = mode === 'vertices' ? viewportCaptureAPI.current : captureAPI.current;
       if (!api?.captureView) throw Error('The model viewport is not visible.');
       await api.whenReady?.();
       return api.captureView().toDataURL('image/png');
@@ -1528,11 +1549,11 @@ export default function App() {
   useEffect(() => { if (preferencesReady && !preferencesRef.current.graphics.softwareLow && detectRenderer().software) changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, ...SOFTWARE_RENDERING_GRAPHICS } })); }, [preferencesReady]);
   useEffect(() => { const handler = event => { if (latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
   useEffect(() => {
-    if (!doc.dirty && doc.revision === 0 && !hasUVPreview && !hasTrackDrafts && session.checkpoint === 0) return;
+    if (!doc.dirty && doc.revision === 0 && !hasUVPreview && !hasTrackDrafts && !session.paintProject?.dirty && session.checkpoint === 0) return;
     const timer = setTimeout(async () => { try { await checkpoint(session); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
     return () => clearTimeout(timer);
-  }, [doc, doc.revision, session, session.uvPreviews, session.animationDrafts]);
-  useEffect(() => window.desktop?.onBeforeClose?.(async () => { const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); }),[]);
+  }, [doc, doc.revision, doc.recoveryHistoryRevision, session, session.uvPreviews, session.animationDrafts, session.paintProject, session.paintProject?.revision, session.paintProject?.dirty, session.paintWorkingRevision, session.paintAppliedRevision]);
+  useEffect(() => window.desktop?.onBeforeClose?.(async () => { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); await recovery.flush(latest.current.sessions.filter(target => target.doc.revision || target.checkpoint || sessionDirty(target))); }),[]);
   useEffect(() => window.desktop?.onSaveBeforeClose?.(() => saveBeforeCloseRef.current()),[]);
   useEffect(() => { if(preferencesReady) resolveTextures(); },[preferencesReady, JSON.stringify(model.Textures.map(texture => texture.Image))]);
 
@@ -1755,7 +1776,7 @@ export default function App() {
         rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}/>}
       {uvWindow && <UVWindow key={`uv:${session.id}`} state={uvWindow} onChange={setUVWindow} onClose={closeUVWindow}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</UVWindow>}
-      {preferencesReady && mode === 'paint' && <Suspense fallback={<div className="classic-empty-view">{paintMessage('paint.loading')}</div>}><PaintBoundary key={session.id} onSave={()=>savePaintProject()} onExit={()=>selectMode('vertices')}><PaintWorkspace key={session.id} model={session.paintWorkingModel||model} originalModel={paintOriginalModel} revision={doc.revision+session.paintWorkingRevision} modelName={doc.name} modelPath={session.path} textureAssets={session.assets} project={session.paintProject} activeGeoset={activeGeoset} onGeosetChange={setActiveGeoset} onWorkingModelChange={value=>{session.paintWorkingModel=value;session.paintWorkingRevision++;refresh();}} onProjectChange={value=>{if(!session.paintProject&&value){session.paintOriginalModelBytes=doc.serialize(doc.format);session.paintWorkingModel ||= structuredClone(model);}if(!value){session.paintWorkingModel=null;session.paintWorkingRevision++;delete session.paintAppliedRevision;}session.paintProject=value;refresh();}} onEnsureTarget={ensurePaintTarget} onSaveProject={savePaintProject} onOpenProject={open} onExport={exportPaintProject} onApply={applyPaintToModel} onExit={()=>selectMode('vertices')} onStatus={say} preferences={preferences} cameraMemory={paintCamera} cameraProps={{...cameraProps,onWorkMode:()=>setCameraMode('work'),onSensitivityChange:changeSensitivity,onPointerSensitivityChange:changePointerSensitivity,onCameraModeToggle:toggleMiddleCamera}} view={view} cameraMode={cameraMode} teamColor={teamColor} readOnly={doc.readOnly||saving||model.Version!==800}/></PaintBoundary></Suspense>}
+      {preferencesReady && mode === 'paint' && <Suspense fallback={<div className="classic-empty-view">{paintMessage('paint.loading')}</div>}><PaintBoundary key={session.id} onSave={()=>savePaintProject()} onExit={()=>selectMode('vertices')}><PaintWorkspace key={session.id} model={session.paintWorkingModel||model} originalModel={paintOriginalModel} revision={doc.revision+session.paintWorkingRevision} modelName={doc.name} modelPath={session.path} textureAssets={session.assets} project={session.paintProject} activeGeoset={activeGeoset} onGeosetChange={setActiveGeoset} onWorkingModelChange={value=>{session.paintWorkingModel=value;session.paintWorkingRevision++;refresh();}} onInteractionChange={active=>recovery.setInteracting(session,active)} onProjectChange={value=>{if(!session.paintProject&&value){session.paintOriginalModelBytes=doc.serialize(doc.format);session.paintWorkingModel ||= structuredClone(model);}if(!value){session.paintWorkingModel=null;session.paintWorkingRevision++;delete session.paintAppliedRevision;}session.paintProject=value;refresh();}} onEnsureTarget={ensurePaintTarget} onSaveProject={savePaintProject} onOpenProject={open} onExport={exportPaintProject} onApply={applyPaintToModel} onExit={()=>selectMode('vertices')} onStatus={say} preferences={preferences} cameraMemory={paintCamera} cameraProps={{...cameraProps,onWorkMode:()=>setCameraMode('work'),onSensitivityChange:changeSensitivity,onPointerSensitivityChange:changePointerSensitivity,onCameraModeToggle:toggleMiddleCamera}} view={view} cameraMode={cameraMode} teamColor={teamColor} readOnly={doc.readOnly||saving||model.Version!==800}/></PaintBoundary></Suspense>}
 
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview
         vanilla={visUI} editorDisplayMode={displayMode}

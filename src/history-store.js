@@ -163,7 +163,7 @@ export function applyChanges(model, changes, direction = 'after') {
 
 export class HistoryStore {
   constructor(options = {}) {
-    this.undoEntries = []; this.redoEntries = [];
+    this.undoEntries = []; this.redoEntries = []; this.revision = 0;
     this.usedBytes = 0; this.evictedSteps = 0; this.lastEntryRetained = true;
     this.configure(options);
   }
@@ -171,6 +171,7 @@ export class HistoryStore {
     const budgetBytes = options.budgetBytes ?? this.budgetBytes ?? DEFAULT_HISTORY_OPTIONS.budgetBytes;
     const maxSteps = options.maxSteps ?? this.maxSteps ?? DEFAULT_HISTORY_OPTIONS.maxSteps;
     if (!Number.isSafeInteger(budgetBytes) || budgetBytes < 0 || !Number.isSafeInteger(maxSteps) || maxSteps < 0) throw new Error('Undo cache limits must be nonnegative integers.');
+    if (this.budgetBytes !== budgetBytes || this.maxSteps !== maxSteps) this.revision++;
     this.budgetBytes = budgetBytes; this.maxSteps = maxSteps;
     this._trim(); return this.stats;
   }
@@ -191,7 +192,7 @@ export class HistoryStore {
   commit(entry) {
     for (const entry of this.redoEntries) this.usedBytes -= entry.bytes;
     this.redoEntries = [];
-    this.undoEntries.push(entry); this.usedBytes += entry.bytes;
+    this.undoEntries.push(entry); this.usedBytes += entry.bytes; this.revision++;
     this._trim(); this.lastEntryRetained = this.undoEntries.at(-1) === entry;
     return this.lastEntryRetained;
   }
@@ -200,7 +201,7 @@ export class HistoryStore {
     if (!validSelectionHistory(selection)) throw new Error('Invalid selection history.');
     const { bytes, selection: previous, ...documentEntry } = entry;
     const saved = copy(selection), nextBytes = retainedBytes({ ...documentEntry, selection: saved });
-    entry.selection = saved; entry.bytes = nextBytes;
+    entry.selection = saved; entry.bytes = nextBytes; this.revision++;
     this.usedBytes += nextBytes - bytes;
     this._trim();
     const retained = this.undoEntries.includes(entry) || this.redoEntries.includes(entry);
@@ -211,13 +212,13 @@ export class HistoryStore {
     const entry = this.undoEntries.at(-1);
     if (!entry) return null;
     mutator(entry.changes, 'before');
-    this.undoEntries.pop(); this.redoEntries.push(entry); return entry;
+    this.undoEntries.pop(); this.redoEntries.push(entry); this.revision++; return entry;
   }
   redo(mutator) {
     const entry = this.redoEntries.at(-1);
     if (!entry) return null;
     mutator(entry.changes, 'after');
-    this.redoEntries.pop(); this.undoEntries.push(entry); return entry;
+    this.redoEntries.pop(); this.undoEntries.push(entry); this.revision++; return entry;
   }
   get stats() {
     return { undoSteps: this.undoEntries.length, redoSteps: this.redoEntries.length, usedBytes: this.usedBytes,

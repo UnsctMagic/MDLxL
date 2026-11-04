@@ -9,6 +9,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Task | State | Note / owner |
 | --- | --- | --- |
 | OptimizeXL unused pivot warning | Ready for Claude QA; awaiting merge approval | [Pivot warning](optimizexl-pivot-warning.md) / Codex |
+| Editor lag and recovery plumbing | Ready for independent QA/review | [Performance plumbing](performance-plumbing.md) / Codex; Claude QA |
 | MDL/MDX icons and persistent Select through | Ready for Claude QA; awaiting merge approval | [Icons and Select through](icons-select-through.md) / Codex |
 | Hive-only Sanity Check | Merged (#538) | [Sanity Check](sanity-hive-only.md) / Codex |
 | 0.38.0 New Features guides | Merged (#536) | [Guide handover](release-038-guides.md) / Codex |
