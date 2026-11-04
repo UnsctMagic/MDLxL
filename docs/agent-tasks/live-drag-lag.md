@@ -1,12 +1,13 @@
 # Live UV drag performance
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed; merged with owner authorization
 Owner / consolidator: Codex
 Updated: 2026-11-04
 
 ## Current follow-up
 
 PR: https://github.com/UnsctMagic/MDLxL/pull/550
+Merge revision: `459cd9eb3bb129bfd637a1df4eb39df12af78597` (verified on online main).
 
 - Branch: `codex/uv-drag-smooth`, based on main `f67cbb5564c9e5f47a1b4f3c2a5ab0d661738efa`.
 - Integrated main `4fc8c1b1` (PR #549), preserving its restored horizontal UV Zoom collapse rule; map links retain both regression tests.
@@ -35,9 +36,9 @@ PR: https://github.com/UnsctMagic/MDLxL/pull/550
   failed (25 geometry generations per 24-step drag). Original exact floating-point
   camera equality also failed on ~1e-12 OrbitControls roundoff; the probe now rounds
   to 1e-9, retaining meaningful camera-position checks.
-- Final larger-model p95 animation-frame gaps: 10 ms for Move and Rotate versus
+- Final larger-model p95 animation-frame gaps: 10-15 ms for Move and Rotate versus
   about 50 ms before. Geometry generations: 25 -> 1. These are same-machine hidden
-  desktop measurements, not a universal FPS guarantee. Move included one 205 ms
+  desktop measurements, not a universal FPS guarantee. Move included one 205-210 ms
   initialization spike; profiling also saw native shader initialization in that run.
 - Isolated drawing proof using the same 3,416 real triangles: growing path ~21 ms,
   64-face batches ~1.5 ms, identical pixels. Full Khorne map captures for both tools
@@ -48,8 +49,12 @@ PR: https://github.com/UnsctMagic/MDLxL/pull/550
   `uv-tools`, `live-drag-frames`). Build and package checks passed.
 - Evidence: `D:\Codex\mdlxl-uv-drag-smooth-report`. Disposable package/profile,
   profiling scripts and raw traces are removed after verification.
+- Integrated-head CI passed (build, compatibility and full source-suite baseline
+  check); the approved Zoom-collapse regression also passed 114/114 checks.
+- Owner authorized merge on 2026-11-04. The merged PR and both performance changes
+  were verified on online main. No release or installed-app update was performed.
 - Claude QA, owner testing in the user's live session, and Warcraft III gameplay
-  were not run. PR review/merge approval remains the next step.
+  were not run; merge authorization does not imply those acceptance checks passed.
 
 ## Previous frame-coalescing work (2026-10-31; historical)
 
