@@ -66,15 +66,15 @@ export default function OptimizeXL({doc,workplane,workplaneEnabled,filePath,text
   const seek=(frame)=>{setClock(current=>({...current,time:frame}));setSeekId(v=>v+1);};
   // A finding borrows the timeline. Keep the user's return point through
   // multiple findings, without overriding authored geoset visibility.
-  function inspectFix(f,returnView){inspection.current??=returnView||{sequence,time};setSequence(f.sequence);seek(f.frame);setPlaying(false);}
-  function restoreInspection(){const view=inspection.current;inspection.current=null;if(view){setSequence(view.sequence);seek(view.time);setPlaying(false);}return view;}
+  function inspectFix(f,returnView){inspection.current??=returnView||{sequence,time};setSequence(f.sequence);seek(f.frame);}
+  function restoreInspection(){const view=inspection.current;inspection.current=null;if(view){setSequence(view.sequence);seek(view.time);}return view;}
   function relocateInspection(model){const view=inspection.current;if(view)view.time+=model.Sequences[view.sequence].Interval[0]-before.Sequences[view.sequence].Interval[0];}
   function enter(next,restore){
     const returnView=restoreInspection(),batch=restore?.fix?.kind==='batch'?restore.fix.entries:[],first=batch[0]?.fix||restore?.fix;
     worker.current?.terminate();session.candidate=null;request.current++;setCandidate(null);setBusy(false);setError('');setSaved(null);setFinished(false);setStage(next);
     setSettings(batch[0]?.settings||restore||freshSettings(next,before));if(restore?.excludedGeosets)setExcluded(new Set(restore.excludedGeosets));setListHovered(null);setViewHovered(null);setStrength(0);setCustom(!!restore);
     setCheckedFixes(new Set(batch.map(e=>e.fix.id)));setFixSettings(batch.length?Object.fromEntries(batch.map(e=>[e.fix.id,e.settings])):first?{[first.id]:restore}:{});
-    setPreviewMode(batch.length?'selection':'single');setSelectedFix(first?.id||null);setPlaying(false);if(first)inspectFix(first,returnView);
+    setPreviewMode(batch.length?'selection':'single');setSelectedFix(first?.id||null);if(first)inspectFix(first,returnView);
   }
   useEffect(()=>{if(before?.Sequences.length){setSequence(i=>Math.min(i,before.Sequences.length-1));}},[before]);
   useEffect(()=>{setListHovered(null);},[candidate,busy]);
@@ -120,8 +120,8 @@ export default function OptimizeXL({doc,workplane,workplaneEnabled,filePath,text
   function previewSelected(){if(!selectedEntries.length)return;setPreviewMode('selection');const selected=selectedEntries.find(e=>e.fix.id===selectedFix)||selectedEntries[0];setSelectedFix(selected.fix.id);setSettings(selected.settings);inspectFix(selected.fix);}
   function adjust(key,value){setCustom(true);const next={...settings,[key]:value};setSettings(next);if(repairStages.has(stage)&&fix)setFixSettings(s=>({...s,[fix.id]:next}));setSaved(null);}
   function adjustStrength(value){setStrength(value);setCustom(false);setSettings(simpleSettings(stage,value,before,settings.mode));setSaved(null);}
-  function advance(){const index=STAGES.findIndex(s=>s.id===stage);if(index===STAGES.length-1){setFinished(true);setCandidate(null);setPlaying(false);}else enter(STAGES[index+1].id);}
-  function nextFinding(model,consumed,skipped=skippedFixes){const list=findingsFor(stage,model).filter(f=>!skipped.has(f.id)&&!consumed.has(f.id)),last=Math.max(-1,...available.map((f,i)=>consumed.has(f.id)?i:-1)),next=available.slice(last+1).map(f=>list.find(n=>n.id===f.id)).find(Boolean)||list[0];setCheckedFixes(s=>new Set([...s].filter(id=>!consumed.has(id))));setPreviewMode('single');setSelectedFix(next?.id||null);setSettings(next?(fixSettings[next.id]||fixDefaults(next)):{});if(next)inspectFix(next);else restoreInspection();setPlaying(false);}
+  function advance(){const index=STAGES.findIndex(s=>s.id===stage);if(index===STAGES.length-1){setFinished(true);setCandidate(null);}else enter(STAGES[index+1].id);}
+  function nextFinding(model,consumed,skipped=skippedFixes){const list=findingsFor(stage,model).filter(f=>!skipped.has(f.id)&&!consumed.has(f.id)),last=Math.max(-1,...available.map((f,i)=>consumed.has(f.id)?i:-1)),next=available.slice(last+1).map(f=>list.find(n=>n.id===f.id)).find(Boolean)||list[0];setCheckedFixes(s=>new Set([...s].filter(id=>!consumed.has(id))));setPreviewMode('single');setSelectedFix(next?.id||null);setSettings(next?(fixSettings[next.id]||fixDefaults(next)):{});if(next)inspectFix(next);else restoreInspection();}
   function approve(){if(busy||!candidate||repairStages.has(stage)&&!previewFix)return;session.approve(stage,{...settings,excludedGeosets:[...excluded],fix:previewFix});refresh(v=>v+1);setSaved(null);setCandidate(null);if(repairStages.has(stage)){const ids=new Set(previewFix.kind==='batch'?previewFix.entries.map(e=>e.fix.id):previewFix.kind==='fixAll'?available.map(f=>f.id):[previewFix.id]),model=openDocument(session.accepted,'approved.mdx').model;relocateInspection(model);nextFinding(model,ids);}else advance();}
   function skip(){if(previewFix?.kind==='fixAll'){setPreviewMode(null);setCandidate(null);session.candidate=null;return;}if(repairStages.has(stage)&&fix){const ids=new Set(previewFix?.kind==='batch'?previewFix.entries.map(e=>e.fix.id):[fix.id]),skipped=new Set([...skippedFixes,...ids]);setSkippedFixes(skipped);setCandidate(null);session.candidate=null;setBusy(false);nextFinding(before,ids,skipped);return;}session.skip(stage);advance();}
   function back(){const step=session.back();if(step){relocateInspection(openDocument(session.accepted,'restored.mdx').model);refresh(v=>v+1);enter(step.stage,step.settings);}else enter(STAGES[0].id);}
