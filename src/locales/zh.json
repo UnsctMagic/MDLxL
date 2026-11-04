@@ -1592,6 +1592,7 @@
   "Choose the main Warcraft III installation folder once. MdlVis saves the location in its app profile, then uses it automatically when a model refers to native Warcraft textures.": "一次选择 Warcraft III 的主安装文件夹。MdlVis 会将该位置保存在应用配置文件中，并在模型引用原生 Warcraft 纹理时自动使用它。",
   "New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.": "新建会创建 Bone_Root 和一个具有八个顶点、十二个三角形的 64 单位立方体。",
   "Prepare local texture previews once for faster library browsing. Cached previews remain available after restarting MDLxL.": "一次准备本地纹理预览，以便更快浏览库。重启 MDLxL 后缓存的预览仍可用。",
+  "Preloading is optional. It speeds up library previews but uses extra disk space. MDLxL can read game files directly from your Warcraft III installation as needed. Cached previews remain available after restarting MDLxL.": "预加载是可选的。它能加快库中预览的加载速度，但会占用额外的磁盘空间。MDLxL 可以根据需要直接从您安装的 Warcraft III 中读取游戏文件。重启 MDLxL 后，缓存的预览仍然可用。",
   "This reads the available texture library and saves thumbnails locally. The first run can take time and use disk space. You can continue editing or close Settings while it runs. Cancel stops the run and keeps completed previews; a later run reuses them. Imported textures keep their original Warcraft paths.": "此操作会读取可用纹理库并在本地保存缩略图。首次运行可能需要时间和磁盘空间。运行期间可以继续编辑或关闭“设置”。取消会停止运行并保留已完成的预览；以后运行会复用它们。导入的纹理会保留其原始 Warcraft 路径。",
   "Width extends outward. Offset 0 centers trim on the body. Trim is a separate geoset.": "宽度向外延伸。偏移量 0 会将饰边置于主体中央。饰边是独立的几何集。",
   "Selected geosets share one deformation box. Selected vertices take priority when present.": "所选几何集共享一个变形框。存在所选顶点时，顶点优先。",

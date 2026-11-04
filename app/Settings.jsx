@@ -209,7 +209,7 @@ function AssetPreload({ modelPath }) {
   };
   const titles = { idle: 'No preload is running.', indexing: 'Finding available textures…', running: 'Preparing texture previews…', complete: 'Asset preload finished.', cancelled: 'Preload stopped. Completed previews are kept.', error: 'Asset preload could not finish.' };
   return <section className="settings-preload" aria-label="Preload Assets">
-    <h3>Preload Assets</h3><p>Prepare local texture previews once for faster library browsing. Cached previews remain available after restarting MDLxL.</p>
+    <h3>Preload Assets</h3><p>Preloading is optional. It speeds up library previews but uses extra disk space. MDLxL can read game files directly from your Warcraft III installation as needed. Cached previews remain available after restarting MDLxL.</p>
     <button ref={trigger} data-hotkey="game-data:preload" disabled={!available || running || busy || confirm} onClick={() => setConfirm(true)}>Preload Assets</button>
     {!available && <p className="settings-hint">Asset preloading is available in the desktop app.</p>}
     {confirm && <div className="settings-preload-confirm" role="group" aria-label="Confirm asset preload" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); decline(); } }}>
