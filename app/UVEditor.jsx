@@ -10,9 +10,10 @@ import { normalizeUVGrid, snapUVCoordinates, visibleUVGridLines } from '../src/u
 import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js';
 
 const indicesOf = selection => Array.from(selection || []);
+const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = [], eligibleVertices, hiddenVertices = [], onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
   const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis };
@@ -116,14 +117,20 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         context.restore();
       }
       const selected = new Set(selection());
-      context.beginPath(); context.strokeStyle = visuals.wireframe; context.lineWidth = visuals.lineWidth;
+      // Closing triangles on a growing path is expensive in Chromium. Close them
+      // in small batches, then stroke the combined path once with identical joins.
+      const wirePath = new ownerWindow.Path2D();
+      let wireBatch = new ownerWindow.Path2D(), batchFaces = 0;
+      context.strokeStyle = visuals.wireframe; context.lineWidth = visuals.lineWidth;
       for (const ids of faces) {
         // Selected topology remains visible independently of the 3D wire overlay.
         if (!p.showWires && !ids.some(index => selected.has(index))) continue;
         const [a, b, c] = ids.map(index => index * 2);
-        context.moveTo(x + uv[a] * sizeX, y + uv[a + 1] * sizeY); context.lineTo(x + uv[b] * sizeX, y + uv[b + 1] * sizeY); context.lineTo(x + uv[c] * sizeX, y + uv[c + 1] * sizeY); context.closePath();
+        wireBatch.moveTo(x + uv[a] * sizeX, y + uv[a + 1] * sizeY); wireBatch.lineTo(x + uv[b] * sizeX, y + uv[b + 1] * sizeY); wireBatch.lineTo(x + uv[c] * sizeX, y + uv[c + 1] * sizeY); wireBatch.closePath();
+        if (++batchFaces === 64) { wirePath.addPath(wireBatch); wireBatch = new ownerWindow.Path2D(); batchFaces = 0; }
       }
-      context.stroke();
+      wirePath.addPath(wireBatch);
+      context.stroke(wirePath);
       for (const i of allowed) {
         if (!p.showVertices && !(p.showSelectedVertices && selected.has(i))) continue;
         const sx = x + uv[i * 2] * sizeX, sy = y + uv[i * 2 + 1] * sizeY;
