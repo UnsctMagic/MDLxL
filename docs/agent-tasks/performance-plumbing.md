@@ -1,16 +1,16 @@
 # Editor responsiveness and recovery plumbing
 
-Status: PR #556 ready for independent QA and review; not merged
+Status: Completed implementation; PR #556 merged on owner instruction at 12dfe6bc4926e87bfde7ebeb9efa7e6b7137b725. Independent QA remains a release follow-up.
 PR: https://github.com/UnsctMagic/MDLxL/pull/556
 Owner: Codex; Claude owns independent QA
 Updated: 2026-11-04
 
 ## Scope and revision
 
-Fix the owner's whole-app/menu/panel lag for the next release. No installed-app/profile change, version bump, merge or release was performed.
+Fix the owner's whole-app/menu/panel lag for the next release. PR #556 was merged after the owner explicitly instructed it, with the pending independent QA disclosed. No installed-app/profile change, version bump or release was performed.
 
 - Branch: codex/performance-plumbing; base cab472bf7b06be3c1185edd69e6d988148884243.
-- Task/report root: D:\Codex\mdlxl-performance-fix. Finished worktree and disposable packages are removed after handoff; fetch the branch to continue.
+- Task/report root: D:\Codex\mdlxl-performance-fix. Finished worktree, task clone, disposable packages, profiles and heap dumps were removed. Reports remain; continue from main.
 - Initial read-only audit: D:\Codex\mdlxl-lag-audit-20261104\REPORT.txt and audit-evidence.json.
 - Permanent real fixtures: D:\Claude\MDLxL-TestModels\performance-20261104 (Knight and Impaler recovery histories), plus helpers/fixtures.cjs citadel-footman. Never delete this collection. Private models are not committed.
 
@@ -36,7 +36,7 @@ All UI runs used real keyboard/mouse input on the hidden Windows desktop, with d
 
 - Fail-first reports: baseline-ui-final, retention-fail-first, showcase-fail-first, paint-before.log.
 - Final harnesses: performance-plumbing.electron.cjs (verified-ui), recovery-paint.electron.cjs (paint-verified), showcase-retention.electron.cjs (showcase-verified). All pass, zero skips/errors. Includes menu input during undo/autosave, full model/history recovery, immediate Alt+F4/themed Close, normal mouse rotation, loose texture invalidation, Showcase quality Undo, and an actual saved 174,524-byte GIF.
-- Verification ran before the unrelated OptimizeXL pivot change landed. Rebase onto cab472bf resolved only the task-index row; all tested performance runtime/test files are byte-identical to verified commit 34485387. PR CI verifies the combined head.
+- Verification ran before the unrelated OptimizeXL pivot change landed. Rebase onto cab472bf resolved only the task-index row; all tested performance runtime/test files are byte-identical to verified commit 34485387. PR CI passed on 0ab0b5b10fbe20d3280b400ea701577dd68887ca: https://github.com/UnsctMagic/MDLxL/actions/runs/41909236177. The merged PR and recovery implementation were verified on online main.
 - Final renderer asset hash: 2d882bc019ea6a9ce5f6531eae64e4704ada313087711141755f8b2389b48e18. Each final result records the bundle hashes.
 - Heap traces identified document listeners and then the callback/previous-capture-handle chain. Conditional WeakMap edges were excluded when tracing the second root. Dumps are deleted; small retainer reports remain.
 - CPU-slowed close check (12x) passed; shutdown timeout behavior was not changed.
@@ -46,6 +46,6 @@ The ten source skips are existing gates: Unix-only SIGTERM behavior; optional ar
 
 ## Review and release gate
 
-Claude's independent QA has not run; no Claude Code CLI is available in the inspected locations. The full packaged release suite and Warcraft III gameplay were not run. These focused checks are developer verification, not release acceptance. Independent QA must rerun these harnesses and the appropriate release gate before merge/release. Await explicit owner merge approval.
+Claude's independent QA has not run; no Claude Code CLI is available in the inspected locations. The full packaged release suite and Warcraft III gameplay were not run. These focused checks are developer verification, not release acceptance. The owner explicitly instructed the merge after this gap was disclosed; that instruction completed the merge on 2026-11-04. Independent QA must rerun these harnesses and the appropriate release gate before release.
 
 Review focus: cooperative snapshot consistency/cancellation, history-only revisions, mutable paint transaction boundary, worker shutdown/legacy disk compatibility, and ref/generation ownership during Showcase recording/history restoration.
