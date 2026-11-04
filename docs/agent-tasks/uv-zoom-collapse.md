@@ -1,6 +1,6 @@
 # UV Zoom collapse regression
 
-Status: ready for review; awaiting Claude QA and merge approval
+Status: completed; owner-tested and merged
 Owner: Codex
 Updated: 2026-11-04
 
@@ -12,7 +12,7 @@ behavior and no changes to other UV tools or 3D zoom.
 
 ## Revision and owners
 
-- PR: [#549](https://github.com/UnsctMagic/MDLxL/pull/549).
+- PR: [#549](https://github.com/UnsctMagic/MDLxL/pull/549), merged as `4fc8c1b13a55c807a957eddc1e9718908e05b821`.
 - Branch: `codex/uv-zoom-collapse`; base `f67cbb55` (current main at task start).
 - Only application change: `app/UVEditor.jsx`, `applyMove` scale factor.
 - Contract: [UV Zoom drag](../UV-ZOOM-DRAG.md).
@@ -48,11 +48,12 @@ No other UV operation, shared helper, camera or 3D editor was changed.
   the failed test and focused UV/source checks passed: 77 passed, 0 failed,
   0 skipped. No source or baseline change was needed. The full-suite log
   preserves the existing opt-in/private-fixture/platform skips.
-- No owner hand test, independent Claude QA or Warcraft III gameplay test.
+- Owner tested the separate package on 2026-11-04, confirmed that it works, and explicitly authorized the merge. The rebuilt owner-test package also passed all 114 checks.
+- CI passed on final head `2482cbff`: build, compatibility and full source-suite gate.
+- Independent Claude QA and Warcraft III gameplay were not run.
 
-## Next action
+## Completion
 
-Claude reruns the packaged regression and owns the independent QA verdict.
-Merge only after explicit owner approval. After merge, record its revision and
-remove this note's active-index row. No version bump, release or installed
-profile change is included.
+PR #549 and the restored factor were verified on online main after merging.
+The active-task row is removed by this documentation closeout. No version bump,
+release, or installed-profile change was included.
