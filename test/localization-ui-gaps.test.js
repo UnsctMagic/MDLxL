@@ -11,7 +11,7 @@ test('Fix model exposes the authored owner separately from its translatable prop
 });
 
 test('generated particle descriptors translate while source names and personal/reviewed names stay literal', () => {
-  for (const locale of ['es', 'ru', 'zh']) {
+  for (const locale of ['es', 'ru', 'zh', 'fr', 'de']) {
     for (const phrase of ['Red streaks', 'Pale smoke', 'Golden smoke', 'Blue particle burst', 'Green particles', 'Purple flame', 'Ribbon trail', 'Model particles']) {
       const name = phrase + ' · Translation · Footman';
       const item = { name, collection: 'Warcraft', naming: { state: 'review-needed' } };

@@ -47,7 +47,7 @@ const path = require('node:path');
     const before = await page.evaluate(() => JSON.stringify(testDocument().model));
     const widths = await page.locator('.classic-sidebar').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width));
     assert.equal(widths.length, 1);
-    for (const [locale, label] of [['ru', 'Russian'], ['es', 'Spanish'], ['zh', 'Chinese'], ['mordor', 'The Language of Mordor'], ['en', 'English'], ['ru', 'Russian'], ['es', 'Spanish']]) {
+    for (const [locale, label] of [['ru', 'Russian'], ['es', 'Spanish'], ['zh', 'Chinese'], ['fr', 'French'], ['de', 'German'], ['mordor', 'The Language of Mordor'], ['en', 'English'], ['ru', 'Russian'], ['es', 'Spanish']]) {
       await page.locator('.language-trigger').click();
       await page.getByRole('option', { name: label, exact: true }).click();
       await page.getByLabel(translate('Select geoset 0', locale), { exact: true }).waitFor();
@@ -104,11 +104,11 @@ const path = require('node:path');
     }
   } finally { await closeApp(app); }
 
-  for (const locale of ['ru', 'es']) {
+  for (const locale of ['ru', 'es', 'fr', 'de']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
     try {
-      // The model opens straight away; the warning toast opens the repair choices.
-      await repairPage.locator('.warning-toasts .warning-message').click();
+      // The model opens straight away; its persistent warning opens the repair choices.
+      await repairPage.getByRole('button', { name: translate('Duplicate geoset animations', locale), exact: true }).click();
       const dialog = repairPage.getByRole('dialog', { name: translate('Duplicate geoset animations', locale), exact: true });
       await dialog.waitFor();
       await dialog.getByRole('button', { name: translate('Review tint conflict', locale), exact: true }).click();
@@ -121,6 +121,6 @@ const path = require('node:path');
   assert.deepEqual(fs.readFileSync(fixture), original);
   assert.deepEqual(fs.readFileSync(repairFixture), repairOriginal);
   assert.deepEqual(failures, [], 'No renderer exceptions');
-  console.log('PASS: seven language switches, translated native menus, unchanged model data/sidebar widths, particle controls and Emitter Editor labels in Russian, Spanish, Chinese and Mordor, and tint-conflict focus in Russian and Spanish.');
+  console.log('PASS: nine language switches, translated native menus, unchanged model data/sidebar widths, particle controls and Emitter Editor labels in Russian, Spanish, Chinese, French, German and Mordor, and tint-conflict focus in Russian, Spanish, French and German.');
   console.log(`Screenshots: ${output}`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

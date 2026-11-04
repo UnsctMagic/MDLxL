@@ -22,8 +22,10 @@ in development builds, headless runs, and whenever `MDLXL_PROFILE` is set, so
 automated tests never see it.
 
 The prompt shows the newer version and the release's bullet-point summary.
-English, Russian, Spanish and Chinese use their corresponding release log.
-The full post on Low Polyworks has four language choices at the top.
+From the release after 0.38.0, English, Spanish, Russian, Chinese, French and
+German use their corresponding release log. New posts have six language choices;
+French and German fall back to English on older posts. Never backfill older notes,
+PDFs or release JSON. Follow [the release material recipe](RELEASING.md).
 Help, About, and the update prompt include a small lowpolyworks.com link
 leading directly to the MDLxL page.
 
@@ -54,14 +56,16 @@ SHA-256 of each shipped file. Keep this file in the whole ZIP.
 
 Publish a stable GitHub release in `UnsctMagic/MDLxL` with:
 
-- A strictly newer semantic version tag, such as `v0.20.0`.
-- `MDLxL-0.20.0-win32-x64.zip`, containing the `MDLxL-win32-x64` directory.
+- A strictly newer semantic version tag, `v<version>`.
+- The application ZIP named by the workflow for that version, containing the
+  `MDLxL-win32-x64` directory.
 - The asset's GitHub SHA-256 digest, or its matching `.zip.sha256` asset.
-- Release-body links labeled `English`, `Русский`, and `简体中文` to
-  `https://www.lowpolyworks.com/mdlxl/?version=0.20.0&lang=en` (or ru/zh).
-- Before publishing the release, publish `mdlxl/releases/0.20.0.json` on the
+- Release-body links labeled `English`, `Español`, `Русский`, `简体中文`,
+  `Français`, and `Deutsch` to
+  `https://www.lowpolyworks.com/mdlxl/?version=<version>&lang=en` (using en/es/ru/zh/fr/de).
+- Before publishing the release, publish `mdlxl/releases/<version>.json` on the
   website, with `version` and `notes` containing the same full Markdown logs
-  for `en`, `ru`, `es`, and `zh`. The website and prompt use this one post.
+  for `en`, `es`, `ru`, `zh`, `fr`, and `de` in releases after 0.38.0. The website and prompt use this one post.
 
 The updater reads GitHub's latest stable release. Drafts, prereleases, equal
 versions and older versions do not prompt. There is no separate update feed
@@ -69,7 +73,7 @@ to maintain. Unavailable log content leaves the
 full-log links available. Network errors leave the editor usable. GitHub
 stores the ZIP; public announcements and download instructions lead through
 the official Low Polyworks page. Garithos links its release title to that page
-and lists the English, Russian and Chinese post links.
+and lists all six language post links for releases after 0.38.0.
 
 ## After publishing: archive finished sessions
 

@@ -68,7 +68,14 @@ jobs:
           zip="$ZIP"
           notes="docs/RELEASE-${VERSION}.md"
           if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
+          # 0.38.0 keeps its existing release material. Six languages start next.
+          guides=()
+          if node --input-type=module -e "import {sixLanguageRelease} from './scripts/release-material.mjs';process.exit(sixLanguageRelease(process.env.VERSION)?0:1)"; then
+            node scripts/release-material.mjs "$VERSION" release-material
+            notes_args=(--notes-file release-material/release-body.md)
+            while IFS= read -r guide; do guides+=("docs/$guide"); done < <(node --input-type=module -e "import fs from 'node:fs';for(const guide of JSON.parse(fs.readFileSync('release-material/guides.json','utf8')))console.log(guide)")
+          fi
+          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" "${guides[@]}" \
             --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "MDLxL ${VERSION}" "${notes_args[@]}"
           {
@@ -76,7 +83,7 @@ jobs:
             echo "Before publishing:"
             echo "- Run the updater release gate (docs/UPDATER_RELEASE_GATE.md) on this ZIP."
             echo "- Attach MDLxL-FFmpeg-corresponding-source.zip (see electron/ffmpeg/REDISTRIBUTION.md)."
-            echo "- Add the English/Русский/简体中文 post links to the release body and publish the website post."
+            echo "- Verify the release-body language links and have Claude publish the website post. Releases after 0.38.0 require EN/ES/RU/ZH-CN/FR/DE (docs/RELEASING.md)."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attach the ZIP to this run (dry run)

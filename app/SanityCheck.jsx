@@ -1,3 +1,4 @@
+import {localizedHiveMessage} from './hive-localization.js';
 import React, { useEffect, useState } from 'react';
 import { checkSanity } from '../src/sanity-check.js';
 import { hiveSanity } from './optimizexl-hive.js';
@@ -27,7 +28,7 @@ export default function SanityCheck({ model, revision, onClose }) {
           <summary>Advisory findings ({report.hive.findings.length})</summary>
           <p>{report.hive.errors} errors · {report.hive.severe} severe · {report.hive.warnings} warnings · {report.hive.unused} unused notices</p>
           <p>Findings use zero-based indices. Naming, unused data and older compatibility heuristics require review; they are not proof of a game failure.</p>
-          <ul style={{ maxHeight: 220, overflowY: 'auto' }}>{report.hive.findings.map((f, i) => <li key={i}><strong>{f.type}: {f.path}</strong><br/>{f.message}</li>)}</ul>
+          <ul style={{ maxHeight: 220, overflowY: 'auto' }}>{report.hive.findings.map((f, i) => <li key={i}><strong>{f.type}{': '}<span translate="no">{f.path}</span></strong><br/><span translate="no">{localizedHiveMessage(f.message)}</span></li>)}</ul>
         </details>}
       </>}
       <p><small>Checks the current model, including unsaved edits. No model data is changed. Texture file availability and in-game behavior are not tested.</small></p>

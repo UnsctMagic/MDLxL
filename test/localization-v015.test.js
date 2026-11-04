@@ -4,9 +4,11 @@ import { translate } from '../src/localization.js';
 import ru from '../src/locales/ru.json' with { type: 'json' };
 import es from '../src/locales/es.json' with { type: 'json' };
 import zh from '../src/locales/zh.json' with { type: 'json' };
+import fr from '../src/locales/fr.json' with { type: 'json' };
+import de from '../src/locales/de.json' with { type: 'json' };
 import sources from './fixtures/locale-feature-sources.json' with { type: 'json' };
 
-const packs = { ru, es, zh };
+const packs = { ru, es, zh, fr, de };
 const release015Sources = sources.release015;
 const slots = value => [...new Set(value.match(/\{\d+\}/g) || [])].sort();
 
@@ -25,7 +27,7 @@ test('0.15 feature text is translated in every available non-English language', 
 });
 
 test('0.15 dynamic feature messages preserve their data in every language', () => {
-  for (const locale of ['ru', 'es', 'zh', 'mordor']) {
+  for (const locale of ['ru', 'es', 'zh', 'fr', 'de', 'mordor']) {
     assert.match(translate('Deleted 12 free vertices from selected geosets.', locale), /12/);
     if (locale !== 'mordor') assert.match(translate('Opening Fire Nova…', locale), /Fire Nova/);
     assert.match(translate('8 live sprites\/streaks · 3 ribbon segments', locale), /8/);

@@ -4,21 +4,23 @@ import { translate } from '../src/localization.js';
 import ru from '../src/locales/ru.json' with { type: 'json' };
 import es from '../src/locales/es.json' with { type: 'json' };
 import zh from '../src/locales/zh.json' with { type: 'json' };
+import fr from '../src/locales/fr.json' with { type: 'json' };
+import de from '../src/locales/de.json' with { type: 'json' };
 import sources from './fixtures/locale-feature-sources.json' with { type: 'json' };
 const currentSources = sources.current;
 const slots=text=>[...new Set(text.match(/\{\d+\}/g)||[])].sort();
-test('newer UI and update controls have entries in all three translated languages',()=>{
+test('newer UI and update controls have entries in all five translated languages',()=>{
   assert.ok(currentSources.length>500);
   assert.equal(new Set(currentSources).size,currentSources.length);
-  for(const [locale,pack] of Object.entries({ru,es,zh}))for(const source of currentSources){assert.ok(pack[source]?.trim(),`${locale}: ${source}`);assert.deepEqual(slots(pack[source]),slots(source));assert.notEqual(translate(source,locale),undefined);}
-  for(const locale of ['ru','es','zh','mordor'])for(const label of ['Search for updates','Auto update','Update and restart','Revert to last version','Move checked geosets','Collect Bit','Sound preview','Resource managers','UV map tile limit','Replace Part','Shape complexity','Picked vertices only','All per-animation RGB tracks are saved.'])assert.notEqual(translate(label,locale),label,`${locale}: ${label}`);
+  for(const [locale,pack] of Object.entries({ru,es,zh,fr,de}))for(const source of currentSources){assert.ok(pack[source]?.trim(),`${locale}: ${source}`);assert.deepEqual(slots(pack[source]),slots(source));assert.notEqual(translate(source,locale),undefined);}
+  for(const locale of ['ru','es','zh','fr','de','mordor'])for(const label of ['Search for updates','Auto update','Update and restart','Revert to last version','Move checked geosets','Collect Bit','Sound preview','Resource managers','UV map tile limit','Replace Part','Shape complexity','Picked vertices only','All per-animation RGB tracks are saved.'])assert.notEqual(translate(label,locale),label,`${locale}: ${label}`);
 });
 test('update messages preserve actual versions and localized native revert prompts',()=>{
-  for(const locale of ['ru','es','zh','mordor'])for(const message of ['MDLxL 0.19.0 is available.','Installed version: 0.18.8','Previous version: 0.18.7','Revert to MDLxL 0.18.7?']){assert.notEqual(translate(message,locale),message);assert.match(translate(message,locale),/0\.1[89]\.[078]/);}
+  for(const locale of ['ru','es','zh','fr','de','mordor'])for(const message of ['MDLxL 0.19.0 is available.','Installed version: 0.18.8','Previous version: 0.18.7','Revert to MDLxL 0.18.7?']){assert.notEqual(translate(message,locale),message);assert.match(translate(message,locale),/0\.1[89]\.[078]/);}
 });
 
 
 test('the current HD view-only notice is translated in every supported catalog', async()=>{
  const {HD_VIEW_ONLY_MESSAGE}=await import('../src/model-version.js');
- for(const locale of ['ru','es','zh']) assert.notEqual(translate(HD_VIEW_ONLY_MESSAGE,locale),HD_VIEW_ONLY_MESSAGE,locale);
+ for(const locale of ['ru','es','zh','fr','de']) assert.notEqual(translate(HD_VIEW_ONLY_MESSAGE,locale),HD_VIEW_ONLY_MESSAGE,locale);
 });

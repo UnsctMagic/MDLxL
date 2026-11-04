@@ -4,3 +4,7 @@ electron/ffmpeg/** -text
 src/vendor/meshoptimizer-1.3.0/meshopt_simplifier.js -text
 src/vendor/meshoptimizer-1.3.0/LICENSE.md -text
 *.pdf binary
+
+# New locale catalogs retain the requested CRLF checkout format on every host.
+src/locales/fr.json text eol=crlf
+src/locales/de.json text eol=crlf

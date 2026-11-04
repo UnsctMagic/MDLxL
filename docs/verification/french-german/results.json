@@ -1,0 +1,166 @@
+{
+  "status": "ready for review; awaiting merge approval",
+  "prs": {
+    "app": "https://github.com/UnsctMagic/MDLxL/pull/539",
+    "website": "https://github.com/UnsctMagic/LowPolyWorks/pull/56"
+  },
+  "catalogs": {
+    "ru": 7924,
+    "es": 7934,
+    "zh": 7793,
+    "fr": 8125,
+    "de": 8125
+  },
+  "checks": {
+    "viteBuild": "pass",
+    "localization": {
+      "pass": 31,
+      "fail": 0,
+      "skip": 0
+    },
+    "compatibility": {
+      "pass": 57,
+      "fail": 0,
+      "skip": 0
+    },
+    "releaseMaterial": {
+      "pass": 2,
+      "fail": 0,
+      "skip": 0
+    },
+    "updaterLanguages": {
+      "pass": 3,
+      "fail": 0,
+      "skip": 0
+    },
+    "website": {
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    },
+    "electronLocalization": "pass;9 switches",
+    "citadelLocales": "pass;7 modes",
+    "packagedCameraMouseDrags": 8,
+    "mainSidebarBoundaryFailures": 0,
+    "translatedLabelClippingFailures": 0,
+    "sanitySource": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "finalCheckerDialogs": {
+      "checks": [
+        "fr: native Help opens localized Sanity Check/findings, disclosure/Close work, no overflow/model mutation",
+        "fr: OptimizeXL checker disclosure uses localized prose and literal paths",
+        "de: native Help opens localized Sanity Check/findings, disclosure/Close work, no overflow/model mutation",
+        "de: OptimizeXL checker disclosure uses localized prose and literal paths"
+      ],
+      "errors": [],
+      "passed": true
+    }
+  },
+  "appCi": {
+    "url": "https://github.com/UnsctMagic/MDLxL/actions/runs/41745525007",
+    "commit": "3e2081c1a50d79f87f29e30f73a237f4cd3d3b42",
+    "conclusion": "success"
+  },
+  "tutorials": {
+    "passed": true,
+    "languages": [
+      "fr",
+      "de"
+    ],
+    "tutorialsPerLanguage": 7,
+    "gifsPerLanguage": 25,
+    "pngsPerLanguage": 17,
+    "totalRealPageLoops": 50,
+    "nativePingCenters": 22,
+    "desktop": {
+      "width": 1600,
+      "height": 1032
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    "errors": [],
+    "badResources": [],
+    "gifCatalogKeyCount": 7996,
+    "finalStillAppCatalogKeyCount": 8058,
+    "finalStillFingerprint": {
+      "index": "d446c6c9fe3a0ce564a8dd9ec4de88c551aa65306558729fa4d4f83b170d9e11",
+      "assets": "d342b86c9bae43d0a6849404fd3975ec56b0959feca96a5b12f36cee509fa66a",
+      "fr": "63ef3777f733c9be74319051928ad07607eac7b605b16b0945cd066b6390b7e4",
+      "de": "d460b66491b6391a7ed164776788f3070ad2d459d3836dfbe9be59bdbfa587d6"
+    },
+    "gifAndEmbeddedDataUnchangedAfterStillRefresh": true,
+    "screenshots": [
+      {
+        "name": "site-fr-tutorials-desktop.png",
+        "bytes": 1655024,
+        "width": 1600,
+        "height": 1032,
+        "sha256": "3a5e8ca12fea36f03a60c0a8c94c9375c9d6e7877322c5c5e367842faddda2c8"
+      },
+      {
+        "name": "site-de-tutorials-mobile.png",
+        "bytes": 397048,
+        "width": 390,
+        "height": 844,
+        "sha256": "bc8d2db3ed13c61aba05159725e19cdbac1c3bf77768a1b4e9b258de9f6641c5"
+      }
+    ],
+    "visualInspection": [
+      "Native green Anchor selected point and ANCHOR label visible in active resize frames",
+      "Native Corpse green pose/placement handle visible during stretched-piece editing in French and German",
+      "Localized Ribbon and OptimizeXL busy-editor frames readable; source models/IDs preserved"
+    ],
+    "reusedWorkflow": "Genuine native/offscreen Electron plus CDP input and original30fps FFmpeg global-palette method; OptimizeXL native child shown inactive only on invisible desktop",
+    "sourceSnapshot": "LowPolyWorks/tools/mdlxl-tutorial-capture",
+    "notExercised": [
+      "Warcraft III game acceptance (tutorial localization does not alter model downloads)",
+      "Publication/deployment; release owner publishes at release time"
+    ],
+    "desktopWindow": {
+      "width": 1600,
+      "height": 1100
+    }
+  },
+  "siteScope": {
+    "passed": true,
+    "modelPages": 139,
+    "changesOnly": [
+      "app.js cache key",
+      "mdlxl.css cache key"
+    ],
+    "baseline": "5ffee8ed6869d0d499a1cf717f1ee0e77b0585af",
+    "protectedHistoryAndModelsUnchanged": true,
+    "tutorialInventory": {
+      "locales": [
+        "es",
+        "fr",
+        "de"
+      ],
+      "filesEach": 44,
+      "gifsEach": 25,
+      "pngsEach": 17
+    }
+  },
+  "notExercised": [
+    "Every rare dialog/provider path",
+    "Warcraft III/World Editor acceptance",
+    "Actual future release/PDF generation or publication"
+  ],
+  "preserved": [
+    "Version numbers",
+    "Historical release notes/PDFs/site JSON",
+    "0.38.0 release PR and translation PR #534",
+    "Model data and real profiles",
+    "Current main model/catalogue/portrait changes"
+  ],
+  "finalCatalogHashes": {
+    "fr": "d2c4df130eeb5379f707ac5a2e75de62d25a06599cac7d00c518bfd059d710ac",
+    "de": "b8e1776934ed79710a17d519110f266f46e18f0a9e24f6b365a00acfed8224b0"
+  }
+}
