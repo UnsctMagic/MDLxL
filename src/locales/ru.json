@@ -3552,6 +3552,7 @@
   "Vertex and wire size in the preview": "Размер вершин и толщина рёбер в предпросмотре",
   "Preload Assets": "Предзагрузка ресурсов",
   "Prepare local texture previews once for faster library browsing. Cached previews remain available after restarting MDLxL.": "Подготовьте локальные миниатюры текстур для быстрого просмотра библиотеки. Кэш сохраняется после перезапуска MDLxL.",
+  "Preloading is optional. It speeds up library previews but uses extra disk space. MDLxL can read game files directly from your Warcraft III installation as needed. Cached previews remain available after restarting MDLxL.": "Предварительная загрузка необязательна. Она ускоряет просмотр библиотеки, но занимает дополнительное место на диске. MDLxL может читать игровые файлы прямо из установленной Warcraft III по мере необходимости. Сохранённые миниатюры остаются доступными после перезапуска MDLxL.",
   "Asset preloading is available in the desktop app.": "Предзагрузка ресурсов доступна в настольном приложении.",
   "Confirm asset preload": "Подтверждение предзагрузки ресурсов",
   "Preload all available asset previews?": "Подготовить миниатюры всех доступных ресурсов?",
