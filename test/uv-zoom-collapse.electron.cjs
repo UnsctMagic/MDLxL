@@ -111,8 +111,12 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await uv.getByRole('button', { name: tool, exact: true }).click();
       if (tool === 'Move' || tool === 'Rotate') {
         await page.mouse.move(pivot[0] + 80, pivot[1]); await page.mouse.down();
-        const end = tool === 'Move' ? [130, 30] : [0, 80];
-        await page.mouse.move(pivot[0] + end[0], pivot[1] + end[1], { steps: 12 }); await page.mouse.up();
+        if (tool === 'Move') await page.mouse.move(pivot[0] + 130, pivot[1] + 30, { steps: 12 });
+        else for (let step = 1; step <= 12; step++) {
+          const angle = Math.PI / 2 * step / 12;
+          await page.mouse.move(pivot[0] + 80 * Math.cos(angle), pivot[1] + 80 * Math.sin(angle));
+        }
+        await page.mouse.up();
       }
       await page.waitForFunction(value => JSON.stringify(__mdlxl.model()) !== value, modelBefore);
       const after = await page.evaluate(() => zoomInfo());

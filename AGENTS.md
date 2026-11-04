@@ -77,10 +77,10 @@ separate and are not a shared handover.
   programmatic camera changes do not verify the user's controls.
 - Rotate has two settled rules, both owner-approved; keep them apart. 3D editors
   use `src/rotation-drag.js` and the Mouse → Rotation settings. The 2D UV map
-  uses only `uvTurn` in `src/uv-tools.js`: circular mouse movement turns the
-  selection at 70% angular sensitivity at every radius, with no centre dead
-  zone or slowdown and no 3D rotation setting applied. Keep circular input;
-  never replace it with left/right rotation. One piece turns on its own spot,
+  uses only `uvTurn` in `src/uv-tools.js`: every drag direction rotates, including
+  horizontal, vertical, diagonal and circular motion. Circles retain 70% angular
+  sensitivity; toward/away travel contributes at 0.7 radians per 48 px, without
+  a centre dead zone or any 3D rotation setting. One piece turns on its own spot,
   several around their shared centre. Never share code or settings between them.
   Test feel with the owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and

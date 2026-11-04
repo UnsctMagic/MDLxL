@@ -95,10 +95,27 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
     await arc(60, Math.PI / 2, -Math.PI / 2); await page.mouse.up();
     check('reversing a circular drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
-    // Moving along a radius does not turn: this is circular rotation, not a scrub.
+    for (const [name, vx, vy] of [
+      ['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1],
+      ['down-right', Math.SQRT1_2, Math.SQRT1_2], ['up-left', -Math.SQRT1_2, -Math.SQRT1_2],
+      ['up-right', Math.SQRT1_2, -Math.SQRT1_2], ['down-left', -Math.SQRT1_2, Math.SQRT1_2],
+    ]) {
+      await page.mouse.move(cx + vx * 12, cy + vy * 12); await page.mouse.down();
+      await page.mouse.move(cx + vx * 72, cy + vy * 72, { steps: 12 });
+      const turn = await page.evaluate(() => uvRotateState().drag.turn);
+      await page.mouse.up();
+      const after = await page.evaluate(() => uvRotateInfo().uv);
+      const expectedMagnitude = 60 / 48 * .7;
+      measurements.push({ name: 'straight ' + name, expectedMagnitudeDegrees: expectedMagnitude * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI });
+      check('straight ' + name + ' drag rotates the selected UVs', Math.abs(Math.abs(turn) - expectedMagnitude) < .002 && matches(after, expectedUV(turn)));
+      await undo();
+    }
+    // Straight motion and its reverse must cancel within the same gesture.
     await page.mouse.move(cx + 12, cy); await page.mouse.down();
-    await page.mouse.move(cx + 72, cy, { steps: 12 }); await page.mouse.up();
-    check('radial mouse movement does not rotate', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    await page.mouse.move(cx + 72, cy, { steps: 12 });
+    await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
+    await page.mouse.move(cx + 12, cy, { steps: 12 }); await page.mouse.up();
+    check('reversing a straight drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
     check('source model file unchanged', fs.readFileSync(fixture).equals(originalFile));
     check('no renderer errors', errors, []);
   } catch (error) {
