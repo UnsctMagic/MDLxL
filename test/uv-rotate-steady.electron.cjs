@@ -65,6 +65,50 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
         await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
       }
     };
+    // Shift slows only subsequent movement; pressing/releasing it never jumps
+    // the current UV orientation and works in both circular directions.
+    for (const winding of [1, -1]) {
+      await page.mouse.move(cx + 60, cy); await page.mouse.down();
+      await arc(60, 0, winding * Math.PI / 4);
+      const normal = winding * Math.PI / 4 * .7;
+      await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), expectedUV(normal));
+      await page.keyboard.down('Shift');
+      check('Shift press keeps the current UV orientation ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(normal)));
+      await arc(60, winding * Math.PI / 4, winding * Math.PI / 4);
+      const slowTurn = await page.evaluate(() => uvRotateState().drag.turn);
+      check('Shift held mid-drag slows circular rotation ' + winding, Math.abs(slowTurn - normal * 1.2) < .002);
+      await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), expectedUV(slowTurn));
+      await page.keyboard.up('Shift');
+      check('Shift release keeps the current UV orientation ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(slowTurn)));
+      await arc(60, winding * Math.PI / 2, winding * Math.PI / 4);
+      const resumedTurn = await page.evaluate(() => uvRotateState().drag.turn);
+      check('Shift release restores normal circular speed ' + winding, Math.abs(resumedTurn - slowTurn - normal) < .002);
+      await page.mouse.up();
+      check('Shift circular gesture commits visible UVs ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(resumedTurn)));
+      await undo();
+    }
+    for (const [name, vx, vy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) {
+      // Browser pointer coordinates round the fractional pivot. Compare the
+      // identical real gesture, rather than assuming a mathematically exact zero radius.
+      await page.mouse.move(cx, cy); await page.mouse.down();
+      await page.mouse.move(cx + vx * 48, cy + vy * 48, { steps: 12 });
+      const normalTurn = await page.evaluate(() => uvRotateState().drag.turn);
+      await page.mouse.up();
+      check('normal center-start ' + name + ' gesture edits visible UVs', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(normalTurn)));
+      await undo();
+      await page.keyboard.down('Shift');
+      await page.mouse.move(cx, cy); await page.mouse.down();
+      await page.mouse.move(cx + vx * 48, cy + vy * 48, { steps: 12 });
+      const slowTurn = await page.evaluate(() => uvRotateState().drag.turn), sign = Math.sign(vx || vy);
+      measurements.push({ name: 'Shift center-start ' + name, normalTurn, slowTurn });
+      check('Shift held at start slows straight ' + name + ' from center', Math.abs(slowTurn - normalTurn * .2) < .002);
+      await page.keyboard.up('Shift');
+      await page.mouse.move(cx + vx * 96, cy + vy * 96, { steps: 12 });
+      const resumedTurn = await page.evaluate(() => uvRotateState().drag.turn);
+      await page.mouse.up();
+      check('Shift release restores straight ' + name + ' speed and commits', Math.abs(resumedTurn - slowTurn - sign * .7) < .002 && matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(resumedTurn)));
+      await undo();
+    }
     // The same circle must keep its direction after either straight direction,
     // from every side of the selection, within the same mouse-down gesture.
     for (const [label, vx, vy, start] of [['left-first', 1, 0, 0], ['right-first', -1, 0, Math.PI], ['up-first', 0, 1, Math.PI / 2], ['down-first', 0, -1, -Math.PI / 2]]) {

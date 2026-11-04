@@ -83,7 +83,9 @@ separate and are not a shared handover.
   latch a direction or force one-way rotation. Circles retain 70% angular
   sensitivity; toward/away travel contributes at 0.7 radians per 48 px, without
   a centre dead zone or any 3D rotation setting. One piece turns on its own spot,
-  several around their shared centre. Never share code or settings between them.
+  several around their shared centre. Hold Shift for fine rotation; releasing it
+  restores normal speed within the same drag. Alt fine control stays available.
+  Never share code or settings between them.
   Test feel with the owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
   animation or frame changes keep the camera exactly where the user left it.

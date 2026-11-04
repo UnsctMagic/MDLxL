@@ -169,7 +169,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
       // The map is flat: the selection follows the mouse around its centre at
       // the same UV-only rate, near or far. The 3D editors' rotation settings never apply here.
-      if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x, y); }
+      if (type === 'rotate') {
+        s.drag.fineWithoutShift = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
+        s.drag.fine = s.drag.fineWithoutShift;
+        uvTurn(s.drag, x, y);
+      }
       draw();
     }
     // Pointers report far more often than the display refreshes; the UV math,
@@ -183,7 +187,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const rawEnd = point(event);
       // Turning sums wrapped angle steps; feed every sample so a fast turn between
       // frames cannot flip direction. Repeating the last point adds nothing.
-      if (s.drag.type === 'rotate') uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      if (s.drag.type === 'rotate') {
+        // Shift changes only the next turn increment, so toggling it never jumps.
+        s.drag.fine = event.shiftKey ? (current.current.preferences?.fineSensitivity ?? 0.2) : s.drag.fineWithoutShift;
+        uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      }
       s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
     }
     function applyMove() {
