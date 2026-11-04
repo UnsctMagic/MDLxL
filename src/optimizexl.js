@@ -21,6 +21,7 @@ import { visibilityInterpolationProposals, sequenceTimelineProposals, applyForma
 import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
 import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
+import { exactCleanupProposals, applyExactCleanup } from './optimizexl-exact-cleanup.js';
 import { nodeIndex } from './node-hierarchy.js';
 
 export const STAGES = [
@@ -147,7 +148,12 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  const timeline=sequenceTimelineProposals(m,tracks(m));
  // The narrower timeline repair keeps ownership where it applies.
  const checker=checkerRepairProposals(m).filter(p=>!(p.rule==='timeline'&&timeline.length));
- return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...timeline,...checker,...skinCollapseProposals(m)];}
+ const existing=[...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...timeline,...checker,...skinCollapseProposals(m)];
+ const exact=exactCleanupProposals(m,tracks(m),existing),relocation=existing.findIndex(p=>p.kind==='sequenceTimeline');
+ // During timeline relocation only disjoint geometry cleanup is offered.
+ // Track cleanup waits for the new domains. Existing findings retain their order.
+ if(relocation>=0)existing.splice(relocation,0,...exact);else existing.push(...exact);
+ return existing;}
 export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
 /** Apply every automatic repair, check again and repeat: one repair can expose
  * or enable another (sorted keys can then get opening keys, for example). */
@@ -178,6 +184,11 @@ function scan(detector,model,live){
 function applyRepair(m,fix,settings,evidenceModel=m){
  if(!fix)return;
  if(fix.kind==='fixAll'){fixAll(m);return;}
+ if(fix.kind==='exactCleanup'){
+  const current=scan(sanityProposals,evidenceModel,m).find(f=>f.id===fix.id);
+  if(!current||!same(current,fix))throw Error('This exact-cleanup finding changed. Select it again.');
+  applyExactCleanup(m,current,settings);return;
+ }
  if(fix.kind==='checker'){
   if(!scan(checkerRepairProposals,evidenceModel,m).some(f=>f.id===fix.id))throw Error('This checker finding changed. Select it again.');
   applyCheckerRepair(m,fix,settings);return;

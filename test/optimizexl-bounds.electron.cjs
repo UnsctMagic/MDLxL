@@ -66,7 +66,9 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: wait
   await p.screenshot({path:path.join(out,'03-approved.png')});
   await p.getByRole('button',{name:'Back',exact:true}).click();await p.getByText(summary(originalCheck),{exact:true}).waitFor();await save(source);
   const list=p.locator('.ox-fix-selection');await list.locator('summary').click();await list.getByRole('button',{name:'Select all',exact:true}).click();
-  assert.equal(await list.locator('input:checked').count(),1);await p.getByRole('button',{name:'Preview all selected fixes',exact:true}).click();
+  assert.equal(await list.locator('input:checked').count(),2,'bounds plus the new exact cleanup');
+  await list.getByRole('checkbox',{name:'Select Remove exact redundancy',exact:true}).uncheck();
+  assert.equal(await list.locator('input:checked').count(),1,'only bounds is approved and saved in this regression');await p.getByRole('button',{name:'Preview all selected fixes',exact:true}).click();
   await p.waitForFunction(n=>boundsState()[1]?.counts.every(c=>c===n),beforeModel.Sequences.length);
   await p.getByRole('button',{name:'Approve selected',exact:true}).click();await stage();await p.getByText(summary(repairedCheck),{exact:true}).waitFor();await save(expected);
   assert.deepEqual(fs.readFileSync(file),source);assert.deepEqual(errors,[]);
