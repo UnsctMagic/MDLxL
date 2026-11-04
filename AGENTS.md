@@ -85,7 +85,9 @@ separate and are not a shared handover.
   a centre dead zone or any 3D rotation setting. One piece turns on its own spot,
   several around their shared centre. Hold Shift for fine rotation; releasing it
   restores normal speed within the same drag. Alt fine control stays available.
-  Never share code or settings between them.
+  Only UVWorkspace enables `UVEditor.wrapperControls`; FX texture fitting keeps
+  its original input. Wrapper Zoom also supports hold-Shift fine control, with
+  its existing axis locks and Alt precision. Never share settings with 3D tools.
   Test feel with the owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
   animation or frame changes keep the camera exactly where the user left it.

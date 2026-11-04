@@ -17,6 +17,14 @@ const UV_TURN_COLLINEAR_EPSILON = 1e-4;
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
+  // FX texture fitting also uses UVEditor; preserve its pre-wrapper-change input.
+  if (drag.wrapperControls === false) {
+    if (radius < 2) return drag.turn;
+    const angle = Math.atan2(py, px);
+    if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / 48, drag.radius / 48) * (drag.fine ?? 1);
+    drag.angle = angle; drag.radius = radius;
+    return drag.turn;
+  }
   const angle = Math.atan2(py, px);
   if (drag.angle !== undefined) {
     // At the exact centre there is no angular direction, but straight travel

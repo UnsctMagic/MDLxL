@@ -63,9 +63,9 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.waitForFunction(expected => JSON.stringify(__mdlxl.model()) === expected, modelBefore);
       check('undo restores all model data', await page.evaluate(() => zoomInfo().uv), before.uv);
     };
-    const drag = async (label, start, end, factor, { alt = false, axis = null, hold = false } = {}) => {
+    const drag = async (label, start, end, factor, { alt = false, shift = false, axis = null, hold = false } = {}) => {
       if (alt) await page.keyboard.down('Alt');
-      if (axis) await page.keyboard.down('Shift');
+      if (axis || shift) await page.keyboard.down('Shift');
       await page.mouse.move(pivot[0] + start[0], pivot[1] + start[1]); await page.mouse.down();
       await page.mouse.move(pivot[0] + end[0], pivot[1] + end[1], { steps: 8 });
       if (hold) {
@@ -76,7 +76,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       }
       const dragEvidence = await page.evaluate(() => { const d = zoomState().drag; return { sensitivity: d?.pointerSensitivity, x: d?.x, endX: d?.endX, pending: zoomState().pendingMove?.rawEnd }; });
       await page.mouse.up();
-      if (axis) await page.keyboard.up('Shift');
+      if (axis || shift) await page.keyboard.up('Shift');
       if (alt) await page.keyboard.up('Alt');
       await page.waitForFunction(() => !zoomState().drag && Array.from(zoomProps().geoset.TVertices[0]).every((v, i) => v === zoomState().uv[i]));
       const after = await page.evaluate(() => zoomInfo());
@@ -90,6 +90,41 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       check(label + ': 3D camera unchanged', await page.evaluate(() => zoomCamera()), cameraBefore);
       await undo();
     };
+    const expectedScale = factor => before.uv.map((v, i) => before.ids.includes(Math.floor(i / 2)) ? Math.fround(center[i % 2] + (v - center[i % 2]) * factor) : v);
+    const scaleMatches = (actual, factor) => actual.every((v, i) => Math.abs(v - expectedScale(factor)[i]) < 2e-6);
+    const waitScale = factor => page.waitForFunction(expected => zoomInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), expectedScale(factor));
+    for (const sign of [1, -1]) {
+      const start = [pivot[0], pivot[1]];
+      await page.mouse.move(...start); await page.mouse.down();
+      await page.mouse.move(start[0] + sign * 25, start[1], { steps: 5 });
+      await waitScale(1 + sign * .25);
+      await page.keyboard.down('Shift');
+      check('Zoom Shift press has no jump ' + sign, scaleMatches((await page.evaluate(() => zoomInfo())).uv, 1 + sign * .25), true);
+      await page.mouse.move(start[0] + sign * 50, start[1], { steps: 5 });
+      await page.mouse.up();
+      check('Zoom Shift slows subsequent drag ' + sign, scaleMatches((await page.evaluate(() => zoomInfo())).uv, 1 + sign * .30), true);
+      await page.keyboard.up('Shift'); await undo();
+      await page.keyboard.down('Shift');
+      await page.mouse.move(...start); await page.mouse.down();
+      await page.mouse.move(start[0] + sign * 25, start[1], { steps: 5 });
+      await waitScale(1 + sign * .05);
+      await page.keyboard.up('Shift');
+      check('Zoom Shift release has no jump ' + sign, scaleMatches((await page.evaluate(() => zoomInfo())).uv, 1 + sign * .05), true);
+      await page.mouse.move(start[0] + sign * 50, start[1], { steps: 5 });
+      await page.mouse.up();
+      check('Zoom Shift release restores normal speed ' + sign, scaleMatches((await page.evaluate(() => zoomInfo())).uv, 1 + sign * .30), true);
+      check('Zoom Shift keeps the UV view', await page.evaluate(() => zoomMap()), mapBefore);
+      check('Zoom Shift keeps the 3D camera', await page.evaluate(() => zoomCamera()), cameraBefore);
+      await undo();
+    }
+    // Returning the pointer to its start can still resize after a speed change.
+    await page.mouse.move(pivot[0], pivot[1]); await page.mouse.down();
+    await page.mouse.move(pivot[0] + 50, pivot[1], { steps: 10 });
+    await page.keyboard.down('Shift');
+    await page.mouse.move(pivot[0], pivot[1], { steps: 10 }); await page.mouse.up();
+    await page.keyboard.up('Shift');
+    check('Zoom mixed-speed return to start commits the resized UVs', scaleMatches(await page.evaluate(() => Array.from(zoomProps().geoset.TVertices[0])), 1.4), true);
+    await undo();
     // Restore the pre-patch rule: left shrinks to zero, right enlarges,
     // regardless of the starting side or distance from the selection centre.
     await drag('left drag past zero', [90, 8], [-30, 8], 0, { hold: true });
@@ -100,9 +135,10 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     }
     await drag('diagonal left drag', [90, 30], [-30, -60], 0);
     await drag('Alt fine drag', [90, 0], [-30, 0], .76, { alt: true });
+    await drag('Shift plus Alt fine drag', [90, 0], [-30, 0], .76, { alt: true, shift: true });
     for (const axis of ['X', 'Y']) {
       await uv.getByRole('button', { name: 'UV ' + axis + ' axis', exact: true }).click();
-      await drag('Shift ' + axis + ' collapse', [90, 0], [-30, 0], 0, { axis });
+      await drag('Shift ' + axis + ' fine scale', [90, 0], [-30, 0], .76, { axis });
       await uv.getByRole('button', { name: 'UV ' + axis + ' axis', exact: true }).click();
     }
     // Exercise the adjacent tools through their normal controls as preservation checks.
