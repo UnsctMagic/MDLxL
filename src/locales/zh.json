@@ -7779,5 +7779,17 @@
   "Pale burst": "淡色爆发",
   "Pale trail": "淡色轨迹",
   "Trail": "轨迹",
-  "Model particles": "模型粒子"
+  "Model particles": "模型粒子",
+  "The bundled mdx-m3-viewer checker supports this comparison for classic version 800 only.": "内置的 mdx-m3-viewer 检查器仅支持对经典版 800 进行此比较。",
+  "Check partially completed": "检查部分完成",
+  "Review findings": "请查看检查结果",
+  "No issues found by these checks": "这些检查未发现问题",
+  "mdx-m3-viewer comparison could not complete: {0}": "无法完成 mdx-m3-viewer 比较：{0}",
+  "warning": "警告",
+  "error": "错误",
+  "severe": "严重问题",
+  "unused": "未使用",
+  "Track {0} at frame {1} is not in any sequence": "第 {1} 帧的关键帧 {0} 不属于任何序列",
+  "Expected {0} pivot points, got {1}": "应有 {0} 个枢轴点，实际为 {1} 个",
+  "Missing opening track for sequence \"{0}\" at frame {1} where it is needed": "序列“{0}”在第 {1} 帧缺少所需的起始关键帧"
 }

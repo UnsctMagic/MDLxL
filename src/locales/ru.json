@@ -7910,5 +7910,17 @@
   "Pale burst": "Бледный всплеск",
   "Pale trail": "Бледный след",
   "Trail": "След",
-  "Model particles": "Частицы модели"
+  "Model particles": "Частицы модели",
+  "The bundled mdx-m3-viewer checker supports this comparison for classic version 800 only.": "Встроенная проверка mdx-m3-viewer поддерживает это сравнение только для классической версии 800.",
+  "Check partially completed": "Проверка выполнена частично",
+  "Review findings": "Проверьте результаты",
+  "No issues found by these checks": "Эти проверки не выявили проблем",
+  "mdx-m3-viewer comparison could not complete: {0}": "Не удалось завершить сравнение mdx-m3-viewer: {0}",
+  "warning": "предупреждение",
+  "error": "ошибка",
+  "severe": "серьёзная проблема",
+  "unused": "не используется",
+  "Track {0} at frame {1} is not in any sequence": "Ключ {0} в кадре {1} не входит ни в одну анимацию",
+  "Expected {0} pivot points, got {1}": "Ожидалось опорных точек: {0}, найдено: {1}",
+  "Missing opening track for sequence \"{0}\" at frame {1} where it is needed": "Отсутствует необходимый начальный ключ анимации «{0}» в кадре {1}"
 }

@@ -23,7 +23,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7912, 7922, 7781, 8058, 8058]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7924, 7934, 7793, 8070, 8070]);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
   // The removed delegation labels/tips are gone; the chat picker's texts are translated.
   for (const pack of [ru, es, zh, fr, de]) for (const key of ['Offload Mode', 'Job routing', 'Tiny job', 'Lighter model']) assert.equal(Object.hasOwn(pack, key), false);
@@ -57,4 +57,36 @@ test('new catalogs retain CRLF source files with UTF-8 JSON', () => {
   assert.doesNotMatch(raw,/\ufffd/,locale+' UTF-8');
   assert.ok(Object.keys(JSON.parse(raw)).length>7900);
  }
+});
+
+test('Sanity Check labels, statuses and displayed Hive diagnostic templates are translated', () => {
+  const labels = [
+    'Sanity Check', 'by GhostWolf and contributors', 'Close', 'Untitled', '· Format',
+    'Check could not complete', 'Checking current model…', 'Advisory findings (',
+    'errors ·', 'severe ·', 'warnings ·', 'unused notices',
+    'Findings use zero-based indices. Naming, unused data and older compatibility heuristics require review; they are not proof of a game failure.',
+    'Checks the current model, including unsaved edits. No model data is changed. Texture file availability and in-game behavior are not tested.',
+    'Check partially completed', 'Review findings', 'No issues found by these checks',
+    'The bundled mdx-m3-viewer checker supports this comparison for classic version 800 only.',
+    'The bundled mdx-m3-viewer checker could not load.', 'warning', 'error', 'severe', 'unused',
+  ];
+  const templates = [
+    ['mdx-m3-viewer comparison could not complete: {0}', ['The bundled mdx-m3-viewer checker could not load.']],
+    ['Track {0} at frame {1} is not in any sequence', ['17', '171667']],
+    ['Expected {0} pivot points, got {1}', ['116', '119']],
+    ['Missing opening track for sequence "{0}" at frame {1} where it is needed', ['Attack - Slam', '170000']],
+  ];
+  for (const [locale, pack] of Object.entries({ ru, es, zh, fr, de })) {
+    for (const source of labels) {
+      const translated = translate(source, locale);
+      assert.ok(Object.hasOwn(pack, source) || translated !== source, `${locale}: ${source}`);
+      if (Object.hasOwn(pack, source)) assert.equal(translated, pack[source], `${locale}: ${source}`);
+    }
+    for (const [source, values] of templates) {
+      assert.ok(Object.hasOwn(pack, source), `${locale}: ${source}`);
+      const populated = source.replace(/\{(\d+)\}/g, (_, index) => values[index]);
+      const expected = pack[source].replace(/\{(\d+)\}/g, (_, index) => translate(values[index], locale));
+      assert.equal(translate(populated, locale), expected, `${locale}: ${source}`);
+    }
+  }
 });
