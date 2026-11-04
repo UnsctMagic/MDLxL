@@ -11,6 +11,7 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
+  'optimizexl-pivots': ['MDLXL_OPTIMIZEXL_PIVOTS_MODEL', testModel('optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx')],
   'ribbon-attachment': ['MDLXL_RIBBON_MODEL', testModel('ribbon-direction/WH_WOC_KnightSlaaneshChampion01_fix_v3.mdx')],
   footman: ['MDLXL_SUITE_FOOTMAN', testModel('pose/Footman.mdx')], // SD Footman 1800 with Textures/ beside it
   'citadel-footman': ['MDLXL_SUITE_CITADEL_FOOTMAN', testModel('citadel-fixture/Footman.mdx')], // classic MDX800 Footman

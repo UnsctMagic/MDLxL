@@ -171,6 +171,7 @@ to every Electron launch.
 | SD Footman 1800 from the Warcraft III CASC install (with `Textures/`) | `pose/Footman.mdx` | `MDLXL_SUITE_FOOTMAN` | pose, movement gizmo, UV wrapping, AnimXL filmstrip, event focus, Attachemator |
 | Classic MDX800 Footman | `citadel-fixture/Footman.mdx` | `MDLXL_SUITE_CITADEL_FOOTMAN` | Citadel paint |
 | Particle index (`node scripts/index-particles.mjs --output out/particle-index/particles`; rebuild after game patches) | `out/particle-index/particles` | `MDLXL_PARTICLE_INDEX` | particle-lifecycle |
+| Owner's Standard Bearer (private); the test adds one unused pivot to a disposable copy | `optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx` | `MDLXL_OPTIMIZEXL_PIVOTS_MODEL` | optimizexl-pivots |
 | OptimizeXL review model `WH_WOC_KnightKhorneFlail03.mdx` | `optimizexl-review/` | `MDLXL_OPTIMIZEXL_REVIEW_MODEL` | optimizexl-review, optimizexl-playback |
 | A model whose geoset index 4 uses Materials[4] with 3 layers and that has 11+ textures (the original archer is gone; the Hive model `Mecha-CL.mdx` fits) | `material-fixture/Mecha-CL.mdx` | `MDLXL_SUITE_ARCHER` | material-presets |
 | Pre-empty-default Flaming sword saves, reproduced with source `676aaf6f`; SHA-256 checked by `fx-legacy-fixtures.mjs` | `fx-legacy/legacy-flaming-sword.mdx` and `.mdl` | — | fx-empty-emitters |

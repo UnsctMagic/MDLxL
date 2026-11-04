@@ -9,6 +9,7 @@ import { createNode, removeGeosets } from './editor-document.js';
 import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { changeNodeType, remapNodes } from './optimizexl-nodes.js';
 import { attachmentKey } from './attachemator.js';
+import { serializedNodes } from './node-id-order.js';
 
 const json = typedJson;
 const resolve = (m, path) => path.reduce((v, k) => v?.[k], m);
@@ -108,8 +109,20 @@ function fixOrigin(m) {
   if (!ownAttachmentId(m, node)) node.AttachmentID = Math.max(-1, ...m.Attachments.filter(a => a !== node && Number.isInteger(a.AttachmentID)).map(a => a.AttachmentID)) + 1;
 }
 
+// With dense node IDs, every pivot after the last node is unreferenced.
+// Do not guess missing pivots or compact sparse/invalid node IDs here.
+function unusedPivots(m) {
+  const ids = serializedNodes(m).map(n => n.ObjectId).sort((a, b) => a - b);
+  if (m.Version !== 800 || !ids.every((id, index) => id === index)) return [];
+  return Array.from({ length: Math.max(0, (m.PivotPoints?.length || 0) - ids.length) }, (_, i) => ids.length + i);
+}
+
 // Each rule: detect(m) -> instances, apply(m, choice) fixes them all.
 const RULES = [
+  { id: 'unusedPivots', exact: true, label: n => `Remove ${plural(n, 'unused pivot point')}`,
+    detail: 'Remove trailing pivot points that no node uses. Keep every node and its pivot unchanged.',
+    detect: m => unusedPivots(m).map(i => `Pivot point ${i}`),
+    apply: m => { const unused = unusedPivots(m); if (unused.length) m.PivotPoints.length = unused[0]; } },
   // Out-of-order keys have no defined playback, so sorting them can visibly
   // change the motion (the bundled gnome's Walk Fast). Check the preview.
   { id: 'keyOrder', exact: false, label: n => `Put ${plural(n, 'track')} back in time order`,

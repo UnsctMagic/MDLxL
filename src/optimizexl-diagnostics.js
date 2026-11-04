@@ -15,6 +15,7 @@ export function hiveTrackPath(path=''){
 }
 // Checker messages owned by a general checker repair (see optimizexl-checker-repairs.js).
 const CHECKER_RULES=[
+  [/^Expected \d+ pivot points, got \d+$/,'unusedPivots'],
   [/is lower than the track before it|has the same frame .* as track/,'keyOrder'],[/has a negative frame/,'negativeKeys'],
   [/^Zero tracks$/,'emptyTracks','emptyEvents'],[/^Invalid global sequence/,'globalReference'],[/^Using a variation animation/,'variation'],
   [/^Path ".*" and replaceable ID .* used together$/,'texturePath'],[/^(Unknown|Invalid) replaceable ID/,'replaceableId'],
