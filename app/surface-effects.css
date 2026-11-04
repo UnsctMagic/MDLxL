@@ -44,3 +44,5 @@
 .fx-uv-fit .classic-tool svg{width:20px;height:20px;flex:none}
 .classic-app:not([data-vis-ui]) .fx-uv-fit .look-icon{display:block}
 .classic-app:not([data-vis-ui]) .fx-uv-fit .has-look-icon>.modern-retro-icon{display:none}
+
+.sfx-controls .fx-add-emitter{grid-template-columns:minmax(0,1fr)}.sfx-controls .fx-add-emitter select{width:100%;min-width:0}.sfx-controls .field>span{min-width:0;overflow-wrap:anywhere}.sfx-controls button{white-space:normal;overflow-wrap:anywhere}

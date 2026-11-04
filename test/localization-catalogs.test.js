@@ -23,7 +23,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7850, 7860, 7719, 7996, 7996]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7912, 7922, 7781, 8058, 8058]);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
   // The removed delegation labels/tips are gone; the chat picker's texts are translated.
   for (const pack of [ru, es, zh, fr, de]) for (const key of ['Offload Mode', 'Job routing', 'Tiny job', 'Lighter model']) assert.equal(Object.hasOwn(pack, key), false);
