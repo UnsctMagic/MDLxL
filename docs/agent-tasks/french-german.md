@@ -1,15 +1,16 @@
-# French and German - after 0.38.0
+# French and German - completed, merged
 
 ## Status
 
-Both PRs are **ready for review; awaiting merge approval**. No merge or publication.
+Completed and merged with owner approval on 2026-11-04. Site publication and the next release remain separate.
 
 Session: codex Add French and German localization
 
-- App: `codex/french-german`; started from origin/main `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`, integrated current main `32455151dbe598df3b972d66477d8684c0b94ae3`. [PR #539](https://github.com/UnsctMagic/MDLxL/pull/539).
-- Website: `codex/mdlxl-french-german`; started from origin/main `ee19e5a775cf93e81dd00f8a7623e324f08fc164`, integrated current main `5ffee8ed6869d0d499a1cf717f1ee0e77b0585af`. [PR #56](https://github.com/UnsctMagic/LowPolyWorks/pull/56).
-- All task work is in `D:\Codex\french-german`, hidden/off-screen. No installed app, real profile, version number, 0.38.0 release PR or PR #534 edits. No gh-pages push. Claude publishes at release time.
-- Translation was authored entirely within Codex. No source text was sent to an external translation service.
+- App: [PR #539](https://github.com/UnsctMagic/MDLxL/pull/539), merged as `babee7c8ec8c28f0b6b057fba781c793cccd6d98`; reviewed head `35cda62dc4f8565b6bda6e3460a006ba262e2ce2`. French/German catalogs, registration and release generator verified on online main.
+- Website: [PR #56](https://github.com/UnsctMagic/LowPolyWorks/pull/56), merged as `1fb8cba0641b8a5cc297de48b556bdb9bf9d3491`; reviewed head `8dc06259fcbf8964bfcdc652b51662f91c194be4`. Localized content, both data modules, new FX GIFs and renderer verified on online main.
+- Branches: `codex/french-german` and `codex/mdlxl-french-german`. Both started from latest origin/main at task start and integrated later published main changes before merging.
+- All task work used `D:\Codex\french-german`, hidden/off-screen. No installed app or real profile changes. No task version bump, release tag, gh-pages push or publication. The published 0.38.0 notes/PDFs/site JSON and PR #534 were not translated or edited.
+- Translation was authored entirely within Codex; no source text was sent to an external translation service.
 
 ## Catalogs and app
 
@@ -22,46 +23,54 @@ Session: codex Add French and German localization
 | French | 8,125 |
 | German | 8,125 |
 
-The new catalogs follow Spanish order, then Russian/Chinese-only keys, then the source inventory. The final existing-catalog union is 7,998; 126 visible labels missing from the existing catalogs (71 original UI labels and 55 bundled Hive diagnostic messages) plus one contextual compact geoset-selection label bring each to 8,125. The inventory is `test/fixtures/locale-french-german-sources.json`. Current main added 62 particle descriptors and 12 Sanity Check labels during this session; both new catalogs include them. Existing catalogs are unchanged relative to current main. Checker diagnostics use `app/hive-localization.js`: only prose is translated; matched names, paths, IDs and fields remain literal. The known-template inventory is extracted from the untouched bundled checker.
+The new catalogs follow Spanish order, then Russian/Chinese-only keys, then the explicit source inventory. The existing-catalog union is 7,998; 126 missing visible UI/checker labels and one contextual compact geoset-selection label bring each new catalog to 8,125. See `test/fixtures/locale-french-german-sources.json`. Current main added 62 particle descriptors and 12 Sanity Check labels during the session; both new catalogs cover them. Existing ru/es/zh catalogs are unchanged by this task relative to merged main.
 
-UTF-8, CRLF checkout endings, exact keys and placeholder multiplicity are checked. Product/tool names, actual AI prompt examples, paths, IDs and keyboard keys remain literal. The geoset-selection context uses short FR/DE Clear labels while retaining generic Clear elsewhere. Split and sidebar labels were shortened; this branch changes no layout widths.
+UTF-8, CRLF checkout endings, exact key order and placeholder multiplicity are checked. Product/tool names, actual AI prompt examples, keyboard keys and data remain literal. `app/hive-localization.js` translates only checker prose; captured names, paths, IDs and fields stay literal, including names such as Rotation that also match UI labels. The known-template inventory comes from the untouched bundled checker.
 
-Languages, SVG flags, saved preferences, native-menu enumeration and update links accept fr/de. The packaged app verifies both catalogs.
+Languages, SVG flags, preferences, native menus, update links and package verification accept fr/de. Short labels fit the existing widths; this branch did not resize layouts.
 
-## Website and tutorials
+## Website and every current tutorial
 
-Seven guides: Anchor, Align, Live Select, Auto Corpse, Glow Up, ribbons and OptimizeXL. Each locale mirrors the Spanish inventory: 25 GIFs, animation-data.js, content.html and the tool/card PNGs. About/Credits have 118 translated prose entries per locale; Preview, shell, download/status text, routes, all pickers and query links accept fr/de.
+Eight guides: Anchor, Align, Live Select, Auto Corpse, Glow Up, ribbons, OptimizeXL and FX. Each new locale mirrors the current Spanish media inventory: **29 GIFs and 18 PNGs**, plus localized content and animation data. Total: **58 French/German GIFs**. About/Credits have 118 translated prose entries per locale; Preview, shell/download/status text, routes, pickers and query links accept fr/de.
 
-New releases read French/German notes; absent or empty old notes fall back to English without an empty card. Historical release JSON is untouched. Generated model pages differ only in app.js and mdlxl.css cache keys; current model/portrait/catalogue changes on main are preserved.
+FX reached main while the lane awaited approval. Its 75 text parts/four accessible captions and four genuine native GIFs/card per locale were added before the authorized merge. A new inventory test failed first on missing FX media and now requires French/German to cover every Spanish guide and GIF/PNG.
 
-Capture method: LowPolyWorks history and retained `lpw-tutorial-languages`/accepted Glow Up scripts establish native Electron CDP captures plus FFmpeg. Missing original ribbon/OptimizeXL authoring scripts were reconstructed from retained animation metadata using that same native workflow. Native UI is localized in the app; translated text is never painted onto English media. See the website capture-source README for reproducible scripts and permanent corpus inputs.
+New releases accept fr/de notes; missing or empty older notes fall back to English without an error/empty card. Historical release JSON is unchanged. The 139 generated model pages change only app.js/mdlxl.css cache keys; current model/catalogue/portrait work on main was preserved.
 
-All 50 GIF loops decode and match embedded bytes, frame counts, timings and cue ranges. All 50 real-page complete loops and 22 native target centers passed, with zero resource/console errors and no horizontal overflow at desktop 1600x1032 and mobile 390x844. The final split labels lie outside every GIF crop; 14 main-window tool PNGs were refreshed on the final build while all GIF/embedded bytes remained identical.
+## Capture provenance and preservation
+
+The native Electron/CDP compositor plus FFmpeg method is documented in [website capture sources](https://github.com/UnsctMagic/LowPolyWorks/tree/main/tools/mdlxl-tutorial-capture). Original retained authoring scripts were reused; missing ribbon/OptimizeXL sequences were reconstructed from retained timeline metadata with the same workflow. Text was never painted onto English screenshots.
+
+The original 50 GIFs, 34 PNGs and 50 embedded animation records remain hash-identical after adding FX. The initial recordings used the 7,996-key build; 14 sidebar-only stills were refreshed at 8,058 keys after crop/occlusion proof. Later checker-only strings are outside those media views. FX uses the final frozen 8,125-key renderer on published 0.38.0 source.
+
+FX embedded records use a small companion `fx-animation-data.js` per locale, statically merged by the existing `animation-data.js` default-export API. Combined French metadata exceeded GitHub's 100MiB limit. Both base/FX modules remain below it; the loader/player API and all older payloads are unchanged.
 
 ## Verification
 
-- `npx vite build`: passed on final 8,125-key catalogs and integrated main.
-- `node --test test/localization*.test.js`: 31 pass / 0 fail / 0 skip.
-- `node --test tests/*.test.js`: 57 pass / 0 fail / 0 skip.
-- Release-material tests: 2 pass / 0 fail / 0 skip. Updater language checks: 3 pass / 0 fail / 0 skip.
-- GitHub app CI [run 41745525007](https://github.com/UnsctMagic/MDLxL/actions/runs/41745525007): passed on code/verification commit `3e2081c1`; subsequent current-main/diagnostic changes have the focused checks above; current PR CI is the final gate.
-- Website MDLxL tests: 8 pass / 0 fail / 0 skip. Project checker: 139 models / 10 armies plus assets and application syntax verified.
-- Electron localization workflow: passed nine switches, native menus, particle/emitter controls, tint-conflict focus and unchanged model data/sidebar widths; passed again on the final package.
-- Citadel locale workflow: passed all seven modes (en/ru/es/zh/fr/de/Mordor), five editor/dialog views each, input accepted and no renderer errors. Stable control IDs disambiguate colliding Mordor labels without skipping assertions.
-- Sanity Check source checks: 5 pass / 0 fail / 0 skip. Final hidden French/German native Help, Sanity findings and expanded OptimizeXL checker dialogs passed with no overflow, English checker prose, renderer error or model mutation. A fail-first example proves the old whole-string adapter translated an authored node named Rotation; the new formatter preserves it.
-- Main/sidebar enclosing-row audit: English/French/German all clear. Final packaged main, AnimXL, Forge and OptimizeXL captures passed in both locales; eight real mouse drags, no renderer errors or clipped translated labels.
-- Hidden website checks: French/German About, Credits, Preview, picker/query/nav synchronization, hypothetical future notes and old English fallback passed; no page exceptions or horizontal overflow.
+- Post-conflict `npx vite build`: passed; no release version or historical material changed.
+- Localization source checks: **31 pass / 0 fail / 0 skip**. Release-material checks: **2 / 0 / 0** (combined merge run 33 / 0 / 0).
+- Compatibility tests: **57 pass / 0 fail / 0 skip**. Updater language checks: **3 / 0 / 0**. Sanity Check source checks: **5 / 0 / 0**.
+- App [CI run 41755810233](https://github.com/UnsctMagic/MDLxL/actions/runs/41755810233) passed on reviewed head `35cda62d`: build, compatibility and the full source-suite gate against the repository baseline. The baseline was not widened.
+- Website checks: **9 pass / 0 fail / 0 skip**; project checker verified **139 models / 10 armies**, assets and application syntax.
+- Hidden Electron localization workflow passed nine language switches, native menus, particle/emitter labels, tint-conflict focus, unchanged model data and sidebar widths. Citadel passed all seven modes (en/ru/es/zh/fr/de/Mordor), five views/dialogs each, real inputs and no renderer errors.
+- Packaged main, AnimXL, Forge and OptimizeXL review: eight real mouse drags, unchanged source fixture/sidebar widths, no renderer errors or clipped translated labels. Enclosing sidebar-row checks passed English/French/German. Final French/German Sanity and expanded OptimizeXL checker dialogs also passed with literal diagnostic data. These phase captures are identified in the screenshot README.
+- All **58 GIFs** decoded and matched metadata/frame counts/timings/cues. The original 50 complete real-page loops passed and remained byte-identical; all **8 new FX natural full loops** passed at page size. Browser ESM imports contain 29 animation records per locale.
+- Old 22 measured native tool-ping centers passed. New FX **22 recorded green control cues** passed GIF-pixel checks; 2,582 new frames had zero blank viewport frames or isolated return jumps. FX has no POSE-edit step.
+- Native main and FX preview camera positions changed under real mouse drags in both locales. One blade-only FX commit preserved the original geometry, rig and animations. Desktop 1600x1032/mobile 390x844 had eight cards, no horizontal overflow, console errors or missing resources.
+- French/German About, Credits, Preview, picker/nav/query synchronization, hypothetical future notes and old English fallback passed hidden browser checks.
 
-## Screenshots
+## Screenshots and small reports
 
-In [verification/french-german](../verification/french-german/): `fr-main.png`, `de-main.png`; both language menus and native menu bars; OptimizeXL, AnimXL and Forge in both languages; two Citadel captures and four final Sanity/expanded-checker captures. Main/busy-editor/package captures were made at 8,058 keys; the later checker-only changes are covered by the final Electron renderer captures. Tutorial GIFs were recorded at 7,996 keys, sidebar stills at 8,058; the later checker-only strings are outside those views. Native menu JSON and small logs are in `D:\Codex\french-german\report`. Captures use the task-owned window on an invisible desktop, never the user desktop. Compact [results](../verification/french-german/results.json) include the final app hashes and tutorial scope.
+[Verification captures](../verification/french-german/) include both main windows, language pickers, native menu bars, AnimXL, Forge, OptimizeXL, Citadel, Sanity Check, expanded checker findings and FX controls. See [compact results](../verification/french-german/results.json). Main/busy-editor packaged captures were made at 8,058 keys; later checker and FX captures cover their final renderers. Native windows were captured on the invisible test desktop, never the user desktop.
+
+Local small reports/screenshots are in `D:\Codex\french-german\report`. Disposable working checkouts, builds, profiles, raw frames, caches and unused processes are removed after verification. Original/permanent model collections remain untouched.
 
 ## Next release: six languages
 
-The first release after 0.38.0 requires authored release notes in EN / ES / RU / ZH-CN / FR / DE, six GitHub release-body links, six-language website JSON and localized in-app summaries. Every newly authored PDF guide group uses all six suffixes, including FR/DE; the draft workflow validates and attaches them. The package discovers current-version guides. No historical PDF or release note is generated or translated.
+The first release after 0.38.0 requires authored release notes in EN / ES / RU / ZH-CN / FR / DE, six GitHub release-body links, six-language website JSON and localized in-app summaries. Every newly authored PDF guide group uses all six suffixes, including FR/DE; the draft workflow validates and attaches them. Packaging discovers current-version guides. Released notes/PDFs/JSON are never backfilled; tutorials are the exception and remain maintained in every tutorial language.
 
-See [release recipe](../RELEASING.md) and [updates](../AUTO_UPDATES.md). Claude publishes the site at release time. The generator rejects historical versions and incomplete new guide language sets. No release material was generated for an already released version.
+See [release recipe](../RELEASING.md) and [updates](../AUTO_UPDATES.md). Claude publishes the site at the next release. The generator rejects historical versions and incomplete new guide sets. No actual future release material was generated or published by this task.
 
-## Remaining gates and limits
+## Remaining limits
 
-Both branches are pushed and both PRs are open, non-draft and ready for review. Local verification and tutorial media work are complete. Owner merge approval and Claude QA remain required; this task does not merge, publish, tag or bump versions. Not every rare dialog/provider path was exercised, and editor checks do not prove Warcraft III/World Editor acceptance. No actual future release/PDF or GitHub Actions publication was run.
+Code and source-site merges are complete. Site publication remains with Claude at release time. Not every rare dialog/provider path was exercised, editor checks do not prove Warcraft III/World Editor acceptance, and the actual future release/PDF publication workflow has not been executed. No installed-app upgrade was performed.

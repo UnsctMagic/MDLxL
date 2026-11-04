@@ -8,7 +8,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| French and German after 0.38.0 | Ready for review; awaiting merge approval | [French/German](french-german.md) / Codex |
 | Hive-only Sanity Check | Merged (#538) | [Sanity Check](sanity-hive-only.md) / Codex |
 | 0.38.0 New Features guides | Merged (#536) | [Guide handover](release-038-guides.md) / Codex |
 | 0.38.0 screenshot UI gaps | Merged (#537) | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
