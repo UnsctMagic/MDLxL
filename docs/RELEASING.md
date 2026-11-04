@@ -24,9 +24,11 @@ in every supported tutorial language, including the existing tutorials.
    after 0.38.0 and attaches the current version's guides. Verify its six links:
    **English / Español / Русский / 简体中文 / Français / Deutsch**. Publish only
    after the [portable release gate](UPDATER_RELEASE_GATE.md) and owner approval.
-6. Future announcements keep the compact format: linked release title,
-   `Read patch notes in:`, then six separate language hyperlinks with those
-   labels. Do not edit past announcements.
+6. Announcements use the full generated English release body: a linked release
+   title, the functional change summary and update instructions, followed by
+   `Read patch notes in:` and the six language hyperlinks. Check the complete
+   body fits Discord’s description limit and verify the delivered post is not
+   truncated. Do not replace it with a links-only stub or edit past announcements.
 
 The [portable updater instructions](AUTO_UPDATES.md) own packaging, publication
 and post-release session cleanup. Do not bump versions for localization work.

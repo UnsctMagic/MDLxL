@@ -1,6 +1,8 @@
 # MDLxL 0.38.1 HOTFIX
 
-Status: Completed. Release PR [#559](https://github.com/UnsctMagic/MDLxL/pull/559) merged at `09b785cba7c14bc65af602669ca32d101b3538fa`; tag `v0.38.1` points to that exact commit.
+Status: Withdrawn at the owner’s request. The public release and tag, site hotfix JSON and its Garithos announcement were removed. The old draft is retained privately; version 0.38.1 must not be reused. Replacement: 0.38.2. The historical acceptance record below does not authorize republication.
+
+Historical status: Completed before withdrawal. Release PR [#559](https://github.com/UnsctMagic/MDLxL/pull/559) merged at `09b785cba7c14bc65af602669ca32d101b3538fa`; tag `v0.38.1` points to that exact commit.
 Owner/session: Codex `01a1a88f-016d-7483-9ef0-d84ef91e6598`.
 
 - Release: https://github.com/UnsctMagic/MDLxL/releases/tag/v0.38.1

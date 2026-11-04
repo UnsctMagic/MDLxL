@@ -1,4 +1,5 @@
 const { launchApp, closeApp } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 // Run after building dist: node test/localization.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -6,15 +7,16 @@ const path = require('node:path');
 
 (async () => {
   const { translate } = await import('../src/localization.js');
-  const { createStarterDocument } = await import('../src/starter-model.js');
-  const { createNode } = await import('../src/editor-document.js');
+  const { createNode, openDocument } = await import('../src/editor-document.js');
+  const realModel = fs.readFileSync(fixturePath('footman'));
+  const document = () => openDocument(realModel, 'Footman.mdx');
   const output = path.resolve('out/localization/electron');
   fs.mkdirSync(output, { recursive: true });
-  const doc = createStarterDocument();
+  const doc = document();
   doc.apply('Particle fixture', ['Nodes', 'PivotPoints'], model => { createNode(model, 'ParticleEmitter2').Name = 'Materials'; });
   const fixture = path.join(output, 'Materials.mdx');
   fs.writeFileSync(fixture, doc.serialize('mdx'));
-  const repairDoc = createStarterDocument();
+  const repairDoc = document();
   repairDoc.apply('Tint conflict fixture', ['GeosetAnims'], model => {
     model.GeosetAnims = [0, 1].map(index => ({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array(index ? [0, 1, 0] : [1, 0, 0]) }));
   });
@@ -35,7 +37,6 @@ const path = require('node:path');
     });
     return { app, page };
   }
-  const sendMenu = (app, command) => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), command);
   const { app, page } = await launch(fixture);
   try {
     await page.locator('.language-trigger').waitFor();
@@ -52,11 +53,6 @@ const path = require('node:path');
       await page.getByRole('option', { name: label, exact: true }).click();
       await page.getByLabel(translate('Select geoset 0', locale), { exact: true }).waitFor();
       const expectedFile = translate('&File', locale);
-      for (let attempt = 0; attempt < 40; attempt++) {
-        const fileLabel = await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].label);
-        if (fileLabel === expectedFile) break;
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
       const menu = await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.map(item => ({ label: item.label, children: item.submenu?.items.map(child => child.label) })));
       assert.equal(menu[0].label, expectedFile);
       const coordinates = await page.locator('.classic-coordinates').evaluate(element => getComputedStyle(element, '::before').content);
@@ -69,7 +65,7 @@ const path = require('node:path');
       assert.deepEqual(await page.locator('.classic-sidebar').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width)), widths);
       if (locale !== 'en') {
         await page.screenshot({ path: path.join(output, `${locale}-editor.png`) });
-        await sendMenu(app, 'particles');
+        await page.locator('button.emitter-tool[data-hotkey="particles"]').click();
         const dialog = page.getByRole('dialog', { name: translate('Particle Editor', locale), exact: true });
         await dialog.waitFor();
         // The library opens only while no emitter is selected; the first pass below selects one.
