@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 // Run after rebuilding dist: node test/geoset-operations.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -38,7 +39,7 @@ const waitFor = async (page, expression) => (await page.waitForFunction(expressi
     await evaluate(page, () => (document.querySelector('[aria-label="Select geoset 0"]').click()));
     assert.deepEqual(await evaluate(page, () => ([...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled))), [true, true, false, true, false, true]);
     await evaluate(page, () => (document.querySelector('.classic-geoset-operations').querySelectorAll('button').forEach(button => { if (button.textContent.trim() === 'Delete free vertices') button.click(); })));
-    await waitFor(page, () => (document.querySelector('.classic-status span').textContent === 'Deleted 1 free vertex from selected geosets.'));
+    await waitForInfo(page, 'Deleted 1 free vertex from selected geosets.');
     const selectAll = async () => {
       // The geoset list renders before the viewport, which mounts once the saved preferences are read.
       await waitFor(page, () => (!!document.querySelector('[aria-label="3D model viewport"] canvas')));
@@ -51,10 +52,10 @@ const waitFor = async (page, expression) => (await page.waitForFunction(expressi
     await evaluate(page, () => (document.querySelector('[data-hotkey="geosetsAll"]').click()));
     await selectAll();
     await evaluate(page, () => (document.querySelector('.classic-geoset-operations').querySelectorAll('button').forEach(button => { if (button.textContent.trim() === 'Nuclear Weld') button.click(); })));
-    await waitFor(page, () => (document.querySelector('.classic-status span').textContent === 'Nuclear Weld: vertices welded: 2, geosets merged: 1.'));
+    await waitForInfo(page, 'Nuclear Weld: vertices welded: 2, geosets merged: 1.');
     await waitFor(page, () => (document.querySelectorAll('.classic-geoset-list [role="option"]').length === 4));
     await evaluate(page, () => (document.querySelector('.classic-geoset-operations').querySelectorAll('button').forEach(button => { if (button.textContent.trim() === 'Nuclear Weld') button.click(); })));
-    await waitFor(page, () => (document.querySelector('.classic-status span').textContent === 'Nuclear Weld found no selected vertices on the same spot.'));
+    await waitForInfo(page, 'Nuclear Weld found no selected vertices on the same spot.');
     // The split and merge checks below work on geoset 0 only.
     await evaluate(page, () => (document.querySelector('[data-hotkey="geosetsClear"]').click()));
     await evaluate(page, () => (document.querySelector('[aria-label="Select geoset 0"]').click()));

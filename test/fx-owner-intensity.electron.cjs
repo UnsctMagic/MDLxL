@@ -8,14 +8,20 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    for(const [i,layer] of look.layers.entries()){
     if(layer.type==='Particles'||layer.type==='Edge'||layer.stamp)continue;
     if(layer.enabled===false){await fx.getByLabel('Enable '+layer.label,{exact:true}).check();await ready();}
-    await fx.getByRole('group',{name:'Layers'}).getByRole('button').nth(i).click();const range=fx.getByRole('slider',{name:'Intensity',exact:true});assert.equal(await range.count(),1);await range.scrollIntoViewIfNeeded();const b=await range.boundingBox(),values=[];
+    await fx.locator('.fx-layer-row').filter({has:page.getByRole('checkbox',{name:'Enable '+layer.label,exact:true})}).getByRole('button').click();const range=fx.getByRole('slider',{name:'Intensity',exact:true});assert.equal(await range.count(),1);await range.scrollIntoViewIfNeeded();const b=await range.boundingBox(),values=[];
     for(const [name,fraction] of [['min',0],['middle',.5],['max',1]]){
      await page.mouse.click(b.x+8+(b.width-16)*fraction,b.y+b.height/2);if(fraction===0)await page.keyboard.press('Home');if(fraction===1)await page.keyboard.press('End');await ready();
      const prior=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame());await page.waitForFunction(t=>Math.abs(mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame()-t)>200,prior);const value=Number(await range.inputValue());values.push(value);await stage.screenshot({path:path.join(out,look.id+'-'+i+'-'+name+'.jpg'),type:'jpeg',quality:90});
     }
     assert.equal(values[0],0);assert.ok(values[0]<values[1]&&values[1]<values[2]);report.push({look:look.id,layer:layer.label,values});
-    // Restore the default with ordinary repeated arrow keydowns before reviewing another layer.
-    await range.click();await page.keyboard.press('Home');const count=Math.round((layer.strength??1)/.01);for(let n=0;n<count;n++)await page.keyboard.down('ArrowRight');await page.keyboard.up('ArrowRight');await ready();
+    // Restore through the real slider, then correct its pixel-rounded value with ordinary keys.
+    const target=Math.round((layer.strength??1)*100)/100,min=Number(await range.getAttribute('min')),max=Number(await range.getAttribute('max')),step=Number(await range.getAttribute('step')),resetBox=await range.boundingBox();
+    await page.mouse.click(resetBox.x+8+(resetBox.width-16)*(target-min)/(max-min),resetBox.y+resetBox.height/2);
+    const correction=Math.round((target-Number(await range.inputValue()))/step);
+    for(let n=0;n<Math.abs(correction);n++)await page.keyboard.press(correction>0?'ArrowRight':'ArrowLeft');
+    await page.waitForFunction(({label,target})=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.layers.find(l=>l.label===label).strength===target,{label:layer.label,target});
+    await ready();const restored=Number(await range.inputValue());assert.equal(restored,target,layer.label+' restores its exact slider default');
+    const stored=await page.evaluate(label=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.layers.find(l=>l.label===label).strength,layer.label);assert.equal(stored,target,'The restored intensity is committed to the preview');report.at(-1).restored=restored;
    }
    await button('Cancel').click();fs.writeFileSync(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log('RANGE',look.name);
   }assert.deepEqual(errors,[]);console.log('TOTAL',report.length,'intensity ranges; 0 failures; 0 skips');

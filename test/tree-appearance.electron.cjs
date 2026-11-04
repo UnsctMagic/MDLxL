@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { testModel } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
@@ -14,7 +15,7 @@ const path = require('node:path');
   const { app, page } = await launchApp({ out: path.dirname(profile), profile: profile, env: { MDLVIS_HEADLESS: '1' }, fixture: file , errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
 
-    await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened ' + path.basename(file));
     const menu = command => app.evaluate(({ BrowserWindow }, c) => BrowserWindow.getAllWindows()[0].webContents.send('menu', c), command);
     // Appearance shows one page at a time and reopens on the last page used.
     const openPage = name => page.locator('.settings-appearance-nav').getByRole('button', { name, exact: true }).click();

@@ -49,9 +49,9 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
     assert.equal(await p.evaluate(()=>JSON.stringify(sides()[0].model)),original);
     await stage('Insanity FIxer');await p.getByText('mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 0 notices',{exact:true}).waitFor();
     await stage('Sphereomancer');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
-    // Authored collisions start the proposal; choosing x2 then explicitly replaces them.
-    assert.equal(await p.getByLabel('Sphere preset',{exact:true}).evaluate(e=>e.selectedOptions[0].textContent),'Collision shapes');
-    assert.deepEqual(await p.evaluate(()=>sides()[1].model.CollisionShapes.map(c=>[...c.Vertices,c.BoundsRadius])),await p.evaluate(()=>sides()[0].model.CollisionShapes.map(c=>[...c.Vertices,c.BoundsRadius])));
+    // Spanish Halberdier has no authored shapes; #507 defaults it to x2.
+    assert.equal(await p.getByLabel('Sphere preset',{exact:true}).evaluate(e=>e.selectedOptions[0].textContent),'x2 standard unit');
+    assert.equal(await p.evaluate(()=>sides()[0].model.CollisionShapes.length),0,'fixture has no authored collisions');assert.equal(await p.evaluate(()=>sides()[1].model.CollisionShapes.length),2,'default adds the two standard spheres');
     await p.getByLabel('Sphere preset',{exact:true}).selectOption({label:'x2 standard unit'});await p.waitForFunction(()=>sides()[1].model.CollisionShapes.every(c=>Math.abs(c.BoundsRadius-38.076)<.001));
     const spheres=await p.evaluate(()=>sides()[1].model.CollisionShapes.map(c=>[...c.Vertices,c.BoundsRadius]));
     assert.deepEqual(spheres,[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]]);

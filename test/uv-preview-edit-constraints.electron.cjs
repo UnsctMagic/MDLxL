@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 // Rebuilt native bundle; optionally pass a separately packaged MDLxL executable.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -79,7 +80,7 @@ const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpe
     await closeUV();
     const before = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     await main.locator('[data-hotkey="Reverse normals"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Reverse normals');
+    await waitForInfo(main, 'Reverse normals');
     const reversed = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.notDeepEqual(reversed.Geosets[0].Faces, before.Geosets[0].Faces);
     assert.notDeepEqual(reversed.Geosets[0].Normals, before.Geosets[0].Normals);
@@ -90,17 +91,17 @@ const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpe
     // Select one complete triangle through the viewport's normal selection path.
     await main.evaluate(() => { const p = ownerProps('[aria-label="3D model viewport"]', 'onSelectionChange'); p.onSelectionChange({ 0: Array.from(p.model.Geosets[0].Faces.slice(0, 3)) }); });
     await main.locator('[data-hotkey="Delete triangles"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Delete triangles');
+    await waitForInfo(main, 'Delete triangles');
     const edited = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(edited.Geosets[0].Faces).length < Object.keys(reversed.Geosets[0].Faces).length);
     await main.locator('[data-hotkey="Create triangle"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Create triangle');
+    await waitForInfo(main, 'Create triangle');
     const created = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(created.Geosets[0].Faces).length > Object.keys(edited.Geosets[0].Faces).length);
     // Match the user's failed test: weld two selected vertices while unsaved.
     await main.evaluate(() => ownerProps('[aria-label="3D model viewport"]', 'onSelectionChange').onSelectionChange({ 0: [0, 1] }));
     await main.locator('[data-hotkey="Weld"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Weld');
+    await waitForInfo(main, 'Weld');
     const welded = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(welded.Geosets[0].Vertices).length < Object.keys(created.Geosets[0].Vertices).length);
     await clickMenu(app,'Undo');
@@ -108,7 +109,7 @@ const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpe
     await clickMenu(app,'Redo');
     await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(welded));
     await main.locator('[data-hotkey="Uncouple"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Uncouple');
+    await waitForInfo(main, 'Uncouple');
     const topologyEdited = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(topologyEdited.Geosets[0].Vertices).length > Object.keys(welded.Geosets[0].Vertices).length);
     await openUV();
@@ -135,7 +136,7 @@ const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpe
     await stubDialogs(app, { save: saved });
     await main.keyboard.press('F12');
     await main.getByRole('button', { name: 'Save MDX…', exact: true }).click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent.startsWith('Saved '));
+    await waitForInfo(main, /^Saved /);
     const reopened = openDocument(fs.readFileSync(saved), 'saved.mdx');
     assert.ok(reopened.model.Textures.some(texture => texture.Image === 'PreviewEdit.png'));
     const savedGeometry = JSON.parse(JSON.stringify(reopened.model.Geosets[0]));

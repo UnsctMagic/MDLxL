@@ -12,6 +12,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | 0.38.0 New Features guides | Merged (#536) | [Guide handover](release-038-guides.md) / Codex |
 | 0.38.0 screenshot UI gaps | Merged (#537) | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
 | 0.38.0 translation catch-up | Merged (#534) | [Translation inventory](release-038-translations.md) / Codex |
+| 0.38.0 packaged test repairs | Merged (#540); pose-ik fault checks, citadel-studio, particle-prototype open | [Release test repairs](release-038-test-repairs.md) / Codex; Claude QA |
 | Weapon ribbon bright edge | Ready for owner testing; awaiting merge approval | [Ribbon attachment](ribbon-attachment.md) / Codex |
 | Automatic Windows software rendering: automated-test compatibility | Merged (#519, #535) | [Automatic WARP](auto-warp.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |

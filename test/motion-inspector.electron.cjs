@@ -168,7 +168,7 @@ const assert = require('node:assert/strict');
     await page.screenshot({ path: path.join(out, '03-hold-removed-pose-kept.png') });
     await stubDialogs(app, { save: (saved) });
     await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
-    await page.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Modified'));
+    await page.waitForFunction(() => window.__mdlxl?.document()?.dirty === false);
     const expected = openDocument(original, 'fixture.mdx');
     expected.apply('Delete only the holding rotation keys', ['Nodes'], current => { const arm = current.Bones[0]; arm.Rotation.Keys = arm.Rotation.Keys.filter(k => ![2224, 2472, 2690, 2853, 2997].includes(k.Frame)); });
     assert.deepEqual(fs.readFileSync(saved), Buffer.from(expected.serialize('mdx')), 'The intended pose and all other channels must survive the ordinary Delete operation');

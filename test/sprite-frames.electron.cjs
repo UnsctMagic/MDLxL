@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 
@@ -13,7 +14,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
   const page=launched.page;
 
-  await page.getByText('Opened PolymorphDoneGround.mdx',{exact:true}).waitFor();
+  await waitForInfo(page, 'Opened PolymorphDoneGround.mdx');
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.waitFor();
   if(await editor.getByRole('button',{name:'Close Particle Library',exact:true}).count())await editor.getByRole('button',{name:'Close Particle Library',exact:true}).click();

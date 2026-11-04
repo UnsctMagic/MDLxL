@@ -1,3 +1,5 @@
+const {waitForInfo}=require('./helpers/app.cjs');
+const {openEffectCollection,openEffect}=require('./helpers/library-browser.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
@@ -21,16 +23,16 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   const page=launched.page;
 
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Particle Editor',exact:true});
-  await page.getByRole('button',{name:'My presets',exact:true}).click();await page.locator('.pe-effect-card').filter({hasText:'Collision sparks'}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
+  await openEffectCollection(page,'My presets');await page.locator('.pe-library [data-effect-id]').filter({hasText:'Collision sparks'}).dblclick();await page.locator('.pe-library').waitFor({state:'hidden'});
   const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => props?.doc?.model, { props: true }); if (props) {const {doc,textureAssets}=props;return {model:JSON.parse(JSON.stringify(doc.model)),assets:[...textureAssets].map(([key,a])=>({key,name:a.name,bytes:Array.from(a.bytes||[])}))};} }throw Error('Model missing');});
   const before=await read();assert.deepEqual(before.assets.find(a=>a.key===STARTER_TEXTURE.toLowerCase()).bytes,Array.from(existing.bytes));
   const add=async()=>{
    await dialog.getByRole('button',{name:'Add to model',exact:true}).click();
-   await page.getByLabel('Effect start',{exact:true}).fill('100');await page.getByLabel('Effect end',{exact:true}).fill('900');
-   await page.getByRole('button',{name:'Pause ghost',exact:true}).click();
+   assert.equal(await page.getByLabel('Effect start',{exact:true}).count(),0);
+   const pause=dialog.getByRole('button',{name:'Pause',exact:true});if(await pause.count())await pause.click();
    const ghost=await page.locator('.pe-preview .game-preview-root').evaluate(el=>{{ const props = findFiberState(el, props => { const m = props?.model; return m?.ParticleEmitters2?.length; }, { props: true }); if (props) { const m = props?.model; return m.Textures[m.ParticleEmitters2.at(-1).TextureID].Image; } }throw Error('Ghost missing');});
    assert.equal(ghost,STARTER_TEXTURE);
-   await page.getByRole('button',{name:'Confirm placement',exact:true}).click();await page.getByText('Effect added. Undo restores the model.',{exact:true}).waitFor();return ghost;
+   await page.getByRole('button',{name:'Create',exact:true}).click();await page.getByText('Effect added. Drag it to adjust.',{exact:true}).waitFor();return ghost;
   };
   const name=await add(),placed=await read();assert.equal(placed.model.ParticleEmitters2.length,1);assert.equal(placed.model.Textures[placed.model.ParticleEmitters2[0].TextureID].Image,name);
   assert.deepEqual(placed.model.Textures[0],before.model.Textures[0]);assert.deepEqual(placed.model.Geosets,before.model.Geosets);
@@ -40,7 +42,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   await dialog.getByRole('button',{name:'Redo',exact:true}).click();assert.equal((await read()).model.ParticleEmitters2.length,1);
   await page.getByLabel('Particle context',{exact:true}).selectOption('Lab');assert.equal(await add(),name);assert.equal((await read()).model.ParticleEmitters2.length,2);
   await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});await page.keyboard.press('Control+s');
-  await page.waitForFunction(()=>document.querySelector('.classic-status')?.textContent.includes('Saved collision-target.mdx'));
+  await waitForInfo(page,'Saved collision-target.mdx');
   const reopened=openDocument(await fs.readFile(fixture),'saved.mdx');assert.equal(reopened.model.ParticleEmitters2.length,2);
   assert.deepEqual(new Uint8Array(await fs.readFile(originalPicture)),existing.bytes);
   assert.deepEqual(errors,[]);console.log(JSON.stringify({out,name,emitters:2,ghost:true,picturesPreserved:true,undoRedo:true,savedAndReopened:true}));
