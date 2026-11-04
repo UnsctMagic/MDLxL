@@ -9,6 +9,7 @@ Updated: 2026-11-04
 PR: https://github.com/UnsctMagic/MDLxL/pull/550
 
 - Branch: `codex/uv-drag-smooth`, based on main `f67cbb5564c9e5f47a1b4f3c2a5ab0d661738efa`.
+- Integrated main `4fc8c1b1` (PR #549), preserving its restored horizontal UV Zoom collapse rule; map links retain both regression tests.
 - Request: keep UV Move and Rotate smooth while retaining the live model preview.
 - Installed 0.38.0 forwards each live UV model into the main Viewport behind the
   UV window. Its model effect recreated every geometry/material/overlay per frame.
