@@ -136,19 +136,19 @@ test('selected geosets of different materials stay on one canvas and edits retur
   assert.deepEqual(splitSelectedUVGeosets(model, canvas.refs, canvas.geoset.TVertices[0]), [], 'unchanged geosets are not written');
 });
 
-test('UV map Rotate keeps 70% circular input and also rotates for every straight direction', () => {
+test('UV map Rotate always turns clockwise for every drag direction at 70% sensitivity', () => {
   const deg = Math.PI / 180, circle = (drag, radius, from, to, steps = 36) => { for (let i = 0; i <= steps; i++) { const a = (from + (to - from) * i / steps) * deg; uvTurn(drag, 100 + radius * Math.cos(a), 50 + radius * Math.sin(a)); } return drag.turn / deg; };
   for (const radius of [.5, 1, 2, 12, 48, 60, 300]) assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, radius, 30, 120) - 63) < 1e-9, `quarter turn at ${radius}px has no centre attenuation`);
   assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, 450, 90) - 315) < 1e-9, 'clockwise past a full turn');
-  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, -720, 144) + 504) < 1e-9, 'counter-clockwise full turns');
+  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, -720, 144) - 504) < 1e-9, 'counter-clockwise mouse circles still rotate clockwise');
   assert.ok(Math.abs(circle({ pivotScreen: [100, 50], fine: .2 }, 80, 0, 90) - 12.6) < 1e-9, 'Alt fine control');
   for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [Math.SQRT1_2, Math.SQRT1_2], [-Math.SQRT1_2, Math.SQRT1_2], [Math.SQRT1_2, -Math.SQRT1_2], [-Math.SQRT1_2, -Math.SQRT1_2]]) {
     const drag = { pivotScreen: [100, 50] };
     uvTurn(drag, 100 + vx * 12, 50 + vy * 12);
     const turn = uvTurn(drag, 100 + vx * 72, 50 + vy * 72);
-    assert.ok(Math.abs(Math.abs(turn) - .875) < 1e-9, `straight ${vx},${vy} rotates`);
-    assert.ok(Math.abs(uvTurn(drag, 100 + vx * 12, 50 + vy * 12)) < 1e-9, 'reversing restores the start');
+    assert.ok(Math.abs(turn - .875) < 1e-9, `straight ${vx},${vy} rotates`);
+    assert.ok(Math.abs(uvTurn(drag, 100 + vx * 12, 50 + vy * 12) - 1.75) < 1e-9, 'reversing keeps turning clockwise');
     const centre = { pivotScreen: [100, 50] }; uvTurn(centre, 100, 50);
-    assert.ok(Math.abs(Math.abs(uvTurn(centre, 100 + vx, 50 + vy)) - .7 / 48) < 1e-9, 'movement from the exact centre rotates without a jump or dead zone');
+    assert.ok(Math.abs(uvTurn(centre, 100 + vx, 50 + vy) - .7 / 48) < 1e-9, 'movement from the exact centre rotates without a jump or dead zone');
   }
 });

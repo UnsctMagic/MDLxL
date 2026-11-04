@@ -65,11 +65,23 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
         await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
       }
     };
+    // Starting left must not choose the opposite direction for the next circle.
+    await page.mouse.move(cx + 72, cy); await page.mouse.down();
+    await page.mouse.move(cx + 12, cy, { steps: 12 });
+    const leftFirst = await page.evaluate(() => uvRotateState().drag.turn);
+    check('starting left still rotates clockwise', Math.abs(leftFirst - .875) < .002);
+    await arc(12, 0, Math.PI / 2);
+    const afterLeftCircle = await page.evaluate(() => uvRotateState().drag.turn);
+    await page.mouse.up();
+    const mixedAngle = .875 + Math.PI / 2 * .7;
+    check('a circle after moving left keeps the same direction', Math.abs(afterLeftCircle - mixedAngle) < .002 && matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(afterLeftCircle)));
+    await undo();
     for (const [name, radius, start, sweep, fine] of [
       ['inside the former 2px dead zone', 1.5, 0, Math.PI / 2, false],
       ['near the center', 12, 0, Math.PI / 2, false],
       ['outside the former slowdown', 60, 0, Math.PI / 2, false],
       ['far from the center', 200, Math.PI, Math.PI / 2, false],
+      ['full circle ending at its start', 60, 0, Math.PI * 2, false],
       ['clockwise past a full turn', 100, 0, Math.PI * 2.5, false],
       ['counterclockwise past two turns', 100, 0, -Math.PI * 4.5, false],
       ['Alt precision near the center', 12, 0, Math.PI / 2, true],
@@ -82,19 +94,21 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.mouse.up();
       if (fine) await page.keyboard.up('Alt');
       await page.waitForFunction(() => !uvRotateState().drag);
-      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1);
+      const after = await page.evaluate(() => uvRotateInfo().uv), angle = Math.abs(sweep) * .7 * (fine ? .2 : 1);
       const expected = expectedUV(angle), maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expected[i])));
       measurements.push({ name, radius, expectedDegrees: angle * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI, maxUVError });
       check(name + ': circular rotation at 70% with no center attenuation', Math.abs(turn - angle) < .002 && maxUVError < .002);
       if (radius === 12 && !fine) await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
       await undo();
     }
-    // Reversing the same circular path returns to the original coordinates.
+    // Backtracking must keep turning clockwise, including after release at the start.
     await page.mouse.move(cx + 60, cy); await page.mouse.down();
     await arc(60, 0, Math.PI / 2);
     await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
     await arc(60, Math.PI / 2, -Math.PI / 2); await page.mouse.up();
-    check('reversing a circular drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    await page.waitForFunction(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore);
+    check('circular backtracking keeps rotating clockwise after release', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(Math.PI * .7)));
+    await undo();
     for (const [name, vx, vy] of [
       ['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1],
       ['down-right', Math.SQRT1_2, Math.SQRT1_2], ['up-left', -Math.SQRT1_2, -Math.SQRT1_2],
@@ -107,15 +121,17 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       const after = await page.evaluate(() => uvRotateInfo().uv);
       const expectedMagnitude = 60 / 48 * .7;
       measurements.push({ name: 'straight ' + name, expectedMagnitudeDegrees: expectedMagnitude * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI });
-      check('straight ' + name + ' drag rotates the selected UVs', Math.abs(Math.abs(turn) - expectedMagnitude) < .002 && matches(after, expectedUV(turn)));
+      check('straight ' + name + ' drag rotates clockwise', Math.abs(turn - expectedMagnitude) < .002 && matches(after, expectedUV(turn)));
       await undo();
     }
-    // Straight motion and its reverse must cancel within the same gesture.
+    // Both legs of a straight backtrack turn clockwise, even with the same endpoint.
     await page.mouse.move(cx + 12, cy); await page.mouse.down();
     await page.mouse.move(cx + 72, cy, { steps: 12 });
     await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
     await page.mouse.move(cx + 12, cy, { steps: 12 }); await page.mouse.up();
-    check('reversing a straight drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    await page.waitForFunction(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore);
+    check('straight backtracking keeps rotating clockwise after release', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(1.75)));
+    await undo();
     check('source model file unchanged', fs.readFileSync(fixture).equals(originalFile));
     check('no renderer errors', errors, []);
   } catch (error) {

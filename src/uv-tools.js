@@ -7,9 +7,9 @@ const UV_TURN_SENSITIVITY = 0.7;
 /** Toward/away movement contributes one radian per 48 pixels before sensitivity. */
 const UV_TURN_RADIAL_PIXELS = 48;
 
-/** UV Rotate responds to circular and straight mouse movement without a centre
- * dead zone. A circle keeps its 70% angular response; movement toward or away
- * from the centre contributes too. Alt keeps its fine control, independently
+/** UV Rotate always turns clockwise for circular or straight mouse movement,
+ * without a centre dead zone. A circle keeps its 70% angular amount; toward/away
+ * travel contributes too. Alt keeps its fine control, independently
  * of the 3D rotation settings. Call at drag start and on every pointer sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
@@ -20,18 +20,9 @@ export function uvTurn(drag, x, y) {
     // still rotates: this does not introduce a dead zone.
     const arc = radius && drag.radius ? Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) : 0;
     const radial = (radius - drag.radius) / UV_TURN_RADIAL_PIXELS;
-    const dx = px - drag.px, dy = py - drag.py;
-    if (dx || dy) {
-      // Keep a continuous drag turning in one direction; reverse when the
-      // mouse reverses, not when rounding changes a tiny radial sweep's sign.
-      let direction = drag.turnDirection;
-      if (direction === undefined) direction = Math.abs(arc) >= Math.abs(radial) ? Math.sign(arc) : Math.sign(dx || dy);
-      else if (dx * drag.lastDX + dy * drag.lastDY < 0) direction = -direction;
-      drag.turn += Math.hypot(arc, radial) * direction * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
-      drag.turnDirection = direction; drag.lastDX = dx; drag.lastDY = dy;
-    }
+    drag.turn += Math.hypot(arc, radial) * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
   }
-  drag.angle = angle; drag.radius = radius; drag.px = px; drag.py = py;
+  drag.angle = angle; drag.radius = radius;
   return drag.turn;
 }
 

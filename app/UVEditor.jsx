@@ -189,7 +189,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     function applyMove() {
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
       const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
-      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = Math.hypot(dx, dy) > 1;
+      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = drag.type === 'rotate' ? drag.turn !== 0 : Math.hypot(dx, dy) > 1;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
