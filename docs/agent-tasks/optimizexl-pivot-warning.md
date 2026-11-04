@@ -1,6 +1,6 @@
 # OptimizeXL unused pivot warning
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed — merged in [PR #554](https://github.com/UnsctMagic/MDLxL/pull/554)
 Owner: Codex
 Updated: 2026-11-04
 
@@ -9,11 +9,14 @@ Updated: 2026-11-04
 Repair the screenshot's `Expected 148 pivot points, got 149` through the existing
 Insanity FIxer preview, individual/selected approval and Fix everything flow.
 Keep authored nodes, referenced pivots, geometry and animation unchanged.
-No installed-app/profile changes, version bump, model replacement or merge.
+No installed-app/profile changes, version bump or model replacement.
 
 ## Revision and fixture
 
 - Branch: `codex/optixl-pivot-warning`; base `d6737cb589aa696b5ddf8521192f619afd81aaa1`.
+- Merge revision: `cab472bf7b06be3c1185edd69e6d988148884243`, verified on online `main`.
+- CI passed on `b3adc7d60916a509ef0bc2fd397b7a20d3c419a4` ([run](https://github.com/UnsctMagic/MDLxL/actions/runs/41902193228)).
+- The owner explicitly authorized merging without independent Claude QA.
 - Working checkout: `D:/Codex/optixl-pivot-warning/work` (removed after push).
 - Retained report: `D:/Codex/optixl-pivot-warning/report`.
 - Screenshot is an unsaved model. The saved Desktop input has 143 nodes and 143
@@ -55,11 +58,12 @@ No installed-app/profile changes, version bump, model replacement or merge.
   `optimizexl-inspection`, `optimizexl-selection`). Workflow exercises real
   clicks, linked mouse rotation, individual approval, Back, Fix everything,
   backup, Save and Ctrl+Z. No UI test-hook mutations.
-- Independent Claude QA, full release suite and Warcraft III gameplay remain
-  untested. This is not a release gate or user visual acceptance.
+- Independent Claude QA was waived by the owner for this merge. The full
+  release suite and Warcraft III gameplay remain untested. This is not a release gate or user visual acceptance.
 
-## Next action
+## Completion
 
-Claude reruns the focused checks, then the owner may review/authorize merge.
-After authorized merge, mark completed with its revision and remove the active
-README row. PR URL and final check results are in the retained report.
+PR #554 merged after successful CI with independent Claude QA explicitly waived.
+The merged PR and unchanged implementation files were verified on online main.
+The active README row is removed in this documentation closeout.
+This merge does not publish a release or update the installed app.
