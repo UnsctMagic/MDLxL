@@ -8,12 +8,13 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Hive-only Sanity Check | Ready for Claude QA; awaiting merge approval | [Sanity Check](sanity-hive-only.md) / Codex |
-| 0.38.0 screenshot UI gaps | Ready for Claude QA; awaiting merge approval | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
-| 0.38.0 packaged test repairs | Ready for Claude review; remaining cases documented | [Release test repairs](release-038-test-repairs.md) / Codex |
-| 0.38.0 translation catch-up | Ready for Claude QA; awaiting merge approval | [Translation inventory](release-038-translations.md) / Codex |
+| Hive-only Sanity Check | Merged (#538) | [Sanity Check](sanity-hive-only.md) / Codex |
+| 0.38.0 New Features guides | Merged (#536) | [Guide handover](release-038-guides.md) / Codex |
+| 0.38.0 screenshot UI gaps | Merged (#537) | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
+| 0.38.0 translation catch-up | Merged (#534) | [Translation inventory](release-038-translations.md) / Codex |
+| 0.38.0 packaged test repairs | Merged (#540); pose-ik fault checks, citadel-studio, particle-prototype open | [Release test repairs](release-038-test-repairs.md) / Codex; Claude QA |
 | Weapon ribbon bright edge | Ready for owner testing; awaiting merge approval | [Ribbon attachment](ribbon-attachment.md) / Codex |
-| Automatic Windows software rendering: automated-test compatibility | Ready for review; awaiting merge approval | [Automatic WARP](auto-warp.md) / Codex |
+| Automatic Windows software rendering: automated-test compatibility | Merged (#519, #535) | [Automatic WARP](auto-warp.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
