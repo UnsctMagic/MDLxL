@@ -2,7 +2,15 @@
 // started with MDLXL_TEST_HOOK=1, as test/helpers/app.cjs does; normal use and the browser build never get it.
 let readApp = null;
 const previews = new WeakMap();
+const infoMessages = [];
+let infoId = 0;
+export function recordInfoForTests(message) {
+  if (typeof window === 'undefined' || !window.desktop?.testHook) return;
+  infoMessages.push({ id: ++infoId, message });
+  if (infoMessages.length > 100) infoMessages.shift();
+}
 if (typeof window !== 'undefined' && window.desktop?.testHook) window.__mdlxl = Object.freeze({
+  infoMessages: () => infoMessages.map(item => ({ ...item })),
   session: () => readApp?.().session ?? null,
   document: () => readApp?.().doc ?? null,
   model: () => readApp?.().doc?.model ?? null,

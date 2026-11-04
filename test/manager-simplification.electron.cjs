@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { testModel } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path');
@@ -9,7 +10,7 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
 
  try{
 
-  await page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
+  await waitForInfo(page, 'Opened '+path.basename(file));
   const menu=command=>app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
   for(const mode of ['Vertices','Bones','Movement','Animations']){
    await page.getByRole('button',{name:mode,exact:true}).click();

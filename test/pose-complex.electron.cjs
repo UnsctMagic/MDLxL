@@ -1,3 +1,4 @@
+const {waitForInfo,infoMessageCursor}=require('./helpers/app.cjs');
 // Disposable packaged mouse acceptance. Never opens or replaces a user profile.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
@@ -130,10 +131,10 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width*.25,box.y+box.height*.3);await page.mouse.down();await page.mouse.move(box.x+box.width*.25+55,box.y+box.height*.3+20,{steps:8});await page.mouse.up();await page.keyboard.up('Alt');await settle();const cameraAfter=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON());assert.ok(new ObjectLoader().parse(cameraBefore).quaternion.angleTo(new ObjectLoader().parse(cameraAfter).quaternion)>.01,'normal Alt-mouse changes camera orientation');await shot('07-rotated');
     assert.equal(await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width),sidebar);
     const edited=(await snap()).model,dest=path.join(out,'ragdoll-posed.mdx');await app.evaluate(({dialog},dest)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:dest});},dest);await menu('saveAs');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
-    await page.waitForFunction(()=>document.querySelector('[role=dialog][aria-label="Save model"]') || /^Saved /.test(document.querySelector('.classic-status')?.textContent||''));
+    await page.waitForFunction(()=>document.querySelector('[role=dialog][aria-label="Save model"]') || window.__mdlxl?.document()?.dirty === false);
     const editorData=page.getByRole('dialog',{name:'Save model',exact:true});
     if(await editorData.isVisible()){assert.equal(await editorData.getByRole('checkbox').isChecked(),false,'keep existing editor data');await editorData.getByRole('button',{name:'Save',exact:true}).click();results.editorDataPreserved=true;}
-    await page.waitForFunction(()=>/^Saved /.test(document.querySelector('.classic-status')?.textContent||''));
+    await waitForInfo(page,/^Saved /);
     await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});assertModelEquivalent(edited,openDocument(fs.readFileSync(dest)).model);
     await page.locator('.model-tab.active .model-tab-close').click();await settle();await app.evaluate(({dialog},dest)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dest]});},dest);await menu('open');await settle();await menu('animation');await page.getByLabel('Movement current sequence').selectOption(String(sequence));await time.fill(String(frame));await time.press('Enter');await settle();assertModelEquivalent(edited,(await snap()).model);await shot('08-reopened');results.checks.push('Normal camera rotation, unchanged sidebar width, native MDX save and reopen, source model unchanged');
     assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));

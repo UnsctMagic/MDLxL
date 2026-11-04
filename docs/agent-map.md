@@ -99,7 +99,9 @@ setup and script definitions; [CI](../.github/workflows/ci.yml) owns the merge c
 - New or touched tests use the shared helpers in `test/helpers/` (`launchApp`,
   `appTarget` from the one `MDLXL_TEST_EXE` variable, `fixturePath`, `tempDir`,
   model fixtures, approximate asserts); see
-  [shared helper](PACKAGED-TESTS.md#shared-helper).
+  [shared helper](PACKAGED-TESTS.md#shared-helper). Suppressed informational messages are read through
+  `waitForInfo` / `infoMessageCursor` in that helper; see the
+  [0.38 test repair lane](agent-tasks/release-038-test-repairs.md).
 
 For continuation, locate the matching active note in [agent tasks](agent-tasks/README.md)
 or the existing topic handoff. Only open historical notes when their evidence is needed.

@@ -111,7 +111,7 @@ import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 import { plainTrackValues } from '../src/plain-track-values.js';
 import SidebarResizer from './SidebarResizer.jsx';
-import { exposeAppForTests } from './test-hook.js';
+import { exposeAppForTests, recordInfoForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
 
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
@@ -375,7 +375,7 @@ export default function App() {
   const refresh = () => setTick(value => value + 1);
   // Info stays quiet. Repeating a warning replaces it and restarts its fade.
   const say = (message, error = false) => {
-    if (!error) return;
+    if (!error) { recordInfoForTests(message); return; }
     const warning = { id: ++warningId.current, message: 'Error: ' + message };
     setWarnings(previous => [warning, ...previous.filter(item => item.message !== warning.message)].slice(0, 2));
   };

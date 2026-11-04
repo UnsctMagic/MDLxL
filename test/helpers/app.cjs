@@ -86,6 +86,18 @@ async function clickMenu(app, id) {
   }, id);
 }
 
+// Observes suppressed informational messages without restoring status chatter to the UI.
+// Pass after from infoMessageCursor before an action when the same message can recur.
+async function infoMessageCursor(page) {
+  return page.evaluate(() => window.__mdlxl?.infoMessages().at(-1)?.id || 0);
+}
+async function waitForInfo(page, expected, { after = 0, timeout = 20000 } = {}) {
+  const match = expected instanceof RegExp ? { pattern: expected.source, flags: expected.flags } : { text: expected };
+  const result = await page.waitForFunction(({ match, after }) => window.__mdlxl?.infoMessages().find(item =>
+    item.id > after && (match.pattern ? new RegExp(match.pattern, match.flags).test(item.message) : item.message === match.text)), { match, after }, { timeout });
+  return (await result.jsonValue()).message;
+}
+
 const settle = (page, ms = 150) => page.waitForTimeout(ms);
 
 // Quits the app and removes the throwaway profile launchApp created.
@@ -123,4 +135,4 @@ async function closeApp(app, { keepProfile = false } = {}) {
   profiles.delete(app);
 }
 
-module.exports = { root, appTarget, appDist, bundleHashes, launchApp, prepareWindow, stubDialogs, clickMenu, sha256File, settle, closeApp };
+module.exports = { waitForInfo, infoMessageCursor, root, appTarget, appDist, bundleHashes, launchApp, prepareWindow, stubDialogs, clickMenu, sha256File, settle, closeApp };

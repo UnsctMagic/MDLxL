@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 
@@ -14,7 +15,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
   const page=launched.page;
 
-  await page.getByText('Opened Blademaster.mdx',{exact:true}).waitFor();
+  await waitForInfo(page, 'Opened Blademaster.mdx');
   await page.locator('.classic-geosets').getByRole('button',{name:'Clear',exact:true}).click();
   await page.getByLabel('Select geoset 3',{exact:true}).check();await page.getByLabel('Show all geosets',{exact:true}).uncheck();
   await page.getByLabel('View direction',{exact:true}).selectOption('top');
@@ -31,9 +32,9 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   assert.equal(await page.getByRole('button',{name:'End here',exact:true}).count(),0);
   const choices=page.locator('.pe-ribbon-sequences input');assert.equal(await choices.count(),original.Sequences.length);
   for(let i=0;i<original.Sequences.length;i++)await choices.nth(i).uncheck();
-  assert.equal(await page.getByRole('button',{name:'Create',exact:true}).isEnabled(),true,'No extra click gate');
+  assert.equal(await page.getByRole('button',{name:'Create',exact:true}).isEnabled(),false,'Create requires a visible animation (#491)');
   await choices.nth(3).check();await choices.nth(2).check();
-  const seek=async(label,time)=>{await page.getByLabel(label,{exact:true}).evaluate((el,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,String(value));el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));},time);};
+  const seek=async(label,time)=>{const input=page.getByLabel(label,{exact:true});await input.click();await page.keyboard.press('Home');const step=Number(await input.getAttribute('step')||1),min=Number(await input.getAttribute('min')||0);for(let i=min;i<time;i+=step)await page.keyboard.press('ArrowRight');};
   await page.getByLabel('Fitted weapon edge',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'choose-animations.png')});
   const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => { const doc = props?.doc; return doc?.model; }, { props: true }); if (props) { const doc = props?.doc; return {model:JSON.parse(JSON.stringify(doc.model)),undo:doc.historyStats.undoSteps}; } }throw Error('Model missing');});
   const before=await read();await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.deepEqual(await read(),before);
@@ -101,9 +102,9 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
 
   // The one-screen ribbon panel, slower preview, pause while editing.
   for(const name of ['Basics','Appearance','Sweep'])assert.equal(await editor.getByRole('button',{name,exact:true}).count(),0,name);
-  assert.equal(await editor.getByLabel('Preview speed',{exact:true}).inputValue(),'0.25');
+  assert.equal(await editor.getByLabel('Playback Speed',{exact:true}).inputValue(),'0.25');
   await editor.getByRole('button',{name:'Play',exact:true}).click();await editor.getByRole('button',{name:'Pause',exact:true}).waitFor();
-  await editor.getByLabel('Ribbon lasts',{exact:true}).focus();await page.keyboard.press('ArrowLeft');await editor.getByRole('button',{name:'Play',exact:true}).waitFor();
+  await editor.getByLabel('Ribbon lasts',{exact:true}).click();await page.keyboard.press('ArrowLeft');await editor.getByRole('button',{name:'Play',exact:true}).waitFor();
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out}));
  }catch(error){if(app){const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});}throw error;}
  finally{if(app)await closeApp(app);}

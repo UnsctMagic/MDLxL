@@ -94,20 +94,23 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
       assert.equal(state.theme, preset.theme); assert.equal(state.background, preset.background); assert.equal(state.model, originalModel);
       result.presets.push(preset.name);
     }
-    const palette = await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance));
+    const palette = await page.evaluate(() => auditSettings().preferences.viewportAppearance);
     const openPage = name => page.locator('.settings-appearance-nav').getByRole('button', { name, exact: true }).click();
     await openPage('Interface');
     await page.getByLabel('Interface appearance set', { exact: true }).selectOption('mdlvis-vanilla');
-    assert.equal(await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance)), palette);
+    const afterInterface = await page.evaluate(() => auditSettings().preferences.viewportAppearance);
+    assert.deepEqual({ ...afterInterface, geosetSet: palette.geosetSet }, palette, 'Interface preset preserves every unrelated viewport setting');
+    assert.equal(afterInterface.geosetSet.color, '#71b5f3', 'Lordaeron applies its Compact Set color');
+    assert.equal(afterInterface.geosetSet.style, palette.geosetSet.style, 'Interface preset preserves the chosen geoset style');
     await openPage('Presets');
     await page.getByLabel('Custom viewport preset name').fill('Appearance audit');
     await page.getByRole('button', { name: 'Save as custom preset', exact: true }).click();
     const custom = await page.evaluate(() => auditSettings().preferences.viewportPreset);
     await page.getByLabel('Viewport appearance preset').selectOption('mdlvis-vanilla');
     await page.getByLabel('Viewport appearance preset').selectOption(custom);
-    assert.equal(await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance)), palette);
+    assert.deepEqual(await page.evaluate(() => auditSettings().preferences.viewportAppearance), afterInterface, 'Custom preset operations preserve the complete viewport palette');
     await page.getByRole('button', { name: 'Delete selected preset', exact: true }).click();
-    assert.equal(await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance)), palette);
+    assert.deepEqual(await page.evaluate(() => auditSettings().preferences.viewportAppearance), afterInterface, 'Custom preset operations preserve the complete viewport palette');
     // Large, valid background configurations must survive the real file-import control.
     const configuration = await page.evaluate(() => {
       const prefs = appearanceAudit.normalizePreferences(auditSettings().preferences);

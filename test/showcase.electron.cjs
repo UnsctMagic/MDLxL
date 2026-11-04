@@ -1,3 +1,4 @@
+const {waitForInfo,infoMessageCursor}=require('./helpers/app.cjs');
 const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
@@ -89,11 +90,11 @@ const {execFileSync}=require('node:child_process');
     // The turntable (2582431d) has no free camera: it turns about the model's own center.
     assert.ok(Number.isFinite(during.angle),'Turntable angle follows the recording clock');
     assert.deepEqual((await record.evaluate(el=>{return findFiberState(el,p=>p?.captureAPI,{props:true}).captureAPI.modelCenter();})).map(Math.round),[650,-300,154]);
-    await page.waitForFunction(()=>document.querySelector('.showcase-capture-status')?.textContent.includes('Creating GIF')||document.querySelector('.classic-status')?.textContent.includes('Saved')||document.querySelector('.capture-error'),{},{timeout:18000});
+    await page.waitForFunction(()=>document.querySelector('.showcase-capture-status')?.textContent.includes('Creating GIF')||window.__mdlxl?.infoMessages().some(m=>m.message.startsWith('Saved '))||document.querySelector('.capture-error'),{},{timeout:18000});
     const elapsed=await page.evaluate(()=>window.testRecordingTiming.finished-window.testRecordingTiming.started);assert.ok(elapsed>=9900&&elapsed<10600,'10 seconds must visibly complete in ~10 seconds: '+elapsed);
-    await page.waitForFunction(()=>document.querySelector('.classic-status')?.textContent.includes('Saved')||document.querySelector('.capture-error'),{},{timeout:120000});
+    await waitForInfo(page,/^Saved /,{timeout:120000});
     assert.equal(await page.locator('.capture-error').count(),0,await page.locator('.showcase-capture').innerText());
-    const status=await page.locator('.classic-status').innerText(),gifPath=status.match(/Saved (.+\.gif)/)?.[1];assert.ok(gifPath,status);
+    const status=await waitForInfo(page,/^Saved /),gifPath=status.match(/Saved (.+\.gif)/)?.[1];assert.ok(gifPath,status);
     const gif=fs.readFileSync(gifPath);let at=13,frames=0,delay=0;if(gif[10]&0x80)at+=3*(1<<((gif[10]&7)+1));
     while(at<gif.length){const marker=gif[at++];if(marker===0x3b)break;if(marker===0x21){const label=gif[at++];if(label===0xf9){assert.equal(gif[at++],4);at++;delay+=gif.readUInt16LE(at);at+=3;assert.equal(gif[at++],0);}else{while(true){const size=gif[at++];if(!size)break;at+=size;}}continue;}assert.equal(marker,0x2c);at+=9;const packed=gif[at-1];if(packed&0x80)at+=3*(1<<((packed&7)+1));at++;while(true){const size=gif[at++];if(!size)break;at+=size;}frames++;}
     assert.equal(delay,1000);assert.ok(frames>80&&frames<=101,'Captured real-time frame count '+frames);

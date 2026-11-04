@@ -37,17 +37,11 @@ const path = require('node:path');
       fs.writeFileSync(path.join(output, name), Buffer.from(png, 'base64'));
     };
     await page.evaluate(() => {
-      window.mergeState = () => {
-        const host = document.querySelector('[aria-label="3D model viewport"]');
-
-        { const current = findFiberState(host, current => current?.doc?.apply); if (current?.doc?.apply) return current; }
-
-        throw Error('Editor state missing');
-      };
+      window.mergeState = () => ({doc:window.__mdlxl.document()});
       window.mergeViewport = () => {
         const host = document.querySelector('[aria-label="3D model viewport"]');
 
-        { const current = findFiberState(host, current => current?.controls?.object); if (current?.controls?.object) return current; }
+        { const current = findFiberState(host, current => current?.controls?.object, {current:true}); if (current?.controls?.object) return current; }
 
         throw Error('Viewport state missing');
       };
@@ -55,7 +49,7 @@ const path = require('node:path');
     const choose = async indices => {
       await page.locator('[data-hotkey="geosetsClear"]').click();
       for (const index of indices) await page.getByLabel(`Select geoset ${index}`, { exact: true }).click();
-      await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Control+A');
+      await page.locator('[data-hotkey="vertices"]').first().click(); await page.keyboard.press('Control+A');
     };
     const before = await page.evaluate(() => ({ revision: mergeState().doc.revision, sidebar: document.querySelector('.classic-sidebar').getBoundingClientRect().width }));
     assert.equal(await page.getByRole('dialog', { name: 'Merge Geosets', exact: true }).count(), 0);
@@ -73,7 +67,7 @@ const path = require('node:path');
     await screenshot('popup.png');
     await popup.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
-    await openMerge(); await popup.waitFor(); await popup.getByRole('button', { name: 'Cancel', exact: true }).focus(); await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
+    await openMerge(); await popup.waitFor(); const choice=popup.getByRole('combobox',{name:'RGB resolution for geosets 5, 28',exact:true});await choice.click();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');assert.equal(await popup.getByRole('button',{name:'Cancel',exact:true}).evaluate(e=>e===document.activeElement),true,'real Tab navigation reaches Cancel');await page.keyboard.press('Escape'); await popup.waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
     await openMerge(); await popup.waitFor();
     await popup.getByRole('combobox', { name: 'RGB resolution for geosets 5, 28', exact: true }).selectOption('27');
@@ -99,20 +93,20 @@ const path = require('node:path');
     await page.waitForFunction(count => mergeState().doc.model.Geosets.length === count, initial.Geosets.length);
     const unlike = initial.Geosets.findIndex(g => g.MaterialID !== initial.Geosets[4].MaterialID);
     assert.ok(unlike >= 0); await choose([unlike, 4]); await openMerge();
-    await page.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'No geosets share compatible materials and RGB.');
+    await page.locator('.warning-toast').getByRole('button',{name:'Error: No geosets share compatible materials and RGB.',exact:true}).waitFor();
     assert.equal(await popup.count(), 0); assert.equal(await page.evaluate(() => mergeState().doc.model.Geosets.length), initial.Geosets.length);
     // Actual mouse input through the existing camera rotation control.
-    await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('w');
+    await page.keyboard.down('Alt');
     const canvas = page.locator('[aria-label="3D model viewport"] canvas').first(), area = await canvas.boundingBox();
     const cameraBefore = await page.evaluate(() => mergeViewport().controls.object.quaternion.toArray());
     await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2); await page.mouse.down();
     await page.mouse.move(area.x + area.width / 2 + 90, area.y + area.height / 2 + 30, { steps: 10 }); await page.mouse.up();
+    await page.keyboard.up('Alt');
     const cameraAfter = await page.evaluate(() => mergeViewport().controls.object.quaternion.toArray());
     assert.ok(Math.hypot(...cameraBefore.map((v, i) => v - cameraAfter[i])) > 0.01, 'normal mouse drag rotates the camera');
     assert.deepEqual(fs.readFileSync(source), bytes);
     console.log('PASS: centered conflict popup, explicit independent choices, cancel/Escape, merge, MDX reopen, undo/redo, material warning, sidebar preservation, actual mouse rotation, original file unchanged');
   } finally {
-    if (page && !page.isClosed()) await page.evaluate(() => { const state = typeof mergeState === 'function' && mergeState(); if (state) Object.defineProperty(state.doc, 'dirty', { get: () => false }); window.desktop?.setDirty({ dirty: false, saved: true }); });
     await closeApp(app);
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { fixturePath, gameFolder } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -11,7 +12,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
     const page=launched.page,errors=launched.errors;
 
     const capture=async()=>{const data=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'chaos-knight.png'),Buffer.from(data,'base64'));};
-    await page.getByText('Opened '+path.basename(file),{exact:true}).waitFor();
+    await waitForInfo(page, 'Opened '+path.basename(file));
     await page.locator('[data-hotkey="animations"]').first().dispatchEvent('click');
     await page.getByLabel('Choose animation sequence',{exact:true}).selectOption({label:'Walk'});
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');

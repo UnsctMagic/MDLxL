@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run with pnpm run test:packaged default vis-mdlvis-mode (hidden desktop on Windows).
 // MDLXL_SUITE_PKG selects a disposable package; MDLXL_VIS_OUT selects evidence output.
@@ -83,12 +84,12 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
           assert.deepEqual(data.size, [width, height]);
           assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay'));
           if (vis) {
-            assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 0); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
+            assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 1); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));
             assert.equal(data.dockInEditorRow, false); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
-            assert.ok(data.hint.includes({ vertices: 'Vertex editor (F1)', bones: 'Bones · Rest pose', animation: 'Movement (F3)', animations: 'Animations' }[mode]));
+            assert.equal(await page.locator('.model-tabs [role=tab][aria-selected=true]').getAttribute('aria-label'), 'VIS-test.mdx', 'VIS retains the active model tab');
           } else {
-            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 7); assert.deepEqual(data.editorNames, ['Vertices', 'Bones', 'Movement', 'Animations', 'Managers', 'Citadel Paint', 'Showcase']); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
+            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 7); assert.deepEqual(data.editorNames, ['Vertices', 'Bones', 'Movement', 'Animations', 'Managers', 'Citadel Paint', 'Showcase']); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, true);
             assert.equal(data.short, await row.evaluate(e => { const short = e.hasAttribute('data-short-editors'); e.removeAttribute('data-short-editors'); const overflow = e.scrollWidth > e.clientWidth; if (short) e.setAttribute('data-short-editors', ''); return overflow; }));
           }
           // Exercise each checkbox and its existing assigned key in the wide VIS view.
@@ -97,8 +98,9 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
             if (await input.isDisabled()) continue;
             const checked = await input.isChecked(); await input.click(); assert.equal(await input.isChecked(), !checked, `${viewMode}/${item.name} checkbox toggles`);
             const key = COMMANDS.find(command => command.id === item.action)?.defaultKeys[0];
-            if (key) { await page.evaluate(() => document.activeElement?.blur()); await press(key); }
+            if (key) await press(key); // a real checkbox click keeps non-typing focus
             else await input.click();
+            await page.waitForFunction(({input,checked})=>input.checked===checked,{input:await input.elementHandle(),checked});
             assert.equal(await input.isChecked(), checked, `${viewMode}/${item.name} key restores checked state`);
           }
           const before = await page.evaluate(() => visProbe());
@@ -157,7 +159,8 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     await page.screenshot({ path: path.join(out, 'vis-ai-disabled.png') });
     const travelTo = async (key, model) => {
       for (let steps = 0; steps < 8 && (await page.evaluate(() => visProbe())).model !== model; steps++) {
-        await page.evaluate(() => document.activeElement?.blur());
+        await page.locator('.quick-display input[data-hotkey=grid]').click();
+        await page.locator('.quick-display input[data-hotkey=grid]').click();
         await page.keyboard.press(key); await settlePage(page, 80);
         assert.equal((await page.evaluate(() => visProbe())).strokes, drawings, 'VIS Undo/Redo never steps AI drawings');
       }
@@ -184,7 +187,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     });
     // Save through the real editor path, using only the disposable input copy.
     await menu('save');
-    await page.waitForFunction(() => document.querySelector('.classic-status').textContent.includes('Saved VIS-test.mdx'));
+    await waitForInfo(page, 'Saved VIS-test.mdx');
     const saved = digest(fs.readFileSync(fixture));
     await page.locator('.vis-toggle').click();
     await settlePage(page, 100);
@@ -201,7 +204,8 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     const cleanup = page.getByRole('dialog', { name: 'Tidy up AI chats', exact: true });
     assert.equal(await cleanup.count(), 0, 'saving with AI activity in VIS does not portal the cleanup dialog');
     const grid = page.locator('.quick-display input[data-hotkey="grid"]'), checked = await grid.isChecked();
-    await page.evaluate(() => document.activeElement?.blur());
+    await page.locator('.quick-display input[data-hotkey=grid]').click();
+    await page.locator('.quick-display input[data-hotkey=grid]').click();
     await press(COMMANDS.find(command => command.id === 'grid').defaultKeys[0]);
     assert.equal(await grid.isChecked(), !checked, 'pending AI cleanup does not capture VIS editor shortcuts');
     await page.locator('.vis-toggle').click();
