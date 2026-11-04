@@ -17,3 +17,5 @@ Main/busy-editor screenshots use the final build; Citadel captures are from the 
 The final packaged review verified eight real mouse camera drags and unchanged sidebar widths/source fixture. Buttons, tabs and labels in the captured main/editors fit; the separate ancestor-boundary check also passed in English, French and German. These checks do not cover every rare dialog or prove Warcraft III acceptance.
 
 The four checker captures use the final Electron renderer. Checker prose is localized and diagnostic paths/names stay literal; no model data changes.
+
+FX continuation: [French](fr-fx.png), [German](de-fx.png), final 8,125-key frozen renderer. Eight new complete FX loops, both actual camera paths and all recorded native green cues passed; older media remained unchanged.

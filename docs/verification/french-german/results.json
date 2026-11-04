@@ -1,5 +1,5 @@
 {
-  "status": "ready for review; awaiting merge approval",
+  "status": "completed; merged with owner approval",
   "prs": {
     "app": "https://github.com/UnsctMagic/MDLxL/pull/539",
     "website": "https://github.com/UnsctMagic/LowPolyWorks/pull/56"
@@ -34,7 +34,7 @@
       "skip": 0
     },
     "website": {
-      "pass": 8,
+      "pass": 9,
       "fail": 0,
       "skip": 0
     },
@@ -60,11 +60,194 @@
     }
   },
   "appCi": {
-    "url": "https://github.com/UnsctMagic/MDLxL/actions/runs/41745525007",
-    "commit": "3e2081c1a50d79f87f29e30f73a237f4cd3d3b42",
+    "url": "https://github.com/UnsctMagic/MDLxL/actions/runs/41755810233",
+    "commit": "35cda62dc4f8565b6bda6e3460a006ba262e2ce2",
     "conclusion": "success"
   },
   "tutorials": {
+    "passed": true,
+    "tutorialsPerLocale": 8,
+    "gifsPerLocale": 29,
+    "pngsPerLocale": 18,
+    "totalGifs": 58,
+    "fullRealPageLoops": 58,
+    "oldMediaFilesPreserved": 84,
+    "oldEmbeddedRecordsPreserved": 50,
+    "fx": {
+      "passed": true,
+      "languages": [
+        "fr",
+        "de"
+      ],
+      "newTutorial": "FX: introduction",
+      "totalTutorialsPerLocale": 8,
+      "newGIFs": 8,
+      "newCards": 2,
+      "inventoryPerLocale": {
+        "gifs": 29,
+        "pngs": 18
+      },
+      "newDecodedFrames": 2582,
+      "newRealBrowserFullLoops": 8,
+      "browserImportedAnimationRecordsPerLocale": 29,
+      "recordedGreenNativeControlCues": 22,
+      "blankViewportFrames": 0,
+      "isolatedReturnJumps": 0,
+      "oldMediaFilesPreserved": 84,
+      "oldEmbeddedRecordsPreserved": 50,
+      "actualMainCameraMouseDrag": true,
+      "actualFXCameraMouseDrag": true,
+      "oneBladeOnlyFXCommit": true,
+      "geometryRigAnimationsPreserved": true,
+      "inputHashes": {
+        "Prepared.mdx": "66315e787e354e008776dc67758e3d4638a750b036ff30b5717b11f6a488d67a",
+        "Original.mdx": "0464bc7095533aad067439d9e47cda341209b70456f1e24906099ada8547a961"
+      },
+      "frozenBuild": {
+        "index": "5936310b8ac4671927e04a6b27b5fe2a3691c7ada5304971d02076922a770044",
+        "assets": "f12b6c710840ea9d168b5cd0a600979085b0e2853859e1d50c008105beca8ca2",
+        "fr": "d2c4df130eeb5379f707ac5a2e75de62d25a06599cac7d00c518bfd059d710ac",
+        "de": "b8e1776934ed79710a17d519110f266f46e18f0a9e24f6b365a00acfed8224b0"
+      },
+      "sourceRecipe": "tools/mdlxl-tutorial-capture/fx",
+      "nativeShots": [
+        "tutorial-fx-fr-native.png",
+        "tutorial-fx-de-native.png"
+      ],
+      "siteShots": [
+        "site-fx-fr-desktop.png",
+        "site-fx-de-mobile.png"
+      ],
+      "browserPageSizes": [
+        {
+          "locale": "fr",
+          "desktop": {
+            "width": 1600,
+            "height": 1032
+          },
+          "mobile": {
+            "width": 390,
+            "scrollWidth": 390,
+            "cards": 8
+          },
+          "errors": [],
+          "badResources": []
+        },
+        {
+          "locale": "de",
+          "desktop": {
+            "width": 1600,
+            "height": 1032
+          },
+          "mobile": {
+            "width": 390,
+            "scrollWidth": 390,
+            "cards": 8
+          },
+          "errors": [],
+          "badResources": []
+        }
+      ],
+      "moduleSplit": "Combined metadata exceeded GitHub100MiB file limit; static companion import keeps unchanged default export API and all payload values",
+      "modules": [
+        {
+          "locale": "fr",
+          "baseRecords": 25,
+          "newFXRecords": 4,
+          "moduleBytes": 69229212,
+          "fxModuleBytes": 41662240
+        },
+        {
+          "locale": "de",
+          "baseRecords": 25,
+          "newFXRecords": 4,
+          "moduleBytes": 66189065,
+          "fxModuleBytes": 42892420
+        }
+      ],
+      "scope": "Only newFX GIF/card/embedded metadata and bounded capture recipes; no old media changes, application source changes, original model changes or publication",
+      "totalGIFsDecodedIncludingPreviousTutorials": 58,
+      "sourceSyntaxChecks": 9,
+      "mediaAuditReport": "tutorial-fx-media-audit.json",
+      "modelReport": "tutorial-fx-model-verification.json",
+      "greenCueReport": "tutorial-fx-green-cues.json",
+      "nativeMainProof": "tutorial-fx-native-main-camera.json",
+      "playbackReports": [
+        "tutorial-fx-playback-fr.json",
+        "tutorial-fx-playback-de.json"
+      ],
+      "screenshots": [
+        {
+          "name": "tutorial-fx-fr-native.png",
+          "bytes": 204944,
+          "width": 1100,
+          "height": 700,
+          "sha256": "caed0d36490a6b9c2809a4fa6bda85d46ae5a2a186588f24e1598e3895bdd94a"
+        },
+        {
+          "name": "tutorial-fx-de-native.png",
+          "bytes": 206233,
+          "width": 1100,
+          "height": 700,
+          "sha256": "13f3cebc6069a79f3103559c3a8c791e469a09ec106f00a26d7edd703bb52e91"
+        },
+        {
+          "name": "site-fx-fr-desktop.png",
+          "bytes": 1100529,
+          "width": 1600,
+          "height": 1032,
+          "sha256": "fdde80cd820835a1fe07a5bf3fb7f63f46b044c397693396b866650465999dff"
+        },
+        {
+          "name": "site-fx-de-mobile.png",
+          "bytes": 431660,
+          "width": 390,
+          "height": 844,
+          "sha256": "0c9443ef121d60829658f9b69e2d0bbfb2511b493926ead783658571401e5317"
+        }
+      ],
+      "newGIFHashes": {
+        "fr/fx-choose": "609c55ce3facf93a5adb7d89567119f7a104f324310fdee357a237c4587a70de",
+        "fr/fx-adjust": "bcfbcc81769a4428f7df52a365faf06d87b20123a35a68a276fe20996a4eb56c",
+        "fr/fx-apply": "188bf90d7a8ef3740ca0b405761344b130ad73e29d7a0af66eb599795affc061",
+        "fr/fx-animations": "0adc6230227183d9313ec9bb871d7f10154d889438fd1cdfcb1425d623db408a",
+        "de/fx-choose": "ea3b362b44d56796800b36843d2bbe4f2a27fa43a19b080c466387cd4e0204c9",
+        "de/fx-adjust": "c623dc841e87474dbd389d06e76d45b0c05e13fcad346d9fa776ea85f6a652a4",
+        "de/fx-apply": "bf78d64ebae1e43cbd3083475b900087e418c78bb4fa3877447d62d5081bb016",
+        "de/fx-animations": "11d8de44f589ab599c2b890ac41867823a917b69feb6f8dc69b59813e9378ef7"
+      }
+    }
+  },
+  "siteScope": {
+    "base": "c81da02831d5af715d8d58f825daa451aa9be0e9",
+    "modelPages": 139,
+    "onlyModelPageChanges": [
+      "app.js cache key",
+      "mdlxl.css cache key"
+    ],
+    "protectedModelAndReleaseDataUnchanged": true
+  },
+  "notExercised": [
+    "Every rare dialog/provider path",
+    "Warcraft III/World Editor acceptance",
+    "Actual future release/PDF generation or publication"
+  ],
+  "preserved": [
+    "Version numbers",
+    "Historical release notes/PDFs/site JSON",
+    "0.38.0 release PR and translation PR #534",
+    "Model data and real profiles",
+    "Current main model/catalogue/portrait changes"
+  ],
+  "finalCatalogHashes": {
+    "fr": "d2c4df130eeb5379f707ac5a2e75de62d25a06599cac7d00c518bfd059d710ac",
+    "de": "b8e1776934ed79710a17d519110f266f46e18f0a9e24f6b365a00acfed8224b0"
+  },
+  "merges": {
+    "app": "babee7c8ec8c28f0b6b057fba781c793cccd6d98",
+    "website": "1fb8cba0641b8a5cc297de48b556bdb9bf9d3491"
+  },
+  "originalSevenTutorials": {
     "passed": true,
     "languages": [
       "fr",
@@ -126,41 +309,5 @@
       "width": 1600,
       "height": 1100
     }
-  },
-  "siteScope": {
-    "passed": true,
-    "modelPages": 139,
-    "changesOnly": [
-      "app.js cache key",
-      "mdlxl.css cache key"
-    ],
-    "baseline": "5ffee8ed6869d0d499a1cf717f1ee0e77b0585af",
-    "protectedHistoryAndModelsUnchanged": true,
-    "tutorialInventory": {
-      "locales": [
-        "es",
-        "fr",
-        "de"
-      ],
-      "filesEach": 44,
-      "gifsEach": 25,
-      "pngsEach": 17
-    }
-  },
-  "notExercised": [
-    "Every rare dialog/provider path",
-    "Warcraft III/World Editor acceptance",
-    "Actual future release/PDF generation or publication"
-  ],
-  "preserved": [
-    "Version numbers",
-    "Historical release notes/PDFs/site JSON",
-    "0.38.0 release PR and translation PR #534",
-    "Model data and real profiles",
-    "Current main model/catalogue/portrait changes"
-  ],
-  "finalCatalogHashes": {
-    "fr": "d2c4df130eeb5379f707ac5a2e75de62d25a06599cac7d00c518bfd059d710ac",
-    "de": "b8e1776934ed79710a17d519110f266f46e18f0a9e24f6b365a00acfed8224b0"
   }
 }
