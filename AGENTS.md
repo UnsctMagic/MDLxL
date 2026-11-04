@@ -162,6 +162,10 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
   both the merged PR and its change on online `main` before reporting completion.
   After merging, mark the task note completed with the merge revision and remove
   its [README](docs/agent-tasks/README.md) row in the same or the next PR.
+- Starting with the release after 0.38.0, notes, new PDF guides, release-body
+  links and update/site release text ship in EN/ES/RU/ZH-CN/FR/DE. Follow
+  [the release recipe](docs/RELEASING.md). Do not backfill historical releases;
+  existing tutorials are the exception and stay translated.
 - Do not bump versions for unshipped local edits. For a release, choose the next
   version from the latest released version and include all intended changes.
   Never reuse a version: patch for fixes/maintenance, minor for compatible

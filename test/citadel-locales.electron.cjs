@@ -25,9 +25,13 @@ async function run(){
 
   const {translate}=await import('../src/localization.js'),seen=new Set();
   const collect=async()=>{for(const t of await page.locator('.paint-workspace').evaluate(e=>{const walk=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);const text=[];while(walk.nextNode()){const n=walk.currentNode;if(n.parentElement?.closest('kbd,code,pre,[translate="no"]'))continue;if(n.parentElement?.getClientRects().length&&n.textContent.trim())text.push(n.textContent.trim());}return text;}))seen.add(t);};
-  async function language(locale){await page.locator('.language-trigger').click();await page.getByRole('option',{name:({en:'English',ru:'Russian',es:'Spanish',zh:'Chinese',mordor:'The Language of Mordor'})[locale],exact:true}).click();await settle();}
-  for(const locale of ['en','ru','es','zh','mordor']){
-    await language(locale);const button=name=>page.getByRole('button',{name:translate(name,locale),exact:true}).first();
+  async function language(locale){await page.locator('.language-trigger').click();await page.getByRole('option',{name:({en:'English',ru:'Russian',es:'Spanish',zh:'Chinese',fr:'French',de:'German',mordor:'The Language of Mordor'})[locale],exact:true}).click();await settle();}
+  for(const locale of ['en','ru','es','zh','fr','de','mordor']){
+    await language(locale);
+    // Mordor deliberately reuses words. Match both the translated label and the
+    // existing paint command so Help cannot accidentally click Original.
+    const keys={Paint:'B','Related colors':'C',Help:'?','Cut out':'K','Protect pixels':'X'};
+    const button=name=>page.getByRole('button',{name:translate(name,locale),exact:true}).and(keys[name]?page.locator('button[data-paint-key='+JSON.stringify(keys[name])+']'):page.locator('button.paint-shelf-tile'));
     await button('Paint').click();await button('Related colors').click();await shot(locale+'-paint');if(locale==='en')await collect();
     await button('Help').click();await shot(locale+'-shortcuts');if(locale==='en')await collect();await page.keyboard.press('Escape');
     await button('Footman chainmail').click();await shot(locale+'-stamp');if(locale==='en')await collect();
@@ -36,8 +40,8 @@ async function run(){
     result.checks.push(locale+': paint, stamp, help, cutout and protected-pixel dialogs render and accept input');
   }
   await language('en');await b('New…').click();await b('Discard and start new').click();await collect();await shot('en-start');
-  for(const locale of ['ru','es','zh']){await language(locale);await shot(locale+'-start');}
-  result.untranslated=[...seen].filter(s=>/[a-z]{2}/i.test(s)&&['ru','es','zh'].some(l=>translate(s,l)===s));
+  for(const locale of ['ru','es','zh','fr','de']){await language(locale);await shot(locale+'-start');}
+  result.untranslated=[...seen].filter(s=>/[a-z]{2}/i.test(s)&&['ru','es','zh','fr','de'].some(l=>translate(s,l)===s));
   assert.deepEqual(result.errors,[]);console.log(JSON.stringify({out,...result},null,2));
 }
 run().catch(async error=>{result.failure=error.stack;console.error(error);if(page){console.error((await page.locator('body').innerText()).slice(-4000));await shot('failure');}process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await closeApp(app);});

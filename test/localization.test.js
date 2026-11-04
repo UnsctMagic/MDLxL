@@ -64,3 +64,22 @@ test('a context marks words that read the same in English but differ elsewhere',
   } finally { setLanguage('en'); }
   assert.equal(translate('navigation\u0004Back'), 'Back', 'English shows the plain text');
 });
+
+test('French and German are registered and survive preference normalization', async () => {
+ const { LANGUAGES, isLanguage } = await import('../src/localization.js');
+ const { normalizePreferences } = await import('../src/preferences.js');
+ for (const [id,label,nativeLabel] of [['fr','French','Français'],['de','German','Deutsch']]) {
+  assert.deepEqual(LANGUAGES.find(language => language.id === id), {id,label,nativeLabel});
+  assert.equal(isLanguage(id), true);
+  assert.equal(normalizePreferences({language:id}).language, id);
+ }
+});
+
+test('the compact geoset selection label keeps its own wording without changing Clear elsewhere',()=>{
+ assert.equal(translate('geoset-selection\u0004Clear','en'),'Clear');
+ assert.equal(translate('geoset-selection\u0004Clear','fr'),'Rien');
+ assert.equal(translate('geoset-selection\u0004Clear','de'),'Keine');
+ assert.equal(translate('Clear','fr'),'Effacer');
+ assert.equal(translate('Clear','de'),'Leeren');
+ for(const locale of ['ru','es','zh'])assert.equal(translate('geoset-selection\u0004Clear',locale),translate('Clear',locale));
+});

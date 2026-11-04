@@ -50,6 +50,8 @@ function releaseMetadata(release, current) {
     if (label === 'Русский') notes.ru = url;
     if (label === 'Español') notes.es = url;
     if (label === '简体中文') notes.zh = url;
+    if (label === 'Français') notes.fr = url;
+    if (label === 'Deutsch') notes.de = url;
   }
   if (websiteURL(notes.en)) notes.es = `${WEBSITE}/?version=${version}&lang=es`;
   return { version, title: release.name || `MDLxL ${version}`, url: `${WEBSITE}/?version=${version}`, notes, asset, body: release.body || '', checksum: release.assets?.find(item => item.name === asset.name + '.sha256') };

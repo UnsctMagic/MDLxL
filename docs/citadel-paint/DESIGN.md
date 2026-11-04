@@ -110,6 +110,6 @@ is tested with nearest filtering. General linear-filter parity is unestablished.
 The saved Footman study is a reproducible quick reskin exercise, not a polished
 asset or a novice completion-time claim. A complete Ghoul/Abomination-skin reskin,
 user acceptance and native Warcraft runtime playtest remain unexercised.
-Paint controls and guidance are localized in English, Russian, Spanish, Chinese
-and the existing Mordor cipher. Existing scene/view data remains readable;
+Paint controls and guidance are localized in English, Russian, Spanish, Chinese,
+French, German and the existing Mordor cipher. Existing scene/view data remains readable;
 the visible editor focuses on painting.

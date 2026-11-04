@@ -3,6 +3,8 @@
 import ru from './locales/ru.json' with { type: 'json' };
 import es from './locales/es.json' with { type: 'json' };
 import zh from './locales/zh.json' with { type: 'json' };
+import fr from './locales/fr.json' with { type: 'json' };
+import de from './locales/de.json' with { type: 'json' };
 
 export const russian = Object.freeze({ ...ru });
 export const LANGUAGES = Object.freeze([
@@ -10,6 +12,8 @@ export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'ru', label: 'Russian', nativeLabel: 'Русский' }),
   Object.freeze({ id: 'es', label: 'Spanish', nativeLabel: 'Español' }),
   Object.freeze({ id: 'zh', label: 'Chinese', nativeLabel: '中文' }),
+  Object.freeze({ id: 'fr', label: 'French', nativeLabel: 'Français' }),
+  Object.freeze({ id: 'de', label: 'German', nativeLabel: 'Deutsch' }),
   Object.freeze({ id: 'mordor', label: 'The Language of Mordor', nativeLabel: 'The Language of Mordor' }),
 ]);
 // Tolkien published only a small Black Speech corpus. Mordor mode is therefore
@@ -35,6 +39,8 @@ const dictionaries = Object.freeze({
   ru: russian,
   es: Object.freeze({ ...es }),
   zh: Object.freeze({ ...zh }),
+  fr: Object.freeze({ ...fr }),
+  de: Object.freeze({ ...de }),
   mordor: blackSpeech,
 });
 let language = 'en';
@@ -64,7 +70,7 @@ export function translate(text, locale = language, depth = 0) {
   let translated=dictionaries[locale][trimmed];
   // A complete reviewed label beats a generic template such as "Material {0}".
   // Keep the community Chinese lookup behavior exactly as supplied.
-  if (translated === undefined && (locale === 'ru' || locale === 'es')) {
+  if (translated === undefined && (locale === 'ru' || locale === 'es' || locale === 'fr' || locale === 'de')) {
     const decorated = /^(.*?)(:|…|\.\.\.)$/.exec(trimmed);
     const label = decorated && dictionaries[locale][decorated[1]];
     if (label !== undefined && label !== null) translated = label + decorated[2];

@@ -225,3 +225,11 @@ test('an installed update sends a bare ping with only the new version', async t 
   assert.deepEqual(await fs.readdir(profile), [], 'nothing is stored');
   await new Updater({ currentVersion: '0.33.0', installRoot: profile, profile, packaged: true, fetcher: async () => { throw Error('offline'); } }).reportUpdate();
 });
+
+test('French and German release links are preserved for future update summaries', () => {
+ const release = metadata('0.99.1');
+ release.body = '[English](https://www.lowpolyworks.com/mdlxl/?version=0.99.1&lang=en)\n[Français](https://www.lowpolyworks.com/mdlxl/?version=0.99.1&lang=fr)\n[Deutsch](https://www.lowpolyworks.com/mdlxl/?version=0.99.1&lang=de)';
+ const offered = releaseMetadata(release, '0.1.0');
+ assert.equal(offered.notes.fr, 'https://www.lowpolyworks.com/mdlxl/?version=0.99.1&lang=fr');
+ assert.equal(offered.notes.de, 'https://www.lowpolyworks.com/mdlxl/?version=0.99.1&lang=de');
+});
