@@ -163,7 +163,13 @@ const FILE_ICON_STYLES = [['page', 'Helmet on a page', 'page'], ['dark-page', 'D
 // MDL and MDX files each pick their own Explorer icon; labelled variations name the format.
 function FileIconSettings({ prefs, commit }) {
   const [sharedDefault, setSharedDefault] = useState(false);
-  useEffect(() => { window.desktop?.fileTypesNeedDefaultAgain?.().then(value => setSharedDefault(Boolean(value)), () => {}); }, [prefs.fileIcon, prefs.fileIconMdl]);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => window.desktop?.fileTypesNeedDefaultAgain?.().then(value => { if (active) setSharedDefault(Boolean(value)); }, () => {});
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [prefs.fileIcon, prefs.fileIconMdl]);
   const row = (kind, key, title) => <div className="settings-inline-actions settings-file-icons" role="radiogroup" aria-label={title}><span>{title}</span>{FILE_ICON_STYLES.map(([style, label]) => {
     const file = style === 'program' ? 'MDLxL.ico' : style.startsWith('label-') ? 'file-' + kind + '-' + style.slice(6) + '.ico' : 'file-' + style + '.ico';
     return <button key={style} data-hotkey={'file-icon:' + kind + ':' + style} role="radio" aria-label={label} aria-checked={prefs[key] === style} aria-pressed={prefs[key] === style} title={style === 'program' ? label + ': files show the same helmet icon as MDLxL.exe.' : label} className="settings-file-icon" onClick={() => commit({ [key]: style })}><img src={'./branding/' + file} alt=""/></button>;
@@ -172,7 +178,7 @@ function FileIconSettings({ prefs, commit }) {
     <h3>File icons</h3><p>The icons Explorer shows on MDL and MDX files. Windows uses them once MDLxL is the default program for them. Paint Projects use the MDX style without a label.</p>
     {row('mdl', 'fileIconMdl', 'MDL files')}
     {row('mdx', 'fileIcon', 'MDX files')}
-    {sharedDefault && <p className="settings-hint">Windows still opens MDL and MDX through MDLxL's older shared file type, so both show the same icon. Choose MDLxL again for .mdl and .mdx in Default apps.</p>}
+    {sharedDefault && <p className="settings-hint">Windows is using a shared MDLxL icon for .mdl or .mdx, so the separate choices and labels cannot appear. Click the button below, then choose MDLxL for each file type in Windows Default apps.</p>}
     <button data-hotkey="file-icon:default-apps" disabled={!window.desktop?.openDefaultApps} title="Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files." onClick={() => window.desktop.openDefaultApps()}>Make MDLxL the default program…</button>
   </>;
 }

@@ -7,6 +7,24 @@ src, out = sys.argv[1], sys.argv[2]
 FONT = 'C:/Windows/Fonts/segoeuib.ttf'
 SIZES = [16, 24, 32, 48, 64, 128, 256]
 KINDS = {'mdl': (47, 143, 208), 'mdx': (194, 59, 46)}   # MDL blue (text), MDX red (binary)
+# At small sizes, crisp five-pixel-high letters keep all three letters readable.
+SMALL_LETTERS = {
+    'M': ['10001', '11011', '10101', '10001', '10001'],
+    'D': ['110', '101', '101', '101', '110'],
+    'L': ['100', '100', '100', '100', '111'],
+    'X': ['101', '101', '010', '101', '101'],
+}
+
+
+def small_text(im, kind, box):
+    x0, y0, x1, y1 = box
+    x, y = round((x0 + x1 - 12) / 2), round((y0 + y1 - 4) / 2)
+    d = ImageDraw.Draw(im)
+    for letter in kind.upper():
+        for row, bits in enumerate(SMALL_LETTERS[letter]):
+            for column, bit in enumerate(bits):
+                if bit == '1': d.point((x + column, y + row), fill=(255, 255, 255, 255))
+        x += len(SMALL_LETTERS[letter][0]) + 1
 
 def frames(name):
     im = Image.open(os.path.join(src, name + '.ico')); res = {}
@@ -19,8 +37,17 @@ def bbox(im): return im.getchannel('A').point(lambda a: 255 if a > 40 else 0).ge
 def text_band(im, kind, box, radius):
     s = im.size[0]; d = ImageDraw.Draw(im); col = KINDS[kind]
     x0, y0, x1, y1 = box
+    if s <= 32:
+        # Thirteen pixels of letters plus a one-pixel border on every side.
+        width, height = max(15, x1 - x0 + 1), max(7, y1 - y0 + 1)
+        x0 = max(0, min(s - width, round((x0 + x1 + 1 - width) / 2)))
+        y0 = max(0, y1 + 1 - height)
+        x1, y1 = x0 + width - 1, y0 + height - 1
+        box = (x0, y0, x1, y1)
     d.rounded_rectangle(box, radius=radius, fill=col + (255,), outline=(255, 255, 255, 255) if s >= 48 else None, width=max(1, s // 96))
-    if s >= 32:
+    if s <= 32:
+        small_text(im, kind, box)
+    else:
         h = y1 - y0; size = int(h * .78); f = ImageFont.truetype(FONT, size)
         t = kind.upper(); tb = d.textbbox((0, 0), t, font=f)
         while tb[2] - tb[0] > (x1 - x0) * .86: size -= 1; f = ImageFont.truetype(FONT, size); tb = d.textbbox((0, 0), t, font=f)
@@ -58,7 +85,8 @@ def letters(kind):
             d.text(((s - (tb[2] - tb[0])) / 2 - tb[0], s * .66 - (tb[3] - tb[1]) / 2 - tb[1]), t, font=f, fill=(255, 255, 255, 255))
             hs = round(s * .46); h = helm[256].resize((hs, hs), Image.LANCZOS); im.alpha_composite(h, ((s - hs) // 2, round(s * .08)))
         else:
-            hs = round(s * .7); h = helm[256].resize((hs, hs), Image.LANCZOS); im.alpha_composite(h, ((s - hs) // 2, (s - hs) // 2))
+            hs = round(s * .4); h = helm[256].resize((hs, hs), Image.LANCZOS); im.alpha_composite(h, ((s - hs) // 2, max(1, round(s * .08))))
+            small_text(im, kind, (0, s - 8, s - 1, s - 2))
         res[s] = im
     return res
 
