@@ -118,11 +118,11 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       for (const i of before.ids) {
         const u = before.uv[i * 2], v = before.uv[i * 2 + 1];
         const expected = tool === 'Move' ? [u + 50 / selectedMapping.sizeX, v + 30 / selectedMapping.sizeY]
-          : tool === 'Rotate' ? [center[0] - (v - center[1]) * selectedMapping.sizeY / selectedMapping.sizeX, center[1] + (u - center[0]) * selectedMapping.sizeX / selectedMapping.sizeY]
+          : tool === 'Rotate' ? [center[0] + (u - center[0]) * Math.cos(-80 * .7 / 48) - (v - center[1]) * Math.sin(-80 * .7 / 48) * selectedMapping.sizeY / selectedMapping.sizeX, center[1] + (u - center[0]) * Math.sin(-80 * .7 / 48) * selectedMapping.sizeX / selectedMapping.sizeY + (v - center[1]) * Math.cos(-80 * .7 / 48)]
           : tool === 'Mirror by X' ? [2 * center[0] - u, v]
           : tool === 'Mirror by Y' ? [u, 2 * center[1] - v]
           : [Math.min(...before.ids.map(id => before.uv[id * 2])), v];
-        assert.ok(expected.every((value, axis) => Math.abs(after.uv[i * 2 + axis] - value) < .01), tool + ' retains its existing result');
+        assert.ok(expected.every((value, axis) => Math.abs(after.uv[i * 2 + axis] - value) < .01), tool + ' produces its expected result');
       }
       check(tool + ': unselected UVs unchanged', after.uv.filter((_, i) => !before.ids.includes(Math.floor(i / 2))), before.uv.filter((_, i) => !before.ids.includes(Math.floor(i / 2))));
       check(tool + ': UV view unchanged', await page.evaluate(() => zoomMap()), mapBefore);

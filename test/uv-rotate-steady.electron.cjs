@@ -1,70 +1,95 @@
-const { launchApp, closeApp } = require('./helpers/app.cjs');
-// UV map Rotate is a flat 2D turn: the selection follows the mouse around its
-// centre one for one, near or far, from a drag started on it or away from it, and
-// keeps adding up past a full circle. The profile carries the owner's real mouse
-// settings (3D rotation at 0.3x, pointer 1.22x), which must not slow it.
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const assert = require('node:assert/strict');
+const { launchApp, closeApp, bundleHashes } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 
+// Real mouse drags on the packaged UV Wrapper. Probes only read state.
 (async () => {
-  const { createStarterDocument } = await import('../src/starter-model.js');
-  const out = path.resolve(process.env.MDLXL_UV_ROTATE_OUT || 'out/uv-rotate-steady/' + Date.now());
+  const out = path.resolve(process.env.MDLXL_UV_ROTATE_OUT || 'out/uv-rotate-steady');
   fs.mkdirSync(out, { recursive: true });
-  const fixture = path.join(out, 'Starter.mdx'); fs.writeFileSync(fixture, createStarterDocument().serialize('mdx'));
-  const checks = [], errors = [];
-  const check = (label, pass, evidence) => { checks.push({ label, pass: !!pass, evidence }); console.log((pass ? 'PASS ' : 'FAIL ') + label + (evidence === undefined ? '' : ' ' + JSON.stringify(evidence))); };
-  const profile = path.join(out, 'profile'); fs.mkdirSync(profile, { recursive: true });
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { pointerSensitivity: 1.22, rotation: { behavior: 'ring', sensitivity: .3, editors: {} } } }));
-  const { app, page } = await launchApp({ out, profile, args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'], env: { MDLVIS_HEADLESS: '1' }, timeout: 60000, fixture, errors, pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1280, height: 900 }, show: 'hide' });
+  const fixture = fixturePath('footman'), originalFile = fs.readFileSync(fixture);
+  const checks = [], errors = [], measurements = [], bundle = bundleHashes();
+  const check = (label, actual, expected = true) => {
+    assert.deepEqual(actual, expected, label); checks.push(label); console.log('PASS ' + label);
+  };
+  const { app, page } = await launchApp({ fixture, out, errors,
+    bounds: { x: 0, y: 0, width: 1440, height: 1000 },
+    args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'],
+    settings: { preferences: { pointerSensitivity: 1.22, uvSensitivity: 1.7, fineSensitivity: .2,
+      rotation: { behavior: 'ring', sensitivity: .3, editors: {} }, graphics: { pauseWhenHidden: false } } } });
   try {
-    const idle = () => page.waitForTimeout(180);
-    const menu = id => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), id);
-    await menu('vertices'); await page.getByLabel('3D model viewport', { exact: true }).waitFor();
-    await page.locator('[data-hotkey="geosetsClear"]').click(); await page.getByLabel('Select geoset 0', { exact: true }).check();
-    await page.getByLabel('3D model viewport', { exact: true }).focus(); await menu('selectAll'); await idle();
-    await menu('uv'); const uv = page.locator('.uv-tab-window'); await uv.waitFor();
-    await uv.getByRole('button', { name: 'Rotate', exact: true }).click(); await idle();
-    await page.evaluate(() => { window.uvRotate = () => { const el = document.querySelector('.uv-editor'); return { state: findFiberState(el, v => v?.uv && v?.draw, { last: true }), props: findFiberState(el, v => v?.geoset && v?.onSelectVertices, { last: true }) }; }; });
-    const canvas = uv.locator('.uv-editor canvas'), box = await canvas.boundingBox();
-    const info = async () => { const p = await page.evaluate(() => { const { state, props } = uvRotate(), ids = Array.from(props.selectedVertices), uv = Array.from(state.uv), c = [0, 0]; ids.forEach(i => { c[0] += uv[i * 2] / ids.length; c[1] += uv[i * 2 + 1] / ids.length; }); return { ids, uv, c }; }); return p; };
-    // Circles the mouse `turns` times around the selection centre at `radius`
-    // pixels, starting at `start` radians, then reports the on-screen turn.
-    // `fromCentre` presses on the centre and moves out before circling.
-    const circle = async (radius, turns, start = 0, fromCentre = false) => {
-      const before = await info();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-      const m = await page.evaluate(() => { const d = uvRotate().state.drag; return { pivot: d.pivotScreen, sizeX: d.sizeX, sizeY: d.sizeY }; });
-      await page.mouse.up(); await idle();
-      const cx = box.x + m.pivot[0], cy = box.y + m.pivot[1], steps = Math.ceil(Math.abs(turns) * 48);
-      if (fromCentre) { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + radius * Math.cos(start), cy + radius * Math.sin(start), { steps: 8 }); }
-      else { await page.mouse.move(cx + radius * Math.cos(start), cy + radius * Math.sin(start)); await page.mouse.down(); }
-      for (let i = 1; i <= steps; i++) { const a = start + turns * 2 * Math.PI * i / steps; await page.mouse.move(cx + radius * Math.cos(a), cy + radius * Math.sin(a)); }
-      const swept = await page.evaluate(() => uvRotate().state.drag.turn * 180 / Math.PI);
-      const after = (await info()).uv;
-      await page.mouse.up(); await idle(); await canvas.focus(); await page.keyboard.press('Control+z'); await idle();
-      const turnsSeen = before.ids.map(i => { const bx = (before.uv[i * 2] - before.c[0]) * m.sizeX, by = (before.uv[i * 2 + 1] - before.c[1]) * m.sizeY, ax = (after[i * 2] - before.c[0]) * m.sizeX, ay = (after[i * 2 + 1] - before.c[1]) * m.sizeY; return Math.hypot(bx, by) > 2 ? Math.atan2(bx * ay - by * ax, bx * ax + by * ay) * 180 / Math.PI : null; }).filter(value => value !== null);
-      return { swept, onScreen: turnsSeen.reduce((a, b) => a + b, 0) / turnsSeen.length, spread: Math.max(...turnsSeen) - Math.min(...turnsSeen), count: before.ids.length };
+    await page.getByLabel('Select geoset 0', { exact: true }).waitFor();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
+    await page.getByLabel('Select geoset 0', { exact: true }).check();
+    await page.getByLabel('3D model viewport', { exact: true }).click();
+    await page.keyboard.press('Control+a');
+    await page.locator('[data-hotkey="uv"]').click();
+    const uv = page.locator('.uv-tab-window'), canvas = uv.locator('.uv-editor canvas');
+    await canvas.waitFor();
+    await page.evaluate(() => {
+      window.uvRotateState = () => findFiberState('.uv-editor', s => s?.uv && s?.draw, { last: true });
+      window.uvRotateProps = () => findFiberProps('.uv-editor', p => p?.geoset && p?.onSelectVertices);
+      window.uvRotateInfo = () => ({ ids: Array.from(uvRotateProps().selectedVertices), uv: Array.from(uvRotateState().uv) });
+    });
+    await page.waitForFunction(() => uvRotateInfo().ids.length > 2);
+    await uv.getByRole('button', { name: 'Rotate', exact: true }).click();
+    const box = await canvas.boundingBox(), before = await page.evaluate(() => uvRotateInfo());
+    const modelBefore = await page.evaluate(() => JSON.stringify(__mdlxl.model()));
+    // A stationary press reads the existing map transform without editing it.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+    const map = await page.evaluate(() => {
+      const d = uvRotateState().drag; return { pivot: d.pivotScreen, center: d.center, sizeX: d.sizeX, sizeY: d.sizeY };
+    });
+    await page.mouse.up();
+    const cx = box.x + map.pivot[0], cy = box.y + map.pivot[1];
+    const expectedUV = angle => {
+      const values = before.uv.slice();
+      for (const i of before.ids) {
+        const x = (before.uv[i * 2] - map.center[0]) * map.sizeX, y = (before.uv[i * 2 + 1] - map.center[1]) * map.sizeY;
+        values[i * 2] = map.center[0] + (x * Math.cos(angle) - y * Math.sin(angle)) / map.sizeX;
+        values[i * 2 + 1] = map.center[1] + (x * Math.sin(angle) + y * Math.cos(angle)) / map.sizeY;
+      }
+      return values;
     };
-    const wrap = degrees => ((degrees % 360) + 540) % 360 - 180;
-    for (const [name, radius, turns, start, fromCentre] of [['near', 60, .25, 0], ['far', 300, .25, 2], ['pressed on the centre', 60, .375, .5, true], ['small circle over the piece', 12, .25, 0], ['clockwise full turn and a quarter', 120, 1.25, 1], ['counter-clockwise two full turns', 200, -2, -1]]) {
-      // Within 48 px of the centre a turn goes by distance moved, so it cannot snap.
-      const result = await circle(radius, turns, start, fromCentre), expected = turns * 360 * Math.min(1, radius / 48);
-      check(`${name}: the selection follows the mouse (${expected}°)`, result.count > 0 && Math.abs(result.swept - expected) < 2 && Math.abs(wrap(result.onScreen - expected)) < 2 && result.spread < 1, result);
+    const matches = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 2e-6);
+    const undo = async () => {
+      await page.keyboard.press('Control+z');
+      await page.waitForFunction(before => uvRotateInfo().uv.every((v, i) => Math.abs(v - before[i]) < 2e-6), before.uv);
+      check('undo restores the entire model', await page.evaluate(() => JSON.stringify(__mdlxl.model())), modelBefore);
+    };
+    for (const [name, offsetX, offsetY, distance, fine] of [
+      ['at the center', 0, 0, 48, false], ['inside the old dead zone', 0, 1, 48, false],
+      ['across the center', -24, 0, 48, false], ['above the center', -24, -100, 48, false],
+      ['far from the center', -180, 100, 48, false], ['reverse direction', 24, 0, -48, false],
+      ['past a full turn', -240, 80, 480, false], ['Alt precision at the center', 0, 0, 48, true],
+    ]) {
+      if (fine) await page.keyboard.down('Alt');
+      await page.mouse.move(cx + offsetX, cy + offsetY); await page.mouse.down();
+      await page.mouse.move(cx + offsetX + distance, cy + offsetY, { steps: Math.max(8, Math.abs(distance) / 6) });
+      await page.mouse.up();
+      if (fine) await page.keyboard.up('Alt');
+      await page.waitForFunction(() => !uvRotateState().drag);
+      const after = await page.evaluate(() => uvRotateInfo().uv), angle = distance * .7 / 48 * (fine ? .2 : 1);
+      const maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expectedUV(angle)[i])));
+      measurements.push({ name, expectedDegrees: angle * 180 / Math.PI, maxUVError });
+      check(name + ': full drag response at 70% of the previous per-pixel rate', matches(after, expectedUV(angle)));
+      if (name === 'at the center') await page.screenshot({ path: path.join(out, 'center-drag.png') });
+      await undo();
     }
-    // Sliding the mouse straight across the piece must not snap it to one side.
-    { await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-      const pivot = await page.evaluate(() => uvRotate().state.drag.pivotScreen); await page.mouse.up(); await idle();
-      const cx = box.x + pivot[0], cy = box.y + pivot[1];
-      await page.mouse.move(cx - 20, cy + 1); await page.mouse.down();
-      for (let i = 1; i <= 40; i++) await page.mouse.move(cx - 20 + i, cy + 1 - (i % 2));
-      const turn = await page.evaluate(() => uvRotate().state.drag.turn * 180 / Math.PI);
-      await page.mouse.up(); await idle(); await canvas.focus(); await page.keyboard.press('Control+z'); await idle();
-      check('sliding across the piece does not snap it', Math.abs(turn) < 15, { turn }); }
-    check('no renderer errors', errors.length === 0, errors);
+    // Reversing the same drag returns to the original UVs without a jump.
+    await page.mouse.move(cx, cy); await page.mouse.down();
+    await page.mouse.move(cx + 48, cy, { steps: 8 });
+    await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
+    await page.mouse.move(cx, cy, { steps: 8 }); await page.mouse.up();
+    check('reversing a drag restores the original coordinates', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
+    check('source model file unchanged', fs.readFileSync(fixture).equals(originalFile));
+    check('no renderer errors', errors, []);
+  } catch (error) {
+    await page.screenshot({ path: path.join(out, 'failure.png') });
+    throw error;
   } finally {
-    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ checks, errors }, null, 2));
+    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ checks, errors, measurements, fixture, bundle }, null, 2));
     await closeApp(app);
   }
-  assert.equal(checks.filter(item => !item.pass).length, 0, 'UV rotate must follow the mouse around the selection');
 })().catch(error => { console.error(error); process.exitCode = 1; });
