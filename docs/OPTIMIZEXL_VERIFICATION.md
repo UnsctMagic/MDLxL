@@ -530,3 +530,35 @@ The manual 131,605 B / 17.21% node-TRS target remains unmet. The tested order/re
 This is sampled skin-displacement acceptance, not continuous-time/velocity acceptance, external checker acceptance or Warcraft III playback. The speed certificate only selects the unchanged slow budget; it does not replace deletion/refit verification. Classic/SD skin, global/camera-facing exclusions and overlapping-domain handling retain their existing scope. User visual acceptance and Warcraft III remain untested.
 
 Reproduce with node test/manual/optimizexl-world-budget.mjs ORIGINAL ACCEPTED OUTPUT_DIRECTORY. MDLXL_FX_RESUME=1 reuses only previously measured identical reference/legacy bytes. The hidden command for this follow-up is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview. PR #437 remains open; do not merge.
+
+
+## Unused trailing pivot warning — 2026-11-04
+
+The owner reported `Expected 148 pivot points, got 149` remaining after OptiXL.
+The bundled Hive check compares node and pivot counts; no repair owned this
+finding. The saved input differs from the unsaved screenshot (143/143), so the
+regression adds one surplus pivot to a disposable copy of that real rig.
+
+`unusedPivots` removes only trailing, unreferenced pivots in classic 800 models
+with unique dense IDs. It rechecks at application and leaves all referenced
+pivots and node data intact. Missing/sparse/invalid tables stay manual. It routes
+through the existing checker finding, selected batch and Fix everything UI;
+existing node-removal owners still remap their own references.
+
+The new packaged check also exposed Back treating a saved Fix everything action
+as an individual finding without a sequence/frame. `enter` now restores its
+combined preview mode without seeking. Single and selected-batch restoration
+retain their existing path.
+
+Five source cases and the absent Preview fix button failed before implementation.
+Final source checks: 209 pass / 0 fail / 2 existing private-input skips;
+compatibility: 57/0/0. All 56 frozen flail comparisons pass without changing any
+golden hashes; the newly available flail pivot cleanup is checked separately
+for exact non-PIVT preservation. The real model's single repair removes exactly
+12 bytes and preserves every other MDX chunk. Sampling all 13 animations and
+2 globals at 100 ms plus endpoints gives 1,504 poses with zero displacement and
+no changed channels. Hidden packaged checks: 3 pass / 0 fail / 0 skip (pivot workflow, inspection,
+selection). They include paired mouse
+rotation, preview, approval, Back, combined mode, Save/backup and editor Undo.
+See [the task note](agent-tasks/optimizexl-pivot-warning.md) for final run details.
+Independent Claude QA, full release testing and Warcraft III remain pending.

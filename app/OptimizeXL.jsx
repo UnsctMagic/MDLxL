@@ -70,11 +70,11 @@ export default function OptimizeXL({doc,workplane,workplaneEnabled,filePath,text
   function restoreInspection(){const view=inspection.current;inspection.current=null;if(view){setSequence(view.sequence);seek(view.time);}return view;}
   function relocateInspection(model){const view=inspection.current;if(view)view.time+=model.Sequences[view.sequence].Interval[0]-before.Sequences[view.sequence].Interval[0];}
   function enter(next,restore){
-    const returnView=restoreInspection(),batch=restore?.fix?.kind==='batch'?restore.fix.entries:[],first=batch[0]?.fix||restore?.fix;
+    const returnView=restoreInspection(),all=restore?.fix?.kind==='fixAll',batch=restore?.fix?.kind==='batch'?restore.fix.entries:[],first=all?null:batch[0]?.fix||restore?.fix;
     worker.current?.terminate();session.candidate=null;request.current++;setCandidate(null);setBusy(false);setError('');setSaved(null);setFinished(false);setStage(next);
     setSettings(batch[0]?.settings||restore||freshSettings(next,before));if(restore?.excludedGeosets)setExcluded(new Set(restore.excludedGeosets));setListHovered(null);setViewHovered(null);setStrength(0);setCustom(!!restore);
     setCheckedFixes(new Set(batch.map(e=>e.fix.id)));setFixSettings(batch.length?Object.fromEntries(batch.map(e=>[e.fix.id,e.settings])):first?{[first.id]:restore}:{});
-    setPreviewMode(batch.length?'selection':'single');setSelectedFix(first?.id||null);if(first)inspectFix(first,returnView);
+    setPreviewMode(all?'all':batch.length?'selection':'single');setSelectedFix(first?.id||null);if(first)inspectFix(first,returnView);
   }
   useEffect(()=>{if(before?.Sequences.length){setSequence(i=>Math.min(i,before.Sequences.length-1));}},[before]);
   useEffect(()=>{setListHovered(null);},[candidate,busy]);

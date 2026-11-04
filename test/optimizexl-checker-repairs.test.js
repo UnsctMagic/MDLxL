@@ -1,6 +1,11 @@
 // Each mdx-m3-viewer checker finding gets one small model broken in exactly that way.
 // "Fix everything" must clear the finding without adding errors or severe ones.
 import test from 'node:test';
+import fs from 'node:fs';
+import fixtures from './helpers/fixtures.cjs';
+import { classifyHiveFindings } from '../src/optimizexl-diagnostics.js';
+import { serializedNodes } from '../src/node-id-order.js';
+import { parseMdx } from '../src/mdx-container.js';
 import assert from 'node:assert/strict';
 import { generateMDX } from 'war3-model';
 import { sanityTest } from './helpers/hive.mjs';
@@ -34,6 +39,7 @@ test('the clean fixture passes the checker', () => {
 
 const geoset = m => m.Geosets[0], bone = m => m.Bones[0];
 const CASES = [
+  ['unused trailing pivot points', /Expected \d+ pivot points, got \d+/, m => { m.PivotPoints.push(new Float32Array([11, 22, 33]), new Float32Array([44, 55, 66])); }],
   ['keys out of order', /lower than the track before it/, m => { bone(m).Translation = track([key(0, [0, 0, 0]), key(500, [0, 0, 9]), key(200, [0, 0, 3]), key(1000, [0, 0, 0])]); }],
   ['two keys on one frame', /has the same frame/, m => { bone(m).Translation = track([key(0, [0, 0, 0]), key(500, [0, 0, 9]), key(500, [0, 0, 5]), key(1000, [0, 0, 0])]); }],
   ['a key before frame 0', /negative frame/, m => { bone(m).Translation = track([key(-50, [0, 0, 1]), key(0, [0, 0, 0]), key(1000, [0, 0, 5])]); }],
@@ -182,4 +188,86 @@ test('an Origin Ref sharing another point\'s attachment number gets its own', ()
   assert.notEqual(m.Attachments[0].AttachmentID, chest.AttachmentID);
   assert.equal(chest.AttachmentID, 0, 'the other point keeps its number');
   assert.deepEqual(originRule(m), []);
+});
+
+
+const pivotWarning = /Expected \d+ pivot points, got \d+/;
+const pivotFix = m => checkerRepairProposals(m).find(f => f.rule === 'unusedPivots');
+
+test('unused pivot repair preserves every referenced pivot and routes the checker warning', () => {
+  const m = cleanModel(), before = structuredClone(m);
+  m.PivotPoints.push(new Float32Array([91, 82, 73]));
+  const fix = pivotFix(m);
+  assert.ok(fix, 'the extra pivot has an automatic repair');
+  assert.equal(fix.count, 1); assert.equal(fix.exact, true);
+  const warnings = hive(bytesOf(m)).findings.filter(f => pivotWarning.test(f.message));
+  assert.equal(warnings.length, 1);
+  assert.equal(classifyHiveFindings(warnings, [fix])[0].fixId, fix.id);
+  applyCheckerRepair(m, fix);
+  assert.deepEqual(m, before, 'only the unreferenced trailing pivot changes');
+  assert.equal(pivotFix(m), undefined, 'rescanning does not recreate the repair');
+});
+
+test('unused pivot repair keeps missing, sparse, duplicate and newly occupied node slots', () => {
+  assert.equal(pivotFix(cleanModel()), undefined);
+  const short = cleanModel(); short.PivotPoints.pop();
+  assert.equal(pivotFix(short), undefined, 'missing pivots are not inferred');
+  for (const mutation of [
+    m => { m.Attachments[0].ObjectId = 2; },
+    m => { m.Attachments[0].ObjectId = 0; },
+    m => { m.Version = 1000; },
+  ]) {
+    const m = cleanModel(); m.PivotPoints.push(new Float32Array(3)); mutation(m);
+    const before = structuredClone(m);
+    assert.equal(pivotFix(m), undefined);
+    applyCheckerRepair(m, { rule: 'unusedPivots' });
+    assert.deepEqual(m, before, 'unsupported tables stay unchanged');
+  }
+  const m = cleanModel(); m.PivotPoints.push(new Float32Array([1, 2, 3]));
+  const stale = pivotFix(m), count = serializedNodes(m).length;
+  const node = { ...structuredClone(m.Attachments[0]), ObjectId: count, AttachmentID: 1, PivotPoint: m.PivotPoints[count] };
+  m.Attachments.push(node); m.Nodes[count] = node;
+  const occupied = structuredClone(m); applyCheckerRepair(m, stale);
+  assert.deepEqual(m, occupied, 'application rechecks that no node uses the pivot');
+});
+
+test('pivot cleanup composes with existing node removal in either approval order and selected batches', () => {
+  const m = cleanModel(); createNode(m, 'EventObject').EventTrack = new Uint32Array([]);
+  m.PivotPoints.push(new Float32Array([11, 22, 33]));
+  const source = bytesOf(m), fixes = sanityProposals(m).filter(f => ['unusedPivots', 'emptyEvents'].includes(f.rule));
+  assert.equal(fixes.length, 2);
+  const batch = runOptimizeStage(source, 'sanity', {}, {kind:'batch', stage:'sanity', entries:fixes.map(fix=>({fix, settings:{}}))}).bytes;
+  const all = runOptimizeStage(source, 'sanity', {}, {kind:'fixAll', stage:'sanity'}).bytes;
+  assert.deepEqual(batch, all);
+  for (const order of [fixes, [...fixes].reverse()]) {
+    let bytes = source;
+    for (const original of order) {
+      const fresh = sanityProposals(openDocument(bytes, 'step.mdx').model).find(f => f.id === original.id);
+      if (fresh) bytes = runOptimizeStage(bytes, 'sanity', {}, fresh).bytes;
+    }
+    assert.deepEqual(bytes, all);
+  }
+});
+
+test('real Standard Bearer pivot repair changes only PIVT bytes through single and selected approval', { skip: !fs.existsSync(fixtures.fixturePath('optimizexl-pivots')) && 'private Standard Bearer fixture not on this machine' }, () => {
+  const original = fs.readFileSync(fixtures.fixturePath('optimizexl-pivots'));
+  const m = openDocument(original, 'standard.mdx').model;
+  assert.equal(m.PivotPoints.length, serializedNodes(m).length);
+  m.PivotPoints.push(new Float32Array([17, 29, 43]));
+  const source = bytesOf(m), loaded = openDocument(source, 'broken.mdx').model, fix = pivotFix(loaded);
+  assert.ok(fix, 'the real model has a repair for its unused trailing pivot');
+  for (const proposal of [fix, {kind:'batch', stage:'sanity', entries:[{fix, settings:{}}]}]) {
+    const result = runOptimizeStage(source, 'sanity', {}, proposal);
+    assert.equal(result.saved, 12, 'one unused vector is exactly 12 bytes');
+    const after = openDocument(result.bytes, 'fixed.mdx').model;
+    assert.deepEqual(after, {...loaded, PivotPoints:loaded.PivotPoints.slice(0,-1)});
+    const chunks = bytes => parseMdx(bytes).chunks.filter(c => c.tag !== 'PIVT').map(c=>[c.tag, c.data]);
+    assert.deepEqual(chunks(result.bytes), chunks(source), 'every other serialized chunk is byte-identical');
+    assert.equal(hive(result.bytes).findings.some(f=>pivotWarning.test(f.message)), false);
+    assert.equal(pivotFix(after), undefined);
+    assert.throws(()=>runOptimizeStage(result.bytes, 'sanity', {}, fix), /finding changed/);
+  }
+  const all = runOptimizeStage(source, 'sanity', {}, {kind:'fixAll',stage:'sanity'}).bytes;
+  assert.equal(hive(all).findings.some(f=>pivotWarning.test(f.message)), false);
+  assert.deepEqual(fs.readFileSync(fixtures.fixturePath('optimizexl-pivots')), original);
 });
