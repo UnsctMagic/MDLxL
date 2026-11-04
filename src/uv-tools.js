@@ -6,11 +6,14 @@ const uniqueIndices = values => [...new Set(Array.from(values || []).filter(fini
 const UV_TURN_SENSITIVITY = 0.7;
 /** Toward/away movement contributes one radian per 48 pixels before sensitivity. */
 const UV_TURN_RADIAL_PIXELS = 48;
+/** Collinearity tolerance for rounded pointer coordinates; it never reduces movement. */
+const UV_TURN_COLLINEAR_EPSILON = 1e-4;
 
-/** UV Rotate always turns clockwise for circular or straight mouse movement,
- * without a centre dead zone. A circle keeps its 70% angular amount; toward/away
- * travel contributes too. Alt keeps its fine control, independently
- * of the 3D rotation settings. Call at drag start and on every pointer sample. */
+/** UV Rotate uses fixed screen-space input: circular movement follows its own
+ * winding; straight toward/away movement uses right/left, or down/up for a
+ * vertical drag. Previous movement never chooses or flips either direction.
+ * Every movement contributes at the UV-only 70% rate, without a centre dead
+ * zone. Alt keeps its fine control. Call at drag start and on every sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
@@ -20,9 +23,16 @@ export function uvTurn(drag, x, y) {
     // still rotates: this does not introduce a dead zone.
     const arc = radius && drag.radius ? Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) : 0;
     const radial = (radius - drag.radius) / UV_TURN_RADIAL_PIXELS;
-    drag.turn += Math.hypot(arc, radial) * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
+    const dx = px - drag.px, dy = py - drag.py;
+    const cross = drag.px * dy - drag.py * dx;
+    // Direction comes only from this movement in the fixed screen plane.
+    // Rounded straight-line samples may have a tiny artificial cross product;
+    // use the screen direction there, but still count their entire movement.
+    const circular = Math.abs(cross) > Math.max(radius, drag.radius) * Math.hypot(dx, dy) * UV_TURN_COLLINEAR_EPSILON;
+    const direction = circular ? Math.sign(arc) : Math.sign(dx || dy);
+    drag.turn += Math.hypot(arc, radial) * direction * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
   }
-  drag.angle = angle; drag.radius = radius;
+  drag.angle = angle; drag.radius = radius; drag.px = px; drag.py = py;
   return drag.turn;
 }
 
