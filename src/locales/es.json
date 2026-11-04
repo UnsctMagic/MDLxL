@@ -7920,5 +7920,17 @@
   "Pale burst": "Estallido pálido",
   "Pale trail": "Rastro pálido",
   "Trail": "Rastro",
-  "Model particles": "Partículas del modelo"
+  "Model particles": "Partículas del modelo",
+  "The bundled mdx-m3-viewer checker supports this comparison for classic version 800 only.": "El comprobador mdx-m3-viewer incluido solo admite esta comparación para la versión clásica 800.",
+  "Check partially completed": "Comprobación completada parcialmente",
+  "Review findings": "Revisar resultados",
+  "No issues found by these checks": "Estas comprobaciones no encontraron problemas",
+  "mdx-m3-viewer comparison could not complete: {0}": "No se pudo completar la comparación de mdx-m3-viewer: {0}",
+  "warning": "advertencia",
+  "error": "error",
+  "severe": "grave",
+  "unused": "sin usar",
+  "Track {0} at frame {1} is not in any sequence": "La clave {0} del fotograma {1} no pertenece a ninguna secuencia",
+  "Expected {0} pivot points, got {1}": "Se esperaban {0} puntos de pivote, se encontraron {1}",
+  "Missing opening track for sequence \"{0}\" at frame {1} where it is needed": "Falta la clave inicial necesaria para la secuencia «{0}» en el fotograma {1}"
 }
