@@ -22,14 +22,20 @@ const {testModel}=require('./helpers/fixtures.cjs');
     await button('Fit selection').click();const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
     await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,look.group==='Blades'||look.impact?430:300);
     const entry={model,look:look.id,part:part+1,clips:[]};
+    const staticDefault=look.id==='sort-briar',sequenceClock=look.impact||staticDefault;
+    const ownedClocks=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.createdClockIds);
+    if(staticDefault){
+     assert.ok(look.layers.filter(l=>l.type!=='Particles').every(l=>l.fixed&&!l.pulse&&!l.frames),'Briar binding retains fixed surface layers');
+     assert.deepEqual(ownedClocks,[],'The static Briar default has no unused FX clock');
+    }else assert.ok(ownedClocks.length>0,look.name+' owns an animation clock');
     for(const name of (process.env.FX_CLIPS||'Stand,Walk,Attack').split(',')){
      const seq=await fx.getByLabel('Preview animation').locator('option').evaluateAll((a,n)=>a.find(o=>o.textContent.startsWith(n))?.value,name);if(seq==null)throw Error(model+' missing '+name);
      await fx.getByLabel('Preview animation').selectOption(seq);await ready();
      const dir=path.join(out,model,look.id,name);fs.mkdirSync(dir,{recursive:true});
-     const time=()=>page.evaluate(impact=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),n=p.runtime.native,s=p.props.model.Geosets.find(g=>g._FxStack)?._FxStack;return impact?n.getFrame():n.rendererData.globalSequencesFrames[p.props.model.GlobalSequences.indexOf(s.loop)];},look.impact);let previous=await time();
+     const time=()=>page.evaluate(sequenceClock=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),n=p.runtime.native,s=p.props.model.Geosets.find(g=>g._FxStack)?._FxStack;return sequenceClock?n.getFrame():n.rendererData.globalSequencesFrames[s.createdClockIds.find(id=>p.props.model.GlobalSequences[id]===s.loop) ?? s.createdClockIds[0]];},sequenceClock);let previous=await time();
      const frames=[];
      for(let i=0;i<8;i++){
-      await page.waitForFunction(({previous,step,impact})=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),n=p.runtime.native,s=p.props.model.Geosets.find(g=>g._FxStack)?._FxStack,t=impact?n.getFrame():n.rendererData.globalSequencesFrames[p.props.model.GlobalSequences.indexOf(s.loop)];return t<previous||t-previous>=step;},{previous,step:look.impact?100:look.loop/7,impact:look.impact},{timeout:20000});
+      await page.waitForFunction(({previous,step,sequenceClock})=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),n=p.runtime.native,s=p.props.model.Geosets.find(g=>g._FxStack)?._FxStack,t=sequenceClock?n.getFrame():n.rendererData.globalSequencesFrames[s.createdClockIds.find(id=>p.props.model.GlobalSequences[id]===s.loop) ?? s.createdClockIds[0]];return t<previous||t-previous>=step;},{previous,step:look.impact?100:look.loop/7,sequenceClock},{timeout:20000});
       const data=await page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return {frame:p.runtime.native.getFrame(),globals:Array.from(p.runtime.native.rendererData.globalSequencesFrames||[]),particles:p.runtime.native.particlesController.emitters.map(e=>e.particles.length)};});previous=await time();frames.push(data);
       await stage.screenshot({path:path.join(dir,i+'.jpg'),type:'jpeg',quality:80});
       if(i===3){await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,-280);const camera=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray());const x=box.x+box.width*.72,y=box.y+box.height*.4;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+52,y+12,{steps:8});await page.mouse.up();const after=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray());assert.notDeepEqual(after,camera,'mouse orbit '+look.id);}

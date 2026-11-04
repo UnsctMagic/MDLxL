@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
@@ -52,14 +53,14 @@ function readView(){const el=document.querySelector('.classic-view [aria-label="
     checks.push('Cancel and Escape leave the document unchanged');
     await open();await apply.click();await panel.waitFor({state:'hidden'});await sleep(150);
     const applied=await page.evaluate(readView);assert.equal(applied.revision,original.revision+1);
-    assert.match(await page.locator('.classic-status').innerText(),/NormalsXL: .* normals changed/);
+    assert.match(await waitForInfo(page, /NormalsXL: .* normals changed/), /NormalsXL: .* normals changed/);
     // No vertex is added or removed.
     assert.deepEqual(applied.model.Geosets.map(g=>[g.Vertices.length,Array.from(g.Faces)]),original.model.Geosets.map(g=>[g.Vertices.length,Array.from(g.Faces)]));
     // Unshaded geosets (the demo's glowing rune) are left out: normals do not light them.
     const shaded=g=>!applied.model.Materials[g.MaterialID].Layers.every(l=>l.Shading&1);
     for(const g of applied.model.Geosets.filter(shaded))for(let i=0;i<g.Normals.length;i+=3)assert.ok(Math.abs(Math.hypot(g.Normals[i],g.Normals[i+1],g.Normals[i+2])-1)<1e-4);
     assert.deepEqual(applied.model.Geosets.filter(g=>!shaded(g)),original.model.Geosets.filter(g=>!shaded(g)));
-    await page.getByLabel('3D model viewport',{exact:true}).focus();await page.keyboard.press('Control+z');await sleep(100);
+    await page.locator('[data-hotkey="vertices"]').first().click();await page.keyboard.press('Control+z');await sleep(100);
     assert.deepEqual((await page.evaluate(readView)).model,original.model);
     await page.keyboard.press('Control+y');await sleep(100);assert.deepEqual((await page.evaluate(readView)).model,applied.model);
     checks.push('Apply is one edit; one Undo and Redo are exact');
@@ -84,7 +85,7 @@ function readView(){const el=document.querySelector('.classic-view [aria-label="
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();await panel.waitFor({state:'hidden'});
     checks.push('A repaired model needs no further changes');
     // With a selection the scope is the selected area.
-    await page.getByLabel('3D model viewport',{exact:true}).focus();await page.keyboard.press('Control+a');
+    await page.getByLabel('3D model viewport',{exact:true}).click();await page.keyboard.press('Control+a');
     await open();assert.match(await panel.innerText(),/Selected area/);
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();
     checks.push('Selected vertices restrict the operation');

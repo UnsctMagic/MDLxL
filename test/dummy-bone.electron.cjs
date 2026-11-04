@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
@@ -69,7 +70,7 @@ const path = require('node:path');
       await page.keyboard.press('Control+z'); await page.waitForFunction(original => pasteSummary().model === original, before.model);
     }
     await open(donorPath); await page.keyboard.press('Control+c');
-    await page.waitForFunction(() => document.querySelector('.classic-status')?.textContent.includes('Copied'));
+    await waitForInfo(page, /^Copied/);
     await page.getByRole('tab', { name: 'paste-target.mdx' }).click();
     await page.keyboard.press('Control+p');
     const repairDialog = page.getByRole('dialog', { name: 'Fix paste', exact: true });

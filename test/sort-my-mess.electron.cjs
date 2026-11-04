@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), zlib = require('node:zlib');
@@ -34,7 +35,7 @@ function png(rgba) {
 
   try {
 
-    await page.getByText('Opened sort-fixture.mdx', { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened sort-fixture.mdx');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Materials'));
     await page.getByRole('dialog', { name: 'Material Manager', exact: true }).waitFor();
     await page.evaluate(() => { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) { window.sortDoc = props.doc;  }   });

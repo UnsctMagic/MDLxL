@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
@@ -9,7 +10,7 @@ const path = require('node:path');
   const { app, page } = await launchApp({ out: root, profile: path.join(root, 'out/event-focus-test/profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, fixture: file , pageTimeout: 30000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
 
-    await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened ' + path.basename(file));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Nodes'));
     await page.getByLabel('Search nodes').fill('SND');
     await page.locator('.re-tree-row').filter({ hasText: /^SND/i }).first().click();

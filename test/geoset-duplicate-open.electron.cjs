@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // A model with duplicate geoset animations opens straight into the editor. The fix waits behind a
@@ -29,11 +30,11 @@ const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = 
   try {
 
     await page.waitForSelector('[data-hotkey="animations"]', { timeout: 60000 }); step('editor shown');
-    const warning = page.getByRole('button', { name: 'Duplicate geoset animations' });
+    const warning = page.getByRole('button', { name: 'Duplicate geoset animations', exact: true });
     await warning.waitFor();
     if (await page.getByRole('dialog').count()) throw Error('A dialog opened before the warning was clicked.');
     // It flashes red and keeps a pulsing red dot, like other warnings, and carries a warning icon.
-    const look = await warning.evaluate(element => ({ flash: getComputedStyle(element).animationName, ping: getComputedStyle(element, '::before').animationName, icon: !!element.querySelector('svg') }));
+    const look = await warning.evaluate(element => ({ flash: getComputedStyle(element.closest('.warning-toast')).animationName, ping: getComputedStyle(element.closest('.warning-toast'), '::before').animationName, icon: !!element.querySelector('svg') }));
     if (look.flash !== 'alert-flash' || look.ping !== 'alert-ping' || !look.icon) throw Error('Warning does not ping: ' + JSON.stringify(look));
     await page.screenshot({ path: path.join(out, '1-opened.png') }); await settlePage(page, 3500);
     await page.screenshot({ path: path.join(out, '1b-after-ping.png') }); step('warning only');
@@ -42,7 +43,7 @@ const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = 
     await settlePage(page, 800);
     await page.screenshot({ path: path.join(out, '2-animations.png') }); step('animations');
     await warning.click();
-    const dialog = page.getByRole('dialog', { name: 'Duplicate geoset animations' });
+    const dialog = page.getByRole('dialog', { name: 'Duplicate geoset animations', exact: true });
     await dialog.waitFor();
     await page.screenshot({ path: path.join(out, '3-dialog.png') }); step('dialog');
     await dialog.getByRole('button', { name: 'Not now' }).click();
@@ -60,7 +61,7 @@ const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = 
     await page.keyboard.press('Control+s');
     for (let i = 0; i < 100 && !fs.existsSync(saved); i++) await settlePage(page, 100);
     // The file lands a moment before the editor records the save; closing earlier would ask to save.
-    await page.locator('.classic-status').filter({ hasText: 'Saved saved.mdx' }).waitFor({ timeout: 10000 }).catch(() => {});
+    await waitForInfo(page, 'Saved saved.mdx');
     if (!fs.existsSync(saved)) throw Error('Save did not write a new file: ' + await page.locator('.classic-status').innerText());
     console.log('SAVE DIALOG', await app.evaluate(() => globalThis.saveTitles));
     if (!fs.readFileSync(model).equals(original)) throw Error('The read-only original changed.');

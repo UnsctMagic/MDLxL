@@ -1,3 +1,4 @@
+const {waitForInfo,infoMessageCursor}=require('./helpers/app.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 
@@ -23,8 +24,8 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
     window.recordingParticleSamples.push({time,globalTime:api.playbackState().globalTime,green,png:time>=500&&time<540?c.toDataURL():undefined});
    };
   });
-  await page.locator('.showcase-record').click();await page.waitForFunction(()=>document.querySelector('.classic-status')?.textContent.startsWith('Saved '),null,{timeout:120000});
-  const status=await page.locator('.classic-status').innerText(),samples=await page.evaluate(()=>window.recordingParticleSamples),mid=samples.find(s=>s.png);assert.ok(mid);fs.writeFileSync(path.join(out,'capture.png'),Buffer.from(mid.png.split(',')[1],'base64'));for(const s of samples){delete s.png;assert.ok(Math.abs(s.globalTime-s.time)<1e-5,JSON.stringify(s));}assert.ok(samples.filter(s=>s.time>=200&&s.time<1000).every(s=>s.green>20),JSON.stringify(samples));assert.deepEqual(errors,[]);
+  await page.locator('.showcase-record').click();await waitForInfo(page,/^Saved /,{timeout:120000});
+  const status=await waitForInfo(page,/^Saved /),samples=await page.evaluate(()=>window.recordingParticleSamples),mid=samples.find(s=>s.png);assert.ok(mid);fs.writeFileSync(path.join(out,'capture.png'),Buffer.from(mid.png.split(',')[1],'base64'));for(const s of samples){delete s.png;assert.ok(Math.abs(s.globalTime-s.time)<1e-5,JSON.stringify(s));}assert.ok(samples.filter(s=>s.time>=200&&s.time<1000).every(s=>s.green>20),JSON.stringify(samples));assert.deepEqual(errors,[]);
   const gif=status.slice(6).split(' · ')[0];assert.ok(fs.existsSync(gif),status);fs.writeFileSync(path.join(out,'evidence.json'),JSON.stringify({gif,samples},null,2));console.log(JSON.stringify({passed:true,out,gif,frames:samples.length,minimumGreenPixels:Math.min(...samples.filter(s=>s.time>=200&&s.time<1000).map(s=>s.green))}));
  }catch(error){const page=launched.page;console.error((await page.locator('body').innerText()).slice(-1800));await page.screenshot({path:path.join(out,'failure.png')});throw error;}
  finally{if(app)await closeApp(app);}

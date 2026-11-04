@@ -29,7 +29,7 @@ const path = require('node:path');
     await page.keyboard.press('Shift+E');
     await anglePanel.waitFor({ state: 'visible' });
     await tab('Animations');
-    assert.equal(await anglePanel.isVisible(), true, 'rotation mode carries over');
+    await anglePanel.waitFor({state:'visible'}); // mode selection completes asynchronously
     await expectToolbox('Vertices (camera rotation) -> Animations keeps the Animations toolbox');
 
     await tab('Movement'); await tab('Animations');

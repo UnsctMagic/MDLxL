@@ -1,3 +1,4 @@
+const {waitForInfo}=require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,12 +19,12 @@ const path = require('node:path');
       const png = await app.evaluate(async ({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.invalidate(); await new Promise(resolve => setTimeout(resolve, 1000)); return (await window.capturePage(undefined, { stayHidden: true, stayAwake: true })).toPNG().toString('base64'); });
       fs.writeFileSync(path.join(out, name), Buffer.from(png, 'base64'));
     };
-    const message = page.locator('.classic-status>span').first(), footer = page.locator('.resource-editor .re-status');
-    const alerting = locator => locator.evaluate(element => ({ marked: element.matches('[role=alert],[data-alert]'), flash: getComputedStyle(element).animationName, ping: getComputedStyle(element, '::before').animationName, dot: getComputedStyle(element, '::before').backgroundColor }));
+    const message = page.locator('.warning-toast').first(), footer = page.locator('.resource-editor .re-status');
+    const alerting = locator => locator.evaluate(element => ({ marked: element.matches('[role=alert],[data-alert]'), flash: getComputedStyle(element).animationName.split(',')[0].trim(), ping: getComputedStyle(element, '::before').animationName, dot: getComputedStyle(element, '::before').backgroundColor }));
     const expectAlert = async locator => assert.deepEqual(await alerting(locator), { marked: true, flash: 'alert-flash', ping: 'alert-ping', dot: 'rgb(224, 32, 32)' });
     const remove = () => page.locator('.re-list-actions').getByRole('button', { name: 'Remove', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Geoset tabs', exact: true }).waitFor();
-    assert.equal((await alerting(message)).marked, false, 'no alert before an error');
+    await page.getByRole('tablist', { name: 'Geoset tabs', exact: true }).waitFor();
+    assert.equal(await message.count(), 0, 'no warning before an error');
 
     // Deleting a material that a geoset still uses warns in the manager's footer and in the status bar.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Materials'));
@@ -34,7 +35,7 @@ const path = require('node:path');
     await page.locator('.resource-editor .re-status[data-alert]').waitFor();
     assert.match(await footer.innerText(), /material is in use/);
     await expectAlert(footer);
-    await page.waitForFunction(() => document.querySelector('.classic-status>span').matches('[data-alert]'));
+    await message.waitFor();
     assert.match(await message.innerText(), /material is in use/);
     await expectAlert(message);
     // The hidden test desktop repaints slowly, so hold the flash at its brightest to photograph it.
@@ -71,8 +72,9 @@ const path = require('node:path');
     await page.locator('.resource-editor').waitFor({ state: 'detached' });
     const menu = id => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), id);
     await menu('selectAll'); await menu('copy');
-    await page.waitForFunction(() => /^Copied/.test(document.querySelector('.classic-status>span').innerText));
-    assert.equal((await alerting(message)).marked, false, 'a normal message clears the alert');
+    await waitForInfo(page, /^Copied/);
+    await message.waitFor({state:'hidden'});
+    assert.equal(await page.locator('.classic-status').getByText(/^Copied/).count(), 0, 'normal messages stay out of the UI');
     assert.deepEqual(errors, []);
     console.log('alert-ping: ok');
   } finally { await closeApp(app); }

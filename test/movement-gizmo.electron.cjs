@@ -76,7 +76,8 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
     async function checkedDrag(pose,label,point,dx,dy,allowed,cancel=false){
       const before=await snap(), g=await gizmo(pose), id=pose?config.body:g.active.node.ObjectId, from=await position(id);box=await viewportBox();console.log(pose?'POSE':'Bone',label,'pick',pickMovementHandle(g.handles,point.x,point.y,'move')?.axis);
       const picked=pickMovementHandle(g.handles,point.x,point.y,'move');
-      // Measure the contract's yellow highlight around this handle only.
+      // Measure the exact #fff14e highlight, excluding antialiased label edges.
+      // Broad yellow thresholds also counted text pixels that rasterize differently after a hover.
       const region = picked?.polygon || [point, picked || point];
       const bounds = { left:Math.min(...region.map(p=>p.x))-12, right:Math.max(...region.map(p=>p.x))+12,
         top:Math.min(...region.map(p=>p.y))-12, bottom:Math.max(...region.map(p=>p.y))+12 };
@@ -84,7 +85,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
         const ratio=canvas.width/canvas.clientWidth;
         const pixels=canvas.getContext('2d').getImageData(Math.floor(area.left*ratio),Math.floor(area.top*ratio),Math.ceil((area.right-area.left)*ratio),Math.ceil((area.bottom-area.top)*ratio)).data;
         let count=0;
-        for(let i=0;i<pixels.length;i+=4)if(pixels[i]>190 && pixels[i+1]>180 && pixels[i+2]<140 && pixels[i+3]>80)count++;
+        for(let i=0;i<pixels.length;i+=4)if(pixels[i]===255 && pixels[i+1]===241 && pixels[i+2]===78 && pixels[i+3]>80)count++;
         return count;
       },bounds);
       await page.mouse.move(box.x+box.width+8,box.y+35);await settle();

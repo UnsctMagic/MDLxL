@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Rebuilt Electron acceptance for chain copy, focused skeleton, playback speed and collapsible sidebars.
 const fs = require('node:fs');
@@ -36,7 +37,7 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('.classic-reel-key[data-frame="100"]').count(), 0, 'parent key stays outside the downstream chain');
 
     await sendMenu(app, 'keyframe:selectAll'); await page.locator('.classic-reel-selection').waitFor(); await sendMenu(app, 'keyframe:copy');
-    await page.waitForFunction(() => document.querySelector('.classic-status')?.textContent.includes('3 stored keys copied.'));
+    await waitForInfo(page, '3 stored keys copied.');
 
     const focused = page.getByLabel('Focused Skeleton', { exact: true }), skeleton = page.getByLabel('Skeleton', { exact: true });
     await focused.check(); assert.equal(await skeleton.isChecked(), false);
@@ -66,7 +67,7 @@ const assert = require('node:assert/strict');
     await speed.fill('-100'); await speed.blur(); assert.equal(await speed.inputValue(), '1');
     await speed.fill('100'); await speed.blur();
     const settingsBox = await page.locator('.classic-reel-settings').evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height, rows: element.querySelectorAll('label').length }));
-    assert.deepEqual(settingsBox, { width: 76, height: 48, rows: 2 });
+    assert.equal(settingsBox.height,48);assert.equal(settingsBox.rows,2);assert.ok(settingsBox.width>=113 && settingsBox.width<=114,'Playback Speed label fits the shared column');assert.equal(await speed.evaluate(e=>e.getBoundingClientRect().width),35,'numeric input width is preserved');
 
     const movementSections = page.locator('.classic-sidebar details.sidebar-section');
     // Connected Bones only shows in Movement when the selection has bound vertices (049c06fb), and
