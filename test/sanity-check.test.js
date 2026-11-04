@@ -6,14 +6,16 @@ import { sanityTest } from './helpers/hive.mjs';
 import { openDocument, validateModel } from '../src/editor-document.js';
 import { generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { checkSanity } from '../src/sanity-check.js';
+import { createStarterDocument } from '../src/starter-model.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 const require = createRequire(import.meta.url);
 const { fixturePath } = require('./helpers/fixtures.cjs');
 const hive = async bytes => { const r = sanityTest(bytes); return { ...r, findings: flattenHiveFindings(r.nodes) }; };
-const model = () => openDocument(fs.readFileSync(fixturePath('optimizexl-review')), 'flail.mdx').model;
+const privateModelPath = fixturePath('optimizexl-review');
+const model = () => openDocument(fs.readFileSync(privateModelPath), 'flail.mdx').model;
 const expected = m => hive(new Uint8Array(generateCompatibleMdx(m)));
 
-test('Sanity Check returns only Hive findings for real geometry with MDLxL-only warnings', async () => {
+test('Sanity Check returns only Hive findings for real geometry with MDLxL-only warnings', { skip: !fs.existsSync(privateModelPath) && 'private flail model not on this machine' }, async () => {
  const m = model(), before = structuredClone(m);
  assert.ok(validateModel(m).some(f => f.code === 'DEGENERATE_FACES'), 'fixture exercises the reported repeated-vertex warning');
  const result = await checkSanity(m, hive);
@@ -23,7 +25,7 @@ test('Sanity Check returns only Hive findings for real geometry with MDLxL-only 
 });
 
 test('Hive checks current unsaved data even when MDLxL validation would reject it', async () => {
- const m = model();
+ const m = createStarterDocument().model;
  m.Geosets[0].MaterialID = 123456;
  const result = await checkSanity(m, hive);
  assert.ok(result.hive, 'MDLxL structural validation must not prevent Hive from running');
@@ -33,7 +35,7 @@ test('Hive checks current unsaved data even when MDLxL validation would reject i
 });
 
 test('source diagnostics do not change Hive results or checker status', async () => {
- const m = model(), clean = await checkSanity(m, hive);
+ const m = createStarterDocument().model, clean = await checkSanity(m, hive);
  for (const diagnostic of [
   { severity: 'error', code: 'BAD_CHUNK', message: 'Truncated source' },
   { severity: 'info', code: 'OPAQUE_DATA_PRESERVED', message: 'Unknown chunk' },
@@ -44,7 +46,7 @@ test('source diagnostics do not change Hive results or checker status', async ()
 });
 
 test('unsupported comparison formats and failed Hive execution cannot claim a complete pass', async () => {
- const m = model(); m.Version = 1000;
+ const m = createStarterDocument().model; m.Version = 1000;
  const modern = await checkSanity(m, hive);
  assert.equal(modern.status, 'Check partially completed');
  assert.equal(modern.hive, null);

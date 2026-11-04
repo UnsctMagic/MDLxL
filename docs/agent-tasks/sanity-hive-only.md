@@ -39,6 +39,15 @@ Requested by Claude release QA for 0.38.0; no merge authorized.
 - Final audit: all nine current flail-fixture diagnostic messages and severities translate in each of es/ru/zh. Authored names, technical identifiers and checker/model data are unchanged.
 - No packaged suite was run for this follow-up, per release QA's instruction. Claude reruns it on the final release package. Mark #538 ready for review after pushing; do not merge.
 
+## CI private-fixture correction
+
+- Continued from `d811faad3663983d8cb7b8ff895bbe51625b052c` after CI run 41743935233 exposed four ENOENT failures in `test/sanity-check.test.js`.
+- The private path still comes from `fixturePath('optimizexl-review')`. Only the real-geometry regression skips if absent, using the existing source-test reason `private flail model not on this machine`. Its test body and assertions are byte-for-byte unchanged.
+- Unsaved-data, source-diagnostics, unsupported-format and failed-Hive coverage use `createStarterDocument()` and run without private files. Native Help dispatch coverage remains unconditional.
+- Reproduced before correction with a missing fixture override: 1 pass / 4 fail / 0 skip. After correction: model present 5 pass / 0 fail / 0 skip; model absent 4 pass / 0 fail / 1 skip, solely the real-model test for the reason above.
+- Sanity/localization checks after correction: 29 pass / 0 fail / 0 skip locally. No application or catalog change, no packaged rerun, no change to `.github/known-test-failures.txt`.
+- Push the correction on #538, confirm the new CI result and hand back to Claude release QA. No merge authorized.
+
 ## Next action
 
 Claude owns independent QA. Review the real-model dialog, run the focused checks, and merge only after explicit owner authorization. No installed app/profile or user model is changed. Disposable test packages/profiles are removed after each run; small logs/captures are in `D:\Codex\mdlxl-hive-only-sanity`.
