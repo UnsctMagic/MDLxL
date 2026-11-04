@@ -1,12 +1,12 @@
+const {openEffectCollection,openEffect}=require('./helpers/library-browser.cjs');
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, stubDialogs, clickMenu, settle } = require('./helpers/app.cjs');
 
 const path=require('node:path'),fs=require('node:fs'),assert=require('node:assert/strict');
 (async()=>{
   const root=process.cwd(),out=path.join(root,'out','particle-prototype');fs.mkdirSync(out,{recursive:true});
-  const testProfile=path.join(out,'profile-'+Date.now());fs.mkdirSync(testProfile,{recursive:true});const sourceLibrary=path.join(root,'profile','particles'),testLibrary=path.join(testProfile,'particles');fs.mkdirSync(testLibrary);
-  for(const name of ['current.json','source-inventory.json','metadata.json'])if(fs.existsSync(path.join(sourceLibrary,name)))fs.copyFileSync(path.join(sourceLibrary,name),path.join(testLibrary,name));
-  const sourceKey=JSON.parse(fs.readFileSync(path.join(sourceLibrary,'current.json'),'utf8')).sourceKey;
-  for(const name of [sourceKey,'thumbnails']){fs.mkdirSync(path.join(sourceLibrary,name),{recursive:true});fs.symlinkSync(path.join(sourceLibrary,name),path.join(testLibrary,name),'junction');}
+  const testProfile=path.join(out,'profile-'+Date.now());fs.mkdirSync(testProfile,{recursive:true});const sourceLibrary=path.join(process.env.MDLXL_REAL_PROFILE,'particles'),testLibrary=path.join(testProfile,'particles');
+  fs.cpSync(sourceLibrary,testLibrary,{recursive:true});
   const {createDemoDocument}=await import('../src/editor-document.js');const fixture=path.join(out,'target.mdx');fs.writeFileSync(fixture,Buffer.from(createDemoDocument().serialize('mdx')));
   const launched = await launchApp({ out, fixture, profile: testProfile, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 15000 }); let app = launched.app;
   const errors=launched.errors;
@@ -15,7 +15,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
 
     await page.waitForFunction(()=>window.desktop&&document.querySelector('.classic-toolbar'));
     await page.evaluate(async()=>{const settings=await window.desktop.getSettings();await window.desktop.configure({preferences:{...settings.preferences,graphics:{...settings.preferences.graphics,pauseWhenHidden:false}}});});
-    await page.getByText('Opened target.mdx',{exact:true}).waitFor();
+    await waitForInfo(page, 'Opened target.mdx');
     await clickMenu(app, 'Particle Editor…');
     await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();
     console.log('opened');
@@ -38,7 +38,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.locator('.pe-window').getByRole('button',{name:'Pause',exact:true}).click();
     const point=await handle.locator('circle').boundingBox();
     await page.mouse.move(point.x+point.width/2,point.y+point.height/2);await page.mouse.down();
-    await page.getByLabel('Preview speed',{exact:true}).selectOption('1');
+    await page.getByLabel('Playback Speed',{exact:true}).selectOption('1');
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.pe-window').getByRole('button',{name:'Pause',exact:true}).isVisible(),true);
     const heldTime=Number(await page.getByLabel('Particle preview playhead',{exact:true}).inputValue());
@@ -63,6 +63,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2,cancelPoint.y+cancelPoint.height/2);await page.mouse.down();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2+50,cancelPoint.y+cancelPoint.height/2-20);
     assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
+    await page.waitForFunction(before=>Number(document.querySelector('[aria-label="Halfway size"]').value)>before,Number(beforeSize));
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize),'The drag changes the size before Escape');
     await page.keyboard.press('Escape');await page.mouse.up();
     await page.screenshot({path:path.join(out,'escape-cancel.png')});
@@ -147,7 +148,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const frozenFX=await readParticles();await settle(page, 300);const laterFX=await readParticles();
     assert.deepEqual(laterFX.particles,frozenFX.particles,'FX pause freezes particle aging and births while the animation clock advances');
     assert.notEqual(laterFX.frame,frozenFX.frame);
-    await page.getByLabel('Preview speed',{exact:true}).selectOption('0');
+    await page.getByLabel('Playback Speed',{exact:true}).selectOption('0');
     await page.getByLabel('FX speed',{exact:true}).selectOption('1');await settle(page, 100);
     const frozenModel=await readParticles();await settle(page, 300);const laterModel=await readParticles();
     assert.equal(laterModel.frame,frozenModel.frame,'Animation pause holds pose while FX advance');
@@ -217,13 +218,13 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await settle(page, 5000);await page.screenshot({path:path.join(out,'library.png')});
     await page.getByLabel('Find an effect',{exact:true}).fill('flamestrikeembers');
     const beforeSourceLab=await readLab(),beforeSourceTarget=await readModel();
-    await page.getByRole('button',{name:'Details for Orange ember patch',exact:true}).click();
+    await page.getByRole('treeitem',{name:'Orange ember patch',exact:true}).click();
     await page.getByRole('button',{name:'View source context',exact:true}).click();
     await page.locator('.pe-source-stage [data-clean-model-canvas]').waitFor();await page.getByRole('button',{name:'Pause source',exact:true}).click();
     await settle(page, 500);assert.deepEqual(await readLab(),beforeSourceLab);assert.deepEqual(await readModel(),beforeSourceTarget);
     await page.screenshot({path:path.join(out,'source-context.png')});await page.getByRole('button',{name:'Close source context',exact:true}).click();
     console.log('Explicit CASC source context preserves both Lab and target');
-    await page.locator('.pe-effect-card').first().click();
+    await page.locator('.pe-library [data-effect-id]').first().dblclick();
     await page.waitForFunction(()=>!document.querySelector('.pe-library'));
     await settle(page, 1200);
     const loadedRecipe=await readLab();
@@ -234,26 +235,25 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
 
     const beforePlacement=await readModel();
     await page.getByRole('button',{name:'Add to model',exact:true}).click();
-    const anchorHandle=page.getByRole('slider',{name:'Move effect anchor',exact:true});await anchorHandle.waitFor();
+    const anchorHandle=page.getByRole('slider',{name:'Move emitter',exact:true});await anchorHandle.waitFor();
     const anchorBox=await anchorHandle.locator('circle').boundingBox();
     await page.mouse.move(anchorBox.x+10,anchorBox.y+10);await page.mouse.down();await page.mouse.move(anchorBox.x+75,anchorBox.y-15,{steps:8});await page.mouse.up();
     await settle(page, 250);
     assert.deepEqual(await readModel(),beforePlacement,'Dragging the ghost never edits the target');
-    assert.ok(Math.abs(Number(await page.getByLabel('Effect anchor X',{exact:true}).inputValue()))>0);
+    const placementState=()=>page.evaluate(()=>JSON.parse(JSON.stringify(findFiberProps('.pe-preview .game-preview-root',p=>p.placement&&p.recipe).placement)));
+    const draggedPlacement=await placementState();assert.ok(draggedPlacement.position.some(v=>Math.abs(v)>0));
     await page.screenshot({path:path.join(out,'placement-ghost.png')});
-    await page.getByRole('button',{name:'Cancel placement',exact:true}).click();
+    await page.getByRole('button',{name:'Cancel',exact:true}).click();
     assert.deepEqual(await readModel(),beforePlacement,'Cancel placement leaves target and undo unchanged');
     await page.getByRole('button',{name:'Add to model',exact:true}).click();
 
-    await page.getByText('Position & motion',{exact:true}).click();
-    const parent=beforePlacement.model.Bones[0];await page.getByLabel('Attach effect to',{exact:true}).selectOption(String(parent.ObjectId));await page.getByRole('button',{name:'Snap to attachment pivot',exact:true}).click();
-    for(const [i,axis]of ['X','Y','Z'].entries())assert.equal(Number(await page.getByLabel('Effect anchor '+axis,{exact:true}).inputValue()),parent.PivotPoint[i]);
-    await page.getByRole('button',{name:'Pause ghost',exact:true}).click();await settle(page, 200);await page.getByRole('button',{name:'Snap to surface',exact:true}).click();
+    const parent=beforePlacement.model.Bones[0];
+    const initialPlacement=await placementState();assert.equal(await page.getByLabel('Attach effect to',{exact:true}).count(),0,'Placement reuses the selected geometry/bone');
+    const pauseGhost=page.locator('.pe-toolbar').getByRole('button',{name:'Pause',exact:true});if(await pauseGhost.count())await pauseGhost.click();await page.getByRole('button',{name:'Snap to surface',exact:true}).click();
     const surfacePoint=await page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');{ const v = mdlxlProbe(el).runtime; if (v) {const model=v.native.model,camera=v.controls.object;let point=null,nearest=Infinity;for(const geo of model.Geosets){const posed=[];for(let i=0;i<geo.Vertices.length/3;i++){const p=camera.position.clone().set(0,0,0),groups=geo.Groups[geo.VertexGroup[i]];for(const id of groups){const matrix=camera.matrix.clone().fromArray(v.native.rendererData.nodes[id].matrix),vertex=camera.position.clone().fromArray(geo.Vertices,i*3).applyMatrix4(matrix);p.addScaledVector(vertex,1/groups.length);}posed.push(p);}for(let i=0;i<geo.Faces.length;i+=3){const p=posed[geo.Faces[i]].clone().add(posed[geo.Faces[i+1]]).add(posed[geo.Faces[i+2]]).multiplyScalar(1/3),d=p.distanceToSquared(camera.position);if(d<nearest){nearest=d;point=p;}}}point.project(camera);const r=el.querySelector('[data-clean-model-canvas]').getBoundingClientRect();return {x:r.x+(point.x+1)*r.width/2,y:r.y+(1-point.y)*r.height/2};} }throw Error('Ghost native geometry unavailable');});
-    await page.mouse.dblclick(surfacePoint.x,surfacePoint.y);await page.getByRole('button',{name:'Snap to surface',exact:true}).waitFor();const surfacePosition=await Promise.all(['X','Y','Z'].map(axis=>page.getByLabel('Effect anchor '+axis,{exact:true}).inputValue()));assert.ok(surfacePosition.some((v,i)=>Math.abs(Number(v)-parent.PivotPoint[i])>.001));assert.deepEqual(await readModel(),beforePlacement,'Surface and pivot snapping change only the ghost');
-    await page.getByRole('checkbox',{name:'Fit timing to Start / End',exact:true}).check();
-    await page.getByLabel('Effect end',{exact:true}).fill(String(beforePlacement.model.Sequences[0].Interval[1]));
-    await page.getByRole('button',{name:'Confirm placement',exact:true}).click();
+    await page.mouse.dblclick(surfacePoint.x,surfacePoint.y);await page.getByRole('button',{name:'Snap to surface',exact:true}).waitFor();const surfacePosition=(await placementState()).position;assert.notDeepEqual(surfacePosition,initialPlacement.position,'Surface snap changes the ghost position');assert.deepEqual(await readModel(),beforePlacement,'Surface and pivot snapping change only the ghost');
+    const clips=page.locator('.pe-ribbon-sequences input');for(let i=0;i<beforePlacement.model.Sequences.length;i++)if(i===0)await clips.nth(i).check();else await clips.nth(i).uncheck();
+    await page.getByRole('button',{name:'Create',exact:true}).click();
     await settle(page, 200);
     console.log('placement',await page.locator('.pe-window .re-status').innerText());
     assert.equal(await page.getByLabel('Particle context',{exact:true}).inputValue(),'On model');
@@ -274,8 +274,8 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const ribbonRecipe=extractParticleRecipe(ribbonModel,[ribbon.ObjectId],{name:'MDLxL test ribbon'});
     await page.evaluate(data=>window.desktop.particleSave({data,name:'MDLxL test ribbon'}),stringifyParticleData(ribbonRecipe));
     await page.locator('.pe-window').getByRole('button',{name:'Library',exact:true}).click();
-    await page.getByRole('button',{name:'My presets',exact:true}).click();
-    await page.getByRole('button',{name:'MDLxL test ribbon',exact:true}).click();
+    await openEffectCollection(page,'My presets');
+    await openEffect(page,'MDLxL test ribbon');
     await page.getByLabel('Ribbon upper end',{exact:true}).waitFor();
     const ribbonBefore=await readLab(),upper=await page.getByRole('slider',{name:'Ribbon upper edge',exact:true}).locator('circle').boundingBox();
     await page.mouse.move(upper.x+7,upper.y+7);await page.mouse.down();await page.mouse.move(upper.x+40,upper.y-20,{steps:6});await page.mouse.up();
@@ -313,19 +313,19 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.deepEqual((await readLab()).model,beforeIngredients.model);assert.equal((await readLab()).undo,beforeIngredients.undo);assert.deepEqual(await readModel(),targetBeforeIngredients);
     console.log('On-demand ingredient captures, selection, preview mute and complete-group save preserve native data');
 
-    await page.getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'My presets',exact:true}).click();
-    const details=page.getByRole('button',{name:'Details for Portable picture sparks',exact:true});await details.click();
+    await page.getByRole('button',{name:'Library',exact:true}).click();await openEffectCollection(page,'My presets');
+    const details=page.getByRole('treeitem',{name:'Portable picture sparks',exact:true});await details.click();
     const tags=page.getByLabel('Effect tags',{exact:true});await tags.fill('portable, cyan, prototype');await tags.press('Tab');await settle(page, 150);
     const exportFile=path.join(out,'portable-export.mdlxl-particle');
     await app.evaluate(({dialog})=>{global.__save=dialog.showSaveDialog;});await stubDialogs(app, { save: exportFile });
     await page.getByRole('button',{name:'Export preset',exact:true}).click();await settle(page, 200);assert.ok(fs.existsSync(exportFile));
     await app.evaluate(({dialog})=>{dialog.showSaveDialog=global.__save;delete global.__save;});
     const exportData=fs.readFileSync(exportFile,'utf8');assert.deepEqual(JSON.parse(exportData).tags,['portable','cyan','prototype']);
-    await page.getByRole('button',{name:'Duplicate',exact:true}).click();await page.getByRole('button',{name:'Portable picture sparks copy',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Duplicate',exact:true}).click();await page.getByRole('treeitem',{name:'Portable picture sparks copy',exact:true}).waitFor();
     await app.evaluate(({dialog})=>{global.__open=dialog.showOpenDialog;});await stubDialogs(app, { open: exportFile });
     await page.getByRole('button',{name:'Import preset…',exact:true}).click();await settle(page, 250);await app.evaluate(({dialog})=>{dialog.showOpenDialog=global.__open;delete global.__open;});
-    assert.equal(await page.getByRole('button',{name:'Portable picture sparks',exact:true}).count(),2);
-    await page.getByRole('button',{name:'Portable picture sparks copy',exact:true}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
+    assert.equal(await page.getByRole('treeitem',{name:'Portable picture sparks',exact:true}).count(),2);
+    await openEffect(page,'Portable picture sparks copy');await page.locator('.pe-library').waitFor({state:'hidden'});
     await page.getByRole('button',{name:'Look',exact:true}).click();
     {const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+1));await size.press('Enter');}
     const recoveredExpected=await readLab();assert.equal(recoveredExpected.dirty,true);

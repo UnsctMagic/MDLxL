@@ -107,8 +107,8 @@ const path = require('node:path');
   for (const locale of ['ru', 'es']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
     try {
-      // The model opens straight away; the status-bar warning opens the repair choices.
-      await repairPage.locator('.classic-status .status-warning').click();
+      // The model opens straight away; the warning toast opens the repair choices.
+      await repairPage.locator('.warning-toasts .warning-message').click();
       const dialog = repairPage.getByRole('dialog', { name: translate('Duplicate geoset animations', locale), exact: true });
       await dialog.waitFor();
       await dialog.getByRole('button', { name: translate('Review tint conflict', locale), exact: true }).click();

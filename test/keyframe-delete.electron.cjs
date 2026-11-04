@@ -40,7 +40,7 @@ const assert = require('node:assert/strict');
     await page.getByLabel('Movement current sequence').selectOption('-1');
     await deleteKey(377); // All line: remove all editable keys at the clicked time.
     await page.keyboard.press('Control+s');
-    await page.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Modified'));
+    await page.waitForFunction(() => window.__mdlxl?.document()?.dirty === false);
     let saved = openDocument(fs.readFileSync(fixture), 'keyframe-delete.mdx').model;
     assert.equal(saved.Bones[0].Translation.Keys.some(key => key.Frame === 377), false);
     assert.equal(saved.Bones[0].Rotation.Keys.some(key => key.Frame === 377), false);
@@ -55,7 +55,7 @@ const assert = require('node:assert/strict');
     await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Select', exact: true }).click();
     await deleteKey(521); // Select tool still edits visible keys of the selected bone.
     await page.keyboard.press('Control+s');
-    await page.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Modified'));
+    await page.waitForFunction(() => window.__mdlxl?.document()?.dirty === false);
     saved = openDocument(fs.readFileSync(fixture), 'keyframe-delete.mdx').model;
     assert.equal(saved.Bones[0].Rotation.Keys.some(key => key.Frame === 643), false);
     assert.equal(saved.Bones[0].Translation.Keys.some(key => key.Frame === 643), true, 'Other channels survive Highlight KF deletion');

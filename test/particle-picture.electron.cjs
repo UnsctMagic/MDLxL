@@ -32,7 +32,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByRole('button',{name:'Remove team color picture',exact:true}).click();await page.getByRole('button',{name:'Remove team glow picture',exact:true}).click();
   assert.deepEqual((await read()).model,original.model,'Both added team pictures are removable');
   await page.getByRole('button',{name:'Library…',exact:true}).click();const library=page.getByRole('dialog',{name:'Material and Texture Library',exact:true});await library.waitFor();
-  await page.getByLabel('Search textures',{exact:true}).fill('GenericGlow64');
+  await page.getByRole('button',{name:'Standard',exact:true}).click();await page.getByLabel('Search textures',{exact:true}).fill('GenericGlow64');
   const tile=page.locator('.tl-tile').filter({hasText:/GenericGlow64/i}).first();await tile.waitFor({timeout:60000});await tile.click();
   const use=page.getByRole('button',{name:'Use picture',exact:true});await use.waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.tl-actions button')].some(b=>b.textContent==='Use picture'&&!b.disabled),null,{timeout:60000});
   const nativePath=await library.locator('.tl-details > code').first().innerText();

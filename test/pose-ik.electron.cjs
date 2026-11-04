@@ -14,7 +14,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const { parseMdx } = await import('../src/mdx-container.js');
   const { projectedPlaneTranslation } = await import('../app/viewport-math.js');
   const { pointerSensitivityValue } = await import('../app/viewport-performance.js');
-  const { movementAxisHandles, movementDragAmount } = await import('../app/movement-overlay.js');
+  const { movementAxisHandles, gizmoMoveTranslation } = await import('../app/movement-overlay.js');
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || fixturePath('footman'));
   const { executablePath } = appTarget();
   fs.mkdirSync(out, { recursive: true });
@@ -189,7 +189,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     for(const name of ['Move','Rotate','Scale']) {await page.getByLabel('Movement bone or node').selectOption('39');await tool(name);const before=await snap();await drag('node',39,6,-3);assert.equal((await snap()).undo,before.undo+1,'head '+name+' is an ordinary atomic control');}
     await page.getByRole('button',{name:'POSE setup',exact:true}).click();if(await page.getByRole('button',{name:'Handles',exact:true}).isVisible())await page.getByRole('button',{name:'Handles',exact:true}).click();await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'Map Object',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption('43');await settle();await page.getByRole('button',{name:'Add handle',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
     await tool('Move');const beforeReference=await snap();await drag('node',43,3,-2);await menu('undo');await settle();assert.deepEqual((await snap()).model,beforeReference.model,'an arbitrary attachment handle undoes exactly');
-    await selectHandle('body');await tool('Rotate');const beforeRotate=await snap();await drag('body',null,5,0);const afterRotate=await snap();assert.equal(afterRotate.undo,beforeRotate.undo+1);for(const c of legs)assert.ok(samplePoseChain(afterRotate.model,c,500,0).end.distanceTo(samplePoseChain(beforeRotate.model,c,500,0).end)<.004);
+    // #504 keeps a five-pixel Rotate press as selection; cross that distance deliberately.
+    await selectHandle('body');await tool('Rotate');const beforeRotate=await snap();await drag('body',null,12,0);const afterRotate=await snap();assert.equal(afterRotate.undo,beforeRotate.undo+1);for(const c of legs)assert.ok(samplePoseChain(afterRotate.model,c,500,0).end.distanceTo(samplePoseChain(beforeRotate.model,c,500,0).end)<.004);
     await tool('Scale');const beforeScale=await snap();await drag('body',null,4,0);const afterScale=await snap();assert.equal(afterScale.undo,beforeScale.undo+1);for(const c of legs)assert.ok(samplePoseChain(afterScale.model,c,500,0).end.distanceTo(samplePoseChain(beforeScale.model,c,500,0).end)<.004,'body Scale retains planted feet');
     for(const end of [38,42]) {await selectHandle('endpoint',end);await page.getByRole('button',{name:'Pin selected hand',exact:true}).click();}
     const allLimbs=(await page.evaluate(()=>poseProbe().props.poseConfig.chains)).map(c=>({...c}));await selectHandle('body');await tool('Move');const fourBefore=await snap();await drag('body',null,0,3);const fourAfter=await snap();assert.equal(fourAfter.undo,fourBefore.undo+1);for(const c of allLimbs)assert.ok(samplePoseChain(fourAfter.model,c,500,0).end.distanceTo(samplePoseChain(fourBefore.model,c,500,0).end)<.004,'body holds four explicit pins');
@@ -220,9 +221,11 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     }
     results.checks.push('Pointer cancel/lost capture, blur, frame/sequence/tool/target/revision changes and teardown restore preview and camera input');
     const axisBefore = await snap(), axisHandle = await handleFor('endpoint', 38), axisCamera = new ObjectLoader().parse(await page.evaluate(() => poseProbe().runtime.controls.object.toJSON())); axisCamera.updateMatrixWorld(true);
-    const axisBox = await viewportBox(), a = movementAxisHandles(axisHandle, axisCamera, axisBox.width, axisBox.height, 100, 'world', 'move').find(handle => handle.axis === 'X'), pose = samplePoseChain(axisBefore.model, axisHandle.chain, 500, 0), sign = -Math.sign(pose.end.x - pose.root.x) || 1;
-    const dx = Math.round(sign * a.dx / Math.hypot(a.dx, a.dy) * 6), dy = Math.round(sign * a.dy / Math.hypot(a.dx, a.dy) * 6), sensitivity = pointerSensitivityValue(await page.evaluate(() => poseProbe().props.preferences?.pointerSensitivity)), amount = movementDragAmount(a, dx, dy, 'move', sensitivity);
-    const target = pose.end.clone(); target.x += amount; const expectedAxis = solvePoseLimb(axisBefore.model, axisHandle.chain, 500, 0, target);
+    const axisRadius=await page.evaluate(()=>poseProbe().runtime.captureApi.showcaseView().radius);
+    const axisBox = await viewportBox(), a = movementAxisHandles(axisHandle, axisCamera, axisBox.width, axisBox.height, axisRadius, 'world', 'move').find(handle => handle.axis === 'X'), pose = samplePoseChain(axisBefore.model, axisHandle.chain, 500, 0), sign = -Math.sign(pose.end.x - pose.root.x) || 1;
+    const dx = Math.round(sign * a.dx / Math.hypot(a.dx, a.dy) * 6), dy = Math.round(sign * a.dy / Math.hypot(a.dx, a.dy) * 6), sensitivity = pointerSensitivityValue(await page.evaluate(() => poseProbe().props.preferences?.pointerSensitivity)), offset = gizmoMoveTranslation({camera:axisCamera,origin:axisHandle.world,handle:a,width:axisBox.width,height:axisBox.height},dx,dy,false,sensitivity);
+    assert.equal(offset[1],0);assert.equal(offset[2],0,'The X handle keeps the other axes fixed');
+    const target = pose.end.clone().add(new Vector3().fromArray(offset)); const expectedAxis = solvePoseLimb(axisBefore.model, axisHandle.chain, 500, 0, target);
     await page.mouse.move(axisBox.x + a.x, axisBox.y + a.y); await page.mouse.down(); await page.mouse.move(axisBox.x + a.x + dx, axisBox.y + a.y + dy, { steps: 5 }); await settle(); assert.deepEqual(await snap(), axisBefore); await page.mouse.up(); await settle();
     assert.ok(samplePoseChain((await snap()).model, axisHandle.chain, 500, 0).end.distanceTo(expectedAxis.pose.end) < .004); results.checks.push('Actual Move axis-gizmo drag follows its native axis');
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured'); await settle(); await drag('endpoint', 38, -4, -3, true); await shot('06-textured-preview-restored');

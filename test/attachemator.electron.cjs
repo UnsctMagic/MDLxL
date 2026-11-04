@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
@@ -141,7 +142,7 @@ const path = require('node:path');
 
     await dialog.getByRole('button', { name: 'Commit', exact: true }).click();
     await dialog.waitFor({ state: 'hidden' });
-    await page.waitForFunction(() => /Attachemator placed/.test(document.body.innerText));
+    await waitForInfo(page, /Attachemator placed/);
     await page.screenshot({ path: path.join(output, '4-committed.png') });
 
     await stubDialogs(app, { save: (savedPath) });

@@ -69,6 +69,7 @@ async function fixture() {
       await uvw.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
       const dialog = uvw.getByRole('dialog', { name: 'Material and Texture Library', exact: true });
       await dialog.waitFor();
+      await dialog.getByRole('button', { name: 'Standard', exact: true }).click();
       await dialog.getByLabel('Texture source', { exact: true }).selectOption('custom');
       await dialog.getByLabel('Vibe search', { exact: true }).uncheck();
       await dialog.getByLabel('Search textures', { exact: true }).fill(name);

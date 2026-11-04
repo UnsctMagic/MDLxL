@@ -46,7 +46,13 @@ const { buildSync } = require('esbuild');
   };
   const close = async (keepProfile = false) => { if(app){ await closeApp(app, { keepProfile }); app=null; } };
   const idle = () => settlePage(page, 220);
-  const checks = () => page.locator('.movement-object-filters input').evaluateAll(es=>es.map(e=>e.checked));
+  const checks = () => page.evaluate(() => {const p=rigState().props;return [p.overlays.bones && p.overlays.boneTypesBones !== false,p.overlays.bones && p.overlays.boneTypesHelpers !== false,!!p.overlays.attachments];});
+  const typeCheck = async (name, checked) => {
+    await page.locator('.quick-display input[data-hotkey="display:bones"]').click({button:'right'});
+    const item=page.getByRole('menuitemcheckbox',{name,exact:true});
+    if ((await item.getAttribute('aria-checked')==='true')!==checked) await item.click();
+    await page.keyboard.press('Escape');
+  };
   const menu = command => app.evaluate(({BrowserWindow},c)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',c),command);
   const settings = async tab => { await menu('appearanceSettings'); await page.locator('.settings-appearance-nav').getByRole('button',{name:tab,exact:true}).click(); };
   const done = () => page.getByRole('button',{name:'Done',exact:true}).click();
@@ -64,7 +70,7 @@ const { buildSync } = require('esbuild');
   };
   try {
     await launch();
-    assert.deepEqual(await checks(),[true,false,false]);
+    assert.deepEqual(await checks(),[true,true,false]);
     const order = await page.evaluate(() => {
       const y = selector => document.querySelector(selector).getBoundingClientRect().top;
       return [y('.movement-object-combo'),y('.movement-object-filters')];
@@ -90,7 +96,7 @@ const { buildSync } = require('esbuild');
     // readableTextColor may serialize as color(srgb …); compare the colour, not the notation.
     const rgb=value=>{const m=String(value).match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)/);return m?`rgb(${m.slice(1).map(n=>Math.round(n*255)).join(', ')})`:value;};
     assert.equal(rgb(textStyles.input.color),'rgb(190, 24, 93)'); assert.equal(rgb(textStyles.option.color),rgb(textStyles.input.color));
-    assert.deepEqual(textStyles.filters.map(s=>rgb(s.color)),['rgb(22, 101, 52)','rgb(107, 33, 168)','rgb(190, 24, 93)'],'option 1 text colors');
+    assert.deepEqual(textStyles.filters.map(s=>rgb(s.color)),['rgb(190, 24, 93)'],'Refs retains its text color after the Bones/Helpers controls move to the context menu');
     assert.ok([...textStyles.filters,textStyles.input,textStyles.option].every(s=>parseFloat(s.width)===.2),'option 1 fine outline');
     assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.input.stroke)); assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.option.stroke)); assert.ok(parseFloat(textStyles.option.width)>0);
     assert.equal(textStyles.arrow.color,'rgb(0, 0, 0)','the original small object-picker arrow is black');
@@ -103,16 +109,16 @@ const { buildSync } = require('esbuild');
     result.textStyles=textStyles;
 
     const rows=await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().top));
-    assert.ok(Math.max(...rows)-Math.min(...rows)<1,'all three controls occupy one row');
+    assert.ok(Math.max(...rows)-Math.min(...rows)<1,'Refs keeps its compact row');
     await page.getByLabel('View direction',{exact:true}).selectOption('front'); await idle();
-    await page.locator('.movement-object-filters').getByLabel('Helpers',{exact:true}).check();
+    await typeCheck('Helpers',true);
     await page.locator('.movement-object-filters').getByLabel('Refs',{exact:true}).check(); await idle();
     await drag(ref.ObjectId); await drag(helper.ObjectId);
     await page.keyboard.press('Escape');
-    await page.locator('.movement-object-filters').getByLabel('Bones',{exact:true}).uncheck();
+    await typeCheck('Bones',false);
     await page.locator('.movement-object-filters').getByLabel('Refs',{exact:true}).uncheck();
     await page.keyboard.press('Escape'); await idle(); await drag(helper.ObjectId);
-    await page.locator('.movement-object-filters').getByLabel('Bones',{exact:true}).check();
+    await typeCheck('Bones',true);
     await page.locator('.movement-object-filters').getByLabel('Refs',{exact:true}).check();
     await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(ref.ObjectId));
     await page.getByLabel('X coordinate',{exact:true}).fill('12'); await page.getByLabel('X coordinate',{exact:true}).press('Enter'); await idle();
@@ -128,7 +134,7 @@ const { buildSync } = require('esbuild');
       const colors=await page.evaluate(()=>objectColors());
       assert.equal(colors.find(c=>c.id===helper.ObjectId).color,preset.appearance.bones.helper,preset.name+' helper');
       assert.equal(colors.find(c=>c.id===ref.ObjectId).color,preset.appearance.bones.ref,preset.name+' ref');
-      assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():e.style.color;})),[preset.appearance.tree.nodes.bone,preset.appearance.tree.nodes.helper,preset.appearance.tree.nodes.attachment].map(hex=>hex.toLowerCase()),preset.name+' text palette (readable lift of the preset colour, #267)');
+      assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():e.style.color;})),[preset.appearance.tree.nodes.attachment].map(hex=>hex.toLowerCase()),preset.name+' text palette (readable lift of the preset colour, #267)');
       result.palettes.push({name:preset.name,colors});
       if(['mdlvis-vanilla','blender-style'].includes(preset.id))await page.screenshot({path:path.join(out,preset.id==='mdlvis-vanilla'?'lordaeron.png':'blackrock.png')});
     }
@@ -141,19 +147,19 @@ const { buildSync } = require('esbuild');
     const custom=await page.getByLabel('Viewport appearance preset').inputValue();
     await page.getByLabel('Viewport appearance preset').selectOption('blender-style'); await page.getByLabel('Viewport appearance preset').selectOption(custom); await done(); await idle();
     assert.equal((await page.evaluate(()=>objectColors())).find(c=>c.id===ref.ObjectId).color,'#ff22aa');
-    await page.locator('.movement-object-filters').getByLabel('Bones',{exact:true}).uncheck();
+    await typeCheck('Bones',false);
     await page.locator('.vis-toggle').click(); await idle(); assert.equal(await page.locator('.movement-object-filters').count(),0,'VIS hides the row');
-    let vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.helpers,vis.attachments],[true,true,true]);
+    let vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.boneTypesBones,vis.boneTypesHelpers],[true,true,true]);
     await drag(ref.ObjectId);
     await page.locator('.quick-display').getByRole('button',{name:'Clear',exact:true}).click(); await idle();
-    vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.helpers,vis.attachments],[true,true,true],'VIS keeps all three enabled');
+    vis=await page.evaluate(()=>rigState().props.overlays); assert.deepEqual([vis.bones,vis.boneTypesBones,vis.boneTypesHelpers],[false,true,true],'VIS Clear hides the master and preserves type choices');
     await page.locator('.vis-toggle').click(); await idle(); assert.deepEqual(await checks(),[false,true,true],'XL choices survive VIS switch');
     await close(true); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
     const restored=await page.evaluate(()=>objectColors()); assert.equal(restored.find(c=>c.id===helper.ObjectId).color,'#b940ff'); assert.equal(restored.find(c=>c.id===ref.ObjectId).color,'#ff22aa');
-    assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#1b6837','#7123ad','#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
+    assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
     // After Clear, the top row's Bones chip turns bones back on (the side filter follows).
     await page.locator('.quick-display').getByRole('button',{name:'Clear',exact:true}).click(); await idle(); assert.equal((await checks())[0],false,'Clear hides bones');
-    await page.locator('.quick-display input[aria-label="Bones"]').check(); await idle(); assert.equal((await checks())[0],true,'the Bones chip turns bones back on in the Bones editor');
+    await page.locator('.quick-display input[aria-label="Bones"]').check(); await idle(); assert.equal(await page.locator('.quick-display input[data-hotkey="display:bones"]').isChecked(),true,'the Bones chip turns the master back on');assert.equal((await checks())[0],false,'the Bones type choice remains off');
     assert.deepEqual(fs.readFileSync(fixture),original,'fixture bytes unchanged'); assert.deepEqual(errors,[]);
     result.pass=true; fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2)); console.log('PASS object row, ref/helper mouse moves, typed coordinates, undo, all palettes, custom colors, VIS, app reopen and camera rotation');
   } finally { await close(); fs.rmSync(profile,{recursive:true,force:true}); fs.rmSync(fixture,{force:true}); }

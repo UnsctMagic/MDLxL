@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Zoom align with real mouse drags on the built bundle: node test/zoom-align.electron.cjs
 const fs = require('node:fs');
@@ -51,7 +52,7 @@ const assert = require('node:assert/strict');
       await page.mouse.move(p.x-5,p.y-5);await page.mouse.down();await page.mouse.move(p.x+5,p.y+5,{steps:4});await page.mouse.up();await idle();
     };
     await pick('Shift+1',0);
-    await page.waitForFunction(()=>document.body.innerText.includes('Align vertex selected.'));
+    await waitForInfo(page, 'Align vertex selected.');
     assert.ok(await page.evaluate(()=>markerPixels(0,[255,79,216]))>10,'pink ALIGN marker');
     assert.equal(await page.evaluate(()=>markerPixels(0,[57,255,20])),0,'no green marker for align');
 
@@ -80,7 +81,7 @@ const assert = require('node:assert/strict');
     assert.deepEqual(await page.evaluate(()=>vertices()),before,'one undo step');
     // Anchor (1) replaces align and keeps its green marker and normal zoom.
     await pick('1',0);
-    await page.waitForFunction(()=>document.body.innerText.includes('Anchor vertex selected.'));
+    await waitForInfo(page,'Anchor vertex selected.');
     assert.ok(await page.evaluate(()=>markerPixels(0,[57,255,20]))>10,'green ANCHOR marker');
     assert.equal(await page.evaluate(()=>markerPixels(0,[255,79,216])),0,'anchor replaced align');
     await drag(-50);

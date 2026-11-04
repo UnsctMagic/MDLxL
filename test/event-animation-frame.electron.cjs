@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -21,7 +22,7 @@ const path = require('node:path');
   const { app, page, errors } = await launchApp({ out: output, profile: path.join(output, 'profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, timeout: 30000, fixture: file , pageTimeout: 15000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 } });
   try {
 
-    await page.getByText('Opened fixture.mdx', { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened fixture.mdx');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Nodes'));
     await page.getByRole('dialog', { name: 'Node Manager', exact: true }).waitFor();
     await page.getByLabel('Search nodes').fill('SNDxDGAR');

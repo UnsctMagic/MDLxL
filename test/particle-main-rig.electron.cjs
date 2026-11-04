@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
@@ -9,12 +10,12 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const launched = await launchApp({ out, fixture, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 20000 }); app = launched.app;
   const page=launched.page,errors=launched.errors;
 
-  await page.getByText('Opened Static sword.mdx',{exact:true}).waitFor();
+  await waitForInfo(page, 'Opened Static sword.mdx');
   const read=()=>page.evaluate(()=>{let el=document.querySelector('.classic-app');{ const v = findFiberState(el, v => v?.doc?.model&&v.assets); if (v) return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps}; }throw Error('Document missing');});
   const before=await read();assert.equal(before.model.Sequences.length,0);
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await page.getByLabel('Particle context',{exact:true}).waitFor();if(await page.getByRole('button',{name:'Close Particle Library',exact:true}).count())await page.getByRole('button',{name:'Close Particle Library',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.getByRole('button',{name:'Add to model',exact:true}).click();
-  assert.equal(await page.getByLabel('Effect end',{exact:true}).count(),0);await page.getByRole('button',{name:'Confirm placement',exact:true}).click();await page.getByText('Effect added. Undo restores the model.',{exact:true}).waitFor();
+  assert.equal(await page.getByLabel('Effect end',{exact:true}).count(),0);await page.getByRole('button',{name:'Create',exact:true}).click();await page.getByText('Effect added. Drag it to adjust.',{exact:true}).waitFor();
   const placed=await read(),id=placed.model.ParticleEmitters2[0].ObjectId;assert.equal(placed.model.Sequences.length,0);assert.equal(placed.undo,before.undo+1);assert.deepEqual(placed.model.Geosets,before.model.Geosets);
   await page.getByRole('button',{name:'Close Particle Editor',exact:true}).click();await editor.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByRole('checkbox',{name:'Bones',exact:true}).check();await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(id));
