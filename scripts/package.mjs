@@ -10,7 +10,7 @@ const { MANIFEST, validateManifest, digest: hash } = createRequire(import.meta.u
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.37.0-New-Features', '0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
+const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.38.0-New-Features', '0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
 // Preserve the historical four-language guides. New guides ship for the current
 // release only; never fabricate FR/DE filenames for older PDFs.
 runtimeGuides.push(...(await fs.readdir(path.join(source, 'docs'))).filter(name => name.startsWith('MDLxL-' + manifest.version + '-') && /-(?:EN|ES|RU|ZH-CN|FR|DE)\.pdf$/.test(name) && !runtimeGuides.includes(name)));
