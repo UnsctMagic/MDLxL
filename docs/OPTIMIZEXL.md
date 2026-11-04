@@ -52,6 +52,24 @@ Context annotates existing motion proposals without changing their corrections. 
 
 For shared combat poses, the fixer compares the skinned rig at the first and last frames of Attack and Stand Ready sequences, plus only the first frame of Death. A strict majority of agreeing endpoint poses spanning at least two animations establishes the reference; Stand Ready has no automatic priority. One proposal corrects both ends of an outlying Attack/Stand Ready sequence together, or only Death's start. It names the agreeing animations, preserves interior keys and Death's final pose, and leaves independent effects/global animation untouched. Ambiguous groups, overlapping sequence intervals and differing spline channels do not produce this automatic proposal. Global animation may legitimately show a different phase at two timeline frames even after the local endpoint poses match.
 
+## Exact redundancy cleanup
+
+In **Insanity FIxer**, **Remove exact redundancy** offers an additional preview:
+repeated terminal holds on local step/linear tracks, constant geoset alpha/colour
+or identity node transforms, and permanently collapsed triangles. It uses the
+existing Approve, selected-fixes, Back and save controls. Existing reduction
+settings, defaults and operations are unchanged.
+
+Constant conversion preserves both animated values and the Unanimated base;
+colours use the existing RGB codec. A triangle is removed only when two corners
+have exactly equal positions and identical ordered skin influences. Surviving
+corner attributes, additive duplicates and bounds remain unchanged. The new
+proposal retains cubic/global tracks, overlapping domains and non-unit
+interpolated rotations. Earlier repairs keep ownership: track cleanup waits for
+timeline relocation, and structural repairs finish before targets are captured.
+See the [teaching boundaries](OPTIMIZEXL_TEACHING.md) and
+[verification evidence](OPTIMIZEXL_VERIFICATION.md).
+
 ## World-space animation reduction (optional)
 
 In **Animation optimization / Advanced**, choose **Reduction method / World-space bound**. The existing Simple strength slider then adjusts **World-space tolerance**, the maximum vertex difference for fast animations. Local tracks remains the default. Zero performs exact key cleanup and proven quaternion representation changes.
