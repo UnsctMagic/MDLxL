@@ -12,10 +12,10 @@ The owner requested a hotfix, an additive website post and necessary tests only,
 
 ## Final package and checks
 
-Official CI package: https://github.com/UnsctMagic/MDLxL/actions/runs/41922199608 (same runtime source as this release; subsequent changes are this unbundled handover only).
-ZIP: MDLxL-0.38.1-win32-x64.zip, 221254966 bytes.
+Feature/updater acceptance package: https://github.com/UnsctMagic/MDLxL/actions/runs/41922199608 (same runtime source as this release; subsequent changes are this unbundled handover only).
+Acceptance ZIP: MDLxL-0.38.1-win32-x64.zip, 221254966 bytes.
 SHA-256: efb07b0346028bbe5591b1719ff9db6ba0ffb786851156e8f955f46f60a67233.
-Publish this exact accepted CI ZIP/checksum after the tag workflow creates the draft, replacing its newly rebuilt ZIP/checksum if needed. It contains only manifest-listed files; every file hash passed, with no profile, recordings or test logs. The local test package was discarded after its test-created textures/recording were detected during ZIP audit; it is not the shipping ZIP.
+The final shipping package is refreshed by official CI run 41926160820 after correcting only the update instructions from Appearance to Configuration in the six new note files. Runtime app/src/electron/scripts files are byte-identical to this acceptance basis; the changed raw notes alter renderer chunk names. Carry forward the feature and portable-update results, then verify the final ZIP manifest, startup and six-language post. Publish that final validated CI ZIP/checksum after the tag workflow creates the draft, replacing its newly rebuilt ZIP/checksum if needed. Its final hash is recorded in the release completion report. It contains only manifest-listed files; every file hash passed, with no profile, recordings or test logs. The local test package was discarded after its test-created textures/recording were detected during ZIP audit; it is not the shipping ZIP.
 
 - Focused source: 189 pass / 0 fail / 1 existing skip (the volume has no 8.3 short names).
 - Compatibility: 57 pass / 0 fail / 0 skip.
@@ -27,13 +27,13 @@ Publish this exact accepted CI ZIP/checksum after the tag workflow creates the d
 
 ## Website and announcement
 
-Source PR #60 merged at ce0ba449ae3784c0d7014af4362d316630b97350. Pages PR #61 merged at 3f8f162bb47b3f13e21bdd6465c5e33edf102136. Only the new 0.38.1 JSON post was added on each branch; both blob IDs are a94111483722abbcfc89f0bc90833247da31ce14. Public post matches the six-language generator bytes. The previous public 0.38.0 post remains byte-identical, SHA-256 c8b8892ac5918c4b24a61a6409d302033b677e82a97c5cd0ccaec8b9014e3897.
+Source PR #60 merged at ce0ba449ae3784c0d7014af4362d316630b97350. Pages PR #61 merged at 3f8f162bb47b3f13e21bdd6465c5e33edf102136. Only the new 0.38.1 JSON post was added on each branch; its initial blob ID was a94111483722abbcfc89f0bc90833247da31ce14. The pre-release post receives the same Configuration-path correction as the six new source notes. Public post matches the six-language generator bytes. The previous public 0.38.0 post remains byte-identical, SHA-256 c8b8892ac5918c4b24a61a6409d302033b677e82a97c5cd0ccaec8b9014e3897.
 
 Use the compact linked title, Read patch notes in:, and six separate language links as the GitHub release body so the existing Garithos workflow posts the approved format. Do not dispatch an extra announcement or edit an old post.
 
 ## Completion
 
-After merge, verify online main, tag the exact approved merge, wait for Draft release, replace its ZIP/checksum with the accepted CI assets, attach the verified FFmpeg source companion, verify the draft asset list and six links, then publish. Verify public latest, asset digests, the rendered site with separate 0.38.1 and 0.38.0 cards, and the existing announcement workflow result. Record final public confirmation in the completion report and close this handover through a follow-up PR.
+After merge, verify online main, tag the exact approved merge, wait for Draft release, replace its ZIP/checksum with the final validated CI assets, attach the verified FFmpeg source companion, verify the draft asset list and six links, then publish. Verify public latest, asset digests, the rendered site with separate 0.38.1 and 0.38.0 cards, and the existing announcement workflow result. Record final public confirmation in the completion report and close this handover through a follow-up PR.
 
 Archive audit: all seven shipped sessions with explicit IDs were already archived; the active-session inventory has no shipped match. The UV-drag, pivot and French/German sessions were also found archived by their recorded titles. Keep the current release chat. No unrelated or active session was archived.
 
