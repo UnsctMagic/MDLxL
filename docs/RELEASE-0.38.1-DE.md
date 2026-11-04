@@ -9,4 +9,4 @@
 - Französisch und Deutsch stehen in der Oberfläche und den Diagnosen zur Verfügung. Neue Versionshinweise erscheinen auf Englisch, Spanisch, Russisch, vereinfachtem Chinesisch, Französisch und Deutsch; ältere Beiträge und historische PDF-Anleitungen bleiben unverändert.
 - Settings erklärt, dass das Vorladen von Spieldateien optional ist und Speicherplatz belegt.
 
-Aktualisierung über Settings > Appearance > Search for updates > Update and restart oder durch Herunterladen der vollständigen portablen ZIP-Datei auf der MDLxL-Seite.
+Aktualisierung über Settings > Configuration > Search for updates > Update and restart oder durch Herunterladen der vollständigen portablen ZIP-Datei auf der MDLxL-Seite.

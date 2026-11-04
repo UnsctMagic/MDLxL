@@ -9,4 +9,4 @@
 - Le français et l’allemand sont disponibles dans l’interface et les diagnostics. Les nouvelles notes de version sont publiées en anglais, espagnol, russe, chinois simplifié, français et allemand ; les anciennes publications et les guides PDF historiques restent inchangés.
 - Settings précise que le préchargement des ressources du jeu est facultatif et utilise de l’espace disque.
 
-Mise à jour : Settings > Appearance > Search for updates > Update and restart, ou téléchargez le ZIP portable complet depuis la page MDLxL.
+Mise à jour : Settings > Configuration > Search for updates > Update and restart, ou téléchargez le ZIP portable complet depuis la page MDLxL.

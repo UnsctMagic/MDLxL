@@ -9,4 +9,4 @@
 - French and German are available across the interface and diagnostics. New release posts use English, Spanish, Russian, Simplified Chinese, French and German; existing release posts and historical PDF guides remain unchanged.
 - Settings explains that game asset preloading is optional and uses disk space.
 
-Update through Settings > Appearance > Search for updates > Update and restart, or download the full portable ZIP from the MDLxL page.
+Update through Settings > Configuration > Search for updates > Update and restart, or download the full portable ZIP from the MDLxL page.

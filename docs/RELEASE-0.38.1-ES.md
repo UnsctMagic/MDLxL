@@ -9,4 +9,4 @@
 - El francés y el alemán están disponibles en la interfaz y los diagnósticos. Las nuevas notas de versión se publican en inglés, español, ruso, chino simplificado, francés y alemán; las publicaciones anteriores y las guías PDF históricas permanecen intactas.
 - Settings explica que la precarga de archivos del juego es opcional y ocupa espacio en disco.
 
-Actualiza desde Settings > Appearance > Search for updates > Update and restart, o descarga el ZIP portátil completo desde la página de MDLxL.
+Actualiza desde Settings > Configuration > Search for updates > Update and restart, o descarga el ZIP portátil completo desde la página de MDLxL.

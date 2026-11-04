@@ -9,4 +9,4 @@
 - 界面和诊断支持法语和德语。新版本说明使用英语、西班牙语、俄语、简体中文、法语和德语；现有版本说明和历史 PDF 指南保持不变。
 - Settings 说明游戏资源预加载为可选操作，并会占用磁盘空间。
 
-通过 Settings > Appearance > Search for updates > Update and restart 更新，或从 MDLxL 页面下载完整便携 ZIP。
+通过 Settings > Configuration > Search for updates > Update and restart 更新，或从 MDLxL 页面下载完整便携 ZIP。
