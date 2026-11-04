@@ -1,6 +1,6 @@
 # OptimizeXL finding playback
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed; merged in [PR #546](https://github.com/UnsctMagic/MDLxL/pull/546)
 Owner: Codex; Claude owns independent QA
 Updated: 2026-11-04
 
@@ -10,7 +10,8 @@ Keep the current playing or paused state while browsing corrected animations/fin
 
 ## Revision and owners
 
-- Branch: `codex/optixl-preview-playback`; base `1dc76817` (current online main at task start).
+- Feature branch: `codex/optixl-preview-playback`; base `1dc76817`.
+- Owner-authorized merge revision: `6aff7c635273b405744665f783638c1daf14d423`; merged PR and playback owner code verified on online `main`.
 - Owner: `app/OptimizeXL.jsx`: `inspectFix`, `restoreInspection`, `enter`, `advance`, `nextFinding`.
 - Regression: `test/optimizexl-finding-playback.electron.cjs`.
 - Real fixture: permanent `D:/Claude/MDLxL-TestModels/optimizexl-selection/human__muradin.mdx`, through the shared fixture helper.
@@ -26,6 +27,6 @@ Removed only the five automatic `setPlaying(false)` calls from inspection and re
 - `pnpm run build` and runtime package validation passed. Tests ran on the separate invisible Windows test desktop. Fixture bytes stayed unchanged.
 - Small logs/report retained under `D:/Codex/optixl-playback-result-20261104`; disposable packages, profiles and checkout removed after push.
 
-## Next action
+## Completion and limits
 
-Claude reruns the focused packaged checks for independent QA. Ready for review; awaiting merge approval. No release, installed-profile change or Warcraft III gameplay testing.
+Owner authorized merging PR #546. Implementation is merged and verified on online `main`; the active task index row is removed in the closeout PR. Independent Claude QA, release, installed-profile changes and Warcraft III gameplay testing were not performed.
