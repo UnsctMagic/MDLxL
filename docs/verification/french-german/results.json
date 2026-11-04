@@ -5,16 +5,16 @@
     "website": "https://github.com/UnsctMagic/LowPolyWorks/pull/56"
   },
   "catalogs": {
-    "ru": 7912,
-    "es": 7922,
-    "zh": 7781,
-    "fr": 8058,
-    "de": 8058
+    "ru": 7924,
+    "es": 7934,
+    "zh": 7793,
+    "fr": 8125,
+    "de": 8125
   },
   "checks": {
     "viteBuild": "pass",
     "localization": {
-      "pass": 28,
+      "pass": 31,
       "fail": 0,
       "skip": 0
     },
@@ -42,7 +42,22 @@
     "citadelLocales": "pass;7 modes",
     "packagedCameraMouseDrags": 8,
     "mainSidebarBoundaryFailures": 0,
-    "translatedLabelClippingFailures": 0
+    "translatedLabelClippingFailures": 0,
+    "sanitySource": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "finalCheckerDialogs": {
+      "checks": [
+        "fr: native Help opens localized Sanity Check/findings, disclosure/Close work, no overflow/model mutation",
+        "fr: OptimizeXL checker disclosure uses localized prose and literal paths",
+        "de: native Help opens localized Sanity Check/findings, disclosure/Close work, no overflow/model mutation",
+        "de: OptimizeXL checker disclosure uses localized prose and literal paths"
+      ],
+      "errors": [],
+      "passed": true
+    }
   },
   "appCi": {
     "url": "https://github.com/UnsctMagic/MDLxL/actions/runs/41745525007",
@@ -119,7 +134,7 @@
       "app.js cache key",
       "mdlxl.css cache key"
     ],
-    "baseline": "74670a2f2dd3ac41c081950a77f07f73792e8790",
+    "baseline": "5ffee8ed6869d0d499a1cf717f1ee0e77b0585af",
     "protectedHistoryAndModelsUnchanged": true,
     "tutorialInventory": {
       "locales": [
@@ -143,5 +158,9 @@
     "0.38.0 release PR and translation PR #534",
     "Model data and real profiles",
     "Current main model/catalogue/portrait changes"
-  ]
+  ],
+  "finalCatalogHashes": {
+    "fr": "d2c4df130eeb5379f707ac5a2e75de62d25a06599cac7d00c518bfd059d710ac",
+    "de": "b8e1776934ed79710a17d519110f266f46e18f0a9e24f6b365a00acfed8224b0"
+  }
 }
