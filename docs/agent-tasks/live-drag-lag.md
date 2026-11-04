@@ -6,6 +6,8 @@ Updated: 2026-11-04
 
 ## Current follow-up
 
+PR: https://github.com/UnsctMagic/MDLxL/pull/550
+
 - Branch: `codex/uv-drag-smooth`, based on main `f67cbb5564c9e5f47a1b4f3c2a5ab0d661738efa`.
 - Request: keep UV Move and Rotate smooth while retaining the live model preview.
 - Installed 0.38.0 forwards each live UV model into the main Viewport behind the
