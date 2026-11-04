@@ -64,7 +64,7 @@ const click = (page, selector) => page.locator(selector).evaluate(element => ele
     assert.equal(await waitFor(uv, () => uvControlsState().rgb === null), true);
     // UV splitters "drag or use arrow keys · double-click to reset": drag each with the mouse, then press an
     // arrow key with focus wherever that drag left it, then double-click the splitter.
-    for (const [label, delta, key, step, reset] of [['Resize texture and live-view columns', [-60, 0], 'ArrowLeft', 2, 40], ['Resize live model preview', [0, -40], 'ArrowDown', 2, 62]]) {
+    for (const [label, delta, key, step, reset] of [['Resize texture and live-view columns', [-60, 0], 'ArrowLeft', 2, 46], ['Resize live model preview', [0, -40], 'ArrowDown', 2, 50]]) {
       const splitter = uv.getByRole('separator', { name: label, exact: true }), value = async () => Number(await splitter.getAttribute('aria-valuenow'));
       const start = await value(); assert.equal(start, reset, label + ' starts at its default');
       let b = await splitter.boundingBox(); const cx = b.x + b.width / 2, cy = b.y + b.height / 2;

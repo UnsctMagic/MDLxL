@@ -13,10 +13,10 @@ const indicesOf = selection => Array.from(selection || []);
 const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -167,9 +167,18 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // The map is flat: the selection turns with the mouse around its centre, one
-      // for one, near or far. The 3D editors' rotation settings never apply here.
-      if (type === 'rotate') { s.drag.fine = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1; uvTurn(s.drag, x, y); }
+      // The map is flat: the selection follows the mouse around its centre at
+      // the same UV-only rate, near or far. The 3D editors' rotation settings never apply here.
+      if (type === 'scale' && p.wrapperControls) {
+        s.drag.scaleDX = 0; s.drag.scaleX = x;
+        s.drag.shiftFine = event.altKey ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
+      }
+      if (type === 'rotate') {
+        s.drag.wrapperControls = p.wrapperControls;
+        s.drag.fineWithoutShift = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
+        s.drag.fine = s.drag.fineWithoutShift;
+        uvTurn(s.drag, x, y);
+      }
       draw();
     }
     // Pointers report far more often than the display refreshes; the UV math,
@@ -183,19 +192,29 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const rawEnd = point(event);
       // Turning sums wrapped angle steps; feed every sample so a fast turn between
       // frames cannot flip direction. Repeating the last point adds nothing.
-      if (s.drag.type === 'rotate') uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      if (s.drag.type === 'rotate') {
+        // Shift changes only the next turn increment, so toggling it never jumps.
+        s.drag.fine = s.drag.wrapperControls && event.shiftKey ? (current.current.preferences?.fineSensitivity ?? 0.2) : s.drag.fineWithoutShift;
+        uvTurn(s.drag, rawEnd.x, rawEnd.y);
+      }
+      if (s.drag.type === 'scale' && current.current.wrapperControls) {
+        // Shift may change between frames: retain each weighted movement, redraw once.
+        s.drag.scaleDX += (rawEnd.x - s.drag.scaleX) * s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1);
+        s.drag.scaleX = rawEnd.x;
+      }
       s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
     }
     function applyMove() {
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
       const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
-      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = Math.hypot(dx, dy) > 1;
+      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = p.wrapperControls && drag.type === 'rotate' ? drag.turn !== 0 : Math.hypot(dx, dy) > 1;
+      if (p.wrapperControls && drag.type === 'scale') drag.moved ||= Math.abs(drag.scaleDX) > 1;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
         const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
-        const factor = Math.max(0, 1 + dx / 100);
+        const factor = Math.max(0, 1 + (p.wrapperControls && drag.type === 'scale' ? drag.scaleDX : dx) / 100);
         // An axis lock squashes a turn into a skew, so rotation ignores it.
         const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
         for (const index of drag.indices) {
@@ -212,18 +231,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
           s.uv.set(snapUVCoordinates(s.uv, drag.indices, p.uvGrid));
           if (lockedAxis) for (const index of drag.indices) s.uv[index * 2 + (lockedAxis === 'X' ? 1 : 0)] = drag.original[index * 2 + (lockedAxis === 'X' ? 1 : 0)];
         }
-        if ((drag.type === 'translate' || drag.type === 'move') && p.snapTextureFrame) {
-          for (const axis of [0, 1]) {
-            if (lockedAxis === 'X' && axis === 1 || lockedAxis === 'Y' && axis === 0) continue;
-            const size = axis === 0 ? drag.sizeX : drag.sizeY;
-            let adjustment = 8 / Math.abs(size);
-            for (const index of drag.indices) {
-              const value = s.uv[index * 2 + axis], delta = Math.round(value) - value;
-              if (Math.abs(delta) < Math.abs(adjustment)) adjustment = delta;
-            }
-            if (Math.abs(adjustment) < 8 / Math.abs(size)) for (const index of drag.indices) s.uv[index * 2 + axis] += adjustment;
-          }
-        }
+
       }
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         const preview = restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices);
@@ -321,7 +329,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;
       key.preventDefault(); key.stopImmediatePropagation(); event.preventDefault();
-      action({ detail: { kind: 'move', value: direction.map(value => value * .005) } });
+      const grid = normalizeUVGrid(p.uvGrid), step = p.wrapperControls && grid.enabled && grid.snap ? grid.spacing : .005;
+      action({ detail: { kind: 'move', value: direction.map(value => value * step) } });
     };
     const unbindScroll = bindScrollSensitivity(element, scrollSensitivityCallbacks(current, {
 

@@ -77,10 +77,17 @@ separate and are not a shared handover.
   programmatic camera changes do not verify the user's controls.
 - Rotate has two settled rules, both owner-approved; keep them apart. 3D editors
   use `src/rotation-drag.js` and the Mouse → Rotation settings. The 2D UV map
-  uses only `uvTurn` in `src/uv-tools.js`: the selection turns with the mouse
-  around its centre one for one, by distance moved within 48 px so it never
-  snaps, with no rotation setting applied. One piece turns on its own spot,
-  several around their shared centre. Never share code or settings between them.
+  uses only `uvTurn` in `src/uv-tools.js`: straight input uses fixed screen
+  directions, and circles follow their own clockwise/counter-clockwise winding.
+  Earlier movement or model rotation must never redefine either control. Do not
+  latch a direction or force one-way rotation. Circles retain 70% angular
+  sensitivity; toward/away travel contributes at 0.7 radians per 48 px, without
+  a centre dead zone or any 3D rotation setting. One piece turns on its own spot,
+  several around their shared centre. Hold Shift for fine rotation; releasing it
+  restores normal speed within the same drag. Alt fine control stays available.
+  Only UVWorkspace enables `UVEditor.wrapperControls`; FX texture fitting keeps
+  its original input. Wrapper Zoom also supports hold-Shift fine control, with
+  its existing axis locks and Alt precision. Never share settings with 3D tools.
   Test feel with the owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
   animation or frame changes keep the camera exactly where the user left it.
