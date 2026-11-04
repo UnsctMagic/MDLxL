@@ -13,8 +13,10 @@ controls. No merge, release, version bump or installed-profile change authorized
 ## Revision and local state
 
 - Branch: `codex/optixl-exact-cleanup`.
+- PR: https://github.com/UnsctMagic/MDLxL/pull/548.
+- Implementation: `de0a436952842a4cd4356ccbb9a054634ef1d1e4`.
 - Base: `f67cbb5564c9e5f47a1b4f3c2a5ab0d661738efa`.
-- Checkout: `D:/Codex/optixl-exact-cleanup-20261104`.
+- Disposable checkout: `D:/Codex/optixl-exact-cleanup-20261104` (removed after push).
 - Evidence: `D:/Codex/optixl-exact-cleanup-results-20261104`.
 - Private fixtures: `test/helpers/fixtures.cjs` names `optimizexl-exact-unit` and
   `optimizexl-exact-hero`, under permanent `MDLxL-TestModels/optimizexl-exact-cleanup`.
@@ -65,7 +67,7 @@ controls. No merge, release, version bump or installed-profile change authorized
   9,628 bytes total per file.
 - Immutable flail verification passes all 56 original comparisons with unchanged
   golden files and the existing authored-key/weld/serializer exceptions.
-- Final packaged/source checks pass; PR handoff follows.
+- Final packaged/source checks pass; PR #548 is open.
 - The historical mounted reference uses old preset index 4 (current index 3) and
   matches the unchanged golden hash before the existing serializer exception.
 - Three packaged fixtures gain one proposal each (172->173, 188->189, 1->2).
@@ -75,7 +77,7 @@ controls. No merge, release, version bump or installed-profile change authorized
 
 ## Next action
 
-Open the PR and record its URL/revision; then independent Claude QA and owner
-merge approval remain separate gates. Retain only the small D: report/capture and
-permanent private fixtures; remove the pushed disposable worktree.
+Independent Claude QA and owner merge approval remain separate gates. Review
+PR #548 and its CI status. The small D: report/capture and permanent private fixtures
+are retained; the pushed disposable worktree is removed.
 Warcraft III playback has not been exercised.
