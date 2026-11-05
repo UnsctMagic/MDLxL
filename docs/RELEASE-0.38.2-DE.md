@@ -1,4 +1,4 @@
-# MDLxL 0.38.2 — Hotfix
+# MDLxL 0.38.2
 
 - Der portable Download trägt jetzt dauerhaft den Dateinamen `MDLxL-win32-x64.zip`. Derselbe Download-Link zur neuesten Version gilt auch für künftige Versionen. Diese Version ersetzt den zurückgezogenen Hotfix 0.38.1.
 - Menüs und Bedienfelder reagieren flüssiger, während Wiederherstellungsdaten gespeichert werden. Die Wiederherstellung behält den vollständigen Rückgängig-Verlauf und abgeschlossene Pinselstriche bei, auch beim Schließen.

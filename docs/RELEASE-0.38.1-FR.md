@@ -1,4 +1,4 @@
-# MDLxL 0.38.1 — Correctif urgent
+# MDLxL 0.38.1
 
 - Les menus et panneaux répondent plus facilement pendant l’enregistrement des données de récupération. La récupération conserve tout l’historique d’annulation et les coups de pinceau terminés, y compris à la fermeture.
 - Le changement d’onglet de modèle ou de qualité Showcase ne conserve plus les anciens aperçus ni les anciens écouteurs de caméra. Les recherches de textures partagées évitent les opérations répétées tout en détectant les fichiers modifiés.

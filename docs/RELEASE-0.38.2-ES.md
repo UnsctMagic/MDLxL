@@ -1,4 +1,4 @@
-# MDLxL 0.38.2 — Corrección urgente
+# MDLxL 0.38.2
 
 - La descarga portátil conserva ahora el nombre permanente `MDLxL-win32-x64.zip`. El mismo enlace de descarga de la última versión servirá para futuras versiones. Esta versión sustituye al hotfix 0.38.1 retirado.
 - Los menús y paneles responden con más fluidez mientras se guardan los datos de recuperación. La recuperación conserva todo el historial de deshacer y los trazos de pintura terminados, también al cerrar.

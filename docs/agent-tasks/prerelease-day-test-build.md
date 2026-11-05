@@ -1,6 +1,6 @@
 # Pre-release day-test build of current main
 
-Status: active (Codex builds; owner tests by hand for a day)
+Status: completed; superseded by the 0.38.0 release. Handoff PR #516 was never merged.
 Owner / consolidator: Codex builds and hands over; owner tests; Claude merges
 Updated: 2026-11-02
 

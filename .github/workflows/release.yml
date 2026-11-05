@@ -63,6 +63,8 @@ jobs:
           notes="docs/RELEASE-${VERSION}.md"
           if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
           # 0.38.0 keeps its existing release material. Six languages start next.
+          # guides.json lists every runtime PDF guide (scripts/lib/runtime-guides.mjs,
+          # also used by package.mjs), so each release attaches all of them.
           guides=()
           if node --input-type=module -e "import {sixLanguageRelease} from './scripts/release-material.mjs';process.exit(sixLanguageRelease(process.env.VERSION)?0:1)"; then
             node scripts/release-material.mjs "$VERSION" release-material

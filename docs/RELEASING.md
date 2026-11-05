@@ -21,12 +21,18 @@ in every supported tutorial language, including the existing tutorials.
    The site and in-app update popup read that same post. Older posts fall back
    to English for French/German; do not translate or rewrite them.
 5. The Draft release workflow uses this generator automatically for versions
-   after 0.38.0 and attaches the current version's guides. Verify its six links:
+   after 0.38.0 and attaches every runtime PDF guide (`scripts/lib/runtime-guides.mjs`,
+   also used by packaging). Verify its six links:
    **English / Español / Русский / 简体中文 / Français / Deutsch**. Publish only
    after the [portable release gate](UPDATER_RELEASE_GATE.md) and owner approval.
 6. Announcements use the full generated English release body: a linked release
-   title, the functional change summary and update instructions, followed by
-   `Read patch notes in:` and the six language hyperlinks. Check the complete
+   title, the functional change summary and update instructions, a `Download:`
+   line (ZIP, SHA-256, FFmpeg source), `Read patch notes in:` with the six language
+   hyperlinks and a `Guides (PDF):` section (this release's new guides by
+   language, then one link to the release page that lists every attached guide,
+   so the post stays under Discord's limit). The generator requires every notes
+   heading to be exactly `# MDLxL <version>` (no suffix, any language) and fails
+   when the body exceeds Discord's description limit; it never truncates. Check the complete
    body fits Discord’s description limit and verify the delivered post is not
    truncated. Do not replace it with a links-only stub or edit past announcements.
 

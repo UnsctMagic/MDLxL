@@ -1,12 +1,12 @@
 # 0.38.0 translation catch-up
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed; merged in [PR #534](https://github.com/UnsctMagic/MDLxL/pull/534) (`db5121ce`)
 Owner: Codex; release QA: Claude
 Updated: 2026-11-03
 
 ## Scope and revision
 
-- PR: [#534](https://github.com/UnsctMagic/MDLxL/pull/534), open and unmerged. Code revision: `eaa86fdc`.
+- PR: [#534](https://github.com/UnsctMagic/MDLxL/pull/534), merged. Code revision: `eaa86fdc`.
 - Branch: `codex/release-0.38.0-translations`; base: `23126f99` (origin/main including #532).
 - Compared `v0.37.2` with the base in `app/*.jsx`, `src/*.js`, and `electron/menu.cjs`.
 - Reviewed AST literals, JSX text/attributes, template strings and added-line contexts across 130 surviving changed files (one deleted file has no current UI). Traced data-backed labels to their presentation owners and exercised the actual FX label/menu generation through translate.

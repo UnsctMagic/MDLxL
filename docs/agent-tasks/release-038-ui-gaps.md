@@ -1,6 +1,6 @@
 # 0.38.0 screenshot UI gaps
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed; merged in [PR #537](https://github.com/UnsctMagic/MDLxL/pull/537) (`3295860e`)
 Owner: Codex; independent release QA: Claude
 Updated: 2026-11-04
 
@@ -9,7 +9,7 @@ Updated: 2026-11-04
 - Branch: `codex/release-0.38.0-ui-gaps`, from latest `origin/main` at `dd6fd30f38a9890e6b972bba283bf4b0e33d2703`.
 - Working checkout: `D:\Codex\release-038-ui-gaps` (independent Git clone; C: source is read-only).
 - Session: codex release-0.38.0 ui gaps.
-- PR: [#537](https://github.com/UnsctMagic/MDLxL/pull/537), open into `main`, not merged. Implementation and screenshots: `5913304fad05e33f8c3acab5c7d8563f65719ae3`.
+- PR: [#537](https://github.com/UnsctMagic/MDLxL/pull/537), merged into `main`. Implementation and screenshots: `5913304fad05e33f8c3acab5c7d8563f65719ae3`.
 - Four small presentation fixes from PR #536. No version change, merge, release, installation/profile change, or full packaged suite.
 
 ## Owners and boundaries
