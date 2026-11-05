@@ -40,8 +40,11 @@ the portable ZIP and its `.zip.sha256`. Releases before 0.38.2 used
 so one permanent link (website, XGM) always downloads the newest release:
 <https://github.com/UnsctMagic/MDLxL/releases/latest/download/MDLxL-win32-x64.zip>.
 The updater accepts both names from 0.38.0 on. Copies older than 0.38.0 only
-know the versioned name, so they must first install 0.38.0 as a bridge, or
-manually extract the latest full portable ZIP, to auto-update further. Drafts are invisible to
+know the versioned name, so the 0.38.2 release also carries an identical
+`MDLxL-0.38.2-win32-x64.zip` (plus its `.sha256`) and those copies can still
+update in-app. Whether later releases keep a versioned copy is pending the
+owner's decision; if one drops it, copies older than 0.38.0 must first update
+to 0.38.2 or manually extract the latest full portable ZIP. Drafts are invisible to
 the updater and do not trigger the Discord announcement, so nothing reaches
 users until you publish by hand. Before publishing, run the release gate in
 [UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach
