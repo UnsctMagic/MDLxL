@@ -2,11 +2,11 @@
 
 Status: Withdrawn at the owner’s request. The public release and tag, site hotfix JSON and its Garithos announcement were removed. The old draft is retained privately; version 0.38.1 must not be reused. Replacement: 0.38.2. The historical acceptance record below does not authorize republication.
 
-Historical status: Completed before withdrawal. Release PR [#559](https://github.com/UnsctMagic/MDLxL/pull/559) merged at `09b785cba7c14bc65af602669ca32d101b3538fa`; tag `v0.38.1` points to that exact commit.
+Historical status: Completed before withdrawal. Release PR [#559](https://github.com/UnsctMagic/MDLxL/pull/559) merged at `09b785cba7c14bc65af602669ca32d101b3538fa`; tag `v0.38.1` pointed to that exact commit and has since been removed (withdrawn).
 Owner/session: Codex `01a1a88f-016d-7483-9ef0-d84ef91e6598`.
 
-- Release: https://github.com/UnsctMagic/MDLxL/releases/tag/v0.38.1
-- Existing post with appended hotfix: https://www.lowpolyworks.com/mdlxl/?version=0.38.1
+- Release (removed; only a private draft remains): https://github.com/UnsctMagic/MDLxL/releases/tag/v0.38.1
+- Site post with appended hotfix (removed; the `?version=0.38.1` link must not be used): https://www.lowpolyworks.com/mdlxl/?version=0.38.1
 - Package: `MDLxL-0.38.1-win32-x64.zip`, 221254925 bytes.
 - SHA-256: `74ac98c4dc357bd05598a132b802064b393ae4f087ba798d073f9492d7cf5f10`.
 - Draft workflow: https://github.com/UnsctMagic/MDLxL/actions/runs/41927295408 .

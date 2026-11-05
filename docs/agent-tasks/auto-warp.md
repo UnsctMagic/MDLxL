@@ -1,6 +1,6 @@
 # Automatic Windows software rendering
 
-Status: ready for review; awaiting merge approval
+Status: completed; merged in [PR #519](https://github.com/UnsctMagic/MDLxL/pull/519) (`fa81f005`) and its automated-test follow-up [PR #535](https://github.com/UnsctMagic/MDLxL/pull/535) (`dd6fd30f`)
 Owner: Codex
 Updated: 2026-11-03
 

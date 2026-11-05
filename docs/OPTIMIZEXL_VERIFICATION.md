@@ -561,4 +561,7 @@ no changed channels. Hidden packaged checks: 3 pass / 0 fail / 0 skip (pivot wor
 selection). They include paired mouse
 rotation, preview, approval, Back, combined mode, Save/backup and editor Undo.
 See [the task note](agent-tasks/optimizexl-pivot-warning.md) for final run details.
-Independent Claude QA, full release testing and Warcraft III remain pending.
+Merged in [PR #554](https://github.com/UnsctMagic/MDLxL/pull/554) at
+`cab472bf7b06be3c1185edd69e6d988148884243` after successful CI. The owner explicitly
+waived independent Claude QA for the merge. Full release testing and Warcraft III
+remain untested.

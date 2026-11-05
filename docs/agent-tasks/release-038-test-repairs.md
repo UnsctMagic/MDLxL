@@ -1,6 +1,6 @@
 # 0.38.0 packaged test repairs
 
-Status: ready for review; awaiting merge approval. Claude release gate remains open for the listed cases; do not merge without owner approval.
+Status: completed; merged in [PR #540](https://github.com/UnsctMagic/MDLxL/pull/540) (`32455151`). The open cases listed below were not re-checked in this closeout.
 Owner: Codex; Claude owns independent release QA.
 Updated: 2026-11-04.
 Session: codex release-0.38.0 test repairs.

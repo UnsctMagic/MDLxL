@@ -1,6 +1,6 @@
 # Hive-only Sanity Check
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed; merged in [PR #538](https://github.com/UnsctMagic/MDLxL/pull/538) (`370d3494`)
 Owner / consolidator: Codex
 Updated: 2026-11-04
 
