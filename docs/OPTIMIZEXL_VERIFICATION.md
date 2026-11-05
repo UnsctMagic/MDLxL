@@ -616,6 +616,16 @@ D:/Codex/optixl-exact-cleanup-results-20261104. No full packaged release suite,
 independent Claude QA or Warcraft III gameplay was run. No installed profile,
 version, merge or release changed. Disposable packages/profiles are removed.
 
+Independent Claude QA (2026-11-05, after merging #569): one defect fixed. A
+colour track without keys in some animation plays black there in mdx-m3-viewer
+(KGAC default 0,0,0), so static conversion now requires colour keys in every
+animation. Across all 437 classic 800 files in MDLxL-TestModels (77 offer the cleanup;
+Fix everything compared with main on all 437) there are zero node-matrix, skinned
+vertex, geoset colour/alpha and new Hive differences, and zero differences in 130.7
+million changed-track samples using the vendored mdx-m3-viewer wrap-around sequence
+rule (`i_` in hive-viewer-5.12.0.js). Saved section sets are unchanged and node
+sections stay in game order. Warcraft III remains untested.
+
 ## Unused trailing pivot warning — 2026-11-04
 
 The owner reported `Expected 148 pivot points, got 149` remaining after OptiXL.

@@ -1,8 +1,8 @@
 # OptimizeXL exact redundancy
 
-Status: ready for review; awaiting independent Claude QA and merge approval
+Status: Claude QA done (2026-11-05), one fix; ready for review; awaiting merge approval
 Owner / consolidator: Codex
-Updated: 2026-11-04
+Updated: 2026-11-05
 
 ## Goal and completion criteria
 
@@ -74,6 +74,22 @@ controls. No merge, release, version bump or installed-profile change authorized
   Direct comparison with base source proves every old proposal/evidence identical.
   Count assertions explicitly include the addition; the bounds check unchecks it
   to retain its original bounds-only saved-byte assertion.
+
+## Claude QA for the 0.38.3 hotfix — 2026-11-05
+
+- Merged `origin/main` (#569 section order, #554 unused pivots). Fixture proposal
+  counts still 2 / 173 / 189; no golden hash changed.
+- Defect fixed: a colour track missing from an animation was turned into a static
+  colour. mdx-m3-viewer plays that animation black (KGAC default 0,0,0), so the
+  static colour changed it. Colour now needs keys in every animation (test added).
+- Evidence script (local, `out/evidence.mjs`): all 437 classic 800 files in
+  `MDLxL-TestModels`. Single cleanup on 77 offering files and Fix everything (main vs
+  branch) on 437: zero node-matrix, vertex, geoset colour/alpha and Hive differences;
+  130.7 million changed-track samples with the vendored mdx-m3-viewer wrap-around
+  sequence rule show zero differences; section set unchanged, node sections in game order.
+- Flail01 frozen regression passes; Flail03 stops at the `mounted-spheres` hash
+  exactly as unchanged main does (#569 note). Hidden Electron: exact-cleanup, bounds,
+  cleanup, format pass. Warcraft III itself not run.
 
 ## Next action
 
