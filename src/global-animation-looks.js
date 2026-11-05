@@ -5,6 +5,7 @@ import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
+import {CLAUDE_LOOKS,CLAUDE_EMITTERS} from './claude-fx-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -69,7 +70,7 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
  if(e.stamp&&!impact)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
  (impact?retiredImpacts:GLOBAL_LOOKS).push({...make(e.id,e.id==='fissures'?'Fissures skin':e.name,e.id==='fissures'?'Skins':e.category,e.duration||3000,e.palette||'native',layers),impact});
 }
-GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group));
+GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS);
 // A saved impact remains editable. It is never offered in the library or search.
 export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredLooks.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);
 export function withIceVariation(stack,frame,variant){
@@ -87,7 +88,7 @@ export const LAYER_CHOICES=[
  glow('Star field','Units\\Undead\\FrostWyrm\\Starfield.blp',{pulse:'double',strength:1.1}),
  ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
- powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,
+ powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,...CLAUDE_EMITTERS,
 ];
 // The compact menu can start any ingredient independently of its original preset.
 for(const look of GLOBAL_LOOKS){
