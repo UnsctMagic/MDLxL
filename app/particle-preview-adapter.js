@@ -1,4 +1,4 @@
-import { Matrix4, Vector3, Vector2, Raycaster, Triangle } from 'three';
+import { Matrix4, Quaternion, Vector3, Vector2, Raycaster, Triangle } from 'three';
 import { ModelRenderer } from 'war3-model';
 import { particleSweepPath } from '../src/particle-sweep.js';
 import { samplePreviewMatrices } from './preview-pose.js';
@@ -153,6 +153,11 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
     const at=field=>native.ribbonsController.interp.animVectorVal(ribbon[field],0),above=at('HeightAbove'),below=at('HeightBelow');
     guide={origin:point([0,0,0]),upper:point([0,above,0]),upperUnit:point([0,above+1,0]),lower:point([0,-below,0]),lowerUnit:point([0,-below-1,0])};
   }
+  // Rotate handles: the selected emitter's world pivot and its parent's world turn,
+  // so a world-axis turn can be written into the emitter's own Rotation.
+  const worldTurn=id=>{const matrix=id==null?null:native.rendererData.nodes[id]?.matrix,turn=new Quaternion();if(matrix)new Matrix4().fromArray(matrix).decompose(new Vector3(),turn,new Vector3());return turn.toArray();};
+  const turning=node||ribbon;
+  const turn=turning&&{world:new Vector3().fromArray(turning.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[turning.ObjectId]?.matrix||new Matrix4().elements)).toArray(),parent:worldTurn(turning.Parent)};
   let sweep;
   if(options.sweepRange){
     const key=selectedId+':'+native.getSequence()+':'+options.sweepRange.join(':');let cached=sweepCache.get(native);
@@ -173,15 +178,17 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
   }
   // Other stage handles (Glow Up): bind-pose points carried by a node's current
   // transform; `radius` adds the on-screen size of a camera-facing square.
-  const marks={};
+  // A mark with `turn` also reports its world position and its node's world turn.
+  const marks={},turns={};
   for(const [key,mark] of Object.entries(options.marks||{})){
     const world=new Vector3().fromArray(mark.point),matrix=mark.node==null?null:native.rendererData.nodes[mark.node]?.matrix;
     if(matrix)world.applyMatrix4(new Matrix4().fromArray(matrix));
+    if(mark.turn)turns[key]={world:world.toArray(),rotation:worldTurn(mark.node)};
     const point=project(world.toArray());
     if(mark.radius){const edge=project(world.clone().add(new Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(mark.radius)).toArray());point.push(Math.hypot(edge[0]-point[0],edge[1]-point[1]));}
     marks[key]=point;
   }
-  return {width,height,samples,guide,sweep,anchor,marks,liveParticles:count,frame:native.getFrame()};
+  return {width,height,samples,guide,sweep,anchor,marks,turn,turns,camera:camera.clone(),liveParticles:count,frame:native.getFrame()};
 
 }
 const particlePictures=new WeakMap();

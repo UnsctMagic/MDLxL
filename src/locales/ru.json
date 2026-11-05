@@ -7991,5 +7991,9 @@
   "No textures": "Нет текстур",
   "Invalid path \"{0}\"": "Недопустимый путь «{0}»",
   "Missing the Origin attachment point": "Отсутствует точка крепления Origin",
-  "Expected {0} matrices, got {1}": "Ожидалось матриц: {0}, найдено: {1}"
+  "Expected {0} matrices, got {1}": "Ожидалось матриц: {0}, найдено: {1}",
+  "Rotate X": "Поворот X",
+  "Rotate Y": "Поворот Y",
+  "Rotate Z": "Поворот Z",
+  "Drag to rotate. Hold Shift for fine control.": "Перетащите, чтобы повернуть. Удерживайте Shift для точной настройки."
 }

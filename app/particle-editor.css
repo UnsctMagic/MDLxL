@@ -15,6 +15,9 @@
 .pe-stage-tools .pe-move-emitter circle{cursor:move;fill:#b6ffd0}
 /* Glow Up: an invisible ring makes a near miss grab the handle. */
 .pe-stage-tools circle.pe-grab,.pe-stage-tools [role=slider]:focus circle.pe-grab{fill:transparent;stroke:none}
+/* Rotate handles: drawn on the canvas exactly like the main editor; these are only the grab areas. */
+.pe-rotate-gizmo{position:absolute;z-index:2;inset:0;width:100%;height:100%;pointer-events:none}
+.pe-stage-tools .pe-rotate-handle line,.pe-stage-tools .pe-rotate-handle polyline{stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:grab}.pe-stage-tools .pe-rotate-handle circle,.pe-stage-tools .pe-rotate-handle:focus circle{fill:transparent;stroke:none;cursor:grab}.pe-stage-tools .pe-rotate-handle:focus{outline:none}
 .pe-library-loading{position:sticky;top:0;z-index:5;padding:8px;background:var(--panel,#e6e6e6);border:1px solid #888}
 .particle-editor .pe-body.pe-browsing{grid-template-columns:minmax(0,1fr)}
 .pe-browsing>.pe-controls{display:none}

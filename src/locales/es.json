@@ -8001,5 +8001,9 @@
   "No textures": "Sin texturas",
   "Invalid path \"{0}\"": "Ruta no válida «{0}»",
   "Missing the Origin attachment point": "Falta el punto de anclaje Origin",
-  "Expected {0} matrices, got {1}": "Se esperaban {0} matrices, se encontraron {1}"
+  "Expected {0} matrices, got {1}": "Se esperaban {0} matrices, se encontraron {1}",
+  "Rotate X": "Rotar X",
+  "Rotate Y": "Rotar Y",
+  "Rotate Z": "Rotar Z",
+  "Drag to rotate. Hold Shift for fine control.": "Arrastra para rotar. Mantén Shift para un control fino."
 }

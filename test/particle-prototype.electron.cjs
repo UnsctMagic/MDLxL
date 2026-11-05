@@ -111,11 +111,20 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.notEqual(afterWidth.model.ParticleEmitters2[0].Width,beforeWidth.model.ParticleEmitters2[0].Width);
     assert.equal(afterWidth.model.ParticleEmitters2[0].Length,beforeWidth.model.ParticleEmitters2[0].Length);
     assert.equal(afterWidth.undo,beforeWidth.undo+1);
-    const aimPoint=await page.getByRole('slider',{name:'Aim emitter',exact:true}).locator('circle').boundingBox();
-    await page.mouse.move(aimPoint.x+7,aimPoint.y+7);await page.mouse.down();await page.mouse.move(aimPoint.x+37,aimPoint.y-13,{steps:8});await page.mouse.up();
-    const afterAim=await readLab();assert.ok(afterAim.model.ParticleEmitters2[0].Rotation?.Keys?.length===1);
-    assert.deepEqual(afterAim.model.Helpers,afterWidth.model.Helpers);
-    assert.equal(afterAim.undo,afterWidth.undo+1);
+    // The main editor's Rotate handles (fresh profile: Lines). Grab each axis's shaft (its tip
+    // may sit under another handle, as in the main editor) and swing it sideways with the real
+    // mouse: every axis turns the emitter, one undo step each.
+    const turnTip=async(axis,escape)=>{const handle=page.getByRole('slider',{name:'Rotate '+axis,exact:true}),[x1,y1,x2,y2]=await handle.locator('line').evaluate(l=>['x1','y1','x2','y2'].map(k=>Number(l.getAttribute(k)))),box=await handle.evaluate(el=>{const b=el.ownerSVGElement.getBoundingClientRect();return {x:b.x,y:b.y};}),x=box.x+x1+(x2-x1)*.6,y=box.y+y1+(y2-y1)*.6,length=Math.hypot(x2-x1,y2-y1)||1;
+      await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x-(y2-y1)/length*40,y+(x2-x1)/length*40,{steps:8});if(escape)await page.keyboard.press('Escape');await page.mouse.up();};
+    // Key vectors are Float32Arrays, read back through JSON as {0:…,1:…}.
+    const turnOf=lab=>Object.values(lab.model.ParticleEmitters2[0].Rotation?.Keys?.[0]?.Vector||[0,0,0,1]).map(Number);
+    let afterAim=afterWidth;
+    for(const axis of ['X','Y','Z']){const before=afterAim;await turnTip(axis);afterAim=await readLab();
+      assert.ok(afterAim.model.ParticleEmitters2[0].Rotation?.Keys?.length===1,axis+' writes one Rotation key');
+      assert.ok(turnOf(afterAim).some((v,i)=>Math.abs(v-turnOf(before)[i])>.01),axis+' handle turns the emitter');
+      assert.deepEqual(afterAim.model.Helpers,afterWidth.model.Helpers);assert.equal(afterAim.undo,before.undo+1,axis+' turn is one undo step');}
+    await turnTip('Y',true);const escaped=await readLab();
+    assert.deepEqual(turnOf(escaped),turnOf(afterAim),'Escape during a rotate drag puts the emitter back');assert.equal(escaped.undo,afterAim.undo,'a cancelled rotate leaves no undo step');
     await page.screenshot({path:path.join(out,'shape-handles.png')});
     await page.getByRole('button',{name:'Look',exact:true}).click();
     const seeThrough=page.getByRole('spinbutton',{name:'Born see-through',exact:true}),beforeOpacity=await readLab();await seeThrough.fill('40');await seeThrough.press('Enter');

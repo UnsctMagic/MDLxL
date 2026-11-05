@@ -7860,5 +7860,9 @@
   "No textures": "没有纹理",
   "Invalid path \"{0}\"": "无效的路径“{0}”",
   "Missing the Origin attachment point": "缺少 Origin 附着点",
-  "Expected {0} matrices, got {1}": "应有 {0} 个矩阵，实际为 {1} 个"
+  "Expected {0} matrices, got {1}": "应有 {0} 个矩阵，实际为 {1} 个",
+  "Rotate X": "旋转 X",
+  "Rotate Y": "旋转 Y",
+  "Rotate Z": "旋转 Z",
+  "Drag to rotate. Hold Shift for fine control.": "拖动以旋转。按住 Shift 进行精细控制。"
 }
