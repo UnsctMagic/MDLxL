@@ -417,6 +417,32 @@ test('validator catches matrix, UV, animated texture and global sequence referen
   for (const code of ['BONE_REFERENCE', 'UV_COUNT', 'TEXTURE_REFERENCE', 'GLOBAL_SEQUENCE_REFERENCE']) assert.ok(codes.has(code));
 });
 
+test('MDX sections are saved in the game order, and saving repairs node sections placed too early', async () => {
+  const { MDX_CHUNK_ORDER } = await import('../src/mdx-container.js');
+  const chunks = bytes => { const out = []; for (let offset = 4; offset + 8 <= bytes.length; offset += 8 + bytes.readUInt32LE(offset + 4)) out.push({ tag: bytes.toString('latin1', offset, offset + 4), bytes: bytes.subarray(offset, offset + 8 + bytes.readUInt32LE(offset + 4)) }); return out; };
+  const inGameOrder = bytes => { const ranks = chunks(bytes).map(c => MDX_CHUNK_ORDER.indexOf(c.tag)).filter(r => r >= 0); return ranks.every((r, i) => !i || r > ranks[i - 1]); };
+  // The game reads node sections in file order. A collision section written
+  // before the bones skinned vertices to the wrong nodes (spikes in game only).
+  const plain = openDocument(Buffer.from(createDemoDocument().serialize('mdx')), 'plain.mdx');
+  assert.ok(plain.model.Materials.length && plain.model.Bones.length && !plain.model.CollisionShapes.length);
+  plain.apply('Add collision shape', ['CollisionShapes', 'PivotPoints'], model => createNode(model, 'CollisionShape'));
+  const added = Buffer.from(plain.serialize('mdx'));
+  assert.ok(inGameOrder(added), chunks(added).map(c => c.tag).join(' '));
+  assert.equal(chunks(added).at(-1).tag, 'CLID');
+  // A file an earlier version saved with that section too early is put back in
+  // order by the next save, keeping every node and its number.
+  const parts = chunks(added), clid = parts.find(c => c.tag === 'CLID'), at = parts.findIndex(c => c.tag === 'SEQS') + 1;
+  const misplaced = Buffer.concat([added.subarray(0, 4), ...parts.slice(0, at).map(c => c.bytes), clid.bytes, ...parts.slice(at).filter(c => c !== clid).map(c => c.bytes)]);
+  assert.ok(!inGameOrder(misplaced));
+  const broken = openDocument(misplaced, 'broken.mdx');
+  broken.apply('Rename', ['Sequences'], model => { model.Sequences[0].Name += ' 2'; });
+  const repaired = Buffer.from(broken.serialize('mdx'));
+  assert.ok(inGameOrder(repaired), chunks(repaired).map(c => c.tag).join(' '));
+  const reopened = openDocument(repaired, 'repaired.mdx').model;
+  assert.deepEqual(reopened.CollisionShapes.map(n => [n.ObjectId, n.Name]), broken.model.CollisionShapes.map(n => [n.ObjectId, n.Name]));
+  assert.deepEqual(reopened.Bones.map(n => n.ObjectId), broken.model.Bones.map(n => n.ObjectId));
+});
+
 test('a new global sequence is saved right after Sequences, never at the end of the file', async () => {
   const { createGlobalSequence } = await import('../src/sequence-editor.js');
   const chunkTags = bytes => { const tags = []; for (let offset = 4; offset + 8 <= bytes.length; offset += 8 + bytes.readUInt32LE(offset + 4)) tags.push(bytes.toString('latin1', offset, offset + 4)); return tags; };

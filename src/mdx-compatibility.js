@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { parseMDX, generateMDX } from 'war3-model';
-import { parseMdx } from './mdx-container.js';
+import { parseMdx, MDX_CHUNK_ORDER } from './mdx-container.js';
 import { constantTrack } from './plain-track-values.js';
 
 // Boundary repairs for war3-model 4.0.1. The library still owns the model and
@@ -403,5 +403,8 @@ export function generateCompatibleMdx(inputModel) {
   if (model.Materials.length) parts.push(mdxChunk('MTLS',writeMaterials(model.Materials,model.Version)));
   if (!emitted.has('CAMS') && model.Cameras.length) parts.push(mdxChunk('CAMS',Buffer.concat(model.Cameras.map(writeCamera))));
   if(model.Gliders?.length)parts.push(mdxChunk('DILG',Buffer.concat(model.Gliders.map(g=>u32(g.GeosetId)))));
-  return omitEmptyMdxNodeTracks(Buffer.concat(parts));
+  // Materials and cameras are written separately above. Put every section in
+  // the game's order; a save that adds a section inserts it by this order too.
+  const rank = part => { const at = MDX_CHUNK_ORDER.indexOf(part.toString('latin1',0,4)); return at < 0 ? MDX_CHUNK_ORDER.length : at; };
+  return omitEmptyMdxNodeTracks(Buffer.concat([parts[0],...parts.slice(1).sort((a,b)=>rank(a)-rank(b))]));
 }
