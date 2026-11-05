@@ -181,6 +181,14 @@ function normalizeModel(model, previous) {
       // Normalize track metadata once without visiting every baked sample.
       return;
     }
+    // A stored base belongs to an animated field only (writers ignore it
+    // otherwise). Drop it once the field is static or gone so no leftover
+    // survives the edit, e.g. a colour that stopped being animated.
+    const defaults = value._MdxDefaults;
+    if (defaults && typeof defaults === 'object' && !ArrayBuffer.isView(defaults)) {
+      for (const key of Object.keys(defaults)) if (!Array.isArray(value[key]?.Keys)) delete defaults[key];
+      if (!Object.keys(defaults).length) delete value._MdxDefaults;
+    }
     for (const child of Object.values(value)) normalizeTracks(child);
   }
   normalizeTracks(model);

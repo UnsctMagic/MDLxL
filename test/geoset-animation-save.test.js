@@ -256,13 +256,15 @@ test('injected real changes remain failures; reporting counts all differences an
   assert.throws(() => assertModelEquivalent(a, b), e => e.message.length < 700 && /10000 fields/.test(e.message));
 });
 
-test('a colour base left behind after the colour became static is not a save difference', () => {
-  // TzeentchChampion: the writers only store a base for an animated colour.
-  const anim = { GeosetId: 0, Alpha: 1, Flags: 2, Color: new Float32Array([1, 1, 1]) };
-  const stale = { ...anim, _MdxDefaults: { Color: new Float32Array([0.7, 0.3, 1]) } };
-  assert.doesNotThrow(() => assertModelEquivalent({ GeosetAnims: [stale] }, { GeosetAnims: [anim] }));
-  const track = { LineType: 0, Keys: [{ Frame: 0, Vector: new Float32Array([1, 0, 0]) }] };
-  assert.throws(() => assertModelEquivalent({ GeosetAnims: [{ ...stale, Color: track }] }, { GeosetAnims: [{ ...anim, Color: track, _MdxDefaults: { Color: new Float32Array([1, 1, 1]) } }] }), /_MdxDefaults\.Color/);
+test('a colour that stops being animated loses its stored base, and saves cleanly', () => {
+  // TzeentchChampion: the base stayed behind and blocked every save.
+  const doc = fixture(); hide(doc);
+  const track = { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: new Float32Array([1, 0, 0]) }] };
+  doc.apply('Animate colour', ['GeosetAnims'], m => { m.GeosetAnims[0].Color = track; m.GeosetAnims[0].Flags |= 2; m.GeosetAnims[0]._MdxDefaults = { ...m.GeosetAnims[0]._MdxDefaults, Color: new Float32Array([0.7, 0.3, 1]) }; });
+  assert(doc.model.GeosetAnims[0]._MdxDefaults?.Color, 'an animated colour keeps its base');
+  doc.apply('Static colour', ['GeosetAnims'], m => { m.GeosetAnims[0].Color = new Float32Array([0.35, 0.7, 1]); });
+  assert.equal(doc.model.GeosetAnims[0]._MdxDefaults?.Color, undefined);
+  for (const format of ['mdx', 'mdl']) { doc.serialize(format); assert.deepEqual(doc.lastSaveWarnings, []); }
 });
 
 function nodeWorker(counter) {

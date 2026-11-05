@@ -69,9 +69,7 @@ export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected
         // A writer may materialize an implicit static base. Compare authored
         // bases if both contain them; absent bases are checked by the caller's
         // serialization contract rather than against arbitrary editor defaults.
-        // A base only exists for an animated field; the writers store it only
-        // then. One left behind after the field became static means nothing.
-        for(const field of Object.keys(a[k]||{}))if(a[field]?.Keys||b[field]?.Keys)walk(a[k][field],b[k]?.[field],`${path}.${k}.${field}`,field);
+        for(const field of Object.keys(a[k]||{}))walk(a[k][field],b[k]?.[field],`${path}.${k}.${field}`,field);
         continue;
       }
       walk(a[k],b[k],`${path}.${k}`,k);
