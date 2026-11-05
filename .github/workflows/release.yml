@@ -35,6 +35,9 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           # One permanent latest-download URL, starting with 0.38.2.
           echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
+          # Copies before 0.38.0 only look for the versioned name; an identical copy
+          # keeps them updating in-app (owner decision, 5 Nov 2026).
+          echo "VERSIONED_ZIP=MDLxL-${version}-win32-x64.zip" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-build
       - run: pnpm test
@@ -52,6 +55,8 @@ jobs:
           "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
           "{0:N1} MB  {1}" -f ((Get-Item $zip).Length / 1MB), $zip
           Get-Content "$zip.sha256"
+          Copy-Item $zip $env:VERSIONED_ZIP
+          "$hash  $($env:VERSIONED_ZIP)" | Out-File -Encoding ascii "$($env:VERSIONED_ZIP).sha256"
 
       - name: Create the draft release
         if: github.ref_type == 'tag'
@@ -71,7 +76,7 @@ jobs:
             notes_args=(--notes-file release-material/release-body.md)
             while IFS= read -r guide; do guides+=("docs/$guide"); done < <(node --input-type=module -e "import fs from 'node:fs';for(const guide of JSON.parse(fs.readFileSync('release-material/guides.json','utf8')))console.log(guide)")
           fi
-          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" "${guides[@]}" \
+          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" "$VERSIONED_ZIP" "$VERSIONED_ZIP.sha256" "${guides[@]}" \
             --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "MDLxL ${VERSION}" "${notes_args[@]}"
           {
