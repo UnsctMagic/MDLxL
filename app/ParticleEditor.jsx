@@ -92,7 +92,9 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const [dark,setDark]=useState(true);
   const previewPreferences=useMemo(()=>({...preferences,viewportAppearance:{...preferences.viewportAppearance,background:{type:'color',color:dark?'#24282c':'#d0d0d0'}}}),[preferences,dark]);
   const lastField=useRef(null),dialog=useRef(null),gesture=useRef(null),capture=useRef(null),loaded=useRef(false),latest=useRef(null),opening=useRef(false);
-  const previewReady=useCallback(api=>{capture.current=api;if(api)api.whenReady().then(()=>{if(capture.current===api)api.fit();}).catch(error=>{if(capture.current===api)setMessage(error.message);});},[]);
+  // Edits, undo and redo rebuild the preview; frame each scene (Lab, On model…) once, then keep the user's camera.
+  const fittedContext=useRef(null);
+  const previewReady=useCallback(api=>{capture.current=api;const scene=latest.current?.context;if(api&&fittedContext.current!==scene){fittedContext.current=scene;api.whenReady().then(()=>{if(capture.current===api)api.fit();}).catch(error=>{if(capture.current===api)setMessage(error.message);});}},[]);
   latest.current={lab,mode,context,activeDoc,working,emitterId,frame,sequence};
   const sync=()=>{
     for(const family of ['ParticleEmitters2','RibbonEmitters','ParticleEmitters','Helpers']){
