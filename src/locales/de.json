@@ -7687,6 +7687,8 @@
   "Quiet time between flashes.": "Ruhezeit zwischen den Lichtblitzen.",
   "Number of flashes along the blade in each burst.": "Anzahl der Lichtblitze entlang der Klinge pro Salve.",
   "Add emitter": "Emitter hinzufügen",
+  "Pick an emitter to preview it. Add keeps it as a layer.": "Wähle einen Emitter für die Vorschau. Hinzufügen behält ihn als Ebene.",
+  "Keep the previewed emitter as a layer.": "Den Emitter aus der Vorschau als Ebene behalten.",
   "Playback Speed": "Wiedergabetempo",
   "Playback Speed (%)": "Wiedergabetempo (%)",
   "Animation Speed": "Animationstempo",

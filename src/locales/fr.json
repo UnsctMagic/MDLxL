@@ -7687,6 +7687,8 @@
   "Quiet time between flashes.": "Pause entre les éclairs.",
   "Number of flashes along the blade in each burst.": "Nombre d’éclairs sur la lame par rafale.",
   "Add emitter": "Ajouter un émetteur",
+  "Pick an emitter to preview it. Add keeps it as a layer.": "Choisissez un émetteur pour le prévisualiser. Ajouter le garde comme couche.",
+  "Keep the previewed emitter as a layer.": "Garder l'émetteur prévisualisé comme couche.",
   "Playback Speed": "Vitesse de lecture",
   "Playback Speed (%)": "Vitesse de lecture (%)",
   "Animation Speed": "Vitesse d’animation",

@@ -7551,6 +7551,8 @@
   "Quiet time between flashes.": "闪光之间的停顿时间。",
   "Number of flashes along the blade in each burst.": "每轮沿剑刃出现的闪光数量。",
   "Add emitter": "添加发射器",
+  "Pick an emitter to preview it. Add keeps it as a layer.": "选择发射器即可预览。点击添加将其保留为层。",
+  "Keep the previewed emitter as a layer.": "将预览中的发射器保留为层。",
   "Playback Speed": "播放速度",
   "Playback Speed (%)": "播放速度 (%)",
   "Animation Speed": "动画速度",

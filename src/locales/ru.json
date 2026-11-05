@@ -7671,6 +7671,8 @@
   "Quiet time between flashes.": "Пауза между вспышками.",
   "Number of flashes along the blade in each burst.": "Число вспышек вдоль клинка в каждой серии.",
   "Add emitter": "Добавить эмиттер",
+  "Pick an emitter to preview it. Add keeps it as a layer.": "Выберите эмиттер для предпросмотра. «Добавить» сохраняет его как слой.",
+  "Keep the previewed emitter as a layer.": "Сохраняет эмиттер из предпросмотра как слой.",
   "Playback Speed": "Скорость воспроизведения",
   "Playback Speed (%)": "Скорость воспроизведения (%)",
   "Animation Speed": "Скорость анимации",
