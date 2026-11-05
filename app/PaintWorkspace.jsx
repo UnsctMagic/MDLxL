@@ -100,7 +100,11 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   useEffect(()=>setOutline(v=>({...v,color:paintAppearance.geosetBorder,thickness:paintAppearance.borderThickness})),[paintAppearance.geosetBorder,paintAppearance.borderThickness]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;cancelAnimationFrame(frame.current);cancelAnimationFrame(hoverFrame.current);};},[]);
   useEffect(()=>{projectionCache.current=null;regionMaskCache.current=null;setMaterial(null);setCutoutSource(null);setSaveSource(null);setTargetMode('free');setStudioTool('paint');setStampAngle(0);setStampFlip(false);setRegion(null);setTextureRegion(null);setIsolate(false);setPickPart(false);setRegionTool(false);setShading(project?.sourceMode==='primer');setBrush(value=>({...value,mode:'paint',materialId:null,filterColor:'#ffffff'}));},[project?.id]);
-  useEffect(()=>{const flush=()=>endCurrentStroke.current?.();window.addEventListener('mdlxl-paint-flush',flush);window.addEventListener('beforeunload',flush,true);return()=>{window.removeEventListener('mdlxl-paint-flush',flush);window.removeEventListener('beforeunload',flush,true);};},[]);
+  const interactionChange=useRef(onInteractionChange);interactionChange.current=onInteractionChange;
+  // Leaving mid-stroke or mid-drag (mode or tab hotkey, a paint error) finishes the
+  // stroke as a close does and always releases recovery, which waits for release.
+  useEffect(()=>{const flush=()=>endCurrentStroke.current?.();window.addEventListener('mdlxl-paint-flush',flush);window.addEventListener('beforeunload',flush,true);return()=>{window.removeEventListener('mdlxl-paint-flush',flush);window.removeEventListener('beforeunload',flush,true);
+    try{if(stroke.current||placement.current)flush();}catch(error){console.warn('Paint stroke on close: '+error.message);}finally{interactionChange.current?.(false);}};},[]);
   function chooseTool(tool){if(!project||busy||readOnly)return;chooseStudioTool(tool==='select'?'select':'paint');}
   useEffect(()=>{projectionCache.current=null;regionMaskCache.current=null;},[baseModel,project?.activeTargetId,region]);
   useEffect(()=>{clearHover(true);if(placement.current)renderHover(placement.current.hit);},[brush,material,borrowMode,stampAngle,stampFlip,activeGeoset,project?.activeTargetId,project?.activeCoatId,project?.revision,targetMode,dialog,showOriginal,pickPart,region,textureRegion,regionTool]);
