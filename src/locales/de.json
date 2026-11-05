@@ -3710,6 +3710,8 @@
   "Apply Move Speed": "Bewegungstempo anwenden",
   "Sequence move speed": "Sequenzbewegungstempo",
   "Frame interval:": "Bildbereich:",
+  "{0} frames": "{0} Bilder",
+  "Total length: last frame minus first frame": "Gesamtlänge: letztes Bild minus erstes Bild",
   "Sequence first frame": "Erstes Sequenzbild",
   "Sequence last frame": "Letztes Sequenzbild",
   "Create": "Erstellen",

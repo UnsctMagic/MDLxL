@@ -3858,6 +3858,8 @@
   "Apply Move Speed": "应用移动速度",
   "Sequence move speed": "序列移动速度",
   "Frame interval:": "帧区间：",
+  "{0} frames": "{0} 帧",
+  "Total length: last frame minus first frame": "总长度：最后一帧减去第一帧",
   "Sequence first frame": "序列首帧",
   "Sequence last frame": "序列末帧",
   "Create from current": "从当前状态创建",

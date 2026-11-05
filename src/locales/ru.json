@@ -3670,6 +3670,8 @@
   "Apply Move Speed": "Применить скорость движения",
   "Sequence move speed": "Скорость движения анимации",
   "Frame interval:": "Интервал кадров:",
+  "{0} frames": "{0} кадров",
+  "Total length: last frame minus first frame": "Общая длина: последний кадр минус первый",
   "Sequence first frame": "Первый кадр анимации",
   "Sequence last frame": "Последний кадр анимации",
   "Create": "Создать",
