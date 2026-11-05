@@ -497,12 +497,15 @@ export class EditorDocument {
     this._trackedModel = this.model;
   }
   get recoveryHistoryRevision() { return this._historyStore.revision; }
-  recoverySignature() { return [this.revision, this.model, this._savedModel, this._original, this.name, this._historyStore.revision]; }
+  // Excludes recoveryHistoryRevision: a capture owns its history lists, so the
+  // checkpointer tracks undo/selection history separately (see captureRecoveryState).
+  recoverySignature() { return [this.revision, this.model, this._savedModel, this._original, this.name]; }
   captureRecoveryState({ includeHistory = true, compact = false, detached = true } = {}) {
     if (this._applying) throw new Error('Cannot capture recovery inside a document edit.');
     // History changes are immutable. Selection records are replaced, not mutated.
     // A shallow entry/list snapshot is stable while the bounded encoder yields;
     // its caller checks recoverySignature again before publishing the result.
+    // A later history-only change (selection, undo list) cannot alter it.
     const history = includeHistory ? this._historyStore._recoveryState() : null;
     const snapshotHistory = !detached && history ? { ...history, undoEntries: history.undoEntries.map(entry => ({ ...entry })), redoEntries: history.redoEntries.map(entry => ({ ...entry })) } : history;
     if (compact) {

@@ -2,6 +2,10 @@ import { encodeRecovery, recoveryYield } from '../src/recovery-wire.js';
 import { retainedForgeAssets } from '../src/forge-assets.js';
 
 const same = (left, right) => !!left && left.length === right.length && left.every((value, i) => value === right[i]);
+// Stamp[0] is the undo/selection history revision. A capture owns its history
+// lists and entries are immutable, so a history-only change leaves an encoding
+// snapshot intact; everything else in the stamp is referenced live while encoding.
+const intact = (left, right) => !!left && left.length === right.length && left.every((value, i) => i === 0 || value === right[i]);
 function signature(target) {
   return [...target.doc.recoverySignature(), target.path, target.uvPreviews, target.animationDrafts,
     target.paintProject, target.paintProject?.revision, target.paintProject?.dirty,
@@ -11,7 +15,8 @@ function signature(target) {
 
 /** One latest checkpoint per document, shared by autosave, tab changes and close.
  * Navigation returns before snapshot work; unchanged tabs never copy history.
- * A concurrent edit invalidates encoding before any partial draft reaches disk. */
+ * A concurrent edit invalidates encoding before any partial draft reaches disk.
+ * Selection clicks during a long encode still let that snapshot reach disk. */
 export function createRecoveryCheckpointer(write, { binary = true, yieldTask = recoveryYield } = {}) {
   const states = new WeakMap();
   function stateOf(target) {
@@ -29,7 +34,7 @@ export function createRecoveryCheckpointer(write, { binary = true, yieldTask = r
     else { state.release?.(); state.idle = state.release = null; }
   }
   function checkpoint(target) {
-    const state = stateOf(target), stampOf = () => [state.epoch, ...signature(target)];
+    const state = stateOf(target), stampOf = () => [target.doc.recoveryHistoryRevision, state.epoch, ...signature(target)];
     if (state.pending) return state.pending;
     if (same(state.saved, stampOf())) return Promise.resolve();
     const operation = (async () => {
@@ -45,8 +50,8 @@ export function createRecoveryCheckpointer(write, { binary = true, yieldTask = r
           paintProject: target.paintProject, paintOriginalModelBytes: target.paintOriginalModelBytes,
           paintWorkingModel: target.paintWorkingModel, paintAppliedRevision: target.paintAppliedRevision,
           forgeAssets: retainedForgeAssets(target.assets) };
-        const encoded = binary ? await encodeRecovery(envelope, { yieldTask, current: () => same(stamp, stampOf()) }) : null;
-        if (!same(stamp, stampOf())) continue;
+        const encoded = binary ? await encodeRecovery(envelope, { yieldTask, current: () => intact(stamp, stampOf()) }) : null;
+        if ((binary && !encoded) || !intact(stamp, stampOf())) continue;
         await write(binary ? { id: target.id, version: envelope.version, encoded } : envelope);
         state.saved = stamp;
         if (same(stamp, stampOf())) return;

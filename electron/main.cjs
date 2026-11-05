@@ -527,12 +527,13 @@ async function askModelClose(current){
   const language=settings.preferences?.language,t=text=>translateText(text,language);
   return showClosePrompt(current,{title:t(prompt.title),message:t(prompt.message),detail:t(prompt.detail),labels:{save:t('Save'),cancel:t('CANCEL?'),close:t('Close')},theme:settings.preferences?.theme});
 }
-function flushBeforeClose(current,discardedDirty=false){
+function flushBeforeClose(current,discardedDirty=false,discarded=false){
   if(closingWindows.has(current))return;
   closingWindows.add(current);
   const requestId=crypto.randomBytes(12).toString('hex');
-  let finished=false,timer;
-  const cleanup=()=>{clearTimeout(timer);ipcMain.removeListener('app:closeReady',acknowledge);};
+  let finished=false,timer,saving=false;
+  const deadline=Date.now()+60000;
+  const cleanup=()=>{clearTimeout(timer);ipcMain.removeListener('app:closeReady',acknowledge);ipcMain.removeListener('app:closeBusy',busy);};
   const finish=async()=>{
     if(finished)return;finished=true;cleanup();
     await saveQueue.catch(()=>{});
@@ -554,12 +555,15 @@ function flushBeforeClose(current,discardedDirty=false){
     }
     await finish();
   };
+  const busy=(event,id)=>{if(event.sender===current.webContents&&id===requestId)saving=true;};
   ipcMain.on('app:closeReady',acknowledge);
+  ipcMain.on('app:closeBusy',busy);
   // An unresponsive renderer must not prevent the user from closing the app.
   // Writes that already reached the main process still finish before exit.
-  const timeout=()=>{if(captureBusy||captureOperations.size){timer=setTimeout(timeout,60000);return;}finish();};
+  // A responsive page still encoding its final recovery copy gets up to a minute.
+  const timeout=()=>{if(captureBusy||captureOperations.size){timer=setTimeout(timeout,60000);return;}if(saving&&Date.now()<deadline){timer=setTimeout(timeout,deadline-Date.now());return;}finish();};
   timer=setTimeout(timeout,captureBusy?60000:1500);
-  current.webContents.send('app:beforeClose',requestId);
+  current.webContents.send('app:beforeClose',{requestId,discarded});
 }
 function saveBeforeClose(current){
   if(savingBeforeCloseWindows.has(current))return;
@@ -647,7 +651,7 @@ async function createWindow(bounds={}){
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(!headless)child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
   refreshMenu();
-  win.on('close',async event=>{if(current!==win||readyToClose.has(current))return;event.preventDefault();if(closePromptWindows.has(current))return;let discardedDirty=false;if(needsModelClosePrompt(modelCloseState)){closePromptWindows.add(current);let action;try{action=await askModelClose(current);}finally{closePromptWindows.delete(current);}if(current.isDestroyed())return;if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel'){updater?.cancelClose();return;}discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}flushBeforeClose(current,discardedDirty);});
+  win.on('close',async event=>{if(current!==win||readyToClose.has(current))return;event.preventDefault();if(closePromptWindows.has(current))return;let discardedDirty=false,discarded=false;if(needsModelClosePrompt(modelCloseState)){closePromptWindows.add(current);let action;try{action=await askModelClose(current);}finally{closePromptWindows.delete(current);}if(current.isDestroyed())return;if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel'){updater?.cancelClose();return;}discarded=true;discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}flushBeforeClose(current,discardedDirty,discarded);});
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
