@@ -13,8 +13,7 @@ export default function useEditorDisplay(visUI, { mode, displayMode, poseViewAct
   const setCleanViews = next => poseViewActive ? changePoseView({ cleanView: (typeof next === 'function' ? next(cleanViews) : next)[mode] }) : setNormalCleanViews(next);
   const setOverlayModes = next => poseViewActive ? changePoseView({ overlays: (typeof next === 'function' ? next(overlayModes) : next)[displayMode] }) : setNormalOverlayModes(next);
   const cleanView = !!cleanViews[mode], storedOverlays = mode === 'showcase' || mode === 'manager' ? {} : cleanView ? Object.fromEntries(Object.keys(overlayModes[displayMode]).map(key => [key, false])) : overlayModes[displayMode];
-  const visibleOverlays = visUI ? { ...storedOverlays, bones: true, helpers: true, attachments: true } : storedOverlays;
-  const overlays = visibleOverlays.cameras ? { ...visibleOverlays, cameras: false } : visibleOverlays;
+  const overlays = storedOverlays.cameras ? { ...storedOverlays, cameras: false } : storedOverlays;
   const panelOverlays = overlays;
   return { poseView, cleanViews, overlayModes, setCleanViews, setOverlayModes, cleanView, overlays, panelOverlays };
 }

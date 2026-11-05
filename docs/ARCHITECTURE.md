@@ -56,3 +56,22 @@ so the next change does not "fix" it.
 - History: this rule exists because the same lag kept returning in new places
   (AI console redraw, 26 Oct 2026; UV Wrapper, mesh moves, camera turning and
   20 more drags, 31 Oct 2026). Each was fixed alone until the rule was written down.
+
+## Recovery and renderer lifetime
+
+- Autosave, tab changes and close share one checkpoint coordinator. Deduplicate
+  by document/history/draft revision, yield while encoding, and serialize disk
+  recovery in the desktop worker. Keep the existing disk schema and full undo.
+  In-place paint strokes finish before their rasters are borrowed for encoding.
+- A texture lookup must still notice changed loose files. When bytes are equal,
+  retain the asset and Map identities so previews do not rebuild for no change.
+- Keep live renderer/capture handles in refs, with only a readiness generation
+  in render state when needed. Storing a handle in state can create a chain:
+  current preview → parent callback closure → previous handle → old preview.
+- Disconnect listeners from the root where they were registered. React may
+  already have detached a canvas when its effect cleanup runs; getRootNode()
+  then points at a different tree. Remove pending modifier-key listeners too.
+- Check repeated real tab/quality changes after garbage collection. Flat DOM,
+  listeners and retained buffers matter; disposing GL alone does not prove the
+  old model and preview closures were released. See the
+  [performance handover](agent-tasks/performance-plumbing.md) for regression proof.

@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -7,7 +8,7 @@ const path = require('node:path');
   const { app, page } = await launchApp({ out: root, profile: path.join(root, 'out/menu-scroll-test/profile-' + Date.now()), env: { MDLVIS_HEADLESS: '1' }, fixture: file , pageTimeout: 20000, bounds: { x: -3000, y: 0, width: 1600, height: 1000 }, show: 'inactive' });
   try {
 
-    await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened ' + path.basename(file));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Nodes'));
     await page.getByLabel('Search nodes').fill('SND');
     await page.locator('.re-tree-row').filter({ hasText: 'SNDx' }).first().click();

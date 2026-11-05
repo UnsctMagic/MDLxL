@@ -29,4 +29,21 @@ async function waitFile(file){
   const fs=require('node:fs/promises'),{setTimeout}=require('node:timers/promises'),deadline=Date.now()+10000;
   for(;;){try{return await fs.readFile(file,'utf8');}catch(error){if(error.code!=='ENOENT'||Date.now()>deadline)throw error;await setTimeout(25);}}
 }
-module.exports = {click,type,orbit,waitFile};
+// Personal recipes now use the shared Library tree (#491).
+async function openEffectCollection(page, name) {
+  const library=page.locator('.pe-library');await library.waitFor();
+  await library.getByLabel('Find an effect',{exact:true}).fill('');
+  for(const other of ['Warcraft','My presets','My work','Favorites']) {
+    const row=library.getByRole('treeitem',{name:other,exact:true});
+    if(other!==name && await row.count() && await row.getAttribute('aria-expanded')==='true') await row.click();
+  }
+  const row=library.getByRole('treeitem',{name,exact:true});await row.waitFor();
+  if(await row.getAttribute('aria-expanded')!=='true') await row.click();
+}
+async function openEffect(page, name, collection='My presets') {
+  const library=page.locator('.pe-library');
+  await library.getByLabel('Find an effect',{exact:true}).fill(name);
+  await library.locator('[data-effect-id][data-row^="'+collection+'/"]').filter({hasText:name}).last().dblclick();
+  await library.waitFor({state:'hidden'});
+}
+module.exports = {click,type,orbit,waitFile,openEffectCollection,openEffect};

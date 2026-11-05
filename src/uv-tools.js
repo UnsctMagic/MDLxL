@@ -2,25 +2,45 @@ import { sampleTrack } from './animation.js';
 
 const finiteIndex = value => Number.isSafeInteger(value) && value >= 0;
 const uniqueIndices = values => [...new Set(Array.from(values || []).filter(finiteIndex))];
-/** Screen pixels around the selection's centre where the mouse has no direction yet. */
-const UV_TURN_CENTRE = 2;
-/** Inside this many screen pixels of the centre the turn goes by distance moved
- * around it, as at this radius, so a mouse over the selection cannot snap it. */
-const UV_TURN_STEADY = 48;
+/** Only the UV map's Rotate is 30% less sensitive. */
+const UV_TURN_SENSITIVITY = 0.7;
+/** Toward/away movement contributes one radian per 48 pixels before sensitivity. */
+const UV_TURN_RADIAL_PIXELS = 48;
+/** Collinearity tolerance for rounded pointer coordinates; it never reduces movement. */
+const UV_TURN_COLLINEAR_EPSILON = 1e-4;
 
-/** UV map Rotate: the turn in radians follows the mouse around the selection's
- * centre (`drag.pivotScreen`) one for one beyond UV_TURN_STEADY pixels, and adds
- * up past a full circle. Closer in, each pixel moved around the centre turns
- * the same small amount, so passing over the centre never flips it. Positive is
- * clockwise on screen. `drag.fine` scales it (Alt); no 3D rotation setting
- * applies. Call once at drag start and on every move. */
+/** UV Rotate uses fixed screen-space input: circular movement follows its own
+ * winding; straight toward/away movement uses right/left, or down/up for a
+ * vertical drag. Previous movement never chooses or flips either direction.
+ * Every movement contributes at the UV-only 70% rate, without a centre dead
+ * zone. Alt keeps its fine control. Call at drag start and on every sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
-  if (radius < UV_TURN_CENTRE) return drag.turn;
+  // FX texture fitting also uses UVEditor; preserve its pre-wrapper-change input.
+  if (drag.wrapperControls === false) {
+    if (radius < 2) return drag.turn;
+    const angle = Math.atan2(py, px);
+    if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / 48, drag.radius / 48) * (drag.fine ?? 1);
+    drag.angle = angle; drag.radius = radius;
+    return drag.turn;
+  }
   const angle = Math.atan2(py, px);
-  if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / UV_TURN_STEADY, drag.radius / UV_TURN_STEADY) * (drag.fine ?? 1);
-  drag.angle = angle; drag.radius = radius;
+  if (drag.angle !== undefined) {
+    // At the exact centre there is no angular direction, but straight travel
+    // still rotates: this does not introduce a dead zone.
+    const arc = radius && drag.radius ? Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) : 0;
+    const radial = (radius - drag.radius) / UV_TURN_RADIAL_PIXELS;
+    const dx = px - drag.px, dy = py - drag.py;
+    const cross = drag.px * dy - drag.py * dx;
+    // Direction comes only from this movement in the fixed screen plane.
+    // Rounded straight-line samples may have a tiny artificial cross product;
+    // use the screen direction there, but still count their entire movement.
+    const circular = Math.abs(cross) > Math.max(radius, drag.radius) * Math.hypot(dx, dy) * UV_TURN_COLLINEAR_EPSILON;
+    const direction = circular ? Math.sign(arc) : Math.sign(dx || dy);
+    drag.turn += Math.hypot(arc, radial) * direction * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
+  }
+  drag.angle = angle; drag.radius = radius; drag.px = px; drag.py = py;
   return drag.turn;
 }
 

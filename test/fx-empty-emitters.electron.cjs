@@ -30,7 +30,7 @@ const {selectOption,addEmitter}=require('./helpers/fx-input.cjs');
   await apply();assert.equal(JSON.parse(await source()).ParticleEmitters2.length,JSON.parse(original).ParticleEmitters2.length);await undo(original);
   await openFx();
   for(const look of GLOBAL_LOOKS){
-   await choose(look.name);m=await model();assert.equal(await fx.getByRole('group',{name:'Layers',exact:true}).locator('.fx-layer-row').count(),look.layers.filter(l=>l.type!=='Particles').length,look.name+' shows only non-particle layers');assert.equal(m.ParticleEmitters2.filter(p=>p._FxTag).length,0,look.name+' creates no emitters');
+   await choose(look.name);m=await model();const emitterOnly=look.layers.length>0&&look.layers.every(l=>l.type==='Particles');assert.equal(await fx.getByRole('group',{name:'Layers',exact:true}).locator('.fx-layer-row').count(),emitterOnly?1:look.layers.filter(l=>l.type!=='Particles').length,look.name+' keeps its approved default layers');const owned=m.ParticleEmitters2.filter(p=>p._FxTag);if(emitterOnly){assert.ok(owned.length>0,look.name+' retains its first emitter');assert.ok(owned.every(p=>p.Name.startsWith('FX '+look.layers[0].label)),look.name+' uses its own emitter');}else assert.equal(owned.length,0,look.name+' creates no emitters');
    const expected=look.layers.filter(l=>l.type==='Particles').map((l,i)=>l.label+(i===0?' (recommended)':'')),labels=(await own.locator('option').allTextContents()).slice(1);
    assert.deepEqual(labels.slice(0,expected.length),expected);assert.equal(labels.filter(l=>l.endsWith(' (recommended)')).length,expected.length?1:0);
   }
@@ -47,6 +47,6 @@ const {selectOption,addEmitter}=require('./helpers/fx-input.cjs');
    assert.ok(fs.existsSync(file),'Prepare the legacy fixture with 676aaf6f: '+file);console.log('Re-editing',path.basename(file));await open(file);const reopened=await source(),count=JSON.parse(reopened).ParticleEmitters2.length;await openFx();m=await model();assert.equal(m.Geosets[28]._FxStack.look,'flaming-sword');assert.ok(m.Geosets[28]._FxStack.layers.some(l=>l.label==='Blade flames'));assert.equal(m.ParticleEmitters2.length,count);
    await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade flames/}).click();const amount=fx.getByLabel('Amount value',{exact:true});await type(amount,117);await page.keyboard.press('Enter');await ready();assert.equal((await model()).Geosets[28]._FxStack.layers.find(l=>l.label==='Blade flames').amount,117);await apply();await undo(reopened);
   }
-  assert.deepEqual(errors,[]);console.log('PASS all '+GLOBAL_LOOKS.length+' presets empty and ordered; recommended flames on both blades; normal mouse orbit; Stand/Walk/Attack; Apply/exact Undo; MDX/MDL save/reopen/re-edit; pre-change MDX/MDL emitters retained.');
+  assert.deepEqual(errors,[]);console.log('PASS all '+GLOBAL_LOOKS.length+' approved preset defaults and ordered choices; recommended flames on both blades; normal mouse orbit; Stand/Walk/Attack; Apply/exact Undo; MDX/MDL save/reopen/re-edit; pre-change MDX/MDL emitters retained.');
  }catch(e){await page.screenshot({path:path.join(out,'failure.jpg')});throw e;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

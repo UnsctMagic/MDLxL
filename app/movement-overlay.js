@@ -1,3 +1,4 @@
+import { rigTypeVisible } from '../src/display-overlays.js';
 import { solveGizmoMove } from '../src/shift-lock.js';
 import { beginRotationDrag, rotationDragDegrees, rotationOptions, facingAxis, chooseLeverAxis, NORMAL } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
@@ -88,6 +89,7 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
     const line = boneConnectionEndpoints(parent, point, visual.helperSize);
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
+    if (!options.focusedBoneLines && (!rigTypeVisible(parent, options) || !rigTypeVisible(point, options))) continue;
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
     drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio });
   }
@@ -199,6 +201,7 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
     const line = boneConnectionEndpoints(parent, point);
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
+    if (!options.focusedBoneLines && (!rigTypeVisible(parent, options) || !rigTypeVisible(point, options))) continue;
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
     drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio, pixelBatch });
   }

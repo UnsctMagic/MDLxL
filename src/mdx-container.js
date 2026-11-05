@@ -170,6 +170,16 @@ export function parseMdx(input) {
   return new MdxDocument(bytes, chunks, trailingBytes, diagnostics, version);
 }
 
+// The order Warcraft III's own models and writers use. Viewers find sections
+// by tag, but the game reads node sections and their pivots in file order: a
+// collision or ribbon section placed before the bones skins vertices to the
+// wrong nodes and stretches the mesh into spikes in game only.
+export const MDX_CHUNK_ORDER = Object.freeze([
+  'VERS', 'MODL', 'SEQS', 'GLBS', 'MTLS', 'TEXS', 'TXAN', 'GEOS', 'GEOA',
+  'BONE', 'LITE', 'HELP', 'ATCH', 'PIVT', 'PREM', 'PRE2', 'CORN', 'RIBB',
+  'CAMS', 'EVTS', 'CLID', 'FAFX', 'BPOS',
+]);
+
 export function isKnownTopLevelChunk(tag) {
   return new Set([
     'VERS', 'MODL', 'SEQS', 'GLBS', 'MTLS', 'TEXS', 'TXAN', 'GEOS', 'GEOA',

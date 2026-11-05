@@ -65,7 +65,7 @@ test('a fast pivot turn keeps its direction when every sample feeds the angle', 
   assert.ok(Math.abs(Math.abs(rotationDragDegrees(frameOnly, last.x - start.x, last.y - start.y)) - 120) < 1e-6, 'one sample per frame wraps to the short way round');
   const uv = { pivotScreen: [0, 0] }; uvTurn(uv, start.x, start.y);
   for (const point of samples) uvTurn(uv, point.x, point.y);
-  assert.ok(Math.abs(uvTurn(uv, last.x, last.y) - 240 * Math.PI / 180) < 1e-6, 'UV turn follows every sample');
+  assert.ok(Math.abs(uvTurn(uv, last.x, last.y) - 240 * .7 * Math.PI / 180) < 1e-6, 'UV turn follows every sample');
 });
 
 // Every handler that feeds a turn does it in the per-event code, before scheduling.

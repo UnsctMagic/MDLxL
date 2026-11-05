@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/light-dark-shortcut.electron.cjs
 // Presses the real Shift+F1 / Shift+F2 keys and checks the interface, the
@@ -26,10 +27,10 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
     assert.deepEqual([start.scheme, start.panel, start.accent], ['dark', '#282828', '#123456']);
     const same = await press(page, 'Shift+F1');
     assert.deepEqual([same.scheme, same.panel, same.accent], [start.scheme, start.panel, start.accent], 'Shift+F1 on a dark look changes nothing');
-    assert.match(same.status, /Already using a dark look/);
+    assert.match(await waitForInfo(page, /Already using a dark look/), /Already using a dark look/);
     const light = await press(page, 'Shift+F2');
     assert.equal(light.scheme, 'light'); assert.equal(light.panel, '#eee8d5', 'Durotar → Silvermoon');
-    assert.match(light.status, /Silvermoon loaded/);
+    assert.match(await waitForInfo(page, /Silvermoon loaded/), /Silvermoon loaded/);
     await page.screenshot({ path: path.join(out, 'light.png') });
     const back = await press(page, 'Shift+F1');
     assert.deepEqual([back.scheme, back.panel, back.accent], ['dark', '#282828', '#123456'], 'customized Durotar restored');

@@ -8,13 +8,13 @@ const {buildMenuTemplate}=createRequire(import.meta.url)('../electron/menu.cjs')
 
 test('preview options default clean and persist independently of editor mesh size/visibility',()=>{
   const next=normalizePreferences({uvPreviewDisplay:{mesh:'selected',size:2.5,textureFrame:true},visuals:{vertexSize:4,lineWidth:.5},grid:{planes:{xy:false}}});
-  assert.deepEqual(next.uvPreviewDisplay,{mesh:'selected',size:2.5,textureFrame:true,snapTextureFrame:false});
+  assert.deepEqual(next.uvPreviewDisplay,{mesh:'selected',size:2.5,textureFrame:true});
   assert.equal(next.visuals.vertexSize,4);assert.equal(next.visuals.lineWidth,.5);
   assert.deepEqual(importConfiguration(exportConfiguration(next)).uvPreviewDisplay,next.uvPreviewDisplay);
-  assert.equal(normalizePreferences({uvPreviewDisplay:{snapTextureFrame:true}}).uvPreviewDisplay.snapTextureFrame,true);
-  assert.deepEqual(normalizeUVPreviewDisplay({mesh:'bad',size:Infinity,textureFrame:'yes'}),{mesh:'none',size:.25,textureFrame:false,snapTextureFrame:false});
-  assert.deepEqual(normalizeUVPreviewDisplay({size:-2,textureFrame:true}),{mesh:'none',size:.25,textureFrame:true,snapTextureFrame:false});
-  assert.deepEqual(normalizeUVPreviewDisplay(),{mesh:'none',size:.25,textureFrame:false,snapTextureFrame:false});
+  assert.equal(Object.hasOwn(normalizePreferences({uvPreviewDisplay:{snapTextureFrame:true}}).uvPreviewDisplay,'snapTextureFrame'),false);
+  assert.deepEqual(normalizeUVPreviewDisplay({mesh:'bad',size:Infinity,textureFrame:'yes'}),{mesh:'none',size:.25,textureFrame:false});
+  assert.deepEqual(normalizeUVPreviewDisplay({size:-2,textureFrame:true}),{mesh:'none',size:.25,textureFrame:true});
+  assert.deepEqual(normalizeUVPreviewDisplay(),{mesh:'none',size:.25,textureFrame:false});
 });
 
 test('Show mesh covers model geometry but Highlight Select contains only active selected UV points',()=>{
@@ -49,7 +49,7 @@ test('UV preview has no editor View toggles; Vertex View uses its own checked co
   assert.deepEqual(menus.find(menu=>menu.label==='View').submenu,[]);
   const editor=buildMenuTemplate({},id=>actions.push(id),'win32',[],x=>x,{viewMode:'vertices',checks:{shaded:true,showVertices:true}});
   const rows=editor.find(menu=>menu.label==='View').submenu;
-  assert.deepEqual(rows.map(row=>row.label),['Shadows','RGB','Vertices','Normals','Wireframe Overlay','Grid','Clear']);
+  assert.deepEqual(rows.map(row=>row.label),['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Clear']);
   assert.equal(rows.find(row=>row.label==='Shadows').checked,true);
   assert.equal(rows.find(row=>row.label==='Clear').type,undefined);
   rows.find(row=>row.label==='Shadows').click();

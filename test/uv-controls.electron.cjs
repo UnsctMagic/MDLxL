@@ -10,7 +10,7 @@ const waitFor = async (page, predicate) => {
   const value = await page.waitForFunction(predicate, null, { timeout: 15000, polling: 100 });
   return value.jsonValue();
 };
-const click = (page, selector) => page.locator(selector).evaluate(element => element.click());
+const click = (page, selector) => page.locator(selector).click();
 (async () => {
   const original = fs.readFileSync(fixture);
   const { app, page: main } = await launchApp({ fixture, out, args: ['--disable-gpu'], pageTimeout: 15000 });
@@ -28,14 +28,14 @@ const click = (page, selector) => page.locator(selector).evaluate(element => ele
     await main.mouse.move(edge.x + edge.width / 2 - 80, edge.y + edge.height / 2, { steps: 8 }); await main.mouse.up();
     await main.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--panel-width').trim() !== '240px', null, { timeout: 5000 });
     const dragged = await panelWidth(); assert.ok(parseFloat(dragged) > 290, 'dragging the edge left widens the panel: ' + dragged);
-    await main.waitForTimeout(300); edge = await edgeBox();
+    edge = await edgeBox();
     await main.mouse.dblclick(edge.x + edge.width / 2, edge.y + edge.height / 2);
     await main.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--panel-width').trim() === '240px', null, { timeout: 5000 })
       .catch(async () => { throw Error('double-clicking the panel edge did not reset the width: ' + await panelWidth()); });
     await click(main, '[data-hotkey="geosetsClear"]');
     await click(main, '[aria-label="Select geoset 3"]');
     await main.getByLabel('3D model viewport', { exact: true }).waitFor();
-    await main.getByLabel('3D model viewport', { exact: true }).focus();
+    await main.getByLabel('3D model viewport', { exact: true }).click();
     await main.keyboard.press('Control+a');
     await waitFor(main, () => !document.querySelector('[data-hotkey="uv"]').disabled);
     await click(main, '[data-hotkey="uv"]');
@@ -64,15 +64,15 @@ const click = (page, selector) => page.locator(selector).evaluate(element => ele
     assert.equal(await waitFor(uv, () => uvControlsState().rgb === null), true);
     // UV splitters "drag or use arrow keys · double-click to reset": drag each with the mouse, then press an
     // arrow key with focus wherever that drag left it, then double-click the splitter.
-    for (const [label, delta, key, step, reset] of [['Resize texture and live-view columns', [-60, 0], 'ArrowLeft', 2, 40], ['Resize live model preview', [0, -40], 'ArrowDown', 2, 62]]) {
+    for (const [label, delta, key, step, reset] of [['Resize texture and live-view columns', [-60, 0], 'ArrowLeft', 2, 46], ['Resize live model preview', [0, -40], 'ArrowDown', 2, 50]]) {
       const splitter = uv.getByRole('separator', { name: label, exact: true }), value = async () => Number(await splitter.getAttribute('aria-valuenow'));
       const start = await value(); assert.equal(start, reset, label + ' starts at its default');
       let b = await splitter.boundingBox(); const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
-      await uv.mouse.move(cx, cy); await uv.mouse.down(); await uv.mouse.move(cx + delta[0], cy + delta[1], { steps: 8 }); await uv.mouse.up(); await uv.waitForTimeout(200);
+      await uv.mouse.move(cx, cy); await uv.mouse.down(); await uv.mouse.move(cx + delta[0], cy + delta[1], { steps: 8 }); await uv.mouse.up(); await uv.waitForFunction(([name,initial])=>Number(document.querySelector(`[role="separator"][aria-label="${name}"]`).getAttribute("aria-valuenow"))!==initial,[label,start]);
       const moved = await value(); assert.notEqual(moved, start, label + ': a mouse drag moves the splitter');
-      await uv.keyboard.press(key); await uv.waitForTimeout(150);
+      await uv.keyboard.press(key); await uv.waitForFunction(([name,expected])=>Number(document.querySelector(`[role="separator"][aria-label="${name}"]`).getAttribute("aria-valuenow"))===expected,[label,moved+step]);
       assert.equal(await value(), moved + step, label + ': ' + key + ' after the drag moves it by ' + step);
-      b = await splitter.boundingBox(); await uv.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2); await uv.waitForTimeout(200);
+      b = await splitter.boundingBox(); await uv.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2); await uv.waitForFunction(([name,expected])=>Number(document.querySelector(`[role="separator"][aria-label="${name}"]`).getAttribute("aria-valuenow"))===expected,[label,reset]);
       assert.equal(await value(), reset, label + ': double-click resets it');
     }
     const after = await uv.evaluate(() => uvControlsState());

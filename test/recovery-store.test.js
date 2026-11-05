@@ -56,3 +56,16 @@ test('the one-time reset clears old drafts once, but waits while a crash draft i
   assert.equal(await new RecoveryStore(root).resetOnce(false), false);
   assert.deepEqual((await store.list()).map(item => item.id), ['after']);
 });
+
+test('an encoded snapshot moves to the worker instead of being copied, and pooled bytes are still copied', async t => {
+  const root = await scratch(t), store = new RecoveryStore(root), { encodeRecovery } = await import('../src/recovery-wire.js');
+  const encoded = await encodeRecovery({ ...draft('moved', 'C:\\Models\\Footman.mdx'), state: { name: 'moved', raster: new Uint8Array(4096).fill(7) } });
+  await store.write({ id: 'moved', version: 1, encoded });
+  assert.equal(encoded.byteLength, 0, 'the snapshot buffer was transferred');
+  assert.equal((await store.read('moved')).state.raster.length, 4096);
+  const pooled = Buffer.from(await encodeRecovery(draft('pooled', 'C:\\Models\\Knight.mdx')));
+  await store.write({ id: 'pooled', version: 1, encoded: pooled });
+  assert.ok(pooled.byteLength > 0, 'a view of a shared pool is copied, never detached');
+  assert.equal((await store.read('pooled')).state.name, 'pooled');
+  await store.flush();
+});

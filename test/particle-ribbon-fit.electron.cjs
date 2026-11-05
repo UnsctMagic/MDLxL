@@ -31,9 +31,9 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   assert.equal(await page.getByRole('button',{name:'End here',exact:true}).count(),0);
   const choices=page.locator('.pe-ribbon-sequences input');assert.equal(await choices.count(),original.Sequences.length);
   for(let i=0;i<original.Sequences.length;i++)await choices.nth(i).uncheck();
-  assert.equal(await page.getByRole('button',{name:'Create',exact:true}).isEnabled(),true,'No extra click gate');
+  assert.equal(await page.getByRole('button',{name:'Create',exact:true}).isEnabled(),false,'Create requires a visible animation (#491)');
   await choices.nth(3).check();await choices.nth(2).check();
-  const seek=async(label,time)=>{await page.getByLabel(label,{exact:true}).evaluate((el,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,String(value));el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));},time);};
+  const seek=async(label,time)=>{const input=page.getByLabel(label,{exact:true});await input.click();await page.keyboard.press('Home');const step=Number(await input.getAttribute('step')||1),min=Number(await input.getAttribute('min')||0);for(let i=min;i<time;i+=step)await page.keyboard.press('ArrowRight');};
   await page.getByLabel('Fitted weapon edge',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'choose-animations.png')});
   const read=()=>page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => { const doc = props?.doc; return doc?.model; }, { props: true }); if (props) { const doc = props?.doc; return {model:JSON.parse(JSON.stringify(doc.model)),undo:doc.historyStats.undoSteps}; } }throw Error('Model missing');});
   const before=await read();await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.deepEqual(await read(),before);

@@ -11,7 +11,7 @@ import { canonicalizeSerializedNodeOrder, serializedNodes, SERIALIZED_NODE_COLLE
 import { plainTrackValues } from './plain-track-values.js';
 import { assertModelEquivalent, formatSaveIssues } from './save-equivalence.js';
 import { preserveMdxRecords, preserveMdlRecords } from './record-preservation.js';
-import { parseMdx, SUPPORTED_FORMAT_VERSIONS } from './mdx-container.js';
+import { parseMdx, SUPPORTED_FORMAT_VERSIONS, MDX_CHUNK_ORDER } from './mdx-container.js';
 import { parseMdl, mdlStringEnd } from './mdl-lossless.js';
 import { HistoryStore, createChanges, applyChanges } from './history-store.js';
 import { prepareMdlEventObject, restoreMdxEventGlobalSequences, writeMdlEventGlobalSequences, writeMdxEventGlobalSequences } from './event-object-codec.js';
@@ -257,21 +257,27 @@ function surgicalMdx(original, container, generated, keys) {
   if (fresh.hasErrors) throw new Error('Generated MDX has an invalid chunk structure.');
   const tags = new Set(keys.map((key) => SECTION_TYPES[key][1]));
   const replacements = new Map([...tags].map((tag) => [tag, Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
-  // A section new to this file goes where the writer places it, before the
-  // first later section. MdlVis reads GLBS only after SEQS; a GLBS appended at
-  // the end of the file made MdlVis lose the global sequence and hang.
-  const order = new Map(); fresh.chunks.forEach((chunk, index) => { if (!order.has(chunk.tag)) order.set(chunk.tag, index); });
+  // A section new to this file goes to its place in the game's order, before
+  // the first later section. MdlVis reads GLBS only after SEQS (a GLBS at the
+  // end made it hang), and the game reads node sections in file order: a
+  // collision or ribbon section before the bones turns the mesh into spikes in
+  // game. Node sections an earlier save put before the materials or geosets
+  // are moved back the same way, so saving repairs such a file.
+  const rank = tag => MDX_CHUNK_ORDER.indexOf(tag), lastSetup = rank('GEOA');
+  const setupEnd = container.chunks.reduce((end, chunk, index) => rank(chunk.tag) >= 0 && rank(chunk.tag) <= lastSetup ? index : end, -1);
+  const misplaced = new Set(container.chunks.filter((chunk, index) => index < setupEnd && rank(chunk.tag) > lastSetup).map(chunk => chunk.tag));
+  const bytesOf = chunk => tags.has(chunk.tag) ? replacements.get(chunk.tag) : original.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize);
   const present = new Set(container.chunks.map(chunk => chunk.tag));
-  const pending = [...tags].filter(tag => !present.has(tag)).sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity));
-  const inserted = new Set(); const parts = [original.subarray(0, 4)];
-  for (const chunk of container.chunks) {
-    while (pending.length && order.has(chunk.tag) && (order.get(pending[0]) ?? Infinity) < order.get(chunk.tag)) { const tag = pending.shift(); parts.push(replacements.get(tag)); inserted.add(tag); }
-    if (!tags.has(chunk.tag)) parts.push(original.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize));
-    else if (!inserted.has(chunk.tag)) { parts.push(replacements.get(chunk.tag)); inserted.add(chunk.tag); }
+  const parts = container.chunks.filter(chunk => !misplaced.has(chunk.tag)).map(chunk => ({ tag: chunk.tag, bytes: bytesOf(chunk) }));
+  const placing = [
+    ...container.chunks.filter(chunk => misplaced.has(chunk.tag)).map(chunk => ({ tag: chunk.tag, bytes: bytesOf(chunk) })),
+    ...[...tags].filter(tag => !present.has(tag)).map(tag => ({ tag, bytes: replacements.get(tag) })),
+  ].sort((a, b) => (rank(a.tag) < 0 ? Infinity : rank(a.tag)) - (rank(b.tag) < 0 ? Infinity : rank(b.tag)));
+  for (const part of placing) {
+    const at = rank(part.tag) < 0 ? -1 : parts.findIndex(chunk => rank(chunk.tag) > rank(part.tag));
+    if (at < 0) parts.push(part); else parts.splice(at, 0, part);
   }
-  for (const [tag, bytes] of replacements) if (!inserted.has(tag)) parts.push(bytes);
-  parts.push(container.trailingBytes);
-  return Buffer.concat(parts);
+  return Buffer.concat([original.subarray(0, 4), ...parts.map(part => part.bytes), container.trailingBytes]);
 }
 
 export class EditorDocument {
@@ -496,20 +502,30 @@ export class EditorDocument {
     for (const change of changes) this._dirtyCandidates.add(change.path[0]);
     this._trackedModel = this.model;
   }
-  captureRecoveryState({ includeHistory = true, compact = false } = {}) {
+  get recoveryHistoryRevision() { return this._historyStore.revision; }
+  // Excludes recoveryHistoryRevision: a capture owns its history lists, so the
+  // checkpointer tracks undo/selection history separately (see captureRecoveryState).
+  recoverySignature() { return [this.revision, this.model, this._savedModel, this._original, this.name]; }
+  captureRecoveryState({ includeHistory = true, compact = false, detached = true } = {}) {
     if (this._applying) throw new Error('Cannot capture recovery inside a document edit.');
+    // History changes are immutable. Selection records are replaced, not mutated.
+    // A shallow entry/list snapshot is stable while the bounded encoder yields;
+    // its caller checks recoverySignature again before publishing the result.
+    // A later history-only change (selection, undo list) cannot alter it.
+    const history = includeHistory ? this._historyStore._recoveryState() : null;
+    const snapshotHistory = !detached && history ? { ...history, undoEntries: history.undoEntries.map(entry => ({ ...entry })), redoEntries: history.redoEntries.map(entry => ({ ...entry })) } : history;
     if (compact) {
       this._candidateKeys();
       // Keep the immutable source once, plus only authored changes and history.
       // Copying two complete graphs of baked animation keys through Electron's
       // context bridge caused a second UI stall after each small mesh edit.
-      return clone({ schema: 'mdlvis-document-recovery', version: 2, name: this.name,
+      return (detached ? clone : value => value)({ schema: 'mdlvis-document-recovery', version: 2, name: this.name,
         originalBytes: new Uint8Array(this._original.buffer, this._original.byteOffset, this._original.byteLength),
         savedChanges: this._recoverySavedChanges,
         // Checkpoints also capture direct in-place draft changes, even when
         // no document transaction or revision has been committed yet.
         modelChanges: createChanges(this._savedModel, this.model, { ignore: ignoreHistoryAlias }),
-        revision: this.revision, history: includeHistory ? this._historyStore._recoveryState() : null, activity: this.history });
+        revision: this.revision, history: snapshotHistory, activity: detached ? this.history : [...this.history] });
     }
     // Clone the complete graph once, avoiding two temporary copies of a large
     // undo cache while the desktop host checkpoints the document to disk.

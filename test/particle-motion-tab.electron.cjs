@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { launchApp, closeApp, clickMenu } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 // A new emitter on a model without animations: the Motion tab must draw (it used to stop the interface).
@@ -10,7 +11,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  let app;const errors=[];
  try{
   const launched = await launchApp({ out, fixture, errors, timeout: 60000, bounds: { x: -3000, y: 0, width: 1400, height: 920 }, show: 'inactive', pageTimeout: 15000 }); app = launched.app;const page=launched.page;page.on('pageerror',e=>errors.push(e.stack||e.message));
-  await page.getByText('Opened no-animation-emitter.mdx',{exact:true}).waitFor();
+  await waitForInfo(page, 'Opened no-animation-emitter.mdx');
   await clickMenu(app, 'Particle Editor…');await page.getByLabel('Particle context',{exact:true}).waitFor();if(await page.getByRole('button',{name:'Close Particle Library',exact:true}).count())await page.getByRole('button',{name:'Close Particle Library',exact:true}).click();
   await page.getByLabel('Particle context',{exact:true}).selectOption('On model');await page.getByLabel('Effect ingredient',{exact:true}).selectOption(String(id));await page.getByRole('button',{name:'Motion',exact:true}).click();
   for(const name of ['Aim X','Aim Y','Aim Z'])await page.getByRole('slider',{name,exact:true}).waitFor({timeout:5000});

@@ -1,8 +1,8 @@
 import { clamp } from '../src/math.js';
-export const UV_SIDE_DEFAULT = 40;
+export const UV_SIDE_DEFAULT = 45.6;
 export const UV_SIDE_MIN = 18;
 export const UV_SIDE_MAX = 75;
-export const UV_PREVIEW_DEFAULT = 62;
+export const UV_PREVIEW_DEFAULT = 50;
 export const UV_PREVIEW_MIN = 28;
 export const UV_PREVIEW_MAX = 88;
 

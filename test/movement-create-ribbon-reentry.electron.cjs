@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { stubDialogs } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 const fs = require('node:fs');
@@ -62,7 +63,7 @@ const assert = require('node:assert/strict');
       assert.ok(delta > .01, 'Real mouse drag rotates EMTR camera');
       return delta;
     };
-    await size(1600); await page.getByText('Opened Existing-effects.mdx', { exact: true }).waitFor();
+    await size(1600); await waitForInfo(page, 'Opened Existing-effects.mdx');
     await menu('animation'); await page.locator('.movement-controller').waitFor();
     const initial = await state();
     for (const vis of [false, true]) {
@@ -113,7 +114,7 @@ const assert = require('node:assert/strict');
     checks.push({ check: 'Selected effect, effect dropdown, Library and New preserved' });
     await closeEditor();
     await stubDialogs(app, { open: [(empty)] });
-    await menu('open'); await page.getByText('Opened No-effects.mdx', { exact: true }).waitFor();
+    await menu('open'); await waitForInfo(page, 'Opened No-effects.mdx');
     await menu('particles'); assert.equal(await page.getByLabel('Particle context', { exact: true }).inputValue(), 'Lab');
     await page.getByRole('button', { name: 'Close Particle Library', exact: true }).click();
     checks.push({ check: 'No-effects model still opens Lab; mouse rotates', delta: await rotate() });

@@ -530,3 +530,69 @@ The manual 131,605 B / 17.21% node-TRS target remains unmet. The tested order/re
 This is sampled skin-displacement acceptance, not continuous-time/velocity acceptance, external checker acceptance or Warcraft III playback. The speed certificate only selects the unchanged slow budget; it does not replace deletion/refit verification. Classic/SD skin, global/camera-facing exclusions and overlapping-domain handling retain their existing scope. User visual acceptance and Warcraft III remain untested.
 
 Reproduce with node test/manual/optimizexl-world-budget.mjs ORIGINAL ACCEPTED OUTPUT_DIRECTORY. MDLXL_FX_RESUME=1 reuses only previously measured identical reference/legacy bytes. The hidden command for this follow-up is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview. PR #437 remains open; do not merge.
+
+
+## Unused trailing pivot warning — 2026-11-04
+
+The owner reported `Expected 148 pivot points, got 149` remaining after OptiXL.
+The bundled Hive check compares node and pivot counts; no repair owned this
+finding. The saved input differs from the unsaved screenshot (143/143), so the
+regression adds one surplus pivot to a disposable copy of that real rig.
+
+`unusedPivots` removes only trailing, unreferenced pivots in classic 800 models
+with unique dense IDs. It rechecks at application and leaves all referenced
+pivots and node data intact. Missing/sparse/invalid tables stay manual. It routes
+through the existing checker finding, selected batch and Fix everything UI;
+existing node-removal owners still remap their own references.
+
+The new packaged check also exposed Back treating a saved Fix everything action
+as an individual finding without a sequence/frame. `enter` now restores its
+combined preview mode without seeking. Single and selected-batch restoration
+retain their existing path.
+
+Five source cases and the absent Preview fix button failed before implementation.
+Final source checks: 209 pass / 0 fail / 2 existing private-input skips;
+compatibility: 57/0/0. All 56 frozen flail comparisons pass without changing any
+golden hashes; the newly available flail pivot cleanup is checked separately
+for exact non-PIVT preservation. The real model's single repair removes exactly
+12 bytes and preserves every other MDX chunk. Sampling all 13 animations and
+2 globals at 100 ms plus endpoints gives 1,504 poses with zero displacement and
+no changed channels. Hidden packaged checks: 3 pass / 0 fail / 0 skip (pivot workflow, inspection,
+selection). They include paired mouse
+rotation, preview, approval, Back, combined mode, Save/backup and editor Undo.
+See [the task note](agent-tasks/optimizexl-pivot-warning.md) for final run details.
+Merged in [PR #554](https://github.com/UnsctMagic/MDLxL/pull/554) at
+`cab472bf7b06be3c1185edd69e6d988148884243` after successful CI. The owner explicitly
+waived independent Claude QA for the merge. Full release testing and Warcraft III
+remain untested.
+
+## MDX section order (owner-reported in-game spikes) — 2026-11-05
+
+Owner report: models saved after OptimizeXL show long stretched spikes in
+Warcraft III only; MDLxL and Hive previews look correct. Supplied
+`WH_WE_WardancerV1.mdx` (Sphereomancer added its first collision spheres) had
+`VERS MODL SEQS CLID MTLS …`: the new `CLID` section was inserted before the
+materials and bones. Skin groups, faces, tracks and counts were all valid. The
+same misplacement appears in other owner files (a `RIBB` right after `GLBS` in
+the Slaanesh champions, `CLID` after `TXAN` in a Khorne standard). The game reads
+node sections in file order, so an early node section shifts every bone/pivot.
+
+Cause: `generateCompatibleMdx` appended `MTLS` after all war3-model sections, and
+`surgicalMdx` placed a section new to the file by that writer order, so any new
+section ranked before `MTLS`. Fix: one `MDX_CHUNK_ORDER` (game/war3-model order)
+in `mdx-container.js`; the writer emits that order and `surgicalMdx` inserts new
+sections by it. Node sections an earlier save left before the materials/geosets
+are moved back on the next changed save. An unchanged save stays an exact copy.
+
+Proof: new `editor-document` test fails before and passes after. Owner's
+ChatGPT-repaired copy (`WH_WE_WardancerV2.mdx`, works in game) also moved `CLID`
+to the end; its added visibility keys leave sampled visibility identical in all
+19 animations, and its other edits (one degenerate triangle, bounds) cannot
+produce spikes. Flail01: all 31 frozen results pass. Flail03 `mounted-spheres`
+already differs from its golden hash on unmodified main (`3920de51…`, the
+documented ID-permutation drift; that main output also has `CLID` before
+`MTLS`). With the fix it is `c0a0955d…`: same bytes in every section, only
+`CLID` moved to the end. No golden hash was changed. The texture-reference
+identity snapshot re-records only its two `:mdx` hashes (Materials no longer
+last; every section byte-identical). Warcraft III check of an order-only repair
+is pending with the owner.

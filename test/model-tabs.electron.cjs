@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run after building: node test/model-tabs.electron.cjs
@@ -24,7 +25,7 @@ const { spawn } = require('node:child_process');
     await page.getByRole('tab', { name: 'Untitled.mdl' }).waitFor();
     await launchAgain(firstPath);
     await page.getByRole('tab', { name: 'demo.mdx' }).waitFor();
-    assert.equal(await page.getByRole('tab').count(), 1, 'the first externally opened model replaces only the pristine starter tab');
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 1, 'the first externally opened model replaces only the pristine starter tab');
     await page.evaluate(() => {
       window.modelTabSummary = () => { const props = findFiberProps('.viewport', props => props?.model?.Geosets && props?.model?.Nodes); if (props) {
           const model = props.model, nodes = model.Nodes.filter(Boolean);
@@ -37,9 +38,9 @@ const { spawn } = require('node:child_process');
     const firstBefore = await page.evaluate(() => modelTabSummary()), canvases = await page.locator('.viewport canvas').count();
     await launchAgain(secondPath);
     await page.getByRole('tab', { name: 'demo.mdl' }).waitFor();
-    assert.equal(await page.getByRole('tab').count(), 2);
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 2);
     await launchAgain();
-    assert.equal(await page.getByRole('tab').count(), 2, 'launching the desktop shortcut again only focuses the existing window');
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 2, 'launching the desktop shortcut again only focuses the existing window');
     assert.equal(await page.locator('.viewport canvas').count(), canvases, 'opening a tab must not retain the inactive WebGL viewport');
     await page.bringToFront();
 
@@ -48,7 +49,7 @@ const { spawn } = require('node:child_process');
     await page.keyboard.press('Control+c');
     await settlePage(page, 250);
     const copyState=await page.evaluate(()=>({status:document.querySelector('.classic-status')?.textContent,copyDisabled:document.querySelector('[data-hotkey="copy"]')?.disabled,active:document.querySelector('.model-tab.active [role="tab"]')?.textContent,focus:document.activeElement?.outerHTML?.slice(0,240)}));
-    assert.match(copyState.status||'',/Copied/,`Ctrl+C did not reach the active model: ${JSON.stringify(copyState)}`);
+    assert.match(await waitForInfo(page, /^Copied/), /Copied/, `Ctrl+C did not reach the active model: ${JSON.stringify(copyState)}`);
     await page.getByRole('tab', { name: 'demo.mdl' }).click();
     await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('demo.mdl'));
     const secondBefore = await page.evaluate(() => modelTabSummary());
@@ -73,7 +74,7 @@ const { spawn } = require('node:child_process');
     await page.locator('.model-tab.active .model-tab-close').click();
     await page.getByRole('dialog', { name: 'Close model tab?' }).waitFor();
     await page.getByRole('button', { name: "Don't save", exact: true }).click();
-    assert.equal(await page.getByRole('tab').count(), 1);
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 1);
     await page.locator('[data-hotkey="vertices"]').click();
     assert.deepEqual(await page.evaluate(() => modelTabSummary()), firstBefore);
     assert.deepEqual(errors, []);

@@ -82,6 +82,8 @@ const fxFlail = testModel('pose-flail/Fx_original.mdx');
 SPECIAL['pose-one-head'] = { env: { MDLXL_FLAIL_MODEL: fxFlail }, needs: [fxFlail] };
 SPECIAL['showcase-queue'] = { env: { MDLXL_QUEUE_MODEL_A: queueA, MDLXL_QUEUE_MODEL_B: queueB }, needs: [queueA, queueB, path.join(root, 'profile/game-data-discovery.json')] };
 // LowPolyWorks / Blizzard SD models chosen for the OptimizeXL feature each test exercises (docs/PACKAGED-TESTS.md).
+const pivotModel = fixturePath('optimizexl-pivots');
+SPECIAL['optimizexl-pivots'] = { env: { MDLXL_OPTIMIZEXL_PIVOTS_MODEL: pivotModel }, needs: [pivotModel] };
 const diagnosticsModel = testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx');
 SPECIAL['optimizexl-diagnostics'] = { env: { MDLXL_DIAGNOSTICS_MODEL: diagnosticsModel }, needs: [diagnosticsModel] };
 const openingModel = testModel('optimizexl-opening/Spanish_Halberdier.mdx');

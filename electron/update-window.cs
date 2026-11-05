@@ -187,6 +187,15 @@ public class InstallWindow : Form {
             }
         }
         var state = g.Save();
+        if (!flying) {
+            // The short box must hide the whole body, even beyond its opposite edge.
+            var exposed = new RectangleF(0, 0, canvasW, canvasH);
+            if (spot[2] < 0) exposed.Width = box.Left;
+            else if (spot[2] > 0) { exposed.X = box.Right; exposed.Width = canvasW - box.Right; }
+            else if (spot[3] < 0) exposed.Height = box.Top;
+            else { exposed.Y = box.Bottom; exposed.Height = canvasH - box.Bottom; }
+            g.SetClip(exposed, CombineMode.Intersect);
+        }
         g.TranslateTransform((float)x, (float)y);
         g.RotateTransform((float)turn);
         g.ScaleTransform(mirror, 1);

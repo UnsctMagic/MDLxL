@@ -74,3 +74,8 @@ test('deeply scoped resource shortcuts survive preference serialization without 
   const persisted = normalizePreferences(JSON.parse(JSON.stringify({ hotkeys: assigned.hotkeys })));
   assert.deepEqual(persisted.hotkeys[id], ['Ctrl+Alt+J']);
 });
+
+test('Select through retains independent disabled and enabled preferences', () => {
+  assert.deepEqual(normalizePreferences({}).grabThroughByEditor, { vertices: true, bones: false });
+  assert.deepEqual(normalizePreferences({ grabThroughByEditor: { vertices: false, bones: true } }).grabThroughByEditor, { vertices: false, bones: true });
+});

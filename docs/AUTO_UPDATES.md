@@ -22,8 +22,10 @@ in development builds, headless runs, and whenever `MDLXL_PROFILE` is set, so
 automated tests never see it.
 
 The prompt shows the newer version and the release's bullet-point summary.
-English, Russian, Spanish and Chinese use their corresponding release log.
-The full post on Low Polyworks has four language choices at the top.
+From the release after 0.38.0, English, Spanish, Russian, Chinese, French and
+German use their corresponding release log. New posts have six language choices;
+French and German fall back to English on older posts. Never backfill older notes,
+PDFs or release JSON. Follow [the release material recipe](RELEASING.md).
 Help, About, and the update prompt include a small lowpolyworks.com link
 leading directly to the MDLxL page.
 
@@ -33,13 +35,15 @@ GitHub Actions builds the package. Bump the version (see AGENTS.md), merge to
 `main`, then push a tag that matches `package.json`, for example `v0.22.2`. The
 **Draft release** workflow fetches the pinned FFmpeg, builds, tests, packages,
 zips the result and creates a **draft** release with
-the portable ZIP and its `.zip.sha256`. Up to 0.38 the ZIP is named
-`MDLxL-<version>-win32-x64.zip`; from 0.39.0 it is always `MDLxL-win32-x64.zip`,
+the portable ZIP and its `.zip.sha256`. Releases before 0.38.2 used
+`MDLxL-<version>-win32-x64.zip`; from 0.38.2 it is always `MDLxL-win32-x64.zip`,
 so one permanent link (website, XGM) always downloads the newest release:
 <https://github.com/UnsctMagic/MDLxL/releases/latest/download/MDLxL-win32-x64.zip>.
 The updater accepts both names from 0.38.0 on. Copies older than 0.38.0 only
-know the versioned name, so they must install 0.38.x (by hand or by updating
-before 0.39.0 ships) to auto-update further. Drafts are invisible to
+know the versioned name, so every release from 0.38.2 also carries an identical
+`MDLxL-<version>-win32-x64.zip` (plus its `.sha256`, both attached by the
+workflow) and those copies keep updating in-app. The owner decided to keep this
+copy (5 Nov 2026); do not drop it. Drafts are invisible to
 the updater and do not trigger the Discord announcement, so nothing reaches
 users until you publish by hand. Before publishing, run the release gate in
 [UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach
@@ -54,14 +58,16 @@ SHA-256 of each shipped file. Keep this file in the whole ZIP.
 
 Publish a stable GitHub release in `UnsctMagic/MDLxL` with:
 
-- A strictly newer semantic version tag, such as `v0.20.0`.
-- `MDLxL-0.20.0-win32-x64.zip`, containing the `MDLxL-win32-x64` directory.
+- A strictly newer semantic version tag, `v<version>`.
+- The application ZIP named by the workflow for that version, containing the
+  `MDLxL-win32-x64` directory.
 - The asset's GitHub SHA-256 digest, or its matching `.zip.sha256` asset.
-- Release-body links labeled `English`, `Русский`, and `简体中文` to
-  `https://www.lowpolyworks.com/mdlxl/?version=0.20.0&lang=en` (or ru/zh).
-- Before publishing the release, publish `mdlxl/releases/0.20.0.json` on the
+- Release-body links labeled `English`, `Español`, `Русский`, `简体中文`,
+  `Français`, and `Deutsch` to
+  `https://www.lowpolyworks.com/mdlxl/?version=<version>&lang=en` (using en/es/ru/zh/fr/de).
+- Before publishing the release, publish `mdlxl/releases/<version>.json` on the
   website, with `version` and `notes` containing the same full Markdown logs
-  for `en`, `ru`, `es`, and `zh`. The website and prompt use this one post.
+  for `en`, `es`, `ru`, `zh`, `fr`, and `de` in releases after 0.38.0. The website and prompt use this one post.
 
 The updater reads GitHub's latest stable release. Drafts, prereleases, equal
 versions and older versions do not prompt. There is no separate update feed
@@ -69,7 +75,7 @@ to maintain. Unavailable log content leaves the
 full-log links available. Network errors leave the editor usable. GitHub
 stores the ZIP; public announcements and download instructions lead through
 the official Low Polyworks page. Garithos links its release title to that page
-and lists the English, Russian and Chinese post links.
+and lists all six language post links for releases after 0.38.0.
 
 ## After publishing: archive finished sessions
 
@@ -107,6 +113,8 @@ theme and language: the MDLxL icon, "Installing MDLxL <version>" (or
 "Restoring" for a revert), and a progress bar. The update popup's Shredder
 bird peeks around its edges and flies off when the files are in place; the
 window closes once the restarted MDLxL shows its window (at most 30 seconds).
+While peeking or retreating, only the part beyond the chosen edge is drawn,
+so the body and legs cannot stick out past another edge of the short box.
 It is `electron/update-window.cs`, compiled by the helper. Installing never
 depends on it: if it cannot start, the update runs without it. The helper
 comes from the version being replaced, so the window first appears when

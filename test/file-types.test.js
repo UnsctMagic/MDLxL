@@ -114,3 +114,13 @@ test('another copy leaves the file types alone unless the owner is gone or it cl
   assert.equal(await copy(testBuild).apply('tile'), true);
   assert.equal(command(), `"${testBuild}" "%1"`);
 });
+
+test('Open with defaults are detected for either extension, regardless of registry casing', async () => {
+  for (const extension of ['.mdl', '.mdx']) for (const progId of ['Applications\\MDLxL.exe', 'applications\\mdlxl.EXE', 'mdlxl.model']) {
+    const types = new FileTypeRegistration({ executable, brandingDirectory, run: async (file, args) => {
+      if (!args[1].endsWith(extension + '\\UserChoice')) throw Error('not found');
+      return `\r\n${args[1]}\r\n    ProgId    REG_SZ    ${progId}\r\n`;
+    } });
+    assert.equal(await types.usesSharedDefault(), true, `${extension}: ${progId}`);
+  }
+});

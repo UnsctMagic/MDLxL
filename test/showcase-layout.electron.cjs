@@ -1,3 +1,4 @@
+const {waitForInfo,infoMessageCursor}=require('./helpers/app.cjs');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 
@@ -26,7 +27,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await level('High').click();assert.equal(await level('High').getAttribute('aria-pressed'),'true');assert.equal(await page.getByLabel('Recording FPS').inputValue(),'30','a level brings its own FPS');
   const short=async()=>{await page.getByRole('list',{name:'Animation sequence'}).locator('li').first().dblclick();await page.getByRole('dialog').getByLabel('Animation Extra Time').fill('0');await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();};
   await short();const output=path.join(root,'Showcase Recordings','LayoutA'),records=[];
-  const record=async()=>{const prior=await page.locator('.classic-status').textContent();await page.locator('.showcase-record').click();await page.waitForFunction(prior=>{const t=document.querySelector('.classic-status')?.textContent;return t?.startsWith('Saved ')&&t!==prior;},prior,{timeout:60000});await page.waitForFunction(()=>!document.querySelector('.showcase-record').disabled);const file=fs.readdirSync(output).map(name=>path.join(output,name)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0],bytes=fs.readFileSync(file);const result={file,width:bytes.readUInt16LE(6),height:bytes.readUInt16LE(8)};records.push(result);return result;};
+  const record=async()=>{const prior=await infoMessageCursor(page);await page.locator('.showcase-record').click();await waitForInfo(page,/^Saved /,{after:prior,timeout:60000});await page.waitForFunction(()=>!document.querySelector('.showcase-record').disabled);const file=fs.readdirSync(output).map(name=>path.join(output,name)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0],bytes=fs.readFileSync(file);const result={file,width:bytes.readUInt16LE(6),height:bytes.readUInt16LE(8)};records.push(result);return result;};
   await page.getByLabel('Crop size',{exact:true}).selectOption('classic');let r=await record();assert.deepEqual([r.width,r.height],[864,648],'High keeps the 864 px long-edge limit (18899f1e)');
   await level('Medium').click();
   for(const [preset,ratio] of [['classic',4/3],['square',1],['wide',16/9],['portrait',3/4]]){await page.getByLabel('Crop size',{exact:true}).selectOption(preset);r=await record();assert.ok(Math.abs(r.width/r.height-ratio)<.004,JSON.stringify(r));assert.equal(Math.max(r.width,r.height),640,JSON.stringify(r));}

@@ -11,9 +11,9 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
   const checks={'display:bones':true,'display:skeleton':false,showVertices:true,shaded:true,grid:false},actions=[];
   const bindings=effectiveBindings(COMMANDS,{normals:['H']});
   const expected={
-    vertices:['Shadows','RGB','Vertices','Normals','Wireframe Overlay','Grid','Clear'],
-    bones:['Shadows','Vertices','Bones','Skeleton','Emitters','Events','Sounds','Attachment','Grid','Clear'],
-    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Emitters','Events','Sounds','Attachment','Grid','Clear'],
+    vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Clear'],
+    bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Clear'],
+    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Clear'],
     animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear'],
   };
   for(const [viewMode,labels] of Object.entries(expected)){
@@ -26,15 +26,16 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
       rows[3].click();rows.at(-1).click();
     }
     if(viewMode==='vertices'){
-      assert.equal(rows[3].accelerator,'H');
-      assert.equal(rows[3].registerAccelerator,false);
+      const normals=rows.find(row=>row.label==='Normals');
+      assert.equal(normals.accelerator,'H');
+      assert.equal(normals.registerAccelerator,false);
     }
   }
   assert.deepEqual(actions,['display:skeleton','clearDisplay']);
 });
 
-test('VIS native View menu restores the original controls in every editor',()=>{
- const expected={vertices:['Shadows','RGB','Vertices','Nodes','Emitters','Normals','Wireframe Overlay','Grid','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Attachment','Grid','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Attachment','Grid','Clear'],animations:['Bones','Skeleton','Focused Skeleton','Nodes','Particles','Wireframe','Grid','Clear']};
+test('VIS native View menu offers the same controls as XL in every editor',()=>{
+ const expected={vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Clear'],animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']};
  for(const [viewMode,labels]of Object.entries(expected))assert.deepEqual(buildMenuTemplate({},()=>{},'win32',[],x=>x,{viewMode,vanilla:true}).find(menu=>menu.label==='View').submenu.map(row=>row.label),labels);
 });
 test('Frames is removed and all frame operations remain in Edit; UV entry follows actual eligibility',()=>{

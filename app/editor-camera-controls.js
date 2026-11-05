@@ -48,6 +48,7 @@ export const MAX_BACK_AWAY = 50;
 export class EditorCameraControls extends OrbitControls {
   connect(element) {
     super.connect(element);
+    this._controlEventRoot = element.getRootNode();
     this._cancelPointerGesture ||= event => {
       if (event.type === 'blur' || this._pointers.includes(event.pointerId) &&
           !this.domElement.hasPointerCapture(event.pointerId)) this.cancelPointerGesture();
@@ -70,6 +71,13 @@ export class EditorCameraControls extends OrbitControls {
       element.ownerDocument.removeEventListener('pointermove', this._recoverMouseGesture, true);
       element.ownerDocument.defaultView.removeEventListener('blur', this._cancelPointerGesture);
     }
+    // React can detach the canvas before effect cleanup. OrbitControls r183
+    // looks up getRootNode() again and removes its keyboard listener from the
+    // detached tree, leaving the original document retaining the entire preview.
+    // Remove from the root used at connect, including a pending Control keyup.
+    this._controlEventRoot?.removeEventListener('keydown', this._interceptControlDown, true);
+    this._controlEventRoot?.removeEventListener('keyup', this._interceptControlUp, true);
+    this._controlEventRoot = null; this._controlActive = false;
     super.disconnect();
   }
   cancelPointerGesture() {

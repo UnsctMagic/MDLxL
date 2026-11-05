@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { parseMdx } from '../../src/mdx-container.js';
 import { openDocument } from '../../src/editor-document.js';
 import { assertRoundTripFields } from '../../src/model-optimizer.js';
 import { findIrregularities, sanityProposals, runOptimizeStage, simpleSettings } from '../../src/optimizexl.js';
@@ -101,11 +102,17 @@ for (const path of paths) {
     // explicitly added repairs are additional capacity, checked separately.
     const added = capture ? [] : available.filter(f => !acceptedIds.includes(f.id));
     for (const fix of added) {
-      assert.ok(stage === 'sanity' ? ['openingTrack','unusedLocalKeys','redundantTracks','splineResample'].includes(fix.kind) : fix.kind === 'effectVisibility', 'Only explicitly added repair capabilities may extend this baseline');
+      assert.ok(stage === 'sanity' ? (['openingTrack','unusedLocalKeys','redundantTracks','splineResample'].includes(fix.kind) || fix.id === 'checker:unusedPivots') : fix.kind === 'effectVisibility', 'Only explicitly added repair capabilities may extend this baseline');
       if(fix.inspectionOnly){additionalRepairs.push({id:fix.id,inspectionOnly:true});continue;}
       const repaired = runOptimizeStage(source, stage, {}, fix);
       const repairedModel = openDocument(repaired.bytes, 'repaired.mdx').model;
       assert.ok(!(stage === 'sanity' ? sanityProposals(repairedModel) : findIrregularities(repairedModel)).some(f => f.id === fix.id), 'Additional repair resolves its finding');
+      if (fix.id === 'checker:unusedPivots') {
+        assert.deepEqual(repairedModel, { ...model, PivotPoints: model.PivotPoints.slice(0, -fix.count) }, 'New pivot cleanup preserves every node and referenced pivot');
+        const chunks = bytes => parseMdx(bytes).chunks.filter(c => c.tag !== 'PIVT').map(c => [c.tag, c.data]);
+        assert.deepEqual(chunks(repaired.bytes), chunks(source), 'New pivot cleanup leaves all other accepted chunks byte-identical');
+        assert.equal(repaired.bytes.length, source.length - 12 * fix.count);
+      }
       additionalRepairs.push({ id: fix.id, bytes: repaired.bytes.length, sha256: hash(repaired.bytes) });
     }
     const findings = capture ? available : available.filter(f => acceptedIds.includes(f.id));

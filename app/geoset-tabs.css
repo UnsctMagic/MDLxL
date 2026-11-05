@@ -1,5 +1,25 @@
 .geoset-tabs{min-width:0}
-.geoset-tab-select{display:block;width:100%;height:21px;margin:0 0 2px}
+.geoset-tab-controls{display:inline-flex;margin-left:auto}
+.geoset-tab-buttons{display:inline-flex;align-items:center;gap:1px}
+:root #root .classic-app.classic-app .geoset-tab-controls .geoset-tab-buttons>button{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-height:0;padding:0;border:0;border-radius:3px;background:transparent;box-shadow:none;color:var(--ui-muted)}
+:root #root .classic-app.classic-app .geoset-tab-controls .geoset-tab-buttons>button:hover{background:var(--ui-hover);color:var(--ui-text)}
+:root #root .classic-app .geoset-tab-controls+.geosets-float-toggle,:root #root .classic-app .geosets-float>header>.geosets-dock-back{margin-left:2px}
+.geoset-tab-strip{display:flex;height:26px;min-width:0;border:1px solid var(--m-line,var(--ui-border));border-bottom:0;border-radius:4px 4px 0 0;background:var(--m-soft,var(--ui-surface))}
+.geoset-tab-viewport{display:flex;flex:1;min-width:0;overflow:hidden}
+:root #root .classic-app.classic-app .geoset-tabs .geoset-tab-strip .geoset-tab-viewport>button{display:flex;flex:0 0 auto;align-items:center;gap:4px;max-width:min(132px,100%);height:26px;min-height:0;padding:0 8px;border:0;border-right:1px solid var(--m-line,var(--ui-border));border-top:2px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);box-shadow:none;font-weight:400}
+:root #root .classic-app.classic-app .geoset-tabs .geoset-tab-strip .geoset-tab-viewport>button>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root #root .classic-app.classic-app .geoset-tabs .geoset-tab-strip .geoset-tab-viewport>button[aria-selected=true]{background:var(--ui-field);color:var(--ui-text);border-top-color:var(--ui-accent,var(--ui-link));box-shadow:none;font-weight:400}
+:root #root .classic-app.classic-app .geoset-tabs .geoset-tab-strip .geoset-tab-viewport>button:hover{background:var(--ui-hover);color:var(--ui-text)}
+:root #root .classic-app.classic-app .geoset-tabs .geoset-tab-strip .geoset-tab-viewport>button[hidden]{display:none}
+:root #root .classic-app .geoset-tab-overflow{display:flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;min-height:0;padding:0;border:0;border-left:1px solid var(--m-line,var(--ui-border));border-radius:0;background:transparent;box-shadow:none;color:var(--ui-muted)}
+:root #root .classic-app .geoset-tab-overflow:hover{background:var(--ui-hover)}
+:root #root .classic-app .geoset-tabs>.geoset-tab-menu{position:fixed;z-index:100;min-width:155px;max-width:min(280px,calc(100vw - 12px));max-height:calc(100vh - 12px);overflow:auto;padding:4px;border:1px solid var(--m-line,var(--ui-border));border-radius:4px;background:var(--ui-field);color:var(--ui-text);box-shadow:0 4px 12px #0002}
+:root #root .classic-app .geoset-tab-menu>button{display:flex;align-items:center;gap:6px;width:100%;min-height:26px;padding:4px 7px;border:0;border-radius:2px;background:transparent;color:var(--ui-text);box-shadow:none;text-align:left;overflow-wrap:anywhere}
+:root #root .classic-app .geoset-tab-menu>button:hover:not(:disabled){background:var(--ui-hover)}
+:root #root .classic-app .geoset-tab-menu>button:disabled{background:transparent;color:var(--ui-muted)}
+.geoset-tab-menu [role=menuitemradio]>span:first-child{flex:0 0 12px}
+.geoset-tab-menu hr{margin:3px 2px;border:0;border-top:1px solid var(--m-line,var(--ui-border))}
+:root #root .classic-app .geoset-tabs .classic-geoset-list{border-top:0;border-top-left-radius:0;border-top-right-radius:0}
 .geoset-tab-box{position:relative}
 .geoset-tab-box:has(>.geoset-tab-eye)>.classic-geoset-list{padding-top:21px}
 .geoset-tab-box>.geoset-tab-eye{position:absolute;right:14px;top:2px;display:flex;align-items:center;justify-content:center;width:18px;height:18px;min-height:18px;padding:1px}

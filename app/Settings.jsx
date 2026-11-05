@@ -163,7 +163,13 @@ const FILE_ICON_STYLES = [['page', 'Helmet on a page', 'page'], ['dark-page', 'D
 // MDL and MDX files each pick their own Explorer icon; labelled variations name the format.
 function FileIconSettings({ prefs, commit }) {
   const [sharedDefault, setSharedDefault] = useState(false);
-  useEffect(() => { window.desktop?.fileTypesNeedDefaultAgain?.().then(value => setSharedDefault(Boolean(value)), () => {}); }, [prefs.fileIcon, prefs.fileIconMdl]);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => window.desktop?.fileTypesNeedDefaultAgain?.().then(value => { if (active) setSharedDefault(Boolean(value)); }, () => {});
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [prefs.fileIcon, prefs.fileIconMdl]);
   const row = (kind, key, title) => <div className="settings-inline-actions settings-file-icons" role="radiogroup" aria-label={title}><span>{title}</span>{FILE_ICON_STYLES.map(([style, label]) => {
     const file = style === 'program' ? 'MDLxL.ico' : style.startsWith('label-') ? 'file-' + kind + '-' + style.slice(6) + '.ico' : 'file-' + style + '.ico';
     return <button key={style} data-hotkey={'file-icon:' + kind + ':' + style} role="radio" aria-label={label} aria-checked={prefs[key] === style} aria-pressed={prefs[key] === style} title={style === 'program' ? label + ': files show the same helmet icon as MDLxL.exe.' : label} className="settings-file-icon" onClick={() => commit({ [key]: style })}><img src={'./branding/' + file} alt=""/></button>;
@@ -172,7 +178,7 @@ function FileIconSettings({ prefs, commit }) {
     <h3>File icons</h3><p>The icons Explorer shows on MDL and MDX files. Windows uses them once MDLxL is the default program for them. Paint Projects use the MDX style without a label.</p>
     {row('mdl', 'fileIconMdl', 'MDL files')}
     {row('mdx', 'fileIcon', 'MDX files')}
-    {sharedDefault && <p className="settings-hint">Windows still opens MDL and MDX through MDLxL's older shared file type, so both show the same icon. Choose MDLxL again for .mdl and .mdx in Default apps.</p>}
+    {sharedDefault && <p className="settings-hint">Windows is using a shared MDLxL icon for .mdl or .mdx, so the separate choices and labels cannot appear. Click the button below, then choose MDLxL for each file type in Windows Default apps.</p>}
     <button data-hotkey="file-icon:default-apps" disabled={!window.desktop?.openDefaultApps} title="Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files." onClick={() => window.desktop.openDefaultApps()}>Make MDLxL the default program…</button>
   </>;
 }
@@ -203,7 +209,7 @@ function AssetPreload({ modelPath }) {
   };
   const titles = { idle: 'No preload is running.', indexing: 'Finding available textures…', running: 'Preparing texture previews…', complete: 'Asset preload finished.', cancelled: 'Preload stopped. Completed previews are kept.', error: 'Asset preload could not finish.' };
   return <section className="settings-preload" aria-label="Preload Assets">
-    <h3>Preload Assets</h3><p>Prepare local texture previews once for faster library browsing. Cached previews remain available after restarting MDLxL.</p>
+    <h3>Preload Assets</h3><p>Preloading is optional. It speeds up library previews but uses extra disk space. MDLxL can read game files directly from your Warcraft III installation as needed. Cached previews remain available after restarting MDLxL.</p>
     <button ref={trigger} data-hotkey="game-data:preload" disabled={!available || running || busy || confirm} onClick={() => setConfirm(true)}>Preload Assets</button>
     {!available && <p className="settings-hint">Asset preloading is available in the desktop app.</p>}
     {confirm && <div className="settings-preload-confirm" role="group" aria-label="Confirm asset preload" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); decline(); } }}>
@@ -415,8 +421,15 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </select></label>
         <div className="settings-inline-actions"><input aria-label="Custom viewport preset name" value={presetName} maxLength={80} placeholder="Custom preset name" onChange={event => setPresetName(event.target.value)}/><button onClick={saveViewportPreset}>Save as custom preset</button>{String(prefs.viewportPreset).startsWith('custom-') && <button onClick={deleteViewportPreset}>Delete selected preset</button>}</div>
         </AppearanceSection>
-        <AppearanceSection title="Interface" palette={palette('Interface', { theme: prefs.theme, accent: prefs.accent }, preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent }), change => commit({ ...change, viewportPreset: 'custom' }))}>
+        <AppearanceSection title="Interface" palette={palette('Interface',
+          { theme: prefs.theme, accent: prefs.accent, geosetSetColor: prefs.viewportAppearance.geosetSet.color },
+          preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent, geosetSetColor: preset.appearance.geosetSet.color }),
+          ({ geosetSetColor, ...change }) => commit({ ...change, viewportPreset: 'custom', viewportAppearance: {
+            ...prefs.viewportAppearance, geosetSet: { ...prefs.viewportAppearance.geosetSet, color: geosetSetColor }
+          } }))}>
         <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
+        <label className="settings-select" title="Compact Set uses numbered boxes. Classic Set uses the numbered checklist. VIS always uses Classic Set."><span>Geoset set</span><select aria-label="Geoset set" value={prefs.viewportAppearance.geosetSet.style} onChange={event=>viewportPart('geosetSet',{style:event.target.value})}><option value="compact">Compact Set</option><option value="classic">Classic Set</option></select></label>
+        <label className="settings-color">Compact Set color <input type="color" aria-label="Compact Set color" value={prefs.viewportAppearance.geosetSet.color} onChange={event=>viewportPart('geosetSet',{color:event.target.value})}/><code>{prefs.viewportAppearance.geosetSet.color}</code></label>
         <label className="settings-color" title="The glow around the active tool in the sidebar. It follows the UI accent until you pick your own colour.">Tool highlight <input type="color" aria-label="Tool highlight" value={prefs.toolHighlight || prefs.accent} onChange={event=>commit({toolHighlight:event.target.value})}/><code>{prefs.toolHighlight || 'same as accent'}</code>{prefs.toolHighlight && <button type="button" title="Use the UI accent again" onClick={()=>commit({toolHighlight:''})}>Use accent</button>}</label>
         <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={PANEL_WIDTH_MIN} max={PANEL_WIDTH_MAX} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>

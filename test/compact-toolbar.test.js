@@ -15,9 +15,9 @@ test('Black is short and the display options remain visible',()=>{
   assert.match(css,/\.editor-modules \.quick-display\{[^}]*flex-wrap:nowrap/);
   assert.doesNotMatch(css,/quick-display\[data-expanded="true"\][^\n]*flex-wrap:wrap/);
   assert.match(css,/\.editor-modules \.quick-display-options label\{[^}]*font-size:9\.5px/);
-  assert.match(quick,/\(vanilla\?VIS_VIEW_MENU:VIEW_MENU\)\[viewMode\]/);
+  assert.match(quick,/VIEW_MENU\[viewMode\]/);
   assert.match(quick,/>Clear<\/span><\/button>/);
-  assert.ok(quick.indexOf('>Clear</span></button>') < quick.indexOf('(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode]'));
+  assert.ok(quick.indexOf('>Clear</span></button>') < quick.indexOf('VIEW_MENU[viewMode]'));
   assert.doesNotMatch(quick,/>Reveal<\/button>|>Textured View<\/button>/);
 });
 

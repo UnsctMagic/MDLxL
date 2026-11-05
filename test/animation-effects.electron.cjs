@@ -1,3 +1,4 @@
+const { waitForInfo } = require('./helpers/app.cjs');
 const { appTarget } = require('./helpers/app.cjs');
 const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
 // Run against rebuilt dist; MDLXL_TEST_EXE can point to a packaged MDLxL.exe.
@@ -45,7 +46,7 @@ const { createHash } = require('node:crypto');
 
   try {
 
-    await page.getByText('Opened animation-effects.mdx', { exact: true }).waitFor();
+    await waitForInfo(page, 'Opened animation-effects.mdx');
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
     // Observe the actual GL marker draw, including unselected emitters that

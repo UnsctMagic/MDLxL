@@ -6,10 +6,10 @@ import { boneHighlightColors } from '../app/rig-markers-gl.js';
 
 test('Movement enables only Emitters; Animations enables all effect categories and hides symbols', () => {
   const state = defaultEditorDisplay();
-  const enabled = mode => Object.entries(state[mode]).filter(([, on]) => on).map(([key]) => key);
+  const enabled = mode => Object.entries(state[mode]).filter(([key, on]) => on && !key.startsWith('boneTypes')).map(([key]) => key);
   assert.deepEqual(enabled('vertices'), ['shaded', 'vertices']);
   // The shared rig Bones switch starts on; Movement also highlights the selected chain.
-  assert.deepEqual(enabled('bones'), ['shaded', 'vertices', 'bones']);
+  assert.deepEqual(enabled('bones'), ['shaded', 'vertices', 'bones', 'helpers']);
   assert.deepEqual([state.movement.bones, state.movement.focusedSkeleton, state.movement.skeleton], [true, true, false]);
   assert.equal(state.animations.bones, true);
   assert.equal(state.movement.nodes,false);
@@ -79,10 +79,10 @@ test('Focused Skeleton uses only highlighted connectors and is exclusive with Sk
 test('Clear turns off only the active editor options', () => {
   const state = setEditorDisplay(defaultEditorDisplay(), 'bones', 'skeleton', true);
   const cleared = clearQuickDisplay(state, 'bones');
-  assert.ok(Object.values(cleared.bones).every(enabled => !enabled));
+  assert.ok(Object.entries(cleared.bones).every(([key, enabled]) => key.startsWith('boneTypes') ? enabled : !enabled));
   assert.deepEqual(cleared.vertices, state.vertices);
   // Bones is shared by the rig editors, so only that switch follows the Clear.
-  assert.deepEqual(cleared.movement, { ...state.movement, bones: false });
+  assert.deepEqual(cleared.movement, { ...state.movement, bones: false, helpers: false });
 });
 
 test('VIS retains the original independent Nodes, Emitters and Attachment display flags',()=>{
@@ -126,18 +126,18 @@ test('Focused Skeleton bones can be clicked with Bones off', () => {
 });
 
 
-test('Bones, Helpers and Refs toggle independently and persist while VIS keeps all three on', () => {
+test('Bones controls both marker types and persists in XL and VIS', () => {
   const storage = { value: null, getItem() { return this.value; }, setItem(_, value) { this.value = value; } };
   let state = storedEditorDisplay(false, storage);
-  assert.deepEqual([state.bones.bones, state.bones.helpers, state.bones.attachments], [true, false, false]);
+  assert.deepEqual([state.bones.bones, state.bones.helpers, state.bones.attachments], [true, true, false]);
   state = setEditorDisplay(state, 'bones', 'helpers', true);
   state = setEditorDisplay(state, 'bones', 'attachments', true);
   state = setEditorDisplay(state, 'bones', 'bones', false);
   saveEditorDisplay(state, state, storage);
   const restored = storedEditorDisplay(false, storage), vis = storedEditorDisplay(true, storage);
   for (const mode of ['bones', 'movement', 'animations']) {
-    assert.deepEqual([restored[mode].bones, restored[mode].helpers, restored[mode].attachments], [false, true, true]);
-    assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], [true, true, true]);
+    assert.deepEqual([restored[mode].bones, restored[mode].helpers, restored[mode].attachments], [false, false, true]);
+    assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], [false, false, true]);
   }
   const points = [
     { node: { ObjectId: 0 }, overlayKind: 'bones' },
@@ -145,7 +145,7 @@ test('Bones, Helpers and Refs toggle independently and persist while VIS keeps a
     { node: { ObjectId: 2, Parent: 1 }, overlayKind: 'attachments' },
   ];
   const opts = previewOverlayOptions(restored.bones);
-  assert.deepEqual(visibleMovementPoints(points, opts).map(p => p.node.ObjectId), [1, 2]);
+  assert.deepEqual(visibleMovementPoints(points, opts).map(p => p.node.ObjectId), [2]);
   assert.equal(boneHighlightColors(points, [2]).get(2), '#ff0000', 'a directly selected ref has a selection highlight');
   assert.deepEqual(visibleMovementPoints(points, { bones: true, helpers: false, attachments: false }).map(p => p.node.ObjectId), [0]);
 });
