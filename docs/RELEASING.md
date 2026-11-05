@@ -28,7 +28,9 @@ in every supported tutorial language, including the existing tutorials.
 6. Announcements use the full generated English release body: a linked release
    title, the functional change summary and update instructions, a `Download:`
    line (ZIP, SHA-256, FFmpeg source), `Read patch notes in:` with the six language
-   hyperlinks and a `Guides (PDF):` section. The generator requires every notes
+   hyperlinks and a `Guides (PDF):` section (this release's new guides by
+   language, then one link to the release page that lists every attached guide,
+   so the post stays under Discord's limit). The generator requires every notes
    heading to be exactly `# MDLxL <version>` (no suffix, any language) and fails
    when the body exceeds Discord's description limit; it never truncates. Check the complete
    body fits Discord’s description limit and verify the delivered post is not

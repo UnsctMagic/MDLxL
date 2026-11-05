@@ -19,7 +19,7 @@ test('six-language material starts strictly after 0.38.0',async()=>{
  }
  for(const version of ['0.38.1','0.39.0','1.0.0'])assert.equal(sixLanguageRelease(version),true);
 });
-test('release body starts with the linked title, then summary, download, patch notes and every guide',async t=>{
+test('release body starts with the linked title, then summary, download, patch notes and the guides link',async t=>{
  const docs=await fixture(t,'9.9.9');
  const material=await releaseMaterial({version:'9.9.9',docs});
  assert.deepEqual(Object.keys(material.post.notes),['en','es','ru','zh','fr','de']);
@@ -30,9 +30,8 @@ test('release body starts with the linked title, then summary, download, patch n
  assert(material.body.includes('\n\nDownload: [Windows portable ZIP]('+base+'MDLxL-win32-x64.zip) · [SHA-256]('+base+'MDLxL-win32-x64.zip.sha256) · [FFmpeg corresponding source]('+base+'MDLxL-FFmpeg-corresponding-source.zip)\n'));
  assert(material.body.indexOf('Download:')<material.body.indexOf('Read patch notes in:')&&material.body.indexOf('Read patch notes in:')<material.body.indexOf('Guides (PDF):'));
  const guides=material.body.slice(material.body.indexOf('Guides (PDF):'));
- for(const label of ['New in 0.38.0 (','AI console: ','AI sign-in: ','Interface map: '])assert(guides.includes('\n'+label)||guides.includes(':\n'+label));
- for(const name of historical)assert(guides.includes(base+name),name);
- assert(!/-(FR|DE)\.pdf/.test(guides),'historical guides never get invented FR/DE links');
+ // Historical guides are attached but only linked through the release page (Discord's 4096 limit).
+ assert.equal(guides,'Guides (PDF):\nAll guides: [release page](https://github.com/UnsctMagic/MDLxL/releases/tag/v9.9.9)\n');
  assert.deepEqual(material.guides,historical.slice().sort());
 });
 test('a new guide needs all six languages and joins the attached list',async t=>{
@@ -58,7 +57,7 @@ test('every language heading must be exactly "# MDLxL <version>"',async t=>{
  await assert.rejects(releaseMaterial({version:'9.9.9',docs}),/RELEASE-9.9.9-FR.md/);
 });
 test('a body over the Discord description limit fails instead of being truncated',async t=>{
- const docs=await fixture(t,'9.9.9',{notes:'- '+'long change '.repeat(150)});
+ const docs=await fixture(t,'9.9.9',{notes:'- '+'long change '.repeat(400)});
  await assert.rejects(releaseMaterial({version:'9.9.9',docs}),/characters; Discord shows at most 4096/);
  const material=await releaseMaterial({version:'9.9.9',docs,maxLength:Infinity});
  assert((await fs.stat(docs)).isDirectory());

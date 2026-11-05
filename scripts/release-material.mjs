@@ -49,7 +49,10 @@ export async function releaseMaterial({version,docs,maxLength = discordDescripti
   for (const [,,suffix] of releaseLanguages) if (!languages.has(suffix)) throw Error('Missing guide: ' + guide + '-' + suffix + '.pdf');
  const asset = name => 'https://github.com/UnsctMagic/MDLxL/releases/download/v' + version + '/' + name;
  const links = releaseLanguages.map(([locale,label]) => '[' + label + '](https://www.lowpolyworks.com/mdlxl/?version=' + version + '&lang=' + locale + ')').join(separator);
- const guideLines = [...groups].sort(([a],[b]) => b.startsWith(version + '-') - a.startsWith(version + '-')).map(([guide,languages]) => guideLabel(guide) + ': ' + releaseLanguages.filter(([,,suffix]) => languages.has(suffix)).map(([,label,suffix]) => '[' + label + '](' + asset(languages.get(suffix)) + ')').join(separator));
+ // Discord cuts the description at 4096 characters, so only this release's new
+ // guides are linked one by one; every attached guide is listed on the release page.
+ const guideLines = [...groups].filter(([guide]) => guide.startsWith(version + '-')).map(([guide,languages]) => guideLabel(guide) + ': ' + releaseLanguages.filter(([,,suffix]) => languages.has(suffix)).map(([,label,suffix]) => '[' + label + '](' + asset(languages.get(suffix)) + ')').join(separator));
+ guideLines.push('All guides: [release page](https://github.com/UnsctMagic/MDLxL/releases/tag/v' + version + ')');
  const summary = notes.en.replace(/^[^\n]*\n/,'').trim();
  const body = '[MDLxL ' + version + '](https://www.lowpolyworks.com/mdlxl/?version=' + version + ')\n\n' + summary +
   '\n\nDownload: [Windows portable ZIP](' + asset(portableZip) + ')' + separator + '[SHA-256](' + asset(portableZip + '.sha256') + ')' + separator + '[FFmpeg corresponding source](' + asset(ffmpegSourceZip) + ')' +
