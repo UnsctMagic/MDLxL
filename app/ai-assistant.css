@@ -182,6 +182,14 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 /* Viewport bar tag while a drawing tool owns the left mouse button. */
 .ai-drawing-tag{margin-left:6px;border:1px solid var(--ui-accent,#71b5f3);background:color-mix(in srgb,var(--ui-accent,#71b5f3) 16%,var(--ui-panel,#f0f0f0));color:var(--ui-text,#202020);font-weight:600}
 
+/* The workspace decision is part of this job’s chat, including its answer. */
+.ai-workspace-offer{margin:12px 0;padding:14px;border:1px solid #48976a;border-left:4px solid #398851;border-radius:8px;background:color-mix(in srgb,#48b267 20%,var(--ui-panel,#fafafa));color:var(--ui-text);overflow-wrap:anywhere}
+.ai-workspace-offer strong{font-size:1.08em}
+.ai-workspace-offer p{margin:6px 0}
+.ai-workspace-choices{display:flex;gap:8px;margin-top:12px}
+.ai-workspace-choices button{flex:1}
+.ai-assistant .ai-workspace-choices button:first-child{background:#247140!important;color:#fff!important;border-color:#247140}
+
 /* Clarifications stay in the conversation, in the model chat. */
 .ai-question{margin:10px 0;padding:10px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-soft)}
 .ai-question fieldset{border:0;margin:8px 0;padding:0;min-width:0}

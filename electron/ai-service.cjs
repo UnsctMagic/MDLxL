@@ -7,6 +7,7 @@ const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
+const { createWorkspace } = require('./ai-workspace.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
   PROVIDERS,
@@ -121,6 +122,7 @@ class AiService {
       const load = file => import(pathToFileURL(path.join(this.root, file)).href);
       this.contract = Promise.all([load('src/ai-tools.js'), load('src/ai-transcript.js')]).then(([contract, transcript]) => {
         this.recordAiEvent = transcript.recordAiEvent;
+        this.acceptsDelivery = transcript.acceptsDelivery;
         return contract;
       });
     }
@@ -207,6 +209,7 @@ class AiService {
       cleanupDays: cleanupDaysOf(config),
       sdBrain:(await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
+      localWorkspace: config.localWorkspace === true,
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
     };
@@ -504,7 +507,8 @@ class AiService {
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
-      if (!resume && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal })) {
+      const acceptCandidate = !resume && context.retainedCandidate && this.acceptsDelivery(text);
+      if (!resume && !acceptCandidate && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal })) {
         recorder.event({ type: 'done' });
         return { ok: true };
       }
@@ -515,11 +519,12 @@ class AiService {
         text,
         images,
         context,
-        resume,
+        resume: resume || acceptCandidate,
+        acceptCandidate,
         settings,
         contract,
         signal: controller.signal,
-        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
+        policy: { ...(await this.sdBrainPolicy()), workspace: config.localWorkspace === true, handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -551,7 +556,8 @@ class AiService {
   // This is the owner's acceptance, not another model's judgement. Reuse finish
   // so the review, saved task and organiser all leave the blocked state together.
   async acceptDelivery({ conversation, recorder, text, context, signal }) {
-    if (!acceptsDelivery(text)) return false;
+    await this.init();
+    if (!this.acceptsDelivery(text)) return false;
     // An old Offload job waits for acceptance in its bird's chat.
     const owner = conversation.task?.workerId && conversation.task.status !== 'complete' ? await this.readConversation(conversation.task.workerId) : conversation,
       task = owner?.task;
@@ -630,7 +636,7 @@ class AiService {
   }
   // One task on one conversation: the provider turn, edit checkpoints, verification
   // and steering, independently of jobs on other model tabs.
-  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, entry, policy }) {
+  async runTask({ conversation, recorder, steering, text, images, context, resume, acceptCandidate = false, settings, contract, signal, entry, policy }) {
     const {
       AI_JOB_TOOLS,
       AI_JOB_CHECKPOINT,
@@ -710,6 +716,15 @@ class AiService {
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     };
+    // Each embedded provider gets the same workspace and the same captured edit target.
+    const workspaceScope = task.workspaceScope || { revision: context.revision, selection: context.selection || {} };
+    const workspaceEnabled = () => sd.workspace === true || task.workspaceDecision === 'yes';
+    const startWorkspace = () => createWorkspace(this.directory, { ...workspaceScope, target: context.target }, async (name, args, signal) => {
+      const result = await this.call(name, args, signal);
+      if (name === 'mdlxl_select') Object.assign(context, result);
+      return result;
+    });
+    let workspace;
     let promptHasContext = false;
     let prompt =
       (resume ? 'Resume task\n\nOriginal request:\n' + text : text) +
@@ -774,6 +789,10 @@ class AiService {
       if (diary) prompt += '\n\n' + diary;
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
+    if (!conversation.toolsOff && !workspaceEnabled()) prompt += task.workspaceDecision
+      ? '\n\nThe local workspace is off for this job. Continue with the normal editor tools.'
+      : '\n\nThe local JavaScript workspace is off. Judge the actual job: if saving and reusing a script or comparing candidates would save meaningful work, use mdlxl_workspace action offer once, with a short reason specific to this task in the user’s language. Simple jobs need no offer. Wait for the decision and continue the same job.';
+    if (!conversation.toolsOff && workspaceEnabled()) prompt += '\n\nLocal workspace is enabled for this request. Use mdlxl_workspace for repeatable analyses and candidate-only pictures. For isolation within a selection, write and run a script to produce a vertex map, preview it, then select it and report the actual returned count. Scratch files start empty on resume.';
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
@@ -827,6 +846,27 @@ class AiService {
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
+      if (name === 'mdlxl_workspace') {
+        if (args.action === 'offer') {
+          if (workspaceEnabled()) return { enabled: true };
+          if (task.workspaceDecision) return { enabled: false, decision: task.workspaceDecision, next: 'Continue with the ordinary editor tools.' };
+          const reason = args.reason?.trim();
+          if (!reason || reason.length > 400) throw Error('Give a short, job-specific reason for using JavaScript (up to 400 characters).');
+          task.workspaceDecision = 'offered';
+          task.workspaceScope = workspaceScope;
+          const { answers } = await this.askUser(conversation, recorder, {
+            kind: 'workspace-offer', message: reason,
+            questions: [{ id: 'workspace', question: 'Use JavaScript for this job?', options: [{ label: 'Yes' }, { label: 'No' }], allowCustom: false }],
+          }, requestSignal);
+          task.workspaceDecision = answers.workspace.answers[0] === 'Yes' ? 'yes' : 'no';
+          await this.persistConversation(conversation);
+          return { enabled: workspaceEnabled(), next: workspaceEnabled() ? 'Continue the current job with the workspace.' : 'Continue with the ordinary editor tools.' };
+        }
+        if (!workspaceEnabled()) throw Error('The workspace is disabled for this job.');
+        task.workspaceScope ||= workspaceScope;
+        workspace ||= startWorkspace();
+        return workspace.use(args, requestSignal);
+      }
       const edit = aiToolEditsModel(name, args);
       if (edit && task.replanRequired) throw Error('The same check failed twice: ' + task.replanRequired + '. Revise mdlxl_plan based on evidence or finish blocked before another edit.');
       args = expandRoutine(task, name, args);
@@ -965,7 +1005,7 @@ class AiService {
         throw error;
       }
     };
-    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
+    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT, contract.AI_WORKSPACE_TOOL];
     const web = sd.web === true;
     // A tool-free memory note needs only the opening line, not the editing rules.
     const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
@@ -996,8 +1036,11 @@ class AiService {
           steering,
           web,
         };
-        try { await runProvider(options); }
+        // Accepting a kept private result still uses the normal conflict choice.
+        if (acceptCandidate && task.steps.length) task.acceptedByUser = true;
+        try { if (!acceptCandidate || !task.steps.length) await runProvider(options); }
         catch (error) { delete conversation.sentContext; throw error; }
+        acceptCandidate = false;
         // Steering that arrived as the AI finished starts a follow-up turn on the same task.
         const late = steering.take();
         if (late) {
@@ -1018,6 +1061,38 @@ class AiService {
           : { changed: false };
         if (!review.changed && task.unresolvedEditError) throw Error(task.unresolvedEditError);
         if (!review.changed || review.phase === 'verified') {
+          if (context.embeddedJob) {
+            const deliver = action => this.call('mdlxl_delivery', { target: context.target, action }, signal);
+            const delivery = await deliver('finish');
+            if (delivery.correction) {
+              if (attempt >= 4) throw Error(delivery.correction);
+              await progress('correcting');
+              promptHasContext = false;
+              prompt = 'Correct the private merge and verify it again. ' + delivery.correction;
+              continue;
+            }
+            if (delivery.selectionSkipped) recorder.event({ type: 'notice', text: 'The source model changed. The candidate vertex IDs were kept off the edited model.' });
+            if (delivery.conflict) {
+              const open = 'Open as new model', merge = 'Merge';
+              const { answers } = await this.askUser(conversation, recorder, {
+                kind: 'model-conflict', questions: [{ id: 'delivery', question: 'The model changed while the AI was working.', options: [{ label: open }, { label: merge }], allowCustom: false }],
+              }, signal);
+              if (answers.delivery.answers[0] === open) await deliver('open');
+              else {
+                Object.assign(context, (await deliver('merge')).context);
+                await workspace?.close(); workspace = null;
+                Object.assign(workspaceScope, { revision: context.revision, selection: {} });
+                for (const key of ['baseline', 'checkpoint', 'plan', 'workCheckpoint', 'replanRequired', 'unresolvedEditError', 'outsideCheck', 'acceptedByUser']) delete task[key];
+                task.steps = []; task.evidenceImages = []; lastInspect = null;
+                await progress('inspecting');
+                recorder.separate();
+                promptHasContext = false; attempt = 0;
+                prompt = 'Merge the AI result into the latest user-edited model. Original request: ' + task.latestRequest +
+                  '\nWork on this fresh private copy of the latest model. In mdlxl_script, references["merge:base"].model is the common starting point and references["merge:candidate"].model is the prepared AI result. Compare all three, preserve the user’s edits, reconcile overlaps, and verify the merged result. If a conflict needs a user decision, ask. Never replace the latest model wholesale.';
+                continue;
+              }
+            }
+          }
           task.status = 'complete';
           task.phase = review.changed ? 'verified' : 'complete';
           task.summary = review.summary || '';
@@ -1047,6 +1122,7 @@ class AiService {
       throw error;
     } finally {
       this.runningIds.delete(id);
+      if (workspace) await workspace.close();
       // The decision diary keeps what this job did and why with the model.
       if (conversation.modelKey)
         try {
@@ -1304,7 +1380,7 @@ class AiService {
     this.questions.set(questionId, { questions, resolve, reject, validate: params.validateAnswers });
     signal.addEventListener('abort', abort, { once: true });
     try {
-      publish({ type: 'question', questionId, questions, message: params.message || '', name: conversation.name || '', status: 'running' });
+      publish({ type: 'question', questionId, questions, ...(['workspace-offer', 'model-conflict'].includes(params.kind) ? { kind: params.kind } : {}), message: params.message || '', name: conversation.name || '', status: 'running' });
       await persist();
       answers = await response;
       return { answers };
@@ -1360,7 +1436,7 @@ class AiService {
           (context ? contextText(conversation, context) : '');
       };
     };
-    if (acceptsDelivery(text)) { const task = this.conversations.get(id)?.task; if (task) task.acceptedByUser = true; }
+    if (this.acceptsDelivery(text)) { const task = this.conversations.get(id)?.task; if (task) task.acceptedByUser = true; }
     active.steering.push(text, messageFor(id));
     this.emit({ id, type: 'steer', text });
     return { queued: true };
@@ -1470,6 +1546,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:important', input => service.setImportant(input));
+  handle('ai:localWorkspace', enabled => service.setSwitch('localWorkspace', 'local-workspace', enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));
@@ -1522,11 +1599,6 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
     service.emit({ type: 'error', text: String(message) });
   });
   return service;
-}
-// Only an explicit instruction in the owner's own message can accept a result.
-// Negated, quoted or conditional requests must not silently finish a task.
-function acceptsDelivery(text) {
-  return /^(?:(?:please|just|fucking)\s+)*(?:i\s+)?(?:deliver|accept)(?:\s+(?:it|this(?:\s+(?:result|edit|model))?|(?:the\s+)?(?:current\s+)?(?:result|edit|model)))?(?:\s+(?:anyway|now|as[ -]is))?(?:\s*$|[,.!;]|\s+i (?:don['’]?t|do not) care)/i.test(String(text || '').trim());
 }
 function outsideSweepBlock(sweeps) {
   const header = 'MDLxL plan sweep measurements:\n', limit = 4000;

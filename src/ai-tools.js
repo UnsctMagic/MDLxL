@@ -425,6 +425,13 @@ export const AI_JOB_TOOLS = AI_TOOLS.map(tool => {
     required: tool.inputSchema.required.filter(k => k !== 'code'),
   } };
 });
+export const AI_WORKSPACE_TOOL = tool('workspace',
+  'A local JavaScript workspace. While off, only offer is available. Use offer once when reusable scripts or comparing candidates can speed up this particular job. Supply a brief, specific reason and respect the user’s answer. When enabled: write saves text or a JS function body, list shows files, read pages through text. run executes a saved JS file in the built-in sandbox with model, selection, context, references, api, log and files (a map of filename to text). Return JSON; output stores that value locally for later calls. To isolate part of the original marked selection, return a map of vertex ID arrays by zero-based geoset and save it to a .json output. preview shows only its complete faces at the current pose, without changing the editor; select applies it to the captured tab and reports the actual selected count. Scratch files are cleared when the request ends. No installed programs required.', {
+    action: { enum: ['offer', 'list', 'write', 'read', 'run', 'preview', 'select'] },
+    reason: { type: 'string', maxLength: 400, description: 'offer: explain in the user’s language what repeated work JavaScript can speed up here.' },
+    file: string('Plain lower-case .js, .txt or .json filename in this job.'), text: string('write: file contents.'),
+    output: string('run: optional .json result filename.'), offset: { type: 'integer', minimum: 0 }, view: views,
+  }, ['action'], false);
 export const AI_JOB_CHECKPOINT = tool('job_checkpoint',
   'Record a completed phase with evidence and remaining work. Use after a representative candidate check and before full verification. This does not verify the model or authorize new work.', {
     phase: { enum: ['candidate', 'verify'] },

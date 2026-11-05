@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Local AI JavaScript workspace and model merges | In review | [Workspace and merges](ai-workspace-merge.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |

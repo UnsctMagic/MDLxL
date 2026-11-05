@@ -23,8 +23,12 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7980, 7990, 7849, 8126, 8126]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7994, 8004, 7863, 8140, 8140]);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
+  for (const pack of [ru, es, zh, fr, de]) for (const key of [
+    'Use JavaScript for this job?', 'JavaScript can speed up repeated checks.', 'Open as new model',
+    'Editing during the merge can bring this choice back. You can still change the view, selection or animation.',
+  ]) assert.ok(Object.hasOwn(pack, key), key);
   // The removed delegation labels/tips are gone; the chat picker's texts are translated.
   for (const pack of [ru, es, zh, fr, de]) for (const key of ['Offload Mode', 'Job routing', 'Tiny job', 'Lighter model']) assert.equal(Object.hasOwn(pack, key), false);
   for (const pack of [ru, es, zh, fr, de]) for (const key of ['Current chat', 'Earlier chat', 'Earlier chats of this model are read only.', 'An earlier chat, read only. Use the current chat to continue.', 'The model for new requests.']) assert.ok(Object.hasOwn(pack, key), key);
