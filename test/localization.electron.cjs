@@ -1,4 +1,5 @@
 const { launchApp, closeApp } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 // Run after building dist: node test/localization.electron.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -6,17 +7,22 @@ const path = require('node:path');
 
 (async () => {
   const { translate } = await import('../src/localization.js');
-  const { createStarterDocument } = await import('../src/starter-model.js');
-  const { createNode } = await import('../src/editor-document.js');
+  const { createNode, openDocument } = await import('../src/editor-document.js');
+  const realModel = fs.readFileSync(fixturePath('footman'));
+  const document = () => openDocument(realModel, 'Footman.mdx');
   const output = path.resolve('out/localization/electron');
   fs.mkdirSync(output, { recursive: true });
-  const doc = createStarterDocument();
+  const doc = document();
   doc.apply('Particle fixture', ['Nodes', 'PivotPoints'], model => { createNode(model, 'ParticleEmitter2').Name = 'Materials'; });
   const fixture = path.join(output, 'Materials.mdx');
   fs.writeFileSync(fixture, doc.serialize('mdx'));
-  const repairDoc = createStarterDocument();
+  const repairDoc = document();
   repairDoc.apply('Tint conflict fixture', ['GeosetAnims'], model => {
-    model.GeosetAnims = [0, 1].map(index => ({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array(index ? [0, 1, 0] : [1, 0, 0]) }));
+    // Keep every original animation index referenced by the real Footman's bones.
+    const first = model.GeosetAnims.find(anim => anim.GeosetId === 0);
+    if (first) Object.assign(first, { Flags: 2, Alpha: 1, Color: new Float32Array([1, 0, 0]) });
+    else model.GeosetAnims.push({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array([1, 0, 0]) });
+    model.GeosetAnims.push({ GeosetId: 0, Flags: 2, Alpha: 1, Color: new Float32Array([0, 1, 0]) });
   });
   const repairFixture = path.join(output, 'Tint conflict.mdx');
   fs.writeFileSync(repairFixture, repairDoc.serialize('mdx'));
@@ -35,7 +41,6 @@ const path = require('node:path');
     });
     return { app, page };
   }
-  const sendMenu = (app, command) => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), command);
   const { app, page } = await launch(fixture);
   try {
     await page.locator('.language-trigger').waitFor();
@@ -52,10 +57,11 @@ const path = require('node:path');
       await page.getByRole('option', { name: label, exact: true }).click();
       await page.getByLabel(translate('Select geoset 0', locale), { exact: true }).waitFor();
       const expectedFile = translate('&File', locale);
-      for (let attempt = 0; attempt < 40; attempt++) {
-        const fileLabel = await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].label);
-        if (fileLabel === expectedFile) break;
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Renderer translation and the asynchronous native-menu IPC finish separately.
+      const deadline = Date.now() + 5000;
+      while ((await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].label)) !== expectedFile) {
+        if (Date.now() > deadline) throw Error(locale + ': native menu language did not update');
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
       const menu = await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.map(item => ({ label: item.label, children: item.submenu?.items.map(child => child.label) })));
       assert.equal(menu[0].label, expectedFile);
@@ -69,7 +75,7 @@ const path = require('node:path');
       assert.deepEqual(await page.locator('.classic-sidebar').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width)), widths);
       if (locale !== 'en') {
         await page.screenshot({ path: path.join(output, `${locale}-editor.png`) });
-        await sendMenu(app, 'particles');
+        await page.locator('button.emitter-tool[data-hotkey="particles"]').click();
         const dialog = page.getByRole('dialog', { name: translate('Particle Editor', locale), exact: true });
         await dialog.waitFor();
         // The library opens only while no emitter is selected; the first pass below selects one.

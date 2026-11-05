@@ -9,16 +9,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Task | State | Note / owner |
 | --- | --- | --- |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
-| MDL/MDX icons and persistent Select through | Ready for Claude QA; awaiting merge approval | [Icons and Select through](icons-select-through.md) / Codex |
-| Hive-only Sanity Check | Merged (#538) | [Sanity Check](sanity-hive-only.md) / Codex |
-| 0.38.0 New Features guides | Merged (#536) | [Guide handover](release-038-guides.md) / Codex |
-| 0.38.0 screenshot UI gaps | Merged (#537) | [UI gaps](release-038-ui-gaps.md) / Codex; Claude release QA |
-| 0.38.0 translation catch-up | Merged (#534) | [Translation inventory](release-038-translations.md) / Codex |
-| 0.38.0 packaged test repairs | Merged (#540); pose-ik fault checks, citadel-studio, particle-prototype open | [Release test repairs](release-038-test-repairs.md) / Codex; Claude QA |
-| Weapon ribbon bright edge | Ready for owner testing; awaiting merge approval | [Ribbon attachment](ribbon-attachment.md) / Codex |
-| Automatic Windows software rendering: automated-test compatibility | Merged (#519, #535) | [Automatic WARP](auto-warp.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
-| Shift lock: one shared lock rule and an orange lock badge at the cursor | Built on merged #504 and #507. Ready for owner testing | [Shift lock badge](shift-lock-badge.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
@@ -27,7 +18,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
 | AI every-frame checks: MDLxL sweeps a rule over every animation | Ready for review; awaiting merge approval | [Every-frame checks](ai-every-frame-checks.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
-| Live drags once per frame (UV lag; every drag) | Ready for review; awaiting merge approval (PR #477) | [Live drag lag](live-drag-lag.md) / Claude Code |
 | FX global animation maker | PR #492 · sixth owner hand test; ready for retest | [Surface Effects](native-surface-effects.md) / Codex |
 | Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |

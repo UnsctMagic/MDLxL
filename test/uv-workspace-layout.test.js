@@ -5,9 +5,9 @@ import {
   clampUVPreviewPercent, clampUVSidePercent, uvPreviewPercentAtPointer, uvSidePercentAtPointer,
 } from '../app/uv-workspace-layout.js';
 
-test('UV workspace retains the compact side and preview defaults', () => {
-  assert.equal(UV_SIDE_DEFAULT, 40);
-  assert.equal(UV_PREVIEW_DEFAULT, 62);
+test('UV workspace uses the owner screenshot as the initial side and preview layout', () => {
+  assert.equal(UV_SIDE_DEFAULT, 45.6);
+  assert.equal(UV_PREVIEW_DEFAULT, 50);
 });
 
 test('UV workspace splitters convert pointer positions into bounded pane percentages', () => {

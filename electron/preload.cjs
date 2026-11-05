@@ -90,7 +90,9 @@ contextBridge.exposeInMainWorld('desktop', {
   onUpdateStatus: callback => {const stop=subscribe('updates:status',callback);ipcRenderer.send('updates:startup');return stop;},
   close: () => ipcRenderer.send('app:close'),
   setMenuState: value => ipcRenderer.send('menu:state', value),
-  onBeforeClose: callback => answer('app:beforeClose', 'app:closeReady', async () => { await callback(); }),
+  // Acknowledging first tells main the page is responsive and still saving, so a
+  // long final recovery write is not cut off by the unresponsive-page timeout.
+  onBeforeClose: callback => answer('app:beforeClose', 'app:closeReady', async request => { ipcRenderer.send('app:closeBusy', request?.requestId); await callback({ discarded: request?.discarded === true }); }),
   onSaveBeforeClose: callback => answer('app:saveBeforeClose', 'app:saveBeforeCloseReady', async () => ({ saved: await callback() === true })),
   resolveTextures: payload => call('texture:resolve',payload),
   resolveEventResources: payload => call('preview:eventResources',payload),

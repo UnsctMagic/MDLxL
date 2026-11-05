@@ -1,6 +1,6 @@
 # Weapon ribbon bright edge
 
-Status: ready for owner testing; awaiting merge approval
+Status: completed; merged in [PR #532](https://github.com/UnsctMagic/MDLxL/pull/532) (`23126f99`)
 Owner: Codex
 Updated: 2026-11-03
 
@@ -25,4 +25,5 @@ The newest strip edge samples U=0. The previous default `Textures\RibbonNE1_Whit
 - Final packaged check: 1 pass, 0 fail, 0 skip; actual head bright across 100% of the width, tail 0%; real mouse camera rotation passed. Save As to a separate test copy preserves geometry, bones and animations.
 - Focused source checks: 32 pass, 0 fail, 0 skip (`ribbon-quick`, `particle-ribbon-fit`, `particle-assets`, `particle-preview`). Build and official package verification passed (1,422 runtime/asset files).
 - Owner test build: `D:\Codex\mdlxl-ribbon-direction-20261103\test-build\MDLxL-win32-x64`; launched separately with the test Knight, EMTR open and Attack Slam playing. Real application/profile and the original source model are untouched.
-- Warcraft III and independent Claude QA are not exercised here. Merge requires owner approval.
+- Owner authorized merging on 2026-11-03. [PR #532](https://github.com/UnsctMagic/MDLxL/pull/532) merged at `23126f99916c455925ef7dd077c86e0aca6a9ae6`; PR CI passed and online `main` was checked to contain the corrected default.
+- Warcraft III and independent Claude QA were not exercised here.

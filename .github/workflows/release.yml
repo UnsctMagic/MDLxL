@@ -33,14 +33,11 @@ jobs:
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
-          # From 0.39.0 the ZIP keeps one fixed name, so
-          # releases/latest/download/MDLxL-win32-x64.zip never changes. 0.38's
-          # updater is the first to accept it; earlier releases keep the version.
-          if node -e "const [a,b]=process.argv[1].split('.').map(Number);process.exit(a>0||b>=39?0:1)" "$version"; then
-            echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
-          else
-            echo "ZIP=MDLxL-$version-win32-x64.zip" >> "$GITHUB_ENV"
-          fi
+          # One permanent latest-download URL, starting with 0.38.2.
+          echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
+          # Copies before 0.38.0 only look for the versioned name; an identical copy
+          # keeps them updating in-app (owner decision, 5 Nov 2026).
+          echo "VERSIONED_ZIP=MDLxL-${version}-win32-x64.zip" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-build
       - run: pnpm test
@@ -58,6 +55,8 @@ jobs:
           "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
           "{0:N1} MB  {1}" -f ((Get-Item $zip).Length / 1MB), $zip
           Get-Content "$zip.sha256"
+          Copy-Item $zip $env:VERSIONED_ZIP
+          "$hash  $($env:VERSIONED_ZIP)" | Out-File -Encoding ascii "$($env:VERSIONED_ZIP).sha256"
 
       - name: Create the draft release
         if: github.ref_type == 'tag'
@@ -69,13 +68,15 @@ jobs:
           notes="docs/RELEASE-${VERSION}.md"
           if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
           # 0.38.0 keeps its existing release material. Six languages start next.
+          # guides.json lists every runtime PDF guide (scripts/lib/runtime-guides.mjs,
+          # also used by package.mjs), so each release attaches all of them.
           guides=()
           if node --input-type=module -e "import {sixLanguageRelease} from './scripts/release-material.mjs';process.exit(sixLanguageRelease(process.env.VERSION)?0:1)"; then
             node scripts/release-material.mjs "$VERSION" release-material
             notes_args=(--notes-file release-material/release-body.md)
             while IFS= read -r guide; do guides+=("docs/$guide"); done < <(node --input-type=module -e "import fs from 'node:fs';for(const guide of JSON.parse(fs.readFileSync('release-material/guides.json','utf8')))console.log(guide)")
           fi
-          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" "${guides[@]}" \
+          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" "$VERSIONED_ZIP" "$VERSIONED_ZIP.sha256" "${guides[@]}" \
             --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "MDLxL ${VERSION}" "${notes_args[@]}"
           {

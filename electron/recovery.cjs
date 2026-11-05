@@ -1,6 +1,7 @@
 const fs=require('node:fs/promises'),path=require('node:path'),v8=require('node:v8'),zlib=require('node:zlib'),util=require('node:util');
 const {writeFileAtomic}=require('./atomic-file.cjs');
-const gzip=util.promisify(zlib.gzip),gunzip=util.promisify(zlib.gunzip),LIMIT=768*1024*1024;
+const {RecoveryEncoder}=require('./recovery-encoder.cjs');
+const gunzip=util.promisify(zlib.gunzip),LIMIT=768*1024*1024;
 // Only the newest drafts are kept, one per model file, replaced as it is edited.
 const KEEP=15;
 // Change this tag to wipe every stored draft once on the next launch of an updated build.
@@ -41,22 +42,21 @@ function compactRecoveryBuffers(value, seen=new WeakMap()) {
 // Metadata and data live in ONE atomically replaced file. A crash can never
 // leave a newer dirty snapshot hidden behind an older clean sidecar manifest.
 class RecoveryStore{
-  constructor(root){this.root=root;this.queues=new Map();this.versions=new Map();}
+  constructor(root){this.root=root;this.queues=new Map();this.versions=new Map();this.encoder=new RecoveryEncoder();}
   file(id){if(typeof id!=='string'||!/^[-a-zA-Z0-9]{1,80}$/.test(id))throw Error('Invalid recovery identifier.');return path.join(this.root,id+'.recovery');}
   async write(payload){
-    const file=this.file(payload.id);if(!payload.state||!Number.isSafeInteger(payload.version)||payload.version<0)throw Error('Invalid recovery state.');
+    const file=this.file(payload.id);if((!payload.state&&!payload.encoded)||!Number.isSafeInteger(payload.version)||payload.version<0)throw Error('Invalid recovery state.');
     const prev=this.queues.get(payload.id)||Promise.resolve();
     const op=prev.catch(()=>{}).then(async()=>{
       if(payload.version<(this.versions.get(payload.id)||0))return;
-      const date=new Date().toISOString(),raw=v8.serialize({...payload,date});if(raw.length>LIMIT)throw Error('Recovery snapshot exceeds768MB. Reduce the undo cache budget.');
-      const packed=await gzip(raw,{level:1});
-      const metadata={id:payload.id,version:payload.version,name:payload.state.name||path.basename(payload.path||'Untitled'),date,bytes:packed.length,dirty:payload.dirty!==false,path:payload.path};
+      const encoded=await this.encoder.run(payload),packed=Buffer.from(encoded.packed);
+      const metadata=encoded.metadata;metadata.name ||= path.basename(metadata.path||'Untitled');
       const json=Buffer.from(JSON.stringify(metadata));if(json.length>1024*1024)throw Error('Recovery metadata is too large.');
       const header=Buffer.alloc(8);header.write('MDLR');header.writeUInt32LE(json.length,4);
       await fs.mkdir(this.root,{recursive:true});
       await writeFileAtomic(file,Buffer.concat([header,json,packed]));this.versions.set(payload.id,payload.version);
       await this.removeTemporary(payload.id).catch(error=>console.warn('Recovery cleanup: '+error.message));
-      await this.prune(payload.id,payload.path).catch(error=>console.warn('Recovery cleanup: '+error.message));
+      await this.prune(payload.id,metadata.path).catch(error=>console.warn('Recovery cleanup: '+error.message));
     });
     this.queues.set(payload.id,op);try{await op;}finally{if(this.queues.get(payload.id)===op)this.queues.delete(payload.id);}
   }
@@ -84,6 +84,6 @@ class RecoveryStore{
     for(const file of await fs.readdir(this.root))if(/\.recovery(?:\.(?:[a-f0-9]+\.)?tmp)?$|^\.reset-/.test(file))await fs.rm(path.join(this.root,file),{force:true});
     await fs.writeFile(marker,'');return true;
   }
-  async flush(){await Promise.allSettled([...this.queues.values()]);}
+  async flush(){await Promise.allSettled([...this.queues.values()]);await this.encoder.close();}
 }
 module.exports={RecoveryStore};

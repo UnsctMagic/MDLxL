@@ -35,13 +35,15 @@ GitHub Actions builds the package. Bump the version (see AGENTS.md), merge to
 `main`, then push a tag that matches `package.json`, for example `v0.22.2`. The
 **Draft release** workflow fetches the pinned FFmpeg, builds, tests, packages,
 zips the result and creates a **draft** release with
-the portable ZIP and its `.zip.sha256`. Up to 0.38 the ZIP is named
-`MDLxL-<version>-win32-x64.zip`; from 0.39.0 it is always `MDLxL-win32-x64.zip`,
+the portable ZIP and its `.zip.sha256`. Releases before 0.38.2 used
+`MDLxL-<version>-win32-x64.zip`; from 0.38.2 it is always `MDLxL-win32-x64.zip`,
 so one permanent link (website, XGM) always downloads the newest release:
 <https://github.com/UnsctMagic/MDLxL/releases/latest/download/MDLxL-win32-x64.zip>.
 The updater accepts both names from 0.38.0 on. Copies older than 0.38.0 only
-know the versioned name, so they must install 0.38.x (by hand or by updating
-before 0.39.0 ships) to auto-update further. Drafts are invisible to
+know the versioned name, so every release from 0.38.2 also carries an identical
+`MDLxL-<version>-win32-x64.zip` (plus its `.sha256`, both attached by the
+workflow) and those copies keep updating in-app. The owner decided to keep this
+copy (5 Nov 2026); do not drop it. Drafts are invisible to
 the updater and do not trigger the Discord announcement, so nothing reaches
 users until you publish by hand. Before publishing, run the release gate in
 [UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach
@@ -111,6 +113,8 @@ theme and language: the MDLxL icon, "Installing MDLxL <version>" (or
 "Restoring" for a revert), and a progress bar. The update popup's Shredder
 bird peeks around its edges and flies off when the files are in place; the
 window closes once the restarted MDLxL shows its window (at most 30 seconds).
+While peeking or retreating, only the part beyond the chosen edge is drawn,
+so the body and legs cannot stick out past another edge of the short box.
 It is `electron/update-window.cs`, compiled by the helper. Installing never
 depends on it: if it cannot start, the update runs without it. The helper
 comes from the version being replaced, so the window first appears when

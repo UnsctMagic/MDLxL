@@ -1,6 +1,6 @@
 # MDL/MDX icons and persistent Select through
 
-Status: ready for Claude QA; awaiting merge approval
+Status: completed — merged in PR #544; remaining Windows QA is recorded below
 Owner: Codex; Claude owns independent QA
 Updated: 2026-11-04
 
@@ -11,7 +11,7 @@ Fix independently chosen MDL/MDX icons and readable format labels; remember Sele
 ## Revision
 
 Branch: `codex/icons-select-through`, based on online main `c0f71708`.
-The D: task checkout is removed after push. Review and continue from the PR branch.
+Merged into `main` as `1dc76817e75b8a487a8edf0d5dfe44df6c4abe37` on 2026-11-04 following explicit owner approval. PR #544 and the changes on online main were verified; PR CI passed. The D: task checkout and disposable packages/profiles were removed.
 Evidence: `D:\Codex\mdlxl-icons-select-through-report-20261104`.
 
 ## Owners and findings
@@ -37,4 +37,4 @@ Evidence: `D:\Codex\mdlxl-icons-select-through-report-20261104`.
 
 Claude should rerun focused checks and confirm real Windows Explorer icons on a disposable Windows user/VM: choose different labelled MDL and MDX styles, confirm each file type is associated with the matching registered MDLxL ProgID, inspect small/medium/large icon views, and reselect defaults from the shared legacy/Open-with state. Check returning to the open Settings window clears the warning. Real Windows defaults and the installed app were deliberately not modified during this task. Full suites and Warcraft III were not run; neither model data nor rendering controls changed.
 
-After authorized merge: mark completed with merge SHA and remove the active index row.
+Merge completion does not claim independent Claude QA or live Explorer acceptance. No release or installed-app upgrade was performed.

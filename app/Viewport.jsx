@@ -13,6 +13,7 @@ import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
+import { isUVOnlyPreviewChange } from './game-preview-data.js';
 import { drawMovementGizmo, drawGizmoRotationFeedback, rotationDisplayHandles, beginGizmoRotation, gizmoMoveTranslation, drawMovementOverlay, movementAxisHandles, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import {drawPoseOverlay} from './pose-overlay.js';
 import {translate} from '../src/localization.js';
@@ -1041,6 +1042,28 @@ export default function Viewport(inputProps) {
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
+    const before = state.geometrySource;
+    state.geometrySource = { model, revision, shaded, lighting: graphics.lighting, modelingOverlay: !!props.modelingOverlay };
+    // The main viewport stays mounted behind UV Wrapper. Live UV previews must
+    // update its existing buffers, just as GamePreview does, without rebuilding
+    // every geoset, material and selection overlay on each drag frame.
+    if (model && before && before.revision === revision && before.shaded === shaded && before.lighting === graphics.lighting &&
+        before.modelingOverlay === !!props.modelingOverlay && isUVOnlyPreviewChange(before.model, model)) {
+      for (const [index, entry] of state.entries.entries()) {
+        const geoset = model.Geosets[index], previous = entry.geoset;
+        entry.geoset = geoset;
+        for (const [layerIndex, mesh] of entry.meshes.entries()) {
+          const channel = entry.layers[layerIndex].CoordId || 0;
+          const uv = geoset.TVertices?.[channel] || geoset.TVertices?.[0];
+          if (!uv || uv === (previous.TVertices?.[channel] || previous.TVertices?.[0])) continue;
+          mesh.geometry.attributes.uv.array.set(uv);
+          mesh.geometry.attributes.uv.needsUpdate = true;
+          mesh.userData.baseUV.set(uv);
+        }
+      }
+      state.dirty = true; state.scheduler?.invalidate();
+      return;
+    }
     if (state.drag) latest.current.onTransformPreview?.(null);
     state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true;
     state.geosetAnims = new Map((model?.GeosetAnims || []).map(anim => [anim.GeosetId, anim]));
