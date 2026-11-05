@@ -63,7 +63,7 @@ async function run(scenario) {
       return openDocument(Uint8Array.from(bytes), 'checked.mdx').model;
     }
     await waitForProvider(paused[0]);
-    await page.getByText('Animations',{exact:true}).filter({ visible: true }).first().click();
+    await page.getByRole('button',{ name: 'Animations', exact: true }).click();
     const rarity = page.getByLabel('Use Rarity',{exact:true});
     const initial = await rarity.isChecked();
     const preview = page.locator('.game-preview-root:visible').first();
