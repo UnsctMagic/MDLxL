@@ -124,7 +124,7 @@ export function placeParticleRecipe(target, recipe, options = {}) {
     // version before touching the target; never upgrade the model version.
     const candidate=clone(source);candidate.Version=target.Version;
     const proof=particleModelDocument(candidate);
-    proof.serialize('mdx');
+    proof.serialize('mdx', { strict: true });
     source=candidate;
   }
   const position = options.position || [0,0,0];

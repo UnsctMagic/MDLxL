@@ -9,7 +9,7 @@ import { parseCompatibleMdx as parseMDX, generateCompatibleMdx as generateMDX, o
 import { prepareCompatibleMdl, finishCompatibleMdl, formatGeneratedMdl, readMdlPivotPoints } from './mdl-compatibility.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes, SERIALIZED_NODE_COLLECTIONS } from './node-id-order.js';
 import { plainTrackValues } from './plain-track-values.js';
-import { assertModelEquivalent, formatSaveIssues } from './save-equivalence.js';
+import { assertModelEquivalent, formatSaveIssues, modelDifferenceReport } from './save-equivalence.js';
 import { preserveMdxRecords, preserveMdlRecords } from './record-preservation.js';
 import { parseMdx, SUPPORTED_FORMAT_VERSIONS, MDX_CHUNK_ORDER } from './mdx-container.js';
 import { parseMdl, mdlStringEnd } from './mdl-lossless.js';
@@ -580,8 +580,9 @@ export class EditorDocument {
     if (this.hdViewOnly) warnings.push(HD_VIEW_ONLY_MESSAGE);
     return { format, conversion, leftOut: [...format === 'mdx' && this.model[MODEL_COMMENTS_KEY] ? ['MDX leaves out standard model comments. Save as MDL to keep them.'] : [], ...dropped.length ? [`Editor-only data the game ignores is left out: ${dropped.join(', ')}.`] : [], ...droppedColors.length ? [`MDL leaves out geoset colors whose tint is off (the game ignores them): ${droppedColors.length}. Save as MDX to keep them.`] : []], exact: !conversion && changed.length === 0 && !this._fxChanged && !this._tabsChanged && !this._commentsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._fxChanged && !this._tabsChanged && !this._commentsChanged && !this._speedChanged) && !stringIssues.length && !blocking.length };
   }
-  serialize(format = this.format, { timings = {} } = {}) {
+  serialize(format = this.format, { timings = {}, strict = false } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
+    this.lastSaveWarnings = [];
     let stage = 'serializationMs', start = performance.now();
     const nextStage = next => { const now = performance.now(); timings[stage] += now - start; stage = next; start = now; };
     try {
@@ -590,14 +591,18 @@ export class EditorDocument {
     const impact = this.saveImpact(format);
     if (!impact.canSave) throw new Error(`This document cannot be saved in that format. ${impact.warnings.at(-1) || 'An exact copy in its original format is available.'}`);
     const remember = (data, expectedModel = this.model) => {
+      // Strict callers (AI edits, import proofs) still refuse lossy output;
+      // a user's own save never does.
+      if (strict && this.lastSaveWarnings.length) throw new Error(this.lastSaveWarnings.join(' '));
       const original = Buffer.from(data);
-      const compatible = format === 'mdx' && !this.readOnly ? omitEmptyMdxNodeTracks(original) : original;
+      let compatible = format === 'mdx' && !this.readOnly ? omitEmptyMdxNodeTracks(original) : original;
       if (!compatible.equals(original)) {
         // Exact-copy and sibling-preservation paths can retain legacy empty
-        // tracks. Verify their removal against the same export snapshot.
+        // tracks. Verify their removal against the same export snapshot; if
+        // it does not hold, keep the tracks rather than refuse the save.
         const reopened = openDocument(compatible, 'validation.mdx', { allowHD: true });
-        if (reopened.readOnly) throw new Error('Save verification failed: empty-track removal did not reopen.');
-        assertModelEquivalent(expectedModel, reopened.model, { keys: Object.keys(SECTION_TYPES), format });
+        const { total } = reopened.readOnly ? { total: 1 } : modelDifferenceReport(expectedModel, reopened.model, { keys: Object.keys(SECTION_TYPES), format });
+        if (total) compatible = original;
       }
       const bytes = new Uint8Array(compatible);
       // Saving is asynchronous in the desktop host. Associate the bytes with
@@ -611,8 +616,8 @@ export class EditorDocument {
       nextStage('reparsingMs');
       const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
       nextStage('verificationMs');
-      if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata did not reopen.');
-      if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (this.model[MODEL_COMMENTS_KEY] || '')) throw new Error('Model comments did not reopen.');
+      if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) this.lastSaveWarnings.push('Save verification failed: geoset tab metadata did not reopen.');
+      if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (this.model[MODEL_COMMENTS_KEY] || '')) this.lastSaveWarnings.push('Model comments did not reopen.');
       return remember(output);
     }
     // Object IDs stay stable in the editor and its undo history. Only the save
@@ -659,22 +664,26 @@ export class EditorDocument {
     nextStage('reparsingMs');
     const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
     nextStage('verificationMs');
+    // Saves are never blocked (owner rule): the file is written and anything
+    // the reopen check finds is reported in lastSaveWarnings instead.
+    const warn = message => this.lastSaveWarnings.push(message);
     if (reopened.readOnly) {
       nextStage('errorFormattingMs');
-      throw new Error(formatSaveIssues('Save verification failed', reopened.diagnostics.filter(d => d.severity === 'error').map(d => d.message)));
+      warn(formatSaveIssues('Save verification failed', reopened.diagnostics.filter(d => d.severity === 'error').map(d => d.message)));
+      return remember(output, saveModel);
     }
-    if (reopened.version !== this.version) throw new Error('Save verification failed: model version changed.');
-    if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (saveModel[MODEL_COMMENTS_KEY] || '')) throw new Error('Model comments did not reopen.');
-    assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings, format });
-    if (JSON.stringify(fxData(saveModel)) !== JSON.stringify(fxData(reopened.model))) throw new Error('Save verification failed: FX layers changed.');
-    if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata changed.');
-    for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);
-    for (let index = 0; index < this.model.Geosets.length; index++) if (this.model.Geosets[index].TVertices.length !== reopened.model.Geosets[index].TVertices.length) throw new Error(`Save verification failed: Geoset ${index} UV set count changed during serialization.`);
+    if (reopened.version !== this.version) warn('Save verification failed: model version changed.');
+    if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (saveModel[MODEL_COMMENTS_KEY] || '')) warn('Model comments did not reopen.');
+    try { assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings, format }); } catch (error) { warn(error.message); }
+    if (JSON.stringify(fxData(saveModel)) !== JSON.stringify(fxData(reopened.model))) warn('Save verification failed: FX layers changed.');
+    if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) warn('Save verification failed: geoset tab metadata changed.');
+    for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) warn(`Save verification failed: ${key} count changed during serialization.`);
+    for (let index = 0; index < this.model.Geosets.length; index++) if (this.model.Geosets[index].TVertices.length !== reopened.model.Geosets[index]?.TVertices.length) warn(`Save verification failed: Geoset ${index} UV set count changed during serialization.`);
     const existingErrors = new Set(validateModel(this.model).filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));
     const newErrors = reopened.diagnostics.filter((d) => d.severity === 'error' && !existingErrors.has(`${d.code}:${d.path}`));
     if (newErrors.length) {
       nextStage('errorFormattingMs');
-      throw new Error(formatSaveIssues('Save verification failed', newErrors.map(d => d.message)));
+      warn(formatSaveIssues('Save verification failed', newErrors.map(d => d.message)));
     }
     return remember(output, saveModel);
     } finally {
