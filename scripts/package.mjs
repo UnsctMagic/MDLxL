@@ -4,16 +4,14 @@ import os from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { repoRoot as source, tempDir } from './lib/paths.mjs';
+import { runtimeGuides as listRuntimeGuides } from './lib/runtime-guides.mjs';
 
 const { verifyFFmpegBundle } = createRequire(import.meta.url)('../electron/ffmpeg-verification.cjs');
 const { MANIFEST, validateManifest, digest: hash } = createRequire(import.meta.url)('../electron/updater.cjs');
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.38.0-New-Features', '0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
-// Preserve the historical four-language guides. New guides ship for the current
-// release only; never fabricate FR/DE filenames for older PDFs.
-runtimeGuides.push(...(await fs.readdir(path.join(source, 'docs'))).filter(name => name.startsWith('MDLxL-' + manifest.version + '-') && /-(?:EN|ES|RU|ZH-CN|FR|DE)\.pdf$/.test(name) && !runtimeGuides.includes(name)));
+const runtimeGuides = await listRuntimeGuides(path.join(source, 'docs'), manifest.version);
 const stageEntries = [...runtimeFolders, 'docs', 'package.json', 'README.md', 'MERGER_NOTES.md', 'THIRD_PARTY_NOTICES.md', 'LICENSES.bundled.txt'].sort();
 const exists = async file => { try { await fs.access(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 

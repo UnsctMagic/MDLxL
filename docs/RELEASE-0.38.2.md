@@ -1,4 +1,4 @@
-# MDLxL 0.38.2 — Hotfix
+# MDLxL 0.38.2
 
 - The portable download now keeps the permanent filename `MDLxL-win32-x64.zip`. The same latest-download link will serve future releases. This release replaces the withdrawn 0.38.1 hotfix.
 - Editor menus and panels respond more smoothly while recovery saves run. Recovery keeps full undo history and completed paint strokes, including when closing.

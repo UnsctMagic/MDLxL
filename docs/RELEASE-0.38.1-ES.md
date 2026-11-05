@@ -1,4 +1,4 @@
-# MDLxL 0.38.1 — Corrección urgente
+# MDLxL 0.38.1
 
 - Los menús y paneles responden con más fluidez mientras se guardan los datos de recuperación. La recuperación conserva todo el historial de deshacer y los trazos de pintura terminados, también al cerrar.
 - Cambiar de pestaña de modelo o de calidad en Showcase ya no retiene vistas previas ni escuchas de cámara antiguas. Las búsquedas compartidas de texturas evitan trabajo repetido y siguen detectando archivos modificados.

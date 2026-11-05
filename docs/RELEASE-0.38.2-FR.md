@@ -1,4 +1,4 @@
-# MDLxL 0.38.2 — Correctif urgent
+# MDLxL 0.38.2
 
 - Le téléchargement portable porte désormais le nom permanent `MDLxL-win32-x64.zip`. Le même lien vers la dernière version servira pour les prochaines versions. Cette version remplace le correctif 0.38.1 retiré.
 - Les menus et panneaux répondent plus facilement pendant l’enregistrement des données de récupération. La récupération conserve tout l’historique d’annulation et les coups de pinceau terminés, y compris à la fermeture.

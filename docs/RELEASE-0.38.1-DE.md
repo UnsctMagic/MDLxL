@@ -1,4 +1,4 @@
-# MDLxL 0.38.1 — Hotfix
+# MDLxL 0.38.1
 
 - Menüs und Bedienfelder reagieren flüssiger, während Wiederherstellungsdaten gespeichert werden. Die Wiederherstellung behält den vollständigen Rückgängig-Verlauf und abgeschlossene Pinselstriche bei, auch beim Schließen.
 - Beim Wechsel von Modell-Tabs oder der Showcase-Qualität bleiben keine alten Vorschauen und Kamera-Ereignisbehandler mehr erhalten. Gemeinsame Texturabfragen vermeiden doppelte Arbeit und erkennen weiterhin geänderte Dateien.

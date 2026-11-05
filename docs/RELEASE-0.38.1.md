@@ -1,4 +1,4 @@
-# MDLxL 0.38.1 — Hotfix
+# MDLxL 0.38.1
 
 - Editor menus and panels respond more smoothly while recovery saves run. Recovery keeps full undo history and completed paint strokes, including when closing.
 - Switching model tabs or changing Showcase quality no longer retains old previews and camera listeners. Shared texture lookups avoid repeated work and still notice changed files.
