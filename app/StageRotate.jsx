@@ -21,17 +21,19 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
   useEffect(()=>()=>frame.current.cancel(),[]);
   useWindowKeyClaim(({event})=>{if(event.key!=='Escape'||!drag.current)return false;abort();return true;},0);
   const appearance=viewportAppearanceOptions(preferences).controllers;
-  const shown=!!(at&&camera&&width&&height);
+  const shown=!!(at&&camera&&width&&height)||!!drag.current;
   let handles=[];
-  if(shown){
+  if(shown&&!drag.current){
     const world=new Vector3().fromArray(at),screen=world.clone().project(camera);
     handles=movementAxisHandles({world,x:(screen.x+1)*width/2,y:(1-screen.y)*height/2,visible:screen.z>=-1&&screen.z<=1},camera,width,height,1,'world','rotate',appearance);
   }
+  // A drag keeps the handles it started with, so preview refreshes cannot make them jump.
+  if(drag.current)handles=drag.current.handles;
   const live=useRef(handles);live.current=handles;
   function draw() {
     const element=canvas.current;if(!element)return;
-    const ratio=window.devicePixelRatio||1;
-    element.width=Math.round(width*ratio);element.height=Math.round(height*ratio);
+    const ratio=window.devicePixelRatio||1,w=Math.round(width*ratio),h=Math.round(height*ratio);
+    if(element.width!==w||element.height!==h){element.width=w;element.height=h;}
     const context=element.getContext('2d');context.clearRect(0,0,element.width,element.height);
     const feedback=drag.current?.rotation||null;
     drawMovementGizmo(context,rotationDisplayHandles(live.current,feedback),ratio,drag.current?.handle.axis||hover,appearance);
@@ -44,7 +46,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
     const {x,y}=local(event),handle=pickMovementHandle(handles,x,y,'rotate',12)||own;
     event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
     const rotation=beginGizmoRotation({x,y,world:new Vector3().fromArray(at),camera,width,height,handle,preferences,editor:'emtr'});
-    drag.current={handle,rotation,x,y,box:event.currentTarget.ownerSVGElement.getBoundingClientRect(),sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)};
+    drag.current={handle,handles,rotation,x,y,box:event.currentTarget.ownerSVGElement.getBoundingClientRect(),sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)};
     setActive(handle.axis);onBegin?.();
   }
   function move(event) {

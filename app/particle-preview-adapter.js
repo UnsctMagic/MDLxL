@@ -422,7 +422,9 @@ function copyParticleSimulationToPreview(simulation,native,phase) {
     if(from.texCoords)to.texCoords.set(from.texCoords.subarray(0,from.creationTimes.length*4));
   }
 }
-const appearanceParticleFields=new Set(['ParticleScaling','Alpha','SegmentColor','Time','TailLength','FilterMode','Rows','Columns','TextureID','PriorityPlane','ReplaceableId','Color','MaterialID','TextureSlot']);
+// Updated in place: sparks already flying stay, new ones follow. Rotation too, so a
+// Rotate drag turns the emitter live instead of replaying the effect every step.
+const appearanceParticleFields=new Set(['Rotation','ParticleScaling','Alpha','SegmentColor','Time','TailLength','FilterMode','Rows','Columns','TextureID','PriorityPlane','ReplaceableId','Color','MaterialID','TextureSlot']);
 /** Keep the GL instance and last valid FX frame while the newest recipe is replayed. */
 export class ParticleAuthoringPreview {
   constructor(native) {

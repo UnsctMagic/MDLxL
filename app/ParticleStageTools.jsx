@@ -12,7 +12,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),[pinned,setPinned]=useState(null);
   // A world-axis turn is written into the emitter's own Rotation: its parent's
   // world turn carries the axis into the emitter's space.
-  const turning=rotate&&emitter&&snapshot?.turn&&!sizeKey&&(options.family==='RibbonEmitters'||tool==='Motion');
+  const turning=rotate&&emitter&&snapshot?.turn&&!sizeKey;
   const rings=useStageRotate({at:turning?snapshot.turn.world:null,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
     onBegin(){turn.current={start:degreesToQuaternion(particleAimAngles(emitter,options)).toArray(),parent:snapshot.turn.parent};begin('Rotation');},
     onTurn(axis,degrees){const t=turn.current;if(t)change(quaternionToDegrees(turnLocalRotation(t.start,t.parent,axis,degrees)));},
