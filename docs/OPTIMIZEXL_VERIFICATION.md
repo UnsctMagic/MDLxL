@@ -565,3 +565,34 @@ Merged in [PR #554](https://github.com/UnsctMagic/MDLxL/pull/554) at
 `cab472bf7b06be3c1185edd69e6d988148884243` after successful CI. The owner explicitly
 waived independent Claude QA for the merge. Full release testing and Warcraft III
 remain untested.
+
+## MDX section order (owner-reported in-game spikes) — 2026-11-05
+
+Owner report: models saved after OptimizeXL show long stretched spikes in
+Warcraft III only; MDLxL and Hive previews look correct. Supplied
+`WH_WE_WardancerV1.mdx` (Sphereomancer added its first collision spheres) had
+`VERS MODL SEQS CLID MTLS …`: the new `CLID` section was inserted before the
+materials and bones. Skin groups, faces, tracks and counts were all valid. The
+same misplacement appears in other owner files (a `RIBB` right after `GLBS` in
+the Slaanesh champions, `CLID` after `TXAN` in a Khorne standard). The game reads
+node sections in file order, so an early node section shifts every bone/pivot.
+
+Cause: `generateCompatibleMdx` appended `MTLS` after all war3-model sections, and
+`surgicalMdx` placed a section new to the file by that writer order, so any new
+section ranked before `MTLS`. Fix: one `MDX_CHUNK_ORDER` (game/war3-model order)
+in `mdx-container.js`; the writer emits that order and `surgicalMdx` inserts new
+sections by it. Node sections an earlier save left before the materials/geosets
+are moved back on the next changed save. An unchanged save stays an exact copy.
+
+Proof: new `editor-document` test fails before and passes after. Owner's
+ChatGPT-repaired copy (`WH_WE_WardancerV2.mdx`, works in game) also moved `CLID`
+to the end; its added visibility keys leave sampled visibility identical in all
+19 animations, and its other edits (one degenerate triangle, bounds) cannot
+produce spikes. Flail01: all 31 frozen results pass. Flail03 `mounted-spheres`
+already differs from its golden hash on unmodified main (`3920de51…`, the
+documented ID-permutation drift; that main output also has `CLID` before
+`MTLS`). With the fix it is `c0a0955d…`: same bytes in every section, only
+`CLID` moved to the end. No golden hash was changed. The texture-reference
+identity snapshot re-records only its two `:mdx` hashes (Materials no longer
+last; every section byte-identical). Warcraft III check of an order-only repair
+is pending with the owner.

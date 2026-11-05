@@ -6,6 +6,8 @@ import { fixturePath } from './helpers/fixtures.cjs';
 import { textureReferenceIdentity } from './helpers/texture-reference-identity.js';
 
 // Recorded from unmodified origin/main a953a6949db1bf1e47303e517766b15062a19c60.
+// The two `:mdx` hashes were re-recorded when MDX sections moved to the game's
+// order (Materials no longer written last); every section's bytes are unchanged.
 const expected = JSON.parse(fs.readFileSync(new URL('./fixtures/texture-reference-identity.json', import.meta.url)));
 test('WP-3.4 identity: demo Sort My Mess, Bits and Parts and Merge Similar', () => {
   assert.deepEqual(textureReferenceIdentity(createDemoDocument().model), expected.demo);
