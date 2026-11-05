@@ -169,5 +169,57 @@
       "id": 2,
       "hash": "c7b1604bffc9256327803a6b4b8b6c7da2ce64dc401f8b71d9d010b385c8a31b"
     }
-  ]
+  ],
+  "claude-fel-blade": [
+    {
+      "label": "Fel flames",
+      "id": 2,
+      "hash": "9521559ab4b429db131ef352d8e927b3811320091bffe1682eb38426bfd1c489"
+    }
+  ],
+  "claude-tidal-blade": [
+    {
+      "label": "Dripping water",
+      "id": 3,
+      "hash": "210b2ee5fdc6ded9a51f6b19afe43e26e5829f4f1859661b2d3ad6cf25350e0c"
+    }
+  ],
+  "claude-magma-flow": [],
+  "claude-wraith-form": [
+    {
+      "label": "Spirit wisps",
+      "id": 3,
+      "hash": "6133948f23f657e9d29acfb1ea75726acb2d4a988750bd1612bf3b0730ec36c8"
+    }
+  ],
+  "claude-corrupted-veins": [
+    {
+      "label": "Ichor drops",
+      "id": 3,
+      "hash": "f467d973c91b40ead67562e8f31addafbe637465b23e0c5645e49d137f29a3e9"
+    }
+  ],
+  "claude-blood-pact": [
+    {
+      "label": "Blood beads",
+      "id": 3,
+      "hash": "c93215c92a5db18796bbc8cf061034623aab5ec542b513cdda8cf8eb6b591984"
+    }
+  ],
+  "claude-plague-swarm": [
+    {
+      "label": "Plague haze",
+      "id": 1,
+      "hash": "3d08232b5b069540d68a798a54935be1814058b28cece2f2940e55982e1ae3b0"
+    }
+  ],
+  "claude-runic-plate": [],
+  "claude-void-cracked": [
+    {
+      "label": "Void splinters",
+      "id": 3,
+      "hash": "59c25efb61cb442f516d4934354df918445256d5aa16d3fd59be96933dd7dda2"
+    }
+  ],
+  "claude-forge-hot": []
 }
