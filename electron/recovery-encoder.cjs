@@ -27,7 +27,13 @@ class RecoveryEncoder {
       const id = ++this.serial; this.pending.set(id, { resolve, reject });
       // Ref until acknowledged: tests and shutdown must not exit during a write.
       this.worker.ref();
-      try { this.worker.postMessage({ id, payload }); } catch (error) { this.pending.delete(id); reject(error); }
+      // Move rather than copy (up to 768 MB) a buffer that holds only this snapshot;
+      // nothing reads payload.encoded after this. Pooled, shared or untransferable buffers are copied.
+      const bytes = payload.encoded, size = bytes?.byteLength, own = bytes?.buffer instanceof ArrayBuffer && bytes.byteOffset === 0 && size > 0 && size === bytes.buffer.byteLength;
+      try {
+        try { this.worker.postMessage({ id, payload }, own ? [bytes.buffer] : []); }
+        catch (error) { if (!own || bytes.byteLength !== size) throw error; this.worker.postMessage({ id, payload }); }
+      } catch (error) { this.pending.delete(id); reject(error); }
     });
   }
   async close() {

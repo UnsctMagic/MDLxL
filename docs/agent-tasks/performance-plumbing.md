@@ -49,3 +49,10 @@ The ten source skips are existing gates: Unix-only SIGTERM behavior; optional ar
 Claude's independent QA has not run; no Claude Code CLI is available in the inspected locations. The full packaged release suite and Warcraft III gameplay were not run. These focused checks are developer verification, not release acceptance. The owner explicitly instructed the merge after this gap was disclosed; that instruction completed the merge on 2026-11-04. Independent QA must rerun these harnesses and the appropriate release gate before release.
 
 Review focus: cooperative snapshot consistency/cancellation, history-only revisions, mutable paint transaction boundary, worker shutdown/legacy disk compatibility, and ref/generation ownership during Showcase recording/history restoration.
+
+## Claude QA follow-up (2026-11-05, branch claude/recovery-checkpoint-fixes)
+
+- Paint unmount: PaintWorkspace's flush effect cleanup now finishes an active stroke/stamp and always calls `onInteractionChange(false)`. Before, leaving paint mid-stroke or mid camera drag (mode/tab hotkey, PaintBoundary error) left the checkpointer waiting forever: no autosave for that document, close waited for main's timeout.
+- Selection starvation: `recoverySignature()` no longer contains the history revision; the checkpointer stamps it separately (stamp[0]). A history-only change (selection, undo list, history limits) no longer cancels an encode, because the capture owns its entry lists and entries/selection records are replaced, never mutated. Any other change still cancels. Test: recovery-wire "continual selection changes".
+- Close: preload acknowledges `app:beforeClose` with `app:closeBusy`; main then waits up to 60 s (hard bound) instead of 1.5 s. A page that never acknowledges still closes after 1.5 s. Main passes `discarded` (the user chose Close without saving); a recovery write failure then no longer raises "Pending work could not be saved".
+- recovery-encoder.cjs transfers the encoded snapshot buffer to the worker (copy fallback for pooled/shared/untransferable buffers).
