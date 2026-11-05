@@ -111,6 +111,8 @@ theme and language: the MDLxL icon, "Installing MDLxL <version>" (or
 "Restoring" for a revert), and a progress bar. The update popup's Shredder
 bird peeks around its edges and flies off when the files are in place; the
 window closes once the restarted MDLxL shows its window (at most 30 seconds).
+While peeking or retreating, only the part beyond the chosen edge is drawn,
+so the body and legs cannot stick out past another edge of the short box.
 It is `electron/update-window.cs`, compiled by the helper. Installing never
 depends on it: if it cannot start, the update runs without it. The helper
 comes from the version being replaced, so the window first appears when
