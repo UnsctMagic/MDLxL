@@ -1,4 +1,6 @@
 import { AI_TOOLS, AI_DISPLAY_COMMANDS, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
+import { captureJobBase, changedSource, forkJob, deliverJob } from './ai-job-copy.js';
+import { isolatePaintRegion } from '../src/paint-region.js';
 import {
   aiSelectionSignature,
   checkAiTarget,
@@ -136,7 +138,7 @@ export class AiEditorBridge {
   // captured when its prompt was sent (and changed since through its own tools).
   env(target) {
     const s = this.state(),
-      session = target && s.sessions.find(x => x.id === target.documentId);
+      session = target?.job?.draft || (target && s.sessions.find(x => x.id === target.documentId));
     if (!session) throw Error('The model this task works on was closed.');
     if (session === s.session) return { live: true, session, doc: s.doc, model: s.model, state: s };
     const view = target.restore;
@@ -172,6 +174,32 @@ export class AiEditorBridge {
       },
     };
   }
+  startEmbeddedJob(resume = false) {
+    const state = this.state();
+    const retained = [...this.targets].find(([, t]) => t.documentId === state.session.id && t.chatId === (this.chats.get(state.session.id) || null) && t.job?.retained);
+    if (retained) {
+      const [id, target] = retained;
+      if (resume) { target.job.retained = false; return { ...this.context(id), retainedCandidate: true }; }
+      this.host().dropAiDraft(target.job.draft);
+      this.targets.delete(id);
+    }
+    const context = this.context();
+    this.targets.get(context.target).job = { ...captureJobBase(state.session), token: context.target };
+    return { ...context, embeddedJob: true };
+  }
+  closeDocument(documentId) {
+    for (const [id, target] of this.targets) if (target.documentId === documentId) {
+      if (target.job?.draft) this.host().dropAiDraft(target.job.draft);
+      this.targets.delete(id);
+    }
+  }
+  releaseEmbeddedJob(id) {
+    const target = this.targets.get(id);
+    if (!target?.job) return;
+    if (target.job.draft && !target.job.delivered && (target.review?.changed || target.job.merge)) { target.job.retained = true; return; }
+    if (target.job.draft) this.host().dropAiDraft(target.job.draft);
+    delete target.job;
+  }
   context(existing, chatId) {
     if (existing) this.requireTarget(existing);
     const id = existing || crypto.randomUUID();
@@ -199,7 +227,7 @@ export class AiEditorBridge {
       });
     }
     if (this.targets.size > 100) {
-      const unused = [...this.targets].find(([, t]) => !t.review);
+      const unused = [...this.targets].find(([, t]) => !t.review && !t.job);
       if (unused && unused[0] !== id) this.targets.delete(unused[0]);
     }
     if (chatId !== undefined) this.targets.get(id).chatId = chatId;
@@ -209,12 +237,13 @@ export class AiEditorBridge {
       selected = structuredClone(env.live ? state.selection || {} : captured.selection);
     return {
       target: id,
-      documentId: session.id,
+      documentId: captured.documentId,
+      ...(captured.job ? { embeddedJob: true } : {}),
       onScreen: env.live,
       ...(env.live
         ? {}
         : {
-            background:
+            background: captured.job?.draft ? 'Working on the captured model privately. Scripts, selections, samples, captures and verification use this copy. Live UI gestures and screen-only commands are unavailable.' :
               "This model's tab is not showing: the user works on another tab. Edits, selection, views, pictures, Undo/Redo, reading, sampling and export work on this model directly. Editor commands and program controls wait until the user returns to this tab.",
           }),
       name: doc.name,
@@ -287,6 +316,11 @@ export class AiEditorBridge {
       s = this.state(),
       session = target && s.sessions.find(x => x.id === target.documentId);
     if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
+    if (target?.job && session) {
+      if (!target.job.draft && (changedSource(target.job, session) ||
+          (session === s.session && target.selectionSignature !== aiSelectionSignature(s)))) forkJob(this, target);
+      if (target.job.draft) return target;
+    }
     if (session && session !== s.session) {
       // A tab that is not showing has no one else editing it; only a change to its
       // model (the user came back, edited and left again) stops the task.
@@ -321,7 +355,7 @@ export class AiEditorBridge {
       s = this.state();
     // A prompt may already be captured while this AI operation is committing.
     // Advance only tokens for the same chat and exact pre-operation state.
-    const peers = [...this.targets.values()].filter(other => other !== target &&
+    const peers = [...this.targets.values()].filter(other => other !== target && !other.job &&
       other.documentId === target.documentId && other.chatId === target.chatId &&
       other.revision === target.revision && other.selectionSignature === target.selectionSignature);
     const advancePeers = () => {
@@ -330,8 +364,12 @@ export class AiEditorBridge {
         for (const key of ['selection', 'selectedNodeIds', 'checkedGeosets', 'activeGeoset', 'uvSet']) other.restore[key] = structuredClone(target.restore[key]);
       }
     };
+    if (target.job?.draft) { target.revision = target.job.draft.doc.revision; return; }
+    const owner = s.sessions.find(x => x.id === target.documentId);
+    if (target.job && owner && owner.doc.revision !== target.job.recovery.revision)
+      Object.assign(target.job, captureJobBase(owner));
     if (s.session.id !== target.documentId) {
-      const session = s.sessions.find(x => x.id === target.documentId);
+      const session = owner;
       if (session) target.revision = session.doc.revision;
       target.offscreen = true;
       advancePeers();
@@ -360,7 +398,12 @@ export class AiEditorBridge {
       const display = (name === 'mdlxl_command' && AI_DISPLAY_COMMANDS.has(args.id)) || (name === 'mdlxl_view' && !args.mode);
       if (display && name === 'mdlxl_command' && this.env(this.targets.get(args.target)).live === false)
         throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
-      if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
+      if (needsScreen(name, args)) {
+        const target = args.target && this.requireTarget(args.target);
+        if (target?.job?.draft) throw Error('Use the modeling tools on the private AI copy. This command requires the live screen.');
+        await this.waitForTarget(args.target, options);
+        if (target?.job?.draft) throw Error('This command requires the live screen. Continue on the private copy with the modeling tools.');
+      }
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
         current = () => {
@@ -409,6 +452,12 @@ export class AiEditorBridge {
       if (signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
     };
     active();
+    if (name === 'mdlxl_delivery') {
+      const target = this.requireTarget(args.target);
+      const result = deliverJob(this, target, args.action);
+      if (result.delivered && target.job) target.job.delivered = true;
+      return result;
+    }
     if (name === 'mdlxl_checkpoint') {
       if (args.prepare) await beginAiReview(this, args.target, { signal, requestId });
       return aiCheckpoint(this, args.target, args);
@@ -455,7 +504,7 @@ export class AiEditorBridge {
       const s = this.state(),
         target = args.target ? this.requireTarget(args.target) : undefined,
         own = target ? this.env(target).session : s.session,
-        document = args.documentId && args.documentId !== own.id ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
+        document = args.documentId && args.documentId !== (target?.documentId || own.id) ? this.referenceSessions(target).find(x => x.id === args.documentId) : own;
       if (!document) throw Error('Reference model is no longer open.');
       return readAiModel(document.doc.model, args);
     }
@@ -465,6 +514,27 @@ export class AiEditorBridge {
       host = this.host(),
       env = this.env(target),
       state = env.state;
+    if (args.expectedRevision !== undefined && args.expectedRevision !== env.doc.revision)
+      throw Error('The model changed since this selection was captured. Send a new request.');
+    if (name === 'mdlxl_capture' && args.workspaceVertices) {
+      const vertices = args.workspaceVertices;
+      this.validateSelection({ vertices }, env);
+      const byGeoset = new Map();
+      let triangles = 0;
+      env.model.Geosets.forEach((geo, gi) => {
+        const ids = new Set(vertices[gi]), faces = new Set();
+        for (let i = 0; i < geo.Faces.length; i += 3)
+          if (ids.has(geo.Faces[i]) && ids.has(geo.Faces[i + 1]) && ids.has(geo.Faces[i + 2])) faces.add(i / 3);
+        triangles += faces.size;
+        byGeoset.set(gi, faces);
+      });
+      if (!triangles) throw Error('There are no complete triangles in this candidate to preview.');
+      const model = isolatePaintRegion(env.model, { byGeoset });
+      const picture = await this.picture(args.target, { view: args.view, fit: 'selection' }, { model, candidate: vertices });
+      active();
+      this.requireTarget(args.target);
+      return { ...picture, label: 'Candidate only, ' + args.view, triangles };
+    }
     if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal);
     if (name === 'mdlxl_versions') {
       const versions = this.versionStore,
@@ -507,6 +577,7 @@ export class AiEditorBridge {
         result = await window.desktop.aiScript({
           requestId,
           code: args.code,
+          workspaceFiles: args.workspaceFiles,
           timeoutMs: args.timeoutMs,
           model: structuredClone(before),
           selection: structuredClone(target.selection),
@@ -514,6 +585,10 @@ export class AiEditorBridge {
           references: Object.fromEntries([
             ...this.referenceSessions(target)
               .map(s => [s.id, { name: s.doc.name, model: structuredClone(s.doc.model) }]),
+            ...(target.job?.merge ? [
+              ['merge:base', { name: 'Common starting model', model: structuredClone(target.job.merge.ancestor) }],
+              ['merge:candidate', { name: 'AI candidate to merge', model: structuredClone(target.job.merge.candidate) }],
+            ] : []),
             // Saved versions of this model, for measuring candidates side by side.
             ...this.versionStore
               .names(target.documentId)
@@ -548,7 +623,7 @@ export class AiEditorBridge {
         });
       else {
         // Its own document and Undo history; the tab on screen is not touched.
-        host.editIn(target.documentId, label, prepared.sections, apply, {
+        host.editIn(now.session.id, label, prepared.sections, apply, {
           ...options,
           selection: { vertices: result.selection || target.selection },
         });
@@ -564,7 +639,7 @@ export class AiEditorBridge {
       } catch (error) {
         if (now.live) await host.command('undo');
         else {
-          host.undoIn(target.documentId, false);
+          host.undoIn(now.session.id, false);
           this.adoptTab(target);
         }
         this.advance(args.target);
@@ -574,7 +649,7 @@ export class AiEditorBridge {
       }
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
-      if (assets.length) await host.addAssetsIn(target.documentId, assets);
+      if (assets.length) await host.addAssetsIn(now.session.id, assets);
       return {
         applied: true,
         target: args.target,
@@ -591,7 +666,9 @@ export class AiEditorBridge {
       this.validateSelection(args, env);
       if (!env.live) {
         if (args.keyframes) throw Error(LEFT_TAB);
-        host.selectIn(target.documentId, args);
+        host.selectIn(env.session.id, args);
+        if (target.job?.draft) target.job.resultSelection = { ...target.job.resultSelection, ...Object.fromEntries(
+          ['vertices', 'nodeIds', 'geosetIds', 'activeGeoset'].filter(key => args[key] !== undefined).map(key => [key, args[key]])) };
         this.adoptTab(target);
         this.advance(args.target);
         return this.contextFor(args.target);
@@ -608,7 +685,7 @@ export class AiEditorBridge {
       if (!env.live) {
         // Undo and Redo work on the task's own model; other commands need its tab.
         if (!['undo', 'redo'].includes(args.id)) throw Error(LEFT_TAB);
-        host.undoIn(target.documentId, args.id === 'redo');
+        host.undoIn(env.session.id, args.id === 'redo');
         this.adoptTab(target);
         this.advance(args.target);
         return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
@@ -748,7 +825,7 @@ export class AiEditorBridge {
           path: args.path,
           bytes: bytes.bytes,
           format,
-          forgeAssets: host.assetsIn(target.documentId),
+          forgeAssets: host.assetsIn(env.session.id),
           overwrite: args.overwrite === true,
         });
         return { ...result, revision: target.revision, format };
@@ -879,7 +956,7 @@ export class AiEditorBridge {
     const view = sample.view || s.view,
       // Pictures show the surface; wireframe marks belong to the live viewport.
       renderMode = sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
-    const marked = markedPositions(model, target.selection, sequence, globalSequence, frame);
+    const marked = markedPositions(model, source.candidate || target.selection, sequence, globalSequence, frame);
     if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
@@ -888,7 +965,7 @@ export class AiEditorBridge {
       ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
       : null;
     const image = await this.host().render({
-      documentId: target.documentId,
+      documentId: env.session.id,
       ...(source.model ? { model: structuredClone(source.model) } : {}),
       view,
       sequence,
@@ -900,7 +977,8 @@ export class AiEditorBridge {
         : source.model && source.model.Geosets.length !== env.model.Geosets.length
           ? []
           : s.hiddenGeosets,
-      marks: { strokes: target.strokes || [], vertices: marked },
+      marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
+      ...(source.candidate ? { hiddenGeosets: [], showParticles: false } : {}),
       focus: source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts),
     });
     return {
@@ -1027,6 +1105,7 @@ export class AiEditorBridge {
       await settle();
       await settle();
       try {
+        if (target.job) { this.requireTarget(id); return; }
         checkAiTarget(target, this.state());
       } catch {
         if (target.restore && target.revision === this.state().doc.revision) {

@@ -48,9 +48,10 @@ window.aiSandbox.onRun(async payload => {
       'api',
       'assets',
       'before',
+      'files',
       'log',
       '"use strict";\n' + code,
-    )(model, selection, context, references, api, assets, before, (...values) => {
+    )(model, selection, context, references, api, assets, before, payload.workspaceFiles, (...values) => {
       if (logs.length < 100)
         logs.push(
           values
