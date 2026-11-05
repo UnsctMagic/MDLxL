@@ -81,3 +81,23 @@ test('checkpoint waits for an in-flight paint transaction and preserves the comm
   assert.deepEqual(writes[0].paintProject.raster,target.paintProject.raster);
   assert.equal(writes[0].paintProject.revision,2);
 });
+
+test('continual selection changes during a long encode still let a consistent checkpoint reach disk', async () => {
+  const doc = EditorDocument.restoreRecoveryState(await fixture()), target = session(doc), writes = [], base = doc.historyStats.undoSteps;
+  // Large drafts make each encode yield many times, like a long undo history.
+  target.animationDrafts = { track: Array.from({ length: 100000 }, (_, i) => i) };
+  let clicks = 0;
+  const select = () => { const entry = doc._historyStore.prepare({ label: 'Change selection ' + ++clicks, sections: [], changes: [] }); doc._historyStore.commit(entry); };
+  const recovery = createRecoveryCheckpointer(async wire => writes.push({ clicks, value: decodeRecovery(wire.encoded) }), {
+    yieldTask: async () => { if (clicks < 60) select(); await new Promise(resolve => setImmediate(resolve)); },
+  });
+  await recovery.checkpoint(target);
+  assert.ok(writes.length > 1);
+  assert.ok(writes[0].clicks < 60, 'a checkpoint was written while selection kept changing');
+  for (const { value } of writes) {
+    const labels = value.state.history.undoEntries.slice(base).map(entry => entry.label);
+    assert.deepEqual(labels, labels.map((_, i) => 'Change selection ' + (i + 1)), 'each snapshot is one consistent history');
+    assert.deepEqual(EditorDocument.restoreRecoveryState(value.state).model, doc.model);
+  }
+  assert.equal(writes.at(-1).value.state.history.undoEntries.length, base + 60, 'the newest history follows');
+});
