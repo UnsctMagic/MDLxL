@@ -331,6 +331,12 @@ export default function AnimationController({
     if (!commit('Rename animation sequence', ['Sequences'], current => setSequenceName(current, sequenceIndex, sequenceNameText), 'Sequence renamed.')) setSequenceNameText(sequence.Name);
   }
 
+  // Total frames shown next to the interval, live while the fields are typed in.
+  const intervalLength = (() => {
+    const end = Number(endText), start = globalDomain ? 0 : Number(startText);
+    if (startText === '' && !globalDomain || endText === '' || !Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+    return Math.round(end - start);
+  })();
   const noLocalSequence = disabled || !sequence || globalDomain;
   const moveApplied = !globalDomain && !!sequence && Number(sequence.MoveSpeed) > 0;
   // setAnimationKey/setAnimationSequences create a missing geoset animation
@@ -360,7 +366,7 @@ export default function AnimationController({
       <label title="Enable the sequence MoveSpeed ground-speed value."><input type="checkbox" checked={moveApplied} disabled={noLocalSequence} onChange={event => toggleMoveSpeed(event.target.checked)}/>Apply Move Speed</label>
       {moveApplied && <label className="ac-move-speed">Speed=<input aria-label="Sequence move speed" type="number" min="0.001" step="any" disabled={noLocalSequence} value={moveSpeedText} onChange={event => setMoveSpeedText(event.target.value)} onBlur={commitMoveSpeed} onKeyDown={enterBlurs}/></label>}
     </div>
-    <div className="ac-caption ac-interval-caption">Frame interval:</div>
+    <div className="ac-caption ac-interval-caption"><span>Frame interval:</span>{intervalLength !== null && <span className={`ac-interval-total${globalDomain ? ' global-sequence-value' : ''}`} title="Total length: last frame minus first frame">{`${intervalLength} frames`}</span>}</div>
     <div className={`ac-interval${globalDomain ? ' global-sequence-value' : ''}`}>
       <input aria-label="Sequence first frame" type="number" min="0" step="1" disabled={disabled || !sequence || globalDomain} value={startText} onChange={event => setStartText(event.target.value)} onBlur={commitInterval} onKeyDown={enterBlurs}/><span>–</span>
       <input aria-label="Sequence last frame" type="number" min={globalDomain ? 1 : Math.max(0, Number(startText) || 0)} step="1" disabled={disabled || !sequence && !globalDomain} value={endText} onChange={event => setEndText(event.target.value)} onBlur={commitInterval} onKeyDown={enterBlurs}/>

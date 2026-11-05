@@ -3710,6 +3710,8 @@
   "Apply Move Speed": "Aplicar velocidad de movimiento",
   "Sequence move speed": "Velocidad de movimiento de la secuencia",
   "Frame interval:": "Intervalo de fotogramas:",
+  "{0} frames": "{0} fotogramas",
+  "Total length: last frame minus first frame": "Duración total: último fotograma menos el primero",
   "Sequence first frame": "Primer fotograma de la secuencia",
   "Sequence last frame": "Último fotograma de la secuencia",
   "Create": "Crear",
