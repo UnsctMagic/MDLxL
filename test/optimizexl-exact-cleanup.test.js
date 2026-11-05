@@ -43,6 +43,14 @@ test('different unanimated bases, missing domains and genuine curves keep their 
  }
 });
 
+test('white colour tracks missing from an animation stay animated (game default there is black)',()=>{
+ // mdx-m3-viewer (KGAC default vec3 0,0,0) shows a Color track's empty animation black, unlike a static colour.
+ const white=[1,1,1],d=document(m=>{const a=m.GeosetAnims[0];a.Color=track([[0,white],[100,white]]);a._MdxDefaults.Color=new Float32Array(white);});
+ const {after,fix}=apply(d);
+ assert.ok(!fix.tracks.some(t=>t.path.join('.')==='GeosetAnims.0.Color'),'no static colour conversion is offered');
+ assert.deepEqual(after.GeosetAnims[0].Color.Keys.map(k=>k.Frame),[0,100]);
+});
+
 test('only actual identity transform tracks become implicit defaults',()=>{
  const d=document(m=>{m.Bones[0].Scaling=track([[0,[1,1,1]],[100,[1,1,1]],[200,[1,1,1]],[300,[1,1,1]]]);m.Bones[0].Translation=track([[0,[2,0,0]],[100,[2,0,0]],[200,[2,0,0]],[300,[2,0,0]]]);});
  const {after}=apply(d);assert.equal(after.Bones[0].Scaling,undefined);assert.ok(after.Bones[0].Translation?.Keys);

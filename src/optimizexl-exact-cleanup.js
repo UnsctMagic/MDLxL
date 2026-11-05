@@ -24,7 +24,9 @@ function staticValue(m,track,path){
  if(path[0]!=='GeosetAnims'||!['Alpha','Color'].includes(property)||value.length!==(property==='Color'?3:1))return;
  const fallback=property==='Color'?[1,1,1]:[1],base=owner._MdxDefaults?.[property]??(property==='Color'?[1,1,1]:1),baseValue=typeof base==='number'?[base]:base;
  if(!same(value,baseValue))return;
- if(m.Sequences.some(s=>!track.Keys.some(k=>k.Frame>=s.Interval[0]&&k.Frame<=s.Interval[1]))&&!same(value,fallback))return;
+ // An animation without keys plays the track's default: alpha 1, but colour
+ // black (mdx-m3-viewer KGAC 0,0,0), never the static colour.
+ if(m.Sequences.some(s=>!track.Keys.some(k=>k.Frame>=s.Interval[0]&&k.Frame<=s.Interval[1]))&&(property==='Color'||!same(value,fallback)))return;
  return {value:Array.from(value)};
 }
 
