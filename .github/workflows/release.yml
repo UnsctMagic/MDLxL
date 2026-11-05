@@ -33,14 +33,8 @@ jobs:
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
-          # From 0.39.0 the ZIP keeps one fixed name, so
-          # releases/latest/download/MDLxL-win32-x64.zip never changes. 0.38's
-          # updater is the first to accept it; earlier releases keep the version.
-          if node -e "const [a,b]=process.argv[1].split('.').map(Number);process.exit(a>0||b>=39?0:1)" "$version"; then
-            echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
-          else
-            echo "ZIP=MDLxL-$version-win32-x64.zip" >> "$GITHUB_ENV"
-          fi
+          # One permanent latest-download URL, starting with 0.38.2.
+          echo "ZIP=MDLxL-win32-x64.zip" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-build
       - run: pnpm test
