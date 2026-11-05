@@ -16,8 +16,10 @@ import {createFrameCoalescer,pointerSensitivityValue} from './viewport-performan
 const ring=handle=>handle.points.map(p=>p.x+','+p.y).join(' ');
 export function useStageRotate({at,camera,width,height,preferences,onBegin,onTurn,onEnd,onCancel}) {
   const canvas=useRef(null),drag=useRef(null),frame=useRef(null),latest=useRef(null),[hover,setHover]=useState(null),[active,setActive]=useState(null);
-  latest.current={onTurn};
-  frame.current||=createFrameCoalescer(()=>{const d=drag.current;if(d?.turn)latest.current.onTurn(...d.turn);draw();});
+  // The per-frame redraw must use this render's drawing (size, handles, hover), never the
+  // first render's: a stale size of 0 blanked the gizmo every frame of a drag.
+  latest.current={onTurn,draw:()=>draw()};
+  frame.current||=createFrameCoalescer(()=>{const d=drag.current;if(d?.turn)latest.current.onTurn(...d.turn);latest.current.draw();});
   useEffect(()=>()=>frame.current.cancel(),[]);
   useWindowKeyClaim(({event})=>{if(event.key!=='Escape'||!drag.current)return false;abort();return true;},0);
   const appearance=viewportAppearanceOptions(preferences).controllers;
@@ -31,7 +33,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
   if(drag.current)handles=drag.current.handles;
   const live=useRef(handles);live.current=handles;
   function draw() {
-    const element=canvas.current;if(!element)return;
+    const element=canvas.current;if(!element||!(width>0&&height>0))return;
     const ratio=window.devicePixelRatio||1,w=Math.round(width*ratio),h=Math.round(height*ratio);
     if(element.width!==w||element.height!==h){element.width=w;element.height=h;}
     const context=element.getContext('2d');context.clearRect(0,0,element.width,element.height);
