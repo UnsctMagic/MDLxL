@@ -7687,6 +7687,8 @@
   "Quiet time between flashes.": "Pausa entre los destellos.",
   "Number of flashes along the blade in each burst.": "Número de destellos por la hoja en cada ráfaga.",
   "Add emitter": "Añadir emisor",
+  "Pick an emitter to preview it. Add keeps it as a layer.": "Elige un emisor para previsualizarlo. Añadir lo conserva como capa.",
+  "Keep the previewed emitter as a layer.": "Conserva el emisor previsualizado como capa.",
   "Playback Speed": "Velocidad de reproducción",
   "Playback Speed (%)": "Velocidad de reproducción (%)",
   "Animation Speed": "Velocidad de animación",

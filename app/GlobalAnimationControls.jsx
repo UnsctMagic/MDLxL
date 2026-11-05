@@ -13,7 +13,7 @@ import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngre
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
-export default function GlobalAnimationControls({assets,stack,setStack,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength}){
+export default function GlobalAnimationControls({assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength}){
  const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null);
@@ -41,11 +41,15 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
  const emitterChoices=choices.filter(choice=>choice.type==='Particles');
  const surfaceChoices=choices.filter(choice=>choice.type!=='Particles');
  const additions=presetEmitterChoices(look);
+ const nextId=()=>Math.max(0,...stack.layers.map(x=>x.id))+1;
  const addLayer=spec=>{
   if(!frame||!spec)return;
-  const id=Math.max(0,...stack.layers.map(x=>x.id))+1;
+  const id=nextId();
   const next=makeLayer(spec,frame,look.palette,id);setStack({...stack,layers:[...stack.layers,next]});select(id);
  };
+ // Picking an emitter only previews it; Add keeps it as a layer.
+ const tryEmitter=label=>{const choice=additions.find(s=>s.label===label);setTrial(choice&&frame?{label,layer:makeLayer(choice.spec,frame,look.palette,0)}:null);};
+ const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
  const positional=p||edge||l?.ground;
  const timingOptions={frame:stack.hit,interval:graph?.model.Sequences[stack.sequence]?.Interval,globalSequences:graph?.model.GlobalSequences};
  const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined};};
@@ -58,7 +62,8 @@ export default function GlobalAnimationControls({assets,stack,setStack,selected,
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" checked={createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+item.label} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{item.label}<small>{layerType(item)}</small></button></div>)}</div>
-  {!stack.impact&&<label className="field fx-add-emitter"><span>Particles</span><select aria-label="Add emitter" value="" onChange={e=>addLayer(additions.find(s=>s.label===e.target.value)?.spec)}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</select></label>}
+  {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><select aria-label="Add emitter" value={trial?.label||''} onChange={e=>tryEmitter(e.target.value)}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</select></label>}
+  {!stack.impact&&trial&&<button className="fx-keep-emitter" title="Keep the previewed emitter as a layer." onClick={keepTrial}>Add</button>}
   <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value="" onChange={e=>addLayer(choices.find(s=>menuName(s)===e.target.value))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</select>}
    {l&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
