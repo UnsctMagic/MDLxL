@@ -8,16 +8,17 @@ import ParticleStageHandle from './ParticleStageHandle.jsx';
 import {degreesToQuaternion,quaternionToDegrees,turnLocalRotation} from '../src/rotation-math.js';
 import {useStageRotate} from './StageRotate.jsx';
 // rotate: show the main editor's Rotate handles on the emitter (Motion) or ribbon.
-export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames,rotate=false,preferences}) {
+export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames,rotate=false,preferences,onDrag}) {
+  // onDrag(true) when a handle drag starts and onDrag(false) when it ends: the editor holds the animation frame meanwhile.
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),[pinned,setPinned]=useState(null);
   // A world-axis turn is written into the emitter's own Rotation: its parent's
   // world turn carries the axis into the emitter's space.
   const turning=rotate&&emitter&&snapshot?.turn&&!sizeKey;
   const rings=useStageRotate({at:turning?snapshot.turn.world:null,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
-    onBegin(){turn.current={start:degreesToQuaternion(particleAimAngles(emitter,options)).toArray(),parent:snapshot.turn.parent};begin('Rotation');},
+    onBegin(){onDrag?.(true);turn.current={start:degreesToQuaternion(particleAimAngles(emitter,options)).toArray(),parent:snapshot.turn.parent};begin('Rotation');},
     onTurn(axis,degrees){const t=turn.current;if(t)change(quaternionToDegrees(turnLocalRotation(t.start,t.parent,axis,degrees)));},
-    onEnd(){turn.current=null;finish();},
-    onCancel(){turn.current=null;cancel();}});
+    onEnd(){turn.current=null;finish();onDrag?.(false);},
+    onCancel(){turn.current=null;cancel();onDrag?.(false);}});
   // Each change updates the live preview: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
   useEffect(()=>{frame.current.cancel();frame.current=createFrameCoalescer(()=>follow.current?.(),frames);return()=>frame.current.cancel();},[frames]);
@@ -38,6 +39,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   const value=field=>particleValue(emitter,field,{...options,stage:field==='ParticleScaling'?stage:undefined});
   function start(event,field,reference,basis) {
     event.preventDefault();event.stopPropagation();event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
+    onDrag?.(true);
     drag.current={field,x:event.clientX,y:event.clientY,value:value(field),reference:structuredClone(reference),basis:structuredClone(basis),arc:structuredClone(guide?.spreadArc),stage};
     // Smooth Size: the ribbon ends shape a draft key; nothing is written until Commit.
     if(sizeKey&&(field==='HeightAbove'||field==='HeightBelow')){drag.current.size=true;return;}
@@ -60,8 +62,8 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
     if(d.size)onSizeDraft(d.field,next);else change(next);
   }
   follow.current=applyMove;
-  function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();}}
-  function abort(){frame.current.cancel();const size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();}
+  function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();onDrag?.(false);}}
+  function abort(){frame.current.cancel();const active=!!drag.current,size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();if(active)onDrag?.(false);}
   const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):Math.max(0,value(field)+delta));finish();}
   }}/>;

@@ -1,6 +1,7 @@
 // EMTR rotate handles stay steady during a real rotate drag (owner: "when I rotate the gizmo
 // flickers"). Records the rotate gizmo every frame at full frame rate: it must never be blank,
-// zero-sized or remounted, and never show a one-frame twitch. Before the fix the per-frame
+// zero-sized or remounted, and never show a one-frame twitch. The animation holds its frame while the
+// handle is dragged (owner: "keep the frame so it's easier to align") and plays on afterwards. Before the fix the per-frame
 // redraw used the first render's size and state: 25-33 one-frame twitches per drag.
 const path = require('node:path'), fs = require('node:fs'), assert = require('node:assert/strict');
 const { launchApp, closeApp, clickMenu, settle, waitForInfo } = require('./helpers/app.cjs');
@@ -29,12 +30,16 @@ const { launchApp, closeApp, clickMenu, settle, waitForInfo } = require('./helpe
         if (window.__frames.length < 5000) requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
     });
+    const clip = () => page.locator('.pe-preview .game-preview-root').first().evaluate(element => { const p = mdlxlProbe(element).props; return { playing: !!p.playing, time: p.time }; });
+    assert.equal((await clip()).playing, true, 'the effect plays before the drag');
     const [x1, y1, x2, y2] = await handle.locator('line').evaluate(l => ['x1', 'y1', 'x2', 'y2'].map(k => Number(l.getAttribute(k))));
     const box = await handle.evaluate(el => { const b = el.ownerSVGElement.getBoundingClientRect(); return { x: b.x, y: b.y }; });
     const length = Math.hypot(x2 - x1, y2 - y1) || 1, x = box.x + x1 + (x2 - x1) * .6, y = box.y + y1 + (y2 - y1) * .6;
-    await page.mouse.move(x, y); await page.mouse.down(); const from = await page.evaluate(() => window.__frames.length);
+    await page.mouse.move(x, y); await page.mouse.down(); await page.waitForTimeout(150); const held = await clip(); const from = await page.evaluate(() => window.__frames.length);
     for (let i = 1; i <= 40; i++) { await page.mouse.move(x - (y2 - y1) / length * 3 * i, y + (x2 - x1) / length * 3 * i); await page.waitForTimeout(40); }
-    const to = await page.evaluate(() => window.__frames.length); await page.mouse.up(); await page.waitForTimeout(500);
+    const to = await page.evaluate(() => window.__frames.length); const still = await clip(); await page.mouse.up(); await page.waitForTimeout(500);
+    assert.equal(held.playing, false, 'the animation holds while the handle is dragged'); assert.equal(still.time, held.time, 'the frame stays put for the whole drag');
+    assert.equal((await clip()).playing, true, 'the animation plays on after the drag');
     const frames = (await page.evaluate(() => window.__frames)).slice(from, to);
     assert.ok(frames.length > 60, 'enough frames were recorded: ' + frames.length);
     assert.equal(new Set(frames.map(f => f.canvas)).size, 1, 'the gizmo is never rebuilt during a drag');
