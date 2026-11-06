@@ -234,12 +234,14 @@ test('unused pivot repair keeps missing, sparse, duplicate and newly occupied no
 test('pivot cleanup composes with existing node removal in either approval order and selected batches', () => {
   const m = cleanModel(); createNode(m, 'EventObject').EventTrack = new Uint32Array([]);
   m.PivotPoints.push(new Float32Array([11, 22, 33]));
-  const source = bytesOf(m), fixes = sanityProposals(m).filter(f => ['unusedPivots', 'emptyEvents'].includes(f.rule));
-  assert.equal(fixes.length, 2);
+  // Calculate extents (last in every batch) joins the two cleanups.
+  const source = bytesOf(m), fixes = sanityProposals(m).filter(f => ['unusedPivots', 'emptyEvents'].includes(f.rule) || f.kind === 'bounds');
+  assert.equal(fixes.length, 3);
   const batch = runOptimizeStage(source, 'sanity', {}, {kind:'batch', stage:'sanity', entries:fixes.map(fix=>({fix, settings:{}}))}).bytes;
   const all = runOptimizeStage(source, 'sanity', {}, {kind:'fixAll', stage:'sanity'}).bytes;
   assert.deepEqual(batch, all);
-  for (const order of [fixes, [...fixes].reverse()]) {
+  const cleanups = fixes.filter(f => f.kind !== 'bounds'), extents = fixes.filter(f => f.kind === 'bounds');
+  for (const order of [[...cleanups, ...extents], [...cleanups.reverse(), ...extents]]) {
     let bytes = source;
     for (const original of order) {
       const fresh = sanityProposals(openDocument(bytes, 'step.mdx').model).find(f => f.id === original.id);

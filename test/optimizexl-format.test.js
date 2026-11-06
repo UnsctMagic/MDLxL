@@ -88,8 +88,10 @@ test('timeline relocation composes with the existing cubic representation owner'
   const source=d.serialize('mdx'),fixes=sanityProposals(openDocument(source,'x.mdx').model).filter(f=>!f.inspectionOnly);
   assert.ok(fixes.some(f=>f.kind==='splineResample'));
   const expected=runOptimizeStage(source,'sanity',{}, {kind:'batch',stage:'sanity',entries:fixes.map(fix=>({fix}))}).bytes;
-  for(const order of [fixes,[...fixes].reverse()]){let bytes=source;
-    for(const old of order){const current=sanityProposals(openDocument(bytes,'x.mdx').model).find(f=>f.id===old.id);assert.ok(current);bytes=runOptimizeStage(bytes,'sanity',{},current).bytes;}
+  // Calculate extents measures the finished motion, so it runs last in each order.
+  const repairs=fixes.filter(f=>f.kind!=='bounds'),extents=fixes.filter(f=>f.kind==='bounds');
+  for(const order of [[...repairs,...extents],[...repairs.reverse(),...extents]]){let bytes=source;
+    for(const old of order){const current=sanityProposals(openDocument(bytes,'x.mdx').model).find(f=>f.id===old.id);assert.ok(current||old.kind==='bounds');if(!current)continue;bytes=runOptimizeStage(bytes,'sanity',{},current).bytes;}
     assert.deepEqual(bytes,expected);
   }
 });

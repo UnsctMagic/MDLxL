@@ -7,7 +7,7 @@ import { commonEndpointProposals, applyCommonEndpointPose } from './optimizexl-e
 import { optimizationReview } from './optimizexl-review.js';
 import { reduceWorldAnimation } from './optimizexl-world-animation.js';
 import { reduceAnimationTrack, trackValueError } from './optimizexl-animation.js';
-import { boundsProposals, repairBounds } from './optimizexl-bounds.js';
+import { boundsProposals, calculateExtents } from './model-extents.js';
 import { repairMotionIrregularity, scanIrregularMotion } from './optimizexl-motion.js';
 import { repairSuspiciousSnap, scanSuspiciousSnaps } from './optimizexl-snaps.js';
 import { repairContextMotion, scanModelMotionContext } from './optimizexl-motion-context.js';
@@ -138,7 +138,7 @@ export function findIrregularities(m){const findings=[],seq=m.Sequences,live=seq
  const context=scanModelMotionContext(m,findings.filter(f=>f.kind==='motion'||f.kind==='snap'));
  return [...findings.map(f=>context.review.has(f.id)?{...f,motionContext:context.review.get(f.id)}:f),...context.findings,...effectVisibilityProposals(m)];
 }
-export function sanityProposals(m){const findings=boundsProposals(m);for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'mdx-m3-viewer flags animated gravity. Choose a static value and review its particle motion.'});
+export function sanityProposals(m){const findings=[];for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'mdx-m3-viewer flags animated gravity. Choose a static value and review its particle motion.'});
  for(const {track:t,path}of tracks(m)){if(t.GlobalSeqId>=0&&m.GlobalSequences[t.GlobalSeqId]>0&&t.Keys.some(k=>k.Frame>m.GlobalSequences[t.GlobalSeqId])&&t.Keys.some(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]))findings.push({id:`outside:${path.join('.')}`,kind:'globalKeys',path,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${path.join('.')}: keys beyond global duration`,detail:'Remove keys outside the declared global sequence. Review effects and animation before approval.'});}
  const proposals=[...findings,...openingTrackProposals(m,tracks(m)),...unusedTrackProposals(m,tracks(m)),...redundantTrackProposals(m,tracks(m))];
  // Static gravity replaces its entire track. It owns that track's diagnostics;
@@ -147,7 +147,8 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  const timeline=sequenceTimelineProposals(m,tracks(m));
  // The narrower timeline repair keeps ownership where it applies.
  const checker=checkerRepairProposals(m).filter(p=>!(p.rule==='timeline'&&timeline.length));
- return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...timeline,...checker,...skinCollapseProposals(m)];}
+ // Extents come last so batches and Fix everything measure the repaired motion.
+ return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...timeline,...checker,...skinCollapseProposals(m),...boundsProposals(m)];}
 export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
 /** Apply every automatic repair, check again and repeat: one repair can expose
  * or enable another (sorted keys can then get opening keys, for example). */
@@ -241,7 +242,7 @@ function applyRepair(m,fix,settings,evidenceModel=m){
  if(fix.kind==='bounds'){
   const current=scan(boundsProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
-  repairBounds(m,current);return;
+  calculateExtents(m);return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
 function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset??1),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');

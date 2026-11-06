@@ -11,7 +11,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   // animations") and motion:8:37:Translation "... (1Cylinder03)" (orange, "Body part · 2/26 animations"), then five
   // loop-endpoint fixes (the first pose:0:167:0:1667, Stand - 1) and two inspection-only findings, the first
   // context:2:48:Rotation in Stand Third. The two Death Second fixes together move node 21 (1Cylinder04) Translation X at
-  // frame 24167 from 14.0653 to 6.772181452545066. The Insanity FIxer offers invalidBounds.
+  // frame 24167 from 14.0653 to 6.772181452545066. The Insanity FIxer offers extents.
   // Not coverable: no available model (LowPolyWorks, Downloads, SD MDX800) has a red finding beside orange ones and a context
   // inspection, nor a whole-body irregular movement plus a snap in one animation like the original Footman. The red-level
   // checks therefore check the measured orange levels, and the selected pair is the two Death Second fixes.
@@ -89,7 +89,7 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
     await preset.hover(); await p.mouse.wheel(0, 100); await p.waitForFunction(n => Number(document.querySelector('[aria-label="Sphere preset"]').value) === n + 1, previous); await ready();
     await stage('Insanity FIxer'); await p.getByLabel('Proposed fix', { exact: true }).waitFor(); await summary.click(); await selection.getByRole('button', { name: 'Select all', exact: true }).click(); await preview.click(); await ready();
     assert.equal(await p.getByRole('button', { name: 'Approve selected', exact: true }).isEnabled(), true); await p.getByRole('button', { name: 'Approve selected', exact: true }).click();
-    await p.waitForFunction(() => !Array.from(document.querySelectorAll('[aria-label="Proposed fix"] option')).some(o => o.value === 'invalidBounds')); await originalUnchanged();
+    await p.waitForFunction(() => !Array.from(document.querySelectorAll('[aria-label="Proposed fix"] option')).some(o => o.value === 'extents')); await originalUnchanged();
     assert.deepEqual(fs.readFileSync(model), source); assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ passed: true, packaged: !!exe, checkboxSubset: true, selectAllClearAll: true, combinedPreviewApprovalAndUndo: true, autoAdvanceApproveAndSkip: true, dropdownWheel: ['Animation', 'Proposed fix', 'Sphere preset'], animationSelectionKeepsPlaying: true, beforePinned: true, noSourceWrites: true, errors }, null, 2));
     console.log('Passed selected-fix previews, atomic approval/Back, auto-next, dropdown wheels, playback continuity and pinned original.');
