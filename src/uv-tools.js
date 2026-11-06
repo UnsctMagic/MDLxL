@@ -5,8 +5,10 @@ const uniqueIndices = values => [...new Set(Array.from(values || []).filter(fini
 /** The UV Wrapper's Rotate is 30% slower than the mouse (owner, 4 Nov 2026). */
 const UV_TURN_SENSITIVITY = 0.7;
 /** Within this many pixels of the centre the turn goes by distance moved
- * around the centre, not by angle, so passing over the piece never snaps it. */
-const UV_TURN_STEADY = 48;
+ * around the centre, not by angle, so passing over the piece never snaps it.
+ * The wrapper uses 16 px (owner, 6 Nov: 48 px resisted too much up close);
+ * FX texture fitting keeps its original 48 px. */
+const UV_TURN_STEADY = 16, FX_TURN_STEADY = 48;
 /** The mouse exactly on the centre has no direction; skip that sample. */
 const UV_TURN_CENTRE = 2;
 
@@ -23,7 +25,8 @@ export function uvTurn(drag, x, y) {
   const angle = Math.atan2(py, px);
   if (drag.angle !== undefined) {
     const step = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
-    const steady = Math.min(1, radius / UV_TURN_STEADY, drag.radius / UV_TURN_STEADY);
+    const zone = drag.wrapperControls === false ? FX_TURN_STEADY : UV_TURN_STEADY;
+    const steady = Math.min(1, radius / zone, drag.radius / zone);
     // FX texture fitting also uses UVEditor and keeps its original 1:1 speed.
     drag.turn += step * steady * (drag.wrapperControls === false ? 1 : UV_TURN_SENSITIVITY) * (drag.fine ?? 1);
   }

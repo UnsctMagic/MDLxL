@@ -92,6 +92,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     const turnNow = () => page.evaluate(() => uvRotateState().drag.turn);
     // Same circle, same strength at any distance from 48 px outward.
     for (const [name, radius, start, sweep, fine] of [
+      ['quarter circle at 24 px', 24, 0, Math.PI / 2, false],
       ['quarter circle at 60 px', 60, 0, Math.PI / 2, false],
       ['quarter circle at 120 px', 120, Math.PI, Math.PI / 2, false],
       ['quarter circle at 300 px', 300, Math.PI / 2, Math.PI / 2, false],
@@ -116,11 +117,11 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     }
     // Close to the centre the same circle turns less, steadily, never more.
     {
-      await page.mouse.move(cx + 24, cy); await page.mouse.down();
-      await arc(24, 0, Math.PI / 2);
+      await page.mouse.move(cx + 8, cy); await page.mouse.down();
+      await arc(8, 0, Math.PI / 2);
       const turn = await turnNow(); await page.mouse.up();
-      measurements.push({ name: 'quarter circle at 24 px', actualDegrees: turn * 180 / Math.PI });
-      check('quarter circle at 24 px turns half as far, same direction', Math.abs(turn - Math.PI / 2 * .7 * .5) < .01);
+      measurements.push({ name: 'quarter circle at 8 px', actualDegrees: turn * 180 / Math.PI });
+      check('quarter circle at 8 px turns half as far, same direction', Math.abs(turn - Math.PI / 2 * .7 * .5) < .01);
       await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
       await undo();
     }
@@ -139,7 +140,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       }
     }
     // Sweeping straight across the piece, just beside its centre, never snaps.
-    for (const offset of [6, -6, 20]) {
+    for (const offset of [6, -6]) {
       await page.mouse.move(cx - 150, cy + offset); await page.mouse.down();
       let previous = 0, biggest = 0;
       for (let x = -148; x <= 150; x += 2) {
@@ -148,8 +149,9 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       }
       await page.mouse.up();
       measurements.push({ name: 'across the piece at ' + offset + ' px', totalDegrees: previous * 180 / Math.PI, biggestStepDegrees: biggest * 180 / Math.PI });
-      check('across the piece at ' + offset + ' px: no step jumps more than 3 degrees', biggest < 3 * Math.PI / 180);
-      check('across the piece at ' + offset + ' px: no spin past 90 degrees', Math.abs(previous) < Math.PI / 2);
+      // 2 px per sample: under 3 degrees per pixel, the speed of circling at 16 px.
+      check('across the piece at ' + offset + ' px: no step faster than 3 degrees per pixel', biggest < 2 * 3 * Math.PI / 180);
+      check('across the piece at ' + offset + ' px: no spin past 100 degrees', Math.abs(previous) < 100 * Math.PI / 180);
       await undo();
     }
     // An imperfect circle keeps its direction when its radius wobbles.

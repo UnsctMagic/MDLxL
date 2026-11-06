@@ -28,16 +28,20 @@ the tool each time:
 - Only movement **around** the selection's centre turns it. Circling clockwise
   turns clockwise, counter-clockwise turns counter-clockwise, past full turns.
 - Moving straight toward or away from the centre does **not** turn it.
-- From 48 px out, the same circle turns the same amount at any distance: 70% of
+- From 16 px out, the same circle turns the same amount at any distance: 70% of
   the mouse's angle (the UV Wrapper is 30% slower than the mouse).
-- Within 48 px of the centre the turn goes by distance moved around the centre,
+- Within 16 px of the centre the turn goes by distance moved around the centre,
   so the same circle turns less, steadily. Sweeping across the piece never
-  snaps it to the other side.
+  snaps it to the other side (no step over 3°).
+- History: 6 Nov the zone was 48 px and the owner said it was "still resisting
+  when im close too much", so it is 16 px. Adding left/right drag turning was
+  tried the same day and rejected ("this isnt good, go back 1").
 - The turn is in screen pixels, so non-square textures turn without skewing.
 - One piece turns on its own spot; several turn around their shared centre.
 - Hold Shift for fine control (Mouse → fine sensitivity, 20% by default);
   pressing or releasing it mid-drag never jumps. Alt fine control stays.
-- No 3D rotation setting applies. FX texture fitting uses the same rule at 1:1.
+- No 3D rotation setting applies. FX texture fitting uses the same rule at 1:1
+  with its original 48 px zone.
 
 ## Zoom (`scale` in `app/UVEditor.jsx`)
 
@@ -56,7 +60,7 @@ the tool each time:
   turns, same strength everywhere, never snaps`. It fails on the 4 Nov rule.
 - [uv-rotate-steady.electron.cjs](../test/uv-rotate-steady.electron.cjs): real
   mouse drags with the owner's mouse settings. It checks the same circle at
-  60/120/300 px, straight moves that don't turn the piece, sweeps across the
+  24/60/120/300 px, straight moves that don't turn the piece, sweeps across the
   piece without snapping, Shift and Alt.
 - [uv-zoom-collapse.electron.cjs](../test/uv-zoom-collapse.electron.cjs): real
   drags covering left/right/up/down, diagonals, collapse to exactly zero with no

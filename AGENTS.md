@@ -78,7 +78,7 @@ separate and are not a shared handover.
 - Rotate has two settled rules; keep them apart. 3D editors use
   `src/rotation-drag.js` and the Mouse → Rotation settings. The UV Wrapper's
   Rotate and Zoom are **owner-locked** in [UV Rotate and Zoom](docs/UV-ROTATE-ZOOM.md):
-  Rotate turns only with movement around the centre (70%, steady within 48 px,
+  Rotate turns only with movement around the centre (70%, steady within 16 px,
   straight moves do not turn); Zoom grows right/up and shrinks left/down to
   exactly zero. Do not change either feel unless the owner explicitly asks for
   a new rule; fix complaints inside the rule and never edit the locked test
