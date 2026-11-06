@@ -8042,5 +8042,9 @@
   "Forge-hot plate": "Placa candente de forja",
   "Heat glow": "Brillo de calor",
   "Glowing seams": "Junturas incandescentes",
-  "Storm cloud": "Nube de tormenta"
+  "Storm cloud": "Nube de tormenta",
+  "Rotate X": "Rotar X",
+  "Rotate Y": "Rotar Y",
+  "Rotate Z": "Rotar Z",
+  "Drag to rotate. Hold Shift for fine control.": "Arrastra para rotar. Mantén Shift para un control fino."
 }

@@ -1,3 +1,4 @@
+import { Quaternion, Vector3 } from 'three';
 import { isTeamGlowLayer } from './texture-references.js';
 import { isWeaponName, nameSide, nameTokens } from './rig-names.js';
 import { clamp } from './math.js';
@@ -183,6 +184,21 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   const butt = at(buttT), place = ([t, u, w]) => butt.map((v, a) => v + size * (along[a] * t + side[a] * u + other[a] * w));
   const onAxis = f => f[1] === 0 && f[2] === 0 ? f[0] : f;
   return { start: place(from), end: place(to), butt, tip: at(tipT), parentId, from: onAxis(from), to: onAxis(to), frame: { along, side, other, size } };
+}
+
+/**
+ * The weapon glow turned `degrees` around a world `axis` (the Rotate handles at
+ * its middle): both ends swing around the middle of `line` (a glowLayout weapon,
+ * bind pose). `bone` is the weapon bone's current world rotation, which carries
+ * the world axis back into bind pose. Returns weaponFrom/weaponTo in the weapon frame.
+ */
+export function turnWeaponEnds(line, bone, axis, degrees) {
+  const { start, end, butt, frame: { along, side, other, size } } = line;
+  const inBind = new Vector3(...axis).applyQuaternion(new Quaternion().fromArray(bone).normalize().invert()).normalize();
+  const turn = new Quaternion().setFromAxisAngle(inBind, degrees * Math.PI / 180), mid = new Vector3(...start).add(new Vector3(...end)).multiplyScalar(.5);
+  const limits = [[-.5, 1.5], [-1, 1], [-1, 1]];
+  const coords = p => { const at = new Vector3(...p).sub(mid).applyQuaternion(turn).add(mid).sub(new Vector3(...butt)); return [along, side, other].map((unit, i) => clamp(at.dot(new Vector3(...unit)) / size, ...limits[i])); };
+  return { weaponFrom: coords(start), weaponTo: coords(end) };
 }
 
 const freeNodeName = (model, base) => uniqueName(base, new Set(allNodes(model).map(n => n.Name)));

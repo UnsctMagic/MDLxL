@@ -8032,5 +8032,9 @@
   "Forge-hot plate": "Раскалённые латы",
   "Heat glow": "Жаркое свечение",
   "Glowing seams": "Светящиеся швы",
-  "Storm cloud": "Грозовая туча"
+  "Storm cloud": "Грозовая туча",
+  "Rotate X": "Поворот X",
+  "Rotate Y": "Поворот Y",
+  "Rotate Z": "Поворот Z",
+  "Drag to rotate. Hold Shift for fine control.": "Перетащите, чтобы повернуть. Удерживайте Shift для точной настройки."
 }

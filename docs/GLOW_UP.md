@@ -11,6 +11,7 @@ Placement and size are dragged in the preview with EMTR's emitter handles
 | Edge of the ground outline | Spawn width handle | origin glow size |
 | Two ends of the weapon line | Ribbon edge handles | where the weapon glow starts and ends, free in the view plane (a spear tip: drag the start to the tip; a hammer or axe head: drag an end onto it, up to half a weapon past the tip) |
 | Corners of the Size square | Particle size corners | weapon glow square size |
+| X/Y/Z Rotate handles at the weapon line's middle | The main editor's Rotate gizmo (Settings → Rotate handles and Rotation speeds apply) | turns the weapon line around its middle in 3D, so it lies along a blade from one view (`turnWeaponEnds`) |
 
 Escape cancels a drag, arrow keys nudge a focused handle, and dragging a handle
 never moves the camera. **Origin brightness %** and **Weapon brightness %** are EMTR's own `ParticleSlider`. The

@@ -7901,5 +7901,9 @@
   "Forge-hot plate": "锻炉炽热板甲",
   "Heat glow": "炽热辉光",
   "Glowing seams": "发光接缝",
-  "Storm cloud": "风暴云"
+  "Storm cloud": "风暴云",
+  "Rotate X": "旋转 X",
+  "Rotate Y": "旋转 Y",
+  "Rotate Z": "旋转 Z",
+  "Drag to rotate. Hold Shift for fine control.": "拖动以旋转。按住 Shift 进行精细控制。"
 }
