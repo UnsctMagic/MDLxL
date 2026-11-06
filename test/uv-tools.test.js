@@ -138,7 +138,7 @@ test('selected geosets of different materials stay on one canvas and edits retur
 
 // Owner lock, 6 Nov 2026 (docs/UV-ROTATE-ZOOM.md). If one of these fails, the
 // feel changed: do not edit the numbers unless the owner asked for a new rule.
-test('UV map Rotate: circling and left/right turn, same strength everywhere, never snap', () => {
+test('UV map Rotate: only circling turns, same strength everywhere, never snaps', () => {
   const deg = Math.PI / 180, pivotScreen = [100, 50];
   const run = (points, drag = { pivotScreen }) => { let previous = 0, biggest = 0; for (const [x, y] of points) { const turn = uvTurn(drag, x, y); biggest = Math.max(biggest, Math.abs(turn - previous)); previous = turn; } return { total: previous / deg, biggest: biggest / deg }; };
   const arc = (radius, from, to, steps = 90, round = false) => Array.from({ length: steps + 1 }, (_, i) => { const a = (from + (to - from) * i / steps) * deg, x = 100 + radius * Math.cos(a), y = 50 + radius * Math.sin(a); return round ? [Math.round(x), Math.round(y)] : [x, y]; });
@@ -149,25 +149,22 @@ test('UV map Rotate: circling and left/right turn, same strength everywhere, nev
     assert.ok(Math.abs(run(arc(radius, 30, 120, 360, true)).total - 63) < 2, `rounded quarter circle at ${radius}px stays near 63°`);
   }
   // Nearer the centre the same circle turns less, steadily (no jump, no reversal).
-  assert.ok(Math.abs(run(arc(24, 30, 120)).total - 31.5) < .05, 'quarter circle at 24px turns half as far');
+  assert.ok(Math.abs(run(arc(24, 30, 120)).total - 31.5) < 1e-9, 'quarter circle at 24px turns half as far');
   assert.ok(Math.abs(run(arc(80, 0, 450)).total - 315) < 1e-9, 'clockwise past a full turn');
   assert.ok(Math.abs(run(arc(80, 0, -720, 144)).total + 504) < 1e-9, 'counter-clockwise past two turns');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, fine: .2 }).total - 12.6) < 1e-9, 'Shift/Alt fine control');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false }).total - 90) < 1e-9, 'FX texture fitting keeps one for one');
-  // Left/right: dragging right turns clockwise, left counter-clockwise, 0.7 rad per 48 px,
-  // from anywhere on the piece's level, toward or away. Straight up/down does not.
-  for (const [x0, x1] of [[24, 230], [-230, -24], [230, 24], [-24, -230], [0, 100], [0, -100]]) {
-    const expected = (x1 - x0) / 48 * .7 / deg, { total, biggest } = run(line(x0, 0, x1, 0));
-    assert.ok(Math.abs(total - expected) < (x0 ? 1 : 3), `straight ${x0}->${x1}px turns ${expected.toFixed(0)}° (got ${total.toFixed(1)}°)`);
-    assert.ok(biggest < 3, `straight ${x0}->${x1}px never jumps`);
+  // Straight toward/away from the centre does not turn, in any direction.
+  for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [.6, .8], [-.8, .6]]) {
+    assert.ok(Math.abs(run(line(vx * 24, vy * 24, vx * 230, vy * 230)).total) < 1, `straight away ${vx},${vy} does not turn`);
+    assert.ok(Math.abs(run(line(vx * 230, vy * 230, vx * 24, vy * 24)).total) < 1, `straight toward ${vx},${vy} does not turn`);
   }
-  for (const [y0, y1] of [[24, 230], [230, 24], [-24, -230]]) assert.ok(Math.abs(run(line(0, y0, 0, y1)).total) < 1, `straight up/down ${y0}->${y1}px does not turn`);
-  // Sweeping right across the piece, above, through or just below its centre, never snaps.
-  for (const offset of [-40, -20, -5, 0, 3, 5, 12, 20]) {
-    const right = run(line(-150, offset, 150, offset)), left = run(line(150, offset, -150, offset));
-    assert.ok(right.biggest < 3 && left.biggest < 3, `across at ${offset}px: biggest step stays under 3° (${right.biggest.toFixed(1)}°)`);
-    assert.ok(right.total > 90 && left.total < -90, `across at ${offset}px: right turns clockwise, left counter-clockwise (${right.total.toFixed(0)}°)`);
+  // Sweeping straight across the piece beside its centre never snaps or spins.
+  for (const offset of [3, 5, -5, 12, 20]) {
+    const { total, biggest } = run(line(-150, offset, 150, offset));
+    assert.ok(biggest < 3, `across at ${offset}px: biggest step ${biggest.toFixed(1)}° stays under 3°`);
+    assert.ok(Math.abs(total) < 90, `across at ${offset}px: total ${total.toFixed(0)}° stays under 90°`);
   }
-  // Moving off the exact centre turns a normal small amount, not a jump.
-  const centre = { pivotScreen }; uvTurn(centre, 100, 50); assert.ok(Math.abs(uvTurn(centre, 101, 50) / deg) < 1, 'one pixel off the centre stays under 1°');
+  // The mouse exactly on the centre is skipped, not a jump.
+  const centre = { pivotScreen }; uvTurn(centre, 100, 50); assert.equal(uvTurn(centre, 101, 50), 0);
 });

@@ -7,43 +7,27 @@ const UV_TURN_SENSITIVITY = 0.7;
 /** Within this many pixels of the centre the turn goes by distance moved
  * around the centre, not by angle, so passing over the piece never snaps it. */
 const UV_TURN_STEADY = 48;
-/** FX texture fitting skips samples this close to the centre. */
+/** The mouse exactly on the centre has no direction; skip that sample. */
 const UV_TURN_CENTRE = 2;
 
-/** UV Rotate, owner-locked (see docs/UV-ROTATE-ZOOM.md). Each mouse step has two
- * parts. Around the centre: circling follows the mouse at the same strength at
- * any distance; within 48 px it goes by pixels moved around the centre, so
- * passing over the piece never snaps it. Left/right: the share of the step that
- * moves straight toward/away from the centre turns right = clockwise, left =
- * counter-clockwise, one radian per 48 px. Both run at the wrapper's 70%.
- * Shift/Alt fine control scale each step (`drag.fine`). FX texture fitting
- * (`wrapperControls === false`) keeps its original 1:1 circling only.
- * Call at drag start and on every sample. */
+/** UV Rotate, owner-locked (see docs/UV-ROTATE-ZOOM.md). Only movement AROUND
+ * the selection's centre turns it: circling follows the mouse at the same
+ * strength at any distance; moving straight toward or away does nothing.
+ * Near the centre the same circling gives a steady, smaller turn instead of a
+ * jump. The wrapper turns at 70%; FX texture fitting keeps 100%. Shift/Alt fine
+ * control scale each step (`drag.fine`). Call at drag start and on every sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
-  if (drag.wrapperControls === false) {
-    if (radius < UV_TURN_CENTRE) return drag.turn;
-    const angle = Math.atan2(py, px);
-    if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / UV_TURN_STEADY, drag.radius / UV_TURN_STEADY) * (drag.fine ?? 1);
-    drag.angle = angle; drag.radius = radius;
-    return drag.turn;
+  if (radius < UV_TURN_CENTRE) return drag.turn;
+  const angle = Math.atan2(py, px);
+  if (drag.angle !== undefined) {
+    const step = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
+    const steady = Math.min(1, radius / UV_TURN_STEADY, drag.radius / UV_TURN_STEADY);
+    // FX texture fitting also uses UVEditor and keeps its original 1:1 speed.
+    drag.turn += step * steady * (drag.wrapperControls === false ? 1 : UV_TURN_SENSITIVITY) * (drag.fine ?? 1);
   }
-  if (drag.px !== undefined) {
-    const qx = drag.px, qy = drag.py, previous = drag.radius, dx = px - qx, dy = py - qy;
-    const cross = qx * py - qy * px;
-    // Far out: the exact angle. Near the centre: pixels moved around it / 48,
-    // which is zero for a pass straight through the centre (no flip). Each part
-    // is at most the step's own length / 48, so no step can jump.
-    const around = Math.min(radius, previous) >= UV_TURN_STEADY - 1e-6
-      ? Math.atan2(cross, qx * px + qy * py) : cross / (Math.max(radius, previous, 1e-9) * UV_TURN_STEADY);
-    // Straight toward/away share of this step, along its average direction.
-    // A step over the exact centre has no direction: count it all as left/right.
-    const ux = px + qx, uy = py + qy, length = Math.hypot(ux, uy);
-    const sideways = length < 1 ? dx : (dx * ux + dy * uy) / length * ux / length;
-    drag.turn += (around + sideways / UV_TURN_STEADY) * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
-  }
-  drag.radius = radius; drag.px = px; drag.py = py;
+  drag.angle = angle; drag.radius = radius;
   return drag.turn;
 }
 

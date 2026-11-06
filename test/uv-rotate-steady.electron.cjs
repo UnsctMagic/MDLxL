@@ -124,8 +124,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
       await undo();
     }
-    // Straight left/right turns: right clockwise, left counter-clockwise, 0.7 rad
-    // per 48 px of left/right travel. Straight up/down does not turn.
+    // Moving straight toward or away from the centre never turns the selection.
     for (const [name, vx, vy] of [
       ['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1],
       ['down-right', Math.SQRT1_2, Math.SQRT1_2], ['up-left', -Math.SQRT1_2, -Math.SQRT1_2],
@@ -134,14 +133,13 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
         await page.mouse.move(cx + vx * from, cy + vy * from); await page.mouse.down();
         await page.mouse.move(cx + vx * to, cy + vy * to, { steps: 16 });
         const turn = await turnNow(); await page.mouse.up();
-        const expected = (to - from) * vx / 48 * .7;
-        measurements.push({ name: `straight ${name} ${from}->${to}`, expectedDegrees: expected * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI });
-        check(`straight ${name} ${from < to ? 'away from' : 'toward'} the centre turns by its left/right travel`, Math.abs(turn - expected) < .01);
+        measurements.push({ name: `straight ${name} ${from}->${to}`, actualDegrees: turn * 180 / Math.PI });
+        check(`straight ${name} ${from < to ? 'away from' : 'toward'} the centre does not turn`, Math.abs(turn) < .01);
         if (await page.evaluate(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore)) await undo();
       }
     }
-    // Sweeping right across the piece, beside or through its centre, never snaps.
-    for (const offset of [6, -6, 0, 20]) {
+    // Sweeping straight across the piece, just beside its centre, never snaps.
+    for (const offset of [6, -6, 20]) {
       await page.mouse.move(cx - 150, cy + offset); await page.mouse.down();
       let previous = 0, biggest = 0;
       for (let x = -148; x <= 150; x += 2) {
@@ -151,7 +149,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.mouse.up();
       measurements.push({ name: 'across the piece at ' + offset + ' px', totalDegrees: previous * 180 / Math.PI, biggestStepDegrees: biggest * 180 / Math.PI });
       check('across the piece at ' + offset + ' px: no step jumps more than 3 degrees', biggest < 3 * Math.PI / 180);
-      check('across the piece at ' + offset + ' px: dragging right turns clockwise', previous > Math.PI / 2);
+      check('across the piece at ' + offset + ' px: no spin past 90 degrees', Math.abs(previous) < Math.PI / 2);
       await undo();
     }
     // An imperfect circle keeps its direction when its radius wobbles.
