@@ -6,9 +6,10 @@ const uniqueIndices = values => [...new Set(Array.from(values || []).filter(fini
 const UV_TURN_SENSITIVITY = 0.7;
 /** Within this many pixels of the centre the turn goes by distance moved
  * around the centre, not by angle, so passing over the piece never snaps it.
- * The wrapper uses 16 px (owner, 6 Nov: 48 px resisted too much up close);
+ * The wrapper uses 24 px (owner, 6 Nov: 48 px resisted too much up close,
+ * 16 px wanted "a lil bit more smooth");
  * FX texture fitting keeps its original 48 px. */
-const UV_TURN_STEADY = 16, FX_TURN_STEADY = 48;
+const UV_TURN_STEADY = 24, FX_TURN_STEADY = 48;
 /** The mouse exactly on the centre has no direction; skip that sample. */
 const UV_TURN_CENTRE = 2;
 

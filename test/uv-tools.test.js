@@ -143,13 +143,13 @@ test('UV map Rotate: only circling turns, same strength everywhere, never snaps'
   const run = (points, drag = { pivotScreen }) => { let previous = 0, biggest = 0; for (const [x, y] of points) { const turn = uvTurn(drag, x, y); biggest = Math.max(biggest, Math.abs(turn - previous)); previous = turn; } return { total: previous / deg, biggest: biggest / deg }; };
   const arc = (radius, from, to, steps = 90, round = false) => Array.from({ length: steps + 1 }, (_, i) => { const a = (from + (to - from) * i / steps) * deg, x = 100 + radius * Math.cos(a), y = 50 + radius * Math.sin(a); return round ? [Math.round(x), Math.round(y)] : [x, y]; });
   const line = (x0, y0, x1, y1, steps = 300) => Array.from({ length: steps + 1 }, (_, i) => [Math.round(100 + x0 + (x1 - x0) * i / steps), Math.round(50 + y0 + (y1 - y0) * i / steps)]);
-  // Same quarter circle, same 70% turn at any distance from 16 px out, even on whole pixels.
-  for (const radius of [16, 24, 48, 60, 100, 300]) {
+  // Same quarter circle, same 70% turn at any distance from 24 px out, even on whole pixels.
+  for (const radius of [24, 48, 60, 100, 300]) {
     assert.ok(Math.abs(run(arc(radius, 30, 120)).total - 63) < 1e-9, `quarter circle at ${radius}px turns 63°`);
     assert.ok(Math.abs(run(arc(radius, 30, 120, 360, true)).total - 63) < 2, `rounded quarter circle at ${radius}px stays near 63°`);
   }
   // Nearer the centre the same circle turns less, steadily (no jump, no reversal).
-  assert.ok(Math.abs(run(arc(8, 30, 120)).total - 31.5) < 1e-9, 'quarter circle at 8px turns half as far');
+  assert.ok(Math.abs(run(arc(12, 30, 120)).total - 31.5) < 1e-9, 'quarter circle at 12px turns half as far');
   assert.ok(Math.abs(run(arc(80, 0, 450)).total - 315) < 1e-9, 'clockwise past a full turn');
   assert.ok(Math.abs(run(arc(80, 0, -720, 144)).total + 504) < 1e-9, 'counter-clockwise past two turns');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, fine: .2 }).total - 12.6) < 1e-9, 'Shift/Alt fine control');

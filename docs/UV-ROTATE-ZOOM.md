@@ -28,13 +28,14 @@ the tool each time:
 - Only movement **around** the selection's centre turns it. Circling clockwise
   turns clockwise, counter-clockwise turns counter-clockwise, past full turns.
 - Moving straight toward or away from the centre does **not** turn it.
-- From 16 px out, the same circle turns the same amount at any distance: 70% of
+- From 24 px out, the same circle turns the same amount at any distance: 70% of
   the mouse's angle (the UV Wrapper is 30% slower than the mouse).
-- Within 16 px of the centre the turn goes by distance moved around the centre,
+- Within 24 px of the centre the turn goes by distance moved around the centre,
   so the same circle turns less, steadily. Sweeping across the piece never
   snaps it to the other side (no step over 3°).
 - History: 6 Nov the zone was 48 px and the owner said it was "still resisting
-  when im close too much", so it is 16 px. Adding left/right drag turning was
+  when im close too much"; 16 px was then "a lil bit" less smooth
+  than wanted, so it is 24 px. Adding left/right drag turning was
   tried the same day and rejected ("this isnt good, go back 1").
 - The turn is in screen pixels, so non-square textures turn without skewing.
 - One piece turns on its own spot; several turn around their shared centre.
