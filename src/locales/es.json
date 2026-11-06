@@ -8046,5 +8046,10 @@
   "Rotate X": "Rotar X",
   "Rotate Y": "Rotar Y",
   "Rotate Z": "Rotar Z",
-  "Drag to rotate. Hold Shift for fine control.": "Arrastra para rotar. Mantén Shift para un control fino."
+  "Drag to rotate. Hold Shift for fine control.": "Arrastra para rotar. Mantén Shift para un control fino.",
+  "Calculate extents": "Calcular límites",
+  "Calculate extents ({0} broken)": "Calcular límites ({0} rotos)",
+  "Rebuilds the boxes the game uses for the health bar height, clicking and hiding the unit at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes are left out.": "Recalcula las cajas que el juego usa para la altura de la barra de vida, la selección con clic y ocultar la unidad en el borde de la pantalla. Se omiten el brillo de héroe, los fondos de retrato y las mallas de efectos brillantes.",
+  "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes (geosets {0}) are left out. Meshes, keys and visibility stay unchanged.": "Recalcula los límites del modelo, de las animaciones y de los geosets a partir del modelo y su animación muestreada. Determinan la altura de la barra de vida, el área de clic y cuándo se oculta la unidad en el borde de la pantalla. Se omiten el brillo de héroe, los fondos de retrato y las mallas de efectos brillantes (geosets {0}). Las mallas, las claves y la visibilidad no cambian.",
+  "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Meshes, keys and visibility stay unchanged.": "Recalcula los límites del modelo, de las animaciones y de los geosets a partir del modelo y su animación muestreada. Determinan la altura de la barra de vida, el área de clic y cuándo se oculta la unidad en el borde de la pantalla. Las mallas, las claves y la visibilidad no cambian."
 }
