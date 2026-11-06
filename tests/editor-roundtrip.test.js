@@ -203,9 +203,9 @@ test('sparse pivot IDs and unused authored pivots survive rename, creation, dele
   d.apply('new',['Helpers'],m=>{assert.equal(createNode(m,'Helper').ObjectId,4);});d.undo();assert.deepEqual(load(d.serialize()).model.PivotPoints,r.model.PivotPoints);
   d.apply('delete',['Helpers'],m=>{deleteNode(m,2);});r=load(d.serialize());assert.equal(r.model.PivotPoints.length,4);assert.deepEqual(r.model.PivotPoints[3],f(10,11,12));
 });
-test('unknown nested MDL properties cannot disappear from a successful save',()=>{
+test('unknown nested MDL properties that would disappear are reported, never block the save',()=>{
   const d=load('Version {FormatVersion 800,} Model "unknown" {CustomField 42,}');
-  d.apply('name',['Info'],m=>{m.Info.Name='new';});assert.throws(()=>d.serialize(),/CustomField/);
+  d.apply('name',['Info'],m=>{m.Info.Name='new';});assert(d.serialize().length);assert.match(d.lastSaveWarnings.join(' '),/CustomField/);
 });
 
 test('non-finite authored numbers survive an unrelated edit and MDL regeneration',()=>{
@@ -245,8 +245,8 @@ test('unknown sound nodes and non-triangle geometry stay exact-copy read-only',(
   const b=Buffer.concat([fixture(),chunk('SNEM',Buffer.alloc(0))]),d=openDocument(b);assert.equal(d.readOnly,true);assert.deepEqual(Buffer.from(d.serialize()),b);
   const g=alter(fixture(),'GEOS',p=>{const at=p.indexOf(Buffer.from('PTYP'));p.writeUInt32LE(5,at+8);return p;}),r=openDocument(g);assert.equal(r.readOnly,true);assert.deepEqual(Buffer.from(r.serialize()),g);
 });
-test('conversion rejects binary-only authored data rather than deleting it',()=>{
-  const b=alter(fixture(),'MODL',p=>{p.write('external.mdx',80);return p;});assert.throws(()=>load(b).serialize('mdl'),/AnimationFile/);
+test('conversion that drops binary-only authored data saves and reports it',()=>{
+  const b=alter(fixture(),'MODL',p=>{p.write('external.mdx',80);return p;});const d=load(b);assert(d.serialize('mdl').length);assert.match(d.lastSaveWarnings.join(' '),/AnimationFile/);
 });
 
 for(const version of [800,900,1000,1100,1200,1300,1400,1600,1800])test(`v${version} edited material tracks survive full-document MDX saves`,()=>{

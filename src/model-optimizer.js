@@ -239,7 +239,7 @@ export function analyzeOptimization(doc, { vertexOnly = false } = {}) {
   temporary.apply('Analyze optimization', OPTIMIZER_SECTIONS, model => { vertices(model, counts, skipped); if (!vertexOnly) { transforms(model, counts, skipped); resources(model, counts, skipped); } });
   verifyOptimization(doc.model, temporary.model);
   verifyChangedChunkCoverage(doc, beforeBytes, baseline.model, temporary.model);
-  const afterBytes = temporary.serialize('mdx'), reopened = openDocument(afterBytes, 'optimization-after.mdx');
+  const afterBytes = temporary.serialize('mdx', { strict: true }), reopened = openDocument(afterBytes, 'optimization-after.mdx');
   if (reopened.readOnly || reopened.version !== 800) throw Error('The optimized MDX could not be reopened without changing version.');
   assertRoundTripFields(temporary.model, reopened.model);
   verifyOptimization(baseline.model, reopened.model);

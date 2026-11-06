@@ -256,6 +256,17 @@ test('injected real changes remain failures; reporting counts all differences an
   assert.throws(() => assertModelEquivalent(a, b), e => e.message.length < 700 && /10000 fields/.test(e.message));
 });
 
+test('a colour that stops being animated loses its stored base, and saves cleanly', () => {
+  // TzeentchChampion: the base stayed behind and blocked every save.
+  const doc = fixture(); hide(doc);
+  const track = { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: new Float32Array([1, 0, 0]) }] };
+  doc.apply('Animate colour', ['GeosetAnims'], m => { m.GeosetAnims[0].Color = track; m.GeosetAnims[0].Flags |= 2; m.GeosetAnims[0]._MdxDefaults = { ...m.GeosetAnims[0]._MdxDefaults, Color: new Float32Array([0.7, 0.3, 1]) }; });
+  assert(doc.model.GeosetAnims[0]._MdxDefaults?.Color, 'an animated colour keeps its base');
+  doc.apply('Static colour', ['GeosetAnims'], m => { m.GeosetAnims[0].Color = new Float32Array([0.35, 0.7, 1]); });
+  assert.equal(doc.model.GeosetAnims[0]._MdxDefaults?.Color, undefined);
+  for (const format of ['mdx', 'mdl']) { doc.serialize(format); assert.deepEqual(doc.lastSaveWarnings, []); }
+});
+
 function nodeWorker(counter) {
   counter.count++;
   const url = new URL('../app/model-save.worker.js', import.meta.url).href;
@@ -268,14 +279,14 @@ function nodeWorker(counter) {
   return adapter;
 }
 
-test('real save worker coalesces repeated attempts, retains failure edits and recovers for a subsequent save', async () => {
+test('real save worker coalesces repeated attempts, saves despite a verification warning and saves again', async () => {
   const counter = { count: 0 }, doc = fixture(); hide(doc);
-  // An unknown Helper flag bit has no MDL spelling, so MDL verification rejects it.
+  // An unknown Helper flag bit has no MDL spelling: the save still goes through, with a warning.
   doc.apply('Unknown helper flag', ['Helpers'], model => { model.Helpers[0].Flags |= 0x8000; });
   const before = structuredClone(doc.model), history = doc.historyStats;
-  const failed = prepareModelSaveAsync(doc, 'mdl', doc.name, () => nodeWorker(counter));
-  assert.equal(prepareModelSaveAsync(doc, 'mdl'), failed);
-  await assert.rejects(failed, /1 field: Helpers\[0\]\.Flags/);
+  const warned = prepareModelSaveAsync(doc, 'mdl', doc.name, () => nodeWorker(counter));
+  assert.equal(prepareModelSaveAsync(doc, 'mdl'), warned);
+  assert.match((await warned).notes.join(' '), /1 field: Helpers\[0\]\.Flags/);
   assert.equal(counter.count, 1); assert.deepEqual(doc.model, before); assert.deepEqual(doc.historyStats, history); assert(doc.dirty);
   const result = await prepareModelSaveAsync(doc, 'mdx', doc.name, () => nodeWorker(counter));
   assert.equal(counter.count, 2); assertModelEquivalent(before, openDocument(result.bytes, result.name).model);
