@@ -167,10 +167,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // The map is flat: the selection follows the mouse around its centre at
-      // the same UV-only rate, near or far. The 3D editors' rotation settings never apply here.
+      // Owner-locked Rotate and Zoom: docs/UV-ROTATE-ZOOM.md. The 3D editors'
+      // rotation settings never apply here.
       if (type === 'scale' && p.wrapperControls) {
-        s.drag.scaleDX = 0; s.drag.scaleX = x;
+        s.drag.scaleDX = 0; s.drag.scaleX = x; s.drag.scaleY = y;
         s.drag.shiftFine = event.altKey ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
       }
       if (type === 'rotate') {
@@ -198,9 +198,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         uvTurn(s.drag, rawEnd.x, rawEnd.y);
       }
       if (s.drag.type === 'scale' && current.current.wrapperControls) {
+        // Like Movement's Resize: right/up grows, left/down shrinks (screen y is down).
         // Shift may change between frames: retain each weighted movement, redraw once.
-        s.drag.scaleDX += (rawEnd.x - s.drag.scaleX) * s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1);
-        s.drag.scaleX = rawEnd.x;
+        s.drag.scaleDX += ((rawEnd.x - s.drag.scaleX) - (rawEnd.y - s.drag.scaleY)) * s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1);
+        s.drag.scaleX = rawEnd.x; s.drag.scaleY = rawEnd.y;
       }
       s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
     }

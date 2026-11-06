@@ -27,6 +27,7 @@ The prototype includes pinned size/spawn/aim/spread handles; life samples and na
 | Shared native runtime, frame lifecycle and authoring integration | `app/GamePreview.jsx` |
 | Pinned war3-model 4.0.1 private-runtime compatibility, replay and picking | `app/particle-preview-adapter.js` |
 | Direct handles and sweep tools | `app/ParticleStageTools.jsx`, `src/particle-handles.js`, `app/ParticleSweepTools.jsx` (removed), `src/particle-sweep.js` |
+| Rotate handles in stage previews | `app/StageRotate.jsx` (`useStageRotate`: the main editor's Rotate gizmo from `app/movement-overlay.js`, drawn and driven identically; replaces the old two-way Aim dot); emitter/ribbon Rotation via `turnLocalRotation` in `src/rotation-math.js`; Glow Up via `turnWeaponEnds` in `src/glow-up.js` |
 | Ghost placement and temporary inspection | `app/ParticlePlacementStage.jsx`, `app/ParticleTestView.jsx`, `app/ParticleIngredients.jsx` |
 | Marked weapon polygons, native ribbon fit and detected binding | `src/particle-ribbon-fit.js`, `app/ParticlePlacementControls.jsx` |
 | CASC index and exact-source dependency resolution | `electron/particle-library-worker.mjs`, `electron/particle-source.cjs` |

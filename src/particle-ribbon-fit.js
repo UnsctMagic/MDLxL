@@ -1,6 +1,39 @@
 import {Vector3,Quaternion} from 'three';
 import {createStarterRecipe} from './particle-starters.js';
 import {particleVertexSelection} from './particle-selection.js';
+import {sampleNodeMatrices} from './animation.js';
+
+// Native weapon ribbons store their tint as written; the most common is this orange.
+export const NATIVE_RIBBON_COLOR=[1,.64,0];
+
+/**
+ * The part of a clip where the weapon actually swings, as native ribbons are keyed:
+ * visible from the first to the last moment the fitted edge moves fast, hidden
+ * through the wind-up and recovery. A weapon that barely moves keeps the whole clip.
+ */
+export function ribbonSwingWindow(model,sequenceIndex,parentId,endpoints){
+ const clip=model.Sequences?.[sequenceIndex];if(!clip)return null;
+ const [start,end]=clip.Interval,length=end-start;if(!(length>0))return null;
+ const steps=Math.max(8,Math.min(120,Math.round(length/33))),points=endpoints.map(point=>new Vector3(...point));
+ const sample=frame=>{const matrix=parentId==null?null:sampleNodeMatrices(model,frame,sequenceIndex).get(parentId);return points.map(point=>matrix?point.clone().applyMatrix4(matrix):point.clone());};
+ const speeds=[];let previous=sample(start);
+ for(let i=1;i<=steps;i++){const next=sample(start+length*i/steps);speeds.push(Math.max(...next.map((point,k)=>point.distanceTo(previous[k]))));previous=next;}
+ const peak=Math.max(...speeds),reach=points[0].distanceTo(points[1])||1;
+ // Under a tenth of the blade per sample at the fastest moment is not a swing.
+ if(!(peak>reach*.1))return [start,end];
+ // Unbroken fast bursts are strikes. The strongest one, and any other nearly as
+ // strong (a double strike), are shown; the wind-up and smaller moves stay hidden.
+ // Speed i covers step i to i+1.
+ const bursts=[];
+ for(let i=0;i<speeds.length;i++){if(speeds[i]<peak*SWING_SHARE)continue;const from=i;let top=0;while(i<speeds.length&&speeds[i]>=peak*SWING_SHARE)top=Math.max(top,speeds[i++]);bursts.push({from,to:i,top});}
+ const strikes=bursts.filter(burst=>burst.top>=peak*STRIKE_SHARE);
+ // Keep it on a little after the strike so the trail fades out instead of being cut.
+ const from=Math.round(start+length*strikes[0].from/steps),to=Math.round(Math.min(end,start+length*(strikes.at(-1).to/steps+SWING_TAIL)));
+ return to>from?[from,to]:[start,end];
+}
+// Fitted to the hand-keyed windows of Blademaster, Hellscream, Arthas, Paladin,
+// Tauren Chieftain, Pit Lord, Crypt Lord, Garithos and a community Tzeentch Champion.
+const SWING_SHARE=.25,STRIKE_SHARE=.7,SWING_TAIL=.15;
 
 /** Only complete marked polygons contribute; unrelated selected vertices do not. */
 export function ribbonPolygonSelection(model,selection={}){
@@ -40,8 +73,11 @@ export function fitRibbonToPolygons(model,selection){
  const {center,axis,length}=frame;
  const recipe=createStarterRecipe('ribbon'),ribbon=recipe.native.RibbonEmitters[0];
  recipe.name='Weapon ribbon';recipe.id='weapon-ribbon';ribbon.Name='Weapon ribbon';
- // The stock ribbon picture stores its soft edge in alpha; AddAlpha retains it.
- recipe.native.Materials[0].Layers[0].FilterMode=4;
+ // Blizzard's weapon trails (Blademaster, Hellscream, Chaos Blademaster and the
+ // models built on them): RibbonBlur1, Additive, a faint tinted strip and a
+ // short life, so the swing reads as a smear rather than a solid white sheet.
+ recipe.native.Materials[0].Layers[0].FilterMode=3;
+ Object.assign(ribbon,{Alpha:.35,Color:new Float32Array(NATIVE_RIBBON_COLOR),LifeSpan:.35,EmissionRate:35});
  ribbon.PivotPoint=new Float32Array(center.toArray());recipe.native.PivotPoints[ribbon.ObjectId]=ribbon.PivotPoint;
  ribbon.HeightAbove=ribbon.HeightBelow=length/2;
  ribbon.Rotation={LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array(new Quaternion().setFromUnitVectors(new Vector3(0,1,0),axis).toArray())}]};

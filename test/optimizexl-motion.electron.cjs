@@ -11,7 +11,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
  // the single fix, test/helpers/hive.mjs sanityTest): 123.74 KB; finding motion:4:21:Rotation "Death: irregular movement
  // (Flail_Head)" in sequence 4 (Death, 34333-37667) at frame 34855, detail "Remove keyed jitter from Death. Replace the affected
  // rotation only; ..."; its preview changes exactly the Flail_Head Rotation key at 34856. Insanity FIxer: 0 errors / 0 severe /
- // 26 warnings / 0 notices, all repaired by the one invalidBounds proposal. Existing collision spheres equal the Standard preset
+ // 26 warnings / 0 notices, all repaired by the one extents proposal. Existing collision spheres equal the Standard preset
  // (out/fixture-scan/spheres.mjs), so they are valid. Playback must pass frame 34938, 83 frames after the finding, as 250 was
  // 83 after 167 in the original.
  const KB='123.74 KB',warning='Death: irregular movement (Flail_Head)',ID='motion:4:21:Rotation',SEQUENCE='4',FRAME='34855',NODE='Flail_Head',PROPERTY='Rotation',CHANGED=[34856],PLAYED=34938;
@@ -52,7 +52,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
   await originalUnchanged();
   // Since 3a5c89a4 the Insanity FIxer is the first stage, so approving Unused data moves on to the Irregularities Fixer; the
   // user opens the Insanity FIxer from the stage list. Its clean message changed then to "...Choose Next stage to continue."
-  await stage('Insanity FIxer');await p.getByLabel('Proposed fix',{exact:true}).selectOption('invalidBounds');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));await p.getByRole('button',{name:'Approve',exact:true}).click();await p.getByText('No mdx-m3-viewer issues found. Choose Next stage to continue.',{exact:true}).waitFor();assert.equal(await p.getByLabel('Proposed fix',{exact:true}).count(),0);assert.equal(await p.getByText(/remain for manual editing/).count(),0);await p.screenshot({path:path.join(out,'sanity-clean.png')});
+  await stage('Insanity FIxer');await p.getByLabel('Proposed fix',{exact:true}).selectOption('extents');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));await p.getByRole('button',{name:'Approve',exact:true}).click();await p.getByText('No mdx-m3-viewer issues found. Choose Next stage to continue.',{exact:true}).waitFor();assert.equal(await p.getByLabel('Proposed fix',{exact:true}).count(),0);assert.equal(await p.getByText(/remain for manual editing/).count(),0);await p.screenshot({path:path.join(out,'sanity-clean.png')});
   await originalUnchanged();await stagesReady();assert.equal(await noStar('Insanity FIxer'),0);assert.equal(await noStar('Sphereomancer'),0);assert.equal(await noStar('Unused data'),0);
   await stage('Duplicate data');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));assert.equal(await p.getByText('Review only — no correction proposed.',{exact:true}).count(),0);assert.equal(await p.getByRole('button',{name:'Approve',exact:true}).isEnabled(),true);
   await originalUnchanged();assert.ok((await p.locator('.ox-savings span').textContent()).startsWith(KB+' → '));

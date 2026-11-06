@@ -237,6 +237,8 @@ For PE2, expose emission window, particle size, lasting time, spread, and streak
 
 A ribbon's strip follows its emitted history. A frozen source can therefore be a poor test of a moving trail; offer source motion or an explicitly preview-only demonstration sweep in Lab. Do not export that demonstration path unintentionally.
 
+**Add ribbon follows native weapon trails** (owner, 6 November 2026, from a community Tzeentch Champion whose ribbon looked better than ours). Every SD weapon ribbon (Blademaster, Hellscream, Arthas, Paladin, Tauren Chieftain, Pit Lord, Crypt Lord, Garithos) uses `RibbonBlur1` with Additive blending, a faint tinted strip (alpha 0.2–0.35, never plain white), a 0.1–0.35 s life, and is visible only during the strike. A fitted ribbon therefore starts as the Blademaster template: Additive, alpha 0.35, orange `[1, 0.64, 0]`, life 0.35, rate 35. In each checked animation `ribbonSwingWindow` shows it from the start of the fast strike (the unbroken burst above 25% of the peak edge speed, plus any other burst at least 70% as strong) until 15% of the clip after it; a weapon that barely moves keeps the whole animation. Measured against the hand-keyed native windows, the detected edges land on average within 8% of the clip. Colour, strength and life are changed afterwards in the Ribbon box, and the window with the existing key track.
+
 ### 9.5 Reproducible scrubbing
 
 Use deterministic seeded simulation for authoring comparisons, without making the preview seed a fictional Warcraft property. Backward seeking must reconstruct state by replay/checkpoints, not integrate with negative delta time.
@@ -391,7 +393,7 @@ A copied recipe must remap ObjectIds, parents, PivotPoints, TextureIDs, Material
 
 Import only the necessary effect dependency graph. Do not silently transplant an entire unit skeleton or overwrite a target animation because that was easier than isolating the effect. Use an explicit anchor wrapper and preserve internal relative motion where appropriate.
 
-Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons. Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion when a bone/helper/attachment is inferred. With no parent, retain the source helper motion. A model with animations requires at least one checked clip, and every selected/retiming interval must have positive duration. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
+Map the source's local timing to the whole of each checked animation; write visibility at every clip boundary as for ribbons (a fitted weapon ribbon is further limited to the swing, §9.4). Global loops remain global and unrelated target animation stays unchanged. Shorter visibility windows are edited after Create with the existing key track and setEmitterSpans. Placement uses target attachment motion when a bone/helper/attachment is inferred. With no parent, retain the source helper motion. A model with animations requires at least one checked clip, and every selected/retiming interval must have positive duration. Test transformed and nonuniformly scaled parents; explain unsupported transformations in the panel.
 
 See [R1–R9 and packaged P1–P10](../agent-tasks/emtr-add-like-ribbons.md) for the owner acceptance path.
 

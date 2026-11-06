@@ -635,7 +635,7 @@ export class AiEditorBridge {
       // own format, and MDX too when it can convert (AI checkpoints use MDX).
       try {
         for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
-          doc.serialize(format);
+          doc.serialize(format, { strict: true });
       } catch (error) {
         if (now.live) await host.command('undo');
         else {

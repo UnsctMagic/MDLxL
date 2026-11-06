@@ -7,7 +7,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  const {CascReader}=require('../electron/casc.cjs'),reader=new CascReader(await gameFolder(),root);let bytes;
  try{bytes=await reader.read('war3.w3mod:units\\orc\\heroblademaster\\heroblademaster.mdx');}finally{reader.close();}
  const fixture=path.join(out,'Blademaster.mdx');await fs.writeFile(fixture,bytes);
- const {openDocument}=await import('../src/editor-document.js'),{fitRibbonToPolygons}=await import('../src/particle-ribbon-fit.js'),{Vector3,Matrix4}=await import('three');
+ const {openDocument}=await import('../src/editor-document.js'),{fitRibbonToPolygons,ribbonSwingWindow}=await import('../src/particle-ribbon-fit.js'),{Vector3,Matrix4}=await import('three');
  const original=openDocument(bytes,fixture).model,selection={3:[11,12,9,13,14]},expected=fitRibbonToPolygons(original,selection);assert.equal(expected.polygons,3);assert.equal(expected.parent,7);
  let app;const errors=[];
  try{
@@ -42,11 +42,20 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   assert.equal(await page.getByLabel('Particle context',{exact:true}).inputValue(),'On model');assert.equal(await page.getByRole('button',{name:'Create',exact:true}).count(),0);
   const added=await read(),r=added.model.RibbonEmitters.at(-1);assert.equal(r.Parent,7);assert.equal(added.model.Helpers.length,before.model.Helpers.length);assert.equal(added.model.Materials[r.MaterialID].Layers[0].Shading,17);assert.equal(added.undo,before.undo+1);assert.deepEqual(added.model.Geosets,before.model.Geosets);assert.deepEqual(added.model.Bones,before.model.Bones);assert.deepEqual(added.model.Sequences,before.model.Sequences);
   const saved=await page.evaluate(()=>{let el=document.querySelector('.pe-window');{ const props = findFiberState(el, props => { const doc = props?.doc; return doc?.model; }, { props: true }); if (props) { const doc = props?.doc; return Array.from(doc.serialize('mdx')); } }throw Error('Model missing');});await fs.writeFile(path.join(out,'created-ribbon.mdx'),Buffer.from(saved));
-  for(let i=0;i<original.Sequences.length;i++)for(const frame of original.Sequences[i].Interval)assert.equal(r.Visibility.Keys.find(key=>key.Frame===frame).Vector[0],[2,3].includes(i)?1:0);
+  // Checked animations show the ribbon only while the sword swings, as Blizzard keys it.
+  const key=frame=>r.Visibility.Keys.find(item=>item.Frame===frame)?.Vector[0];
+  for(let i=0;i<original.Sequences.length;i++){
+   const [start,end]=original.Sequences[i].Interval;
+   if(![2,3].includes(i)){assert.equal(key(start),0);assert.equal(key(end),0);continue;}
+   const [on,off]=ribbonSwingWindow(original,i,7,expected.endpoints);
+   assert.equal(key(on),1,'Ribbon appears as the swing starts');if(off<end)assert.equal(key(off),0,'Ribbon ends after the swing');
+  }
+  assert.equal(key(original.Sequences[2].Interval[0]),0,'Attack wind-up has no ribbon');
+  const [swingOn,swingOff]=ribbonSwingWindow(original,2,7,expected.endpoints);assert.ok(swingOn>14333&&swingOff<15500,'Attack window is inside the clip: '+swingOn+'-'+swingOff);
   await page.getByRole('button',{name:'Pause',exact:true}).click();await seek('Particle preview playhead',14900);
   const runtime=()=>page.evaluate(id=>{let el=document.querySelector('.pe-preview .game-preview-root');{ const v = mdlxlProbe(el).runtime; if (v) {const n=v.native,r=n.ribbonsController.emitters.find(e=>e.props.ObjectId===id);return {frame:n.getFrame(),ribbon:Array.from(n.rendererData.nodes[id].matrix),parent:Array.from(n.rendererData.nodes[7].matrix),segments:r.creationTimes.length};} }return null;},r.ObjectId);
   await page.waitForFunction(()=>!document.querySelector('.pe-window .re-status')?.textContent.includes('Updating effect'));
-  for(const time of [14500,14900,15150]){await seek('Particle preview playhead',time);await settle(page, 250);const state=await runtime();assert.equal(state.frame,time);const matrix=new Matrix4().fromArray(state.ribbon),parent=new Matrix4().fromArray(state.parent),pivot=Object.values(r.PivotPoint);for(let i=0;i<2;i++){const actual=new Vector3(...pivot).add(new Vector3(0,i?r.HeightAbove:-r.HeightBelow,0)).applyMatrix4(matrix),want=new Vector3(...expected.endpoints[i]).applyMatrix4(parent);assert.ok(actual.distanceTo(want)<.0002,'Native ribbon stays fitted to the moving sword');}assert.ok(state.segments>0);}
+  for(const time of [swingOn+50,Math.round((swingOn+swingOff)/2),swingOff-25]){await seek('Particle preview playhead',time);await settle(page, 250);const state=await runtime();assert.equal(state.frame,time);const matrix=new Matrix4().fromArray(state.ribbon),parent=new Matrix4().fromArray(state.parent),pivot=Object.values(r.PivotPoint);for(let i=0;i<2;i++){const actual=new Vector3(...pivot).add(new Vector3(0,i?r.HeightAbove:-r.HeightBelow,0)).applyMatrix4(matrix),want=new Vector3(...expected.endpoints[i]).applyMatrix4(parent);assert.ok(actual.distanceTo(want)<.0002,'Native ribbon stays fitted to the moving sword');}assert.ok(state.segments>0);}
   await page.getByLabel('Particle preview animation',{exact:true}).selectOption('3');await seek('Particle preview playhead',original.Sequences[3].Interval[0]+300);await settle(page, 350);const second=await runtime();assert.ok(second.segments>0,'Second checked animation emits a ribbon');
   const secondMatrix=new Matrix4().fromArray(second.ribbon),secondParent=new Matrix4().fromArray(second.parent);for(let i=0;i<2;i++)assert.ok(new Vector3(...Object.values(r.PivotPoint)).add(new Vector3(0,i?r.HeightAbove:-r.HeightBelow,0)).applyMatrix4(secondMatrix).distanceTo(new Vector3(...expected.endpoints[i]).applyMatrix4(secondParent))<.0002,'Fitted orientation remains in the second animation');
   await page.getByLabel('Particle preview animation',{exact:true}).selectOption('0');await seek('Particle preview playhead',original.Sequences[0].Interval[0]+300);await settle(page, 350);assert.equal((await runtime()).segments,0,'Unchecked animation emits no ribbon');

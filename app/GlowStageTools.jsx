@@ -3,14 +3,18 @@ import { clamp } from '../src/math.js';
 import React,{useEffect,useRef} from 'react';
 import {particleAxisMapping} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
+import {turnWeaponEnds} from '../src/glow-up.js';
+import {useStageRotate} from './StageRotate.jsx';
 import {createFrameCoalescer} from './viewport-performance.js';
 // Glow Up handles in the EMTR preview. Same handles, look, latching and keys as
 // ParticleStageTools: Move like an emitter, the ground glow's edge like the
 // spawn width, the weapon glow's two ends like a ribbon's edges, and its corners
 // like a particle's size corners. Escape cancels a drag; arrow keys nudge.
 // onDrag(true/false) brackets a drag so the preview can hold the animation still.
-export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
-  const drag=useRef(null),follow=useRef(null),frame=useRef(null),marks=snapshot?.marks;
+// The weapon glow's middle carries the main editor's Rotate handles: a turn
+// swings both ends around the middle, so it lines up with a blade in any view.
+export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,preferences}) {
+  const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),marks=snapshot?.marks;
   // Each glow change rebuilds the preview model: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
   useEffect(()=>()=>frame.current.cancel(),[]);
@@ -19,6 +23,12 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
     if(event.key!=='Escape'||!drag.current)return false;
     abort();return true;
   },0);
+  const line=glow?.weapon&&layout?.weapons?.[0],pivot=line?.frame&&line.start&&line.end&&snapshot?.turns?.mid;
+  const rings=useStageRotate({at:pivot?.world,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
+    onBegin(){turn.current={line:structuredClone(line),bone:pivot.rotation,before:structuredClone(glow)};onDrag?.(true);},
+    onTurn(axis,degrees){const t=turn.current;if(t)set(turnWeaponEnds(t.line,t.bone,axis,degrees));},
+    onEnd(){turn.current=null;onDrag?.(false);},
+    onCancel(){const t=turn.current;turn.current=null;if(t){set(t.before);onDrag?.(false);}}});
   if(!marks||!layout)return null;
   const {width,height}=snapshot;
   // A model's own weapon glow that follows no single weapon bone keeps its corners but has no ends.
@@ -66,7 +76,8 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   const square=marks.mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[marks.mid[0]+a*marks.mid[4],marks.mid[1]+b*marks.mid[4]]);
-  return <svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Glow handles">
+  return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Glow handles">
+    {rings.targets}
     {glow.origin&&marks.origin&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>
       {handle(marks.edge,'originSize','Resize origin glow')}
@@ -79,5 +90,5 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
       {square.map((point,index)=><React.Fragment key={index}>{handle(point,'weaponSize',index===2?'Resize weapon glow':'Resize weapon glow corner '+(index+1))}</React.Fragment>)}
       <text x={square[0][0]} y={square[0][1]-8}>Size</text>
     </g>}
-  </svg>;
+  </svg></>;
 }
