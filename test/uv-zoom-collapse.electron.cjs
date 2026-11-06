@@ -133,7 +133,15 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await drag(label + ' shrink', start, [start[0] - 50, start[1]], .5);
       await drag(label + ' collapse', start, [start[0] - 120, start[1]], 0);
     }
-    await drag('diagonal left drag', [90, 30], [-30, -60], 0);
+    // Owner lock (6 Nov 2026): every mouse move counts, like Movement's Resize:
+    // right/up enlarges, left/down shrinks.
+    for (const [label, start] of [['right of centre', [80, 0]], ['above centre', [0, -80]], ['at centre', [0, 0]]]) {
+      await drag(label + ' up enlarges', start, [start[0], start[1] - 50], 1.5);
+      await drag(label + ' down shrinks', start, [start[0], start[1] + 50], .5);
+      await drag(label + ' down collapses', start, [start[0], start[1] + 120], 0);
+    }
+    await drag('up-right enlarges', [0, 0], [25, -25], 1.5);
+    await drag('diagonal down-left collapses', [90, -30], [-30, 60], 0);
     await drag('Alt fine drag', [90, 0], [-30, 0], .76, { alt: true });
     await drag('Shift plus Alt fine drag', [90, 0], [-30, 0], .76, { alt: true, shift: true });
     for (const axis of ['X', 'Y']) {

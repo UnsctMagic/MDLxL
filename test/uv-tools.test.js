@@ -136,28 +136,35 @@ test('selected geosets of different materials stay on one canvas and edits retur
   assert.deepEqual(splitSelectedUVGeosets(model, canvas.refs, canvas.geoset.TVertices[0]), [], 'unchanged geosets are not written');
 });
 
-test('UV map Rotate has fixed bidirectional straight and circular input independent of prior movement', () => {
-  const deg = Math.PI / 180, circle = (drag, radius, from, to, steps = 36) => { for (let i = 0; i <= steps; i++) { const a = (from + (to - from) * i / steps) * deg; uvTurn(drag, 100 + radius * Math.cos(a), 50 + radius * Math.sin(a)); } return drag.turn / deg; };
-  for (const radius of [.5, 1, 2, 12, 48, 60, 300]) assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, radius, 30, 120) - 63) < 1e-9, `quarter turn at ${radius}px has no centre attenuation`);
-  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, 450, 90) - 315) < 1e-9, 'clockwise past a full turn');
-  assert.ok(Math.abs(circle({ pivotScreen: [100, 50] }, 80, 0, -720, 144) + 504) < 1e-9, 'counter-clockwise mouse circles rotate counter-clockwise');
-  assert.ok(Math.abs(circle({ pivotScreen: [100, 50], fine: .2 }, 80, 0, 90) - 12.6) < 1e-9, 'Alt fine control');
-  for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [Math.SQRT1_2, Math.SQRT1_2], [-Math.SQRT1_2, Math.SQRT1_2], [Math.SQRT1_2, -Math.SQRT1_2], [-Math.SQRT1_2, -Math.SQRT1_2]]) {
-    const drag = { pivotScreen: [100, 50] };
-    uvTurn(drag, 100 + vx * 12, 50 + vy * 12);
-    const turn = uvTurn(drag, 100 + vx * 72, 50 + vy * 72);
-    assert.ok(Math.abs(turn - Math.sign(vx || vy) * .875) < 1e-9, `straight ${vx},${vy} rotates`);
-    assert.ok(Math.abs(uvTurn(drag, 100 + vx * 12, 50 + vy * 12)) < 1e-9, 'reversing restores the start');
-    const centre = { pivotScreen: [100, 50] }; uvTurn(centre, 100, 50);
-    assert.ok(Math.abs(uvTurn(centre, 100 + vx, 50 + vy) - Math.sign(vx || vy) * .7 / 48) < 1e-9, 'movement from the exact centre rotates without a jump or dead zone');
+// Owner lock, 6 Nov 2026 (docs/UV-ROTATE-ZOOM.md). If one of these fails, the
+// feel changed: do not edit the numbers unless the owner asked for a new rule.
+test('UV map Rotate: only circling turns, same strength everywhere, never snaps', () => {
+  const deg = Math.PI / 180, pivotScreen = [100, 50];
+  const run = (points, drag = { pivotScreen }) => { let previous = 0, biggest = 0; for (const [x, y] of points) { const turn = uvTurn(drag, x, y); biggest = Math.max(biggest, Math.abs(turn - previous)); previous = turn; } return { total: previous / deg, biggest: biggest / deg }; };
+  const arc = (radius, from, to, steps = 90, round = false) => Array.from({ length: steps + 1 }, (_, i) => { const a = (from + (to - from) * i / steps) * deg, x = 100 + radius * Math.cos(a), y = 50 + radius * Math.sin(a); return round ? [Math.round(x), Math.round(y)] : [x, y]; });
+  const line = (x0, y0, x1, y1, steps = 300) => Array.from({ length: steps + 1 }, (_, i) => [Math.round(100 + x0 + (x1 - x0) * i / steps), Math.round(50 + y0 + (y1 - y0) * i / steps)]);
+  // Same quarter circle, same 70% turn at any distance from 48 px out, even on whole pixels.
+  for (const radius of [48, 60, 100, 300]) {
+    assert.ok(Math.abs(run(arc(radius, 30, 120)).total - 63) < 1e-9, `quarter circle at ${radius}px turns 63°`);
+    assert.ok(Math.abs(run(arc(radius, 30, 120, 360, true)).total - 63) < 2, `rounded quarter circle at ${radius}px stays near 63°`);
   }
-  for (const prefix of [[[172, 50], [112, 50]], [[28, 50], [112, 50]], [[100, 122], [112, 50]], [[100, -22], [112, 50]]]) {
-    for (const direction of [1, -1]) {
-      const drag = { pivotScreen: [100, 50] };
-      for (const [x, y] of prefix) uvTurn(drag, x, y);
-      const before = drag.turn;
-      uvTurn(drag, 100, 50 + direction * 12);
-      assert.ok(Math.abs(drag.turn - before - direction * Math.PI / 2 * .7) < 1e-9, 'the same circle segment has the same sign after any prior movement');
-    }
+  // Nearer the centre the same circle turns less, steadily (no jump, no reversal).
+  assert.ok(Math.abs(run(arc(24, 30, 120)).total - 31.5) < 1e-9, 'quarter circle at 24px turns half as far');
+  assert.ok(Math.abs(run(arc(80, 0, 450)).total - 315) < 1e-9, 'clockwise past a full turn');
+  assert.ok(Math.abs(run(arc(80, 0, -720, 144)).total + 504) < 1e-9, 'counter-clockwise past two turns');
+  assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, fine: .2 }).total - 12.6) < 1e-9, 'Shift/Alt fine control');
+  assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false }).total - 90) < 1e-9, 'FX texture fitting keeps one for one');
+  // Straight toward/away from the centre does not turn, in any direction.
+  for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [.6, .8], [-.8, .6]]) {
+    assert.ok(Math.abs(run(line(vx * 24, vy * 24, vx * 230, vy * 230)).total) < 1, `straight away ${vx},${vy} does not turn`);
+    assert.ok(Math.abs(run(line(vx * 230, vy * 230, vx * 24, vy * 24)).total) < 1, `straight toward ${vx},${vy} does not turn`);
   }
+  // Sweeping straight across the piece beside its centre never snaps or spins.
+  for (const offset of [3, 5, -5, 12, 20]) {
+    const { total, biggest } = run(line(-150, offset, 150, offset));
+    assert.ok(biggest < 3, `across at ${offset}px: biggest step ${biggest.toFixed(1)}° stays under 3°`);
+    assert.ok(Math.abs(total) < 90, `across at ${offset}px: total ${total.toFixed(0)}° stays under 90°`);
+  }
+  // The mouse exactly on the centre is skipped, not a jump.
+  const centre = { pivotScreen }; uvTurn(centre, 100, 50); assert.equal(uvTurn(centre, 101, 50), 0);
 });
