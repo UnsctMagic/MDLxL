@@ -10,6 +10,9 @@ test('the kept looks are in the library and Storm cloud is an emitter choice',()
  assert.deepEqual(CLAUDE_LOOKS.map(l=>l.name),['Fel blade','Tidal blade','Magma flow','Wraith form','Corrupted veins','Blood pact','Plague swarm','Runic plate','Void-cracked plate','Forge-hot plate']);
  for(const look of CLAUDE_LOOKS)assert.ok(GLOBAL_LOOKS.includes(look),look.name);
  for(const spec of CLAUDE_EMITTERS)assert.ok(LAYER_CHOICES.includes(spec),spec.label);
+ // They sit in the library's normal folders, not a folder of their own.
+ const folders=new Set(GLOBAL_LOOKS.filter(l=>!CLAUDE_LOOKS.includes(l)).map(l=>l.group));
+ for(const look of CLAUDE_LOOKS)assert.ok(folders.has(look.group),look.name+' in '+look.group);
  const byId=id=>CLAUDE_LOOKS.find(l=>l.id===id);
  assert.equal(byId('claude-fel-blade').layers.find(l=>l.type==='Edge').enabled,false,'Fel edge starts off');
  assert.equal(byId('claude-magma-flow').asOverlay,true,'Magma flow starts as an overlay');
