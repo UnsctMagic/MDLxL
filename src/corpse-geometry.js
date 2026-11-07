@@ -372,9 +372,16 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // share one), and a bone along the last joint's own skin at each tip.
   const linked=new Set(),thin=new Set(),fixed=new Set(),added=new Set(),wingPieces=new Set(),drawn=new Set(),wingJoints=new Set(),wingLinks=[];
   const spot=p=>p.slice(0,2).map(v=>Math.round(v/Math.max(span*.005,1e-4))).join(',');
+  // A link lies along the dead body. A joint whose pivot was left behind by a
+  // rig change (an old joint re-parented under a new one) links across empty
+  // ground; such a link is no bone (7 of 9 points must be over the body).
+  const alongBody=(a,b)=>Array.from({length:9},(_,k)=>mix(a,b,k/8)).filter(p=>Number.isFinite(top(p[0],p[1]))).length>=7;
+  // A real joint's pivot sits where its own skin starts; a left-behind pivot
+  // lies away from it (nearest own vertex beyond a quarter of the link).
+  const atOwnSkin=(id,link)=>{const skin=cloud(id);if(skin.length<3)return true;const p=at(id);return Math.min(...skin.map(q=>distance(p,q)))<=Math.max(span*.03,link*.25);};
   function linkBone(parent,child,factor,isThin) {
     used.add([parent,child].sort().join(':'));
-    const a=at(parent),b=at(child),key=[spot(a),spot(b)].sort().join('|');if(distance(a,b)<span*.01||drawn.has(key))return;drawn.add(key);
+    const a=at(parent),b=at(child),key=[spot(a),spot(b)].sort().join('|');if(distance(a,b)<span*.01||drawn.has(key)||!alongBody(a,b)||!atOwnSkin(child,distance(a,b)))return;drawn.add(key);
     const [from,to]=reach(a,b,factor),piece=strip('branch',from,to,distance(from,to)*NATIVE.bone/2,[.006,.005,.31,.495],[parent,child]);
     if(piece&&isThin){thin.add(piece);wingPieces.add(piece);wingLinks.push(distance(a,b));}else if(piece)fixed.add(piece);
   }
@@ -382,7 +389,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // spreading sideways from a short finger is membrane, not another bone.
   function tipBone(id,isThin) {
     const skin=cloud(id);if(skin.length<3)return;
-    const p=at(id),[a,b]=axisEnds(skin),far=distance(a,p)>distance(b,p)?a:b,start=[p[0],p[1],ground];if(distance(start,far)<span*.02)return;
+    const p=at(id),[a,b]=axisEnds(skin),far=distance(a,p)>distance(b,p)?a:b,start=[p[0],p[1],ground];if(distance(start,far)<span*.02||!alongBody(start,far))return;
     const from=at(byId.get(id).Parent),link=distance(from,p),reachOut=distance(start,far);
     if(link>span*.001&&((p[0]-from[0])*(far[0]-p[0])+(p[1]-from[1])*(far[1]-p[1]))/(link*reachOut)<.5)return;
     const piece=strip('branch',start,far,distance(start,far)*NATIVE.bone/2,[.006,.005,.31,.495],[id]);if(piece)(isThin?thin:fixed).add(piece);if(piece&&isThin)wingPieces.add(piece);

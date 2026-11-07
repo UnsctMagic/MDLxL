@@ -111,7 +111,10 @@ removes the old copies.
     every skinned wing joint link gets a thin bone, 1.05 times the link, all one
     width (0.24 of the wing's median link); finger roots at one spot share one
     bone; a last joint gets a bone along its own skin only when that continues the
-    finger outward. Wing fingers are wing, not held objects. A part that shrinks to
+    finger outward. A link counts only when it lies along the dead body and its
+    joint's pivot sits at that joint's own skin: the owner's current dragon keeps
+    old Object joints with left-behind pivots under its new Bone joints, and links
+    to those crossed empty ground. Wing fingers are wing, not held objects. A part that shrinks to
     a single point in Death (the rider) leaves nothing. The whole winged corpse
     keeps native unit proportions without skin fitting, as the owner's own corpse
     does; its flesh is bulky.
