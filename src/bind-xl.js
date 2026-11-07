@@ -438,3 +438,37 @@ export function applyBinding(model, analysis, plan) {
     geoset.TotalGroupsCount = groups.reduce((sum, group) => sum + group.length, 0);
   }
 }
+
+/** A copy of `model` showing a plan, for the live preview: only the analysed
+ * geosets get new binding arrays; everything else is shared, so the preview
+ * re-uploads bindings without rebuilding. */
+export function previewBinding(model, analysis, plan) {
+  const preview = { ...model, Geosets: model.Geosets.map((geoset, index) => analysis.offsets.has(index)
+    ? { ...geoset, ...(isHdSkinned(geoset) ? { SkinWeights: geoset.SkinWeights.slice() } : {}) } : geoset) };
+  applyBinding(preview, analysis, plan);
+  return preview;
+}
+
+/** One clear colour per bone (bones on the same joint share it), spread so
+ * neighbouring bones differ: [boneId, [r, g, b]] pairs in 0..1. */
+export function boneColors(analysis) {
+  const colors = new Map(), order = [], seen = new Set();
+  const children = new Map(analysis.bones.map(region => [region.id, []]));
+  for (const region of analysis.bones) if (region.parent !== null && children.has(region.parent)) children.get(region.parent).push(region);
+  const visit = region => { if (seen.has(region.id)) return; seen.add(region.id); order.push(region); for (const child of children.get(region.id) || []) visit(child); };
+  for (const region of analysis.bones) if (region.parent === null || !children.has(region.parent)) visit(region);
+  for (const region of analysis.bones) visit(region);
+  order.forEach((region, index) => {
+    const hue = (index * 137.508) % 360, saturation = .7, lightness = index % 2 ? .62 : .5;
+    const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation, x = chroma * (1 - Math.abs(hue / 60 % 2 - 1)), m = lightness - chroma / 2;
+    const [r, g, b] = hue < 60 ? [chroma, x, 0] : hue < 120 ? [x, chroma, 0] : hue < 180 ? [0, chroma, x] : hue < 240 ? [0, x, chroma] : hue < 300 ? [x, 0, chroma] : [chroma, 0, x];
+    for (const id of region.ids) colors.set(id, [r + m, g + m, b + m]);
+  });
+  return colors;
+}
+
+/** The piece a vertex of a geoset belongs to, or -1. */
+export function pieceAt(analysis, geosetIndex, vertexIndex) {
+  const offset = analysis.offsets.get(geosetIndex);
+  return offset === undefined ? -1 : analysis.pieceOf[offset + vertexIndex] ?? -1;
+}

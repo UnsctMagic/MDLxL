@@ -1,0 +1,16 @@
+.bxl-window{width:min(1120px,calc(100vw - 24px));height:min(760px,calc(100vh - 24px))}
+.atm-body.bxl-body{grid-template-columns:minmax(200px,240px) minmax(320px,1fr)}
+.bxl-controls{overflow:auto}
+.bxl-motion select{flex:1;min-width:0}
+.bxl-checks{display:flex;flex-wrap:wrap;gap:4px 12px}
+.bxl-panel{display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--ui-surface)}
+.bxl-panel-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-weight:700}
+.bxl-chips{display:flex;flex-wrap:wrap;gap:4px;font-weight:400}
+.bxl-chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:1px 4px;min-height:0;font-weight:400}
+.bxl-chip i{width:10px;height:10px;border-radius:2px;border:1px solid #0006;display:inline-block}
+.bxl-modes{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.bxl-modes button{padding-inline:2px}
+.atm-window .bxl-modes button[aria-pressed=true],.atm-window .bxl-bone button[aria-pressed=true]{background:var(--ui-selected);color:var(--ui-selected-text)}
+.bxl-reset{align-self:flex-start}
+.bxl-preview{position:relative;min-height:0}
+@media (max-width:820px){.atm-body.bxl-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(240px,1fr)}}

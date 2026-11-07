@@ -17,6 +17,7 @@ import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } fr
 import { nodeSectionsChanged, refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { applyAttachmentPlan, attachematorStandSequence } from '../src/attachemator.js';
+import { applyBinding } from '../src/bind-xl.js';
 import { autoCorpse, AUTO_CORPSE_SECTIONS } from '../src/auto-corpse.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
 // Keep UV window styles available before its lazy workspace mounts.
@@ -46,6 +47,7 @@ import './animation-resources.css'; // keeps the stylesheet's place in the CSS o
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
 const Attachemator = lazy(() => import('./Attachemator.jsx'));
+const BindXL = lazy(() => import('./BindXL.jsx'));
 const AutoCorpse = lazy(() => import('./AutoCorpse.jsx'));
 import { AppUVWorkspace, AppTextureLibrary, AppTimeline } from './AppPanels.jsx';
 import useMotionInspector from './useMotionInspector.js';
@@ -245,7 +247,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [bindXLOpen, setBindXLOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
   // Each model tab keeps its own cameras, so switching tabs returns to the view left there.
   const cameraHandoff = session.cameraHandoff ||= { current: null };
   const paintCamera = session.paintCamera ||= { current: null };
@@ -1364,11 +1366,13 @@ export default function App() {
     'bone:detach': detachSelectedNode,
     'bone:detachVertices': () => bindSelectedVertices('detach'),
     'bone:wiggle': () => setBoneWiggle(value => !value),
+    bindXL: () => { setPlaying(false); setBindXLOpen(true); },
     ...Object.fromEntries(['flip-u','flip-v','rotate','fold','select-connected','select-invert'].map(v=>['uv:'+v,()=>uvAction(v)])),
   });
   function commandEnabled(id) {
     if (mode === 'manager' && (['Shape', 'Transform', 'Selection', 'Geometry', 'UV', 'Animation', 'Frames', 'View'].includes(COMMANDS.find(command => command.id === id)?.category) || ['copy', 'paste', 'pasteSpecial', 'select', 'translate', 'rotate', 'scale', 'normalRotate', 'Delete vertices', 'Create triangle', 'Delete triangles', 'Uncouple', 'Collapse', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id))) return false;
     if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
+    if(id==='bindXL')return !doc.readOnly&&!saving&&!dialog&&!settingsTab&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0&&(model.Bones||[]).length>0;
     if(id==='surfaceEffects')return !doc.readOnly&&!saving&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0;
     if(id==='particles')return !saving;
     if(vertexNodeCenter&&id==='Delete vertices')return editable;
@@ -1771,6 +1775,12 @@ export default function App() {
       if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
       return !!result;
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
+    {bindXLOpen && <Suspense fallback={null}><BindXL key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={({ analysis, plan }) => {
+      const result = edit('BindXL', ['Geosets'], current => applyBinding(current, analysis, plan), { rethrow: true });
+      if (result === false) return false;
+      say('BindXL bound the model. Undo restores the old binding.');
+      return true;
+    }} onClose={() => setBindXLOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">

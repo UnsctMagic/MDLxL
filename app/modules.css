@@ -72,6 +72,7 @@
 .classic-modal.update-overlay{z-index:1100}
 .classic-modules .animxl-tool .module-icon-badge{color:#ff5c5c}
 .classic-modules .auto-corpse-tool .module-icon-badge{font-size:10px;color:#e6c7a1;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+.classic-modules .bind-xl-tool .module-icon-badge{font-size:10px;color:#a6b8ff;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
 
 /* Shorten only inactive editor names when the full row would clip. */
 .classic-app:not([data-vis-ui]) .editor-modules>button>.editor-initial{display:none}
