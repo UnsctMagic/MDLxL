@@ -4,7 +4,7 @@ import { prepareShapeSupport } from '../src/shaping-support.js';
 import ForgeEditor from './ForgeEditor.jsx';
 import { HotkeyBadge } from './Hotkeys.jsx';
 import { SURFACE_COLORS, geosetModelingOverlay } from './forge-surface-colors.js';
-import { transformVertices } from '../src/editor-commands.js';
+import { setVertexPositions, transformVertices } from '../src/editor-commands.js';
 import './forge.css';
 
 const TOOLS = [
@@ -68,7 +68,8 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
       const next={...shown,Geosets:[...shown.Geosets]};
       for(const [i,ids] of Object.entries(payload.selections||localSelection)) {
         const gi=geosetIds[i]; if(!ids.length)continue; next.Geosets[gi]=structuredClone(shown.Geosets[gi]);
-        transformVertices(next.Geosets[gi],ids,payload.translation,payload.scale,payload.rotation,payload.pivot,{allowSingularScale:payload.allowSingularScale===true});
+        if(payload.modelPositions?.[i])setVertexPositions(next.Geosets[gi],ids,payload.modelPositions[i]);
+        else transformVertices(next.Geosets[gi],ids,payload.translation,payload.scale,payload.rotation,payload.pivot,{allowSingularScale:payload.allowSingularScale===true});
       }
       remember();setWorking(next);setAmount(0);setOriginal(false);setMessage('');
     } catch(e) { setMessage(e.message); }
