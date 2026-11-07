@@ -26,7 +26,7 @@ const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 // 0.42 tall, resting 0.22 of its length above the ground.
 // Wings follow the owner's dragon corpse (7 Nov 2026): one thin bone per wing
 // joint link, 1.05x the link long, all one width (0.24 of the wing's median link).
-const NATIVE = { bone: .47, boneReach: 1.6, hand: .62, handLimb: 1.62, ribs: .57, ribLimb: 2.57, skull: 1.27, skullHalf: .362, legReach: 1.34, base: .12, step: .04, skullBase: .218, skullRise: .42, wingReach: 1.05, wing: .24, cover: .826, coverSize: 100 };
+const NATIVE = { bone: .47, boneReach: 1.6, hand: .62, handLimb: 1.62, ribs: .57, ribLimb: 2.57, skull: 1.27, skullHalf: .362, legReach: 1.34, base: .12, step: .04, skullBase: .218, skullRise: .42, wingReach: 1.05, wing: .24 };
 
 /** Top surface of the actual terminal pose, rather than its bounding rectangle.
  * A uniform XY grid keeps footprint/height fitting linear in mesh size. */
@@ -103,12 +103,12 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const wingHands=new Set(rig.chains.filter(c=>c.kind==='arm'&&c.label==='Wing').map(c=>c.end));
   const hands=new Set(rig.chains.filter(c=>c.kind==='arm'&&c.label!=='Wing').map(c=>c.end));
   const held=id=>ancestors(byId.get(id)?.Parent).some(a=>!wingHands.has(a)&&(hands.has(a)||role(a)==='Hand'));
-  // A part that shrinks away during Death (a rider vanishing from the mount it
-  // fell with) leaves no remains: all of its skin ends in one spot.
-  // Its last-frame skin is a speck of what it is in the model's rest pose.
+  // On a winged body, a part that shrinks to a single point during Death (a
+  // rider scaled away from the dragon it fell with) leaves no remains. Small or shrinking parts
+  // that keep any size are handled exactly as before.
   const subtreeSkin=(id,storage=fittingClouds)=>[...storage.entries()].filter(([key])=>ancestors(key).includes(id)).flatMap(([,c])=>c);
   const extentOf=skin=>Math.max(...[0,1,2].map(a=>Math.max(...skin.map(p=>p[a]))-Math.min(...skin.map(p=>p[a]))));
-  const vanished=id=>{const skin=subtreeSkin(id);if(skin.length<3)return false;const size=extentOf(skin);return size<span*.01&&size<extentOf(subtreeSkin(id,restClouds))*.05;};
+  const vanished=id=>{if(!rig.chains.some(c=>c.kind==='arm'&&c.label==='Wing'))return false;const skin=subtreeSkin(id);if(skin.length<3)return false;const size=extentOf(skin);return size<span*1e-4&&size<extentOf(subtreeSkin(id,restClouds))*.01;};
   const chains=rig.chains.filter(c=>!poseChainIds(c).some(garment)&&!held(c.root)&&poseChainIds(c).some(hasSkin)&&!vanished(c.root)&&!poseChainIds(c).some(id=>accessory(byId.get(id)?.Name||'')&&!/hand|foot|toe|hoof|ref\b/i.test(byId.get(id)?.Name||'')));
   // IK suggestions omit sided hip controls and cannot join independently
   // animated feet. Static remains can follow those authored hip/knee/foot
@@ -176,12 +176,16 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const heads=nodes.filter(n=>role(n.ObjectId)==='Head'&&!garment(n.ObjectId)&&!headAccessory.test(n.Name)&&hasSkin(n.ObjectId)&&!held(n.ObjectId)&&onBody(n.ObjectId)&&!vanished(n.ObjectId)&&!ancestors(n.Parent).some(id=>role(id)==='Head'));
   // A head known only by its attachment point (a Head Ref on unnamed bones)
   // is the skinned joint that point hangs from, unless that is the trunk.
-  // Only a limbed body without any recognized head of its own qualifies.
+  // Only a limbed body without any recognized head of its own qualifies:
+  // bodies that already have a head are untouched.
+  const refHeads=new Set(),lateSkulls=[],winged=chains.some(c=>c.kind==='arm'&&c.label==='Wing');
   for(const ref of nodes.filter(n=>role(n.ObjectId)==='Head'&&!hasSkin(n.ObjectId))) {
     const parent=byId.get(ref.Parent),id=parent?.ObjectId,skeleton=ancestors(id).at(-1);
     if(!parent||!hasSkin(id)||!limbSkeletons.has(skeleton)||heads.some(h=>ancestors(h.ObjectId).at(-1)===skeleton)||['Body','Pelvis','Chest','Spine'].includes(role(id))||garment(id)||held(id)||!onBody(id)||vanished(id)||accessory(parent.Name))continue;
     if(ancestors(id).some(a=>role(a)==='Head'||heads.some(h=>h.ObjectId===a))||heads.some(h=>ancestors(h.ObjectId).includes(id)))continue;
-    heads.push(parent);
+    // A winged body is built around this head; any other body only gains
+    // the skull it was missing, after its own pieces are planned.
+    refHeads.add(id);if(winged)heads.push(parent);else lateSkulls.push(id);
   }
   const headIds=new Set(heads.map(h=>h.ObjectId)),inHead=id=>ancestors(id).some(a=>headIds.has(a));
   const vertices=[],uv=[],faces=[],parts=[],pieces=[],used=new Set(),torsoBounds=new Map(),torsoSkin=new Map(),referenceLegs=new Set();
@@ -317,7 +321,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     // A long neck (two or more joints between chest and head, longer than a
     // limb bone, as on dragons) gets a bone per neck link; the rib cage then
     // lies from the chest to the pelvis instead of reaching up to the head.
-    const chestAt=headAncestors.findIndex(i=>role(i)==='Chest'),neckIds=!quadruped&&chestAt>=3&&distance(at(headAncestors[chestAt]),neck)>unit?headAncestors.slice(1,chestAt):[];
+    const chestAt=headAncestors.findIndex(i=>role(i)==='Chest'),neckIds=winged&&refHeads.has(id)&&!quadruped&&chestAt>=3&&distance(at(headAncestors[chestAt]),neck)>unit?headAncestors.slice(1,chestAt):[];
     if(neckIds.length){for(let k=0;k<=neckIds.length-1;k++)neckLinks.push([headAncestors[k+1],headAncestors[k]]);for(let i=torsoIds.length-1;i>=0;i--)if(neckIds.includes(torsoIds[i]))torsoIds.splice(i,1);}
     const chest=quadruped?mean(front.map(at)):neckIds.length?at(headAncestors[chestAt]):neck,split=quadruped?headAncestors.find(i=>trunkSplits.has(i)):null;
     if(split!=null&&shoulders.length>=2){
@@ -366,7 +370,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // Wings, multi-joint tails and long necks keep every real joint link, as on
   // the owner's dragon corpse: one bone per link (coincident finger roots
   // share one), and a bone along the last joint's own skin at each tip.
-  const linked=new Set(),thin=new Set(),fixed=new Set(),wingPieces=new Set(),drawn=new Set(),wingJoints=new Set(),wingLinks=[];
+  const linked=new Set(),thin=new Set(),fixed=new Set(),added=new Set(),wingPieces=new Set(),drawn=new Set(),wingJoints=new Set(),wingLinks=[];
   const spot=p=>p.slice(0,2).map(v=>Math.round(v/Math.max(span*.005,1e-4))).join(',');
   function linkBone(parent,child,factor,isThin) {
     used.add([parent,child].sort().join(':'));
@@ -393,23 +397,24 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   // A tail of three or more joints: each link from its first joint outward.
   // The link from the trunk to the tail's first joint stays under the ribs.
+  const anatomicalName=/leg|shin|calf|arm|tail|wing|spine|neck|chest|pelvis|head|body|back|front|toe/i;
   const trunkish=id=>['Body','Pelvis','Chest','Spine'].includes(role(id));
   for(const tail of nodes.filter(n=>role(n.ObjectId)==='Tail'&&bodyBranch(n)&&onBody(n.ObjectId)&&!nodes.some(c=>c.ObjectId!==n.ObjectId&&role(c.ObjectId)==='Tail'&&ancestors(c.ObjectId).includes(n.ObjectId)))) {
     const ids=[tail.ObjectId];
     for(let up=byId.get(tail.Parent);up&&byId.has(up.Parent)&&!trunkish(up.ObjectId)&&!limbJoints.has(up.ObjectId)&&!linked.has(up.ObjectId)&&bodyBranch(up);up=byId.get(up.Parent))ids.unshift(up.ObjectId);
-    // A named tail starts at its first tail joint; the waist above it is trunk.
-    const named=ids.findIndex(id=>role(id)==='Tail'||nameTokens(byId.get(id).Name).includes('tail'));if(named<ids.length-1)ids.splice(0,named);
+    // Named tails keep their existing pieces; only an unnamed tail chain
+    // (Object01...), which the name-based rules never drew, is added here.
     // Mesh/Box/Geo joints hold skin (a dangling pouch or cloth), not a tail.
     // Only a long tail, longer than the rib cage, has a bone for every link.
     const length=ids.slice(1).reduce((sum,id,i)=>sum+distance(at(ids[i]),at(id)),0);
-    if(ids.length<3||length<unit*NATIVE.ribLimb||ids.some(id=>nameTokens(byId.get(id).Name).some(t=>['geo','mesh','box'].includes(t))))continue;
+    if(ids.length<3||length<unit*NATIVE.ribLimb||ids.some(id=>anatomicalName.test(byId.get(id).Name))||ids.some(id=>nameTokens(byId.get(id).Name).some(t=>['geo','mesh','box'].includes(t))))continue;
     // Long tails are thin bones like wings (the owner's dragon, the SD Hydra):
     // one width from the tail's own median link.
     const before=new Set(pieces),links=ids.slice(1).map((id,i)=>distance(at(ids[i]),at(id)));
     for(let i=1;i<ids.length;i++)linkBone(ids[i-1],ids[i],NATIVE.wingReach,false);
     tipBone(tail.ObjectId,false);for(const id of ids)linked.add(id);
     const half=quantile(links,.5)*NATIVE.wing/2;
-    for(const piece of pieces)if(!before.has(piece)){fixed.delete(piece);thin.add(piece);piece.half=half;}
+    for(const piece of pieces)if(!before.has(piece)){fixed.delete(piece);thin.add(piece);added.add(piece);piece.half=half;}
   }
   for(const [parent,child] of neckLinks){linkBone(parent,child,NATIVE.boneReach,false);linked.add(parent);}
   if(wingLinks.length){const half=quantile(wingLinks,.5)*NATIVE.wing/2;for(const piece of wingPieces)piece.half=half;}
@@ -446,6 +451,11 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     const [a,b]=axisEnds(points);
     strip('rigid remnant',a,b,span*.12,[.634,.505,.999,.995]);
   }
+  for(const id of lateSkulls) {
+    const neck=at(id),skin=cloud(id),center=skin.length?mean(skin):null,d=center?distance(neck,center):0;
+    const axis=d>span*.005?[(center[0]-neck[0])/d,(center[1]-neck[1])/d]:[1,0],length=unit*NATIVE.skull;
+    pieces.push({kind:'skull',start:[neck[0],neck[1],ground],end:[neck[0]+axis[0]*length,neck[1]+axis[1]*length,ground],half:length*NATIVE.skullHalf,ids:[id]});
+  }
   // The native gutz skull occupies the TOP RIGHT of the atlas. Its nine
   // surface landmarks retain a broad cranium and jaw, scaled to head skin.
   function emitSkull({start,end,half:width,ids=[],free=false,raise=0},index) {
@@ -461,7 +471,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const projected=[],anatomyProjected=[];
   for(const {g,vertices:v} of meshes)for(let i=0;i<g.Faces.length;i+=3){
     const ids=Array.from(g.Faces.slice(i,i+3));if(ids.every(k=>{const bones=influences(g,k);return bones.length&&bones.every(equipment);}))continue;
-    const tri=ids.map(id=>[v[id*3],v[id*3+1]]);if(signedArea(tri)<0)tri.reverse();if(signedArea(tri)>span*span*1e-12){projected.push(tri);if(!ids.some(k=>influences(g,k).some(garment))&&!ids.every(k=>{const bones=influences(g,k);return bones.length&&bones.every(b=>wingJoints.has(ownerOf(b))||ancestors(b).some(a=>wingJoints.has(a)));}))anatomyProjected.push(tri);}
+    const tri=ids.map(id=>[v[id*3],v[id*3+1]]);if(signedArea(tri)<0)tri.reverse();if(signedArea(tri)>span*span*1e-12){projected.push(tri);if(!ids.some(k=>influences(g,k).some(garment)))anatomyProjected.push(tri);}
   }
   const footprint=booleanContours(projected,[],'add',span),outline=polygonGroups(footprint).flatMap(({outer,holes})=>[outer,...holes]);
   // Fit in the final posed skin, not in the rest-pose joint spacing. POSE
@@ -514,27 +524,27 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
       // short joints. No length-based width cap and no whole-piece shrink.
       [piece.start,piece.end]=[point(a),point(b)];
       piece.half=Math.max((right-left)/2,span*.004);
-      // A tail or neck link narrows with its own skin but is never wider
-      // than a native bone of its length (the owner's dragon tail tapers).
-      if(fixed.has(piece))piece.half=Math.min(piece.half,distance(piece.start,piece.end)*NATIVE.bone/2);
     }
   };
-  let anatomyArea=null;
-  if(!edited&&outline.length){
-    // Wing bones keep their own thin native width; only the body is fitted.
-    // Tail bones count toward the body's area at their own size; wing bones
-    // lie over membrane, which is not part of the area target.
-    const fitted=pieces.filter(piece=>!wingPieces.has(piece));
-    for(const piece of fitted)if(!thin.has(piece))fitToPart(piece);
+  // A winged body (the owner's dragon) keeps native unit proportions for
+  // every piece, as the owner's own corpse does: its bulky flesh is not fitted.
+  // Everything else is fitted exactly as before; pieces only these new rules
+  // add (an unnamed tail, a Head Ref skull) stay out of that fit so the
+  // existing pieces come out unchanged.
+  const ownSkull=pieces.filter(piece=>piece.kind==='skull'&&piece.ids?.some(id=>refHeads.has(id)));
+  for(const piece of ownSkull)added.add(piece);
+  if(!edited&&outline.length&&!wingPieces.size){
+    const fitted=pieces.filter(piece=>!added.has(piece));
+    for(const piece of fitted)fitToPart(piece);
+    for(const piece of ownSkull)fitToPart(piece);
     // Native mesh footprint / dead-body outline: median 0.826 on 206 SD
     // units. Keep the fitted chest/pelvis and limb reach; adjust flesh width.
     // The native skull scales uniformly about its own head centre.
     const area=loops=>Math.abs(loops.reduce((sum,loop)=>sum+signedArea(loop),0));
-    // A skull fitted to the head never grows past that head.
-    const scaled=(piece,scale)=>{if(piece.kind==='skull')scale=Math.min(scale,1);const center=mix(piece.start,piece.end,.5);return {...piece,start:piece.kind==='skull'?mix(center,piece.start,scale):piece.start,end:piece.kind==='skull'?mix(center,piece.end,scale):piece.end,half:Math.min(piece.half*scale,torsoBounds.get(piece)?.maxHalf??Infinity)};};
+    const scaled=(piece,scale)=>{const center=mix(piece.start,piece.end,.5);return {...piece,start:piece.kind==='skull'?mix(center,piece.start,scale):piece.start,end:piece.kind==='skull'?mix(center,piece.end,scale):piece.end,half:Math.min(piece.half*scale,torsoBounds.get(piece)?.maxHalf??Infinity)};};
     const footprintAt=(scale,subset=pieces)=>{
       const shapes=subset.map(piece=>{
-        const p=fixed.has(piece)||thin.has(piece)?piece:scaled(piece,scale),len=distance(p.start,p.end)||1,axis=[(p.end[0]-p.start[0])/len,(p.end[1]-p.start[1])/len],side=[axis[1],-axis[0]];
+        const p=scaled(piece,scale),len=distance(p.start,p.end)||1,axis=[(p.end[0]-p.start[0])/len,(p.end[1]-p.start[1])/len],side=[axis[1],-axis[0]];
         const shape=p.kind==='skull'?[[0,.079],[.234,.730],[.489,1],[.787,.737],[1,-.091],[.915,-.841],[.489,-1],[.234,-.755]]:[[0,-1],[1,-1],[1,1],[0,1]];
         const ring=shape.map(([along,across])=>[p.start[0]+axis[0]*len*along+side[0]*p.half*across,p.start[1]+axis[1]*len*along+side[1]*p.half*across]);
         return signedArea(ring)<0?ring.reverse():ring;
@@ -545,15 +555,10 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     // contribute flesh to the sizing target, even when blended with a leg.
     // Hidden reference-based legs add their anatomical footprint, not the
     // area of the skirt which conceals them.
-    anatomyArea=area(booleanContours(anatomyProjected,referenceLegs.size?footprintAt(1,[...referenceLegs]):[],'add',span));
-    // Big bodies leave leaner remains: on the 207 SD units with a native
-    // corpse, coverage falls with size past ~100 units (sqrt of the body
-    // area), about with its square root (0.67 at 157, the largest sixth).
-    // The owner's dragon corpse (about 254) agrees.
-    const bodySize=Math.sqrt(anatomyArea),target=anatomyArea*NATIVE.cover*Math.min(1,(bodySize/NATIVE.coverSize)**-.5);
+    const target=area(booleanContours(anatomyProjected,referenceLegs.size?footprintAt(1,[...referenceLegs]):[],'add',span))*.826;
     let low=.1,high=2;
     for(let i=0;i<16;i++){const mid=(low+high)/2;if(area(footprintAt(mid,fitted))<target)low=mid;else high=mid;}
-    for(let i=0;i<pieces.length;i++)if(!thin.has(pieces[i])&&!fixed.has(pieces[i]))pieces[i]=scaled(pieces[i],(low+high)/2);
+    for(let i=0;i<pieces.length;i++)if(!added.has(pieces[i]))pieces[i]=scaled(pieces[i],(low+high)/2);
   }
   const plan=edited?structuredClone(edited):pieces;
   plan.forEach((piece,index)=>piece.kind==='skull'?emitSkull(piece,index):emitStrip(piece,index));
@@ -592,5 +597,5 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   for(let i=0;i<normals.length;i+=3){const n=new Vector3().fromArray(normals,i).normalize();n.toArray(normals,i);}
   const geoset={Vertices:new Float32Array(vertices),Normals:normals,TVertices:[new Float32Array(uv)],Faces:new Uint16Array(faces),VertexGroup:new Uint8Array(vertices.length/3),Groups:[],TotalGroupsCount:1,MaterialID:0,SelectionGroup:0,Unselectable:false,Anims:[]};
   updateBounds(geoset);
-  return {geoset,parts,pieces:plan,outline,sizeCenter:center,ground,span,bodyBounds:{min:lo,max:hi},frame,bodyIds,anatomyArea};
+  return {geoset,parts,pieces:plan,outline,sizeCenter:center,ground,span,bodyBounds:{min:lo,max:hi},frame,bodyIds};
 }

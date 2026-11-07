@@ -264,7 +264,7 @@ export function autoCorpse(model, options={}) {
     const g=pair.geometry.geoset;bind(g,corpse);g.MaterialID=corpseMaterial;
     const id=addGeoset(model,g,alpha,options.color||[1,1,1]);
     decayExtents(model,pair,{flesh:[...pair.body,id],bone:[id]});
-    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,anatomyArea:pair.geometry.anatomyArea,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
+    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
   }
   for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds

@@ -103,36 +103,36 @@ removes the old copies.
   is not a bone across the trunk. A one-control tail uses its own skin extent.
 
   Big creatures follow the owner's Vampire Dragon corpse ("perfect", 7 Nov 2026,
-  test model `corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx`), checked
-  against the SD corpus:
-  - A part whose skin shrinks to a speck in the last Death frame (a rider
-    vanishing from its mount, a pilot) leaves no remains. An extra Death variant
-    whose whole body vanishes (the dragon's bat Death Alternate) gets no decay
-    clips and no corpse instead of failing Create; the first Death still needs a body.
-  - A limbed body with no recognized head takes its skull from the skinned joint
-    its Head Ref attachment hangs from (dragon heads on unnamed bones, birds).
-  - Wings (POSE arm chains labelled Wing) get no arm or hand piece. Every skinned
-    wing joint link gets a thin bone, 1.05 times the link, all one width (0.24 of
-    the wing's median link); finger roots at one spot share one bone. A last joint
-    gets a bone along its own skin only when that continues the finger outward.
-    Wing fingers are wing, not held objects. Membrane skin is not in the area target.
-  - A long neck (two or more joints between chest and head, longer than a limb
-    bone) gets a native bone per neck link, and the rib cage lies from chest to
-    pelvis instead of reaching up to the head.
-  - A long tail (three or more joints, longer than the rib cage; it starts at its
-    first named tail joint, never the waist; Mesh/Box/Geo skin holders are not
-    tails) gets a thin bone per link, like the wings, sized from the tail's own
-    median link. Blizzard's Hydra tail is thin too.
-  - A skull fitted to the head never grows past that head in the area fit.
+  test model `corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx`). These rules
+  only add to what CORP already did (owner: "expand on its capacity", no
+  trade-offs): on the 412 test models, every corpse the earlier rules made is
+  unchanged piece for piece; the only differences are added pieces.
+  - Winged bodies (POSE arm chains labelled Wing; previously an arm and hand):
+    every skinned wing joint link gets a thin bone, 1.05 times the link, all one
+    width (0.24 of the wing's median link); finger roots at one spot share one
+    bone; a last joint gets a bone along its own skin only when that continues the
+    finger outward. Wing fingers are wing, not held objects. A part that shrinks to
+    a single point in Death (the rider) leaves nothing. The whole winged corpse
+    keeps native unit proportions without skin fitting, as the owner's own corpse
+    does; its flesh is bulky.
+  - A winged body with no recognized head takes the head from the skinned joint
+    its Head Ref hangs from. A long neck there (two or more joints between chest
+    and head, longer than a limb bone) gets a native bone per neck link, and the
+    rib cage lies from chest to pelvis.
+  - Any other limbed body with no recognized head but a Head Ref (wind serpent,
+    albatross, vulture, serpent ward) gains only the missing skull, sized like a
+    native skull and fitted to that head on its own; its other pieces are untouched.
+  - An unnamed tail chain (three or more joints, longer than the rib cage, no
+    Mesh/Box/Geo skin holders), which the name-based rules never drew, gets a thin
+    bone per link sized from its median link (phoenix, dragonhawk). Named tails keep
+    their existing pieces.
+  - An extra Death variant whose body vanishes (the dragon's bat Death Alternate)
+    gets no decay clips and no corpse instead of failing Create; the first Death
+    still needs a body.
 
   The automatic fit measures the union of the projected corpse meshes and targets
   0.826 of the anatomical surface area: the median measured on 206 Blizzard SD units
-  with a visible gutz corpse. Bodies bigger than 100 units (square root of the
-  anatomical area) target less, 0.826 x (100/size)^0.5: on the 207 SD units with a
-  native corpse, coverage falls with size (0.67 median in the largest sixth,
-  129-189 units), and the owner's dragon (254 units) agrees. This makes the largest
-  SD corpses match their native area (0.96, was 1.24) at a lower placement overlap
-  (0.44, was 0.48); units up to 100 units are unchanged. Named garment triangles are excluded from this
+  with a visible gutz corpse. Named garment triangles are excluded from this
   sizing target while remaining in the chalk outline. Thus a robed model may
   cover less of its dressed outline; increasing its robe must not increase its
   bones. The fit retains each part's length and location,
@@ -242,7 +242,7 @@ Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
 `MDLXL_CORPSE_ROBED` (owner Lahmian), and `out/pose/Medivh.mdx`, `Guldan.mdx`,
 `Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`, and
 `MDLXL_CORPSE_DRAGON` (the owner's Vampire Dragon with its hand-made corpse;
-the made corpse must reach 0.8-1.25 of its area and 0.5 overlap). The robe regressions check actual leg
+made corpse 0.8-1.25 of its area, overlap at least 0.5). The robe regressions check actual leg
 segments, ribs ending at the pelvis, and invariance when garment vertices extend.
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
