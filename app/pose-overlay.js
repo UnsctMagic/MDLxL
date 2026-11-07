@@ -59,7 +59,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
           if (bend.lengthSq() < 1e-12) bend.set(0, 1, 0).addScaledVector(direction, -direction.y);
         }
         const pole = pose.middle.clone().addScaledVector(bend.normalize(), Math.max(...pose.lengths) * .45);
-        handles.push(project(pole, { kind: 'bend', key: chain.key, chain, rotation: pose.rotations[2], selected: target.kind === 'bend', label: chain.label ? 'Bend' : chain.kind === 'leg' ? 'Knee' : 'Elbow', joint: project(pose.middle, {}) }));
+        handles.push(project(pole, { kind: 'bend', key: chain.key, chain, rotation: pose.rotations[1], selected: target.kind === 'bend', label: chain.label ? 'Bend' : chain.kind === 'leg' ? 'Knee' : 'Elbow', joint: project(pose.middle, {}) }));
       }
     } catch { /* Invalid session mappings have no visible or pickable handle. */ }
   }
