@@ -653,3 +653,19 @@ test('POSE helpers given one shared node index answer as they do alone', () => {
   assert.deepEqual(poseAffectedPins(m, config, 1, index), poseAffectedPins(m, config, 1));
   assert.deepEqual(poseNodeControl(m, config, { kind: 'node', id: 1 }, 'move', index), poseNodeControl(m, config, { kind: 'node', id: 1 }, 'move'));
 });
+
+test('elbow Rotate turns the elbow joint like any handle; a pinned hand stays fixed', () => {
+  const m = fixture(), config = { enabled: true, chains: [chain], body: 0, pins: [], bends: {}, targets: {}, nodes: [] };
+  const elbow = { kind: 'node', id: chain.middle, marker: true }, before = samplePoseChain(m, chain, 500, 0);
+  const turn = pins => {
+    const settings = { ...config, pins }, constraints = poseNodeConstraints(m, settings, chain.middle, 'rotate', elbow);
+    const copy = structuredClone(m), result = solvePoseNode(m, chain.middle, constraints, 500, 0, { control: poseNodeControl(m, settings, elbow, 'rotate'), mode: 'rotate', space: 'world', values: [0, 0, 30] });
+    apply(copy, result); return samplePoseChain(copy, chain, 500, 0);
+  };
+  const free = turn([]);
+  vectorNear(free.root.toArray(), before.root.toArray()); vectorNear(free.middle.toArray(), before.middle.toArray());
+  assert.ok(free.end.distanceTo(before.end) > 1, 'the forearm and hand swing with the elbow');
+  const pinned = turn([chain.key]);
+  vectorNear(pinned.end.toArray(), before.end.toArray(), 1e-3); vectorNear(pinned.root.toArray(), before.root.toArray());
+  assert.ok(pinned.middle.distanceTo(before.middle) > .5, 'the elbow still turns around the pinned hand');
+});
