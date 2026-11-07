@@ -6,7 +6,7 @@ import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { usePreferencesContext } from './PreferencesContext.jsx';
 import { sampleGeosetAnimation } from '../src/animation.js';
 import { attachematorStandSequence } from '../src/attachemator.js';
-import { BIND_DEFAULTS, analyzeBinding, boneColors, defaultExcludedBones, pieceAt, planBinding, previewBinding } from '../src/bind-xl.js';
+import { BIND_DEFAULTS, analyzeBinding, boneColors, defaultExcludedBones, focusColors, pieceAt, planBinding, previewBinding } from '../src/bind-xl.js';
 import './attachemator.css';
 import './auto-corpse.css';
 import './bind-xl.css';
@@ -21,10 +21,10 @@ const FLEX = 'flex';
 const FRONT = 'front';
 const percent = value => Math.round(value * 100);
 const MODES = [
-  ['auto', 'Auto', 'BindXL decides from the sliders.'],
-  ['plate', 'Stiff', 'Moves as one piece with one bone, like an armour plate.'],
-  ['bend', 'Bend', 'Bends with the bones it sits on, like skin or cloth.'],
-  ['keep', 'Current', 'Keeps the binding it has now.'],
+  ['auto', 'Auto', 'BindXL decides. A part that is bound well stays as it is.'],
+  ['plate', 'Stiff', 'Moves as one piece with the bone of what it sits on, like an armour plate. Several selected parts move together as one.'],
+  ['bend', 'Bend', 'Bound again from the skeleton and bends with the bones it sits on, like skin or cloth.'],
+  ['keep', 'Good', 'Locks the binding this part has now. Nothing in BindXL changes it.'],
 ];
 
 function Slider({ label, low, high, tip, value, onChange }) {
@@ -48,8 +48,8 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
   const analysis = useMemo(() => { try { return analyzeBinding(current); } catch (cause) { return { error: cause.message, bones: [], pieces: [] }; } }, [current]);
   const startExcluded = useMemo(() => analysis.error ? new Set() : defaultExcludedBones(current, analysis), [current, analysis]);
   const [excluded, setExcluded] = useState(startExcluded);
-  const [rebind, setRebind] = useState(percent(BIND_DEFAULTS.rebind)), [soft, setSoft] = useState(percent(BIND_DEFAULTS.soft));
-  const [plates, setPlates] = useState(percent(BIND_DEFAULTS.plates)), [glue, setGlue] = useState(percent(BIND_DEFAULTS.glue));
+  const [soft, setSoft] = useState(percent(BIND_DEFAULTS.soft)), [plates, setPlates] = useState(percent(BIND_DEFAULTS.plates));
+  const [protectOn, setProtectOn] = useState(false), [protect, setProtect] = useState(percent(BIND_DEFAULTS.protect));
   const [marks, setMarks] = useState({}), [selected, setSelected] = useState(() => {
     // Parts with vertices selected in the editor start selected.
     const pieces = new Set();
@@ -67,13 +67,15 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
 
   const plan = useMemo(() => {
     if (analysis.error) return { error: analysis.error };
-    try { return planBinding(analysis, { rebind: rebind / 100, soft: soft / 100, plates: plates / 100, glue: glue / 100, excluded, marks }); }
+    // Bones the user unticks hand their parts to other bones; bones that start unticked keep theirs.
+    const turnedOff = new Set([...excluded].filter(id => !startExcluded.has(id)));
+    try { return planBinding(analysis, { soft: soft / 100, plates: plates / 100, protect: protectOn ? protect / 100 : null, excluded, turnedOff, marks }); }
     catch (cause) { return { error: cause.message }; }
-  }, [analysis, rebind, soft, plates, glue, excluded, marks]);
+  }, [analysis, soft, plates, protectOn, protect, excluded, startExcluded, marks]);
   const draft = useMemo(() => { if (plan.error) return current; try { return previewBinding(current, analysis, plan); } catch (cause) { return current; } }, [current, analysis, plan]);
   // Commit only when the binding would change.
   const changed = useMemo(() => !!plan.groups && plan.groups.some((group, flat) => group.join() !== [...new Set(analysis.current[flat])].sort((a, b) => a - b).join()), [plan, analysis]);
-  const colorMap = useMemo(() => analysis.error ? null : boneColors(analysis), [analysis]);
+  const palette = useMemo(() => analysis.error ? null : boneColors(analysis), [analysis]);
   const regionOf = id => analysis.bones.findIndex(region => region.ids.includes(id) || region.driver === id);
   const joints = useMemo(() => new Set(analysis.bones.filter(region => region.ids.some(id => !excluded.has(id))).map(region => region.driver)), [analysis, excluded]);
   const everyGeoset = useMemo(() => new Set((current.Geosets || []).map((_, index) => index)), [current]);
@@ -132,9 +134,10 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
     setBone(null);
     setSelected(previous => ctrl ? previous.filter(index => index !== piece) : shift ? [...new Set([...previous, piece])] : [piece]);
   };
+  // Stiff on several parts makes them one plate: they share one bone.
   const markSelected = mark => setMarks(previous => {
-    const next = { ...previous };
-    for (const index of selected) { const key = analysis.pieces[index].key; if (mark) next[key] = mark; else delete next[key]; }
+    const next = { ...previous }, together = mark?.mode === 'plate' && selected.length > 1 ? analysis.pieces[selected[0]].key : undefined;
+    for (const index of selected) { const key = analysis.pieces[index].key; if (mark) next[key] = together ? { ...mark, together } : mark; else delete next[key]; }
     return next;
   });
   const pickBone = ids => {
@@ -151,7 +154,7 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
     return next;
   });
   const reset = () => {
-    setRebind(percent(BIND_DEFAULTS.rebind)); setSoft(percent(BIND_DEFAULTS.soft)); setPlates(percent(BIND_DEFAULTS.plates)); setGlue(percent(BIND_DEFAULTS.glue));
+    setSoft(percent(BIND_DEFAULTS.soft)); setPlates(percent(BIND_DEFAULTS.plates)); setProtectOn(false); setProtect(percent(BIND_DEFAULTS.protect));
     setMarks({}); setExcluded(startExcluded); setPicking(false);
   };
   const commit = () => {
@@ -163,8 +166,9 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
   const selectedMarks = selected.map(index => marks[analysis.pieces[index].key]?.mode || 'auto');
   const sharedMark = selectedMarks.length && selectedMarks.every(mode => mode === selectedMarks[0]) ? selectedMarks[0] : null;
   const markBone = selected.length && selected.every(index => marks[analysis.pieces[index].key]?.bone === marks[analysis.pieces[selected[0]].key]?.bone) ? marks[analysis.pieces[selected[0]].key]?.bone ?? '' : '';
+  const colorMap = useMemo(() => bone != null && !analysis.error ? focusColors(analysis, bone) : palette, [bone, analysis, palette]);
   const nameOf = id => current.Nodes?.[id]?.Name ?? (current.Bones || []).find(node => node.ObjectId === id)?.Name ?? `Bone ${id}`;
-  const chip = id => <button type="button" key={id} className="bxl-chip" translate="no" aria-pressed={bone === id} title="Show this bone" onClick={() => setBone(id)}><i style={{ background: colorMap?.get(id) ? css(colorMap.get(id)) : '#999' }}/>{nameOf(id)}</button>;
+  const chip = id => <button type="button" key={id} className="bxl-chip" translate="no" aria-pressed={bone === id} title="Show this bone: its area lights up, the rest turns grey" onClick={() => setBone(previous => previous === id ? null : id)}><i style={{ background: palette?.get(id) ? css(palette.get(id)) : '#999' }}/>{nameOf(id)}</button>;
   const sequence = flex ? null : current.Sequences?.[motion];
   const status = error || plan.error || (picking ? 'Click a bone in the preview.' : flex && flexBone != null ? `Flex: ${nameOf(analysis.bones[regionOf(flexBone)]?.id ?? flexBone)}` : 'Click a part to change how it moves. Drag to turn the camera.');
 
@@ -179,16 +183,15 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
             </select>
             <button aria-label={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
           </div>
-          <Slider label="Rebind" low="Current" high="Skeleton" value={rebind} onChange={setRebind}
-            tip="How much to rebind from the skeleton. At Current, only torn seams, stray vertices and vertices bound to far-away bones change. At Skeleton, everything is bound by where it sits."/>
           <Slider label="Soft joints" low="Sharp" high="Smooth" value={soft} onChange={setSoft}
             tip="How far bending parts blend between two bones around a joint. Sharp: every vertex follows one bone."/>
           <Slider label="Plates" low="Bend" high="Stiff" value={plates} onChange={setPlates}
-            tip="How readily a separate part moves stiffly with one bone, like an armour plate, instead of bending."/>
-          <Slider label="Seams" low="Touching" high="Near" value={glue} onChange={setGlue}
-            tip="Vertices of different parts closer than this share one binding, so seams never tear open."/>
+            tip="How readily a part that needs a new binding moves stiffly with one bone, like an armour plate, instead of bending."/>
+          <label className="check bxl-protect" title="Off: BindXL changes a bound part only when it is clearly wrong. On: you choose how much of the current binding to protect."><input type="checkbox" checked={protectOn} onChange={event => setProtectOn(event.target.checked)}/>Protect current binding</label>
+          {protectOn && <Slider label="Protect" low="None" high="Full" value={protect} onChange={setProtect}
+            tip="How much of the current binding to protect. Full: only torn seams, stray and unbound vertices change. None: everything is bound again from the skeleton, except parts marked Good."/>}
           <div className="bxl-checks">
-            <label className="check" title="Colours every part by the bones it follows. Blended areas mix the colours."><input type="checkbox" checked={colors} onChange={event => setColors(event.target.checked)}/>Bone colours</label>
+            <label className="check" title="Colours every part by the bones it follows; bones next to each other always differ. Blended areas mix the two colours. Click a bone to light up only its area."><input type="checkbox" checked={colors} onChange={event => setColors(event.target.checked)}/>Bone colours</label>
             <label className="check" title="Shows the bones as lines. Pick shows their joints to click."><input type="checkbox" checked={skeleton} onChange={event => setSkeleton(event.target.checked)}/>Skeleton</label>
           </div>
           {selected.length > 0 && <section className="bxl-panel" aria-label="Selected parts">
@@ -206,7 +209,7 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, initi
           </section>}
           {bone != null && <section className="bxl-panel" aria-label="Selected bone">
             <div className="bxl-panel-head">{chip(bone)}</div>
-            <label className="check" title="Untick to keep vertices off this bone. Parts held only by unticked bones keep their binding."><input type="checkbox" checked={!excluded.has(bone)} onChange={event => toggleBone(bone, event.target.checked)}/>Bind to this bone</label>
+            <label className="check" title="Untick to move every vertex off this bone onto the bones around it."><input type="checkbox" checked={!excluded.has(bone)} onChange={event => toggleBone(bone, event.target.checked)}/>Bind to this bone</label>
           </section>}
           <button className="bxl-reset" title="Back to the starting sliders and no marked parts" onClick={reset}>Reset</button>
         </div>
