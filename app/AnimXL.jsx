@@ -558,8 +558,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
             {compare && <span className="ax-badge ax-badge-new">AnimXL</span>}
             <Suspense fallback={<span>Loading preview…</span>}>
               <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [...ghostPaths, originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
-                {...(target === 'selected' && !picking && !compare ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: selection, onSelectNodes: selectFromPreview, multiple: true, transformMode: 'select', poseConfig, poseDocumentModel: model, onPoseSelect: selectHandle, onPoseCommit: () => {} } : {})}
-                {...(picking ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
+                {...(target === 'selected' && !picking && !compare ? { cleanAnimationPreview: true, emptyDragRotates: true, overlays: { bones: true }, selectedNodeIds: selection, onSelectNodes: selectFromPreview, multiple: true, transformMode: 'select', poseConfig, poseDocumentModel: model, onPoseSelect: selectHandle, onPoseCommit: () => {} } : {})}
+                {...(picking ? { cleanAnimationPreview: true, emptyDragRotates: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
             </Suspense>
           </div>
           </div>

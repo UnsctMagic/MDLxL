@@ -133,6 +133,17 @@ async function closeTestApp(app) {
     if (await dialog.getByRole('button', { name: 'Clear', exact: true }).count()) { await dialog.getByRole('button', { name: 'Clear', exact: true }).click(); await settlePage(page, 600); }
     assert.match(await dialog.locator('.ax-status').textContent(), /Click bones or POSE handles/);
     await dialog.screenshot({ path: path.join(out, '2c-selected-bones.png') });
+    // Selected bones: a drag that starts on empty space still turns the camera (no selection box).
+    {
+      const box = await dialog.locator('.ax-preview').boundingBox(), shot = () => page.screenshot({ clip: box });
+      const was = await shot();
+      await page.mouse.move(box.x + box.width * 0.12, box.y + box.height * 0.15); await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.15, { steps: 12 });
+      assert.equal(await dialog.locator('[data-selection-marquee]').count(), 0, 'empty-space drag draws no selection box');
+      await page.mouse.up(); await settlePage(page, 400);
+      assert.ok(!was.equals(await shot()), 'empty-space drag turns the camera in Selected bones');
+      checks.push('Selected bones: dragging empty space rotates the camera');
+    }
     await dialog.getByRole('button', { name: 'Auto', exact: true }).click(); await settlePage(page, 600);
     assert.match(await dialog.locator('.ax-status').textContent(), /bones shaped/);
     checks.push('Apply to switches between Auto and Selected bones');
