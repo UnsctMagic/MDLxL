@@ -177,6 +177,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         s.drag.wrapperControls = p.wrapperControls;
         s.drag.fineWithoutShift = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
         s.drag.fine = s.drag.fineWithoutShift;
+        // The piece's farthest point from its centre, in screen pixels.
+        s.drag.reach = indices.reduce((most, index) => Math.max(most, Math.hypot((s.uv[index * 2] - s.drag.center[0]) * m.sizeX, (s.uv[index * 2 + 1] - s.drag.center[1]) * m.sizeY)), 0);
         uvTurn(s.drag, x, y);
       }
       draw();
