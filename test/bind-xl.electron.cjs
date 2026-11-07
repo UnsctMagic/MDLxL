@@ -57,6 +57,19 @@ const path = require('node:path');
 
     await window.getByRole('button', { name: 'Stiff', exact: true }).click();
     assert.equal(await window.getByRole('button', { name: 'Stiff', exact: true }).getAttribute('aria-pressed'), 'true');
+    assert.equal(await window.getByRole('button', { name: 'Good', exact: true }).count(), 1, 'parts can be marked Good');
+    // A bone chip lights up only that bone's area; a second click goes back to all colours.
+    const chip = window.locator('.bxl-chip').first();
+    await chip.click(); await settle(page, 500); await shot('3b-one-bone');
+    assert.equal(await chip.getAttribute('aria-pressed'), 'true');
+    await chip.click(); await settle(page, 300);
+    // Protect is off by default; on, its scale appears.
+    assert.equal(await window.getByRole('slider', { name: 'Protect' }).count(), 0);
+    await window.getByLabel('Protect current binding').check();
+    const protect = window.getByRole('slider', { name: 'Protect' });
+    await protect.waitFor({ timeout: 5000 });
+    await protect.focus(); await page.keyboard.press('Home'); await settle(page, 500); await shot('3c-protect-none');
+    await window.getByLabel('Protect current binding').uncheck();
     // Slider: Soft joints to the far right.
     const soft = window.getByRole('slider', { name: 'Soft joints' });
     await soft.focus(); await page.keyboard.press('End');
