@@ -21,7 +21,7 @@ export function CameraTools({ value, onChange, look }) {
   return <div className="classic-toolbar-group">{[['work', 'sb_cross', 'Work mode'], ['zoom', 'sb_zoom', 'Zoom'], ['rotate', 'sb_rot', 'Camera rotation'], ['move', 'sb_move', 'Move camera']].map(([mode, icon, title]) => <Tool action={'camera:'+mode} key={mode} icon={icon} title={title} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</div>;
 }
 export function TransformTools({ value, onChange, look }) {
-  return <>{[['select', 'sb_select', 'Select'], ['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_zoom', 'Resize']].map(([mode, icon, title]) => <Tool action={mode} key={mode} icon={icon} title={title} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</>;
+  return <>{[['select', 'sb_select', 'Select'], ['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_zoom', 'Resize', 'Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.']].map(([mode, icon, title, description]) => <Tool action={mode} key={mode} icon={icon} title={title} description={description} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</>;
 }
 export function WorkplaneControls({ enabled, onEnabled, value, onChange, locked }) {
   const group = React.useId();

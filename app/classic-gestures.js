@@ -38,6 +38,39 @@ export function alignTowardView(point, target, view, amount) {
   return mixed.map((value, axis) => view.eye[axis] + value / mixedLength * distance);
 }
 
+/**
+ * Groups selected vertices into pieces: vertices that share a face belong to
+ * the same piece. Returns one piece number per entry of `indices`.
+ */
+export function selectedPieces(faces, indices) {
+  const slot = new Map(indices.map((vertex, i) => [vertex, i])), parent = indices.map((_, i) => i);
+  const find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+  for (let i = 0; i + 2 < faces.length; i += 3) {
+    let first = -1;
+    for (const vertex of [faces[i], faces[i + 1], faces[i + 2]]) {
+      const at = slot.get(vertex); if (at === undefined) continue;
+      if (first < 0) first = find(at); else parent[find(at)] = first;
+    }
+  }
+  return indices.map((_, i) => find(i));
+}
+
+/**
+ * Resize with Ctrl: every piece keeps its size and shape, only its center
+ * (bounding-box middle) moves toward or away from the pivot by `scale`.
+ * At 0 every piece's center sits on the pivot, so matching pieces overlap.
+ * `pieces` is a list of {points: Float32Array-like xyz triples}.
+ */
+export function spreadPieceOffsets(pieces, pivot, scale) {
+  return pieces.map(points => {
+    const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i + 2 < points.length; i += 3) for (let axis = 0; axis < 3; axis++) {
+      min[axis] = Math.min(min[axis], points[i + axis]); max[axis] = Math.max(max[axis], points[i + axis]);
+    }
+    return [0, 1, 2].map(axis => ((min[axis] + max[axis]) / 2 - pivot[axis]) * (scale[axis] - 1));
+  });
+}
+
 /** A marquee can catch any visible part of a vertex marker, not just its center. */
 export function marqueeContainsPoint(point, start, end, radius = 0) {
   return point[0] >= Math.min(start.x, end.x) - radius && point[0] <= Math.max(start.x, end.x) + radius && point[1] >= Math.min(start.y, end.y) - radius && point[1] <= Math.max(start.y, end.y) + radius;

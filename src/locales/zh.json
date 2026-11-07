@@ -7908,5 +7908,6 @@
   "Calculate extents ({0} broken)": "计算边界（{0} 个损坏）",
   "Rebuilds the boxes the game uses for the health bar height, clicking and hiding the unit at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes are left out.": "重新计算游戏用于血条高度、点击选取以及在屏幕边缘隐藏单位的边界框。英雄光环、头像背景和发光特效网格不计入。",
   "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes (geosets {0}) are left out. Meshes, keys and visibility stay unchanged.": "根据模型及其采样动画重新计算模型、动画和几何体的边界。它们决定血条高度、点击区域以及单位何时在屏幕边缘被隐藏。英雄光环、头像背景和发光特效网格（几何体 {0}）不计入。网格、关键帧和可见性保持不变。",
-  "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Meshes, keys and visibility stay unchanged.": "根据模型及其采样动画重新计算模型、动画和几何体的边界。它们决定血条高度、点击区域以及单位何时在屏幕边缘被隐藏。网格、关键帧和可见性保持不变。"
+  "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Meshes, keys and visibility stay unchanged.": "根据模型及其采样动画重新计算模型、动画和几何体的边界。它们决定血条高度、点击区域以及单位何时在屏幕边缘被隐藏。网格、关键帧和可见性保持不变。",
+  "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "缩放：拖动以放大或缩小。拖动时按住 Ctrl，可让分开的部件靠近或远离，而不改变它们的大小。"
 }

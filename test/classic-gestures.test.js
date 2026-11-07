@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { alignTowardView, applySelection, dragScale, connectedVertices, insideTriangle, marqueeContainsPoint, moveDragPoint } from '../app/classic-gestures.js';
+import { alignTowardView, applySelection, dragScale, connectedVertices, insideTriangle, marqueeContainsPoint, moveDragPoint, selectedPieces, spreadPieceOffsets } from '../app/classic-gestures.js';
 
 function moveGesture() {
   const start = { x: 100, y: 100, width: 800, height: 600 };
@@ -86,4 +86,29 @@ test('zoom align lines points up behind the target from the eye, keeping their d
   // Orthographic: depth along the view stays, the sideways offset goes.
   close(alignTowardView([5, 7, -3], [1, 2, 0], { direction: [0, 0, -2] }, 1), [1, 2, -3]);
   close(alignTowardView([5, 7, -3], [1, 2, 0], { direction: [0, 0, -1] }, .5), [3, 4.5, -3]);
+});
+
+test('Resize with Ctrl moves separate pieces without changing their size', () => {
+  // Two triangles that share no vertex are two pieces; a lone vertex is its own piece.
+  const faces = [0, 1, 2, 3, 4, 5];
+  const pieces = selectedPieces(faces, [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(new Set(pieces.slice(0, 3)).size, 1);
+  assert.equal(new Set(pieces.slice(3, 6)).size, 1);
+  assert.notEqual(pieces[0], pieces[3]);
+  assert.ok(pieces[6] !== pieces[0] && pieces[6] !== pieces[3]);
+  // A face only partly selected still joins the selected vertices it touches.
+  const partial = selectedPieces([0, 1, 9], [0, 1]);
+  assert.equal(partial[0], partial[1]);
+
+  // Two identical squares 10 apart around a pivot halfway between them.
+  const square = x => [x - 1, -1, 0, x + 1, -1, 0, x + 1, 1, 0, x - 1, 1, 0];
+  const left = square(-5), right = square(5), pivot = [0, 0, 0];
+  assert.deepEqual(spreadPieceOffsets([left, right], pivot, [2, 2, 2]), [[-5, 0, 0], [5, 0, 0]]);
+  // At zero both centers land on the pivot: the matching squares overlap exactly, at full size.
+  const [toLeft, toRight] = spreadPieceOffsets([left, right], pivot, [0, 0, 0]);
+  const moved = (points, offset) => points.map((value, i) => value + offset[i % 3]);
+  assert.deepEqual(moved(left, toLeft), moved(right, toRight));
+  assert.deepEqual(moved(left, toLeft), square(0));
+  // Shift keeps one axis: only that axis spreads.
+  assert.deepEqual(spreadPieceOffsets([right], pivot, [1, 3, 1]), [[0, 0, 0]]);
 });
