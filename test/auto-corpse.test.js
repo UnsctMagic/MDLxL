@@ -488,3 +488,29 @@ test('a big winged dragon gets the owner corpse: wing, tail and neck bones, its 
   assert.ok(ratio>.8&&ratio<1.25,`corpse area ${ratio.toFixed(2)} of the owner's`);
   assert.ok(overlap>=.5,`overlap with the owner's corpse ${overlap.toFixed(3)} (was 0.26 before wings/tails/necks)`);
 });
+
+// Owner models (7 Nov 2026): a dragon with 263 nodes, and effects switched by a global loop.
+const ownerFixture=name=>{const file=testModel('corpse-fixtures/'+name);return existsSync(file)?file:null;};
+test('past 254 nodes the corpse bone sits right after the model bones so the preview can draw it',{skip:!ownerFixture('Current_VampireDragon_263nodes.mdx')&&'owner dragon not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes}=await import('../src/animation.js');
+  const d=openDocument(new Uint8Array(readFileSync(ownerFixture('Current_VampireDragon_263nodes.mdx'))),'dragon.mdx');
+  const before=new Map(allNodes(d.model).map(n=>[n.Name+'#'+n.ObjectId,n])),bound=d.model.Geosets.map(g=>g.Groups.map(group=>group.map(id=>d.model.Nodes[id].Name)));
+  const bones=d.model.Bones.length,r=apply(d),m=d.model,ids=allNodes(m).map(n=>n.ObjectId).sort((a,b)=>a-b);
+  assert.ok(ids.every((v,i)=>v===i),'node numbers stay contiguous');
+  for(const c of r.corpses)assert.ok(m.Geosets[c.corpseGeoset].Groups[0][0]<254,'each corpse is bound to a bone the preview draws');
+  assert.ok(r.corpses.every(c=>m.Geosets[c.corpseGeoset].Groups[0][0]>=bones),'the model bones keep their numbers');
+  bound.forEach((groups,g)=>assert.deepEqual(m.Geosets[g].Groups.map(group=>group.map(id=>m.Nodes[id].Name)),groups,'every body mesh keeps its own bones'));
+  for(const n of allNodes(m))if(n.Parent!=null&&n.Parent>=0)assert.ok(m.Nodes[n.Parent],'parents still resolve');
+  assert.ok(before.size>250);
+});
+test('an effect switched by a global loop no longer blocks Create and is silenced only in decay',{skip:!ownerFixture('WH_WOC_KnightKhorneAxe05.mdx')&&'owner Khorne knight not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  for(const name of ['WH_WOC_KnightKhorneAxe05.mdx','WH_WOC_AspiringChampionTzeentch01.mdx'].filter(ownerFixture)){
+    const d=openDocument(new Uint8Array(readFileSync(ownerFixture(name))),name),looped=d.model.ParticleEmitters2.filter(n=>n.Visibility?.GlobalSeqId!=null).map(n=>[n.Name,structuredClone(n.Visibility)]);
+    assert.ok(looped.length,`${name} has a looped effect`);
+    const r=apply(d),m=d.model,c=r.corpses[0];
+    for(const [effect,visibility] of looped){const n=m.ParticleEmitters2.find(e=>e.Name===effect);assert.deepEqual(n.Visibility,visibility,'the global loop itself is unchanged');
+      if(n.EmissionRate?.GlobalSeqId==null)for(const seq of [c.flesh,c.bone])assert.equal(sampleTrack(n.EmissionRate,m.Sequences[seq].Interval[0]+500,{interval:m.Sequences[seq].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:0}),0,'no particles in decay');}
+  }
+});

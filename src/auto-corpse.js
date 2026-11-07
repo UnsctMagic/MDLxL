@@ -32,6 +32,24 @@ const corpseTexture=(model,g)=>textureNames(model,g).some(name=>/(?:^|[\\/])(?:g
 // tangents equal the value. A sink passes its own straight-line tangents.
 const key=(frame,value,line,[inTan,outTan]=[])=>{const v=vector(value),flat=line===2&&v.length!==4?v.map(()=>0):v;return {Frame:frame,Vector:v,...(line>=2?{InTan:vector(inTan??flat),OutTan:vector(outTan??flat)}:{})};};
 const TRANSFORMS={Translation:[0,0,0],Rotation:[0,0,0,1],Scaling:[1,1,1]};
+const EFFECT_OUTPUT={Attachments:[],ParticleEmitters:['EmissionRate'],ParticleEmitters2:['EmissionRate'],ParticleEmitterPopcorns:['EmissionRate'],RibbonEmitters:['Alpha'],Lights:['Intensity','AmbIntensity']};
+// MDLxL's preview draws meshes bound to the first 254 nodes only. When a model
+// already has that many, the new corpse bones move to just after the model's
+// own bones (the game's section order) and later non-bone nodes shift up.
+function lowerCorpseBones(model,ids) {
+  const nodes=allNodes(model).sort((a,b)=>a.ObjectId-b.ObjectId);
+  if(!ids.some(id=>id>=254)||model.Geosets.some(g=>g.SkinWeights?.length)||nodes.some((n,i)=>n.ObjectId!==i))return;
+  const moved=nodes.filter(n=>ids.includes(n.ObjectId)),rest=nodes.filter(n=>!ids.includes(n.ObjectId));
+  const after=rest.reduce((last,n,i)=>model.Bones.includes(n)?i:last,-1);
+  const order=[...rest.slice(0,after+1),...moved,...rest.slice(after+1)];
+  if(moved.some(n=>order.indexOf(n)>=254))return;
+  const map=new Map(order.map((n,i)=>[n.ObjectId,i])),pivots=order.map(n=>model.PivotPoints[n.ObjectId]);
+  for(const n of order){n.ObjectId=map.get(n.ObjectId);if(n.Parent!=null&&n.Parent>=0)n.Parent=map.get(n.Parent)??n.Parent;}
+  for(const g of model.Geosets)g.Groups=g.Groups.map(group=>group.map(id=>map.get(id)??id));
+  model.PivotPoints=pivots;for(const n of order)n.PivotPoint=pivots[n.ObjectId];
+  model.Nodes=[];for(const n of order)model.Nodes[n.ObjectId]=n;
+  for(const key of ['Bones','Helpers','Attachments','EventObjects','CollisionShapes','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','Lights','RibbonEmitters'])model[key]?.sort((a,b)=>a.ObjectId-b.ObjectId);
+}
 
 /** Replace only the keys inside the given decay spans ([start,end,keys]).
  * Original interpolation, tangents, globals and keys outside them are never
@@ -243,7 +261,11 @@ export function autoCorpse(model, options={}) {
     }
   }
   for(const key of ['Attachments','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','Lights'])for(const node of model[key]||[]) {
-    if(global(node.Visibility))throw Error('An effect has global visibility. Make its visibility local before using Auto Corpse.');
+    // An effect switched by a global loop keeps that loop everywhere. It is
+    // silenced in decay through its own local output instead (particles stop
+    // spawning, a ribbon or light fades to nothing); one with no such channel
+    // keeps running, like Blizzard's global loops in decay.
+    if(global(node.Visibility)){for(const channel of EFFECT_OUTPUT[key])if(!global(node[channel]))node[channel]=localMask(node[channel]??(channel==='Alpha'||channel==='Intensity'?1:0),model.Sequences,intervals);continue;}
     node.Visibility=localMask(node.Visibility,model.Sequences,intervals);
   }
   for(const event of model.EventObjects||[])if(event.EventTrack)event.EventTrack=new Uint32Array(Array.from(event.EventTrack).filter(t=>!intervals.some(([a,b])=>t>=a&&t<=b)));
@@ -271,6 +293,7 @@ export function autoCorpse(model, options={}) {
   // only when a geoset already uses the per-sequence extent convention.
   // A body geoset's new Decay Flesh slot covers the body lying and sinking.
   model.Geosets.slice(0,originalGeosetCount).forEach((g,id)=>{if(g.Anims?.length)while(g.Anims.length<model.Sequences.length){const s=model.Sequences[g.Anims.length],own=pairs.some(p=>p.flesh===g.Anims.length&&p.body.includes(id))?s:g;g.Anims.push({MinimumExtent:new Float32Array(own.MinimumExtent),MaximumExtent:new Float32Array(own.MaximumExtent),BoundsRadius:own.BoundsRadius});}});
+  lowerCorpseBones(model,pairs.map((_,number)=>model.Bones.find(n=>n.Name===PREFIX+number)?.ObjectId).filter(id=>id!=null));
   if(options.blood)applyDeathBlood(model,deaths[0].i,options.blood);
   return {corpses:results,originalNodes:originals.length};
 }

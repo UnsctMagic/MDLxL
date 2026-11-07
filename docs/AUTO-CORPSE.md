@@ -126,6 +126,14 @@ removes the old copies.
     Mesh/Box/Geo skin holders), which the name-based rules never drew, gets a thin
     bone per link sized from its median link (phoenix, dragonhawk). Named tails keep
     their existing pieces.
+  - MDLxL's preview draws meshes bound to the first 254 nodes only. When the new
+    corpse bone would be number 254 or later (the owner's 263-node dragon), it is
+    placed right after the model's own bones, the game's section order, and later
+    non-bone nodes shift up one; every mesh keeps its bones. Below that, nothing moves.
+  - An effect switched by a global loop no longer blocks Create. The loop stays as
+    it is everywhere; the effect is silenced in decay through its own local output
+    (particle emission rate, ribbon alpha, light intensity). If that output loops
+    globally too, the effect keeps running in decay, like Blizzard's global loops.
   - An extra Death variant whose body vanishes (the dragon's bat Death Alternate)
     gets no decay clips and no corpse instead of failing Create; the first Death
     still needs a body.
