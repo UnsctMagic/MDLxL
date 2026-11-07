@@ -30,7 +30,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { vertexRgbPreviewState } from './vertex-rgb-preview.js';
 import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
-import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, shiftDragLatch } from './classic-gestures.js';
+import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, selectedPieces, shiftDragLatch, spreadPieceOffsets } from './classic-gestures.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
@@ -465,6 +465,19 @@ export default function Viewport(inputProps) {
       state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, event.shiftKey) };
       if (down.rotationDrag?.constrained) invalidate();
     }
+    function spreadOffsets(drag, scale) {
+      // Pieces are found once per drag: vertices sharing a face move together.
+      drag.pieces ||= Object.fromEntries(Object.entries(drag.selections).map(([key, indices]) => [key, selectedPieces(state.entries[key].geoset.Faces || [], indices)]));
+      const groups = new Map();
+      for (const [key, indices] of Object.entries(drag.selections)) indices.forEach((index, slot) => {
+        const id = `${key}:${drag.pieces[key][slot]}`; if (!groups.has(id)) groups.set(id, { key, indices: [] });
+        groups.get(id).indices.push(index);
+      });
+      const pieces = [...groups.values()], points = pieces.map(({ key, indices }) => indices.flatMap(index => Array.from(drag.snapshots[key].subarray(index * 3, index * 3 + 3))));
+      const offsets = spreadPieceOffsets(points, drag.pivot.toArray(), scale), result = {};
+      pieces.forEach(({ key, indices }, i) => { const offset = new THREE.Vector3(...offsets[i]); result[key] ||= {}; for (const index of indices) result[key][index] = offset; });
+      return result;
+    }
     function moveTranslation(drag, end, event) {
       if (drag.handle) {
         const gesture = drag.handleGesture ||= { handle: drag.handle, origin: drag.pivot, camera: camera.clone(), width: end.width, height: end.height };
@@ -508,7 +521,7 @@ export default function Viewport(inputProps) {
         for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, sample.shiftKey); }
         rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey);
       }
-      transformMove = { down, rawEnd, end, dx, dy, clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey }; transformFrame.schedule();
+      transformMove = { down, rawEnd, end, dx, dy, clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey || event.metaKey }; transformFrame.schedule();
     }
     // These run at the start of the next drawn frame, so the drag is drawn in that frame.
     const drawFrames = { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) };
@@ -557,6 +570,8 @@ export default function Viewport(inputProps) {
       // Align only pulls inward and stops once everything is lined up.
       if (drag.action === 'scale' && drag.align) payload.scale = [1, 1, 1].fill(Math.min(1, dragScale(dx)[0]));
       else if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
+      // Resize with Ctrl held moves each piece toward or away from the pivot and keeps its size.
+      const spread = drag.action === 'scale' && !drag.align && event.ctrlKey ? spreadOffsets(drag, scale.toArray()) : null;
       if (drag.action === 'rotate') {
         const angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey);
         const degrees = [0, 0, 0], axis = drag.rotationDrag.axisName;
@@ -569,7 +584,8 @@ export default function Viewport(inputProps) {
       for (const [key, indices] of Object.entries(drag.selections)) {
         const entry = state.entries[key], position = entry.geometry.attributes.position; position.array.set(drag.snapshots[key]);
         for (const index of indices) {
-          if (drag.align) vertex.fromArray(alignTowardView(Array.from(drag.snapshots[key].subarray(index * 3, index * 3 + 3)), drag.pivot.toArray(), drag.align, 1 - payload.scale[0]));
+          if (spread) vertex.fromArray(drag.snapshots[key], index * 3).add(spread[key][index]);
+          else if (drag.align) vertex.fromArray(alignTowardView(Array.from(drag.snapshots[key].subarray(index * 3, index * 3 + 3)), drag.pivot.toArray(), drag.align, 1 - payload.scale[0]));
           else vertex.fromArray(drag.snapshots[key], index * 3).sub(drag.pivot).multiply(scale).applyEuler(rotation).add(drag.pivot).add(translation);
           position.setXYZ(index, vertex.x, vertex.y, vertex.z);
         }
@@ -577,7 +593,7 @@ export default function Viewport(inputProps) {
         if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
         position.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
-      if (drag.action === 'translate' && drag.poseInverses || drag.align) {
+      if (drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
         const modelPositions = {};
         for (const [key, indices] of Object.entries(drag.selections)) {
           const entry = state.entries[key], position = entry.geometry.attributes.position, inverses = drag.poseInverses?.[key], values = [];
@@ -721,6 +737,12 @@ export default function Viewport(inputProps) {
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
     const gestureKey = event => {
+      // Ctrl can be pressed or let go mid-Resize; redraw at once with the new mode.
+      if (event.key === 'Control' && state.drag?.action === 'scale' && state.drag.lastMove) {
+        transformFrame.flush();
+        transformMove = {...state.drag.lastMove, ctrlKey: event.type === 'keydown'}; transformFrame.schedule(); invalidate();
+        return;
+      }
       if (event.key === 'Shift' && (state.nodeDrag || ['translate','rotate'].includes(state.drag?.action))) {
         transformFrame.flush();
         const last = (state.nodeDrag || state.drag)?.lastMove;
