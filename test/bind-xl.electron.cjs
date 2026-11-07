@@ -25,6 +25,8 @@ const path = require('node:path');
       return model ? model.Geosets.map(geoset => Array.from(geoset.VertexGroup).map(group => (geoset.Groups[group] || []).join('+')).join(',')).join('|') : null;
     }).catch(() => null);
     const tool = page.locator('.bind-xl-tool');
+    // A large model keeps the dock busy for a moment after it appears.
+    await page.waitForFunction(() => !document.querySelector('.bind-xl-tool')?.disabled, null, { timeout: 60000 });
     await tool.click();
     const window = page.getByRole('dialog', { name: 'BindXL' });
     await window.waitFor({ timeout: 30000 });
