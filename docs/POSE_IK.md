@@ -17,11 +17,13 @@ rigs, including joints named through their native attachment references.
    **Restrict**, immediately left of Setup, turns off this body lead. It starts
    off. It does not disable limb IK, bending, direct body movement or pins.
    Selecting a limb also reveals its labeled **Elbow** or **Knee**
-   control (**Bend** on custom chains). Drag it with Move to aim the bend.
-   For a swivel, choose Rotate and drag that control left or right: the elbow
-   or knee turns around the limb while its hand/foot stays in place and keeps
-   its facing direction. Shift snaps the swivel to five-degree steps. This also
-   works with a pinned endpoint, long chains and offset SD mesh grips.
+   control (**Bend** on custom chains). Drag it with Move to aim the bend
+   (a swivel: the hand/foot stays in place and keeps its facing direction).
+   Rotate works exactly as on every other handle: the same rotation rings
+   appear on the elbow or knee joint itself, and dragging a ring (or the
+   control) turns that joint so the forearm or shin swings with it. Shift
+   snaps as usual. With a pinned hand or foot, Rotate turns the elbow or knee
+   around the pin while the endpoint stays fixed.
 3. Move or Rotate **Body** or **Pelvis**. Pelvis carries the connected body,
    including rigs where the chest is a sibling of the pelvis. Mapped limbs compensate
    automatically, keeping their hands/feet in place and oriented while reachable.

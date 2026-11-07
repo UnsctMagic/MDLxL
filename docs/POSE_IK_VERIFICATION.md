@@ -1216,3 +1216,19 @@ Candidate: `out/pose-merge-package/MDLxL-win32-x64/MDLxL.exe`. Packaging verifie
 SHA-256 match:
 `d6930e5bce270d58da436d49f695d9afa5ad05590aaeb00e5ee6a3fb047583d9`.
 No release/version bump or Warcraft in-game acceptance is part of this merge.
+
+## Elbow/knee Rotate matches other handles - 2026-11-07
+
+Owner report: Rotate on Elbow/Knee/Bend felt different from every other handle.
+It hid the rotation rings and swivelled the limb from a circle drag around the
+off-joint control. Owner chose "like every handle": the 2026-10-11 Rotate
+swivel above is superseded. Rotate now shows the ordinary rings at the joint
+and applies FK to the chain's second joint via `solvePoseNode` (marker target),
+so the forearm/shin swings with it. A pinned endpoint stays fixed and the
+joint turns around it. Move on the control still aims the bend (swivel).
+
+- `test/pose-ik.test.js`: free elbow turns in place and moves the hand; pinned
+  hand stays fixed while the elbow moves.
+- `test/pose-sd-controls.electron.cjs` (hidden app, real mouse drags, three
+  camera views): joint stays put, endpoint swings, ordinary rotation feedback,
+  pinned foot keeps its pin, Escape/return leave no history, Save As/reopen.
