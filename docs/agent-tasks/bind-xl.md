@@ -27,8 +27,8 @@ Updated: 2026-11-07
 - Branch: `claude/bind-xl`, stacked on `claude/bone-wiggle` (PR 583, the Bones
   tab Wiggle). Merge 583 first or merge both together.
 - Private research (not in the repo), `D:\Claude\BindXL-research`:
-  - `lists/<set>.txt` model lists (natives, lpw, herrdave, gluma, grendel,
-    direfury, mounted), built by `lists.mjs` from `refs/`.
+  - `lists/<set>.txt` model lists, one per study set (natives, the community
+    sets and mounted models), built by `lists.mjs` from `refs/`.
   - `bench.mjs <sets> <scenarios> [settings] [--max N] [--old]`: damage
     (good, wrong, strays, torn, geoset, unbound, wipe) → plan → per-part drift.
   - `harmed.mjs <set>`: good parts the default changes, with clue values.
