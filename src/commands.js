@@ -25,11 +25,11 @@ export const COMMANDS = coreHotkeyDefaults([
   ...group('View', [['normals','Show normals','N'],['orthographic','Orthographic view','Shift+5']]),
   ...group('Resources', [['GeosetAnims','Geoset Animation Manager','Alt+H']]),
   ...group('View', [['bones','Bones rest-pose workspace','F4'],['grid:small','Small grid','Alt+1'],['grid:xz','XZ-grid','Alt+3'],['grid:yz','YZ-grid','Alt+4'],['grid:xy','XY-grid','Alt+2'],['axes','Axis guides','Shift+9'],['wireframe','Wireframe','Shift+F'],['workplaneEnabled','Constrain to workplane','Shift+8']]),
-  ...group('Modules', [['optimizeModel','OptimizeXL','O'],['animXL','AnimXL','F9'],['surfaceEffects','Surface Effects']]),
+  ...group('Modules', [['optimizeModel','OptimizeXL','O'],['animXL','AnimXL','F9'],['surfaceEffects','Surface Effects'],['bindXL','BindXL','Alt+B']]),
   ...group('Tools', [['anchorSelect','Choose Zoom anchor','1'],['alignSelect','Choose Zoom align','Shift+1']]),
   ...group('Modules', [['paint','Citadel Paint','F6']]),
   ...group('Citadel Paint', [['paint:select','Select geoset or light','Q'],['paint:draw','Paint / draw','B']]),
-  ...group('Bones', [['bone:detach','Detach from parent bone','D'],['bone:detachVertices','Detach selected vertices from bone','V']]),
+  ...group('Bones', [['bone:detach','Detach from parent bone','D'],['bone:detachVertices','Detach selected vertices from bone','V'],['bone:wiggle','Wiggle selected bones in the preview','J']]),
   ...group('MDLxL FORGE', [
     ['forge:shape:add','Forge: Add shape','G'],
     ['forge:shape:mode:Shape','Forge: Shape control points','1'],

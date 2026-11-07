@@ -32,7 +32,8 @@ import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
-import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
+import { applyRestPoseMatrices, isSkinOnlyPreviewChange, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
+import { applyWiggleMatrices } from '../src/bone-wiggle.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
 import { createGLPreviewBackground } from './game-preview-background-gl.js';
@@ -142,7 +143,7 @@ export default function GamePreview(inputProps) {
     // UV Wrapper fingerprints material and texture contents. A temporary
     // texture can create new arrays on every UV edit without changing either.
     const stableResourceRevision = typeof revision === 'string' && props.uvRevision !== undefined && rendererSource.current.revision === revision;
-    if (!isUVOnlyPreviewChange(rendererSource.current.input, previewModel, stableResourceRevision)) rendererSource.current.build = previewModel;
+    if (!isUVOnlyPreviewChange(rendererSource.current.input, previewModel, stableResourceRevision) && !isSkinOnlyPreviewChange(rendererSource.current.input, previewModel)) rendererSource.current.build = previewModel;
     rendererSource.current.input = previewModel;
     rendererSource.current.revision = revision;
   }
@@ -324,7 +325,17 @@ export default function GamePreview(inputProps) {
     const turntableRotation = new THREE.Quaternion(), turntableOffset = new THREE.Vector3();
     let displayCamera;
     const displayLight = () => new THREE.Vector3(...(latest.current.showcaseLight === 'portrait' ? [.3,-.3,.25] : [-.65,.55,1])).applyQuaternion(turntableRotation);
-    let influenceCache = null, influenceLook = null;
+    let influenceCache = null, influenceLook = null, boneColorCache = null;
+    // BindXL bone colours: one RGBA texel per node ObjectId.
+    const boneColors = colors => {
+      if (!colors) return null;
+      if (boneColorCache?.source !== colors) {
+        const map = new Uint8Array(256 * 4).map((_, slot) => slot % 4 === 3 ? 255 : 150);
+        for (const [id, rgb] of colors) if (id >= 0 && id < 256) map.set([...rgb.map(value => Math.round(Math.max(0, Math.min(1, value)) * 255)), 255], id * 4);
+        boneColorCache = { source: colors, key: {}, map };
+      }
+      return boneColorCache;
+    };
     const srgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
     const boneInfluence = (ids = [], preferences) => {
       const key = ids.join(',');
@@ -341,7 +352,7 @@ export default function GamePreview(inputProps) {
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, boneColors: boneColors(latest.current.boneColors), lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
       native = new ModelRenderer(ownedModel);
       // Synced Before/After previews run through playbackRunning; Showcase moves at its row speed,
@@ -423,7 +434,16 @@ export default function GamePreview(inputProps) {
     const finishLeftGesture = event => {
       if (event.type === 'pointercancel') { leftGesture = null; return; }
       if (event.button !== 0 || leftGesture?.id !== event.pointerId) return;
-      leftGesture = null;
+      const start = leftGesture; leftGesture = null;
+      // BindXL: a click (no drag) on the model picks the part under the pointer.
+      const p = latest.current;
+      if (p.onPickPart && !start.adjusted && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 5) {
+        const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
+        const geometry = projectPreviewGeosets(posedGeosets, camera, rect.width, rect.height), hit = pickPreviewGeoset(geometry, x, y);
+        if (!hit) { p.onPickPart(null, { shift: start.shift, ctrl: start.ctrl }); return; }
+        const points = geometry.find(geo => geo.index === hit.index).points, distance = id => Math.hypot(points[id].x - x, points[id].y - y);
+        p.onPickPart({ geosetIndex: hit.index, vertexIndex: hit.ids.reduce((best, id) => distance(id) < distance(best) ? id : best) }, { shift: start.shift, ctrl: start.ctrl });
+      }
     };
     const unbindScroll = bindScrollSensitivity(canvas, scrollSensitivityCallbacks(latest, {
       onIndicator: value => { setAdjustingSensitivity(value); latest.current.onSensitivityIndicator?.(value); },
@@ -1106,6 +1126,28 @@ export default function GamePreview(inputProps) {
       cameraChanged();
     }
 
+    // BindXL changes only bindings: copy them into the private clone and
+    // re-upload the bone buffers, keeping the camera, clock and textures.
+    function updateSkin(nextModel) {
+      let changed = false;
+      const priorBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
+      for (let i = 0; i < ownedModel.Geosets.length; i++) {
+        const next = nextModel.Geosets?.[i], geo = ownedModel.Geosets[i];
+        if (!next || next.Vertices?.length !== geo.Vertices?.length || next.VertexGroup === geo.VertexGroup && next.Groups === geo.Groups && next.SkinWeights === geo.SkinWeights) continue;
+        geo.VertexGroup = next.VertexGroup; geo.Groups = next.Groups; geo.SkinWeights = next.SkinWeights; geo.TotalGroupsCount = next.TotalGroupsCount; changed = true;
+        if (native.skinWeightBuffer?.[i] && geo.SkinWeights?.length) {
+          gl.bindBuffer(gl.ARRAY_BUFFER, native.skinWeightBuffer[i]);
+          gl.bufferData(gl.ARRAY_BUFFER, geo.SkinWeights instanceof Uint16Array ? Float32Array.from(geo.SkinWeights, (value, slot) => slot % 8 < 4 ? value : value / 255) : geo.SkinWeights, gl.STATIC_DRAW);
+        } else if (native.groupBuffer?.[i]) {
+          const buffer = new Uint16Array(geo.VertexGroup.length * 4);
+          for (let v = 0; v < geo.VertexGroup.length; v++) { const group = geo.Groups[geo.VertexGroup[v]] || [0]; for (let k = 0; k < 4; k++) buffer[v * 4 + k] = k < group.length ? group[k] : 254; }
+          gl.bindBuffer(gl.ARRAY_BUFFER, native.groupBuffer[i]); gl.bufferData(gl.ARRAY_BUFFER, buffer, gl.STATIC_DRAW);
+        }
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, priorBuffer);
+      if (changed) { posedGeometryCache = null; invalidate(); }
+    }
+
     // A live UV drag replaces only the dragged geosets' arrays; skip the rest.
     // A new revision re-uploads everything, since history patches arrays in place.
     const uploadedUV = [];
@@ -1179,7 +1221,7 @@ export default function GamePreview(inputProps) {
       reportProjectionView(); invalidate();
     };
     controls.addEventListener('start', cameraStarted); controls.addEventListener('end', cameraEnded);
-    const state = { native, controls, particleAuthor, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, redraw: () => invalidate(), updateNodeTracks: list => { for (const item of list) { const node = ownedModel.Nodes[item.id]; if (node) node[item.property] = item.track; } invalidate(); }, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView, refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
+    const state = { native, controls, particleAuthor, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, redraw: () => invalidate(), updateSkin, updateNodeTracks: list => { for (const item of list) { const node = ownedModel.Nodes[item.id]; if (node) node[item.property] = item.track; } invalidate(); }, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView, refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
     observer = new ownerWindow.ResizeObserver(resize); observer.observe(host.current);
     const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
     // UV edits may rebuild geometry/materials, but never own the user's view.
@@ -1408,7 +1450,7 @@ export default function GamePreview(inputProps) {
         // prints continue aging. Pauses retain this clock; deliberate seeks reset it.
         const footprintPlayback = p.showcase ? undefined : {motionSeconds:footprintTime/1000,clipTime:footprintTime,speed:1,segment:footprintSegment,interval:footprintInterval,loop:p.loop !== false};
         if (poseSequence !== selected) updateNative(0);
-        applyRestPoseMatrices(native.rendererData, p.restPose);
+        if (applyRestPoseMatrices(native.rendererData, p.restPose) && p.wiggleNodeIds?.length) applyWiggleMatrices(native.rendererData, ownedModel, p.wiggleNodeIds, now / 1000, camera);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
         soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },p.overlays?.sounds ?? false);
         // frameKey: isolated parts are framed once per key. Edits, rebuilds,
@@ -1499,9 +1541,9 @@ export default function GamePreview(inputProps) {
       const getPoseMatrices = () => poseMatrices ||= new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
       const hidden = new Set(p.hiddenGeosets || []);
       const presentationGuides = p.presentation === 'preview' && previewOverlaySettings(p.previewOverlay).mode !== 'none';
-      const needsGeometry = presentationGuides || p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset || p.onDoubleClickGeoset || p.highlightSelection && p.onHoverGeoset || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size);
+      const needsGeometry = presentationGuides || p.onSelectionChange || p.onPickPart || p.onSelectNodes || p.onInspectGeoset || p.onDoubleClickGeoset || p.highlightSelection && p.onHoverGeoset || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size);
       if (needsGeometry) {
-        const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes;
+        const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes && !(p.restPose && p.wiggleNodeIds?.length);
         const cacheKey = `${native.getFrame()}:${poseSequence}:${globalClock}:${!!p.restPose}:${!!overlayOptions.normals}`;
         if (!cacheable || posedGeometryCache?.key !== cacheKey) {
           const geosets = ownedModel.Geosets.flatMap((geo, index) => sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001 ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
@@ -1542,7 +1584,9 @@ export default function GamePreview(inputProps) {
         if (nodeCanvas.height !== canvas.height) nodeCanvas.height = canvas.height;
         const width = canvas.clientWidth, height = canvas.clientHeight;
         const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices(),p.vanilla)
-          .filter(point=>!p.vanilla || !p.cleanAnimationPreview || point.overlayKind!=='particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
+          .filter(point=>!p.vanilla || !p.cleanAnimationPreview || point.overlayKind!=='particles' || p.selectedNodeIds?.includes(point.node.ObjectId))
+          // BindXL shows only the joints that move parts.
+          .filter(point=>!p.markerNodeIds || p.markerNodeIds.has(point.node.ObjectId));
         const focusHighlights = overlayOptions.focusedBoneMarkers && !(poseVisible && !p.poseConfig.picking) ? boneHighlightColors(projectedNodes, p.selectedNodeIds) : null;
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions, focusHighlights);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
@@ -1658,7 +1702,7 @@ export default function GamePreview(inputProps) {
     const unwatchContext = watchContextLoss(canvas, () => { scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); });
     scheduler = state.scheduler = createRenderScheduler({ render,
       continuous: () => {
-        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || latest.current.playing && !latest.current.restPose && !playbackStopped;
+        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || !!(latest.current.restPose && latest.current.wiggleNodeIds?.length) || latest.current.playing && !latest.current.restPose && !playbackStopped;
       },
       // Electron may report an owned about:blank window as hidden during focus
       // transfer. Only the main-document preview uses hidden-tab suspension;
@@ -1852,8 +1896,9 @@ export default function GamePreview(inputProps) {
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
   useEffect(() => { if (previewModel) runtime.current?.updateUV(previewModel, `${revision}|${props.uvRevision}`); }, [previewModel, revision, props.uvRevision]);
+  useEffect(() => { if (previewModel) runtime.current?.updateSkin?.(previewModel); }, [previewModel]);
 
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.wiggleNodeIds, props.boneColors, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.collisionMovePlane, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;

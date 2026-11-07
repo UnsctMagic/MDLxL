@@ -18,6 +18,25 @@ export function isUVOnlyPreviewChange(before, after, stableResourceRevision = fa
   return true;
 }
 
+const SKIN_KEYS = new Set(['VertexGroup', 'Groups', 'SkinWeights', 'TotalGroupsCount']);
+/** True when only vertex bindings changed (BindXL's live preview): the
+ * renderer then re-uploads its bone buffers instead of rebuilding. */
+export function isSkinOnlyPreviewChange(before, after) {
+  if (!before || !after || before === after || before.Geosets?.length !== after.Geosets?.length) return false;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) if (key !== 'Geosets' && before[key] !== after[key]) return false;
+  let changed = false;
+  for (let i = 0; i < before.Geosets.length; i++) {
+    const left = before.Geosets[i], right = after.Geosets[i];
+    if (!left || !right) return false;
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      if (left[key] === right[key]) continue;
+      if (!SKIN_KEYS.has(key)) return false;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** In Portrait Movement, an empty node selection gives blank-space left drag
  * exclusively to the camera. Selecting a node gives Work back to the rig. */
 export function portraitBlankDragRotatesCamera(props, event = {}) {

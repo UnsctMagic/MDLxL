@@ -14,7 +14,7 @@ export function patchWarcraftMeshFragmentShader(source) {
     : `    if (uMdlxlLighting > .5) ${output}.rgb *= .55 + .45 * max(0., dot(normalize(vNormal), normalize(uMdlxlLightDirection)));\n`;
   // Bone influence tints the Surface grey: pale amber for parts that move with
   // the selected bones, strong amber for the parts those bones move directly.
-  const lighting = `    float mdlxlLayerAlpha = ${output}.a;\n    vec3 mdlxlSurfaceColor = vec3(.663, .714, .757);\n    if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(uMdlxlGhostColor, uMdlxlFollowColor, clamp(vMdlxlInfluence.y, 0., 1.)), uMdlxlDirectColor, clamp(vMdlxlInfluence.x, 0., 1.));\n    if (uMdlxlSurface > .5) { ${output}.rgb = mdlxlSurfaceColor; ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(mdlxlSurfaceColor);' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= ${portraitFragmentLight}; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
+  const lighting = `    float mdlxlLayerAlpha = ${output}.a;\n    vec3 mdlxlSurfaceColor = vec3(.663, .714, .757);\n    if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(uMdlxlGhostColor, uMdlxlFollowColor, clamp(vMdlxlInfluence.y, 0., 1.)), uMdlxlDirectColor, clamp(vMdlxlInfluence.x, 0., 1.));\n    if (uMdlxlBoneColorsOn > .5) mdlxlSurfaceColor = vMdlxlBoneColor;\n    if (uMdlxlSurface > .5) { ${output}.rgb = mdlxlSurfaceColor; ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(mdlxlSurfaceColor);' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= ${portraitFragmentLight}; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
         vec3 inspectionNormal = ${hd ? 'normal' : 'vNormal'};
         inspectionNormal = dot(inspectionNormal, inspectionNormal) > 1.e-12 ? normalize(inspectionNormal) : normalize(uMdlxlViewDirection);
         ${hd ? '// HD normal mapping already accounts for face orientation.' : 'if (!gl_FrontFacing) inspectionNormal = -inspectionNormal;'}
@@ -32,7 +32,7 @@ export function patchWarcraftMeshFragmentShader(source) {
   return header + source.replace('precision mediump float;', 'precision highp float;')
     .replace(/void main\s*\(/, `${hd ? '' : portraitFragmentDeclarations}void main(`)
     .replace(/void main\s*\(/, `vec3 mdlxlDecodeSRGB(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c)); }\nvec3 mdlxlEncodeSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(vec3(.0031308), c)); }\nvoid main(`)
-    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nuniform float uMdlxlInfluencePart;\nuniform vec3 uMdlxlGhostColor;\nuniform vec3 uMdlxlDirectColor;\nuniform vec3 uMdlxlFollowColor;\nin vec2 vMdlxlInfluence;')
+    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nuniform float uMdlxlInfluencePart;\nuniform vec3 uMdlxlGhostColor;\nuniform vec3 uMdlxlDirectColor;\nuniform vec3 uMdlxlFollowColor;\nuniform float uMdlxlBoneColorsOn;\nin vec2 vMdlxlInfluence;\nin vec3 vMdlxlBoneColor;')
     .replace(/if \((?:gl_FragColor|FragColor)\[3\] < uDiscardAlphaLevel\) \{\s*discard;\s*}/, `if (uDiscardAlphaLevel > 0. && uMdlxlCoverage > .5) {\n        float edge = max(fwidth(${output}.a), .001);\n        ${output}.a = smoothstep(uDiscardAlphaLevel - edge, uDiscardAlphaLevel + edge, ${output}.a);\n        if (${output}.a <= 0.) discard;\n    } else if (${output}.a < uDiscardAlphaLevel) { discard; }`)
     .replace(/}\s*$/, `${lighting}    ${output} *= uMdlvisGeosetTint;\n    // Ghost passes keep the unaffected half of each face, hot passes the rest,\n    // so the two layers meet without gaps. Blended layers keep their cut-outs.\n    if (uMdlxlInfluenceOn > .5 && ((vMdlxlInfluence.y >= .5) != (uMdlxlInfluencePart > .5) || uMdlxlInfluenceOn > 1.5 && mdlxlLayerAlpha < .1)) discard;\n    // 2 keeps a blended layer's own cut-out; opaque layers may carry junk alpha.\n    if (uMdlxlInfluenceOn > .5) ${output}.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));\n}\n`);
 }
@@ -70,8 +70,15 @@ function patchBoneInfluenceVertexShader(source) {
     vMdlxlInfluence = mdlxlInfluence / mdlxlInfluenceCount;`
     : source.includes('aSkin') && source.includes('aBoneWeight') ? `vMdlxlInfluence = ${[0, 1, 2, 3].map(i => `${node(`aSkin[${i}]`)} * aBoneWeight[${i}]`).join(' + ')};`
     : 'vMdlxlInfluence = vec2(0.);';
-  return source.replace(/void main\s*\(/, 'uniform sampler2D uMdlxlInfluenceMap;\nout vec2 vMdlxlInfluence;\nvec2 mdlxlNodeInfluence(float node) { int index = int(node + .5); return index >= 0 && index < 256 ? texelFetch(uMdlxlInfluenceMap, ivec2(index, 0), 0).rg : vec2(0.); }\nvoid main(')
-    .replace(/}\s*$/, `    ${influence}\n}\n`);
+  // BindXL bone colours: each vertex shows the average colour of its bones.
+  const color = slot => `mdlxlNodeColor(${slot})`;
+  const boneColor = source.includes('aGroup') ? `vec3 mdlxlBoneColor = ${color('aGroup[0]')}; float mdlxlBoneCount = 1.;
+    for (int i = 1; i < 4; i++) if (aGroup[i] < ${count}.) { mdlxlBoneColor += ${color('aGroup[i]')}; mdlxlBoneCount += 1.; }
+    vMdlxlBoneColor = mdlxlBoneColor / mdlxlBoneCount;`
+    : source.includes('aSkin') && source.includes('aBoneWeight') ? `vMdlxlBoneColor = ${[0, 1, 2, 3].map(i => `${color(`aSkin[${i}]`)} * aBoneWeight[${i}]`).join(' + ')};`
+    : 'vMdlxlBoneColor = vec3(.6);';
+  return source.replace(/void main\s*\(/, 'uniform sampler2D uMdlxlInfluenceMap;\nout vec2 vMdlxlInfluence;\nvec2 mdlxlNodeInfluence(float node) { int index = int(node + .5); return index >= 0 && index < 256 ? texelFetch(uMdlxlInfluenceMap, ivec2(index, 0), 0).rg : vec2(0.); }\nuniform sampler2D uMdlxlBoneColorMap;\nout vec3 vMdlxlBoneColor;\nvec3 mdlxlNodeColor(float node) { int index = int(node + .5); return index >= 0 && index < 256 ? texelFetch(uMdlxlBoneColorMap, ivec2(index, 0), 0).rgb : vec3(.6); }\nvoid main(')
+    .replace(/}\s*$/, `    ${boneColor}\n    ${influence}\n}\n`);
 }
 
 export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false) {
@@ -119,7 +126,7 @@ function createSolidTexture(gl, rgba) {
   return texture;
 }
 
-const BONE_INFLUENCE_TEXTURE_UNIT = 8;
+const BONE_INFLUENCE_TEXTURE_UNIT = 8, BONE_COLOR_TEXTURE_UNIT = 9;
 const BONE_INFLUENCE_GHOST_ALPHA = .5;
 // Default Bone influence colours as 0-1 sRGB, like the Surface grey (Settings → Appearance → Bone influence).
 const BONE_INFLUENCE_COLORS = Object.freeze({ ghost: [.663, .714, .757], direct: [.94, .55, .12], follow: [.98, .8, .5] });
@@ -132,7 +139,21 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
   const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, vertexAttribPointer: gl.vertexAttribPointer, useProgram: gl.useProgram, drawElements: gl.drawElements };
   gl.shaderSource = function (shader, source) { return original.shaderSource.call(this, shader, patchWarcraftMeshVertexShader(patchWarcraftMeshFragmentShader(source))); };
   let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, renderParticles, render;
-  let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey;
+  let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey, boneColorTexture, boneColorKey;
+  // BindXL: one RGB texel per node ObjectId, averaged per vertex in the shader.
+  const bindBoneColors = (context, colors) => {
+    boneColorTexture ||= context.createTexture();
+    context.activeTexture(context.TEXTURE0 + BONE_COLOR_TEXTURE_UNIT);
+    context.bindTexture(context.TEXTURE_2D, boneColorTexture);
+    if (boneColorKey !== colors.key) {
+      boneColorKey = colors.key;
+      context.texImage2D(context.TEXTURE_2D, 0, context.RGBA, colors.map.length / 4, 1, 0, context.RGBA, context.UNSIGNED_BYTE, colors.map);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.NEAREST);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.NEAREST);
+    }
+    context.activeTexture(context.TEXTURE0);
+    if (influenceLocations.boneColorMap) context.uniform1i(influenceLocations.boneColorMap, BONE_COLOR_TEXTURE_UNIT);
+  };
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
   const layerUVBuffers = [];
@@ -163,7 +184,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       surfaceLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlSurface');
       lightUniforms = Object.fromEntries(['Ambient', 'Diffuse', 'Specular', 'Power', 'Legacy', 'ViewDirection'].map(name => [name, gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}`)]));
       if (!location) throw new Error('The Warcraft preview shader is incompatible with geoset color editing.');
-      influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart'), ...Object.fromEntries(['Ghost', 'Direct', 'Follow'].map(name => [name.toLowerCase() + 'Color', gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}Color`)])) };
+      influenceLocations = { boneColorsOn: gl.getUniformLocation(native.shaderProgram, 'uMdlxlBoneColorsOn'), boneColorMap: gl.getUniformLocation(native.shaderProgram, 'uMdlxlBoneColorMap'), on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart'), ...Object.fromEntries(['Ghost', 'Direct', 'Follow'].map(name => [name.toLowerCase() + 'Color', gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}Color`)])) };
       byIndexBuffer = new Map(native.indexBuffer.map((buffer, index) => [buffer, index]));
       // MDX 1400+ stores eight uint16 values, but war3-model binds eight bytes.
       // Repack only GPU buffers: retain all authored indices and byte-scale
@@ -292,9 +313,9 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           if (getClock().hiddenGeosets?.has?.(geosetIndex) || Array.isArray(getClock().hiddenGeosets) && getClock().hiddenGeosets.includes(geosetIndex)) return;
           // Bone influence is a see-through Surface View. Additive and modulate
           // effect cards carry no body shape, so they would only cloud it.
-          const influence = getClock().boneInfluence, surface = getClock().surface || !!influence;
+          const influence = getClock().boneInfluence, boneColors = !influence && getClock().boneColors, surface = getClock().surface || !!influence || !!boneColors;
           if (surface && activeLayer !== model.Materials?.[model.Geosets[geosetIndex].MaterialID]?.Layers?.[0]) return;
-          if (influence && (activeLayer?.FilterMode ?? 0) >= 3) return;
+          if ((influence || boneColors) && (activeLayer?.FilterMode ?? 0) >= 3) return;
           if (surfaceLocation) this.uniform1f(surfaceLocation, surface ? 1 : 0);
           const { frame, sequenceIndex, globalTime } = getClock();
           const tint = previewGeosetTint(model, geosetIndex, activeLayer, frame, sequenceIndex, globalTime, getClock().hideRgbGeoset === geosetIndex);
@@ -306,6 +327,8 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           this.uniform4fv(location, influence ? [1, 1, 1, tint[3]] : tint);
           if (influenceLocations.on) this.uniform1f(influenceLocations.on, influence ? activeLayer?.FilterMode === 2 ? 2 : 1 : 0);
           if (influence) bindBoneInfluence(this, influence);
+          if (influenceLocations.boneColorsOn) this.uniform1f(influenceLocations.boneColorsOn, boneColors ? 1 : 0);
+          if (boneColors) bindBoneColors(this, boneColors);
           if (influenceLocations.part) this.uniform1f(influenceLocations.part, meshPass?.startsWith('hot') ? 1 : 0);
           // Surface View is an inspection material: its faces must remain
           // shaded even when the authored texture layer is Unshaded.

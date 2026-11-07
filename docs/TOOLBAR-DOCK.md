@@ -40,6 +40,8 @@ labels in [modules.css](../app/modules.css).
 | EMTR | `#5fe0cf` teal |
 | FX | `#b6f2ff` ice blue |
 | ANIM | `#ff8574` coral |
+| CORP | `#e6c7a1` tan |
+| BIND | `#a6b8ff` periwinkle |
 | KEY | `#ffa257` orange |
 | LER | `#f2e35c` lemon |
 | VIS | `#ff8fd0` pink |
