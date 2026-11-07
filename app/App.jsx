@@ -1775,7 +1775,7 @@ export default function App() {
       if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
       return !!result;
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
-    {bindXLOpen && <Suspense fallback={null}><BindXL key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={({ analysis, plan }) => {
+    {bindXLOpen && <Suspense fallback={null}><BindXL key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} initialSelection={mode === 'vertices' || mode === 'bones' ? validSelection : undefined} onCommit={({ analysis, plan }) => {
       const result = edit('BindXL', ['Geosets'], current => applyBinding(current, analysis, plan), { rethrow: true });
       if (result === false) return false;
       say('BindXL bound the model. Undo restores the old binding.');

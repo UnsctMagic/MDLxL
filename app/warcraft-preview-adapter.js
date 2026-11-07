@@ -78,7 +78,7 @@ function patchBoneInfluenceVertexShader(source) {
     : source.includes('aSkin') && source.includes('aBoneWeight') ? `vMdlxlBoneColor = ${[0, 1, 2, 3].map(i => `${color(`aSkin[${i}]`)} * aBoneWeight[${i}]`).join(' + ')};`
     : 'vMdlxlBoneColor = vec3(.6);';
   return source.replace(/void main\s*\(/, 'uniform sampler2D uMdlxlInfluenceMap;\nout vec2 vMdlxlInfluence;\nvec2 mdlxlNodeInfluence(float node) { int index = int(node + .5); return index >= 0 && index < 256 ? texelFetch(uMdlxlInfluenceMap, ivec2(index, 0), 0).rg : vec2(0.); }\nuniform sampler2D uMdlxlBoneColorMap;\nout vec3 vMdlxlBoneColor;\nvec3 mdlxlNodeColor(float node) { int index = int(node + .5); return index >= 0 && index < 256 ? texelFetch(uMdlxlBoneColorMap, ivec2(index, 0), 0).rgb : vec3(.6); }\nvoid main(')
-    .replace(/}\s*$/, `    ${influence}\n    ${boneColor}\n}\n`);
+    .replace(/}\s*$/, `    ${boneColor}\n    ${influence}\n}\n`);
 }
 
 export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false) {

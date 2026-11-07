@@ -43,14 +43,19 @@ const css = rgb => `rgb(${rgb.map(value => Math.round(value * 255)).join(',')})`
 /** Binds vertices to bones from where they sit around the skeleton, live on
  * a moving model. Parts are clicked on the model to make them stiff, bending,
  * kept or held by a chosen bone. Commit applies it as one undoable edit. */
-export default function BindXL({ doc, modelPath, textureAssets, teamColor, onCommit, onClose }) {
+export default function BindXL({ doc, modelPath, textureAssets, teamColor, initialSelection, onCommit, onClose }) {
   const current = useMemo(() => structuredClone(doc.model), [doc.revision]);
   const analysis = useMemo(() => { try { return analyzeBinding(current); } catch (cause) { return { error: cause.message, bones: [], pieces: [] }; } }, [current]);
   const startExcluded = useMemo(() => analysis.error ? new Set() : defaultExcludedBones(current, analysis), [current, analysis]);
   const [excluded, setExcluded] = useState(startExcluded);
   const [rebind, setRebind] = useState(percent(BIND_DEFAULTS.rebind)), [soft, setSoft] = useState(percent(BIND_DEFAULTS.soft));
   const [plates, setPlates] = useState(percent(BIND_DEFAULTS.plates)), [glue, setGlue] = useState(percent(BIND_DEFAULTS.glue));
-  const [marks, setMarks] = useState({}), [selected, setSelected] = useState([]), [bone, setBone] = useState(null), [picking, setPicking] = useState(false);
+  const [marks, setMarks] = useState({}), [selected, setSelected] = useState(() => {
+    // Parts with vertices selected in the editor start selected.
+    const pieces = new Set();
+    if (!analysis.error) for (const [geoset, vertices] of Object.entries(initialSelection || {})) for (const vertex of vertices || []) { const piece = pieceAt(analysis, Number(geoset), vertex); if (piece >= 0) pieces.add(piece); }
+    return [...pieces];
+  }), [bone, setBone] = useState(null), [picking, setPicking] = useState(false);
   const [motion, setMotion] = useState(() => defaultMotion(current)), [playing, setPlaying] = useState(true);
   const [colors, setColors] = useState(true), [skeleton, setSkeleton] = useState(true), [flexIndex, setFlexIndex] = useState(0), [error, setError] = useState('');
   const root = useRef(null), camera = useRef({ saved: null, listeners: new Set() }), framed = useRef(false);
@@ -66,6 +71,8 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, onCom
     catch (cause) { return { error: cause.message }; }
   }, [analysis, rebind, soft, plates, glue, excluded, marks]);
   const draft = useMemo(() => { if (plan.error) return current; try { return previewBinding(current, analysis, plan); } catch (cause) { return current; } }, [current, analysis, plan]);
+  // Commit only when the binding would change.
+  const changed = useMemo(() => !!plan.groups && plan.groups.some((group, flat) => group.join() !== [...new Set(analysis.current[flat])].sort((a, b) => a - b).join()), [plan, analysis]);
   const colorMap = useMemo(() => analysis.error ? null : boneColors(analysis), [analysis]);
   const regionOf = id => analysis.bones.findIndex(region => region.ids.includes(id) || region.driver === id);
   const joints = useMemo(() => new Set(analysis.bones.filter(region => region.ids.some(id => !excluded.has(id))).map(region => region.driver)), [analysis, excluded]);
@@ -214,7 +221,7 @@ export default function BindXL({ doc, modelPath, textureAssets, teamColor, onCom
       </div>
       <footer>
         <span role="status" className={error || plan.error ? 'atm-error' : 'atm-muted'}>{status}</span>
-        <button className="atm-commit active" disabled={!!plan.error || doc.readOnly} title="Apply this binding as one undoable edit" onClick={commit}>Commit</button>
+        <button className={`atm-commit${changed ? ' active' : ''}`} disabled={!changed || !!plan.error || doc.readOnly} title="Apply this binding as one undoable edit" onClick={commit}>Commit</button>
         <button onClick={onClose}>Close</button>
       </footer>
   </ToolWindow>;

@@ -49,7 +49,9 @@ test('every mesh vertex shader writes the influence without new uniform vectors'
     // texture sampler (the light direction predates this view).
     const added = shader.match(/uniform [^;]+;/g).filter(line => !source.includes(line));
     assert.ok(added.includes('uniform sampler2D uMdlxlInfluenceMap;'));
-    assert.deepEqual(added.filter(line => !['uniform sampler2D uMdlxlInfluenceMap;', 'uniform vec3 uMdlxlLightDirection;'].includes(line)), []);
+    // BindXL's bone colours are a second sampler, also free of uniform vectors.
+    assert.ok(added.includes('uniform sampler2D uMdlxlBoneColorMap;'));
+    assert.deepEqual(added.filter(line => !['uniform sampler2D uMdlxlInfluenceMap;', 'uniform sampler2D uMdlxlBoneColorMap;', 'uniform vec3 uMdlxlLightDirection;'].includes(line)), []);
   }
   assert.match(sd, /for \(int i = 1; i < 4; i\+\+\) if \(aGroup\[i\] < 254\.\) \{ mdlxlInfluence \+= mdlxlNodeInfluence\(aGroup\[i\]\); mdlxlInfluenceCount \+= 1\.; \}/);
   assert.match(sd, /vMdlxlInfluence = mdlxlInfluence \/ mdlxlInfluenceCount;\n}\n$/);
