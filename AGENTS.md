@@ -153,9 +153,13 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - Continue the task's explicitly named feature branch when switching tools.
   Otherwise use the tool's own prefix: `codex/` for Codex, `claude/` for Claude
   Code. Preserve unrelated local work.
-- Push the feature branch to `origin`, open a PR into `main`, and include its URL
-  in the handover (attach it to the Codex chat when using Codex). A local-only
-  commit/merge or direct push/merge to `main` is not a completed handoff.
+- Nothing goes online unless the owner says so in the current conversation
+  ("push", "make a PR", "merge", "release"). Until then, commit on the local
+  feature branch only and report `saved on your PC, not online`. Never push,
+  open or update a PR, tag, release or post anywhere on your own judgement.
+- When the owner asks for it, push the feature branch to `origin`, open a PR into
+  `main`, and include its URL in the handover (attach it to the Codex chat when
+  using Codex). Never push or merge directly to `main`.
 - Every PR description names the session that did the work in one line:
   `Session: claude local_<id>` or `Session: codex <task or chat name/link>`.
   Before merging, add the line if it is missing (edit the description; no commit).
