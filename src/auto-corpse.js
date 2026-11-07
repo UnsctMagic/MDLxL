@@ -167,18 +167,25 @@ export function autoCorpse(model, options={}) {
   // fuzzy texture-name match that would mistake living skeletons for corpses.
   for(let i=0;i<model.Geosets.length;i++)if(!glow(model,model.Geosets[i])&&nonDecay.length&&nonDecay.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[0],si).alpha<.01)&&deaths.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[1],si).alpha<.01)&&model.Sequences.some((s,si)=>isDecaySequence(s)&&/^bones?$/.test(sequenceWords(s.Name)[1])&&sampleGeosetAnimation(model,i,s.Interval[0],si).alpha>.5))oldCorpses.add(i);
   // Plan all terminal poses before masking the source visibility.
+  // An extra Death variant whose body vanishes (turns into bats, shrinks to
+  // nothing) leaves no corpse in Warcraft III; it gets no decay of its own.
+  // The first Death still needs a body.
+  const leavesNothing=/no body geometry|collapses the body|no measurable ground footprint/;
   const plans=deaths.map(({s,i},n)=>{
     const frame=s.Interval[1],eligible=model.Geosets.map((g,id)=>({g,id})).filter(({g,id})=>!oldCorpses.has(id)&&!glow(model,g)&&g.Faces?.length);
     let body=eligible.filter(({id})=>bodyVisible(model,id,frame,i));
     if(!body.length) body=eligible.filter(({id})=>[0,.5,.99].some(t=>bodyVisible(model,id,s.Interval[0]+(frame-s.Interval[0])*t,i)));
-    if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
-    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,{...options,pieces:n===0?options.pieces:null});
+    let geometry;
+    try {
+      if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
+      geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,{...options,pieces:n===0?options.pieces:null});
+    } catch(error) { if(n>0&&leavesNothing.test(error.message))return null; throw error; }
     // The body keeps the look it has on the last Death frame. Many native
     // deaths switch the body off on exactly that frame; decay shows it whole.
     const shown=v=>v>.01?v:1;
     const look=new Map(body.map(({id})=>{const anim=model.GeosetAnims.find(a=>a.GeosetId===id);return [id,{alpha:anim&&!global(anim.Alpha)?shown(sample(model,anim.Alpha,frame,i,1)):1,color:anim?.Color?.Keys&&!global(anim.Color)?sample(model,anim.Color,frame,i,[1,1,1]):null,layers:model.Materials[model.Geosets[id].MaterialID]?.Layers.map(l=>global(l.Alpha)?null:shown(sample(model,l.Alpha,frame,i,1)))}];}));
     return {death:i,deathName:s.Name,geometry,frame,body:body.map(x=>x.id),look};
-  });
+  }).filter(Boolean);
   const pairs=plans.map(plan=>{const death=model.Sequences[plan.death],tail=suffix(death.Name),label=tail?' '+death.Name.trim().split(/\s+/).filter(t=>!/^death$/i.test(t)).join(' '):'';return {...plan,flesh:ensureSequence(model,'Decay Flesh'+label,death,'flesh'),bone:ensureSequence(model,'Decay Bone'+label,death,'bone')};});
   const intervals=pairs.flatMap(p=>[p.flesh,p.bone]).map(i=>Array.from(model.Sequences[i].Interval));
   const byId=new Map(originals.map(n=>[n.ObjectId,n]));
@@ -257,7 +264,7 @@ export function autoCorpse(model, options={}) {
     const g=pair.geometry.geoset;bind(g,corpse);g.MaterialID=corpseMaterial;
     const id=addGeoset(model,g,alpha,options.color||[1,1,1]);
     decayExtents(model,pair,{flesh:[...pair.body,id],bone:[id]});
-    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
+    results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,anatomyArea:pair.geometry.anatomyArea,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
   }
   for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds

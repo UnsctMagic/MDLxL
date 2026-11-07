@@ -102,9 +102,37 @@ removes the old copies.
   rib pieces. A tail starts at the tail itself; its connection back to the waist
   is not a bone across the trunk. A one-control tail uses its own skin extent.
 
+  Big creatures follow the owner's Vampire Dragon corpse ("perfect", 7 Nov 2026,
+  test model `corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx`), checked
+  against the SD corpus:
+  - A part whose skin shrinks to a speck in the last Death frame (a rider
+    vanishing from its mount, a pilot) leaves no remains. An extra Death variant
+    whose whole body vanishes (the dragon's bat Death Alternate) gets no decay
+    clips and no corpse instead of failing Create; the first Death still needs a body.
+  - A limbed body with no recognized head takes its skull from the skinned joint
+    its Head Ref attachment hangs from (dragon heads on unnamed bones, birds).
+  - Wings (POSE arm chains labelled Wing) get no arm or hand piece. Every skinned
+    wing joint link gets a thin bone, 1.05 times the link, all one width (0.24 of
+    the wing's median link); finger roots at one spot share one bone. A last joint
+    gets a bone along its own skin only when that continues the finger outward.
+    Wing fingers are wing, not held objects. Membrane skin is not in the area target.
+  - A long neck (two or more joints between chest and head, longer than a limb
+    bone) gets a native bone per neck link, and the rib cage lies from chest to
+    pelvis instead of reaching up to the head.
+  - A long tail (three or more joints, longer than the rib cage; it starts at its
+    first named tail joint, never the waist; Mesh/Box/Geo skin holders are not
+    tails) gets a thin bone per link, like the wings, sized from the tail's own
+    median link. Blizzard's Hydra tail is thin too.
+  - A skull fitted to the head never grows past that head in the area fit.
+
   The automatic fit measures the union of the projected corpse meshes and targets
   0.826 of the anatomical surface area: the median measured on 206 Blizzard SD units
-  with a visible gutz corpse. Named garment triangles are excluded from this
+  with a visible gutz corpse. Bodies bigger than 100 units (square root of the
+  anatomical area) target less, 0.826 x (100/size)^0.5: on the 207 SD units with a
+  native corpse, coverage falls with size (0.67 median in the largest sixth,
+  129-189 units), and the owner's dragon (254 units) agrees. This makes the largest
+  SD corpses match their native area (0.96, was 1.24) at a lower placement overlap
+  (0.44, was 0.48); units up to 100 units are unchanged. Named garment triangles are excluded from this
   sizing target while remaining in the chalk outline. Thus a robed model may
   cover less of its dressed outline; increasing its robe must not increase its
   bones. The fit retains each part's length and location,
@@ -212,7 +240,9 @@ Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
 `MDLXL_CORPSE_FLAIL` (the owner's Fx model), `MDLXL_CORPSE_DETACHED` (Ratling),
 `MDLXL_CORPSE_TAILED` (Skink), `out/pose/Necromancer.mdx`, and
 `MDLXL_CORPSE_ROBED` (owner Lahmian), and `out/pose/Medivh.mdx`, `Guldan.mdx`,
-`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`. The robe regressions check actual leg
+`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`, and
+`MDLXL_CORPSE_DRAGON` (the owner's Vampire Dragon with its hand-made corpse;
+the made corpse must reach 0.8-1.25 of its area and 0.5 overlap). The robe regressions check actual leg
 segments, ribs ending at the pelvis, and invariance when garment vertices extend.
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
@@ -235,7 +265,8 @@ behavior. It does not silently erase global animation to complete a command.
 Flying units' Death falls far below the terrain (for example Gargoyle,
 Harpy, Gryphon Rider), and some deaths turn into an effect (Dreadlord bats)
 or a separate bone pile (summoned Skeleton). Warcraft III leaves no corpse
-for those units, so their fitted corpse is not tuned.
+for those units, so their fitted corpse is not tuned. A custom flying death
+that ends on the ground, like the owner's Vampire Dragon, is fitted normally.
 
 The native preview has no opaque terrain surface by default, so a sunk body can
 remain visible below the grid during scrubbing. The final-frame visibility is

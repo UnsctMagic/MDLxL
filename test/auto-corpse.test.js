@@ -461,3 +461,30 @@ test('the turtle tail stays behind the shell instead of becoming a bone through 
   const tails=r.pieces.filter(p=>p.kind==='branch');assert.ok(tails.length);
   for(const p of tails)for(const v of [p.start,p.end])assert.ok(((v[0]-a[0])*dx+(v[1]-a[1])*dy)/len2>=-.35,'tail pieces must not cross the shell from the waist to the tail root');
 });
+
+// The owner's Vampire Dragon with their own hand-made gutz corpse ("perfect", 7 Nov 2026):
+// unnamed bones, wings, a long neck and tail, a rider that vanishes in Death and a bat Death Alternate.
+const dragonModel=()=>{const file=process.env.MDLXL_CORPSE_DRAGON||testModel('corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx');return existsSync(file)?file:null;};
+test('a big winged dragon gets the owner corpse: wing, tail and neck bones, its own skull, no rider',{skip:!dragonModel()&&'owner dragon not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes}=await import('../src/animation.js');
+  const {booleanContours,signedArea}=await import('../src/forge-geometry.js');
+  const d=openDocument(new Uint8Array(readFileSync(dragonModel())),'dragon.mdx'),m=d.model;
+  // The owner's corpse at the start of Decay Bone, measured before Create hides it.
+  const bone=m.Sequences.findIndex(s=>s.Name==='Decay Bone'),own=m.Geosets.find(g=>m.Materials[g.MaterialID].Layers.some(l=>/gutz/i.test(m.Textures[l.TextureID]?.Image||'')));
+  const flat=(g,V)=>{const t=[];for(let f=0;f<g.Faces.length;f+=3){const tri=Array.from(g.Faces.slice(f,f+3),i=>[V[i*3],V[i*3+1]]);const s=signedArea(tri);if(Math.abs(s)<1e-6)continue;if(s<0)tri.reverse();t.push(tri);}return t;};
+  const owner=flat(own,skinGeoset(own,sampleNodeMatrices(m,m.Sequences[bone].Interval[0]+10,bone)));
+  const sequences=m.Sequences.length,r=apply(d),c=r.corpses[0],names=new Map(allNodes(d.model).map(n=>[n.ObjectId,n.Name]));
+  assert.equal(r.corpses.length,1,'the bat Death Alternate leaves no corpse, like Warcraft III');
+  assert.equal(d.model.Sequences.length,sequences,'the existing Decay Flesh/Bone are reused and no alternate decay is added');
+  assert.ok(!c.pieces.some(p=>(p.ids||[]).some(id=>/rider/i.test(names.get(id)||''))),'the rider shrinks away in Death and leaves nothing');
+  const skulls=c.pieces.filter(p=>p.kind==='skull');
+  assert.equal(skulls.length,1);assert.equal(names.get(skulls[0].ids[0]),'Object12','the skull is the dragon head that carries Head Ref');
+  const thin=c.pieces.filter(p=>p.kind==='branch'&&p.half*2<Math.hypot(p.end[0]-p.start[0],p.end[1]-p.start[1])*.5);
+  assert.ok(thin.length>=25,`wing fingers and tail are thin bones (${thin.length})`);
+  const g=d.model.Geosets[c.corpseGeoset],made=flat(g,g.Vertices),area=loops=>Math.abs(loops.reduce((s,l)=>s+signedArea(l),0));
+  const madeShape=booleanContours(made,[],'add',c.span),ownShape=booleanContours(owner,[],'add',c.span);
+  const ratio=area(madeShape)/area(ownShape),overlap=area(booleanContours(madeShape,ownShape,'keep',c.span))/area(booleanContours(made,owner,'add',c.span));
+  assert.ok(ratio>.8&&ratio<1.25,`corpse area ${ratio.toFixed(2)} of the owner's`);
+  assert.ok(overlap>=.5,`overlap with the owner's corpse ${overlap.toFixed(3)} (was 0.26 before wings/tails/necks)`);
+});
