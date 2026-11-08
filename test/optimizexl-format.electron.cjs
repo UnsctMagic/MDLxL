@@ -7,7 +7,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   // track has a non-None interpolation (the format quirk, kind visibilityInterpolation) and sequence 8 is a Portrait with a
   // particle emitter. Measured with out/fixture-scan/sim.mjs (SIM_RAW=1 and prepared bytes; test/helpers/hive.mjs sanityTest,
   // sanityProposals, one select-all batch through runOptimizeStage): 0 errors / 0 severe / 1 warnings / 784 notices before;
-  // 172 automatic proposals (the visibility repair plus 171 redundant-key repairs) and 72 inspection-only ones; after that
+  // 173 automatic proposals (the visibility repair, 171 redundant-key repairs and the bounds repair) and 72 inspection-only ones; after that
   // batch 0 errors / 0 severe / 0 warnings / 267 notices. Sequences: 7 Decay Flesh, 8 Portrait (11 in all).
   // The exact-pose checks below prove that format repairs keep every pose. Redundant-key repairs are approximate by design
   // (mdx-m3-viewer: "roughly the same value"; a select-all preview moved node matrices by about 2e-4), so after checking the
@@ -16,7 +16,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   // 0 errors / 0 severe / 0 warnings / 784 notices).
   // No LowPolyWorks, Downloads or SD MDX800 model has the original's sequence-timeline quirk (out/fixture-scan/scan.mjs found
   // no sequenceTimeline proposal anywhere), so this fixture covers the visibility-interpolation repair only.
-  const BEFORE='mdx-m3-viewer: 0 errors · 0 severe · 1 warnings · 784 notices',AFTER='mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 784 notices',AUTOMATIC=172,INSPECTION=72,NOTICES_KEPT=784,FORMAT_KINDS=new Set(['visibilityInterpolation','sequenceTimeline']);
+  const BEFORE='mdx-m3-viewer: 0 errors · 0 severe · 1 warnings · 784 notices',AFTER='mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 784 notices',AUTOMATIC=173,INSPECTION=72,NOTICES_KEPT=784,FORMAT_KINDS=new Set(['visibilityInterpolation','sequenceTimeline']);
   // Portrait effects: no model with a format quirk has a particle emitter visible in a Portrait sequence (sampled with
   // src/animation.js sampleTrack: this fixture's BlizPart_RidingDust Visibility is 0 at 106667 and 109500, the whole Portrait;
   // Vile Knight and SteamTank are the same or have no Portrait), so the authored portrait-particle check is not coverable

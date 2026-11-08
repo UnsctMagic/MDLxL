@@ -205,7 +205,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       if (reason === 'pointercancel') await page.locator('[data-clean-model-canvas]').dispatchEvent('pointercancel', { pointerId: 1 });
       if (reason === 'lostcapture') await page.evaluate(() => document.querySelector('[data-clean-model-canvas]').releasePointerCapture(1));
       if (reason === 'blur') await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-      if (reason === 'frame') { await time.fill('501'); await time.press('Enter'); }
+      // A key is held during a drag (HOTKEYS.md), so the field commits the way it does when focus leaves it.
+      if (reason === 'frame') { await time.fill('501'); await time.evaluate(element => element.blur()); }
       if (reason === 'sequence') await page.getByLabel('Movement current sequence').selectOption('1');
       if (reason === 'tool') await menu('rotate');
       if (reason === 'target') await page.evaluate(() => poseProbe().props.onPoseSelect(null));

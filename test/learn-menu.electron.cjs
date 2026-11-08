@@ -155,7 +155,7 @@ const path = require('node:path');
     await child.evaluate(() => document.querySelector('button').focus());
     // The detached workflow has few shortcut hooks; use one explicit control in its
     // registered root to exercise the shared discovery/availability path without editing a model.
-    await child.evaluate(() => { const button = document.querySelector('button'); button.setAttribute('data-hotkey', 'learn-test:detached'); button.setAttribute('data-hotkey-label', 'Detached test'); });
+    await child.evaluate(() => { const button = document.querySelector('button'); button.removeAttribute('data-hotkey-manual'); button.setAttribute('data-hotkey', 'learn-test:detached'); button.setAttribute('data-hotkey-label', 'Detached test'); });
     await child.waitForFunction(() => document.querySelector('[data-hotkey="learn-test:detached"]')?.querySelector('[data-hotkey-badge]'));
     await child.waitForFunction(() => document.documentElement.dataset.shortcutHints === 'true');
     assert.equal(await child.locator('[data-hotkey="learn-test:detached"]').evaluate(element => getComputedStyle(element.querySelector('[data-hotkey-badge]')).visibility), 'visible');

@@ -5,9 +5,9 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
 (async()=>{
   // Fixture: LowPolyWorks herrdave Spanish_Halberdier.mdx (out/optimizexl-opening, shared with optimizexl-opening). Measured
   // with out/fixture-scan/sim.mjs (prepareOptimizeXL bytes, test/helpers/hive.mjs sanityTest, sanityProposals, one select-all
-  // batch through runOptimizeStage): 0 errors / 1 severe / 0 warnings / 409 notices, 188 automatic proposals (0 inspection-
+  // batch through runOptimizeStage): 0 errors / 1 severe / 0 warnings / 409 notices, 189 automatic proposals (0 inspection-
   // only), and that one approved batch leaves 0 errors / 0 severe / 0 warnings / 0 notices.
-  const SEVERE='mdx-m3-viewer: 0 errors · 1 severe · 0 warnings · 409 notices',AUTOMATIC=188;
+  const SEVERE='mdx-m3-viewer: 0 errors · 1 severe · 0 warnings · 409 notices',AUTOMATIC=189;
   // The glow check needs an additive glow geoset that stays visible while the geometry it is bound to is hidden
   // (src/optimizexl-effect-visibility.js). out/fixture-scan/irr-after.mjs ran findIrregularities, before and after the
   // Insanity FIxer passes, over every LowPolyWorks model, the owner's Downloads and the SD MDX800 corpus: none has such a

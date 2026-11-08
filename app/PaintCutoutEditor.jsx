@@ -97,8 +97,11 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
   useMousePressLost(()=>{if(drag.current)cancelDrag();});
   useWindowKeyClaim(({event,localWindow})=>{
-    if(localWindow!==dialog.current||event.key!=='Escape'||!(drag.current||points.length))return false;
-    cancelDrag();return true;
+    if(localWindow!==dialog.current||event.key!=='Escape')return false;
+    if(drag.current||points.length){cancelDrag();return true;}
+    // Esc leaves Cut-out from its Feather and Tolerance boxes too, as it always has.
+    if(event.target?.matches?.('input[type="number"]')&&!busy){onClose();return true;}
+    return false;
   });
   const undoMask=()=>{if(history.current.length){redo.current.push(mask);setMask(history.current.pop());setCrop(null);}},redoMask=()=>{if(redo.current.length){history.current.push(mask);setMask(redo.current.pop());setCrop(null);}};
   const applyMask=()=>onMask?onMask(softened):act(onUse),outlineFirst=run=>()=>{if(points.length)setError('Finish the outline first: Enter. Esc cancels it.');else run();};

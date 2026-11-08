@@ -40,7 +40,7 @@ import { projectCompassAxes } from './viewport-compass.js';
 
 import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
-import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
+import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings, chordFromEvent } from '../src/preferences.js';
 import { QUAD_VIEWS, viewWorkplane, lockedQuadPlane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
 import { composeViewportLayers, drawPreviewBackground } from './game-preview-capture.js';
@@ -789,7 +789,9 @@ export default function Viewport(inputProps) {
     const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
     const claimWindowKey = claim => {
       const {event,localWindow}=claim.detail,canvas=renderer.domElement;
-      claim.detail.claims.push({priority:0,run:()=>holdGestureKey(claim.detail,canvas,()=>!!down&&down.action!=='zoom')});
+      // Forge's Undo and Redo do not edit behind a drag: they cancel it (historyAction in ForgeShapes.jsx).
+      const cancelsDrag=()=>latest.current.historyCancelsDrag&&['undo','redo'].some(id=>claim.detail.shortcuts?.[id]?.includes(chordFromEvent(event)));
+      claim.detail.claims.push({priority:0,run:()=>!cancelsDrag()&&holdGestureKey(claim.detail,canvas,()=>!!down&&down.action!=='zoom')});
       if(event.key!=='Escape'||(event.target?.ownerDocument||document)!==canvas.ownerDocument||!canvas.getClientRects().length||localWindow&&!localWindow.contains(canvas))return;
       claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
     };
