@@ -1,24 +1,34 @@
-import { DEFAULT_ROTATION, ROTATION_EDITORS } from '../src/rotation-drag.js';
+import { DEFAULT_ROTATION } from '../src/rotation-drag.js';
+import { DEFAULT_UV_DRAG, normalizeUVDrag } from '../src/uv-drag-settings.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
 import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
-import { Check, useDraftNumber } from './Fields.jsx';
+import { Check } from './Fields.jsx';
 import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
 import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
-import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
+import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
-import { helpersForPreset, paintForPreset, viewportPresetChange } from '../src/light-dark-switch.js';
+import { helpersForPreset, paintForPreset } from '../src/light-dark-switch.js';
+import { appearanceEdit, appearanceLook } from '../src/settings-presets.js';
+import { modifierLabel, modifierRows } from '../src/modifier-bindings.js';
+import { TOOLBAR_MODE_LABELS } from '../src/toolbar-mode.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
 import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
 import { updateStatusText } from './UpdatePrompt.jsx';
 import { BONE_INFLUENCE_TIP } from './bone-display.js';
 import { detectRenderer } from './renderer-detection.js';
+import PresetBar, { pickPreset } from './PresetBar.jsx';
+import { SettingsPreview, useSettingsPreviewTarget, PREVIEW_DEFAULT_TARGET } from './settings-preview/index.js';
+import { DRAG_KEYS_CATEGORY, DragKeyRow } from './settings/DragKeyRow.jsx';
+import { Numeric, SettingsNumberInput, SettingsSelect } from './settings/controls.jsx';
+import RotationSettings from './settings/RotationSettings.jsx';
+import UVDragSettings from './settings/UVDragSettings.jsx';
 
 // Appearance shows one page at a time; each section names the page it sits on.
 export const APPEARANCE_PAGES = Object.freeze(['Presets', 'Interface', 'Viewport', 'Wires', 'Vertices', 'Bones & skeleton', 'Bone influence', 'Controllers', 'Lists & folders', 'Quadview', 'Editor helpers', 'Citadel Paint']);
@@ -32,7 +42,8 @@ function AppearanceSection({ title, children, palette }) {
 }
 export const BONE_STYLE_TIP = 'The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.';
 export const BONE_CONNECTOR_TIP = 'The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape.';
-export const WIRE_MODE_TIP = 'All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
+const toolbarModeTip = (mode, launcherKey) => mode === 'graphic' ? 'The full toolbar with large icons.' : mode === 'trim' ? 'Two slim rows, so the 3D view gets more room.' : launcherKey ? `No toolbar. Its buttons stay on the menu bar and on ${launcherKey}.` : 'No toolbar. Its buttons stay on the menu bar.';
+export const WIRE_MODE_TIP ='All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
 const BONE_STYLE_LABELS = [['cubes', 'Cubes'], ['diamond', 'Diamonds']];
 const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['helper', 'Helpers'], ['ref', 'Refs'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
 const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bone'], ['follow', 'Follows through child bones']];
@@ -76,39 +87,25 @@ function AppearanceColors({ colors, value, prefix, onChange }) {
 function Toggle({ id = null, checked, ...props }) {
   return <Check className="settings-toggle" id={id} value={checked} {...props}/>;
 }
-// Commits on Enter or on leaving the box, like every other number field.
-function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
-  const field = useDraftNumber({ value, onCommit: onChange });
-  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} {...field}/>{unit}</span></label>;
-}
-function SettingsNumberInput({ value, onChange, disabled, ...props }) {
-  const field = useDraftNumber({ value, disabled, onCommit: onChange });
-  return <input {...props} type="number" disabled={disabled} {...field}/>;
-}
 const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
+const MOUSE_PRESET_DOMAIN = { Camera: 'mouse', Rotation: 'rotate', Wheel: 'mouse', Pointer: 'mouse', UV: 'uv' };
 let lastMousePage = 'Camera';
-function RotationSettings({ value, onChange }) {
-  const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
-  const change = patch => {
-    if (global) { onChange({ ...value, ...patch }); return; }
-    const entry = { ...override, ...patch };
-    for (const key of Object.keys(entry)) if (entry[key] === undefined) delete entry[key];
-    const editors = { ...value.editors };
-    if (Object.keys(entry).length) editors[editor] = entry; else delete editors[editor];
-    onChange({ ...value, editors });
-  };
-  const inheritPrecision = !global && override.precision === undefined;
-  const inheritSpeed = !global && override.sensitivity === undefined;
-  return <section className="settings-appearance-section"><h4>Rotation</h4><div className="settings-appearance-content">
-    <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-    <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse."><label className="settings-number"><span>Rotation sensitivity</span><span><SettingsNumberInput aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={sensitivity => change({ sensitivity })}/>×</span></label>
-      {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
-    </div>
-    <div className="settings-rotation-speed"><label className="settings-number" title="Hold Shift while rotating to multiply the speed by this amount."><span>Shift rotation precision</span><span><SettingsNumberInput aria-label="Shift rotation precision" min="0.01" max="1" step="0.01" disabled={inheritPrecision} value={override.precision ?? value.precision} onChange={precision => change({ precision })}/>×</span></label>
-      {!global && <label><input type="checkbox" aria-label="Use default rotation precision" checked={inheritPrecision} onChange={event => change({ precision: event.target.checked ? undefined : value.precision })}/>Use default</label>}
-    </div>
-    <p className="settings-hint">With Workplane Constraints on, follow the yellow arrow: drag along a straight arrow for one degree per pixel at 1×, or circle around the selection centre when the plane faces you. Handles follow the angle swept around the centre. Pointer sensitivity multiplies both. Hold Shift for precision.</p>
-  </div></section>;
+/** The form beside its preview, under a preset bar that stays in view. */
+function SettingsSplit({ bar, preview, children }) {
+  const split = useRef(null), barBox = useRef(null), hasBar = !!bar;
+  // The bar wraps to more rows in narrow windows and longer languages; the preview stays clear of it.
+  useLayoutEffect(() => {
+    if (!hasBar) return undefined;
+    const measure = () => split.current.style.setProperty('--settings-bar-height', `${barBox.current.offsetHeight}px`);
+    const observer = new ResizeObserver(measure);
+    observer.observe(barBox.current); measure();
+    return () => observer.disconnect();
+  }, [hasBar]);
+  return <div className="settings-split" ref={split}>
+    {bar && <div className="settings-preset-bar" ref={barBox}>{bar}</div>}
+    <div className="settings-form">{children}</div>
+    {preview && <div className="settings-preview">{preview}</div>}
+  </div>;
 }
 const LEARN_CHOICES = [
   ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
@@ -119,7 +116,7 @@ const LEARN_CHOICES = [
   ['quietHours', 'Then quiet for', LEARN_QUIET_HOURS.map(hours => [hours, hours === 1 ? '1 hour' : `${hours} hours`])],
 ];
 /** Learn's keycap reminders: on/off, how they look, and bringing back silenced or learned keys. */
-function LearnSettings({ value, onChange }) {
+function LearnSettings({ value, onChange, preview }) {
   const [counts, setCounts] = useState(() => notebookCounts(loadLearnNotebook(), Date.now()));
   const reset = update => setCounts(notebookCounts(updateLearnNotebook(update), Date.now()));
   useEffect(() => {
@@ -129,7 +126,7 @@ function LearnSettings({ value, onChange }) {
   }, []);
   return <>
     <h3 id="learn-settings">Learn</h3>
-    <Toggle id="hotkeys:learn" label="Learn mode" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>
+    <div className="settings-learn"><Toggle id="hotkeys:learn" label="Learn mode" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>{preview}</div>
     <div className="settings-graphics-grid">{LEARN_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Learn mode: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
     <div className="settings-inline-actions">
       {counts.silenced > 0 && <button title="Show reminders for muted shortcuts again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
@@ -227,7 +224,7 @@ function AssetPreload({ modelPath }) {
   </section>;
 }
 
-export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', onTabChange, gameDataPath = '', gameDataSources = [], modelPath = null, onChooseGameData, onClearGameData, onAddGameDataSource, onRemoveGameDataSource, updateStatus, onCheckUpdates, onRevertUpdate }) {
+export default function Settings({ preferences, onChange, onClose, visUI = false, catalog: suppliedCatalog, initialTab = 'mouse', onTabChange, gameDataPath = '', gameDataSources = [], modelPath = null, onChooseGameData, onClearGameData, onAddGameDataSource, onRemoveGameDataSource, updateStatus, onCheckUpdates, onRevertUpdate }) {
   const [gameDataBusy, setGameDataBusy] = useState(false);
   async function changeGameDataSource(action) {
     setGameDataBusy(true);
@@ -242,17 +239,25 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const [tab, setTab] = useState(initialTab === 'learn' ? 'hotkeys' : initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
   const [recording, setRecording] = useState(null), [recorded, setRecorded] = useState(''), [message, setMessage] = useState(''), [resetConfirm, setResetConfirm] = useState(false), [presetName, setPresetName] = useState('');
   const [sequenceCode, setSequenceCode] = useState(null), sequence = useRef(null), sequenceTimer = useRef(null);
+  const [rotationEditor, setRotationEditor] = useState('all'), [modifierClash, setModifierClash] = useState(null), [presetNameFocus, setPresetNameFocus] = useState(0);
   if (!sequence.current) sequence.current = new HotkeySequence();
-  const configInput = useRef(null), platformInput = useRef(null), viewportImageInput = useRef(null), quadImageInput = useRef(null);
-  const recorder = useRef(null), panel = useRef(null), previousFocus = useRef(null);
+  const configInput = useRef(null), platformInput = useRef(null), viewportImageInput = useRef(null), quadImageInput = useRef(null), presetNameInput = useRef(null);
+  const recorder = useRef(null), panel = useRef(null), previousFocus = useRef(null), body = useRef(null);
+  const previewPage = tab === 'mouse' ? `mouse:${mousePage}` : tab === 'visuals' ? `visuals:${appearancePage}` : tab === 'hotkeys' ? 'learn' : tab;
+  const preview = useSettingsPreviewTarget(body, PREVIEW_DEFAULT_TARGET[previewPage]);
+  const previewScene = <SettingsPreview preferences={prefs} target={preview.id} restart={preview.restart} editor={rotationEditor}/>;
   const bindings = useMemo(() => effectiveBindings(catalog, prefs.hotkeys), [catalog, preferences?.hotkeys]);
-  const categories = [...new Set(catalog.map(action => action.category || 'Controls'))].sort();
-  const actions = catalog.filter(action => (category === 'All categories' || (action.category || 'Controls') === category) && `${action.label} ${action.id} ${action.category} ${(bindings[action.id] || []).join(' ')}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.label || a.id).localeCompare(b.label || b.id));
+  const categories = [...new Set([...catalog.map(action => action.category || 'Controls'), DRAG_KEYS_CATEGORY])].sort();
+  const dragKeys = category === 'All categories' || category === DRAG_KEYS_CATEGORY ? modifierRows(prefs, next => commit({ modifiers: next })).filter(row => `${row.label} ${row.id} ${DRAG_KEYS_CATEGORY} ${row.scopeLabel} ${row.value}`.toLowerCase().includes(search.toLowerCase())) : [];
+  const actions = catalog.filter(action => (category === 'All categories' || (action.category || 'Controls') === category) && `${action.label} ${action.id} ${action.category} ${(bindings[action.id] || []).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
+  const hotkeyRows = [...actions.map(action => ({ category: action.category || '', label: action.label || action.id, action })), ...dragKeys.map(row => ({ category: DRAG_KEYS_CATEGORY, label: `${row.scopeLabel} ${row.label}`, row }))].sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
+  const launcherKey = bindings.launcher?.[0] ? formatChord(bindings.launcher[0]) : '', uvStartFine = modifierLabel('drag.uv.pressFine', prefs);
   const conflicts = recorded && recording ? hotkeyConflicts(catalog, prefs.hotkeys, recording.id, recorded) : [];
   const labelFor = id => catalog.find(action => action.id === id)?.label || id;
   const commit = change => onChange(normalizePreferences({ ...prefs, ...change }));
   const graphic = change => commit({ graphics: { ...prefs.graphics, ...change } });
-  const visual = change => commit({ visuals: { ...prefs.visuals, ...change } });
+  const visual = change => commit(appearanceEdit(prefs, { visuals: { ...prefs.visuals, ...change } }));
+  const citadel = change => commit(appearanceEdit(prefs, { citadelPaint: { ...prefs.citadelPaint, ...change } }));
   const viewport = change => commit({ viewportPreset: 'custom', viewportAppearance: { ...prefs.viewportAppearance, ...change } });
   const viewportPart = (part, change) => viewport({ [part]: { ...prefs.viewportAppearance[part], ...change } });
   const quadPart = (part, change) => viewportPart('quadView', { [part]: { ...prefs.viewportAppearance.quadView[part], ...change } });
@@ -270,6 +275,9 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   useEffect(() => () => clearTimeout(sequenceTimer.current), []);
   useEffect(() => { setTab(initialTab === 'learn' ? 'hotkeys' : initialTab); setRecording(null); setMessage(''); }, [initialTab]);
   useEffect(() => { if (initialTab === 'learn' && tab === 'hotkeys') document.getElementById('learn-settings')?.scrollIntoView({ block: 'start' }); }, [initialTab, tab]);
+  useEffect(() => { if (presetNameFocus) presetNameInput.current?.focus(); }, [presetNameFocus]);
+  // "Apply to" starts on All editors each time the Rotation page is opened.
+  useEffect(() => { if (tab !== 'mouse' || mousePage !== 'Rotation') setRotationEditor('all'); }, [tab, mousePage]);
   const startRecording = action => { setRecording(action); setRecorded(''); setMessage(''); setResetConfirm(false); };
   const cancelSequence = () => { if (!sequence.current.active) return; sequence.current.cancel(); clearTimeout(sequenceTimer.current); setSequenceCode(null); setRecorded(''); setMessage('Sequence cancelled. Press a combination or the leader to try again.'); };
   const recordKey = event => {
@@ -312,18 +320,13 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
       (quad ? quadPart : viewportPart)('background', { type: 'image', imageData, imageName: file.name }); setMessage(`Background image loaded: ${file.name}`);
     } catch (error) { setMessage(error.message); }
   };
-  const applyViewportPreset = id => {
-    const preset = viewportPresetById(id, prefs.viewportPresets);
-    if (!preset) return;
-    commit(viewportPresetChange(prefs, id)); setMessage(`${preset.name} loaded.`);
-  };
   const saveViewportPreset = () => {
     const name = presetName.trim();
     if (!name) { setMessage('Enter a name for the custom viewport preset.'); return; }
     if (prefs.viewportPresets.length >= MAX_VIEWPORT_PRESETS) { setMessage(`You can save up to ${MAX_VIEWPORT_PRESETS} custom viewport presets.`); return; }
     if ([...Object.values(BUILT_IN_VIEWPORT_PRESETS), ...prefs.viewportPresets].some(preset => preset.name.toLowerCase() === name.toLowerCase())) { setMessage('A viewport preset with that name already exists.'); return; }
     const id = `custom-${Date.now().toString(36)}`;
-    commit({ viewportPreset: id, viewportPresets: [...prefs.viewportPresets, { id, name, appearance: prefs.viewportAppearance, theme: prefs.theme, accent: prefs.accent }] });
+    commit({ viewportPreset: id, viewportPresets: [...prefs.viewportPresets, { id, name, appearance: prefs.viewportAppearance, theme: prefs.theme, accent: prefs.accent, ...appearanceLook(prefs) }] });
     setPresetName(''); setMessage(`${name} saved.`);
   };
   const deleteViewportPreset = () => {
@@ -345,52 +348,59 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   };
   return <div className="classic-modal mdlxl-overlay settings-overlay" data-hotkey-scope="settings"><section ref={panel} className="classic-modal-window mdlxl-window settings-window" role="dialog" aria-modal="true" aria-label="Settings" data-hotkey-scope="settings" data-hotkey-prefix="settings" data-hotkey-category="Settings" onKeyDown={trapFocus}>
     <header><span>Settings</span><button data-hotkey="close" aria-label="Close Settings" onClick={onClose}>×</button></header>
-    <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['hotkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-hotkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
-    <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
+    <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['hotkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-hotkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setModifierClash(null); setMessage(''); }}>{label}</button>)}</div>
+    <div ref={body} className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
       {tab === 'mouse' && <div className="settings-page settings-appearance-page settings-mouse-page">
         <nav className="settings-appearance-nav" aria-label="Mouse pages">{MOUSE_PAGES.map(page => <button key={page} aria-pressed={mousePage === page} onClick={() => setMousePage(page)}>{page}</button>)}</nav>
-        <div className="settings-appearance-detail">
-          {mousePage === 'Camera' && <section>        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
-        <div className="settings-inline-actions"><span>Preset:</span><button data-hotkey="mouse:preset:classic" onClick={() => commit(CAMERA_PRESETS.classic)}>Classic MDLVis</button><button data-hotkey="mouse:preset:orbit" onClick={() => commit(CAMERA_PRESETS.orbit)}>Orbit navigation</button></div>
+        <div className="settings-appearance-detail"><SettingsSplit preview={previewScene} bar={<PresetBar key={MOUSE_PRESET_DOMAIN[mousePage]} domain={MOUSE_PRESET_DOMAIN[mousePage]} preferences={prefs} commit={commit} onMessage={setMessage} {...(mousePage === 'UV' && { selectHotkey: 'mouse:uv-rotate-preset', restoreHotkey: 'mouse:uv-reset' })}/>}>
+          {mousePage === 'Camera' && <section className="settings-card">        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
+        <div className="settings-inline-actions"><span>Preset:</span><button data-hotkey="mouse:preset:classic" onClick={() => pickPreset('mouse', prefs, 'classic', commit, setMessage)}>Classic MDLVis</button><button data-hotkey="mouse:preset:orbit" onClick={() => pickPreset('mouse', prefs, 'orbit', commit, setMessage)}>Orbit navigation</button></div>
         <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-hotkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div></section>}
-          {mousePage === 'Rotation' && <RotationSettings value={prefs.rotation} onChange={rotation => commit({ rotation })}/>}
-          {mousePage === 'Wheel' && <section>        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
+          {mousePage === 'Rotation' && <RotationSettings value={prefs.rotation} preferences={prefs} editor={rotationEditor} onEditor={setRotationEditor} onChange={rotation => commit({ rotation })}/>}
+          {mousePage === 'Wheel' && <section className="settings-card">        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:sensitivity-slider" aria-label="Mouse wheel sensitivity" type="range" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={event => commit({ scrollSensitivity: Number(event.target.value) })}/><label><SettingsNumberInput data-hotkey="mouse:sensitivity-value" aria-label="Mouse wheel sensitivity value" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={scrollSensitivity => commit({ scrollSensitivity })}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Precise · 0.1×</span><span>Fast · 10×</span></div>
         <div className="settings-inline-actions" role="group" aria-label="Wheel mode">{[['rotate','Rotation / normal zoom'],['scroll','Peon · Scroll sensitivity'],['pointer','Wisp · Wheel adjusts DPI']].map(([value,label]) => <button key={value} data-hotkey={`mouse:wheel:${value}`} aria-pressed={prefs.wheelMode === value} onClick={() => commit({ wheelMode:value })}>{label}</button>)}</div>
         <p className="settings-hint">Normal mode: wheel zooms; a middle click toggles camera rotation and work mode. Peon: wheel alone adjusts scroll sensitivity. Wisp: wheel alone adjusts DPI. Hold left and scroll for a temporary DPI adjustment without changing the selected toolbar mode. Left then right resets DPI. Right then left resets scroll sensitivity.</p></section>}
-          {mousePage === 'Pointer' && <section>        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity in the UV section. This multiplier does not change hardware DPI or Windows pointer settings.</p>
+          {mousePage === 'Pointer' && <section className="settings-card">        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity in the UV section. This multiplier does not change hardware DPI or Windows pointer settings.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:pointer-slider" aria-label="MdlVis pointer sensitivity" type="range" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={event => commit({ pointerSensitivity:Number(event.target.value) })}/><label><SettingsNumberInput data-hotkey="mouse:pointer-value" aria-label="MdlVis pointer sensitivity value" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={pointerSensitivity => commit({ pointerSensitivity })}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Ultra-precise · 0.01×</span><span>Fast · 4×</span></div>
         <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/></section>}
-          {mousePage === 'UV' && <section><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p></section>}
-          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: DEFAULT_ROTATION })}>Restore mouse defaults</button>
-        </div>
+          {mousePage === 'UV' && <section className="settings-card"><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged.</p>{uvStartFine && <p className="settings-hint">{`For fine control, hold ${uvStartFine} when starting a UV drag or Shift while navigating the 3D camera.`}</p>}</section>}
+          {mousePage === 'UV' && <UVDragSettings value={normalizeUVDrag(prefs.uvDrag)} preferences={prefs} onChange={change => commit({ uvDrag: { ...normalizeUVDrag(prefs.uvDrag), ...change } })}/>}
+          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: { ...DEFAULT_ROTATION, ...(prefs.rotation.eachPiece && { eachPiece: true }) }, uvDrag: DEFAULT_UV_DRAG })}>Restore mouse defaults</button>
+        </SettingsSplit></div>
       </div>}
       {tab === 'hotkeys' && <div className="settings-page hotkeys-page">
-        <h3>Hotkeys</h3><p>Assign a key or combination to commands, buttons, and fields. Hold Alt to show available button shortcuts; remapped combinations appear in full. Field shortcuts focus the field; toggle shortcuts switch it.</p>
-        <p>Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.</p>
-        <p className="settings-hint">Resource controls appear here when their manager is opened and stay in this list after closing it. Shortcuts act only on available controls in the active window, and leave text entry alone.</p>
-        <div className="hotkeys-filter"><input data-hotkey="hotkeys:search" aria-label="Search Hotkeys" placeholder="Search actions or shortcuts…" value={search} onChange={event => setSearch(event.target.value)}/><select data-hotkey="hotkeys:category" aria-label="Hotkeys category" value={category} onChange={event => setCategory(event.target.value)}><option>All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select><span>{actions.length} actions</span></div>
+        <div className="settings-preset-bar"><PresetBar domain="hotkeys" preferences={prefs} commit={commit} onMessage={setMessage} catalog={catalog}/></div>
+        <section className="settings-card">
+        <h3>Hotkeys</h3>
+        <div className="hotkeys-filter"><input data-hotkey="hotkeys:search" aria-label="Search Hotkeys" placeholder="Search actions or shortcuts…" value={search} onChange={event => setSearch(event.target.value)}/><select data-hotkey="hotkeys:category" aria-label="Hotkeys category" value={category} onChange={event => setCategory(event.target.value)}><option>All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select><span>{hotkeyRows.length} actions</span></div>
         {recording && <div className="hotkeys-recorder" aria-label={`Assign shortcut to ${recording.label || recording.id}`}>
           <strong>Shortcut for {recording.label || recording.id}</strong><div ref={recorder} tabIndex={0} className="hotkeys-capture" data-hotkey-recording="true" aria-label="Press a key combination" onKeyDown={recordKey} onBlur={cancelSequence}>{sequenceCode !== null ? <kbd>{HOTKEY_LEADER} &gt; {sequenceCode.padEnd(3, '·')}</kbd> : recorded ? <kbd>{formatChord(recorded)}</kbd> : 'Press a combination, or Ctrl+Alt+Space followed by three letters or digits'}</div>
           {!!conflicts.length && <p className="hotkeys-conflict">{formatChord(recorded)} is assigned to <strong>{conflicts.map(labelFor).join(', ')}</strong>. Replace removes this key from those actions.</p>}
           <div className="settings-inline-actions"><button disabled={!recorded} onClick={() => applyShortcut(!!conflicts.length)}>{conflicts.length ? 'Replace existing assignment' : 'Assign shortcut'}</button><button onClick={() => { setRecording(null); setRecorded(''); }}>Cancel</button></div>
         </div>}
-        <div className="hotkeys-table-wrap"><table className="hotkeys-table"><thead><tr><th>Action</th><th>Shortcut</th><th><span className="sr-only">Change shortcut</span></th></tr></thead><tbody>{actions.map(action => <tr key={action.id}><td><strong>{action.label || action.id}</strong><small title={action.id}>{action.category || 'Controls'}{action.contextual ? ' · when visible' : ''}</small></td><td><div className="hotkeys-chords">{(bindings[action.id] || []).map(chord => <span className="hotkeys-chip" key={chord}><kbd>{formatChord(chord)}</kbd><button aria-label={`Remove ${formatChord(chord)} from ${action.label || action.id}`} onClick={() => removeShortcut(action.id, chord)}>×</button></span>)}{!bindings[action.id]?.length && <span className="settings-muted">Unassigned</span>}</div></td><td><div className="hotkeys-row-actions"><button aria-label={`Assign shortcut to ${action.label || action.id}`} onClick={() => startRecording(action)}>Add shortcut</button><button aria-label={`Restore default shortcuts for ${action.label || action.id}`} onClick={() => restoreAction(action)}>Reset</button></div></td></tr>)}</tbody></table>{!actions.length && <p>No actions match this search.</p>}</div>
-        <div className="settings-inline-actions">{resetConfirm ? <><span>Restore every default shortcut and clear custom assignments?</span><button onClick={() => { commit({ hotkeys: {} }); setResetConfirm(false); setRecording(null); setMessage('All Hotkeys restored to defaults.'); }}>Restore all defaults</button><button onClick={() => setResetConfirm(false)}>Cancel</button></> : <button data-hotkey="hotkeys:reset-all" onClick={() => setResetConfirm(true)}>Reset all Hotkeys…</button>}</div>
-        <LearnSettings value={prefs.learn} onChange={change => commit({ learn: { ...prefs.learn, ...change } })}/>
+        <div className="hotkeys-table-wrap"><table className="hotkeys-table"><thead><tr><th>Action</th><th>Shortcut</th><th><span className="sr-only">Change shortcut</span></th></tr></thead><tbody>{hotkeyRows.map(({ action, row }) => row ? <DragKeyRow key={row.id} row={row} clash={modifierClash?.id === row.id ? modifierClash : null} onClash={setModifierClash} onMessage={setMessage}/> : <tr key={action.id}><td><strong>{action.label || action.id}</strong><small title={action.id}>{action.category || 'Controls'}{action.contextual ? ' · when visible' : ''}</small></td><td><div className="hotkeys-chords">{(bindings[action.id] || []).map(chord => <span className="hotkeys-chip" key={chord}><kbd>{formatChord(chord)}</kbd><button aria-label={`Remove ${formatChord(chord)} from ${action.label || action.id}`} onClick={() => removeShortcut(action.id, chord)}>×</button></span>)}{!bindings[action.id]?.length && <span className="settings-muted">Unassigned</span>}</div></td><td><div className="hotkeys-row-actions"><button aria-label={`Assign shortcut to ${action.label || action.id}`} onClick={() => startRecording(action)}>Add shortcut</button><button aria-label={`Restore default shortcuts for ${action.label || action.id}`} onClick={() => restoreAction(action)}>Reset</button></div></td></tr>)}</tbody></table>{!hotkeyRows.length && <p>No actions match this search.</p>}</div>
+        <div className="settings-inline-actions">{resetConfirm ? <><span>Restore every default shortcut and clear custom assignments?</span><button onClick={() => { commit({ hotkeys: {}, modifiers: {} }); setResetConfirm(false); setRecording(null); setModifierClash(null); setMessage('All Hotkeys restored to defaults.'); }}>Restore all defaults</button><button onClick={() => setResetConfirm(false)}>Cancel</button></> : <button data-hotkey="hotkeys:reset-all" onClick={() => setResetConfirm(true)}>Reset all Hotkeys…</button>}</div>
+        <p className="settings-hint">Assign a key or combination to commands, buttons, and fields. Hold Alt to show available button shortcuts; remapped combinations appear in full. Field shortcuts focus the field; toggle shortcuts switch it.</p>
+        <p className="settings-hint">Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.</p>
+        <p className="settings-hint">Resource controls appear here when their manager is opened and stay in this list after closing it. Shortcuts act only on available controls in the active window, and leave text entry alone.</p>
+        </section>
+        <section className="settings-card"><LearnSettings value={prefs.learn} onChange={change => commit({ learn: { ...prefs.learn, ...change } })} preview={previewScene}/></section>
       </div>}
-      {tab === 'graphics' && <div className="settings-page">
-        <h3>Preview lighting</h3>
-        <label>Setup <select aria-label="Lighting setup" value={prefs.lighting.preset} onChange={event=>commit({lighting:{...prefs.lighting,preset:event.target.value}})}><option value="requested">Requested · 128 / 192 / 0</option><option value="legacy">Previous lighting</option><option value="custom">Custom</option></select></label>
-        <div className="settings-graphics-grid">{['ambient','diffuse','specular'].map(channel=><fieldset key={channel}><legend>{channel}</legend>{['R','G','B'].map((axis,i)=><Numeric key={axis} id={`lighting:${channel}:${axis}`} label={`${channel} ${axis}`} value={prefs.lighting[channel][i]} min={0} max={255} onChange={value=>commit({lighting:{...prefs.lighting,preset:'custom',[channel]:prefs.lighting[channel].map((v,j)=>i===j?value:v)}})}/>)}</fieldset>)}</div>
+      {tab === 'graphics' && <div className="settings-page"><SettingsSplit preview={previewScene}>
+        <section className="settings-card"><h3>Preview lighting</h3>
+        <label className="settings-select"><span>Setup</span><select aria-label="Lighting setup" value={prefs.lighting.preset} onChange={event=>commit({lighting:{...prefs.lighting,preset:event.target.value}})}><option value="requested">Requested · 128 / 192 / 0</option><option value="legacy">Previous lighting</option><option value="custom">Custom</option></select></label>
+        <div className="settings-lighting-grid">{['ambient','diffuse','specular'].map(channel=><fieldset key={channel}><legend>{channel}</legend>{['R','G','B'].map((axis,i)=><Numeric key={axis} id={`lighting:${channel}:${axis}`} label={`${channel} ${axis}`} value={prefs.lighting[channel][i]} min={0} max={255} onChange={value=>commit({lighting:{...prefs.lighting,preset:'custom',[channel]:prefs.lighting[channel].map((v,j)=>i===j?value:v)}})}/>)}</fieldset>)}</div>
         <Numeric id="lighting:power" label="Specular power" value={prefs.lighting.power} min={0} step={.1} onChange={power=>commit({lighting:{...prefs.lighting,preset:'custom',power}})}/>
-        <h3>Display platform</h3><Toggle id="platform:enabled" label="Show platform" checked={prefs.platform.enabled} onChange={enabled=>commit({platform:{...prefs.platform,enabled}})}/>
-        <label>Shape <select aria-label="Platform shape" value={prefs.platform.shape} onChange={event=>commit({platform:{...prefs.platform,shape:event.target.value}})}>{['square','disc','hexagon'].map(shape=><option key={shape}>{shape}</option>)}</select></label>
+        </section>
+        <section className="settings-card"><h3>Display platform</h3><Toggle id="platform:enabled" label="Show platform" checked={prefs.platform.enabled} onChange={enabled=>commit({platform:{...prefs.platform,enabled}})}/>
+        <label className="settings-select"><span>Shape</span><select aria-label="Platform shape" value={prefs.platform.shape} onChange={event=>commit({platform:{...prefs.platform,shape:event.target.value}})}>{['square','disc','hexagon'].map(shape=><option key={shape}>{shape}</option>)}</select></label>
         <Numeric id="platform:size" label="Platform size" value={prefs.platform.size} min={.1} max={10} step={.1} unit="× model radius" onChange={size=>commit({platform:{...prefs.platform,size}})}/><Numeric id="platform:height" label="Platform height" value={prefs.platform.height} min={-100000} max={100000} onChange={height=>commit({platform:{...prefs.platform,height}})}/>
-        <label>Platform color <input type="color" aria-label="Platform color" value={prefs.platform.color} onChange={event=>commit({platform:{...prefs.platform,color:event.target.value}})}/></label><input ref={platformInput} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={event=>{loadPlatformTexture(event.target.files[0]);event.target.value='';}}/><button onClick={()=>platformInput.current.click()}>Choose platform texture…</button><button disabled={!prefs.platform.textureUrl} onClick={()=>commit({platform:{...prefs.platform,textureUrl:''}})}>Clear texture</button>
-        <h3>Graphical settings</h3><p>Use fewer visual effects to reduce rendering and texture loading work. These preferences do not change the saved model.</p>
+        <label className="settings-color"><span>Platform color</span><input type="color" aria-label="Platform color" value={prefs.platform.color} onChange={event=>commit({platform:{...prefs.platform,color:event.target.value}})}/></label><input ref={platformInput} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={event=>{loadPlatformTexture(event.target.files[0]);event.target.value='';}}/><div className="settings-inline-actions"><button onClick={()=>platformInput.current.click()}>Choose platform texture…</button><button disabled={!prefs.platform.textureUrl} onClick={()=>commit({platform:{...prefs.platform,textureUrl:''}})}>Clear texture</button></div>
+        </section>
+        <section className="settings-card"><h3>Graphical settings</h3><p>Use fewer visual effects to reduce rendering and texture loading work. These preferences do not change the saved model.</p>
         {(() => { const renderer = detectRenderer(); return renderer.name && <p className="settings-muted" title="The device that draws the 3D views. Software rendering means no graphics card is in use, so the processor draws every pixel.">Drawing with: {renderer.name}{renderer.software ? ` · software rendering${prefs.graphics.softwareLow ? ', so 30 fps was chosen automatically' : ''}` : ''}</p>; })()}
         <div className="settings-inline-actions"><span>Preset:</span>{[['fast', 'Fast'], ['balanced', 'Balanced'], ['quality', 'High quality']].map(([id, label]) => <button key={id} data-hotkey={`graphics:preset:${id}`} onClick={() => graphic(GRAPHICS_PRESETS[id])}>{label}</button>)}</div>
         <div className="settings-graphics-grid"><label className="settings-select"><span>Render resolution</span><select data-hotkey="graphics:pixel-ratio" aria-label="Render resolution" value={prefs.graphics.pixelRatio} onChange={event => graphic({ pixelRatio: Number(event.target.value) })}><option value="0.5">0.5× · low-spec PCs</option><option value="0.75">0.75× · lighter</option><option value="1">1× · fast</option><option value="1.5">1.5× · balanced</option><option value="2">2× · sharper</option></select><small>Maximum pixel ratio; lower values reduce GPU work. Below 1× the 3D views are drawn smaller and scaled up, which looks softer.</small></label><label className="settings-select"><span>Maximum frame rate</span><select data-hotkey="graphics:max-fps" aria-label="Maximum frame rate" value={prefs.graphics.maxFps} onChange={event => graphic({ maxFps: Number(event.target.value) })}><option value="30">30 fps · lower load</option><option value="60">60 fps · balanced</option><option value="120">120 fps · smoother motion</option></select><small>Only active playback or interaction needs continuous frames.</small></label></div>
@@ -399,9 +409,10 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <Toggle id="graphics:lighting" label="Lighting and reflections" checked={prefs.graphics.lighting} onChange={lighting => graphic({ lighting })} description="Shaded editor lighting and animation preview environment reflections."/>
         <Toggle id="graphics:particles" label="Particle and ribbon effects" checked={prefs.graphics.particles} onChange={particles => graphic({ particles })} description="Applies to game preview effects."/>
         <Toggle id="graphics:pause-when-hidden" label="Pause rendering and animation when the window is hidden" checked={prefs.graphics.pauseWhenHidden} onChange={pauseWhenHidden => graphic({ pauseWhenHidden })}/>
-      </div>}
-      {tab === 'capture' && <div className="settings-page">
-        <h3>Recording and screenshots</h3><p>Capture the model with its current lighting and background. Resolution follows the viewport aspect ratio.</p>
+        </section>
+      </SettingsSplit></div>}
+      {tab === 'capture' && <div className="settings-page"><SettingsSplit preview={previewScene}>
+        <section className="settings-card"><h3>Recording and screenshots</h3><p>Capture the model with its current lighting and background. Resolution follows the viewport aspect ratio.</p>
         <label className="settings-select"><span>Recording frame rate</span><select aria-label="Recording frame rate" value={prefs.capture.fps} onChange={event => commit({capture:{...prefs.capture,fps:Number(event.target.value)}})}>{[10,15,20,24,25,30,50].map(fps=><option key={fps} value={fps}>{fps} FPS</option>)}</select></label>
         <div className="settings-graphics-grid">{[['recordingQuality','Recording quality'],['screenshotQuality','Screenshot quality']].map(([key,label])=><label className="settings-select" key={key}><span>{label}</span><select aria-label={label} value={prefs.capture[key]} onChange={event=>commit({capture:{...prefs.capture,[key]:event.target.value}})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>)}</div>
         <p>GIF: Low 720 px / 128 colors without dithering · Medium 1280 px / 256 colors · High 1920 px / 256 colors. Medium and High use Sierra dithering.</p>
@@ -409,17 +420,13 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <p className="settings-hint">GIF uses a shared palette with up to 256 entries, including transparency for optimization. Higher quality needs more processing. Recording preserves elapsed time when capture frames are skipped and uses temporary disk space.</p>
         <Toggle id="capture:pressed-keys" label="Show pressed keys" checked={prefs.showPressedKeys} onChange={showPressedKeys=>commit({showPressedKeys})} description="Display keyboard and mouse combinations for tutorials. Text entered in fields is not shown."/>
         <button onClick={()=>commit({capture:{fps:30,recordingQuality:'medium',screenshotQuality:'medium'}})}>Restore capture defaults</button>
-      </div>}
+        </section>
+      </SettingsSplit></div>}
       {tab === 'visuals' && <div className="settings-page settings-appearance-page">
         <nav className="settings-appearance-nav" aria-label="Appearance pages">{APPEARANCE_PAGES.map(page => <button key={page} type="button" aria-pressed={page === appearancePage} onClick={() => setAppearancePage(page)}>{page}</button>)}</nav>
-        <div className="settings-appearance-detail"><AppearancePage.Provider value={appearancePage}>
+        <div className="settings-appearance-detail"><SettingsSplit preview={previewScene} bar={<PresetBar domain="appearance" preferences={prefs} commit={commit} onMessage={setMessage} selectLabel="Viewport appearance preset" onSaveAs={() => { setAppearancePage('Presets'); setPresetNameFocus(count => count + 1); }}/>}><AppearancePage.Provider value={appearancePage}>
         <AppearanceSection title="Presets">
-        <label className="settings-select"><span>Appearance preset</span><select aria-label="Viewport appearance preset" value={prefs.viewportPreset} onChange={event => applyViewportPreset(event.target.value)}>
-          {Object.values(BUILT_IN_VIEWPORT_PRESETS).map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-          {prefs.viewportPreset === 'custom' && <option value="custom">Unsaved custom appearance</option>}
-          {prefs.viewportPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-        </select></label>
-        <div className="settings-inline-actions"><input aria-label="Custom viewport preset name" value={presetName} maxLength={80} placeholder="Custom preset name" onChange={event => setPresetName(event.target.value)}/><button onClick={saveViewportPreset}>Save as custom preset</button>{String(prefs.viewportPreset).startsWith('custom-') && <button onClick={deleteViewportPreset}>Delete selected preset</button>}</div>
+        <div className="settings-inline-actions"><input ref={presetNameInput} aria-label="Custom viewport preset name" value={presetName} maxLength={80} placeholder="Custom preset name" onChange={event => setPresetName(event.target.value)}/><button onClick={saveViewportPreset}>Save as custom preset</button>{String(prefs.viewportPreset).startsWith('custom-') && <button onClick={deleteViewportPreset}>Delete selected preset</button>}</div>
         </AppearanceSection>
         <AppearanceSection title="Interface" palette={palette('Interface',
           { theme: prefs.theme, accent: prefs.accent, geosetSetColor: prefs.viewportAppearance.geosetSet.color },
@@ -427,10 +434,12 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           ({ geosetSetColor, ...change }) => commit({ ...change, viewportPreset: 'custom', viewportAppearance: {
             ...prefs.viewportAppearance, geosetSet: { ...prefs.viewportAppearance.geosetSet, color: geosetSetColor }
           } }))}>
-        <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
+        <label className="settings-color"><span>UI accent</span><input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit(appearanceEdit(prefs,{accent:event.target.value}))}/><code>{prefs.accent}</code></label>
+        <SettingsSelect id="appearance:toolbar-mode" label="Toolbar" tip={visUI ? 'VIS has its own toolbar layout.' : toolbarModeTip(prefs.toolbarMode, launcherKey)} disabled={visUI} value={prefs.toolbarMode} options={Object.entries(TOOLBAR_MODE_LABELS)} onChange={toolbarMode=>commit({toolbarMode})}/>
+        {prefs.toolbarMode === 'hidden' && !visUI && launcherKey && <p className="settings-hint">{`Hidden: use the menu bar or ${launcherKey}.`}</p>}
         <label className="settings-select" title="Compact Set uses numbered boxes. Classic Set uses the numbered checklist. VIS always uses Classic Set."><span>Geoset set</span><select aria-label="Geoset set" value={prefs.viewportAppearance.geosetSet.style} onChange={event=>viewportPart('geosetSet',{style:event.target.value})}><option value="compact">Compact Set</option><option value="classic">Classic Set</option></select></label>
-        <label className="settings-color">Compact Set color <input type="color" aria-label="Compact Set color" value={prefs.viewportAppearance.geosetSet.color} onChange={event=>viewportPart('geosetSet',{color:event.target.value})}/><code>{prefs.viewportAppearance.geosetSet.color}</code></label>
-        <label className="settings-color" title="The glow around the active tool in the sidebar. It follows the UI accent until you pick your own colour.">Tool highlight <input type="color" aria-label="Tool highlight" value={prefs.toolHighlight || prefs.accent} onChange={event=>commit({toolHighlight:event.target.value})}/><code>{prefs.toolHighlight || 'same as accent'}</code>{prefs.toolHighlight && <button type="button" title="Use the UI accent again" onClick={()=>commit({toolHighlight:''})}>Use accent</button>}</label>
+        <label className="settings-color"><span>Compact Set color</span><input type="color" aria-label="Compact Set color" value={prefs.viewportAppearance.geosetSet.color} onChange={event=>viewportPart('geosetSet',{color:event.target.value})}/><code>{prefs.viewportAppearance.geosetSet.color}</code></label>
+        <label className="settings-color" title="The glow around the active tool in the sidebar. It follows the UI accent until you pick your own colour."><span>Tool highlight</span><input type="color" aria-label="Tool highlight" value={prefs.toolHighlight || prefs.accent} onChange={event=>commit(appearanceEdit(prefs,{toolHighlight:event.target.value}))}/><code>{prefs.toolHighlight || 'same as accent'}</code>{prefs.toolHighlight && <button type="button" title="Use the UI accent again" onClick={()=>commit(appearanceEdit(prefs,{toolHighlight:''}))}>Use accent</button>}</label>
         <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={PANEL_WIDTH_MIN} max={PANEL_WIDTH_MAX} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>
         <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
@@ -454,7 +463,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </AppearanceSection>
         <AppearanceSection title="Viewport background" palette={partPalette('background', 'Viewport background')}>
         <div className="settings-inline-actions" role="group" aria-label="Viewport background type"><span>Type:</span><button aria-pressed={prefs.viewportAppearance.background.type === 'color'} onClick={() => viewportPart('background',{type:'color'})}>Solid color</button><button aria-pressed={prefs.viewportAppearance.background.type === 'image'} disabled={!prefs.viewportAppearance.background.imageData} onClick={() => viewportPart('background',{type:'image'})}>Image</button></div>
-        <label className="settings-color">Fallback color <input type="color" aria-label="Viewport background color" value={prefs.viewportAppearance.background.color} onChange={event => viewportPart('background',{color:event.target.value})}/><code>{prefs.viewportAppearance.background.color}</code></label>
+        <label className="settings-color"><span>Fallback color</span><input type="color" aria-label="Viewport background color" value={prefs.viewportAppearance.background.color} onChange={event => viewportPart('background',{color:event.target.value})}/><code>{prefs.viewportAppearance.background.color}</code></label>
         <input ref={viewportImageInput} hidden type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" onChange={event => { loadViewportBackground(event.target.files[0]); event.target.value=''; }}/>
         <div className="settings-inline-actions"><button onClick={() => viewportImageInput.current?.click()}>Choose background image…</button>{prefs.viewportAppearance.background.imageData && <><span className="settings-muted" title={prefs.viewportAppearance.background.imageName}>{prefs.viewportAppearance.background.imageName || 'Saved image'}</span><button onClick={() => viewportPart('background',{type:'color',imageData:'',imageName:''})}>Remove image</button></>}</div>
         {prefs.viewportAppearance.background.imageData && <div className="settings-graphics-grid"><label className="settings-select"><span>Image display</span><select aria-label="Background image display mode" value={prefs.viewportAppearance.background.display} onChange={event => viewportPart('background',{display:event.target.value})}><option value="fit">Fit</option><option value="fill">Fill</option><option value="stretch">Stretch</option><option value="center">Center / actual size</option></select></label><Numeric id="appearance:background:opacity" label="Image opacity" value={prefs.viewportAppearance.background.opacity} min={0} max={1} step={.05} onChange={opacity => viewportPart('background',{opacity})}/></div>}
@@ -462,8 +471,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <AppearanceSection title="Highlight Geoset" palette={partPalette('geosetHighlight', 'Highlight Geoset')}>
           <label className="settings-color"><span>Color</span><input type="color" aria-label="Highlight Geoset color" value={prefs.viewportAppearance.geosetHighlight.color} onChange={event => viewportPart('geosetHighlight', { color: event.target.value })}/><code>{prefs.viewportAppearance.geosetHighlight.color}</code></label>
           <label className="settings-select"><span>Type</span><select aria-label="Highlight Geoset type" value={prefs.viewportAppearance.geosetHighlight.type} onChange={event => viewportPart('geosetHighlight', { type: event.target.value })}><option value="wire-vertices">Wireframe with vertices</option><option value="wire">Wireframe without vertices</option><option value="fill">Filled geoset</option></select></label>
-          <label><input type="checkbox" checked={prefs.viewportAppearance.geosetHighlight.viaView} disabled={!prefs.viewportAppearance.geosetHighlight.viaSelection} onChange={event => viewportPart('geosetHighlight', { viaView: event.target.checked })}/>Highlight via View</label>
-          <label><input type="checkbox" checked={prefs.viewportAppearance.geosetHighlight.viaSelection} disabled={!prefs.viewportAppearance.geosetHighlight.viaView} onChange={event => viewportPart('geosetHighlight', { viaSelection: event.target.checked })}/>Highlight via Selection</label>
+          <label className="settings-toggle"><input type="checkbox" aria-label="Highlight via View" checked={prefs.viewportAppearance.geosetHighlight.viaView} disabled={!prefs.viewportAppearance.geosetHighlight.viaSelection} onChange={event => viewportPart('geosetHighlight', { viaView: event.target.checked })}/><span>Highlight via View</span></label>
+          <label className="settings-toggle"><input type="checkbox" aria-label="Highlight via Selection" checked={prefs.viewportAppearance.geosetHighlight.viaSelection} disabled={!prefs.viewportAppearance.geosetHighlight.viaView} onChange={event => viewportPart('geosetHighlight', { viaSelection: event.target.checked })}/><span>Highlight via Selection</span></label>
         </AppearanceSection>
         <div className="settings-appearance-grid">
           <AppearanceSection title="Wire style">
@@ -505,14 +514,15 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           {prefs.viewportAppearance.quadView.background.imageData && <div className="settings-graphics-grid"><label>Quadview image display <select aria-label="Quadview image display" value={prefs.viewportAppearance.quadView.background.display} onChange={event => quadPart('background', {display:event.target.value})}>{['fit','fill','stretch','center'].map(value => <option key={value} value={value}>{value}</option>)}</select></label><Numeric id="appearance:quadview:image-opacity" label="Quadview image opacity" value={prefs.viewportAppearance.quadView.background.opacity} min={0} max={1} step={.05} onChange={opacity => quadPart('background', {opacity})}/></div>}
         </AppearanceSection>
         <AppearanceSection title="Editor helpers" palette={palette('Editor helpers', prefs.visuals, helpersFor, visual)}><div className="settings-color-grid">{APPEARANCE_HELPER_COLORS.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-hotkey={`appearance:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
-        <label>Emitter marker<select aria-label="Emitter marker" value={prefs.emitterMarker} onChange={event=>commit({emitterMarker:event.target.value})}><option value="pentagram">Pentagram in a circle</option><option value="tetrahedron">Normal node</option><option value="cube">Cube</option></select></label>
+        <label className="settings-select"><span>Emitter marker</span><select aria-label="Emitter marker" value={prefs.emitterMarker} onChange={event=>commit(appearanceEdit(prefs,{emitterMarker:event.target.value}))}><option value="pentagram">Pentagram in a circle</option><option value="tetrahedron">Normal node</option><option value="cube">Cube</option></select></label>
         <div className="settings-graphics-grid">{[['keyframeSize', 'Keyframe marker size', 4, 24, 1, 'px'], ['helperSize', 'Node marker size', 3, 18, 1, 'px']].map(([key, label, min, max, step, unit]) => <Numeric key={key} id={`appearance:size:${key}`} label={label} value={prefs.visuals[key]} min={min} max={max} step={step} unit={unit} onChange={value => visual({ [key]: value })}/>)}</div>
         </AppearanceSection>
-        <AppearanceSection title="Citadel Paint" palette={palette('Citadel Paint', prefs.citadelPaint, paintFor, change => commit({ citadelPaint: { ...prefs.citadelPaint, ...change } }))}><div className="settings-appearance-grid">
-          {[['brushTipLight','Brush tips — light theme'],['brushTipDark','Brush tips — dark themes'],['brushCursor','Brush cursor'],['geosetSelection','Geoset selection'],['geosetBorder','Geoset border'],['lampSelection','Selected lamp']].map(([key,label])=><label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={'Citadel '+label} value={prefs.citadelPaint[key]} onChange={e=>commit({citadelPaint:{...prefs.citadelPaint,[key]:e.target.value}})}/></label>)}
-          <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>commit({citadelPaint:{...prefs.citadelPaint,borderThickness}})}/>
-          <button onClick={()=>commit({citadelPaint:DEFAULT_PAINT_APPEARANCE})}>Reset Citadel colours</button>
-        </div></AppearanceSection>
+        <AppearanceSection title="Citadel Paint" palette={palette('Citadel Paint', prefs.citadelPaint, paintFor, citadel)}><div className="settings-color-grid">
+          {[['brushTipLight','Brush tips — light theme'],['brushTipDark','Brush tips — dark themes'],['brushCursor','Brush cursor'],['geosetSelection','Geoset selection'],['geosetBorder','Geoset border'],['lampSelection','Selected lamp']].map(([key,label])=><label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={'Citadel '+label} value={prefs.citadelPaint[key]} onChange={e=>citadel({[key]:e.target.value})}/></label>)}
+          </div>
+          <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>citadel({borderThickness})}/>
+          <button onClick={()=>citadel(DEFAULT_PAINT_APPEARANCE)}>Reset Citadel colours</button>
+        </AppearanceSection>
         <AppearanceSection title="Bones & skeleton" palette={partPalette('bones', 'Bones & skeleton')}>
           <BonePreview bones={prefs.viewportAppearance.bones} background={prefs.viewportAppearance.background.color}/>
           <label className="settings-select" title={BONE_STYLE_TIP}><span>Bone style</span><select aria-label="Bone style" title={BONE_STYLE_TIP} value={prefs.viewportAppearance.bones.style} onChange={event => viewportPart('bones', { style: event.target.value })}>{BONE_STYLE_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -528,39 +538,42 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <button onClick={() => viewport({ boneInfluence: DEFAULT_BONE_INFLUENCE })}>Reset Bone influence</button>
         </AppearanceSection>
         </AppearancePage.Provider>
-        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, toolHighlight: '', viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
-      </div></div>}
-      {tab === 'grid' && <div className="settings-page">
-        <h3>XYZ grid</h3><p>Configure the grid shared by the 3D viewport and animation preview. Use Display → Grid to show or hide it.</p>
+        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, toolHighlight: '', viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS, toolbarMode: 'graphic' })}>Restore Lordaeron and helper defaults</button>
+      </SettingsSplit></div></div>}
+      {tab === 'grid' && <div className="settings-page"><SettingsSplit preview={previewScene}>
+        <section className="settings-card"><h3>XYZ grid</h3><p>Configure the grid shared by the 3D viewport and animation preview. Use Display → Grid to show or hide it.</p>
         <div className="settings-inline-actions"><span>Preset:</span>{[['classic', 'Classic'], ['fine', 'Fine'], ['world', 'Large model'], ['xyz', 'Three planes']].map(([key, label]) => <button key={key} data-hotkey={`grid:preset:${key}`} onClick={() => grid(GRID_PRESETS[key])}>{label}</button>)}</div>
         <div className="settings-graphics-grid"><Numeric id="grid:spacing" label="Minor line spacing" value={prefs.grid.spacing} min={0.1} max={4096} step={0.1} unit=" units" onChange={spacing => grid({ spacing })}/><Numeric id="grid:major-every" label="Minor divisions per major line" value={prefs.grid.majorEvery} min={2} max={32} onChange={majorEvery => grid({ majorEvery })}/><Numeric id="grid:extent" label="Extent from origin" value={prefs.grid.extent} min={1} max={16384} unit=" units" onChange={extent => grid({ extent })}/><Numeric id="grid:opacity" label="Minor grid opacity" value={prefs.grid.opacity} min={0} max={1} step={0.05} onChange={opacity => grid({ opacity })}/><Numeric id="grid:major-opacity" label="Major grid opacity" value={prefs.grid.majorOpacity} min={0} max={1} step={0.05} onChange={majorOpacity => grid({ majorOpacity })}/></div>
         <Toggle id="grid:small" label="Small grid" checked={prefs.grid.small} onChange={small => grid({ small })} description="Show the fine lines. The coarse grid remains visible."/>
         <div className="settings-plane-choices"><span>Grid planes:</span>{['xz', 'yz', 'xy'].map(key => <label key={key}><input data-hotkey={`grid:plane:${key}`} aria-label={`Grid ${key.toUpperCase()} plane`} type="checkbox" checked={prefs.grid.planes[key]} onChange={event => grid({ planes: { ...prefs.grid.planes, [key]: event.target.checked } })}/>{key.toUpperCase()}</label>)}</div>
         <div className="settings-plane-choices"><span>Axes:</span>{['x', 'y', 'z'].map(key => <label key={key}><input data-hotkey={`grid:axis:${key}`} aria-label={`Grid ${key.toUpperCase()} axis`} type="checkbox" checked={prefs.grid.axes[key]} onChange={event => grid({ axes: { ...prefs.grid.axes, [key]: event.target.checked } })}/>{key.toUpperCase()}</label>)}</div>
         <div className="settings-color-grid">{VISUAL_COLORS.filter(([key]) => key.startsWith('grid') || key.startsWith('axis')).map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-hotkey={`grid:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
-      </div>}
-      {tab === 'configuration' && <div className="settings-page">        <h3>Updates</h3>
+        </section>
+      </SettingsSplit></div>}
+      {tab === 'configuration' && <div className="settings-page"><section className="settings-card">        <h3>Updates</h3>
         <Toggle id="updates:startup" label="Auto update" checked={prefs.checkUpdatesOnStartup} onChange={checkUpdatesOnStartup => commit({ checkUpdatesOnStartup })} description="Search for updates when MDLxL starts. Ask before downloading or installing."/>
-        <button data-hotkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
-        <button data-hotkey="updates:revert" disabled={!onRevertUpdate || !updateStatus?.previousVersion || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onRevertUpdate}>Revert to last version</button>
+        <div className="settings-inline-actions"><button data-hotkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
+        <button data-hotkey="updates:revert" disabled={!onRevertUpdate || !updateStatus?.previousVersion || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onRevertUpdate}>Revert to last version</button></div>
         {updateStatus?.previousVersion && <small>{`Previous version: ${updateStatus.previousVersion}`}</small>}
         <p className="settings-hint" role="status">{updateStatusText(updateStatus)}</p>
         {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
-        <FileIconSettings prefs={prefs} commit={commit}/>
-<h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button><h3>New model</h3><label>Starter format <select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></div>}
+        </section>
+        <section className="settings-card"><FileIconSettings prefs={prefs} commit={commit}/></section>
+<section className="settings-card"><h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><div className="settings-inline-actions"><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button></div></section><section className="settings-card"><h3>New model</h3><label className="settings-select"><span>Starter format</span><select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></section></div>}
       {tab === 'gameData' && <div className="settings-page game-data-page">
-        <h3>Warcraft III installation</h3>
+        <section className="settings-card"><h3>Warcraft III installation</h3>
         <p>Choose the main Warcraft III installation folder once. MdlVis saves the location in its app profile, then uses it automatically when a model refers to native Warcraft textures.</p>
         {gameDataPath ? <p className="game-data-path"><strong>Saved folder:</strong> <code>{gameDataPath}</code></p> : <p className="settings-hint">Warcraft III is detected automatically when native textures are needed. The detected installation and textures are cached for later launches.</p>}
         <div className="settings-inline-actions"><button data-hotkey="game-data:choose" disabled={!onChooseGameData} onClick={onChooseGameData}>{gameDataPath ? 'Choose a different Warcraft III installation…' : 'Choose Warcraft III installation…'}</button>{gameDataPath && <button data-hotkey="game-data:clear" disabled={!onClearGameData} onClick={onClearGameData}>Forget saved folder</button>}</div>
-        <h3>Custom game archives</h3>
+        </section>
+        <section className="settings-card"><h3>Custom game archives</h3>
         <p className="settings-hint">Add your own CASC storage or MPQ files for a custom Warcraft III setup. Custom archives take priority over installed game data.</p>
         <div className="settings-inline-actions"><button data-hotkey="game-data:add-casc" disabled={!onAddGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onAddGameDataSource('casc'))}>Add CASC folder…</button><button data-hotkey="game-data:add-mpq" disabled={!onAddGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onAddGameDataSource('mpq'))}>Add MPQ files…</button></div>
         {gameDataSources.map(source=><div className="game-data-path" key={source.path}><strong>{source.kind.toUpperCase()}: </strong><code>{source.path}</code> <button aria-label={`Remove ${source.path}`} disabled={!onRemoveGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onRemoveGameDataSource(source.path))}>Remove</button></div>)}
         <p className="settings-hint">For CASC, select the storage folder containing .build.info and Data. For MPQ, select one or more .mpq files. These choices are saved in the app profile.</p>
+        </section>
         <AssetPreload modelPath={modelPath}/>
       </div>}
-      <div className="settings-message" role="status" aria-live="polite">{message}</div>
-    </div><footer><span>Changes apply immediately.</span><button data-hotkey="done" onClick={onClose}>Done</button></footer>
+    </div><footer>{!message && <span>Changes apply immediately.</span>}<div className="settings-message" role="status" aria-live="polite">{message}</div><button data-hotkey="done" onClick={onClose}>Done</button></footer>
   </section></div>;
 }

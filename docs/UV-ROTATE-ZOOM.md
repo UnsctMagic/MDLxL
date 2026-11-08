@@ -8,6 +8,13 @@ rule. A complaint about one detail (speed, a jump) is fixed inside these rules,
 never by switching to a different rule. If a test below fails, the feel changed:
 fix the code, not the test numbers.
 
+**Expanded by the owner on 8 Nov 2026.** Settings → Mouse → UV lets each user
+pick another feel (`preferences.uvDrag`, `src/uv-drag-settings.js`), and an
+always-visible **Each piece** toggle in the UV Wrapper turns or zooms each
+separate piece on its own spot. The rules below are the **defaults** and stay
+locked: a setting adds a choice, it never moves a default. All of it is UV
+Wrapper only; 3D tools and FX texture fitting ignore it.
+
 ## Why this is locked
 
 Between 26 Oct and 4 Nov 2026 the UV Rotate rule changed about ten times
@@ -53,14 +60,25 @@ the tool each time:
 
 ## Zoom (`scale` in `app/UVEditor.jsx`)
 
-- Every mouse move counts, like Resize in the Movement tool: **right or up
-  enlarges, left or down shrinks**. The two add up, so up-left or down-right
-  cancel each other.
-- Shrinking reaches zero: selected points land on exactly one spot and stay
-  there while the mouse keeps going; it never rebounds.
+Default since 8 Nov 2026, by the owner's request ("from towards the center"):
+
+- The mouse's distance from the selection's centre sets the size, in any
+  direction: away grows, toward shrinks.
+- The owner's limit: "the max is collapsed to the same spot - as long as mouse
+  as held its reversable, and its reversable with ctr z." The mouse reaching the
+  centre (within 3 px) puts every selected point on exactly one spot. Carrying on
+  past the centre stays collapsed and never grows back, even when a sweep misses
+  the centre by a little.
+- While the button is held, bringing the mouse back the way it came grows the
+  selection again. After release, one Ctrl+Z restores it.
+- A drag starting within 12 px of the centre has no direction to read, so that
+  drag uses right/up.
 - U and V scale uniformly. Shift fine control and the Shift axis locks behave
   as before; Alt fine control is preserved.
-- FX texture fitting keeps its original left/right input.
+- History: #494 used distance from the centre but grew back after crossing it,
+  so two points could not collapse. #549 went back to left/right only, and #580
+  to right/up. Both remain as settings. FX texture fitting keeps its original
+  left/right input.
 
 ## Verification
 
@@ -70,12 +88,18 @@ the tool each time:
   mouse drags with the owner's mouse settings. It checks the same circle at
   24/60/120/300 px, straight moves that don't turn the piece, sweeps across the
   piece without snapping, Shift and Alt.
-- [uv-zoom-collapse.electron.cjs](../test/uv-zoom-collapse.electron.cjs): real
+- [uv-drag-settings.test.js](../test/uv-drag-settings.test.js): Rotate's defaults
+  and FX equal a frozen copy of the 7 Nov rule; every setting and the new Zoom.
+- [uv-drag-settings.electron.cjs](../test/uv-drag-settings.electron.cjs): real
+  mouse drags for the Zoom default, each setting, the Mouse → UV page, the Each
+  piece toggle and 3D isolation.
+- [uv-zoom-collapse.electron.cjs](../test/uv-zoom-collapse.electron.cjs) (seeds the
+  right/up setting): real
   drags covering left/right/up/down, diagonals, collapse to exactly zero with no
   rebound, Shift, Alt, axis locks and undo, plus preservation of the other tools.
 - [uv-wrapper-isolation.electron.cjs](../test/uv-wrapper-isolation.electron.cjs):
   FX texture fitting keeps its original input.
 
 ```powershell
-pnpm run test:packaged default uv-rotate-steady,uv-zoom-collapse,uv-wrapper-isolation
+pnpm run test:packaged default uv-drag-settings,uv-rotate-steady,uv-zoom-collapse,uv-wrapper-isolation
 ```

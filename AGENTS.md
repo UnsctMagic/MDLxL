@@ -80,8 +80,9 @@ separate and are not a shared handover.
   Rotate and Zoom are **owner-locked** in [UV Rotate and Zoom](docs/UV-ROTATE-ZOOM.md):
   Rotate turns only with movement around the centre (70%, steady within 24 px
   or the piece's own size, so a big piece never outruns the mouse; straight
-  moves do not turn); Zoom grows right/up and shrinks left/down to
-  exactly zero. Do not change either feel unless the owner explicitly asks for
+  moves do not turn); Zoom follows distance from the centre and stops at
+  exactly one spot without growing back. These are the defaults; users' other
+  choices live in Settings → Mouse → UV. Do not change a default unless the owner explicitly asks for
   a new rule; fix complaints inside the rule and never edit the locked test
   numbers to pass. Never share settings with 3D tools. Test feel with the
   owner's real mouse settings, not a fresh profile.

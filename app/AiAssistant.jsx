@@ -1,4 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { usePreferencesContext } from './PreferencesContext.jsx';
+import { modifierSentence } from '../src/modifier-bindings.js';
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
@@ -102,6 +104,7 @@ function FrameLabel({ bridge }) {
 }
 
 function AiAssistant({ bridge, visUI }) {
+  const { preferences } = usePreferencesContext();
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [settings, setSettings] = useState({ provider: PROVIDERS[0].id, model: '', executable: '', baseUrl: '' });
@@ -1162,7 +1165,7 @@ function AiAssistant({ bridge, visUI }) {
                       {activeTool.id === 'eraser'
                         ? 'Drag over drawings to erase them.'
                         : `Drag on the model to ${activeTool.id === 'pen' ? 'draw' : 'highlight'}.`}{' '}
-                      Alt+drag rotates the camera · Esc or click the tool again to stop.
+                      {modifierSentence('{0}+drag rotates the camera · Esc or click the tool again to stop.', 'view.orbit', preferences) || 'Esc or click the tool again to stop.'}
                     </div>
                   )}
                 </div>

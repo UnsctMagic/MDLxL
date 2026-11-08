@@ -1,0 +1,30 @@
+/* Settings preview scenes (app/settings-preview/). Stage colours come from the
+   user's viewport background; the chips and keys use the window theme. */
+.settings-preview-scene{display:block;box-sizing:border-box;width:220px;height:165px;border:1px solid var(--ui-border,#888);pointer-events:none;user-select:none;font:10px/1 system-ui,'Segoe UI',sans-serif;font-variant-numeric:tabular-nums}
+.settings-preview-scene *{vector-effect:non-scaling-stroke}
+.settings-preview-scene text{stroke-width:0;vector-effect:none}
+.settings-preview-axis{font-size:9px;font-weight:700}
+
+.settings-preview-readout{fill:var(--ui-panel,#f0f0f0);fill-opacity:.94;stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-readout.is-lit{fill:var(--ui-selected,#c5d6ec);fill-opacity:1;stroke:var(--ui-accent,#71b5f3)}
+.settings-preview-readout-text{fill:var(--ui-text,#16191e);font-size:10px;font-weight:600}
+.settings-preview-readout-text.is-lit{fill:var(--ui-selected-text,#101820)}
+
+.settings-preview-key{fill:var(--ui-field,#fff);stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-key.is-lit{fill:var(--ui-selected,#c5d6ec);stroke:var(--ui-accent,#71b5f3)}
+.settings-preview-key-edge{stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-key-text{fill:var(--ui-text,#16191e);font-size:9.5px;font-weight:600}
+.settings-preview-key-text.is-lit{fill:var(--ui-selected-text,#101820)}
+
+.settings-preview-mouse-part{fill:var(--ui-field,#fff);stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-mouse-part.is-lit{fill:var(--ui-accent,#71b5f3);stroke:var(--ui-text,#16191e)}
+.settings-preview-mouse-chevron{fill:none;stroke:var(--ui-accent,#71b5f3);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+
+.settings-preview-ui-panel{fill:var(--ui-panel,#f0f0f0);stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-ui-surface{fill:var(--ui-surface,#f0f0f0);stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-ui-field{fill:var(--ui-field,#fff);stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-ui-line{stroke:var(--ui-border,#8b8b87);stroke-width:1}
+.settings-preview-ui-text{fill:var(--ui-text,#16191e)}
+.settings-preview-ui-muted{fill:var(--ui-muted,#555)}
+.settings-preview-ui-selected{fill:var(--ui-selected,#c5d6ec)}
+.settings-preview-mode-glyph{fill:none;stroke:var(--ui-text,#16191e);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}

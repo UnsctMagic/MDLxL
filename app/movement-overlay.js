@@ -1,6 +1,6 @@
 import { rigTypeVisible } from '../src/display-overlays.js';
 import { solveGizmoMove } from '../src/shift-lock.js';
-import { beginRotationDrag, rotationDragDegrees, rotationOptions, facingAxis, chooseLeverAxis, NORMAL } from '../src/rotation-drag.js';
+import { beginRotationDrag, rotationDragDegrees, rotationBehavior, rotationRim, rotationRingTangent, facingAxis, MDLVIS_SIGN, NORMAL } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
@@ -285,8 +285,8 @@ export function movementRotationSpace(gesture) {
   return gesture.workplaneEnabled && !(gesture.pose && ['body', 'node'].includes(gesture.target?.kind)) ? 'world' : gesture.space;
 }
 
-export function movementRotationAmount(gesture, dx, dy, sensitivity = 1, shift = false) {
-  return rotationDragDegrees(gesture, dx, dy, sensitivity, shift);
+export function movementRotationAmount(gesture, dx, dy, sensitivity = 1, shift = false, ctrl = false) {
+  return rotationDragDegrees(gesture, dx, dy, sensitivity, shift, ctrl);
 }
 
 /** A bare bone drag turns around the nearest model axis to the view normal. */
@@ -446,13 +446,17 @@ function drawRotationRing(context, points, color, active) {
     context.strokeStyle = active ? '#fff64a' : color; context.lineWidth = active ? 3.2 : points[i].near ? 2 : .8; context.stroke();
   }
 }
-/** Screen direction of a positive turn about the locked plane, fixed at press time. */
-export function constrainedRotationTangent({ world, camera, width, height, normal }) {
+/** Screen direction of a positive turn about the locked plane, fixed at press time.
+ * A plane facing the camera has no direction of its own: it circles, or with
+ * `faceOn: 'arrow'` takes the in-plane direction pointing most down on screen. */
+export function constrainedRotationTangent({ world, camera, width, height, normal, faceOn = 'circle' }) {
   const pivot = projectGizmo(world, camera, width, height);
   const toward = camera.isOrthographicCamera ? camera.getWorldDirection(new Vector3()).negate() : camera.position.clone().sub(world);
   const radial = toward.clone().addScaledVector(normal, -toward.dot(normal));
   if (radial.lengthSq() < .26 * .26 * toward.lengthSq()) {
-    return { mode: 'circle' };
+    if (faceOn !== 'arrow') return { mode: 'circle' };
+    radial.copy(new Vector3(0, -1, 0).applyQuaternion(camera.quaternion));
+    radial.addScaledVector(normal, -radial.dot(normal));
   }
   radial.normalize();
   const tangentWorld = new Vector3().crossVectors(normal, radial);
@@ -461,7 +465,7 @@ export function constrainedRotationTangent({ world, camera, width, height, norma
   return { mode: 'line', x: tx / length, y: ty / length };
 }
 /** Capture the actual world/local axes, camera and speed once for every editor. */
-export function beginGizmoRotation({ x, y, world, camera, width, height, handle, rotation, space = 'world', workplaneEnabled = false, workplane = 'xy', preferences, editor = 'vertices' }) {
+export function beginGizmoRotation({ x, y, world, camera, width, height, handle, rotation, space = 'world', workplaneEnabled = false, workplane = 'xy', preferences, editor = 'vertices', ctrl = false, reach }) {
   const pivot = projectGizmo(world, camera, width, height), directions = {}, facings = {}, tangents = {};
   const unit = camera.isOrthographicCamera ? (camera.top - camera.bottom) / camera.zoom / height : 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height;
   for (const axis of Object.keys(AXES)) {
@@ -469,8 +473,9 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
     if (space === 'local' && rotation) directions[axis].applyQuaternion(rotation);
     facings[axis] = directions[axis].clone().transformDirection(camera.matrixWorldInverse).z;
   }
-  const style = viewportAppearanceOptions(preferences).controllers.rotateHandles;
-  const lever = !workplaneEnabled && handle && !handle.free && !handle.offHandle && style === 'lines' ? handle.axis : null;
+  const style = viewportAppearanceOptions(preferences).controllers.rotateHandles, how = rotationBehavior(preferences, editor);
+  const onHandle = !workplaneEnabled && handle && !handle.free && !handle.offHandle, handleDrag = onHandle ? how.handleDrag : 'swing';
+  const lever = onHandle && style === 'lines' && how.linePick === 'lever' ? handle.axis : null;
   const defaultAxis = facingAxis(Object.keys(AXES).map(axis => facings[axis]));
   const axisName = workplaneEnabled ? NORMAL[workplane] : lever ? null : handle && !handle.free && !handle.offHandle ? handle.axis : defaultAxis;
   if (lever) {
@@ -480,13 +485,22 @@ export function beginGizmoRotation({ x, y, world, camera, width, height, handle,
       tangents[axis] = [end.x - at.x, end.y - at.y];
     }
   }
-  const tangent = workplaneEnabled ? constrainedRotationTangent({ world, camera, width, height, normal: directions[axisName] }) : undefined;
-  const drag = beginRotationDrag({ ...rotationOptions(preferences, editor), x, y, pivot, constrained: workplaneEnabled, plane: workplane, axisName, lever, tangents, facings, tangent: tangent?.mode === 'line' ? tangent : undefined, circle: tangent?.mode === 'circle', axis: axisName ? [0, 0, facings[axisName]] : undefined });
+  const ringTangent = () => ({ mode: 'line', ...rotationRingTangent({ x: x - pivot.x, y: y - pivot.y }, directions[axisName].clone().transformDirection(camera.matrixWorldInverse).toArray()) });
+  let tangent;
+  if (workplaneEnabled) {
+    tangent = constrainedRotationTangent({ world, camera, width, height, normal: directions[axisName], faceOn: how.faceOn });
+    if (tangent.mode === 'line') {
+      if (how.workplaneDrag === 'circle') tangent = { mode: 'circle' };
+      else if (how.workplaneDrag === 'leftRight') tangent = { mode: 'line', x: MDLVIS_SIGN[workplane] ?? 1, y: 0 };
+      else if (how.workplaneDrag === 'ring') tangent = ringTangent();
+    }
+  } else if (handleDrag !== 'swing' && !lever) tangent = handleDrag === 'ring' ? ringTangent() : { mode: 'line', x: facings[axisName] > 0 ? -1 : 1, y: 0 };
+  const drag = beginRotationDrag({ ...how, sensitivity: onHandle && how.handleSensitivity !== null ? how.handleSensitivity : how.sensitivity, x, y, pivot, constrained: workplaneEnabled, straight: workplaneEnabled || !!tangent, plane: workplane, axisName, lever, leverDrag: lever && handleDrag !== 'swing' ? handleDrag : undefined, tangents, facings, tangent: tangent?.mode === 'line' ? tangent : undefined, circle: tangent?.mode === 'circle', axis: axisName ? [0, 0, facings[axisName]] : undefined, ctrl, reach: how.bigSelections && reach ? reach(pivot) : 0 });
   const normal = axisName ? directions[axisName] : directions[defaultAxis];
   const [u, v] = rotationBasis(normal), su = projectGizmo(world.clone().addScaledVector(u, unit * 68), camera, width, height), sv = projectGizmo(world.clone().addScaledVector(v, unit * 68), camera, width, height);
   const ax = su.x - pivot.x, ay = su.y - pivot.y, bx = sv.x - pivot.x, by = sv.y - pivot.y, gx = x - pivot.x, gy = y - pivot.y;
   const phase = Math.atan2(ax * gy - ay * gx, gx * by - gy * bx);
-  if (!workplaneEnabled) drag.ringRadius = 68;
+  if (!workplaneEnabled && handleDrag === 'swing') drag.ringRadius = Math.max(rotationRim(how.centerZone), drag.steady);
   return Object.assign(drag, { phase, world: world.clone(), camera: camera.clone(), width, height, directions, unit, pivot, start: { x, y }, handle, style });
 }
 /** The same Shift latch as free Move, with the lab's arrow/plane constraints. */
@@ -521,7 +535,7 @@ export function drawGizmoRotationFeedback(context, drag, ratio = 1) {
       context.strokeStyle = color; context.lineWidth = width; context.lineJoin = 'round'; context.stroke();
     };
     stroke('#162137', 5); stroke('#fff64a', 2.5);
-  } else if (drag.constrained) {
+  } else if (drag.straight) {
     const { x, y } = drag.start, { x: tx, y: ty } = drag.tangent;
     const a = { x: x - tx * 24, y: y - ty * 24 }, b = { x: x + tx * 24, y: y + ty * 24 };
     const stroke = (color, width) => {

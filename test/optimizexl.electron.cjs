@@ -15,7 +15,9 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
  const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[work]:[process.cwd(),work],env:{...process.env,MDLVIS_HEADLESS:'',MDLXL_PROFILE:profile},timeout:60000});
  const errors=[];
  try{
-  const main=await app.firstWindow();main.setDefaultTimeout(20000);main.on('pageerror',e=>errors.push(e.message));
+  // The very first page can be a blank one that the app's own page replaces as it loads.
+  const isEditor=page=>page.url().includes('/dist/index.html');await app.firstWindow();
+  const main=app.windows().find(isEditor)||await app.waitForEvent('window',{predicate:isEditor,timeout:60000});main.setDefaultTimeout(20000);main.on('pageerror',e=>errors.push(e.message));
   await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
   assert.equal(await main.locator('.ox-root').count(),0);
   const popupPromise=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const popup=await popupPromise;popup.setDefaultTimeout(20000);popup.on('pageerror',e=>errors.push(e.message));

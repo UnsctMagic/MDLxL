@@ -316,3 +316,57 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.compact-input-strength{height:34px;margin:0;padding:0;gap:0;align-items:stretch;font:inherit;color:var(--ui-text)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.compact-input-strength>span{display:flex;align-items:center;padding:0 5px;border-radius:7px;font-size:12.5px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.compact-input-strength>span:not(.adjusting):hover{background:var(--ui-hover)}
+
+/* ---- Toolbar setting (Settings > Toolbar). Graphic is everything above and adds no attribute. ---- */
+
+/* Trim: two slim rows of plain text, in theme colours only, with the same controls, names and tooltips
+   as Graphic. Every control is 26px high in a 28px well (inner corners 7, outer 8). One active state
+   everywhere: field background, raised edge and a short lit bar. The label stays in the theme text
+   colour, so it reads in every theme and with any accent the user picks; weight never changes,
+   so nothing shifts when a toggle flips. */
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>:is(.classic-toolbar,.classic-modules){font-size:12px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar{height:32px!important;min-height:32px!important;padding:0 8px!important;border-bottom:0!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules{padding:0 8px 1px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar :is(.classic-toolbar-group:not(.toolbar-team-color),.toolbar-model),:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules .quick-display-options{gap:1px!important;margin:0!important;padding:1px!important;border-radius:8px!important;background:var(--m-soft)!important;box-shadow:none!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .classic-tool{position:relative;width:26px!important;min-width:26px!important;height:26px!important;padding:4px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .look-icon{width:18px;height:18px}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model :is(.language-trigger,.team-picker select,.compact-input-strength),:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model>[data-hotkey="convertVersion"]{height:26px;min-height:26px}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model :is(.language-trigger,.compact-input-strength>span),:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model>[data-hotkey="convertVersion"]{font-size:12px}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model .compact-input-strength>span{padding:0 6px;border:0;color:var(--ui-muted)}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model .compact-input-strength>span.adjusting{background:var(--ui-field);box-shadow:var(--m-raise);color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .toolbar-model .compact-input-strength>span:hover{color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button{width:auto!important;min-width:28px!important;height:26px!important;padding:0 7px!important;border-radius:7px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button>img{display:none}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:static;height:auto!important;font-family:inherit!important;font-size:11.5px!important;font-weight:500!important;line-height:1!important;color:var(--ui-text)!important;text-shadow:none!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button b{font-weight:inherit}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button:hover:not(:disabled){background:var(--ui-hover)!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>[aria-pressed=true]{background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button[aria-pressed=true]>:is(.module-icon-badge,span:not(.hotkey-badge)){text-shadow:none!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button:disabled>*{color:var(--ui-muted)!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules .editor-modules>button{position:relative;height:26px;padding:0 10px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules .editor-modules>button[aria-pressed=true]{font-weight:400}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules>.editor-modules .quick-display-options>label{height:26px;padding:0 8px;font-size:11.5px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules>.editor-modules .quick-display-options>button{height:26px;min-height:26px!important;padding:0 8px!important;font-size:11.5px!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules>.editor-modules .quick-display-options>label:hover,:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules>.editor-modules .quick-display-options>button:hover:not(:disabled){color:var(--ui-text)!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules>.editor-modules .quick-display .look-icon{display:none}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar button[aria-pressed=true]::after,:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules .editor-modules>button[aria-pressed=true]::after,:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules .quick-display-options>label:has(input:checked)::after{content:'';position:absolute;left:8px;right:8px;bottom:2px;height:2px;border-radius:1px;background:var(--lit)}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>:is(.classic-toolbar,.classic-modules) button:disabled{opacity:.55}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>:is(.classic-toolbar,.classic-modules) :is(button,select):focus-visible{outline:2px solid color-mix(in srgb,var(--ui-accent) 60%,transparent);outline-offset:-1px}
+@media(max-width:980px){
+  :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .language-trigger>:is(span,b){display:none}
+  :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar .compact-input-strength{display:none}
+}
+@media(max-width:800px){
+  :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button{padding:0 5px!important}
+  :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules :is(.editor-modules,.quick-display-options){scrollbar-width:none}
+}
+
+/* Hidden: moved off-screen, never removed or display:none, because hotkeys only reach controls
+   that have a layout box and the AI console's draft lives in the dock. */
+.classic-app[data-toolbar=hidden]:not([data-vis-ui])>:is(.classic-toolbar,.classic-modules){position:fixed;left:-9999px;top:0;width:max-content}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status{display:flex;align-items:center;flex:none;gap:2px;margin-left:auto;color:var(--ui-muted);font-size:11.5px;white-space:nowrap}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status>span{padding:0 6px}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status>.toolbar-hidden-input{color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status>button{height:20px;min-height:20px!important;padding:0 7px;border:0!important;border-radius:6px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-muted)!important;font:inherit}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status>button:hover:not(:disabled){background:var(--ui-hover)!important;color:var(--ui-text)!important}
+:root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=hidden]>.classic-status>.toolbar-hidden-status>button:disabled{opacity:.55}

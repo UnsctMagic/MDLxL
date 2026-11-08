@@ -196,11 +196,11 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   };
   const changed = size !== 100 || height !== 100 || rgb.join() !== '255,255,255' || pieces || blood;
 
-  return <ToolWindow title="Auto Corpse" overlayClass="atm-overlay" className="atm-window acp-window" windowRef={root} onClose={onClose} onKeyDown={keys} sectionProps={{ 'data-hotkey-scope': 'autoCorpse' }}
+  return <ToolWindow title="Auto Corpse" overlayClass="atm-overlay" className="atm-window acp-window" windowRef={root} onClose={onClose} onKeyDown={keys} unapplied={!!changed} sectionProps={{ 'data-hotkey-scope': 'autoCorpse' }}
     caption={<><strong title="Fits a corpse under the last Death frame, then adds Decay Flesh and Decay Bone.">Auto Corpse</strong>
         <div className="acp-tabs" role="tablist" aria-label="Auto Corpse editors">
-          <button role="tab" aria-selected={!bloodTab} title="Fit the corpse that lies under the body" onClick={() => { setTab('corpse'); setPlaying(false); }}>Corpse Editor</button>
-          <button role="tab" aria-selected={bloodTab} title="Blood splats on the ground and a blood spray during the Death animation" onClick={() => setTab('blood')}>Blood Editor</button>
+          <button data-hotkey="auto-corpse:corpse-editor" data-hotkey-manual data-hotkey-label="Corpse Editor" role="tab" aria-selected={!bloodTab} title="Fit the corpse that lies under the body" onClick={() => { setTab('corpse'); setPlaying(false); }}>Corpse Editor</button>
+          <button data-hotkey="auto-corpse:blood-editor" data-hotkey-manual data-hotkey-label="Blood Editor" role="tab" aria-selected={bloodTab} title="Blood splats on the ground and a blood spray during the Death animation" onClick={() => setTab('blood')}>Blood Editor</button>
         </div><span className="atm-spacer"/></>}>
       <div className="atm-body acp-body">
         {bloodTab ? <div className="acp-controls" role="tabpanel" aria-label="Blood Editor">
@@ -212,22 +212,22 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
             {!rows.length && <p className="atm-muted atm-empty">No blood yet. Add a splat or a spray.</p>}
           </div>
           {rows[bloodSelected] && <div className="acp-blood-row">
-            <label className="acp-field" title="Whose blood: the colour of a splat, the game's sprays made for that kind of unit">Kind<select aria-label="Blood kind" value={kindOf(rows[bloodSelected]) || 'H'} onChange={event => changeKind(bloodSelected, event.target.value)}>
+            <label className="acp-field" title="Whose blood: the colour of a splat, the game's sprays made for that kind of unit">Kind<select data-hotkey="auto-corpse:blood-kind" data-hotkey-manual data-hotkey-label="Blood kind" aria-label="Blood kind" value={kindOf(rows[bloodSelected]) || 'H'} onChange={event => changeKind(bloodSelected, event.target.value)}>
               {Object.entries(rows[bloodSelected].type === 'SPL' ? BLOOD_RACES : BLOOD_KINDS).filter(([key]) => rows[bloodSelected].type === 'SPL' || sprays.some(item => sprayKind(item.id) === key)).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
             </select></label>
             {rows[bloodSelected].type === 'SPL' ? <>
-              <label className="acp-field" title="Small or large blood stain on the ground">Size<select aria-label="Splat size" value={parseSplat(rows[bloodSelected].id)?.size} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, event.target.value, p.variant) }); }}><option value="S">Small</option><option value="L">Large</option></select></label>
-              <label className="acp-field" title="One of the game's four stain shapes">Shape<select aria-label="Splat shape" value={parseSplat(rows[bloodSelected].id)?.variant} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, p.size, Number(event.target.value)) }); }}>{[0, 1, 2, 3].map(v => <option key={v} value={v}>{v + 1}</option>)}</select></label>
-            </> : <label className="acp-field" title="The game's blood spray made for this unit type">Spray<select aria-label="Blood spray" value={rows[bloodSelected].id} onChange={event => editBlood(bloodSelected, { id: event.target.value })}>{(sprays.some(row => row.id === rows[bloodSelected].id) ? sprays : [{ id: rows[bloodSelected].id, label: rows[bloodSelected].id }, ...sprays]).filter(row => row.id === rows[bloodSelected].id || sprayKind(row.id) === kindOf(rows[bloodSelected])).map(row => <option key={row.id} value={row.id} translate="no">{sprayLabel(row.id)}</option>)}</select></label>}
-            <label className="acp-field" title="When in the Death animation it appears">Time<input aria-label="Blood time in seconds" type="number" min="0" max={deathLength / 1000} step="0.05" value={(rows[bloodSelected].time / 1000).toFixed(2)} onChange={event => editBlood(bloodSelected, { time: Math.max(0, Math.min(deathLength, Math.round(Number(event.target.value) * 1000) || 0)) })}/>
-              <button className="atm-small" title="Use the time shown in the preview" onClick={() => editBlood(bloodSelected, { time: Math.round(bloodTime) })}>Now</button></label>
+              <label className="acp-field" title="Small or large blood stain on the ground">Size<select data-hotkey="auto-corpse:splat-size" data-hotkey-manual data-hotkey-label="Splat size" aria-label="Splat size" value={parseSplat(rows[bloodSelected].id)?.size} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, event.target.value, p.variant) }); }}><option value="S">Small</option><option value="L">Large</option></select></label>
+              <label className="acp-field" title="One of the game's four stain shapes">Shape<select data-hotkey="auto-corpse:splat-shape" data-hotkey-manual data-hotkey-label="Splat shape" aria-label="Splat shape" value={parseSplat(rows[bloodSelected].id)?.variant} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, p.size, Number(event.target.value)) }); }}>{[0, 1, 2, 3].map(v => <option key={v} value={v}>{v + 1}</option>)}</select></label>
+            </> : <label className="acp-field" title="The game's blood spray made for this unit type">Spray<select data-hotkey="auto-corpse:blood-spray" data-hotkey-manual data-hotkey-label="Blood spray" aria-label="Blood spray" value={rows[bloodSelected].id} onChange={event => editBlood(bloodSelected, { id: event.target.value })}>{(sprays.some(row => row.id === rows[bloodSelected].id) ? sprays : [{ id: rows[bloodSelected].id, label: rows[bloodSelected].id }, ...sprays]).filter(row => row.id === rows[bloodSelected].id || sprayKind(row.id) === kindOf(rows[bloodSelected])).map(row => <option key={row.id} value={row.id} translate="no">{sprayLabel(row.id)}</option>)}</select></label>}
+            <label className="acp-field" title="When in the Death animation it appears">Time<input data-hotkey="auto-corpse:blood-time-in-seconds" data-hotkey-manual data-hotkey-label="Blood time in seconds" aria-label="Blood time in seconds" type="number" min="0" max={deathLength / 1000} step="0.05" value={(rows[bloodSelected].time / 1000).toFixed(2)} onChange={event => editBlood(bloodSelected, { time: Math.max(0, Math.min(deathLength, Math.round(Number(event.target.value) * 1000) || 0)) })}/>
+              <button data-hotkey="auto-corpse:blood-now" data-hotkey-manual data-hotkey-label="Blood at current time" className="atm-small" title="Use the time shown in the preview" onClick={() => editBlood(bloodSelected, { time: Math.round(bloodTime) })}>Now</button></label>
           </div>}
           <div className="acp-add" role="group" aria-label="Add blood" title="Adds blood at the time shown in the preview; drag it into place.">
-            <button onClick={() => addBlood('SPL')}>+ Splat</button><button onClick={() => addBlood('SPN')}>+ Spray</button>
+            <button data-hotkey="auto-corpse:splat" data-hotkey-manual data-hotkey-label="+ Splat" onClick={() => addBlood('SPL')}>+ Splat</button><button data-hotkey="auto-corpse:spray" data-hotkey-manual data-hotkey-label="+ Spray" onClick={() => addBlood('SPN')}>+ Spray</button>
           </div>
           <div className="acp-transport" title="Play or scrub the Death animation to see the blood">
-            <button aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
-            <input type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
+            <button data-hotkey="auto-corpse:play" data-hotkey-manual data-hotkey-label="Play / pause" aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
+            <input data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
             <output>{seconds(bloodTime)}</output>
           </div>
           <button disabled={!changed} title="Back to the fitted corpse and the model's own blood" onClick={reset}>Reset</button>
@@ -241,10 +241,10 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
             {Object.entries(ADD).map(([kind, spec]) => <button key={kind} onClick={() => add(kind)}>+ {spec.label}</button>)}
           </div>
           <label className="check" title="A chalk line around where the body lies, so you can fit the corpse to it.">
-            <input type="checkbox" checked={outline} onChange={event => setOutline(event.target.checked)}/>Body outline
+            <input data-hotkey="auto-corpse:body-outline" data-hotkey-manual data-hotkey-label="Body outline" type="checkbox" checked={outline} onChange={event => setOutline(event.target.checked)}/>Body outline
           </label>
           <label className="check" title="Shows the dead body lying over the corpse, as the game first shows it.">
-            <input type="checkbox" checked={withBody} onChange={event => setWithBody(event.target.checked)}/>Show body
+            <input data-hotkey="auto-corpse:show-body" data-hotkey-manual data-hotkey-label="Show body" type="checkbox" checked={withBody} onChange={event => setWithBody(event.target.checked)}/>Show body
           </label>
           <button disabled={!changed} title="Back to the fitted corpse" onClick={reset}>Reset</button>
         </div>}
@@ -258,7 +258,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
       </div>
       <footer>
         <span role="status" className={error || draft.error ? 'atm-error' : 'atm-muted'}>{error || draft.error || (bloodTab ? (bloodSelected != null ? 'Drag the handle to move this blood. Delete removes it.' : 'Double-click blood to move it, or add a splat or spray. Play to see it.') : selected != null ? 'Drag the handles to move, raise, stretch or widen this part. Delete removes it. Ctrl+Z undoes.' : 'Double-click a body part to move or stretch it. Drag to turn the camera.')}</span>
-        <button className="atm-commit active" disabled={!!draft.error || doc.readOnly} title="Make this corpse and its decay animations as one undoable edit" onClick={commit}>Create</button>
+        <button data-hotkey="auto-corpse:create" data-hotkey-manual data-hotkey-label="Create corpse" className="atm-commit active" disabled={!!draft.error || doc.readOnly} title="Make this corpse and its decay animations as one undoable edit" onClick={commit}>Create</button>
         <button onClick={onClose}>Close</button>
       </footer>
   </ToolWindow>;

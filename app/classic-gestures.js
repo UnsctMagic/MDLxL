@@ -40,9 +40,11 @@ export function alignTowardView(point, target, view, amount) {
 
 /**
  * Groups selected vertices into pieces: vertices that share a face belong to
- * the same piece. Returns one piece number per entry of `indices`.
+ * the same piece. Returns one piece number per entry of `indices`. With
+ * `positions` (the geoset's xyz array), selected vertices on the same spot join
+ * up too, so a seam or Forge's per-triangle mesh does not split a piece.
  */
-export function selectedPieces(faces, indices) {
+export function selectedPieces(faces, indices, positions) {
   const slot = new Map(indices.map((vertex, i) => [vertex, i])), parent = indices.map((_, i) => i);
   const find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
   for (let i = 0; i + 2 < faces.length; i += 3) {
@@ -52,7 +54,21 @@ export function selectedPieces(faces, indices) {
       if (first < 0) first = find(at); else parent[find(at)] = first;
     }
   }
+  if (positions) {
+    const spots = new Map();
+    indices.forEach((vertex, i) => {
+      const spot = [0, 1, 2].map(axis => Math.round(positions[vertex * 3 + axis] * 1000)).join(), first = spots.get(spot);
+      if (first === undefined) spots.set(spot, i); else parent[find(i)] = find(first);
+    });
+  }
   return indices.map((_, i) => find(i));
+}
+
+/** Rotate's Each piece: the selection split into pieces, each with its own centre (the mean of its points). */
+export function rotationPieces(faces, indices, positions) {
+  const groups = new Map();
+  selectedPieces(faces, indices, positions).forEach((piece, i) => { if (groups.has(piece)) groups.get(piece).push(indices[i]); else groups.set(piece, [indices[i]]); });
+  return [...groups.values()].map(group => ({ indices: group, center: [0, 1, 2].map(axis => group.reduce((sum, vertex) => sum + positions[vertex * 3 + axis], 0) / group.length) }));
 }
 
 /**

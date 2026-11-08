@@ -2,6 +2,8 @@ import React from 'react';
 import { useDraftNumber } from './Fields.jsx';
 import ModernIcon, { hasModernIcon } from './ModernIcon.jsx';
 import LookIcon, { hasLookIcon } from './LookIcon.jsx';
+import { usePreferencesContext } from './PreferencesContext.jsx';
+import { modifierSentence } from '../src/modifier-bindings.js';
 
 // look: also draw the new look's icon for this action (shown only with VIS off).
 export function Tool({ icon, title, description, onClick, active, disabled, children, flip, action, badge, className = '', look = false, ...rest }) {
@@ -21,7 +23,13 @@ export function CameraTools({ value, onChange, look }) {
   return <div className="classic-toolbar-group">{[['work', 'sb_cross', 'Work mode'], ['zoom', 'sb_zoom', 'Zoom'], ['rotate', 'sb_rot', 'Camera rotation'], ['move', 'sb_move', 'Move camera']].map(([mode, icon, title]) => <Tool action={'camera:'+mode} key={mode} icon={icon} title={title} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</div>;
 }
 export function TransformTools({ value, onChange, look }) {
-  return <>{[['select', 'sb_select', 'Select'], ['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_zoom', 'Resize', 'Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.']].map(([mode, icon, title, description]) => <Tool action={mode} key={mode} icon={icon} title={title} description={description} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</>;
+  const { preferences } = usePreferencesContext(), spread = modifierSentence(' Hold {0} while dragging to move separate pieces closer or apart without changing their size.', 'drag.scale.spread', preferences);
+  return <>{[['select', 'sb_select', 'Select'], ['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_zoom', 'Resize', 'Resize: drag to grow or shrink.' + spread]].map(([mode, icon, title, description]) => <Tool action={mode} key={mode} icon={icon} title={title} description={description} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</>;
+}
+/** Rotate's "Each piece", stored with the other Rotate settings. Beside Workplane Constraints, also in quad view. */
+export function EachPieceToggle() {
+  const { preferences, changePreferences } = usePreferencesContext(), on = preferences?.rotation?.eachPiece === true;
+  return <label className="check grabthrough-option" title="On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group."><input data-hotkey="eachPiece" data-hotkey-manual="" aria-label="Each piece" type="checkbox" checked={on} onChange={event => changePreferences?.(previous => ({ ...previous, rotation: { ...previous.rotation, eachPiece: event.target.checked } }))}/>Each piece</label>;
 }
 export function WorkplaneControls({ enabled, onEnabled, value, onChange, locked }) {
   const group = React.useId();

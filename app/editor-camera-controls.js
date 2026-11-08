@@ -1,4 +1,5 @@
 import { cameraBindings } from '../src/preferences.js';
+import { modifierHeld, modifierValue } from '../src/modifier-bindings.js';
 import { pointerSensitivityValue } from './viewport-performance.js';
 import { MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { moveDragPoint } from './classic-gestures.js';
@@ -201,6 +202,8 @@ export function applyCameraButtons(controls, event, preferences, { left, rotateA
     return preserveShift ? preserveShiftCameraAction(mouse, event) : mouse;
   };
   controls.mouseButtons.RIGHT = action(binding.right); controls.mouseButtons.MIDDLE = action(binding.middle);
-  controls.mouseButtons.LEFT = action(left);
-  controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(preferences?.pointerSensitivity) * (event.shiftKey && fine ? preferences?.fineSensitivity ?? .2 : 1);
+  // OrbitControls swaps pan and rotate while Shift or Ctrl is down, so a camera key rebound to one of them starts on the other action.
+  const orbitKey = modifierValue('view.orbit', preferences), orbitSwapped = left === 'rotate' && orbitKey !== 'Alt' && modifierHeld(event, 'view.orbit', preferences);
+  controls.mouseButtons.LEFT = orbitSwapped ? MOUSE.PAN : action(left);
+  controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(preferences?.pointerSensitivity) * (event.shiftKey && fine && !(orbitSwapped && orbitKey === 'Shift') ? preferences?.fineSensitivity ?? .2 : 1);
 }

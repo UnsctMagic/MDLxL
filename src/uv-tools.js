@@ -1,4 +1,7 @@
 import { sampleTrack } from './animation.js';
+import { connectedVertices } from '../app/classic-gestures.js';
+import { eligibleUVFaces } from './uv-selection.js';
+import { DEFAULT_UV_DRAG } from './uv-drag-settings.js';
 
 const finiteIndex = value => Number.isSafeInteger(value) && value >= 0;
 const uniqueIndices = values => [...new Set(Array.from(values || []).filter(finiteIndex))];
@@ -12,6 +15,16 @@ const UV_TURN_SENSITIVITY = 0.7;
 const UV_TURN_STEADY = 24, FX_TURN_STEADY = 48;
 /** The mouse exactly on the centre has no direction; skip that sample. */
 const UV_TURN_CENTRE = 2;
+/** The Left/right part of the `both` Rotate style: one radian per this many pixels. */
+const UV_TURN_SIDEWAYS = 48;
+/** Zoom `centre`: the mouse this close to the centre is on it; a drag that
+ * starts this near has no direction to read and uses `rightUp`. */
+const UV_ZOOM_CENTRE = 3, UV_ZOOM_NEAR = 12;
+/** Zoom `centre`: how far behind the centre (cosine, seen from the grab point)
+ * the distance has faded to nothing. Half of a cosine is 120 degrees around. */
+const UV_ZOOM_BEHIND = 0.5;
+/** Below this a collapse is floating-point residue, not a size. */
+const UV_ZOOM_ZERO = 1e-9;
 
 /** UV Rotate, owner-locked (see docs/UV-ROTATE-ZOOM.md). Only movement AROUND
  * the selection's centre turns it: circling follows the mouse at the same
@@ -20,23 +33,123 @@ const UV_TURN_CENTRE = 2;
  * jump. While the mouse is over a big piece (`drag.reach`: its farthest
  * point from the centre in screen pixels) the turn goes by distance moved
  * around the centre, so the piece never outruns the mouse. The wrapper turns at 70%; FX texture fitting keeps 100%. Shift/Alt fine
- * control scale each step (`drag.fine`). Call at drag start and on every sample. */
+ * control scale each step (`drag.fine`). Call at drag start and on every sample.
+ * `drag.settings` (normalizeUVDrag) holds the UV Wrapper's own options; without
+ * it, and with the defaults, this is the locked rule. FX never reads them. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
+  const fx = drag.wrapperControls === false, settings = fx ? null : drag.settings, style = settings?.rotateStyle;
+  const speed = fx ? 1 : settings ? settings.rotateSpeed / 100 : UV_TURN_SENSITIVITY, fine = drag.fine ?? 1, direction = settings?.rotateReverse ? -1 : 1;
+  if (style === 'leftRight') {
+    if (drag.lastX !== undefined) drag.turn += (x - drag.lastX) * Math.PI / 180 * speed * fine * direction;
+    drag.lastX = x;
+    return drag.turn;
+  }
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
+  // Over a big piece the steady zone grows to the piece's own size, so no
+  // point of it ever moves faster than 70% of the mouse (owner, 7 Nov 2026).
+  const zone = fx ? FX_TURN_STEADY : Math.max(settings ? settings.rotateZone : UV_TURN_STEADY, !settings || settings.rotateBigPieces ? drag.reach || 0 : 0);
+  if (style === 'both') {
+    // The #580 build (1e797017): around the centre, plus the left/right share
+    // of each step that goes straight toward or away from it.
+    if (drag.px !== undefined) {
+      const qx = drag.px, qy = drag.py, previous = drag.radius, dx = px - qx, dy = py - qy, cross = qx * py - qy * px, near = Math.max(zone, UV_TURN_CENTRE);
+      const around = Math.min(radius, previous) >= near - 1e-6 ? Math.atan2(cross, qx * px + qy * py) : cross / (Math.max(radius, previous, 1e-9) * near);
+      const ux = px + qx, uy = py + qy, length = Math.hypot(ux, uy);
+      const sideways = length < 1 ? dx : (dx * ux + dy * uy) / length * ux / length;
+      drag.turn += (around + sideways / UV_TURN_SIDEWAYS * direction) * speed * fine;
+    }
+    drag.radius = radius; drag.px = px; drag.py = py;
+    return drag.turn;
+  }
   if (radius < UV_TURN_CENTRE) return drag.turn;
   const angle = Math.atan2(py, px);
   if (drag.angle !== undefined) {
     const step = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
-    // Over a big piece the steady zone grows to the piece's own size, so no
-    // point of it ever moves faster than 70% of the mouse (owner, 7 Nov 2026).
-    const zone = drag.wrapperControls === false ? FX_TURN_STEADY : Math.max(UV_TURN_STEADY, drag.reach || 0);
-    const steady = Math.min(1, radius / zone, drag.radius / zone);
+    const steady = zone > 0 ? Math.min(1, radius / zone, drag.radius / zone) : 1;
     // FX texture fitting also uses UVEditor and keeps its original 1:1 speed.
-    drag.turn += step * steady * (drag.wrapperControls === false ? 1 : UV_TURN_SENSITIVITY) * (drag.fine ?? 1);
+    drag.turn += step * steady * speed * fine;
   }
   drag.angle = angle; drag.radius = radius;
   return drag.turn;
+}
+
+/** UV Zoom for the wrapper (`drag.settings`: normalizeUVDrag). Returns the size
+ * factor. Call at drag start and on every sample, like uvTurn; each sample's
+ * change is weighted, so changing Shift mid-drag never jumps. A repeated point
+ * adds nothing.
+ * `centre`: size follows the mouse's distance from the centre. Behind the centre
+ * (seen from where the drag began) that distance fades out and turns negative,
+ * so a sweep past the centre, even one that misses it, never grows the selection
+ * back; coming back grows it again. It depends only on where the mouse is. */
+export function uvZoom(drag, x, y, weight) {
+  const { zoomStyle, zoomSpeed } = drag.settings ?? DEFAULT_UV_DRAG, speed = zoomSpeed / 100;
+  const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
+  if (drag.zoomStyle === undefined) {
+    drag.zoomStyle = zoomStyle === 'centre' && radius <= UV_ZOOM_NEAR ? 'rightUp' : zoomStyle;
+    drag.scaleDX = 0; drag.scaleX = x; drag.scaleY = y;
+    drag.zoomStart = drag.zoomVirtual = drag.zoomSigned = radius; drag.zoomAimX = px / (radius || 1); drag.zoomAimY = py / (radius || 1);
+    return 1;
+  }
+  if (drag.zoomStyle === 'upDown') {
+    // Up grows, compounding, so it can never reach zero or flip. UV transform
+    // sensitivity is taken back out of the weight; Shift and Alt fine control stay.
+    drag.scaleDX += (y - drag.scaleY) * weight / (drag.uvSensitivity ?? 1);
+    drag.scaleX = x; drag.scaleY = y;
+    return Math.exp(-drag.scaleDX / 100 * speed);
+  }
+  if (drag.zoomStyle !== 'centre') {
+    // Like Movement's Resize: right/up grows, left/down shrinks (screen y is down).
+    drag.scaleDX += ((x - drag.scaleX) - (drag.zoomStyle === 'rightUp' ? y - drag.scaleY : 0)) * weight;
+    drag.scaleX = x; drag.scaleY = y;
+    return Math.max(0, 1 + drag.scaleDX / 100 * speed);
+  }
+  const aim = (px * drag.zoomAimX + py * drag.zoomAimY) / (radius || 1);
+  const signed = radius <= UV_ZOOM_CENTRE ? 0 : radius * Math.min(1, 1 + aim / UV_ZOOM_BEHIND);
+  drag.zoomVirtual += (signed - drag.zoomSigned) * weight; drag.zoomSigned = signed;
+  const factor = Math.max(0, 1 + (drag.zoomVirtual - drag.zoomStart) / drag.zoomStart * speed);
+  return factor < UV_ZOOM_ZERO ? 0 : factor;
+}
+
+/** Ctrl snapping: the applied value only, so releasing Ctrl loses nothing. */
+export const uvSnapTurn = (turn, degrees) => degrees > 0 ? Math.round(turn * 180 / Math.PI / degrees) * degrees * Math.PI / 180 : turn;
+/** True when a drag left any of its coordinates somewhere else. */
+export const uvDragChanged = (original, current, indices) => indices.some(index => original[index * 2] !== current[index * 2] || original[index * 2 + 1] !== current[index * 2 + 1]);
+export const uvSnapFactor = (factor, percent) => percent > 0 ? Math.round(factor * 100 / percent) * percent / 100 : factor;
+
+/** "Each piece": selected points grouped by triangle connection, the same walk
+ * as Select Connected. Selected points on exactly the same UV spot join up, so
+ * a seam does not split a piece. */
+export function uvPieces(geoset, uvSet, indices, eligible, values = geoset?.TVertices?.[uvSet]) {
+  const selected = uniqueIndices(indices), member = new Set(selected), links = eligibleUVFaces(geoset, eligible, uvSet).flat(), spots = new Map(), pieces = [];
+  for (const index of selected) {
+    const spot = values[index * 2] + ',' + values[index * 2 + 1], first = spots.get(spot);
+    // A flat triangle tells the walk the two points are one.
+    if (first === undefined) spots.set(spot, index); else links.push(first, index, index);
+  }
+  // One walk per piece over every triangle froze mouse-down on uncoupled maps
+  // (3000 triangles: 2.7 s). Halving the seeds splits the triangles as it goes.
+  const collect = (faces, seeds) => {
+    const half = seeds.slice(0, Math.ceil(seeds.length / 2)), reached = new Set(connectedVertices(faces, half));
+    if (seeds.length === 1) { pieces.push([...reached].filter(vertex => member.has(vertex))); return; }
+    const near = [], far = [], rest = seeds.filter(seed => !reached.has(seed));
+    for (let offset = 0; offset < faces.length; offset += 3) (reached.has(faces[offset]) ? near : far).push(faces[offset], faces[offset + 1], faces[offset + 2]);
+    collect(near, half);
+    if (rest.length) collect(far, rest);
+  };
+  if (selected.length) collect(links, selected);
+  return pieces;
+}
+
+/** Each entry of `indices`' own piece centre, as a flat u,v array parallel to it. */
+export function uvPieceCenters(geoset, uvSet, indices, eligible, values = geoset?.TVertices?.[uvSet]) {
+  const centers = new Float64Array(indices.length * 2), byIndex = new Map();
+  for (const piece of uvPieces(geoset, uvSet, indices, eligible, values)) {
+    const center = [0, 0];
+    for (const index of piece) { center[0] += values[index * 2] / piece.length; center[1] += values[index * 2 + 1] / piece.length; byIndex.set(index, center); }
+  }
+  indices.forEach((index, position) => { const center = byIndex.get(index); centers[position * 2] = center[0]; centers[position * 2 + 1] = center[1]; });
+  return centers;
 }
 
 /** Set both repeat axes without changing other texture flags or UVs. */

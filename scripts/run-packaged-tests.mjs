@@ -56,6 +56,16 @@ const SPECIAL = {
   'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
+  'uv-drag-settings': { needs: [footman] },
+  // Every Settings tab and sub-page, preset files, drag keys, toolbar, one restart.
+  'settings-layout': { timeout: 10 * 60 * 1000 },
+  // Mouse drag keys and keys pressed during a drag, about 7 app starts.
+  'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
+  // Each Rotate setting from its own seeded profile, about 30 app starts.
+  'rotate-settings': { needs: [footman], timeout: 25 * 60 * 1000 },
+  'toolbar-modes': { needs: [citadelFootman] },
+  // Opens every window on a demo model to read the keys the running app hands out.
+  'hotkey-defaults-audit': { timeout: 20 * 60 * 1000 },
   // About 18 minutes of real mouse drags across every editing Rotate tool.
   'rotation-interaction': { timeout: 30 * 60 * 1000 },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },

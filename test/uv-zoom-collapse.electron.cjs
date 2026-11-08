@@ -12,7 +12,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   const check = (label, actual, expected) => { assert.deepEqual(actual, expected, label); checks.push(label); console.log('PASS ' + label); };
   const { app, page } = await launchApp({ fixture, out, errors, bounds: { x: 0, y: 0, width: 1440, height: 1000 },
     args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'],
-    settings: { preferences: { pointerSensitivity: 1.22, uvSensitivity: 1, fineSensitivity: .2, graphics: { pauseWhenHidden: false } } } });
+    settings: { preferences: { pointerSensitivity: 1.22, uvSensitivity: 1, fineSensitivity: .2, uvDrag: { zoomStyle: 'rightUp' }, graphics: { pauseWhenHidden: false } } } });
   try {
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor();
     await page.locator('[data-hotkey="geosetsClear"]').click();

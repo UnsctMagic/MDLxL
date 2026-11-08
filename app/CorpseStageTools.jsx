@@ -1,5 +1,6 @@
 import React,{useEffect,useRef} from 'react';
-import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
+import {holdGestureKey} from './gesture-keys.js';
 import {createFrameCoalescer} from './viewport-performance.js';
 import {particleAxisMapping} from '../src/particle-handles.js';
 import {movementDragAmount} from './movement-overlay.js';
@@ -35,6 +36,8 @@ export default function CorpseStageTools({snapshot,pieces,selected,moveOnly=fals
     const d=drag.current;if(event.key!=='Escape'||!d)return false;
     frame.current.cancel();drag.current=null;onChange(selected,d.before);onDrag?.(false);return true;
   },0);
+  useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
+  useMousePressLost(()=>{if(drag.current)abort();});
   if(!raw||!pieces)return null;
   // A just-added piece has no projected marks until the preview draws again.
   const marks=Object.fromEntries(Object.entries(raw).filter(([,p])=>p&&Number.isFinite(p[0])&&Number.isFinite(p[1])));

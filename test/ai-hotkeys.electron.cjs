@@ -36,7 +36,16 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     });
     const ai = page.locator('.ai-assistant'), popup = page.locator('.learn-keycap');
     const key = async locator => { await locator.waitFor(); const value = await locator.getAttribute('data-hotkey-shortcuts'); assert.ok(value, 'shortcut missing'); return value.split(' / ')[0].replace('Ctrl+', 'Control+'); };
-    const run = async locator => { const chord = await key(locator); await ai.focus(); await page.keyboard.press(chord); return chord; };
+    // A key does not reach a control scrolled out of its panel (HOTKEYS.md), so the settings panel is wheeled to it first.
+    const reveal = async locator => {
+      for (let tries = 0; tries < 8; tries++) {
+        const offset = await locator.evaluate(element => { const panel = element.closest('.ai-connection'); if (!panel) return 0; const a = element.getBoundingClientRect(), b = panel.getBoundingClientRect(); return a.top < b.top ? a.top - b.top - 8 : a.bottom > b.bottom ? a.bottom - b.bottom + 8 : 0; });
+        if (!offset) return;
+        const box = await ai.locator('.ai-connection').boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.wheel(0, offset); await settle(page, 120);
+      }
+      assert.fail('could not scroll the control into view');
+    };
+    const run = async locator => { const chord = await key(locator); await reveal(locator); await ai.focus(); await page.keyboard.press(chord); return chord; };
     const local = id => ai.locator(`[data-hotkey="${id}"]`);
     const audit = async place => {
       await settle(page, 150);

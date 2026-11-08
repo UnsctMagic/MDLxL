@@ -12,6 +12,10 @@ import { DEFAULT_LEARN, normalizeLearn } from './learn-keycaps.js';
 import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-preview-display.js';
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
 import { DEFAULT_UV_VIEW_TILE_LIMIT, normalizeUVViewTileLimit } from './uv-view-limit.js';
+import { DEFAULT_UV_DRAG, normalizeUVDrag } from './uv-drag-settings.js';
+import { DEFAULT_MODIFIERS, normalizeModifiers } from './modifier-bindings.js';
+import { DEFAULT_SETTINGS_PRESETS, normalizeSettingsPresets } from './settings-presets.js';
+import { DEFAULT_TOOLBAR_MODE, normalizeToolbarMode } from './toolbar-mode.js';
 import { boneAppearanceForTheme, geosetSetForTheme, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_APPEARANCE, DEFAULT_VIEWPORT_PRESET_ID, normalizeViewportAppearance, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
 export const DEFAULT_VISUALS = Object.freeze({
   background: '#cccccc', vertex: '#167bff', selectedVertex: '#ff0000', occludedVertex: '#8cacd0',
@@ -44,6 +48,9 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
+  uvDrag: DEFAULT_UV_DRAG, uvEachPiece: false,
+  modifiers: DEFAULT_MODIFIERS, settingsPresets: DEFAULT_SETTINGS_PRESETS,
+  toolbarMode: DEFAULT_TOOLBAR_MODE, toolbarHiddenNoted: false,
   language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, updateOfferAnswered: false, modelLookAnswered: false, disableSounds: false, saveCalculateExtents: false, showPressedKeys: false, showHotkeys: false, paintKeyLabels: true, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
@@ -190,6 +197,9 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
+    uvDrag: normalizeUVDrag(input.uvDrag), uvEachPiece: boolean(input.uvEachPiece, false),
+    modifiers: normalizeModifiers(input.modifiers), settingsPresets: normalizeSettingsPresets(input.settingsPresets),
+    toolbarMode: normalizeToolbarMode(input.toolbarMode), toolbarHiddenNoted: boolean(input.toolbarHiddenNoted, false),
     language: ['ru', 'es', 'zh', 'fr', 'de', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), modelLookAnswered: boolean(input.modelLookAnswered, Object.keys(record(value)).length > 0), saveCalculateExtents: boolean(input.saveCalculateExtents, false), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), paintKeyLabels: boolean(input.paintKeyLabels, true), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.scrollSensitivity.max, Math.max(PREFERENCE_LIMITS.scrollSensitivity.min, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: PREFERENCE_LIMITS.wheelModes.includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
@@ -240,11 +250,27 @@ export function normalizeChord(value) {
   }
   return key ? [...modifiers.filter(modifier => held.has(modifier)), key].join('+') : '';
 }
+// The US characters of the punctuation keys, plain and with Shift. Only used where the layout puts a
+// non-ASCII letter on that key (Russian Б Ю Ё Х Ъ, German Ü), so [ ] , . stay reachable there.
+const US_PUNCTUATION = Object.freeze({ Comma: [',', '<'], Period: ['.', '>'], Minus: ['-', '_'], Equal: ['=', '+'], Backquote: ['`', '~'], BracketLeft: ['[', '{'], BracketRight: [']', '}'] });
+/**
+ * The key an event means, across keyboard layouts. A Latin letter is the letter printed on the
+ * key, so Ctrl+Z is Undo on QWERTZ and AZERTY. Digits are the digit row wherever it needs Shift
+ * (AZERTY). Non-Latin layouts (Russian) use the key's position for letters and punctuation.
+ */
+export function layoutKey(event) {
+  const key = event?.key, code = event?.code || '';
+  if (typeof key === 'string' && /^[a-z]$/i.test(key)) return key;
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (typeof key === 'string' && /^[\x21-\x7e]$/.test(key)) return key;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (typeof key === 'string' && [...key].length === 1 && /[^\x00-\x7f]/.test(key) && own(US_PUNCTUATION, code)) return US_PUNCTUATION[code][event.shiftKey ? 1 : 0];
+  return key;
+}
 export function chordFromEvent(event) {
   if (!event || event.isComposing || event.keyCode === 229 || event.getModifierState?.('AltGraph')) return '';
-  // Shortcuts describe physical letter/digit positions consistently across EN/RU layouts.
-  const physical = /^Key[A-Z]$/.test(event.code || '') ? event.code.slice(3) : /^Digit[0-9]$/.test(event.code || '') ? event.code.slice(5) : event.key;
-  const key = physical === '+' ? 'Plus' : physical === ' ' ? 'Space' : physical;
+  const pressed = layoutKey(event);
+  const key = pressed === '+' ? 'Plus' : pressed === ' ' ? 'Space' : pressed;
   if (typeof key !== 'string' || modifierAliases[key.toLowerCase()] || ['Dead', 'Unidentified', 'Process'].includes(key)) return '';
   return normalizeChord([event.ctrlKey && 'Ctrl', event.altKey && 'Alt', event.shiftKey && 'Shift', event.metaKey && 'Meta', key].filter(Boolean).join('+'));
 }
@@ -267,7 +293,8 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
     if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
-    if ([action, other].some(item => item?.scope === 'global' || item?.allowInModal === true)) return true;
+    // Settings keys also work over a window, but Paint's own key wins in Paint, so the two never fire together.
+    if ([action, other].some(item => item?.allowInModal === true)) return ![action, other].some(item => hotkeyContext(item) === 'paint');
     const mine = hotkeyContext(action), theirs = hotkeyContext(other);
     if (mine === theirs) return true;
     // Forge and the shaping tools also show the editor's own buttons.
@@ -314,6 +341,16 @@ function isNativeControlKey(event, chord) {
   if ((inputControl || buttonControl) && ['Space', 'Enter'].includes(chord)) return true;
   return tag === 'input' && type === 'radio' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(chord);
 }
+const PICKER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', 'Space']);
+function isPickerTarget(target) {
+  const tag = String(target?.tagName || '').toLowerCase();
+  if (tag === 'select') return !target.matches?.(':open');
+  return tag === 'input' && ['range', 'color'].includes(String(target.type || '').toLowerCase());
+}
+/** Whether the focused field keeps this key. A closed dropdown, slider or colour swatch keeps only its own navigation keys. */
+export function fieldKeepsKey(target, chord) {
+  return isPickerTarget(target) ? PICKER_KEYS.has(chord) : isTextEditingTarget(target);
+}
 export function canHandleHotkeyEvent(event, action = {}) {
   const chord = chordFromEvent(event);
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
@@ -321,8 +358,8 @@ export function canHandleHotkeyEvent(event, action = {}) {
   // but must not take Space from play. Only typing fields keep their space.
   if (chord === 'Space' && (action.id === 'play' || action.bindingCommand === 'play') && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
-  if (isNativeControlKey(event, chord)) return false;
-  if (isTextEditingTarget(event.target) && !action.allowInInput) return false;
+  if (!action.overridesNativeKeys && isNativeControlKey(event, chord)) return false;
+  if (fieldKeepsKey(event.target, chord) && !action.allowInInput) return false;
   return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
 }
 // Applied once when no graphics card draws the views: every frame is then

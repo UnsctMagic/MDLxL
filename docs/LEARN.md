@@ -8,7 +8,7 @@ Only commands are taught: the hand-picked keys of menus, the toolbar, modes and
 tools ([src/commands.js](../src/commands.js)), and Citadel Paint's own keys. A
 window's own buttons (Settings pages, file-icon choices, Material Manager's New)
 have keys from their names so the window can be worked from the keyboard; clicking
-them shows no popup.
+them shows no popup, unless the user chose that key themselves.
 
 Click **LER** (the Ancient of Lore icon beside **KEY**) for three choices:
 **Learn mode** switches reminders, **Show hotkeys** keeps the existing green
@@ -39,6 +39,10 @@ When Show hotkeys is off, holding and releasing Alt works as before.
   silences work the same way. Both muted and learned counts update while Settings
   remains open. If browser storage fails, learning and mutes remain available
   for the current app session, including their separate restore controls.
+- **The key changed.** A command given a different key is a new key to learn:
+  its uses and quiet time are forgotten, its mute stays. This covers Settings,
+  an imported configuration and a loaded Hotkeys preset, because `Learn.jsx`
+  compares the effective bindings themselves (`forgetRebound`).
 
 Using the key while its popup is up closes it at once. **Clicking the popup
 only dismisses this reminder**; it changes neither learning nor future reminders.
@@ -53,12 +57,13 @@ fixed locations. There is still only one popup.
 
 The popup shows the command's own key or combination: one key, or one key with
 Shift, Ctrl or Alt (see [Keyboard shortcuts](HOTKEYS.md)). A window's extra Close /
-Cancel / Done buttons show Esc when Esc closes that window. Pressing the key a
-popup shows closes it.
+Cancel / Done buttons show the key that closes that window. Pressing the key a
+popup shows closes it. Clicks in OptimizeXL's own window get their popup there.
 
 Citadel Paint handles its own keys and shows them on its buttons and sliders
 (Color **B**, Save **Ctrl+S**, Brush size **[ ]**). Those carry `data-paint-key`;
-a click shows that label, and when Paint runs one of its keys it reports it with
+a click shows that label, or the user's own keys after a rebind
+(`paintKeyCaption` in [paint-keys.js](../src/paint-keys.js)), and when Paint runs one of its keys it reports it with
 `paintKeyLabel` (in [learn-keycaps.js](../src/learn-keycaps.js)) under the
 same label, so the same rules apply. Paint keys without a labelled button (Esc,
 for example) never show a popup.

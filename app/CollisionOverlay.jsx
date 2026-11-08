@@ -1,5 +1,8 @@
 import { shiftDragLatch, solveCollisionMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
-import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
+import { holdGestureKey } from './gesture-keys.js';
+import { usePreferencesContext } from './PreferencesContext.jsx';
+import { dragKeys, isModifierKey, modifierSentence } from '../src/modifier-bindings.js';
 import { Trash2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { moveCollision, resizeCollision } from '../src/model-collisions.js';
@@ -13,8 +16,9 @@ const visible = collisionPointVisible;
 /** Drag/keyboard editing of one collision shape: the labeled center grab moves it, the
  * outline/face circles resize it. A draft previews the change; release commits it. */
 export function useCollisionGesture({ selected, readOnly, stage, selectedId, setDraft, onCommit }) {
-  const gesture = useRef(null), pending = useRef(null), frame = useRef(null), latest = useRef(null);
+  const gesture = useRef(null), pending = useRef(null), frame = useRef(null), latest = useRef(null), { preferences } = usePreferencesContext();
   latest.current = { setDraft, onCommit };
+  const lockHeld = event => dragKeys(event, 'move', preferences).shiftKey;
   const ownerWindow = useRef(null);
   frame.current ||= createFrameCoalescer(() => applyDrag(), {
     request: callback => ownerWindow.current.requestAnimationFrame(callback),
@@ -31,6 +35,8 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     if(event.key!=='Escape'||!gesture.current)return false;
     cancel();return true;
   },0);
+  useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!gesture.current),0);
+  useMousePressLost(()=>{if(gesture.current)cancel();});
   useEffect(() => () => { frame.current.cancel(); pending.current = null; }, []);
   useEffect(() => {
     const active = gesture.current;
@@ -49,14 +55,14 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     ownerWindow.current = event.currentTarget.ownerDocument.defaultView || window;
     event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
     const start = { x: event.clientX, y: event.clientY };
-    gesture.current = { selectingFrom: shape.ObjectId === selectedId ? undefined : selectedId, x: event.clientX, y: event.clientY, workplane: handle.move?.plane, workplaneEnabled: !!handle.move?.plane, latch: shiftDragLatch(start, event.shiftKey), before: structuredClone(shape), handle, handles: stage.rows.find(row => row.id === shape.ObjectId).handles.filter(item => visible(item.point)) };
+    gesture.current = { selectingFrom: shape.ObjectId === selectedId ? undefined : selectedId, x: event.clientX, y: event.clientY, workplane: handle.move?.plane, workplaneEnabled: !!handle.move?.plane, latch: shiftDragLatch(start, lockHeld(event)), before: structuredClone(shape), handle, handles: stage.rows.find(row => row.id === shape.ObjectId).handles.filter(item => visible(item.point)) };
     event.currentTarget.focus();
   };
   // A move records the pointer; cloning, resizing and the preview update run once per frame.
   const drag = event => {
     const active = gesture.current; if (!active) return;
     const pointer = { x: event.clientX, y: event.clientY };
-    active.point = pointer; active.shift = event.shiftKey;
+    active.point = pointer; active.shift = lockHeld(event);
     frame.current.schedule();
   };
   function applyDrag() {
@@ -90,8 +96,8 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
   };
   const shiftKey = event => {
     const active = gesture.current;
-    if (event.key === 'Shift' && active?.handle.move && active.point) {
-      frame.current.flush(); active.shift = event.shiftKey; frame.current.schedule();
+    if (isModifierKey(event.key) && active?.handle.move && active.point && lockHeld(event) !== active.shift) {
+      frame.current.flush(); active.shift = lockHeld(event); frame.current.schedule();
     }
   };
   const handleProps = (handle, shape = selected) => ({
@@ -116,12 +122,13 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
 
 /** Shared EMTR-style controls for Managers and Sphereomancer. */
 export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect, onRemove, gesture, className = '' }) {
+  const { preferences } = usePreferencesContext(), lockHint = modifierSentence('Hold {0} to lock direction.', 'drag.move.axisLock', preferences);
   if (!stage) return null;
   const grab=(point,handle,label,kind,caption)=> <g className={kind} aria-label={label} {...gesture.handleProps(handle)}>
     <circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/>
     <circle cx={point[0]} cy={point[1]} r="7"/>
     {caption&&<text x={point[0]+12} y={point[1]+20}>{caption}</text>}
-    <title>{handle.move?'Move. Hold Shift to lock direction.':'Drag to resize'}</title>
+    <title>{handle.move?['Move.',lockHint].filter(Boolean).join(' '):'Drag to resize'}</title>
   </g>;
   const selectedRow = stage.rows.find(row => row.id === selectedId);
   const select = (event, id) => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); onSelect(id); };
@@ -144,7 +151,7 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
     {stage.rows.map((row, index) => row.selectionBox && visible(row.selectionBox) && <g key={'select-' + row.id} className={`mm-sphere-select ${row.id === selectedId ? 'mm-selected' : ''}`} {...selectorProps(row)} aria-label={`Select collision shape ${index + 1}`} aria-pressed={row.id === selectedId}>
       <rect x={row.selectionBox[0] - 12} y={row.selectionBox[1] - 12} width="24" height="24" rx="2"/>
       <text x={row.selectionBox[0]} y={row.selectionBox[1] + 4} textAnchor="middle">{index + 1}</text>
-      <title>Select and drag to move. Hold Shift to lock direction.</title>
+      <title>{['Select and drag to move.',lockHint].filter(Boolean).join(' ')}</title>
     </g>)}
     {/* Selected controls are painted last so another shape cannot swallow a grab or trash click. */}
     {selectedRow && !readOnly && <g key={selectedId} className="mm-selected">

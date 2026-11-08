@@ -1,0 +1,13 @@
+/* The command launcher. It sits beside .classic-app, so the VIS look and the new look style it alike. */
+.command-launcher{position:fixed;top:min(14vh,96px);left:50%;z-index:calc(var(--z-tool-window,2100) + 1);box-sizing:border-box;width:min(420px,calc(100vw - 24px));overflow:hidden;transform:translateX(-50%);border:1px solid color-mix(in srgb,var(--ui-border) 45%,transparent);border-radius:12px;background:var(--ui-panel);color:var(--ui-text);font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif;box-shadow:0 16px 48px #0000002e,0 2px 8px #0000001a}
+:root[data-theme] .command-launcher>input,:root[data-theme] .command-launcher>input:focus-visible{display:block;box-sizing:border-box;width:100%;height:40px;padding:0 14px;border:0;border-bottom:1px solid color-mix(in srgb,var(--ui-border) 45%,transparent);border-radius:0;outline:0;background:var(--ui-field);color:var(--ui-text);font:13px/1 'Segoe UI',Tahoma,sans-serif}
+:root[data-theme] .command-launcher>input::placeholder{color:var(--ui-muted);opacity:1}
+.command-launcher>ul{margin:0;padding:4px;list-style:none;max-height:308px;overflow-y:auto;scrollbar-width:thin}
+.command-launcher li{display:flex;align-items:center;gap:4px;height:30px;padding:0 10px 0 6px;border-radius:7px;cursor:default;user-select:none}
+.command-launcher li[aria-selected=true]{background:var(--ui-selected);color:var(--ui-selected-text)}
+.launcher-check{flex:none;width:16px;font-size:11px;text-align:center}
+.launcher-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.command-launcher kbd{flex:none;color:var(--ui-muted);font:11.5px/1 'Segoe UI',Tahoma,sans-serif}
+.command-launcher li[aria-selected=true] kbd{color:inherit}
+.launcher-empty{margin:0;padding:14px;color:var(--ui-muted);text-align:center}
+html[lang=mordor] .command-launcher,html[lang=mordor] .command-launcher :is(input,kbd){font-family:MDLxL-Mordor,serif;letter-spacing:.035em}

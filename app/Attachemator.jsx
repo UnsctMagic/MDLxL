@@ -44,6 +44,9 @@ export default function Attachemator({ doc, modelPath, textureAssets, teamColor,
     if (parent != null) ids.add(parent);
     return ids;
   }, [draft, plan, selectedId]);
+  // Ticks start from the proposal; only what the user changed would be lost.
+  const [startingTicks] = useState(() => [...chosen].sort().join());
+  const unapplied = Object.keys(pivots.current).length > 0 || Object.keys(parents).length > 0 || [...chosen].sort().join() !== startingTicks;
   const toChange = plan.rows.filter(row => chosen.has(row.key) && (row.state === 'new' || row.state === 'change' || pivots.current[row.key] || row.key in parents));
 
   useEffect(() => { const previous = document.activeElement; root.current?.focus(); return () => previous?.focus?.(); }, []);
@@ -71,7 +74,7 @@ export default function Attachemator({ doc, modelPath, textureAssets, teamColor,
   // Escape leaves bone picking (and nothing else) before the window's Close takes the key.
   useWindowKeyClaim(({event, localWindow}) => { if (localWindow !== root.current || event.key !== 'Escape' || !picking) return false; setPicking(null); return true; });
 
-  return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" windowRef={root} onClose={onClose} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
+  return <ToolWindow title="Attachemator" overlayClass="atm-overlay" className="atm-window" windowRef={root} onClose={onClose} unapplied={unapplied} sectionProps={{ 'data-hotkey-scope': 'attachemator' }}
     caption={<><strong title="Places the standard attachment points where Blizzard's own units have them, on the right bones.">Attachemator</strong><span className="atm-spacer"/></>}>
       <div className="atm-body">
         <div className="atm-list" role="table" aria-label="Attachment points">
