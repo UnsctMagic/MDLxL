@@ -1756,7 +1756,7 @@ export default function App() {
     onHighlightChain: changeHighlightChain, preferences, disabled: doc.readOnly || saving, model, revision: doc.revision, sequenceIndex: sequence,
     time, selectedNodeIds, onSelectNodes: setSelectedNodeIds, onEdit: edit, onSeek: setTime, onSequenceChange: selectSequence, playing,
     onPlayingChange: setPlaying, transformMode: movementMode, onTransformMode: value => setWorkTool(value==='move'?'translate':value),
-    transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
+    transformSpace: movementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
   const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings }), [preferences, openHotkeySettings]);
