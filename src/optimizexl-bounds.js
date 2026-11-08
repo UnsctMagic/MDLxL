@@ -19,11 +19,18 @@ export function invalidBoundsTargets(model){
  return targets;
 }
 export function box(){return {min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};}
-export function include(b,vertices){for(let i=0;i<vertices.length;i++){const v=vertices[i];if(!Number.isFinite(v))throw Error('Cannot calculate bounds for non-finite geometry.');b.min[i%3]=Math.min(b.min[i%3],v);b.max[i%3]=Math.max(b.max[i%3],v);}}
+export function include(b,vertices){const min=b.min,max=b.max;for(let i=0,c=0;i<vertices.length;i++,c=c===2?0:c+1){const v=vertices[i];if(!Number.isFinite(v))throw Error('Cannot calculate bounds for non-finite geometry.');min[c]=Math.min(min[c],v);max[c]=Math.max(max[c],v);}}
 export function finish(b){
  if(!Number.isFinite(b.min[0]))return {MinimumExtent:new Float32Array(3),MaximumExtent:new Float32Array(3),BoundsRadius:0};
  const pad=Math.max(1,...b.max.map((v,i)=>v-b.min[i]))*1e-5;
  return {MinimumExtent:new Float32Array(b.min.map(v=>v-pad)),MaximumExtent:new Float32Array(b.max.map(v=>v+pad)),BoundsRadius:Math.fround(Math.hypot(...b.max.map((v,i)=>(v-b.min[i])/2+pad)))};
+}
+/** Every node id skinGeoset can read for this geoset (classic matrix groups and HD bone bytes). */
+function geosetBoneIds(geoset){
+ const ids=new Set(),skin=geoset.SkinWeights;
+ for(const group of geoset.Groups||[])for(const id of group||[])ids.add(id);
+ if(skin)for(let i=0;i+3<skin.length;i+=8)for(let j=0;j<4;j++)ids.add(skin[i+j]);
+ return ids;
 }
 /** Per-geoset boxes swept by each sequence's sampled animation, cached per sequence. */
 export function sequenceSampler(model,{includeGlobalKeys=false}={}){
@@ -43,10 +50,20 @@ export function sequenceSampler(model,{includeGlobalKeys=false}={}){
   // bounds for a moving sequence (the Footman Decay Bone box is a sentinel).
   const steps=Math.max(1,Math.ceil((hi-lo)/33));for(let i=0;i<=steps;i++)frames.add(lo+(hi-lo)*i/steps);
   renderer.setSequence(sequence);
+  // A geoset is skinned again only when one of its bones moved since the
+  // previous sampled frame; otherwise it would add exactly the same points.
+  const rendered=renderer.rendererData.nodes.filter(Boolean),owner=new Map(rendered.map(n=>[n.node.ObjectId,n]));
+  const matrices=new Map([...owner.keys()].map(id=>[id,new Matrix4()])),users=new Map([...owner.keys()].map(id=>[id,[]]));
+  model.Geosets.forEach((g,i)=>{for(const id of geosetBoneIds(g))users.get(id)?.push(i);});
+  const dirty=model.Geosets.map(()=>true),skinned=model.Geosets.map(g=>new Float32Array(g.Vertices?.length||0));
   for(const frame of [...frames].sort((a,b)=>a-b)){
    renderer.setFrame(frame);model.GlobalSequences.forEach((duration,i)=>renderer.rendererData.globalSequencesFrames[i]=duration>0?(frame-lo)%duration:0);renderer.updateNode(renderer.rendererData.rootNode);
-   const matrices=new Map(renderer.rendererData.nodes.filter(Boolean).map(n=>[n.node.ObjectId,new Matrix4().fromArray(n.matrix)]));
-   model.Geosets.forEach((g,i)=>include(boxes[i],skinGeoset(g,matrices)));
+   for(const [id,n] of owner){
+    const target=matrices.get(id).elements,source=n.matrix;let moved=false;
+    for(let k=0;k<16;k++)if(!(target[k]===source[k])){moved=true;target[k]=source[k];}
+    if(moved)for(const i of users.get(id))dirty[i]=true;
+   }
+   model.Geosets.forEach((g,i)=>{if(!dirty[i])return;dirty[i]=false;include(boxes[i],skinGeoset(g,matrices,skinned[i]));});
   }
   cache.set(sequence,boxes);return boxes;
  };
