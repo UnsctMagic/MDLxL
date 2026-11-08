@@ -110,7 +110,7 @@ import { TEAM_COLORS } from '../src/team-colors.js';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
 import { VertexTools, GeosetPicker, RigSidebar } from './AppSidebar.jsx';
 import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
-import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
+import { geosetsHiddenByExtras } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
@@ -326,10 +326,10 @@ export default function App() {
     if (was?.id === session.id && was.revision !== doc.revision && travelRevision.current !== doc.revision) sketchStore.noteModelEdit(session.id);
   }, [session.id, doc.revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
-  // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
+  // Hide extras only takes corpse, background, hero glow and part-time effect geosets out of the work area; nothing is deleted.
   // The list is decided when Hide extras is clicked (or the geoset count changes), not after
   // every edit: baking a geoset's visibility to 0 must not pull it out of the list mid-work.
-  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [session.id, model.Geosets.length, hideExtras]);
+  const extraGeosets = useMemo(() => hideExtras ? geosetsHiddenByExtras(model) : new Set(), [session.id, model.Geosets.length, hideExtras]);
   const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const selectable = useMemo(() => new Set([...checkedGeosets].filter(index => tabVisibleGeosets.has(index) && !hiddenByUser.has(index))), [checkedGeosets, tabVisibleGeosets, hiddenByUser]);

@@ -6163,7 +6163,7 @@
   "step": "阶梯",
   "linear": "线性",
   "unknown": "未知",
-  "Hides corpse and portrait-background geosets (never shown in Stand, Walk or Attack) from the list and view. Nothing is deleted; click again to bring them back.": "从列表和视图中隐藏尸体和肖像背景几何集（在站立、行走、攻击中从不显示）。不会删除任何内容；再次点击可恢复显示。",
+  "Hides corpses, portrait backgrounds, hero glow and effects that only show in some animations from the list and view. Nothing is deleted; click again to bring them back.": "从列表和视图中隐藏尸体、肖像背景、英雄辉光，以及仅在部分动画中显示的特效。不会删除任何内容；再次点击可恢复显示。",
   "Save model as": "模型另存为",
   "Game data folder": "游戏数据文件夹",
   "Load texture files": "加载纹理文件",
