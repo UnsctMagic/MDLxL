@@ -25,20 +25,22 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   // Every state is reached the way the owner reaches it. A window this demo model cannot open is reported, not hidden.
   const visit = async (name, open) => {
     try { await open(); await pause(400); visited.push(name); }
-    catch (error) { skipped.push(`${name}: ${error.message.split('\n')[0]}`); }
+    catch (error) { skipped.push(`${name}: ${error.message.split('\n')[0]}`); await page.screenshot({ path: path.join(out, `skipped-${skipped.length}.png`) }).catch(() => {}); }
     await closeDialogs();
   };
   try {
     await page.waitForFunction(() => document.querySelector('.model-tabs')?.textContent.includes('HotkeyAudit.mdx'));
     for (const mode of ['vertices', 'bones', 'animation', 'animations']) await visit(mode, () => click(control(mode)));
-    await visit('uv', async () => { await click(control('vertices')); await page.keyboard.press('Control+a'); await click(control('uv')); await page.locator('.uv-workspace').waitFor(); });
+    await visit('uv', async () => { await click(control('vertices')); await page.keyboard.press('Control+a'); await click(control('uv')); await page.locator('.uv-workspace').waitFor(); await pause(400); await click(page.getByRole('button', { name: 'Exit UV Wrapper', exact: true })); await page.locator('.uv-workspace').waitFor({ state: 'detached' }); });
     await page.keyboard.press('Escape'); await visit('vertices again', () => click(control('vertices')));
     await visit('AnimXL', async () => { await click(control('animation')); await click(control('animXL')); await page.getByRole('dialog', { name: 'AnimXL', exact: true }).waitFor(); });
     await visit('Particle Editor', async () => { await click(control('particles')); await page.getByRole('dialog', { name: 'Particle Editor', exact: true }).waitFor(); });
-    await visit('Forge', async () => { await click(control('forge')); await page.getByRole('dialog', { name: 'Forge', exact: true }).waitFor(); });
+    // Forge's Shape tab embeds the vertex editor, where Esc is Clear, so it closes from its own button.
+    await visit('Forge', async () => { await click(control('forge')); const forge = page.getByRole('dialog', { name: 'Forge', exact: true }); await forge.waitFor(); await pause(400); await click(forge.getByRole('button', { name: 'Close Forge', exact: true })); await forge.waitFor({ state: 'detached' }); });
     await visit('Texture Library', async () => { await click(control('textureLibrary')); await page.locator('.tl-dialog').waitFor(); });
     await visit('BitsAndParts', async () => { await click(control('bitsAndParts')); await page.locator('.parts-dialog').waitFor(); });
-    await visit('Paint', async () => { await click(control('paint')); await click(page.getByRole('button', { name: 'Begin painting', exact: true })); await page.locator('.paint-studio .studio-toolbar').waitFor(); });
+    // The demo model has no skin to edit, so Paint starts from a new base coat.
+    await visit('Paint', async () => { await click(control('paint')); await click(page.getByRole('button', { name: /New base coat/ })); await click(page.getByRole('button', { name: 'Begin painting', exact: true })); await page.locator('.paint-studio .studio-toolbar').waitFor(); });
     await visit('Paint shortcuts', async () => { await click(page.getByRole('button', { name: 'Help', exact: true })); await page.locator('.paint-shortcuts').waitFor(); });
     await visit('vertices after Paint', () => click(control('vertices')));
     await visit('Showcase', async () => { await click(page.getByRole('button', { name: 'Showcase', exact: true })); await page.locator('.showcase-sidebar').waitFor(); });
@@ -90,11 +92,11 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     const settingsWindow = page.getByRole('dialog', { name: 'Settings', exact: true });
     await click(settingsWindow.getByRole('button', { name: /^Assign shortcut to Fit model/ }));
     await settingsWindow.getByLabel('Press a key combination', { exact: true }).waitFor();
-    await page.keyboard.press('Control+F2'); await click(settingsWindow.getByRole('button', { name: 'Assign shortcut', exact: true }));
+    await page.keyboard.press('Control+F9'); await click(settingsWindow.getByRole('button', { name: 'Assign shortcut', exact: true }));
     await expectForgot('manual rebind');
     await click(page.getByRole('button', { name: 'Close Settings', exact: true }));
-    await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts')?.includes('Ctrl+F2'));
-    assert.match(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F2/);
+    await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts')?.includes('Ctrl+F9'));
+    assert.match(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F9/);
     checks.push('A rebind reaches the tooltip at once and forgets only that key in Learn, keeping its mute');
 
     // Loading a preset goes the same way: the built-in Default puts Fit back.
@@ -104,7 +106,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await expectForgot('preset load');
     await click(page.getByRole('button', { name: 'Close Settings', exact: true }));
     await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts') === 'Home');
-    assert.doesNotMatch(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F2/);
+    assert.doesNotMatch(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F9/);
     checks.push('A hotkeys preset reaches the tooltip at once and forgets the rebound key in Learn');
 
     // Esc on unapplied work asks first; nothing unapplied closes at once.

@@ -421,6 +421,7 @@ const RAD = Math.PI / 180;
     check('Settings Restore: Big pieces on', await big.isChecked());
     check('Settings Restore: How you drag', await chosen(style), 'Circle around the centre');
     check('Settings Restore: Zoom', await chosen(zoomStyle), 'Away from or toward the centre');
+    await waitForSaved(page, 'uvSensitivity', 1); check('Settings Restore: UV transform sensitivity goes back to its default', true);
     await preset.selectOption({ label: 'MDLVis' });
     await page.waitForFunction(() => document.querySelector('[aria-label="UV Zoom drag"]').selectedOptions[0].textContent === 'Up grows, down shrinks');
     check('Settings: MDLVis fills How you drag', await chosen(style), 'Left and right');
@@ -432,7 +433,7 @@ const RAD = Math.PI / 180;
     const r = await rig(page, opened, 'Rotate');
     await sideCase(r, 'A changed setting changes the next drag: 30 px right is 30 degrees', [60, 0], 30, 0, 30 * RAD);
     const zoom = await rig(page, opened, 'Zoom');
-    await zoomCase(zoom, 'A changed setting changes the next drag: Zoom right grows', [120, 0], [170, 0], 1 + 50 * 1.7 / 100);
+    await zoomCase(zoom, 'A changed setting changes the next drag: Zoom right grows', [120, 0], [170, 0], 1 + 50 * 1 / 100); // Restore above set the seeded 1.7x sensitivity back to 1x.
     await zoom.press(120, 0); await zoom.moveTo(120, 70);
     near('A changed setting changes the next drag: Zoom ignores up and down', (await zoom.factorNow()).factor, 1, 1e-6);
     await zoom.release();

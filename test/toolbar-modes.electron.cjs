@@ -103,6 +103,7 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
       const parse = value => {
         const modern = value.match(/color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.]+))?\)/);
         if (modern) return [modern[1] * 255, modern[2] * 255, modern[3] * 255, modern[4] === undefined ? 1 : +modern[4]];
+        if (!/^rgba?\(/.test(value)) throw Error('unreadable colour: ' + value);
         const numbers = value.match(/[\d.]+/g).map(Number);
         return [numbers[0], numbers[1], numbers[2], numbers[3] === undefined ? 1 : numbers[3]];
       };
@@ -110,7 +111,9 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
       for (let node = element; node; node = node.parentElement) { const color = parse(getComputedStyle(node).backgroundColor); if (color[3] > 0) { layers.push(color); if (color[3] === 1) break; } }
       const background = layers.reverse().reduce((under, [r, g, b, a]) => [r * a + under[0] * (1 - a), g * a + under[1] * (1 - a), b * a + under[2] * (1 - a)], [255, 255, 255]);
       const luminance = rgb => rgb.reduce((sum, value, index) => { const c = value / 255; return sum + (c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][index]; }, 0);
-      const [high, low] = [luminance(parse(getComputedStyle(element).color)), luminance(background)].sort((a, b) => b - a);
+      // A translucent label is measured as drawn, over its own background.
+      const [r, g, b, alpha] = parse(getComputedStyle(element).color), text = [r, g, b].map((value, index) => value * alpha + background[index] * (1 - alpha));
+      const [high, low] = [luminance(text), luminance(background)].sort((a, b) => b - a);
       return (high + .05) / (low + .05);
     });
     const contrast = {};
@@ -269,7 +272,12 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
     await clickMenu(app, 'BitsAndParts…');
     { const dialog = page.getByRole('dialog', { name: 'BitsAndParts', exact: true }); await dialog.waitFor(); await dialog.getByRole('button', { name: /^Close/ }).first().click(); await dialog.waitFor({ state: 'detached' }); }
     await closes('Auto Corpse…', 'Auto Corpse');
-    { const opened = app.waitForEvent('window', { timeout: 30000 }); await clickMenu(app, 'OptimizeXL…'); const child = await opened; await child.close(); await settle(page, 300); }
+    { // Closed the way the window's X closes it: the app is told through beforeunload, which page.close() would skip.
+      const opened = app.waitForEvent('window', { timeout: 30000 }); await clickMenu(app, 'OptimizeXL…'); const child = await opened, gone = child.waitForEvent('close');
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().sort((a, b) => b.id - a.id)[0].close()); await gone;
+      // Closed the moment it opened: the editor survives, and the next menu command (AI console) runs at once.
+      await settle(page, 800);
+      assert.equal(await page.getByText('The interface could not finish drawing.', { exact: true }).count(), 0, 'a window closed while opening does not crash the editor'); }
     await clickMenu(app, 'AI console'); await ai.waitFor(); await clickMenu(app, 'AI console'); await ai.waitFor({ state: 'detached' });
     const version2 = await modelVersion();
     await clickMenu(app, 'Convert MDX800 / MDX1000');

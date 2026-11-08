@@ -537,6 +537,7 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
   const { createStarterRecipe } = await import('../src/particle-starters.js'), { generateCompatibleMdx } = await import('../src/mdx-compatibility.js');
   const emtrModel = createStarterRecipe().native, emtrFixture = path.join(out, 'emtr.mdx'); fs.writeFileSync(emtrFixture, Buffer.from(generateCompatibleMdx(emtrModel)));
   await test('emtr', { pointerSensitivity: 1.5, rotation: { editors: { emtr: { handleDrag: 'leftRight', handleSensitivity: .5, useDPI: false, snap: 15 }, glow: { handleDrag: 'ring' } } } }, async ({ app, page }) => {
+    await page.getByLabel('3D model viewport', { exact: true }).waitFor();
     await clickMenu(app, 'Particle Editor…'); await page.getByLabel('Particle context', { exact: true }).waitFor();
     if (await page.getByRole('button', { name: 'Close Particle Library', exact: true }).count()) await page.getByRole('button', { name: 'Close Particle Library', exact: true }).click();
     await page.getByLabel('Particle context', { exact: true }).selectOption('On model');

@@ -250,12 +250,16 @@ const UV_PRESET = 'UV Rotate and Zoom preset', LOOK_PRESET = 'Viewport appearanc
     await appearancePage(dialog, 'Interface');
     const toolbar = dialog.getByLabel('Toolbar', { exact: true });
     check('the toolbar options', await optionTexts(toolbar), ['Graphic', 'Trim', 'Hidden']);
-    await dialog.getByText('Hidden: use the menu bar or Ctrl+F2.', { exact: true }).waitFor();
+    const launcherHint = dialog.getByText('Hidden: use the menu bar or Ctrl+F2.', { exact: true });
+    check('no launcher hint on the Graphic toolbar', await launcherHint.count(), 0);
     for (const mode of ['trim', 'hidden']) {
       await toolbar.selectOption(mode);
       await page.waitForFunction(mode => document.querySelector('.classic-app').dataset.toolbar === mode, mode);
       check(`Toolbar ${mode} applies`, true);
+      if (mode === 'trim') check('no launcher hint on the Trim toolbar', await launcherHint.count(), 0);
     }
+    await launcherHint.waitFor();
+    check('Hidden names the launcher key', true);
     await dialog.locator('[data-hotkey="appearance:reset"]').click();
     await page.waitForFunction(() => document.querySelector('.classic-app').dataset.toolbar === undefined);
     check('Restore Lordaeron goes back to the graphic toolbar', await toolbar.inputValue(), 'graphic');

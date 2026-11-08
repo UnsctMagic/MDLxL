@@ -198,7 +198,8 @@ const CIRCLE_UV = { rotateStyle: 'circle', rotateSpeed: 100, rotateZone: 0, rota
   });
 
   // Selection keeps its default keys here, so Shift at the press starts a Rotate rather than a removal.
-  await test('snap-key-latch', { modifiers: { 'drag.rotate.snap': 'Shift' }, rotation: { snap: 15 } }, async ({ page }) => {
+  // Fine moves off Shift as the Hotkeys table's Replace would make it: Shift means Snap and nothing else.
+  await test('snap-key-latch', { modifiers: { 'drag.rotate.fine': 'Alt', 'drag.rotate.snap': 'Shift' }, rotation: { snap: 15 } }, async ({ page }) => {
     const r = await openVertices(page, 'Rotate');
     await page.keyboard.down('Shift');
     const info = await r.begin();
@@ -271,8 +272,10 @@ const CIRCLE_UV = { rotateStyle: 'circle', rotateSpeed: 100, rotateZone: 0, rota
     check('Conflict: the sentence names the other meaning', (await sentence.innerText()).includes('Snap to steps'), true);
     check('Conflict: nothing is saved yet', (await page.evaluate(async () => (await window.desktop.getSettings()).preferences.modifiers)) ?? {}, {});
     await settings.getByRole('button', { name: /^Replace/ }).click();
-    await page.waitForFunction(async () => (await window.desktop.getSettings()).preferences.modifiers?.['drag.rotate.fine'] === 'Ctrl');
-    check('Conflict: Replace moves the key and clears the other', (await page.evaluate(async () => (await window.desktop.getSettings()).preferences.modifiers)), { 'drag.rotate.fine': 'Ctrl', 'drag.rotate.snap': '' });
+    // waitForFunction does not wait for an async predicate, so the saved value is polled here.
+    const savedModifiers = () => page.evaluate(async () => (await window.desktop.getSettings()).preferences.modifiers);
+    for (let tries = 0; tries < 100 && (await savedModifiers())?.['drag.rotate.fine'] !== 'Ctrl'; tries++) await page.waitForTimeout(100);
+    check('Conflict: Replace moves the key and clears the other', await savedModifiers(), { 'drag.rotate.fine': 'Ctrl', 'drag.rotate.snap': '' });
   });
 
   // ---- Keys pressed while the mouse is holding a drag.

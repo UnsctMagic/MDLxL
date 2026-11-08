@@ -293,7 +293,8 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
     if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
-    if ([action, other].some(item => item?.allowInModal === true)) return true;
+    // Settings keys also work over a window, but Paint's own key wins in Paint, so the two never fire together.
+    if ([action, other].some(item => item?.allowInModal === true)) return ![action, other].some(item => hotkeyContext(item) === 'paint');
     const mine = hotkeyContext(action), theirs = hotkeyContext(other);
     if (mine === theirs) return true;
     // Forge and the shaping tools also show the editor's own buttons.

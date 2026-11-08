@@ -7,7 +7,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { COMMANDS, windowCommandActions } from '../src/commands.js';
 import { contextualHotkeyDefaults, EDITOR_RESERVED, hotkeyCode } from '../src/hotkey-defaults.js';
-import { effectiveBindings, hotkeyConflicts, normalizeChord } from '../src/preferences.js';
+import { effectiveBindings, hotkeyConflicts, normalizeChord, configurationHotkeyConflict } from '../src/preferences.js';
 import { perItemControl } from '../src/hotkey-allocation.js';
 import { PAINT_BRUSH_SHAPES } from '../src/paint-brush-shapes.js';
 import { PAINT_KEY_PREFIX } from '../src/learn-keycaps.js';
@@ -121,6 +121,15 @@ test('every default passes the same conflict check Settings uses', () => {
   const clashes = [];
   for (const action of catalog) for (const key of keysOf(action)) { const hits = hotkeyConflicts(catalog, {}, action.id, key); if (hits.length) clashes.push(`${action.id} ${key}: ${hits.join(', ')}`); }
   assert.deepEqual(clashes, []);
+});
+
+// The app marks these as working over any window. Inside Paint, Paint's own key wins (Hotkeys.jsx), so Ctrl+K there never opens Settings.
+const SETTINGS_KEYS = ['settings', 'hotkeys', 'graphics', 'captureSettings', 'appearanceSettings', 'configurationSettings', 'gridSettings', 'gameDataSettings'];
+test('the keys that also work over windows do not clash with Paint, so loading a configuration is not refused', () => {
+  const live = catalog.map(action => SETTINGS_KEYS.includes(action.id) ? { ...action, allowInModal: true } : action);
+  assert.deepEqual(hotkeyConflicts(live, {}, 'hotkeys', 'Ctrl+K'), []);
+  assert.deepEqual(hotkeyConflicts(live, {}, 'paint-key:Ctrl+K', 'Ctrl+K'), []);
+  assert.equal(configurationHotkeyConflict(live, {}), null);
 });
 
 test('the launcher and toolbar commands have their agreed keys, and those keys are not used elsewhere in the editor', () => {
