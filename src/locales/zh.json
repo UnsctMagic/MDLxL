@@ -5886,6 +5886,7 @@
   "{0} · drag or use arrow keys · double-click to reset": "{0} · 拖动或使用方向键 · 双击重置",
   "UV wrapper workspace": "UV 展开工作区",
   "UV material": "UV 材质",
+  "Picks the material for the selected geosets. An unsaved test texture on them is cancelled.": "为所选多边形组选择材质。其上未保存的试用纹理将被取消。",
   "UV texture map": "UV 纹理贴图",
   "Select New": "选择新的",
   "UV projection": "UV 投影",

@@ -3815,6 +3815,7 @@
   "Disable Wrapping": "Wiederholung aus",
   "Enable Wrapping": "Wiederholung an",
   "UV material": "UV-Material",
+  "Picks the material for the selected geosets. An unsaved test texture on them is cancelled.": "Wählt das Material für die ausgewählten Geosets. Eine nicht gespeicherte Testtextur darauf wird verworfen.",
   "Replace Texture…": "Textur ersetzen…",
   "Save texture": "Textur speichern",
   "Revert texture": "Textur zurücksetzen",
