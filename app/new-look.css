@@ -358,6 +358,7 @@
 }
 @media(max-width:800px){
   :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-toolbar>.toolbar-modules>button{padding:0 5px!important}
+  :root .classic-app.classic-app:not([data-vis-ui])[data-toolbar=trim]>.classic-modules :is(.editor-modules,.quick-display-options){scrollbar-width:none}
 }
 
 /* Hidden: moved off-screen, never removed or display:none, because hotkeys only reach controls

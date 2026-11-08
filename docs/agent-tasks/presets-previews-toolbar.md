@@ -1,7 +1,8 @@
 # Presets, 3D Rotate settings, hotkeys, previews and toolbar
 
-Status: in progress on local branch `claude/uv-drag-settings`. Not online until
-the owner says "merge". Follows [UV drag settings](uv-drag-settings.md).
+Status: built on local branch `claude/uv-drag-settings`; final packaged suite in
+progress. Not online until the owner says "merge". Audits in `out/audit/` are
+git-ignored working notes; decisions below are the durable record. Follows [UV drag settings](uv-drag-settings.md).
 
 ## Owner's request (8 Nov 2026), in their words
 
