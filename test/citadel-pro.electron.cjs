@@ -106,12 +106,15 @@ async function run() {
   // Smoothing still finishes at the pointer.
   await page.evaluate(() => { const r = audit().runtime; r.camera.position.set(170, 0, 55); r.controls.target.set(0, 0, 55); r.controls.update(); r.controls.dispatchEvent?.({ type: 'change' }); });
   await settle(400);
+  await page.getByRole('button', { name: 'Soft brush' }).click(); await page.getByRole('button', { name: 'Round brush' }).click(); await page.getByLabel('Brush size value').fill('14'); await settle();
+  const a2 = await page.evaluate(() => pointFor([14, -7, 72])), b2 = await page.evaluate(() => pointFor([14, -3, 64]));
+  const straight = await changedBy(() => drag(a2, b2)); await undo();
   await page.getByLabel('Smoothing value').fill('90'); await settle();
-  const smooth = await changedBy(() => drag(a, b)); assert.ok(smooth > plain * .8, `smoothing ${smooth} vs ${plain}`); passed('Smoothing keeps the stroke reaching the pointer');
+  const smooth = await changedBy(() => drag(a2, b2)); assert.ok(smooth > straight * .85, `smoothing ${smooth} vs ${straight}`); passed('Smoothing keeps the stroke reaching the pointer');
   await undo(); await page.getByLabel('Smoothing value').fill('0'); await settle();
 
   // Layer opacity changes what is shown, not the painted pixels.
-  await drag(a, b);
+  await drag(a2, b2);
   await page.locator('details').filter({ hasText: 'Layers & texture' }).locator('summary').click(); await settle();
   const composite = () => page.evaluate(() => { const c = audit().project.targets[0]; let n = 0; const d = c.coats.find(x => x.id === 'base').raster.data; return { opacity: c.coats.find(x => x.id === 'base').opacity, sum: d.reduce((s, v) => s + v, 0) }; });
   const before = await composite();

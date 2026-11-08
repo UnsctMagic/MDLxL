@@ -183,7 +183,8 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   }
   function selectMaterial(id){if(busy||readOnly)return;endStroke();const target=project.targets.find(item=>item.id===id);if(!target)return;project.activeTargetId=id;setSelectedLamp(null);if(target.geosetIndices.length&&!target.geosetIndices.includes(activeGeoset))onGeosetChange?.(target.geosetIndices[0]);notify();}
   function changeLamp(id,change){updateScene({...scene,lamps:scene.lamps.map(lamp=>lamp.id===id?{...lamp,...change}:lamp)});}
-  function paintScope(target,scope){return regionPaintTarget(target,region,scope);}
+  // Paint runs past each piece of the New base coat layout so the empty gaps never show at piece edges.
+  function paintScope(target,scope){const scoped=regionPaintTarget(target,region,scope);return project?.paintAtlasVersion>=2?{...scoped,uvGutter:3}:scoped;}
   function projectionFor(hit,target,geosetIndex=null,mirrored=false){
     if(hit.textureView)return flatProjection;
     const scoped=paintScope(target,geosetIndex),key=(mirrored?'mirror:':'')+target.id+':'+(geosetIndex??'free')+':'+[...hiddenGeosets]+':'+(region?paintRegionEntries(region).map(([id,f])=>id+':'+[...f]).join(';'):'');

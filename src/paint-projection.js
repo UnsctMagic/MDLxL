@@ -103,7 +103,7 @@ export function preparePaintProjection(model, target, viewProjectionMatrix, widt
   if (!Array.isArray(viewProjectionMatrix) && !ArrayBuffer.isView(viewProjectionMatrix)) throw Error('Paint projection needs a camera matrix.');
   const matrix = Array.from(viewProjectionMatrix), allBindings = (model?.Geosets || []).map((geoset, geosetIndex) => ({ geosetIndex, materialId: geoset.MaterialID, layerIndex: 0, coordId: 0 }));
   const sceneTriangles = projectedTriangles(model, allBindings.filter(binding => !hiddenGeosets.has(binding.geosetIndex)), matrix, width, height, false), triangles = projectedTriangles(model, targetBindings(target).filter(binding => !hiddenGeosets.has(binding.geosetIndex)), matrix, width, height, true);
-  return { width, height, matrix, triangles, seams:projectedSeams(model,triangles), uvCoverage:paintUVTriangles(model,target.coverageBindings||target.bindings), depth:indexPaintDepth(sceneTriangles,width,height) };
+  return { width, height, matrix, triangles, seams:projectedSeams(model,triangles), uvCoverage:paintUVTriangles(model,target.coverageBindings||target.bindings), depth:indexPaintDepth(sceneTriangles,width,height), gutter:target.uvGutter||Math.SQRT2 };
 }
 
 function sampleDepth(depth, x, y) {
@@ -183,7 +183,7 @@ export function preparePaintSurface(projection, raster, flags = 0) {
       // Interior pixels use their own face projection, not a neighbouring
       // triangle's padded edge. Keep actual island gutters for seam filtering.
       addSample(sx,sy,sz,pixel,gutter&&coverage[pixel]?0:1,gutter?1:2);
-    },Math.SQRT2);
+    },projection.gutter||Math.SQRT2);
   }
   if(projection.seams?.length){
     for(const seam of projection.seams){

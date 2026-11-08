@@ -13,7 +13,7 @@ const MAX_STRETCH = 3;
 /** Share of a piece's surface allowed to exceed MAX_STRETCH. */
 const STRETCH_ALLOWANCE = .04;
 /** Mirror matching tolerance, as a share of the model's largest dimension. */
-const MIRROR_TOLERANCE = .004;
+const MIRROR_TOLERANCE = .02;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -376,6 +376,57 @@ function largestDimension(model, indices) {
   return Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1);
 }
 
+/** Row-by-row outline of a piece at this scale, grown by the gutter. */
+function pieceRows(chart, scale, padding) {
+  const rows = new Map(), mark = (y, x0, x1) => { const row = rows.get(y); if (row) { row[0] = Math.min(row[0], x0); row[1] = Math.max(row[1], x1); } else rows.set(y, [x0, x1]); };
+  for (const triangle of chart.triangles) {
+    const p = triangle.map(point => [(point[0] - chart.minU) * scale, (point[1] - chart.minV) * scale]);
+    const top = Math.floor(Math.min(p[0][1], p[1][1], p[2][1])), bottom = Math.ceil(Math.max(p[0][1], p[1][1], p[2][1]));
+    for (let y = top; y <= bottom; y++) {
+      let x0 = Infinity, x1 = -Infinity;
+      for (let i = 0; i < 3; i++) {
+        const a = p[i], b = p[(i + 1) % 3], low = Math.max(y, Math.min(a[1], b[1])), high = Math.min(y + 1, Math.max(a[1], b[1]));
+        if (low > high) continue;
+        for (const at of [low, high]) { const t = a[1] === b[1] ? 0 : (at - a[1]) / (b[1] - a[1]), x = a[0] + (b[0] - a[0]) * t; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+      }
+      if (x0 <= x1) mark(y, Math.floor(x0), Math.ceil(x1));
+    }
+  }
+  const grown = new Map();
+  for (const [y, [x0, x1]] of rows) for (let g = -padding; g <= padding; g++) { const row = grown.get(y + g); if (row) { row[0] = Math.min(row[0], x0 - padding); row[1] = Math.max(row[1], x1 + padding); } else grown.set(y + g, [x0 - padding, x1 + padding]); }
+  return [...grown].map(([y, [x0, x1]]) => [y, x0, x1]).sort((a, b) => a[0] - b[0]);
+}
+
+/** Fit pieces into each other's gaps, as an artist nests them, at one scale.
+ * Works on a coarse grid (256 cells across) so a large model still opens at once. */
+function tryNest(charts, resolution, padding, scale, deadline) {
+  const cell = resolution / 256, size = 256, used = new Uint8Array(size * size), placements = new Map(), gutter = Math.ceil(padding / cell);
+  const order = charts.map(chart => ({ chart, rows: pieceRows(chart, scale / cell, gutter) })).sort((a, b) => b.rows.length - a.rows.length || b.chart.width - a.chart.width);
+  for (const { chart, rows } of order) {
+    if (performance.now() > deadline) return null;
+    const fits = (ox, oy) => { for (const [y, x0, x1] of rows) { const r = oy + y; if (r < 0 || r >= size || ox + x0 < 0 || ox + x1 >= size) return false; const start = r * size; for (let x = ox + x0; x <= ox + x1; x++) if (used[start + x]) return false; } return true; };
+    let found = null;
+    search: for (let oy = 0; oy < size; oy++) for (let ox = 0; ox < size; ox++) if (fits(ox, oy)) { found = [ox, oy]; break search; }
+    if (!found) return null;
+    for (const [y, x0, x1] of rows) { const start = (found[1] + y) * size; used.fill(1, start + found[0] + x0, start + found[0] + x1 + 1); }
+    placements.set(chart, { x: found[0] * cell - padding, y: found[1] * cell - padding, innerW: chart.width * scale, innerH: chart.height * scale, rotated: false });
+  }
+  return placements;
+}
+
+/** Grow the rectangle packing's scale while the pieces still nest. */
+function nestCharts(charts, resolution, padding, packed) {
+  if (charts.length > 800) return packed;
+  const deadline = performance.now() + 1500;
+  let low = packed.scale, high = packed.scale * 1.9, best = null;
+  for (let step = 0; step < 10; step++) {
+    const middle = (low + high) / 2, placements = tryNest(charts, resolution, padding, middle, deadline);
+    if (placements) { low = middle; best = placements; } else high = middle;
+    if (performance.now() > deadline) break;
+  }
+  return best ? { scale: low, placements: best } : packed;
+}
+
 /** Glows and shockwaves blend over the game, and corpse gore only shows briefly;
  * the unit itself should get the pixels. Filter modes alone cannot tell: some
  * units draw their whole body with an additive-alpha layer, so size counts too. */
@@ -407,7 +458,7 @@ export function createPaintLayout(model, geosetIndices, resolution = 512, { mirr
   // Wide gutters keep pieces apart once the game shrinks the texture. Fall back
   // to a narrow one only when a very detailed model would lose real resolution.
   const wide = Math.max(2, Math.round(resolution / 128)), packedNarrow = packCharts(charts, resolution, 1, { upright: true }), packedWide = packCharts(charts, resolution, wide, { upright: true });
-  const useWide = packedWide.scale >= packedNarrow.scale * .9, packed = useWide ? packedWide : packedNarrow, padding = useWide ? wide : 1;
+  const useWide = packedWide.scale >= packedNarrow.scale * .9, padding = useWide ? wide : 1, packed = nestCharts(charts, resolution, padding, useWide ? packedWide : packedNarrow);
   for (const copy of copies) packed.placements.set(copy, packed.placements.get(copy.sharedWith));
   const all = [...charts, ...copies], Geosets = [...model.Geosets], coordIds = {}, byGeoset = new Map(); let addedVertices = 0;
   for (const chart of all) { let list = byGeoset.get(chart.geosetIndex); if (!list) byGeoset.set(chart.geosetIndex, list = []); list.push(chart); }
