@@ -461,3 +461,56 @@ test('the turtle tail stays behind the shell instead of becoming a bone through 
   const tails=r.pieces.filter(p=>p.kind==='branch');assert.ok(tails.length);
   for(const p of tails)for(const v of [p.start,p.end])assert.ok(((v[0]-a[0])*dx+(v[1]-a[1])*dy)/len2>=-.35,'tail pieces must not cross the shell from the waist to the tail root');
 });
+
+// The owner's Vampire Dragon with their own hand-made gutz corpse ("perfect", 7 Nov 2026):
+// unnamed bones, wings, a long neck and tail, a rider that vanishes in Death and a bat Death Alternate.
+const dragonModel=()=>{const file=process.env.MDLXL_CORPSE_DRAGON||testModel('corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx');return existsSync(file)?file:null;};
+test('a big winged dragon gets the owner corpse: wing, tail and neck bones, its own skull, no rider',{skip:!dragonModel()&&'owner dragon not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes}=await import('../src/animation.js');
+  const {booleanContours,signedArea}=await import('../src/forge-geometry.js');
+  const d=openDocument(new Uint8Array(readFileSync(dragonModel())),'dragon.mdx'),m=d.model;
+  // The owner's corpse at the start of Decay Bone, measured before Create hides it.
+  const bone=m.Sequences.findIndex(s=>s.Name==='Decay Bone'),own=m.Geosets.find(g=>m.Materials[g.MaterialID].Layers.some(l=>/gutz/i.test(m.Textures[l.TextureID]?.Image||'')));
+  const flat=(g,V)=>{const t=[];for(let f=0;f<g.Faces.length;f+=3){const tri=Array.from(g.Faces.slice(f,f+3),i=>[V[i*3],V[i*3+1]]);const s=signedArea(tri);if(Math.abs(s)<1e-6)continue;if(s<0)tri.reverse();t.push(tri);}return t;};
+  const owner=flat(own,skinGeoset(own,sampleNodeMatrices(m,m.Sequences[bone].Interval[0]+10,bone)));
+  const sequences=m.Sequences.length,r=apply(d),c=r.corpses[0],names=new Map(allNodes(d.model).map(n=>[n.ObjectId,n.Name]));
+  assert.equal(r.corpses.length,1,'the bat Death Alternate leaves no corpse, like Warcraft III');
+  assert.equal(d.model.Sequences.length,sequences,'the existing Decay Flesh/Bone are reused and no alternate decay is added');
+  assert.ok(!c.pieces.some(p=>(p.ids||[]).some(id=>/rider/i.test(names.get(id)||''))),'the rider shrinks away in Death and leaves nothing');
+  const skulls=c.pieces.filter(p=>p.kind==='skull');
+  assert.equal(skulls.length,1);assert.equal(names.get(skulls[0].ids[0]),'Object12','the skull is the dragon head that carries Head Ref');
+  const thin=c.pieces.filter(p=>p.kind==='branch'&&p.half*2<Math.hypot(p.end[0]-p.start[0],p.end[1]-p.start[1])*.5);
+  assert.ok(thin.length>=25,`wing fingers and tail are thin bones (${thin.length})`);
+  const g=d.model.Geosets[c.corpseGeoset],made=flat(g,g.Vertices),area=loops=>Math.abs(loops.reduce((s,l)=>s+signedArea(l),0));
+  const madeShape=booleanContours(made,[],'add',c.span),ownShape=booleanContours(owner,[],'add',c.span);
+  const ratio=area(madeShape)/area(ownShape),overlap=area(booleanContours(madeShape,ownShape,'keep',c.span))/area(booleanContours(made,owner,'add',c.span));
+  assert.ok(ratio>.8&&ratio<1.25,`corpse area ${ratio.toFixed(2)} of the owner's`);
+  assert.ok(overlap>=.5,`overlap with the owner's corpse ${overlap.toFixed(3)} (was 0.26 before wings/tails/necks)`);
+});
+
+// Owner models (7 Nov 2026): a dragon with 263 nodes, and effects switched by a global loop.
+const ownerFixture=name=>{const file=testModel('corpse-fixtures/'+name);return existsSync(file)?file:null;};
+test('past 254 nodes the corpse bone sits right after the model bones so the preview can draw it',{skip:!ownerFixture('Current_VampireDragon_263nodes.mdx')&&'owner dragon not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  const {allNodes}=await import('../src/animation.js');
+  const d=openDocument(new Uint8Array(readFileSync(ownerFixture('Current_VampireDragon_263nodes.mdx'))),'dragon.mdx');
+  const before=new Map(allNodes(d.model).map(n=>[n.Name+'#'+n.ObjectId,n])),bound=d.model.Geosets.map(g=>g.Groups.map(group=>group.map(id=>d.model.Nodes[id].Name)));
+  const bones=d.model.Bones.length,r=apply(d),m=d.model,ids=allNodes(m).map(n=>n.ObjectId).sort((a,b)=>a-b);
+  assert.ok(ids.every((v,i)=>v===i),'node numbers stay contiguous');
+  for(const c of r.corpses)assert.ok(m.Geosets[c.corpseGeoset].Groups[0][0]<254,'each corpse is bound to a bone the preview draws');
+  assert.ok(r.corpses.every(c=>m.Geosets[c.corpseGeoset].Groups[0][0]>=bones),'the model bones keep their numbers');
+  bound.forEach((groups,g)=>assert.deepEqual(m.Geosets[g].Groups.map(group=>group.map(id=>m.Nodes[id].Name)),groups,'every body mesh keeps its own bones'));
+  for(const n of allNodes(m))if(n.Parent!=null&&n.Parent>=0)assert.ok(m.Nodes[n.Parent],'parents still resolve');
+  assert.ok(before.size>250);
+});
+test('an effect switched by a global loop no longer blocks Create and is silenced only in decay',{skip:!ownerFixture('WH_WOC_KnightKhorneAxe05.mdx')&&'owner Khorne knight not in the test models'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');
+  for(const name of ['WH_WOC_KnightKhorneAxe05.mdx','WH_WOC_AspiringChampionTzeentch01.mdx'].filter(ownerFixture)){
+    const d=openDocument(new Uint8Array(readFileSync(ownerFixture(name))),name),looped=d.model.ParticleEmitters2.filter(n=>n.Visibility?.GlobalSeqId!=null).map(n=>[n.Name,structuredClone(n.Visibility)]);
+    assert.ok(looped.length,`${name} has a looped effect`);
+    const r=apply(d),m=d.model,c=r.corpses[0];
+    for(const [effect,visibility] of looped){const n=m.ParticleEmitters2.find(e=>e.Name===effect);assert.deepEqual(n.Visibility,visibility,'the global loop itself is unchanged');
+      if(n.EmissionRate?.GlobalSeqId==null)for(const seq of [c.flesh,c.bone])assert.equal(sampleTrack(n.EmissionRate,m.Sequences[seq].Interval[0]+500,{interval:m.Sequences[seq].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:0}),0,'no particles in decay');}
+  }
+});

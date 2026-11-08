@@ -44,8 +44,12 @@ export default function AppDialogs({
   // Save as can rename the model itself (its Info name), not only the file.
   const saveAsFormat = async format => {
     const name = dialog.modelName?.trim();
-    if (name && name !== model.Info.Name && edit('Rename model', ['Info'], m => { m.Info.Name = name; }) === false) return;
-    if (preferences.saveCalculateExtents && !doc.readOnly && edit('Calculate extents', ['Info', 'Sequences', 'Geosets'], m => { calculateExtents(m); }) === false) return;
+    // edit() also returns false when nothing changed (extents already right),
+    // so only a thrown error stops the save; edit() shows that error itself.
+    try {
+      if (name && name !== model.Info.Name) edit('Rename model', ['Info'], m => { m.Info.Name = name; }, { rethrow: true });
+      if (preferences.saveCalculateExtents && !doc.readOnly) edit('Calculate extents', ['Info', 'Sequences', 'Geosets'], m => { calculateExtents(m); }, { rethrow: true });
+    } catch { return; }
     if (await save(true, format)) setDialog(null);
   };
   return <>
@@ -60,7 +64,8 @@ export default function AppDialogs({
     {dialog?.type==='saveFormat' && !saveDataChoice && <Dialog title="Save as" onClose={()=>setDialog(null)} footer={<><button disabled={saving} onClick={()=>saveAsFormat('mdx')}>Save MDX…</button><button disabled={saving} onClick={()=>saveAsFormat('mdl')}>Save MDL…</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Model version: {model.Version}</p><p><label title={MODEL_NAME_TIP}>Model name <input autoFocus aria-label="Model name" title={MODEL_NAME_TIP} maxLength={79} disabled={doc.readOnly || saving} value={dialog.modelName ?? model.Info.Name ?? ''} onChange={event => { const value = event.target.value; setDialog(previous => ({ ...previous, modelName: value })); }}/></label></p><p><label title={EXTENTS_TIP}><input type="checkbox" title={EXTENTS_TIP} disabled={doc.readOnly || saving} checked={!!preferences.saveCalculateExtents} onChange={event => changePreferences({ ...preferences, saveCalculateExtents: event.target.checked })}/> Calculate extents</label></p><p>MDX saves the binary model. MDL saves editable text. Both preserve supported model data; unsupported conversion is blocked before writing.</p></Dialog>}
     {saveDataChoice && <SaveEditorData hasFx={model.Geosets.some(g=>g._FxStack)} name={saveDataChoice.name} bytes={saveDataChoice.bytes} onChoose={value => { saveDataChoice.resolve(value); setSaveDataChoice(null); }}/>}
     {dialog?.type === 'recent' && <Dialog title="Recent Files" onClose={()=>setDialog(null)} footer={<><button disabled={!recentFiles.length} onClick={clearRecent}>Clear History</button><button onClick={()=>setDialog(null)}>Close</button></>}>{recentFiles.length ? recentFiles.map(path=><button key={path} title={path} onClick={()=>{setDialog(null);openRecent(path);}} style={{display:'block',width:'100%',textAlign:'left',overflowWrap:'anywhere'}}>{path}</button>) : <p>No recent files.</p>}</Dialog>}
-    {context && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [
+    {context?.uncouple && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - 40) }} onClick={event => event.stopPropagation()}><label className="check" title="On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot."><input type="checkbox" checked={preferences.uncoupleNuke} onChange={event => changePreferences(previous => ({ ...previous, uncoupleNuke: event.target.checked }))}/>Nuke</label></div>}
+    {context && !context.uncouple && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [
       ['Add to tab…', () => setDialog({ type: 'geosetTab', geosetIndex: context.geosetIndex, tabId: (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === geosetTab) ? geosetTab : model[GEOSET_TABS_KEY]?.[0]?.id })],
       ['Hide Geoset', () => hideGeoset(context.geosetIndex)],
       ['Show Always', () => leaveGeosetVisible(context.geosetIndex)],

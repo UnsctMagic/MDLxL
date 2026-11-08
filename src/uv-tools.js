@@ -17,7 +17,9 @@ const UV_TURN_CENTRE = 2;
  * the selection's centre turns it: circling follows the mouse at the same
  * strength at any distance; moving straight toward or away does nothing.
  * Near the centre the same circling gives a steady, smaller turn instead of a
- * jump. The wrapper turns at 70%; FX texture fitting keeps 100%. Shift/Alt fine
+ * jump. While the mouse is over a big piece (`drag.reach`: its farthest
+ * point from the centre in screen pixels) the turn goes by distance moved
+ * around the centre, so the piece never outruns the mouse. The wrapper turns at 70%; FX texture fitting keeps 100%. Shift/Alt fine
  * control scale each step (`drag.fine`). Call at drag start and on every sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
@@ -26,7 +28,9 @@ export function uvTurn(drag, x, y) {
   const angle = Math.atan2(py, px);
   if (drag.angle !== undefined) {
     const step = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
-    const zone = drag.wrapperControls === false ? FX_TURN_STEADY : UV_TURN_STEADY;
+    // Over a big piece the steady zone grows to the piece's own size, so no
+    // point of it ever moves faster than 70% of the mouse (owner, 7 Nov 2026).
+    const zone = drag.wrapperControls === false ? FX_TURN_STEADY : Math.max(UV_TURN_STEADY, drag.reach || 0);
     const steady = Math.min(1, radius / zone, drag.radius / zone);
     // FX texture fitting also uses UVEditor and keeps its original 1:1 speed.
     drag.turn += step * steady * (drag.wrapperControls === false ? 1 : UV_TURN_SENSITIVITY) * (drag.fine ?? 1);
@@ -73,14 +77,23 @@ export function relevantUVMaterials(model, selectionByGeoset, time = 0, sequence
     const entry = grouped.get(materialID) || { materialID, geosetIndices: [] };
     entry.geosetIndices.push(geosetIndex); grouped.set(materialID, entry);
   }
-  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => {
-    const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
-    const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
-    const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
-    const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
-    const names = [...new Set(layers.map(layer => layer.label))];
-    return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
-  });
+  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => describeUVMaterial(model, entry, time, sequenceIndex));
+}
+
+function describeUVMaterial(model, entry, time, sequenceIndex) {
+  const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
+  const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
+  const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
+  const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
+  const names = [...new Set(layers.map(layer => layer.label))];
+  return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
+}
+
+/** The model's other materials, described as if these geosets used them. */
+export function otherUVMaterials(model, geosetIndices, excludedMaterialIDs, time = 0, sequenceIndex = -1) {
+  const excluded = new Set(excludedMaterialIDs);
+  return (model?.Materials || []).flatMap((material, materialID) => material && !excluded.has(materialID)
+    ? [describeUVMaterial(model, { materialID, geosetIndices }, time, sequenceIndex)] : []);
 }
 
 /** Flatten geosets into one temporary UV canvas with their shared model positions. */

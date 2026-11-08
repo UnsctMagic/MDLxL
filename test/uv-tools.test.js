@@ -1,12 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { combineUVGeosets, combineSelectedUVGeosets, splitSelectedUVGeosets, collapseUVCoordinates, foldUVCoordinates, projectUVFromView, uvTurn, relevantUVMaterials, splitCombinedUV, uncoupleUVVertices } from '../src/uv-tools.js';
+import { combineUVGeosets, combineSelectedUVGeosets, splitSelectedUVGeosets, collapseUVCoordinates, foldUVCoordinates, projectUVFromView, uvTurn, relevantUVMaterials, otherUVMaterials, splitCombinedUV, uncoupleUVVertices } from '../src/uv-tools.js';
 import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
 
 const geoset = (offset = 0, material = 0) => ({ MaterialID: material,
   Vertices: new Float32Array([offset, 0, 0, offset + 1, 0, 0, offset, 1, 0, offset + 1, 1, 0]),
   Normals: new Float32Array([0,0,1, 0,0,1, 0,0,1, 0,0,1]), VertexGroup: new Uint8Array([0,0,0,0]),
   TVertices: [new Float32Array([0,0, 1,0, 0,1, 1,1])], Faces: new Uint16Array([0,1,2, 1,3,2]), Groups: [[0]],
+});
+
+test('the UV material menu can offer every other model material for the working geosets', () => {
+  const texture = name => ({ Image: name, ReplaceableId: 0, Flags: 3 });
+  const model = {
+    Textures: [texture('A.blp'), texture('B.blp')],
+    Materials: [{ Layers: [{ TextureID: 0 }] }, { Layers: [{ TextureID: 1, CoordId: 1 }] }, { Layers: [{ TextureID: 1, CoordId: 3 }] }],
+    Geosets: [{ MaterialID: 0, TVertices: [[0, 0], [0, 0]] }],
+  };
+  const others = otherUVMaterials(model, [0], [0]);
+  assert.deepEqual(others.map(entry => [entry.materialID, entry.label, entry.geosetIndices]), [[1, 'Material 2 · B.blp', [0]], [2, 'Material 3 · B.blp', [0]]]);
+  // The geoset has no fourth UV set, so the third material falls back to one it does have.
+  assert.deepEqual(others.map(entry => entry.coordId), [1, 0]);
 });
 
 test('relevant UV material menu contains only materials used by available geosets and retains every WC3 layer', () => {
@@ -154,6 +167,15 @@ test('UV map Rotate: only circling turns, same strength everywhere, never snaps'
   assert.ok(Math.abs(run(arc(80, 0, -720, 144)).total + 504) < 1e-9, 'counter-clockwise past two turns');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, fine: .2 }).total - 12.6) < 1e-9, 'Shift/Alt fine control');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false }).total - 90) < 1e-9, 'FX texture fitting keeps one for one');
+  // Owner, 7 Nov: a big piece must never spin. Over the piece its farthest point
+  // moves at most 70% of the mouse; outside the piece nothing changes.
+  for (const radius of [24, 40, 100, 200]) {
+    const mousePath = radius * 90 * deg, { total } = run(arc(radius, 30, 120), { pivotScreen, reach: 400 });
+    assert.ok(Math.abs(total * deg * 400 - mousePath * .7) < 1e-6, `over a 400px piece at ${radius}px the far edge moves 70% of the mouse`);
+  }
+  assert.ok(Math.abs(run(arc(500, 30, 120), { pivotScreen, reach: 400 }).total - 63) < 1e-9, 'outside a big piece the turn is unchanged');
+  assert.ok(Math.abs(run(arc(60, 30, 120), { pivotScreen, reach: 10 }).total - 63) < 1e-9, 'a small piece turns as before');
+  assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false, reach: 400 }).total - 90) < 1e-9, 'FX texture fitting ignores piece size');
   // Straight toward/away from the centre does not turn, in any direction.
   for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [.6, .8], [-.8, .6]]) {
     assert.ok(Math.abs(run(line(vx * 24, vy * 24, vx * 230, vy * 230)).total) < 1, `straight away ${vx},${vy} does not turn`);

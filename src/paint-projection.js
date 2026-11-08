@@ -103,7 +103,7 @@ export function preparePaintProjection(model, target, viewProjectionMatrix, widt
   if (!Array.isArray(viewProjectionMatrix) && !ArrayBuffer.isView(viewProjectionMatrix)) throw Error('Paint projection needs a camera matrix.');
   const matrix = Array.from(viewProjectionMatrix), allBindings = (model?.Geosets || []).map((geoset, geosetIndex) => ({ geosetIndex, materialId: geoset.MaterialID, layerIndex: 0, coordId: 0 }));
   const sceneTriangles = projectedTriangles(model, allBindings.filter(binding => !hiddenGeosets.has(binding.geosetIndex)), matrix, width, height, false), triangles = projectedTriangles(model, targetBindings(target).filter(binding => !hiddenGeosets.has(binding.geosetIndex)), matrix, width, height, true);
-  return { width, height, matrix, triangles, seams:projectedSeams(model,triangles), uvCoverage:paintUVTriangles(model,target.coverageBindings||target.bindings), depth:indexPaintDepth(sceneTriangles,width,height) };
+  return { width, height, matrix, triangles, seams:projectedSeams(model,triangles), uvCoverage:paintUVTriangles(model,target.coverageBindings||target.bindings), depth:indexPaintDepth(sceneTriangles,width,height), gutter:target.uvGutter||Math.SQRT2 };
 }
 
 function sampleDepth(depth, x, y) {
@@ -183,7 +183,7 @@ export function preparePaintSurface(projection, raster, flags = 0) {
       // Interior pixels use their own face projection, not a neighbouring
       // triangle's padded edge. Keep actual island gutters for seam filtering.
       addSample(sx,sy,sz,pixel,gutter&&coverage[pixel]?0:1,gutter?1:2);
-    },Math.SQRT2);
+    },projection.gutter||Math.SQRT2);
   }
   if(projection.seams?.length){
     for(const seam of projection.seams){
@@ -317,11 +317,27 @@ export function stampProjectedBrush(raster, projection, center, brush, options =
   return changed;
 }
 
+/** Pen pressure thins the stroke like a real tip. A mouse reports no pressure
+ * and keeps the brush exactly as set. */
+export function paintPenBrush(brush, pressure, { size = true, opacity = false } = {}) {
+  if (pressure === undefined || (!size && !opacity)) return brush;
+  const amount = Math.max(0, Math.min(1, Number(pressure)));
+  return { ...brush, size: size ? Math.max(1, brush.size * (.12 + .88 * amount)) : brush.size, opacity: opacity ? brush.opacity * amount : brush.opacity };
+}
+
+/** The same camera seen through the model's left/right plane. A stroke projected
+ * with it lands on the opposite side, even when that side faces away. */
+export function mirroredPaintMatrix(matrix) {
+  const mirrored = Array.from(matrix);
+  for (let i = 4; i < 8; i++) mirrored[i] = -mirrored[i];
+  return mirrored;
+}
+
 export function interpolatePaintStroke(previous, next, brush) {
   if (!previous) return [next];
   const distance = Math.hypot(next.x - previous.x, next.y - previous.y), step = Math.max(1, Number(brush.size) * Math.max(.03, Number(brush.spacing)));
   const count = Math.max(1, Math.ceil(distance / step)), result = [];
-  for (let index = 1; index <= count; index++) { const amount = index / count; result.push({ x: previous.x + (next.x - previous.x) * amount, y: previous.y + (next.y - previous.y) * amount }); }
+  for (let index = 1; index <= count; index++) { const amount = index / count, sample = { x: previous.x + (next.x - previous.x) * amount, y: previous.y + (next.y - previous.y) * amount }; if (next.pressure !== undefined) sample.pressure = (previous.pressure ?? next.pressure) + (next.pressure - (previous.pressure ?? next.pressure)) * amount; result.push(sample); }
   return result;
 }
 

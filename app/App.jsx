@@ -57,7 +57,7 @@ import { nativeStarterTexture, repointStarterTextures } from '../src/particle-st
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
-import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
+import { beginUVPreview, applyUVPreviews, revertUVPreviews, dropUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
 import './texture-library.css';
@@ -1070,6 +1070,14 @@ export default function App() {
     session.uvPreviews = {}; setLiveUV(null); refresh();
     if (result === false) say('Texture kept: the model already uses this material.');
   }
+  function assignUVMaterial(geosetIndices, materialID) {
+    if (savingRef.current || doc.readOnly) return;
+    session.uvPreviews = dropUVPreviews(session.uvPreviews, geosetIndices); setLiveUV(null);
+    const changing = geosetIndices.filter(index => model.Geosets[index]?.MaterialID !== materialID);
+    // A test texture on the geoset's own material: cancelling it is the whole change.
+    if (!changing.length) { refresh(); return; }
+    edit('Assign material', ['Geosets'], m => { for (const index of changing) m.Geosets[index].MaterialID = materialID; });
+  }
   const importTextures = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textures())} textures.`); else textures.current.click(); } catch (error) { say(error.message, true); } };
   const textureFolder = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textureFolder(model.Textures.map(t => t.Image)))} textures.`); else folder.current.click(); } catch (error) { say(error.message, true); } };
   const selectManagerTextures = async records => {
@@ -1193,7 +1201,7 @@ export default function App() {
         if (name === 'Delete vertices') { if (ids.length === g.Vertices.length / 3) { deleteGeoset(m, gi); removedGeosets.push(gi); } else deleteVertices(g, ids); }
         else if (name === 'Create triangle') addTriangle(g, ids);
         else if (name === 'Delete triangles') outcome = deleteSelectedFaces(g, ids);
-        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids);
+        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids, { nuke: preferences.uncoupleNuke });
         else if (name === 'Collapse') outcome = collapseVertices(g, ids, centroid);
         else if (name === 'Weld') outcome = weldSelectedVertices(g, ids, centroid);
         else if (name === 'Smooth normals') outcome = averageSelectedNormals(g, ids);
@@ -1720,7 +1728,7 @@ export default function App() {
     if (result !== false) { setSelection(nextSelection); setUVEntrySelection(nextDomain); setLiveUV(null); }
   };
   const uvWorkspace = <AppUVWorkspace {...{
-    activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
+    activeGeoset, applyGeosetDensity, assignUVMaterial, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
     changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
     previewSuspended: previewSuspended || !!uvWindow?.minimized, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
     setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
@@ -1750,7 +1758,7 @@ export default function App() {
     onHighlightChain: changeHighlightChain, preferences, disabled: doc.readOnly || saving, model, revision: doc.revision, sequenceIndex: sequence,
     time, selectedNodeIds, onSelectNodes: setSelectedNodeIds, onEdit: edit, onSeek: setTime, onSequenceChange: selectSequence, playing,
     onPlayingChange: setPlaying, transformMode: movementMode, onTransformMode: value => setWorkTool(value==='move'?'translate':value),
-    transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
+    transformSpace: movementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
   const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings }), [preferences, openHotkeySettings]);
@@ -1839,7 +1847,7 @@ export default function App() {
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
-        setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
+        setContext, setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
