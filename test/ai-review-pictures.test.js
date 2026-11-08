@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations } from '../app/ai-review.js';
 import { createChanges } from '../src/history-store.js';
+import { compareMotion } from '../src/ai-motion-compare.js';
 import { encodeAiValue } from '../src/ai-model.js';
 import { createVersionStore } from '../src/ai-versions.js';
 const { choosePictures } = createRequire(import.meta.url)('../electron/ai-service.cjs');
@@ -46,9 +47,15 @@ function editor({ sequence = 0, frame = 50 } = {}) {
     },
     dispatch: async name => (name === 'mdlxl_document' ? { results: [{ format: 'mdx', diagnostics: [] }] } : { samples: [] }),
   };
-  // Checkpoints fingerprint the saved bytes through the save worker.
+  // Checkpoints fingerprint the saved bytes through the save worker; review measures through its own.
   globalThis.Worker = class {
-    postMessage() { setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1]) } })); }
+    constructor(url) { this.url = String(url); }
+    postMessage(message) {
+      const data = this.url.includes('ai-motion-compare')
+        ? { result: compareMotion(structuredClone(message.before), structuredClone(message.after), message.options) }
+        : { bytes: new Uint8Array([1]) };
+      setTimeout(() => this.onmessage({ data }));
+    }
     terminate() {}
   };
   globalThis.window = { desktop: { aiScript: async ({ model, before }) => ({ value: [{ name: 'flail swings', passed: true }], model, before }) } };
