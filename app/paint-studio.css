@@ -36,9 +36,10 @@
 .paint-studio .studio-brushes{grid-template-columns:repeat(5,1fr);gap:2px}.paint-studio .studio-brushes button{padding:2px 0;gap:1px;font-size:9px}.paint-studio .studio-tip{width:14px;height:14px}
 .studio-color-row{display:flex;align-items:center;gap:4px}.studio-color-row .paint-color{flex:0 0 auto;display:flex;align-items:center;gap:4px;margin:0}.studio-color-row button{flex:1;min-width:0;white-space:nowrap}.paint-studio .studio-swatches button{min-height:16px}
 .paint-studio .studio-controls .range-field{gap:0}.paint-studio .studio-slider input[type=number]{height:20px;padding:0 2px}
-.studio-layer-hidden{opacity:.5;text-decoration:line-through}.studio-detail{display:flex;flex-direction:column;gap:2px}
+.studio-layer-hidden{opacity:.5;text-decoration:line-through}
 .paint-studio{grid-template-columns:240px minmax(180px,1fr) 222px}
 .paint-studio .studio-controls fieldset,.paint-studio .studio-controls section{min-width:0}
 .paint-studio .studio-brushes button>span:not(.studio-tip){white-space:nowrap;overflow-wrap:normal}
 .paint-studio .studio-selection .studio-segments>button{min-width:0;overflow:hidden}.paint-studio .studio-layers .studio-segments>button{min-width:0;font-size:10px}
 .paint-studio .studio-selection .studio-segments>button,.paint-studio .studio-layers .studio-segments>button{flex:1 1 auto}
+.paint-studio[data-key-labels=false] .paint-key:not(.paint-shortcuts .paint-key){display:none}

@@ -118,6 +118,14 @@ test('a part marked for more detail gets more pixels than the same part at Norma
   assert.ok(ratio(0)>ratio(1)*3,'the chosen part grows against the other');
   const a=facePixels(rich.model.Geosets[0],0,512)/facePixels(rich.model.Geosets[1],0,512);assert.ok(Math.abs(a-2.5**2)<1,'pixels per surface follow the level: '+a);
 });
+test('any typed detail value lays out inside the image and sets the pixel share',()=>{
+  const model=paintFixtureModel([tube(),tube({offset:[50,0,0]})]),faces=model.Geosets[0].Faces.length/3;
+  for(const value of [.1,.25,1.37,3.3,10]){
+    const result=createPaintLayout(model,[0,1],512,{detail:{0:Object.fromEntries(Array.from({length:faces},(_,i)=>[i,value]))}});
+    for(const geoset of result.model.Geosets)assert.ok(geoset.TVertices.at(-1).every(v=>v>=0&&v<=1),'inside the image at '+value);
+    const share=facePixels(result.model.Geosets[0],0,512)/facePixels(result.model.Geosets[1],0,512);assert.ok(Math.abs(share/value**2-1)<.25,'pixels follow '+value+': '+share);
+  }
+});
 test('a piece never mixes detail levels',()=>{
   const model=paintFixtureModel([tube({sides:8,rings:2})]),faces=model.Geosets[0].Faces.length/3,detail={0:Object.fromEntries(Array.from({length:faces/2},(_,i)=>[i,2.5]))},plain=createPaintLayout(model,[0],512),split=createPaintLayout(model,[0],512,{detail});
   assert.ok(split.chartCount>plain.chartCount);

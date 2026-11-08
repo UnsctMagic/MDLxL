@@ -7923,9 +7923,8 @@
   "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "左右相同的部件共用同一批像素：画一侧，另一侧随之变化，整体更清晰。如果两侧必须不同，请不要勾选。",
   "Show the texture filtered, as the game draws it": "按游戏中的效果显示过滤后的贴图",
   "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "平滑显示 (Z)：按游戏中的效果显示过滤后的贴图。关闭时显示每个像素。",
-  "Most": "最多",
   "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "此选区获得多少贴图像素。其他部件会让出空间，已画内容会随之移动。",
   "Share pixels between matching parts": "相同部件共用像素",
   "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "左右两侧和重复部件共用同一批像素：画一个，其余随之变化，整体更清晰。如果它们必须不同，请不要勾选。",
-  "Learn: open learning controls and settings. Right-click turns the hotkey overlay on or off.": "学习：打开学习控制和设置。右键单击可开关快捷键提示。"
+  "Paint key labels": "Paint 按键标签"
 }

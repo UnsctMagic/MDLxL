@@ -127,11 +127,14 @@ async function run() {
   const layoutKey = () => page.evaluate(() => Array.from(audit().viewport.model.Geosets[0].TVertices[0].slice(0, 40)).join());
   const paintedOn = () => page.evaluate(() => audit().project.targets[0].coats.find(c => c.id === 'base').raster.data.reduce((n, v, i) => n + (i % 4 === 0 && v > 150 ? 1 : 0), 0));
   const oldLayout = await layoutKey(), oldPaint = await paintedOn();
-  await page.getByRole('group', { name: 'Detail' }).getByRole('button', { name: 'More' }).click();
-  await page.waitForFunction(() => audit().layout.detailLevel === 1.6, null, { timeout: 15000 }); await settle(400);
+  const detailBox = page.getByLabel('Detail value'); await detailBox.fill('3.3'); await detailBox.press('Enter');
+  await page.waitForFunction(() => audit().layout.detailLevel === 3.3, null, { timeout: 15000 }); await settle(400);
   assert.notEqual(await layoutKey(), oldLayout); const newPaint = await paintedOn(); assert.ok(newPaint > oldPaint, 'the selected part grows, so its paint covers more pixels: ' + oldPaint + ' to ' + newPaint); passed('Detail gives the selection more pixels and its paint comes along');
   await page.keyboard.press('Control+z'); await settle(600);
   assert.equal(await layoutKey(), oldLayout); assert.equal(await paintedOn(), oldPaint); passed('Undo restores the old layout and paint exactly');
+  const detailSlider = page.getByRole('slider', { name: 'Detail', exact: true }), track = await detailSlider.boundingBox(); await page.mouse.click(track.x + track.width * .8, track.y + track.height / 2);
+  await page.waitForFunction(() => audit().layout.detailLevel > 3, null, { timeout: 15000 }); await settle(400); assert.notEqual(await layoutKey(), oldLayout); passed('the Detail slider sets any value and applies on release');
+  await page.keyboard.press('Control+z'); await settle(600); assert.equal(await layoutKey(), oldLayout); passed('Undo restores the layout after the slider');
   await page.keyboard.press('Control+d'); await settle();
   assert.deepEqual(result.errors, []);
   console.log(JSON.stringify({ out, checks: result.checks.length }, null, 2));
