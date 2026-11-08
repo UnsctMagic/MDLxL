@@ -4,7 +4,7 @@ import { createChanges } from '../src/history-store.js';
 import { sweepAiRelation } from '../src/ai-relation-sweep.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
-import { compareMotion, motionTable } from '../src/ai-motion-compare.js';
+import { motionTable } from '../src/ai-motion-compare.js';
 
 export async function aiCheckpoint(
   bridge,
@@ -316,6 +316,25 @@ async function comparisonPictures(bridge, id, review, before, args) {
   const pose = { ...sample(shown), frame: frames[Math.floor(frames.length / 2)] };
   return { images, frames, shown, pose, missing, compared: { animation: animationName(model, shown), original: original ? animationName(before, original) : null, donor: donor ? `${donor.name}: ${animationName(donor.model, donor.animation)}` : null } };
 }
+// Every frame of every changed clip takes tens of seconds on a real model, so it
+// runs off the window's thread on its own copy of both models. Stop ends it at once.
+function measureMotion(before, after, options, signal) {
+  signal?.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./ai-motion-compare.worker.js', import.meta.url), { type: 'module' });
+    const finish = (settle, value) => {
+      worker.terminate();
+      signal?.removeEventListener('abort', abort);
+      settle(value);
+    };
+    const abort = () => finish(reject, signal.reason);
+    worker.onmessage = ({ data }) => (data.error ? finish(reject, Error(data.error)) : finish(resolve, data.result));
+    worker.onerror = event => finish(reject, Error(event.message || 'Motion comparison failed.'));
+    worker.onmessageerror = () => finish(reject, Error('Motion comparison returned unreadable results.'));
+    signal?.addEventListener('abort', abort, { once: true });
+    worker.postMessage({ before, after, options });
+  });
+}
 // Both inspect and the outside check measure the current plan. A topology edit
 // can leave a named point on only one side, so preserve the other side's numbers.
 async function planSweeps(review, checks, { revision, baseline, before, model }, signal) {
@@ -410,7 +429,7 @@ export async function reviewAiModel(bridge, args, options) {
     const sequences = [...local, ...(touched.globalSequences || []).map(globalSequence => ({ globalSequence }))];
     const key = JSON.stringify(sequences);
     if (review.motionCache?.revision !== revision || review.motionCache?.before !== before || review.motionCache?.key !== key)
-      review.motionCache = { revision, before, key, value: compareMotion(before, state.model, { sequences }) };
+      review.motionCache = { revision, before, key, value: await measureMotion(before, state.model, { sequences }, options.signal) };
   }
   const sweeps = await measurePlan();
   const comparison = await comparisonPictures(bridge, args.target, review, before, args),

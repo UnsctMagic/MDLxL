@@ -53,9 +53,10 @@ export function weldSelectedVertices(geoset, indices, center) {
  * U: give every face corner using a selected vertex an independent vertex.
  * Keep the first use and append copies for later uses; copy every SD/HD stream.
  * Inset each selected corner toward its opposite edge so independent vertices
- * can be seen and picked. Keep all resulting corners selected, as in MDLVis.
+ * can be seen and picked; `nuke: false` leaves every copy on its original spot.
+ * Keep all resulting corners selected, as in MDLVis.
  */
-export function uncoupleVertices(geoset, indices) {
+export function uncoupleVertices(geoset, indices, { nuke = true } = {}) {
   const { count, selected } = checkedVertexSelection(geoset, indices);
   const chosen = new Set(selected), occurrences = new Uint32Array(count);
   let added = 0;
@@ -75,7 +76,7 @@ export function uncoupleVertices(geoset, indices) {
   // inset instead of the legacy zoom formula that can collapse/extrapolate.
   // Read every neighbour from the pre-edit mesh to avoid order-dependent skew.
   const inset = 0.2;
-  for (let offset = 0; offset < faces.length; offset += 3) for (let corner = 0; corner < 3; corner++) {
+  if (nuke) for (let offset = 0; offset < faces.length; offset += 3) for (let corner = 0; corner < 3; corner++) {
     const source = geoset.Faces[offset + corner];
     if (!chosen.has(source)) continue;
     const left = geoset.Faces[offset + (corner + 1) % 3], right = geoset.Faces[offset + (corner + 2) % 3];

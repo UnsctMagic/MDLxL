@@ -37,6 +37,7 @@ const VARIANTS = {
 const SPECIAL = {
   'ai-model-merge': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-local-workspace': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
+  'ai-review-responsive': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'visual-effects-save': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'visual-effects-review': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects-uv': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
