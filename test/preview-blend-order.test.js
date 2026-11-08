@@ -142,3 +142,22 @@ test('cutout coverage follows model-framebuffer samples while the editor canvas 
     adapter.dispose();
   }
 });
+
+test('Additive ribbons scale their colour by Alpha and draw ONE + ONE; other ribbons keep theirs', () => {
+  const { gl, native, model, clock } = fixture(), colors = [], blends = [];
+  gl.uniform4f = (_, ...value) => colors.push(value.map(v => Math.round(v * 100) / 100)); gl.blendFunc = (...value) => blends.push(value);
+  const ribbons = native.ribbonsController, originals = {};
+  Object.assign(ribbons, {
+    shaderProgramLocations: { colorUniform: 'uColor' }, interp: { animVectorVal: value => value },
+    setGeneralBuffers() {}, setLayerProps(layer) { if (layer.FilterMode === 3) gl.blendFunc(gl.SRC_COLOR, gl.ONE); },
+    render() { for (const emitter of this.emitters) { this.setGeneralBuffers(emitter); for (const layer of emitter.layers) this.setLayerProps(layer, 0); } },
+    emitters: [{ props: { Color: [1, .5, 0], Alpha: .2 }, layers: [{ FilterMode: 3 }, { FilterMode: 4 }] }],
+  });
+  Object.assign(originals, { buffers: ribbons.setGeneralBuffers, layer: ribbons.setLayerProps });
+  const adapter = installWarcraftPreviewAdapter(gl, model, () => clock); adapter.ready(native);
+  ribbons.render();
+  assert.deepEqual(colors, [[.2, .1, 0, .2], [1, .5, 0, .2]]);
+  assert.deepEqual(blends, [[gl.SRC_COLOR, gl.ONE], [gl.ONE, gl.ONE]]);
+  adapter.dispose();
+  assert.equal(ribbons.setGeneralBuffers, originals.buffers); assert.equal(ribbons.setLayerProps, originals.layer);
+});

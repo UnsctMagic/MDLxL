@@ -131,7 +131,7 @@ const effectsPass = pass => pass === null || pass === 'blended' || pass === 'hot
 export function installWarcraftPreviewAdapter(gl, model, getClock) {
   const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, vertexAttribPointer: gl.vertexAttribPointer, useProgram: gl.useProgram, drawElements: gl.drawElements };
   gl.shaderSource = function (shader, source) { return original.shaderSource.call(this, shader, patchWarcraftMeshVertexShader(patchWarcraftMeshFragmentShader(source))); };
-  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, renderParticles, render;
+  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, setRibbonBuffers, setRibbonLayer, renderParticles, render;
   let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey;
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
@@ -256,6 +256,24 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           try { return renderRibbons.apply(this, args); }
           finally { for (const [props, color] of replacements) props.Color = color; }
         };
+        // Additive ribbons follow the mesh rule above: ONE + ONE with the colour
+        // scaled by the ribbon's Alpha. Upstream's SRC_COLOR + ONE drops Alpha,
+        // so the Intensity control had no visible effect on Additive ribbons.
+        if (native.ribbonsController.setGeneralBuffers && native.ribbonsController.setLayerProps) {
+          let ribbonEmitter = null;
+          setRibbonBuffers = native.ribbonsController.setGeneralBuffers;
+          setRibbonLayer = native.ribbonsController.setLayerProps;
+          native.ribbonsController.setGeneralBuffers = function (emitter) { ribbonEmitter = emitter; return setRibbonBuffers.call(this, emitter); };
+          native.ribbonsController.setLayerProps = function (layer, textureID) {
+            const result = setRibbonLayer.call(this, layer, textureID), color = ribbonEmitter?.props.Color;
+            if (color && this.shaderProgramLocations?.colorUniform) {
+              const alpha = Math.max(0, Math.min(1, this.interp.animVectorVal(ribbonEmitter.props.Alpha, 1))), scale = layer.FilterMode === 3 ? alpha : 1;
+              gl.uniform4f(this.shaderProgramLocations.colorUniform, color[0] * scale, color[1] * scale, color[2] * scale, alpha);
+            }
+            if (layer.FilterMode === 3) gl.blendFunc(gl.ONE, gl.ONE);
+            return result;
+          };
+        }
       }
       gl.useProgram = function (program) { activeProgram = program; return original.useProgram.call(this, program); };
       gl.bindBuffer = function (target, buffer) {
@@ -350,6 +368,8 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       if (native && setLayerPropsHD) native.setLayerPropsHD = setLayerPropsHD;
       if (native?.ribbonsController && renderRibbons) native.ribbonsController.render = renderRibbons;
       if (native?.ribbonsController && updateRibbons) native.ribbonsController.update = updateRibbons;
+      if (native?.ribbonsController && setRibbonBuffers) native.ribbonsController.setGeneralBuffers = setRibbonBuffers;
+      if (native?.ribbonsController && setRibbonLayer) native.ribbonsController.setLayerProps = setRibbonLayer;
       for (const sets of layerUVBuffers) sets?.forEach(entry => gl.deleteBuffer(entry.buffer));
       if (neutralNormalTexture) gl.deleteTexture(neutralNormalTexture);
       if (neutralOrmTexture) gl.deleteTexture(neutralOrmTexture);
