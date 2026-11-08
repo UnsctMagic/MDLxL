@@ -288,3 +288,20 @@ test('new keys keep their default tangents; only Rotation copies its Hermite val
   const bezier = parseAnimationTrackText('100: 1, 0.5, 0', { property: 'Color', lineType: 3 });
   assert.deepEqual(bezier.Keys.map(tangents), [[[1, 0.5, 0], [1, 0.5, 0]]]);
 });
+
+test('Nodes manager emitter visibility: show, hide and remove keys like event tracks', () => {
+  const model = fixture(), emitter = { kind: 'node', id: 2, property: 'Visibility' };
+  setAnimationKey(model, [emitter], 150, 0, 0);
+  assert.deepEqual(frames(readAnimationTrack(model, emitter)), [100, 150, 1000]);
+  setAnimationKey(model, [emitter], 180, 1, 0);
+  assert.equal(sampleAnimationProperty(model, emitter, 160, 0), 0);
+  deleteAnimationKey(model, [emitter], 150, 0);
+  assert.deepEqual(frames(readAnimationTrack(model, emitter)), [100, 180, 1000]);
+  assert.throws(() => setAnimationKey(model, [emitter], 500, 0, 0), /inside the selected animation/);
+  model.RibbonEmitters[0].Visibility = { LineType: 0, GlobalSeqId: 0, Keys: [key(0, 1)] };
+  const ribbon = { kind: 'node', id: 4, property: 'Visibility' };
+  setAnimationKey(model, [ribbon], 1200, 0, 0);
+  assert.deepEqual(frames(readAnimationTrack(model, ribbon)), [0, 200]);
+  deleteAnimationKey(model, [ribbon], 1200, 0);
+  assert.deepEqual(frames(readAnimationTrack(model, ribbon)), [0]);
+});

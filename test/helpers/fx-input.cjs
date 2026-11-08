@@ -8,5 +8,6 @@ async function selectOption(page,select,label){
 }
 async function addEmitter(page,fx,label,ready){
  await selectOption(page,fx.getByLabel('Add emitter',{exact:true}),label);await ready();
+ await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();
 }
 module.exports={selectOption,addEmitter};

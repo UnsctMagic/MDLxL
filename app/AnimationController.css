@@ -16,7 +16,8 @@
 .animation-controller .ac-rarity input{width:48px}
 .animation-controller .ac-move-speed{display:grid!important;grid-template-columns:auto 52px;justify-content:start;gap:4px;padding-left:1px}
 .animation-controller .ac-move-speed input{width:52px}
-.animation-controller .ac-interval-caption{text-align:center;margin-top:0}
+.animation-controller .ac-interval-caption{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-top:0;padding:0 7px}
+.animation-controller .ac-interval-total{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .animation-controller .ac-interval{display:grid;grid-template-columns:minmax(0,1fr) 10px minmax(0,1fr);align-items:center;gap:2px;padding:0 7px}
 .animation-controller .ac-interval input{width:100%;text-align:center}
 .animation-controller .ac-interval span{text-align:center}

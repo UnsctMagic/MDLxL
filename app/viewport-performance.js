@@ -13,7 +13,7 @@ export const pointerDragPoint = (start, end, sensitivity) => ({ ...end, x: start
 export const sensitivityIndicatorText = indicator => `${indicator.kind === 'pointer' ? 'Mouse DPI / pointer speed' : 'Scroll sensitivity'}: ${indicator.value.toFixed(2)}×${indicator.reset ? ' · reset' : indicator.shortcut ? indicator.kind === 'pointer' ? ' · release left button to use it' : ' · release right button to zoom' : ''}`;
 
 /** Keeps the last wheel adjustment immediately available, before React commits it. */
-export function createScrollSensitivity({ getPreferences, onChange, onPointerChange, onPointerAdjustment, onCameraModeToggle, onIndicator = () => {} }) {
+export function createScrollSensitivity({ getPreferences, onChange, onPointerChange, onPointerAdjustment, onCameraModeToggle, onIndicator = () => {}, altMiddleFree = false }) {
   let rightDown = false, leftPointer = null, pointerAdjustmentPointer = null, middlePointer = null, dpiResetLatched = false, scrollResetLatched = false, external, externalPointer, value = 2.5, pointerValue = 1;
   function sync() {
     const preferences = getPreferences(), next = preferences?.scrollSensitivity, nextPointer = preferences?.pointerSensitivity;
@@ -39,7 +39,7 @@ export function createScrollSensitivity({ getPreferences, onChange, onPointerCha
           event.preventDefault?.(); event.stopImmediatePropagation?.(); onIndicator({ kind: 'pointer', value: pointerValue, shortcut: true, reset: true }); return;
         }
       }
-      if (event.button === 1 && (getPreferences()?.cameraBindings?.middle ?? 'toggle') === 'toggle') {
+      if (event.button === 1 && !(event.altKey && altMiddleFree) && (getPreferences()?.cameraBindings?.middle ?? 'toggle') === 'toggle') {
         // Original MDLVis toggles Rotation/Work on middle-button release.
         // Consume the down event so OrbitControls and browser autoscroll stay idle.
         middlePointer = { id: event.pointerId, rotation: wheelMode(getPreferences()) === 'rotate' };

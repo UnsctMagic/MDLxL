@@ -39,10 +39,15 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // A stationary press reads the existing map transform without editing it.
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
     const map = await page.evaluate(() => {
-      const d = uvRotateState().drag; return { pivot: d.pivotScreen, center: d.center, sizeX: d.sizeX, sizeY: d.sizeY };
+      const d = uvRotateState().drag; return { pivot: d.pivotScreen, center: d.center, sizeX: d.sizeX, sizeY: d.sizeY, reach: d.reach };
     });
     await page.mouse.up();
     const cx = box.x + map.pivot[0], cy = box.y + map.pivot[1];
+    // Owner, 7 Nov: over a big piece its farthest point never moves faster than
+    // 70% of the mouse, so the steady zone is the piece's own size (at least 24 px).
+    const zone = Math.max(24, map.reach), near = radius => Math.min(1, radius / zone);
+    measurements.push({ name: 'piece reach on screen', reach: map.reach });
+    check('the whole geoset is bigger than the 60 px circles, so both rules are exercised', map.reach > 60 && map.reach < 120);
     const expectedUV = angle => {
       const values = before.uv.slice();
       for (const i of before.ids) {
@@ -70,7 +75,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     for (const winding of [1, -1]) {
       await page.mouse.move(cx + 60, cy); await page.mouse.down();
       await arc(60, 0, winding * Math.PI / 4);
-      const normal = winding * Math.PI / 4 * .7;
+      const normal = winding * Math.PI / 4 * .7 * near(60);
       await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), expectedUV(normal));
       await page.keyboard.down('Shift');
       check('Shift press keeps the current UV orientation ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(normal)));
@@ -87,135 +92,108 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       check('Shift circular gesture commits visible UVs ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(resumedTurn)));
       await undo();
     }
-    for (const [name, vx, vy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) {
-      // Browser pointer coordinates round the fractional pivot. Compare the
-      // identical real gesture, rather than assuming a mathematically exact zero radius.
-      await page.mouse.move(cx, cy); await page.mouse.down();
-      await page.mouse.move(cx + vx * 48, cy + vy * 48, { steps: 12 });
-      const normalTurn = await page.evaluate(() => uvRotateState().drag.turn);
-      await page.mouse.up();
-      check('normal center-start ' + name + ' gesture edits visible UVs', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(normalTurn)));
-      await undo();
-      await page.keyboard.down('Shift');
-      await page.mouse.move(cx, cy); await page.mouse.down();
-      await page.mouse.move(cx + vx * 48, cy + vy * 48, { steps: 12 });
-      const slowTurn = await page.evaluate(() => uvRotateState().drag.turn), sign = Math.sign(vx || vy);
-      measurements.push({ name: 'Shift center-start ' + name, normalTurn, slowTurn });
-      check('Shift held at start slows straight ' + name + ' from center', Math.abs(slowTurn - normalTurn * .2) < .002);
-      await page.keyboard.up('Shift');
-      await page.mouse.move(cx + vx * 96, cy + vy * 96, { steps: 12 });
-      const resumedTurn = await page.evaluate(() => uvRotateState().drag.turn);
-      await page.mouse.up();
-      check('Shift release restores straight ' + name + ' speed and commits', Math.abs(resumedTurn - slowTurn - sign * .7) < .002 && matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(resumedTurn)));
-      await undo();
-    }
-    // The same circle must keep its direction after either straight direction,
-    // from every side of the selection, within the same mouse-down gesture.
-    for (const [label, vx, vy, start] of [['left-first', 1, 0, 0], ['right-first', -1, 0, Math.PI], ['up-first', 0, 1, Math.PI / 2], ['down-first', 0, -1, -Math.PI / 2]]) {
-      for (const winding of [1, -1]) {
-        await page.mouse.move(cx + vx * 72, cy + vy * 72); await page.mouse.down();
-        await page.mouse.move(cx + vx * 12, cy + vy * 12, { steps: 12 });
-        const straightTurn = await page.evaluate(() => uvRotateState().drag.turn);
-        const straightExpected = Math.sign(-vx || -vy) * .875;
-        check(label + ': straight input keeps its screen direction', Math.abs(straightTurn - straightExpected) < .002);
-        await arc(12, start, winding * Math.PI / 2);
-        const firstCircle = await page.evaluate(() => uvRotateState().drag.turn);
-        const circleExpected = winding * Math.PI / 2 * .7;
-        check(label + ': circle follows its own winding ' + winding, Math.abs(firstCircle - straightTurn - circleExpected) < .002);
-        await arc(12, start + winding * Math.PI / 2, -winding * Math.PI / 2);
-        const reversedCircle = await page.evaluate(() => uvRotateState().drag.turn);
-        check(label + ': reversing the circle reverses only that circle', Math.abs(reversedCircle - firstCircle + circleExpected) < .002);
-        await page.mouse.up();
-        check(label + ': mixed gesture edits the visible UVs', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(reversedCircle)));
-        await undo();
-      }
-    }
-    // A committed UV rotation must not reorient the next gesture's controls.
-    await page.mouse.move(cx + 60, cy); await page.mouse.down();
-    await arc(60, 0, Math.PI / 2); await page.mouse.up();
-    const rotated = await page.evaluate(() => uvRotateInfo().uv), firstAngle = Math.PI / 2 * .7;
-    check('first committed circle turns clockwise', matches(rotated, expectedUV(firstAngle)));
-    await page.mouse.move(cx + 72, cy); await page.mouse.down();
-    await page.mouse.move(cx + 12, cy, { steps: 12 });
-    const afterRotationLeft = await page.evaluate(() => uvRotateState().drag.turn);
-    check('left input keeps its sign after the UVs rotate', Math.abs(afterRotationLeft + .875) < .002);
-    await arc(12, 0, Math.PI / 2);
-    const afterRotationCircle = await page.evaluate(() => uvRotateState().drag.turn);
-    check('clockwise circle keeps its winding after the UVs rotate', Math.abs(afterRotationCircle - afterRotationLeft - firstAngle) < .002);
-    await page.mouse.up();
-    check('successive gestures preserve the same fixed input plane', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(firstAngle + afterRotationCircle)));
-    await page.keyboard.press('Control+z');
-    await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), rotated);
-    check('undo restores the preceding rotated state', matches((await page.evaluate(() => uvRotateInfo())).uv, rotated));
-    await undo();
-    // An imperfect circular path must not reverse when its radius changes.
-    for (const winding of [1, -1]) {
-      await page.mouse.move(cx + 80, cy); await page.mouse.down();
-      let previousTurn = 0;
-      for (let step = 1; step <= 72; step++) {
-        const angle = winding * 2 * Math.PI * step / 72, radius = 80 + 20 * Math.sin(3 * angle);
-        await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
-        const turn = await page.evaluate(() => uvRotateState().drag.turn);
-        assert.ok((turn - previousTurn) * winding > 0, 'varying-radius circle keeps its winding at step ' + step);
-        previousTurn = turn;
-      }
-      await page.mouse.up();
-      check('varying-radius circle ' + winding + ' never changes direction', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(previousTurn)));
-      await undo();
-    }
+    // Owner lock (6 Nov 2026, docs/UV-ROTATE-ZOOM.md): only movement AROUND the
+    // centre turns the selection. These checks fail on the 4 Nov straight-line rule.
+    const turnNow = () => page.evaluate(() => uvRotateState().drag.turn);
+    // Same circle, same strength at any distance outside the piece; slower over it.
     for (const [name, radius, start, sweep, fine] of [
-      ['inside the former 2px dead zone', 1.5, 0, Math.PI / 2, false],
-      ['near the center', 12, 0, Math.PI / 2, false],
-      ['outside the former slowdown', 60, 0, Math.PI / 2, false],
-      ['far from the center', 200, Math.PI, Math.PI / 2, false],
+      ['quarter circle at 24 px', 24, 0, Math.PI / 2, false],
+      ['quarter circle at 60 px', 60, 0, Math.PI / 2, false],
+      ['quarter circle at 120 px', 120, Math.PI, Math.PI / 2, false],
+      ['quarter circle at 300 px', 300, Math.PI / 2, Math.PI / 2, false],
       ['full circle ending at its start', 60, 0, Math.PI * 2, false],
       ['clockwise past a full turn', 100, 0, Math.PI * 2.5, false],
       ['counterclockwise past two turns', 100, 0, -Math.PI * 4.5, false],
-      ['Alt precision near the center', 12, 0, Math.PI / 2, true],
+      ['Alt fine control', 80, 0, Math.PI / 2, true],
     ]) {
       if (fine) await page.keyboard.down('Alt');
       await page.mouse.move(cx + radius * Math.cos(start), cy + radius * Math.sin(start));
       await page.mouse.down();
       await arc(radius, start, sweep);
-      const turn = await page.evaluate(() => uvRotateState().drag.turn);
+      const turn = await turnNow();
       await page.mouse.up();
       if (fine) await page.keyboard.up('Alt');
       await page.waitForFunction(() => !uvRotateState().drag);
-      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1);
+      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1) * near(radius);
       const expected = expectedUV(angle), maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expected[i])));
       measurements.push({ name, radius, expectedDegrees: angle * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI, maxUVError });
-      check(name + ': circular rotation at 70% with no center attenuation', Math.abs(turn - angle) < .002 && maxUVError < .002);
-      if (radius === 12 && !fine) await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
+      check(name + ': turns 70% of the mouse circle, slower over the piece', Math.abs(turn - angle) < .002 && maxUVError < .002);
+      check(name + ': the far edge never outruns 70% of the mouse', Math.abs(turn) * map.reach <= Math.abs(sweep) * radius * .7 + .5);
       await undo();
     }
+    // Close to the centre the same circle turns less, steadily, never more.
+    {
+      await page.mouse.move(cx + 12, cy); await page.mouse.down();
+      await arc(12, 0, Math.PI / 2);
+      const turn = await turnNow(); await page.mouse.up();
+      measurements.push({ name: 'quarter circle at 12 px', actualDegrees: turn * 180 / Math.PI });
+      check('quarter circle at 12 px turns less, same direction', Math.abs(turn - Math.PI / 2 * .7 * 12 / zone) < .01);
+      await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
+      await undo();
+    }
+    // Moving straight toward or away from the centre never turns the selection.
+    for (const [name, vx, vy] of [
+      ['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1],
+      ['down-right', Math.SQRT1_2, Math.SQRT1_2], ['up-left', -Math.SQRT1_2, -Math.SQRT1_2],
+    ]) {
+      for (const [from, to] of [[24, 130], [130, 24]]) {
+        await page.mouse.move(cx + vx * from, cy + vy * from); await page.mouse.down();
+        await page.mouse.move(cx + vx * to, cy + vy * to, { steps: 16 });
+        const turn = await turnNow(); await page.mouse.up();
+        measurements.push({ name: `straight ${name} ${from}->${to}`, actualDegrees: turn * 180 / Math.PI });
+        check(`straight ${name} ${from < to ? 'away from' : 'toward'} the centre does not turn`, Math.abs(turn) < .01);
+        if (await page.evaluate(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore)) await undo();
+      }
+    }
+    // Sweeping straight across the piece, just beside its centre, never snaps.
+    for (const offset of [6, -6]) {
+      await page.mouse.move(cx - 150, cy + offset); await page.mouse.down();
+      let previous = 0, biggest = 0;
+      for (let x = -148; x <= 150; x += 2) {
+        await page.mouse.move(cx + x, cy + offset);
+        const turn = await turnNow(); biggest = Math.max(biggest, Math.abs(turn - previous)); previous = turn;
+      }
+      await page.mouse.up();
+      measurements.push({ name: 'across the piece at ' + offset + ' px', totalDegrees: previous * 180 / Math.PI, biggestStepDegrees: biggest * 180 / Math.PI });
+      // 2 px per sample: under 3 degrees per pixel, the speed of circling at 24 px.
+      check('across the piece at ' + offset + ' px: no step faster than 3 degrees per pixel', biggest < 2 * 3 * Math.PI / 180);
+      check('across the piece at ' + offset + ' px: no spin past 100 degrees', Math.abs(previous) < 100 * Math.PI / 180);
+      await undo();
+    }
+    // An imperfect circle keeps its direction when its radius wobbles.
+    for (const winding of [1, -1]) {
+      await page.mouse.move(cx + 80, cy); await page.mouse.down();
+      let previousTurn = 0, expectedTurn = 0, previousRadius = 80;
+      for (let step = 1; step <= 72; step++) {
+        const angle = winding * 2 * Math.PI * step / 72, radius = 80 + 20 * Math.sin(3 * angle);
+        expectedTurn += winding * 2 * Math.PI / 72 * .7 * Math.min(near(radius), near(previousRadius)); previousRadius = radius;
+        await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+        const turn = await turnNow();
+        assert.ok((turn - previousTurn) * winding > 0, 'varying-radius circle keeps its winding at step ' + step);
+        previousTurn = turn;
+      }
+      await page.mouse.up();
+      check('varying-radius circle ' + winding + ' turns its expected amount', Math.abs(previousTurn - expectedTurn) < .005);
+      await undo();
+    }
+    // A committed rotation does not change how the next circle turns.
+    await page.mouse.move(cx + 60, cy); await page.mouse.down();
+    await arc(60, 0, Math.PI / 2); await page.mouse.up();
+    const rotated = await page.evaluate(() => uvRotateInfo().uv), firstAngle = Math.PI / 2 * .7 * near(60);
+    check('first committed circle turns clockwise', matches(rotated, expectedUV(firstAngle)));
+    await page.mouse.move(cx + 60, cy); await page.mouse.down();
+    await arc(60, 0, Math.PI / 2); await page.mouse.up();
+    check('the next clockwise circle adds the same turn', matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(firstAngle * 2)));
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), rotated);
+    check('undo restores the preceding rotated state', matches((await page.evaluate(() => uvRotateInfo())).uv, rotated));
+    await undo();
     // Reversing the same circular path restores the original UVs.
     await page.mouse.move(cx + 60, cy); await page.mouse.down();
     await arc(60, 0, Math.PI / 2);
     await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
     await arc(60, Math.PI / 2, -Math.PI / 2); await page.mouse.up();
     check('circular backtracking restores the original UVs', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
-    if (await page.evaluate(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore)) await undo();
-    for (const [name, vx, vy] of [
-      ['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1],
-      ['down-right', Math.SQRT1_2, Math.SQRT1_2], ['up-left', -Math.SQRT1_2, -Math.SQRT1_2],
-      ['up-right', Math.SQRT1_2, -Math.SQRT1_2], ['down-left', -Math.SQRT1_2, Math.SQRT1_2],
-    ]) {
-      await page.mouse.move(cx + vx * 12, cy + vy * 12); await page.mouse.down();
-      await page.mouse.move(cx + vx * 72, cy + vy * 72, { steps: 12 });
-      const turn = await page.evaluate(() => uvRotateState().drag.turn);
-      await page.mouse.up();
-      const after = await page.evaluate(() => uvRotateInfo().uv);
-      const expectedMagnitude = Math.sign(vx || vy) * 60 / 48 * .7;
-      measurements.push({ name: 'straight ' + name, expectedMagnitudeDegrees: expectedMagnitude * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI });
-      check('straight ' + name + ' drag keeps its screen direction', Math.abs(turn - expectedMagnitude) < .002 && matches(after, expectedUV(turn)));
-      await undo();
-    }
-    // Straight backtracking must reverse and restore the original UVs.
-    await page.mouse.move(cx + 12, cy); await page.mouse.down();
-    await page.mouse.move(cx + 72, cy, { steps: 12 });
-    await page.waitForFunction(before => uvRotateInfo().uv.some((v, i) => Math.abs(v - before[i]) > .001), before.uv);
-    await page.mouse.move(cx + 12, cy, { steps: 12 }); await page.mouse.up();
-    check('straight backtracking restores the original UVs', matches((await page.evaluate(() => uvRotateInfo())).uv, before.uv));
     if (await page.evaluate(before => JSON.stringify(__mdlxl.model()) !== before, modelBefore)) await undo();
     check('source model file unchanged', fs.readFileSync(fixture).equals(originalFile));
     check('no renderer errors', errors, []);

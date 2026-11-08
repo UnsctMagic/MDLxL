@@ -27,6 +27,11 @@ test('interactive preview retains only the selection and geoset-hover inputs nee
   assert.deepEqual(preview.selectionByGeoset,{1:[2]});assert.deepEqual(preview.selectableGeosets,[1]);assert.equal(preview.hoveredGeoset,1);assert.equal(preview.onSelectionChange,change);assert.equal(preview.onNodeTransform,undefined);
 });
 
+test('a preview that reports view hovers also shows list hovers, so Highlight Geoset works both ways',()=>{
+  const hover=()=>{},preview=previewPresentationProps({presentation:'preview',preferences:{graphics:{}},hoveredGeoset:3,onHoverGeoset:hover,onSelectionChange:()=>{}});
+  assert.equal(preview.hoveredGeoset,3);assert.equal(preview.onHoverGeoset,hover);assert.equal(preview.onSelectionChange,undefined);
+});
+
 test('UV Only Selected reaches the preview without changing other clean previews',()=>{
   const hidden=new Set([1,3]), props={presentation:'preview',preferences:{graphics:{}},hiddenGeosets:hidden,hideRgbGeoset:2};
   assert.equal(previewPresentationProps(props).hiddenGeosets,undefined);

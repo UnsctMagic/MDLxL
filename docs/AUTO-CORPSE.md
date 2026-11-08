@@ -102,6 +102,45 @@ removes the old copies.
   rib pieces. A tail starts at the tail itself; its connection back to the waist
   is not a bone across the trunk. A one-control tail uses its own skin extent.
 
+  Big creatures follow the owner's Vampire Dragon corpse ("perfect", 7 Nov 2026,
+  test model `corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx`). These rules
+  only add to what CORP already did (owner: "expand on its capacity", no
+  trade-offs): on the 412 test models, every corpse the earlier rules made is
+  unchanged piece for piece; the only differences are added pieces.
+  - Winged bodies (POSE arm chains labelled Wing; previously an arm and hand):
+    every skinned wing joint link gets a thin bone, 1.05 times the link, all one
+    width (0.24 of the wing's median link); finger roots at one spot share one
+    bone; a last joint gets a bone along its own skin only when that continues the
+    finger outward. A link counts only when it lies along the dead body and its
+    joint's pivot sits at that joint's own skin: the owner's current dragon keeps
+    old Object joints with left-behind pivots under its new Bone joints, and links
+    to those crossed empty ground. Wing fingers are wing, not held objects. A part that shrinks to
+    a single point in Death (the rider) leaves nothing. The whole winged corpse
+    keeps native unit proportions without skin fitting, as the owner's own corpse
+    does; its flesh is bulky.
+  - A winged body with no recognized head takes the head from the skinned joint
+    its Head Ref hangs from. A long neck there (two or more joints between chest
+    and head, longer than a limb bone) gets a native bone per neck link, and the
+    rib cage lies from chest to pelvis.
+  - Any other limbed body with no recognized head but a Head Ref (wind serpent,
+    albatross, vulture, serpent ward) gains only the missing skull, sized like a
+    native skull and fitted to that head on its own; its other pieces are untouched.
+  - An unnamed tail chain (three or more joints, longer than the rib cage, no
+    Mesh/Box/Geo skin holders), which the name-based rules never drew, gets a thin
+    bone per link sized from its median link (phoenix, dragonhawk). Named tails keep
+    their existing pieces.
+  - MDLxL's preview draws meshes bound to the first 254 nodes only. When the new
+    corpse bone would be number 254 or later (the owner's 263-node dragon), it is
+    placed right after the model's own bones, the game's section order, and later
+    non-bone nodes shift up one; every mesh keeps its bones. Below that, nothing moves.
+  - An effect switched by a global loop no longer blocks Create. The loop stays as
+    it is everywhere; the effect is silenced in decay through its own local output
+    (particle emission rate, ribbon alpha, light intensity). If that output loops
+    globally too, the effect keeps running in decay, like Blizzard's global loops.
+  - An extra Death variant whose body vanishes (the dragon's bat Death Alternate)
+    gets no decay clips and no corpse instead of failing Create; the first Death
+    still needs a body.
+
   The automatic fit measures the union of the projected corpse meshes and targets
   0.826 of the anatomical surface area: the median measured on 206 Blizzard SD units
   with a visible gutz corpse. Named garment triangles are excluded from this
@@ -212,7 +251,9 @@ Source regressions need `out/pose/Footman.mdx`, `out/pose/Ogre.mdx`,
 `MDLXL_CORPSE_FLAIL` (the owner's Fx model), `MDLXL_CORPSE_DETACHED` (Ratling),
 `MDLXL_CORPSE_TAILED` (Skink), `out/pose/Necromancer.mdx`, and
 `MDLXL_CORPSE_ROBED` (owner Lahmian), and `out/pose/Medivh.mdx`, `Guldan.mdx`,
-`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`. The robe regressions check actual leg
+`Acolyte.mdx`, `DragonSeaTurtle.mdx`, `CentaurKhan.mdx`, `Knight.mdx`, and
+`MDLXL_CORPSE_DRAGON` (the owner's Vampire Dragon with its hand-made corpse;
+made corpse 0.8-1.25 of its area, overlap at least 0.5). The robe regressions check actual leg
 segments, ribs ending at the pelvis, and invariance when garment vertices extend.
 
 `test/auto-corpse.electron.cjs` uses a hidden production or packaged window with
@@ -235,7 +276,8 @@ behavior. It does not silently erase global animation to complete a command.
 Flying units' Death falls far below the terrain (for example Gargoyle,
 Harpy, Gryphon Rider), and some deaths turn into an effect (Dreadlord bats)
 or a separate bone pile (summoned Skeleton). Warcraft III leaves no corpse
-for those units, so their fitted corpse is not tuned.
+for those units, so their fitted corpse is not tuned. A custom flying death
+that ends on the ground, like the owner's Vampire Dragon, is fitted normally.
 
 The native preview has no opaque terrain surface by default, so a sunk body can
 remain visible below the grid during scrubbing. The final-frame visibility is

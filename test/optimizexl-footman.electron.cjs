@@ -6,7 +6,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
  // Fixture: the Blizzard SD Footman converted to MDX800 (out/corpus-sd800/human__footman.mdx, copied to out/optimizexl-footman;
  // 13 animations starting with Stand - 1, Bone_Root rig). Measured with out/fixture-scan/sim.mjs (prepareOptimizeXL bytes,
  // test/helpers/hive.mjs sanityTest, sanityProposals, classifyHiveFindings): 0 errors / 0 severe / 38 warnings / 68 notices;
- // the 38 warnings are the invalid extents that the one invalidBounds proposal repairs; approving it alone leaves
+ // the 38 warnings are the invalid extents that the one extents proposal repairs; approving it alone leaves
  // 0 warnings. out/fixture-scan/anim100.mjs: after that repair, Animation optimization at Simple strength 100 gives
  // 91.06 KB (from 102.56 KB), so the After size must drop below 92 KB.
  const WARNINGS=38,AFTER_MAX_KB=92;
@@ -55,8 +55,8 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
    for(const label of labels){const info=p.getByRole('button',{name:'About '+label,exact:true});await info.locator('..').hover();await p.getByRole('tooltip').waitFor();assert.ok((await p.getByRole('tooltip').textContent()).length>30);await p.getByRole('heading',{name:'OptimizeXL',exact:true}).hover();await p.getByRole('tooltip').waitFor({state:'hidden'});}
   }
   await stage('Animation optimization');const info=p.getByRole('button',{name:'About Rotation tolerance (degrees)',exact:true});await info.click();await p.getByRole('heading',{name:'OptimizeXL',exact:true}).hover();assert.equal(await p.getByRole('tooltip').isVisible(),true);await p.keyboard.press('Escape');await p.getByRole('tooltip').waitFor({state:'hidden'});
-  // Many checker findings have their own Preview fix here; the user clicks the one on an Extent finding (all 38 route to invalidBounds).
-  await stage('Insanity FIxer');await p.getByText(new RegExp(`mdx-m3-viewer: 0 errors · 0 severe · ${WARNINGS} warnings`)).waitFor();await p.getByText(/Checker findings \(/).click();await p.locator('details li').filter({hasText:/Extent/}).first().getByRole('button',{name:'Preview fix',exact:true}).click();await ready();assert.match(await p.getByLabel('Proposed fix',{exact:true}).inputValue(),/invalidBounds/);
+  // Many checker findings have their own Preview fix here; the user clicks the one on an Extent finding (all 38 route to extents).
+  await stage('Insanity FIxer');await p.getByText(new RegExp(`mdx-m3-viewer: 0 errors · 0 severe · ${WARNINGS} warnings`)).waitFor();await p.getByText(/Checker findings \(/).click();await p.locator('details li').filter({hasText:/Extent/}).first().getByRole('button',{name:'Preview fix',exact:true}).click();await ready();assert.match(await p.getByLabel('Proposed fix',{exact:true}).inputValue(),/extents/);
   await p.screenshot({path:path.join(out,'bounds-preview.png')});await p.getByRole('button',{name:'Approve',exact:true}).click();await p.getByText(/mdx-m3-viewer: 0 errors · 0 severe · 0 warnings/).waitFor();
   // The Review redundant keys link left with the stage reorder of 3a5c89a4 (Insanity FIxer first, its own key repairs); the user
   // goes to Animation optimization through the stage list.

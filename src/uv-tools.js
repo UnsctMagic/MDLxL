@@ -2,45 +2,40 @@ import { sampleTrack } from './animation.js';
 
 const finiteIndex = value => Number.isSafeInteger(value) && value >= 0;
 const uniqueIndices = values => [...new Set(Array.from(values || []).filter(finiteIndex))];
-/** Only the UV map's Rotate is 30% less sensitive. */
+/** The UV Wrapper's Rotate is 30% slower than the mouse (owner, 4 Nov 2026). */
 const UV_TURN_SENSITIVITY = 0.7;
-/** Toward/away movement contributes one radian per 48 pixels before sensitivity. */
-const UV_TURN_RADIAL_PIXELS = 48;
-/** Collinearity tolerance for rounded pointer coordinates; it never reduces movement. */
-const UV_TURN_COLLINEAR_EPSILON = 1e-4;
+/** Within this many pixels of the centre the turn goes by distance moved
+ * around the centre, not by angle, so passing over the piece never snaps it.
+ * The wrapper uses 24 px (owner, 6 Nov: 48 px resisted too much up close,
+ * 16 px wanted "a lil bit more smooth");
+ * FX texture fitting keeps its original 48 px. */
+const UV_TURN_STEADY = 24, FX_TURN_STEADY = 48;
+/** The mouse exactly on the centre has no direction; skip that sample. */
+const UV_TURN_CENTRE = 2;
 
-/** UV Rotate uses fixed screen-space input: circular movement follows its own
- * winding; straight toward/away movement uses right/left, or down/up for a
- * vertical drag. Previous movement never chooses or flips either direction.
- * Every movement contributes at the UV-only 70% rate, without a centre dead
- * zone. Alt keeps its fine control. Call at drag start and on every sample. */
+/** UV Rotate, owner-locked (see docs/UV-ROTATE-ZOOM.md). Only movement AROUND
+ * the selection's centre turns it: circling follows the mouse at the same
+ * strength at any distance; moving straight toward or away does nothing.
+ * Near the centre the same circling gives a steady, smaller turn instead of a
+ * jump. While the mouse is over a big piece (`drag.reach`: its farthest
+ * point from the centre in screen pixels) the turn goes by distance moved
+ * around the centre, so the piece never outruns the mouse. The wrapper turns at 70%; FX texture fitting keeps 100%. Shift/Alt fine
+ * control scale each step (`drag.fine`). Call at drag start and on every sample. */
 export function uvTurn(drag, x, y) {
   drag.turn ??= 0;
   const px = x - drag.pivotScreen[0], py = y - drag.pivotScreen[1], radius = Math.hypot(px, py);
-  // FX texture fitting also uses UVEditor; preserve its pre-wrapper-change input.
-  if (drag.wrapperControls === false) {
-    if (radius < 2) return drag.turn;
-    const angle = Math.atan2(py, px);
-    if (drag.angle !== undefined) drag.turn += Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * Math.min(1, radius / 48, drag.radius / 48) * (drag.fine ?? 1);
-    drag.angle = angle; drag.radius = radius;
-    return drag.turn;
-  }
+  if (radius < UV_TURN_CENTRE) return drag.turn;
   const angle = Math.atan2(py, px);
   if (drag.angle !== undefined) {
-    // At the exact centre there is no angular direction, but straight travel
-    // still rotates: this does not introduce a dead zone.
-    const arc = radius && drag.radius ? Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) : 0;
-    const radial = (radius - drag.radius) / UV_TURN_RADIAL_PIXELS;
-    const dx = px - drag.px, dy = py - drag.py;
-    const cross = drag.px * dy - drag.py * dx;
-    // Direction comes only from this movement in the fixed screen plane.
-    // Rounded straight-line samples may have a tiny artificial cross product;
-    // use the screen direction there, but still count their entire movement.
-    const circular = Math.abs(cross) > Math.max(radius, drag.radius) * Math.hypot(dx, dy) * UV_TURN_COLLINEAR_EPSILON;
-    const direction = circular ? Math.sign(arc) : Math.sign(dx || dy);
-    drag.turn += Math.hypot(arc, radial) * direction * UV_TURN_SENSITIVITY * (drag.fine ?? 1);
+    const step = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
+    // Over a big piece the steady zone grows to the piece's own size, so no
+    // point of it ever moves faster than 70% of the mouse (owner, 7 Nov 2026).
+    const zone = drag.wrapperControls === false ? FX_TURN_STEADY : Math.max(UV_TURN_STEADY, drag.reach || 0);
+    const steady = Math.min(1, radius / zone, drag.radius / zone);
+    // FX texture fitting also uses UVEditor and keeps its original 1:1 speed.
+    drag.turn += step * steady * (drag.wrapperControls === false ? 1 : UV_TURN_SENSITIVITY) * (drag.fine ?? 1);
   }
-  drag.angle = angle; drag.radius = radius; drag.px = px; drag.py = py;
+  drag.angle = angle; drag.radius = radius;
   return drag.turn;
 }
 
@@ -82,14 +77,23 @@ export function relevantUVMaterials(model, selectionByGeoset, time = 0, sequence
     const entry = grouped.get(materialID) || { materialID, geosetIndices: [] };
     entry.geosetIndices.push(geosetIndex); grouped.set(materialID, entry);
   }
-  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => {
-    const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
-    const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
-    const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
-    const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
-    const names = [...new Set(layers.map(layer => layer.label))];
-    return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
-  });
+  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => describeUVMaterial(model, entry, time, sequenceIndex));
+}
+
+function describeUVMaterial(model, entry, time, sequenceIndex) {
+  const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
+  const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
+  const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
+  const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
+  const names = [...new Set(layers.map(layer => layer.label))];
+  return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
+}
+
+/** The model's other materials, described as if these geosets used them. */
+export function otherUVMaterials(model, geosetIndices, excludedMaterialIDs, time = 0, sequenceIndex = -1) {
+  const excluded = new Set(excludedMaterialIDs);
+  return (model?.Materials || []).flatMap((material, materialID) => material && !excluded.has(materialID)
+    ? [describeUVMaterial(model, { materialID, geosetIndices }, time, sequenceIndex)] : []);
 }
 
 /** Flatten geosets into one temporary UV canvas with their shared model positions. */

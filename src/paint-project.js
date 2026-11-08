@@ -102,13 +102,13 @@ function surfaceBytes(value){if(ArrayBuffer.isView(value))return value.byteLengt
 function applySurfaceState(project,state){
   const targets=state.targets||[state.target];project.targets=project.targets.map(t=>{const next=targets.find(v=>v.id===t.id);return next?structuredClone(next):t;});
   project.geometryEdits||={};for(const [index,geo] of Object.entries(state.geometry)){if(geo)project.geometryEdits[index]=structuredClone(geo);else delete project.geometryEdits[index];}
-  project.uvEdits=structuredClone(state.uvEdits);project.generatedUVSets={...state.generatedUVSets};
+  project.uvEdits=structuredClone(state.uvEdits);project.generatedUVSets={...state.generatedUVSets};if(state.pieceDetail)project.pieceDetail=state.pieceDetail;
   project.materialRevision=(project.materialRevision||0)+1;project.uvRevision=(project.uvRevision||0)+1;project.revision++;project.dirty=true;project.updatedAt=new Date().toISOString();
 }
 export function recordPaintSurfaceChange(project,targetId,staged,label){
   const target=paintProjectTarget(project,targetId);if(!target)throw Error('The destination is unavailable.');
   const {previousGeometry,...after}=staged;
-  const before={target,geometry:Object.fromEntries(Object.keys(staged.geometry).map(index=>[index,project.geometryEdits?.[index]||previousGeometry?.[index]||null])),uvEdits:project.uvEdits||{},generatedUVSets:project.generatedUVSets||{}};
+  const before={...(staged.targets?{targets:staged.targets.map(item=>paintProjectTarget(project,item.id)),pieceDetail:project.pieceDetail||{}}:{target}),geometry:Object.fromEntries(Object.keys(staged.geometry).map(index=>[index,project.geometryEdits?.[index]||previousGeometry?.[index]||null])),uvEdits:project.uvEdits||{},generatedUVSets:project.generatedUVSets||{}};
   const byteLength=surfaceBytes(before)+surfaceBytes(after),history=project.history;
   if(byteLength>history.budgetBytes)throw Error('This surface change exceeds the undo budget. Choose a smaller destination size.');
   const entry={kind:'surface',targetId,label,before:structuredClone(before),after:structuredClone(after),delta:{byteLength},date:Date.now()};
@@ -180,7 +180,7 @@ export async function paintProjectFiles(project, { modelBytes, workingModelBytes
   const originalFile = `model/original/${safePart(modelName)}`, workingFile = `model/working/${safePart(modelName)}`;
   const manifest = { schema: project.schema, version: project.version, id: project.id, modelName, modelFiles: { original: originalFile, working: workingModelBytes instanceof Uint8Array ? workingFile : originalFile }, resolution: project.resolution, sourceMode: project.sourceMode, activeTargetId: project.activeTargetId, activeCoatId: project.activeCoatId, brushReferences: project.brushReferences || [], sourceTextures: [], createdAt: project.createdAt, updatedAt: new Date().toISOString(), targets: [] };
   const files = [{ name: originalFile, bytes: modelBytes }];
-  manifest.materialMode=!!project.materialMode;manifest.preserveMaterials=!!project.preserveMaterials;manifest.materialRevision=project.materialRevision||0;manifest.paintMaterialsVersion=project.paintMaterialsVersion;manifest.excludedGeosets=project.excludedGeosets;manifest.uvEdits=project.uvEdits||{};manifest.generatedUVSets=project.generatedUVSets||{};manifest.paintAtlasVersion=project.paintAtlasVersion||0;manifest.viewSettings=project.viewSettings||null;
+  manifest.materialMode=!!project.materialMode;manifest.preserveMaterials=!!project.preserveMaterials;manifest.materialRevision=project.materialRevision||0;manifest.paintMaterialsVersion=project.paintMaterialsVersion;manifest.excludedGeosets=project.excludedGeosets;manifest.uvEdits=project.uvEdits||{};manifest.generatedUVSets=project.generatedUVSets||{};manifest.paintAtlasVersion=project.paintAtlasVersion||0;manifest.pieceDetail=project.pieceDetail||{};manifest.shareSides=!!project.shareSides;manifest.viewSettings=project.viewSettings||null;
   if (workingModelBytes instanceof Uint8Array) files.push({ name: workingFile, bytes: workingModelBytes });
   manifest.preservedMaterials=project.preservedMaterials;
   for (const target of project.targets) {
@@ -220,7 +220,7 @@ export async function restorePaintProject(bytes, decodePng = decodePaintPng) {
   const project = createPaintProject(manifest); project.id = manifest.id; project.createdAt = manifest.createdAt; project.updatedAt = manifest.updatedAt;
   project.brushReferences = Array.isArray(manifest.brushReferences) ? manifest.brushReferences : [];
   project.preservedMaterials=manifest.preservedMaterials;
-  project.materialMode=!!manifest.materialMode;project.preserveMaterials=!!manifest.preserveMaterials;project.materialRevision=manifest.materialRevision||0;project.paintMaterialsVersion=manifest.paintMaterialsVersion;project.excludedGeosets=manifest.excludedGeosets;project.uvEdits=manifest.uvEdits||{};project.generatedUVSets=manifest.generatedUVSets||{};project.paintAtlasVersion=manifest.paintAtlasVersion||0;project.viewSettings=manifest.viewSettings||null;
+  project.materialMode=!!manifest.materialMode;project.preserveMaterials=!!manifest.preserveMaterials;project.materialRevision=manifest.materialRevision||0;project.paintMaterialsVersion=manifest.paintMaterialsVersion;project.excludedGeosets=manifest.excludedGeosets;project.uvEdits=manifest.uvEdits||{};project.generatedUVSets=manifest.generatedUVSets||{};project.paintAtlasVersion=manifest.paintAtlasVersion||0;project.pieceDetail=manifest.pieceDetail||{};project.shareSides=!!manifest.shareSides;project.viewSettings=manifest.viewSettings||null;
   const checkedRaster=async(value,label,width,height)=>{const raster=await decodePng(value);if(!isPaintRaster(raster)||raster.width!==width||raster.height!==height)throw Error(`Paint image has the wrong size: ${label}.`);return raster;};
   for (const targetInfo of manifest.targets) {
     const baseBytes = files.get(targetInfo.base); if (!baseBytes) throw Error(`Paint source is missing for ${targetInfo.label}.`);
@@ -254,7 +254,8 @@ export function pastePaintTexture(project,targetId,coatId,image){
 
 const isPaintEntry=entry=>(!entry.kind||entry.kind==='paintGroup')&&!entry.toggles;
 /** Brush strokes, stamps, fills and pastes still on the undo stack, oldest first. */
-export function paintStrokeHistory(project){return project.history.undo.filter(isPaintEntry);}
+/** A new layout moves every pixel, so strokes from before it cannot be undone one by one. */
+export function paintStrokeHistory(project){const undo=project.history.undo,start=undo.findLastIndex(entry=>entry.kind==='surface'&&entry.after?.pieceDetail);return undo.slice(start+1).filter(isPaintEntry);}
 
 /** Undo or restore one stroke on its own. UV edits, resizes and later strokes
  * all stay: pixels that later paint covered keep that later paint. The toggle

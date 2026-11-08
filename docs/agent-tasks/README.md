@@ -9,6 +9,8 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Task | State | Note / owner |
 | --- | --- | --- |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
+| Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
+| Local AI JavaScript workspace and model merges | In review | [Workspace and merges](ai-workspace-merge.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
@@ -49,9 +51,10 @@ credentials, global settings or built-in memory stores into the repository.
 2. The receiving agent inspects `git status --short --branch`, `git rev-parse HEAD`,
    relevant history and `git diff` / `git diff --cached`. Compare them with the
    note before relying on its findings. Do not overwrite unrelated work.
-3. Continue the task's named branch. Another checkout must obtain the relevant
-   commits and note through the normal Git workflow; uncommitted/ignored files
-   require an explicit handoff too. Record how any needed local fixture is obtained.
+3. Continue the task's named branch. Checkouts and worktrees on the owner's PC see
+   local branches directly, so hand over the local branch; nothing is pushed for a
+   handover (branches go online only when the owner says "merge"). Uncommitted/ignored
+   files require an explicit handoff too. Record how any needed local fixture is obtained.
 4. Read only the matching map entry and current note, then inspect the owner code.
    Correct stale statements and distinguish already verified results from new gaps.
 

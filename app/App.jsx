@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
+import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
@@ -56,7 +57,7 @@ import { nativeStarterTexture, repointStarterTextures } from '../src/particle-st
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
-import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
+import { beginUVPreview, applyUVPreviews, revertUVPreviews, dropUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
 import './texture-library.css';
@@ -181,6 +182,7 @@ export default function App() {
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
   const aiReferences = useRef([]);
+  const aiDrafts = useRef(new Map());
   const [tick, setTick] = useState(0), [warnings, setWarnings] = useState([]), warningId = useRef(0);
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
@@ -243,7 +245,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
   // Each model tab keeps its own cameras, so switching tabs returns to the view left there.
   const cameraHandoff = session.cameraHandoff ||= { current: null };
   const paintCamera = session.paintCamera ||= { current: null };
@@ -734,7 +736,7 @@ export default function App() {
   const uvAction = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
 
   function releaseUnusedTextureUrls() {
-    const keep = new Set([...[...(latest.current.sessions || [latest.current.session]), ...aiReferences.current].flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
+    const keep = new Set([...[...(latest.current.sessions || [latest.current.session]), ...aiReferences.current, ...aiDrafts.current.values(), ...Array.from(aiBridge.targets.values(), t => t.job).filter(Boolean)].flatMap(item => [...item.assets.values()]), ...(latest.current.showcaseSession?.assets.values()||[]), ...(clipboard.current?.assets.values() || [])].map(asset=>asset.url));
     for(const url of textureUrls.current) if(!keep.has(url)) {URL.revokeObjectURL(url);textureUrls.current.delete(url);}
   }
   useEffect(() => {
@@ -823,13 +825,13 @@ export default function App() {
     if (latest.current.preferencesReady) resolveTextures(next);
     say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
   }
-  function install(next, { replace = false } = {}) {
+  function install(next, { replace = false, keepSource = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
     // Effects from earlier versions used generated pictures; point them at the stock game pictures (one undo step).
     if (!next.doc.readOnly && next.doc.model.Textures?.some(t => nativeStarterTexture(t.Image))) next.doc.apply('Use stock effect pictures', ['Textures'], repointStarterTextures);
     const currentSessions = latest.current.sessions || sessions, active = latest.current.session || session;
     const pristinePlaceholder = currentSessions.length === 1 && active === currentSessions[0] && !active.path && active.doc.name === 'Untitled.mdl' && !sessionDirty(active) && active.doc.revision === 0;
-    const replaceActive = replace || pristinePlaceholder;
+    const replaceActive = replace || (pristinePlaceholder && !keepSource);
     const nextSessions = replaceActive ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
     if (!replaceActive) rememberSessionView(active);
     setSessions(nextSessions); setSession(next); restoreSessionView(next);
@@ -846,6 +848,7 @@ export default function App() {
   function removeSession(target) {
     const currentSessions = latest.current.sessions || sessions, index = currentSessions.indexOf(target);
     if (index < 0) return;
+    aiBridge.closeDocument(target.id);
     let remaining = currentSessions.filter(item => item !== target);
     if (!remaining.length) remaining = [newSession(createEmptyDocument(preferences.newModelVersion))];
     setSessions(remaining);
@@ -1067,6 +1070,14 @@ export default function App() {
     session.uvPreviews = {}; setLiveUV(null); refresh();
     if (result === false) say('Texture kept: the model already uses this material.');
   }
+  function assignUVMaterial(geosetIndices, materialID) {
+    if (savingRef.current || doc.readOnly) return;
+    session.uvPreviews = dropUVPreviews(session.uvPreviews, geosetIndices); setLiveUV(null);
+    const changing = geosetIndices.filter(index => model.Geosets[index]?.MaterialID !== materialID);
+    // A test texture on the geoset's own material: cancelling it is the whole change.
+    if (!changing.length) { refresh(); return; }
+    edit('Assign material', ['Geosets'], m => { for (const index of changing) m.Geosets[index].MaterialID = materialID; });
+  }
   const importTextures = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textures())} textures.`); else textures.current.click(); } catch (error) { say(error.message, true); } };
   const textureFolder = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textureFolder(model.Textures.map(t => t.Image)))} textures.`); else folder.current.click(); } catch (error) { say(error.message, true); } };
   const selectManagerTextures = async records => {
@@ -1190,7 +1201,7 @@ export default function App() {
         if (name === 'Delete vertices') { if (ids.length === g.Vertices.length / 3) { deleteGeoset(m, gi); removedGeosets.push(gi); } else deleteVertices(g, ids); }
         else if (name === 'Create triangle') addTriangle(g, ids);
         else if (name === 'Delete triangles') outcome = deleteSelectedFaces(g, ids);
-        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids);
+        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids, { nuke: preferences.uncoupleNuke });
         else if (name === 'Collapse') outcome = collapseVertices(g, ids, centroid);
         else if (name === 'Weld') outcome = weldSelectedVertices(g, ids, centroid);
         else if (name === 'Smooth normals') outcome = averageSelectedNormals(g, ids);
@@ -1360,6 +1371,7 @@ export default function App() {
     ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>(mode === 'bones'||vertexNodeCenter) && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
     'bone:detach': detachSelectedNode,
     'bone:detachVertices': () => bindSelectedVertices('detach'),
+    'bone:wiggle': () => setBoneWiggle(value => !value),
     ...Object.fromEntries(['flip-u','flip-v','rotate','fold','select-connected','select-invert'].map(v=>['uv:'+v,()=>uvAction(v)])),
   });
   function commandEnabled(id) {
@@ -1376,6 +1388,7 @@ export default function App() {
       if (id === 'Create triangle') return editable && selectedRigNodes.length > 0;
       if (id === 'Collapse' || id === 'rotate' || id === 'bone:detachVertices') return editable && !!selectedBone && selectionCount > 0;
       if (id === 'bone:detach') return editable && parentedRigNodes.length > 0;
+      if (id === 'bone:wiggle') return true;
       if (['scale', 'Delete triangles', 'Uncouple', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id)) return false;
     } else if (id.startsWith('bone:')) return false;
     // N is easy to hit while wrapping UVs and would leave normals on in the main view.
@@ -1426,7 +1439,28 @@ export default function App() {
       return api.captureView().toDataURL('image/png');
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
-    sessions: () => [...latest.current.sessions, ...aiReferences.current],
+    sessions: () => [...latest.current.sessions, ...aiReferences.current, ...aiDrafts.current.values()],
+    makeAiDraft: (recovery, assets, view) => {
+      const doc = EditorDocument.restoreRecoveryState(recovery);
+      const draft = newSession(doc, null, new Map(assets));
+      Object.assign(draft.viewState, structuredClone(view), { selectable: new Set(view.checkedGeosets) });
+      aiDrafts.current.set(draft.id, draft);
+      return draft;
+    },
+    deliverAiSelection: (id, selection) => {
+      if (id === latest.current.session.id) flushSync(() => aiHost.current.select(selection));
+      else selectTab(aiHost.current.sessionOf(id), selection);
+    },
+    dropAiDraft: draft => { aiDrafts.current.delete(draft.id); releaseUnusedTextureUrls(); },
+    openAiDraft: draft => {
+      const extension = '.' + draft.doc.format;
+      const stem = draft.doc.name.replace(/\.(mdl|mdx)$/i, '');
+      const used = new Set(latest.current.sessions.map(s => s.doc.name.toLowerCase()));
+      let name = stem + ' (AI)' + extension;
+      for (let n = 2; used.has(name.toLowerCase()); n++) name = stem + ' (AI ' + n + ')' + extension;
+      draft.doc.name = name;
+      flushSync(() => install(draft, { keepSource: true }));
+    },
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
     summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
@@ -1468,6 +1502,7 @@ export default function App() {
       if (id === latest.current.session.id) return edit(...change);
       const target = aiHost.current.sessionOf(id);
       if (savingRef.current) throw Error('Wait for the current save to finish.');
+      if (aiDrafts.current.has(id)) return editTab(target, ...change);
       const result = editTab(target, ...change);
       checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
       refresh(); return result;
@@ -1477,8 +1512,10 @@ export default function App() {
       const target = aiHost.current.sessionOf(id);
       if (savingRef.current) throw Error('Wait for the current save to finish.');
       if (!undoTab(target, redo)) throw Error(redo ? 'Nothing to redo on this model.' : 'Nothing to undo on this model.');
-      checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
-      refresh();
+      if (!aiDrafts.current.has(id)) {
+        checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
+        refresh();
+      }
     },
     selectIn: (id, value) => selectTab(aiHost.current.sessionOf(id), value),
     assetsIn: id => { const target = aiHost.current.sessionOf(id); return retainedForgeAssets(target.assets, target.doc.model); },
@@ -1691,7 +1728,7 @@ export default function App() {
     if (result !== false) { setSelection(nextSelection); setUVEntrySelection(nextDomain); setLiveUV(null); }
   };
   const uvWorkspace = <AppUVWorkspace {...{
-    activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
+    activeGeoset, applyGeosetDensity, assignUVMaterial, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
     changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
     previewSuspended: previewSuspended || !!uvWindow?.minimized, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
     setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
@@ -1721,7 +1758,7 @@ export default function App() {
     onHighlightChain: changeHighlightChain, preferences, disabled: doc.readOnly || saving, model, revision: doc.revision, sequenceIndex: sequence,
     time, selectedNodeIds, onSelectNodes: setSelectedNodeIds, onEdit: edit, onSeek: setTime, onSequenceChange: selectSequence, playing,
     onPlayingChange: setPlaying, transformMode: movementMode, onTransformMode: value => setWorkTool(value==='move'?'translate':value),
-    transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
+    transformSpace: movementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
   const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings }), [preferences, openHotkeySettings]);
@@ -1783,7 +1820,7 @@ export default function App() {
         vanilla={visUI} editorDisplayMode={displayMode}
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
-        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}
+        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} wiggleNodeIds={mode === 'bones' && boneWiggle ? selectedNodeIds : undefined} cleanAnimationPreview={cleanAnimationPreview}
         workplaneEnabled={workplaneEnabled} restrictions={restrictions}
         {...cameraProps}
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
@@ -1810,11 +1847,11 @@ export default function App() {
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
-        setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
+        setContext, setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
-        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen,
+        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen, boneWiggle, setBoneWiggle,
         cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,

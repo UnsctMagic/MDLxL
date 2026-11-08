@@ -115,6 +115,14 @@ throw Error('No document');});
    before=now;await drag('Weapon glow end',-(by-ay)/span*40,(bx-ax)/span*40);now=(await preview()).model;
    const line=m=>{const s=squares(m),a=s[0].c,b=s.at(-1).c;return b.map((v,i)=>v-a[i]);},cos=(u,v)=>u.reduce((t,x,i)=>t+x*v[i],0)/Math.hypot(...u)/Math.hypot(...v);
    assert.ok(cos(line(now),line(before))<.995,'dragging an end sideways turns the weapon glow off the weapon line');
+   // The main editor's Rotate handles sit on the weapon glow's middle (fresh profile: Lines).
+   // Swing each axis's tip sideways with the mouse: the glow turns in 3D without moving the camera.
+   const swing=async(axis,escape)=>{const h=stage.locator(`[aria-label="Rotate ${axis}"]`),[x1,y1,x2,y2]=await h.locator('line').evaluate(l=>['x1','y1','x2','y2'].map(k=>Number(l.getAttribute(k)))),len=Math.hypot(x2-x1,y2-y1)||1;await drag('Rotate '+axis,-(y2-y1)/len*40,(x2-x1)/len*40,escape);};
+   for(const axis of ['X','Y','Z']){before=now;await swing(axis);now=(await preview()).model;
+    assert.ok(cos(line(now),line(before))<.995,`the ${axis} rotate handle turns the weapon glow`);
+    assert.ok(Math.abs(run(now)-run(before))<run(before)*.15,`turning on ${axis} keeps the weapon glow's length`);}
+   before=now;await swing('Z',true);now=(await preview()).model;assert.ok(cos(line(now),line(before))>.9999,'Escape cancels a rotate drag');
+   checks.push('Rotate X, Y and Z handles turn the weapon glow; Escape cancels');
    await capture('glow-tip');
   }
   assert.ok(same((await preview()).camera,kept),'handle drags keep the camera');

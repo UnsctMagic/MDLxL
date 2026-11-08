@@ -5,8 +5,20 @@ import {particleAxisMapping,particleSpreadAtPointer} from '../src/particle-handl
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
 import {createFrameCoalescer} from './viewport-performance.js';
 import ParticleStageHandle from './ParticleStageHandle.jsx';
-export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames}) {
-  const drag=useRef(null),follow=useRef(null),frame=useRef(null),[pinned,setPinned]=useState(null);
+import {degreesToQuaternion,quaternionToDegrees,turnLocalRotation} from '../src/rotation-math.js';
+import {useStageRotate} from './StageRotate.jsx';
+// rotate: show the main editor's Rotate handles on the emitter (Motion) or ribbon.
+export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames,rotate=false,preferences,onDrag}) {
+  // onDrag(true) when a handle drag starts and onDrag(false) when it ends: the editor holds the animation frame meanwhile.
+  const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),[pinned,setPinned]=useState(null);
+  // A world-axis turn is written into the emitter's own Rotation: its parent's
+  // world turn carries the axis into the emitter's space.
+  const turning=rotate&&emitter&&snapshot?.turn&&!sizeKey;
+  const rings=useStageRotate({at:turning?snapshot.turn.world:null,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
+    onBegin(){onDrag?.(true);turn.current={start:degreesToQuaternion(particleAimAngles(emitter,options)).toArray(),parent:snapshot.turn.parent};begin('Rotation');},
+    onTurn(axis,degrees){const t=turn.current;if(t)change(quaternionToDegrees(turnLocalRotation(t.start,t.parent,axis,degrees)));},
+    onEnd(){turn.current=null;finish();onDrag?.(false);},
+    onCancel(){turn.current=null;cancel();onDrag?.(false);}});
   // Each change updates the live preview: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
   useEffect(()=>{frame.current.cancel();frame.current=createFrameCoalescer(()=>follow.current?.(),frames);return()=>frame.current.cancel();},[frames]);
@@ -27,7 +39,8 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   const value=field=>particleValue(emitter,field,{...options,stage:field==='ParticleScaling'?stage:undefined});
   function start(event,field,reference,basis) {
     event.preventDefault();event.stopPropagation();event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
-    drag.current={field,x:event.clientX,y:event.clientY,value:value(field),reference:structuredClone(reference),basis:structuredClone(basis),arc:structuredClone(guide?.spreadArc),angles:particleAimAngles(emitter,options),stage};
+    onDrag?.(true);
+    drag.current={field,x:event.clientX,y:event.clientY,value:value(field),reference:structuredClone(reference),basis:structuredClone(basis),arc:structuredClone(guide?.spreadArc),stage};
     // Smooth Size: the ribbon ends shape a draft key; nothing is written until Commit.
     if(sizeKey&&(field==='HeightAbove'||field==='HeightBelow')){drag.current.size=true;return;}
     if(sample)setPinned(structuredClone(sample));begin(field,field==='ParticleScaling'?stage:undefined);
@@ -42,20 +55,20 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
     const d=drag.current;if(!d?.delta)return;
     const [dx,dy]=d.delta;
     let next;
-    if(d.field==='Rotation'){next=[d.angles[0]-dy,d.angles[1]+dx,d.angles[2]];}
-    else if(d.field==='Translation'){if(!d.basis)return;next=d.value.map((value,i)=>value+dx*d.basis.dx[i]+dy*d.basis.dy[i]);}
+    if(d.field==='Translation'){if(!d.basis)return;next=d.value.map((value,i)=>value+dx*d.basis.dx[i]+dy*d.basis.dy[i]);}
     else if(d.field==='ParticleScaling')next=Math.max(0,(d.value||1)*movementFreeScaleValues(dx,dy)[0]);
     else if(d.field==='Latitude')next=particleSpreadAtPointer(d.arc,d.reference,dx,dy,d.value);
     else {if(!d.basis)return;next=Math.max(0,d.value+movementDragAmount(d.basis,dx,dy,'move'));}
     if(d.size)onSizeDraft(d.field,next);else change(next);
   }
   follow.current=applyMove;
-  function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();}}
-  function abort(){frame.current.cancel();const size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();}
+  function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();onDrag?.(false);}}
+  function abort(){frame.current.cancel();const active=!!drag.current,size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();if(active)onDrag?.(false);}
   const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
-    if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):field==='Rotation'?value(field)+delta:Math.max(0,value(field)+delta));finish();}
+    if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):Math.max(0,value(field)+delta));finish();}
   }}/>;
-  return <svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
+  return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
+    {rings.targets}
     {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}{ribbon&&<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text>}</g>}
     {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Born','Halfway','End'][lifeStage]:'Size'}</text></g>}
     {ribbon&&guide?.upper&&guide?.lower&&<g className={sizeKey?'pe-size-key':undefined}><line x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]}/>{snapshot.anchor&&!sizeKey&&<line className="pe-ribbon-grab" x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]} onPointerDown={event=>start(event,'Translation',snapshot.anchor.point,snapshot.anchor)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort}><title>Drag the ribbon to move it</title></line>}{handle(guide.upper,'HeightAbove','Ribbon upper edge',particleAxisMapping(guide.upper,guide.upperUnit))}{handle(guide.lower,'HeightBelow','Ribbon lower edge',particleAxisMapping(guide.lower,guide.lowerUnit))}</g>}
@@ -66,7 +79,6 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
       <polyline points={guide.spreadArc.map(item=>item.point.slice(0,2).join(',')).join(' ')}/>
       <line x1={guide.origin[0]} y1={guide.origin[1]} x2={guide.spread[0]} y2={guide.spread[1]}/>
       {handle(guide.spread,'Latitude','Spread handle')}
-      {handle(guide.aim,'Rotation','Aim emitter')}
     </g>}
-  </svg>;
+  </svg></>;
 }

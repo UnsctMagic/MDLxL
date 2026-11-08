@@ -71,6 +71,15 @@ test('U visibly separates selected corners while preserving their non-position S
   const retainedX=g.Vertices[0]; g.Vertices[12] += 5; assert.equal(g.Vertices[0], retainedX);
 });
 
+test('U with Nuke off separates selected corners but keeps every copy on its original spot', () => {
+  const g = geoset(), before = structuredClone(g), result = uncoupleVertices(g, [0, 2], { nuke: false });
+  assert.deepEqual(result, { selection: [0, 2, 4, 5], added: 2 });
+  assert.deepEqual([...g.Faces], [0, 1, 2, 4, 5, 3]);
+  assert.deepEqual(g.Vertices.slice(0, 12), before.Vertices);
+  for (const [copy, source] of [[4, 0], [5, 2]]) assert.deepEqual(g.Vertices.slice(copy * 3, copy * 3 + 3), before.Vertices.slice(source * 3, source * 3 + 3));
+  const retainedX = g.Vertices[0]; g.Vertices[12] += 5; assert.equal(g.Vertices[0], retainedX);
+});
+
 test('U checks the 16-bit limit before writing and accepts the final valid vertex index', () => {
   const tooLarge = geoset(Array(65536 * 3).fill(0)), before = structuredClone(tooLarge);
   assert.throws(() => uncoupleVertices(tooLarge, [0]), /65536/);

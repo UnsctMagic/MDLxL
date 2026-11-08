@@ -4,6 +4,7 @@ import {sampleNodeMatrices,visitTracks,isGlobalTrack} from './animation.js';
 import {particleVertexSelection} from './particle-selection.js';
 import {Matrix4,Vector3} from 'three';
 import {uniqueName} from './node-hierarchy.js';
+import {ribbonSwingWindow} from './particle-ribbon-fit.js';
 
 export function initialParticlePlacement(model,selection,nodeId,sequenceIndex){
  const selected=particleVertexSelection(model,selection),node=model.Nodes[nodeId];
@@ -60,6 +61,15 @@ export function placeTimedParticleRecipe(model,recipe,placement,{preview=false,c
  if(placement.ribbon||wholeAnimations){
   const selected=new Set(placement.sequences),visibility=new Map(),boundaries=new Set();
   for(let i=0;i<model.Sequences.length;i++)for(const frame of model.Sequences[i].Interval){visibility.set(frame,selected.has(i)?1:0);boundaries.add(frame);}
+  // A weapon ribbon shows only while its weapon swings, as native trails are keyed.
+  if(placement.ribbon?.endpoints)for(const i of selected){
+   const clip=model.Sequences[i];if(!clip)continue;
+   const [start,end]=clip.Interval,swing=ribbonSwingWindow(model,i,placement.parent===''?null:Number(placement.parent),placement.ribbon.endpoints);
+   if(!swing||swing[0]<=start&&swing[1]>=end)continue;
+   visibility.set(start,swing[0]<=start?1:0);visibility.set(end,0);
+   if(swing[0]>start)visibility.set(swing[0],1);
+   if(swing[1]<end)visibility.set(swing[1],0);
+  }
   for(const id of result.ids){
    const node=model.Nodes[id];
    node.Visibility=visibility.size?{LineType:0,GlobalSeqId:null,Keys:[...visibility].sort((a,b)=>a[0]-b[0]).map(([Frame,value])=>({Frame,Vector:new Float32Array([value])}))}:1;

@@ -7,7 +7,7 @@ import { commonEndpointProposals, applyCommonEndpointPose } from './optimizexl-e
 import { optimizationReview } from './optimizexl-review.js';
 import { reduceWorldAnimation } from './optimizexl-world-animation.js';
 import { reduceAnimationTrack, trackValueError } from './optimizexl-animation.js';
-import { boundsProposals, repairBounds } from './optimizexl-bounds.js';
+import { boundsProposals, calculateExtents } from './model-extents.js';
 import { repairMotionIrregularity, scanIrregularMotion } from './optimizexl-motion.js';
 import { repairSuspiciousSnap, scanSuspiciousSnaps } from './optimizexl-snaps.js';
 import { repairContextMotion, scanModelMotionContext } from './optimizexl-motion-context.js';
@@ -139,7 +139,7 @@ export function findIrregularities(m){const findings=[],seq=m.Sequences,live=seq
  const context=scanModelMotionContext(m,findings.filter(f=>f.kind==='motion'||f.kind==='snap'));
  return [...findings.map(f=>context.review.has(f.id)?{...f,motionContext:context.review.get(f.id)}:f),...context.findings,...effectVisibilityProposals(m)];
 }
-export function sanityProposals(m){const findings=boundsProposals(m);for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'mdx-m3-viewer flags animated gravity. Choose a static value and review its particle motion.'});
+export function sanityProposals(m){const findings=[];for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'mdx-m3-viewer flags animated gravity. Choose a static value and review its particle motion.'});
  for(const {track:t,path}of tracks(m)){if(t.GlobalSeqId>=0&&m.GlobalSequences[t.GlobalSeqId]>0&&t.Keys.some(k=>k.Frame>m.GlobalSequences[t.GlobalSeqId])&&t.Keys.some(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]))findings.push({id:`outside:${path.join('.')}`,kind:'globalKeys',path,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${path.join('.')}: keys beyond global duration`,detail:'Remove keys outside the declared global sequence. Review effects and animation before approval.'});}
  const proposals=[...findings,...openingTrackProposals(m,tracks(m)),...unusedTrackProposals(m,tracks(m)),...redundantTrackProposals(m,tracks(m))];
  // Static gravity replaces its entire track. It owns that track's diagnostics;
@@ -153,7 +153,8 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  // During timeline relocation only disjoint geometry cleanup is offered.
  // Track cleanup waits for the new domains. Existing findings retain their order.
  if(relocation>=0)existing.splice(relocation,0,...exact);else existing.push(...exact);
- return existing;}
+ // Extents come last so batches and Fix everything measure the repaired motion.
+ return [...existing,...boundsProposals(m)];}
 export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
 /** Apply every automatic repair, check again and repeat: one repair can expose
  * or enable another (sorted keys can then get opening keys, for example). */
@@ -252,7 +253,7 @@ function applyRepair(m,fix,settings,evidenceModel=m){
  if(fix.kind==='bounds'){
   const current=scan(boundsProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
-  repairBounds(m,current);return;
+  calculateExtents(m);return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
 function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset??1),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');
@@ -261,7 +262,7 @@ function spheres(m,settings){const chosen=settings.spheres||presetShapes(setting
 }
 export function runOptimizeStage(bytes,stage,settings={},fix=null){const doc=openDocument(new Uint8Array(bytes),'working.mdx');supported(doc);const baseline=validateModel(doc.model).filter(d=>d.severity==='error').map(d=>d.code+':'+d.path),stats={},skipped=new Set(),changes=[],reviewBase=['duplicates','animation','unused'].includes(stage)?structuredClone(doc.model):null;let animationMetrics;
  doc.apply('OptimizeXL '+stage,sections,m=>{switch(stage){case'duplicates':if(settings.bones)stats.duplicateBones=duplicateBones(m,settings,changes);Object.assign(stats,mergeDuplicateVertices(m,settings,change=>changes.push(change)));break;case'animation':{const result=animationReduction(m,settings,changes);if(typeof result==='number')stats.keys=result;else{stats.keys=result.keys;animationMetrics=result;}break;}case'unused':if(settings.vertices)stats.vertices=removeUnusedVertices(m,settings,change=>changes.push(change));if(settings.resources)unusedResources(m,stats,skipped,changes);if(settings.nodes)stats.nodes=unusedNodes(m,changes);if(settings.resources)stats.globalSequences=unusedGlobals(m,changes);break;case'sanity':case'irregularities':applyRepair(m,fix,settings);break;case'spheres':spheres(m,settings);stats.spheres=m.CollisionShapes.length;break;case'nuclear':Object.assign(stats,reducePolygons(m,settings));break;default:throw Error('Unknown OptimizeXL stage.');}});
- const after=doc.serialize('mdx'),reopened=openDocument(after,'after.mdx');if(reopened.readOnly)throw Error('The candidate could not be reopened.');const errors=validateModel(reopened.model).filter(d=>d.severity==='error'&&!baseline.includes(d.code+':'+d.path));if(errors.length)throw Error(errors[0].message);
+ const after=doc.serialize('mdx',{strict:true}),reopened=openDocument(after,'after.mdx');if(reopened.readOnly)throw Error('The candidate could not be reopened.');const errors=validateModel(reopened.model).filter(d=>d.severity==='error'&&!baseline.includes(d.code+':'+d.path));if(errors.length)throw Error(errors[0].message);
  assertRoundTripFields(doc.model,reopened.model);
  if(!same(doc.model.Sequences,reopened.model.Sequences)||triangleCount(doc.model)!==triangleCount(reopened.model))throw Error('Candidate changed during save verification.');
  const changed=bytes.byteLength!==after.byteLength||new Uint8Array(after).some((value,i)=>value!==bytes[i]);

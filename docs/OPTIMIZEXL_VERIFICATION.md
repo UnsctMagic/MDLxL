@@ -690,3 +690,23 @@ documented ID-permutation drift; that main output also has `CLID` before
 identity snapshot re-records only its two `:mdx` hashes (Materials no longer
 last; every section byte-identical). Warcraft III check of an order-only repair
 is pending with the owner.
+
+## Common endpoint poses per stance (owner-reported) — 2026-11-07
+
+The owner's Vampire Dragon screenshot showed Irregularities Fixer proposing
+"Stand Ready Alternate: match common first/last pose" from Stand Ready,
+Attack - 1 and Attack - 2. An Alternate (morphed) form has its own rest pose,
+so plain-stance animations are not evidence against it. The common-pose scan
+now groups eligible Attack/Stand Ready/Death animations by their Warcraft III
+stance tags (Alternate, AlternateEx, Defend, Swim, Gold, Lumber) and runs the
+unchanged majority vote inside each group. Thresholds, the correction itself
+and plain-stance results are unchanged; a stance with fewer than three
+endpoints gets no proposal.
+
+On `MDLxL-TestModels\corpse-fixtures\VampireDragon_Corpse_FlyingDeath.mdx` and
+`Downloads\VampireDragon_Death_A_EffectsOnly.mdx`, the old scan offered Death,
+Stand Ready Alternate and Death Alternate (all supported by plain animations);
+the new scan offers only Death. A new unit regression gives an Alternate
+stance 70 units from the plain one: only its outlying Slam is corrected, toward
+the Alternate pose (fails on the old code). All 207 OptimizeXL source tests
+run: 205 pass, 2 skipped, 0 fail. Packaged-app click-through not run.

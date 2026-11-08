@@ -9,6 +9,9 @@ import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
 const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 const extent=()=>({MinimumExtent:new Float32Array([-999,-999,-999]),MaximumExtent:new Float32Array([999,999,999]),BoundsRadius:2000});
+// Calculate extents rewrites every extent record; everything else must stay.
+const EXTENT_FIELDS=['MinimumExtent','MaximumExtent','BoundsRadius','Anims'];
+const strip=model=>{const copy=structuredClone(model);for(const record of [copy.Info,...copy.Sequences,...copy.Geosets])for(const field of EXTENT_FIELDS)delete record[field];return copy;};
 const key=(Frame,Vector)=>({Frame,Vector:new Float32Array(Vector)});
 test('invalid animated bounds repair survives save/reopen and contains moving geometry',()=>{
  const doc=createStarterDocument();doc.apply('fixture',['Sequences','Bones','Geosets'],m=>{
@@ -19,7 +22,7 @@ test('invalid animated bounds repair survives save/reopen and contains moving ge
  const bytes=doc.serialize('mdx'),before=openDocument(bytes,'before.mdx').model,fix=sanityProposals(before).find(p=>p.kind==='bounds');assert.ok(fix);
  const after=openDocument(runOptimizeStage(bytes,'sanity',{},fix).bytes,'after.mdx').model;
  assert.ok(after.Sequences[0].MaximumExtent[0]>=Math.max(...before.Geosets[0].Vertices.filter((_,i)=>i%3===0))+100);
- assert.deepEqual(after.Geosets,before.Geosets);assert.deepEqual(after.Bones,before.Bones);assert.deepEqual(after.Sequences[0].Interval,before.Sequences[0].Interval);assert.equal(sanityProposals(after).filter(p=>p.kind==='bounds').length,0);
+ assert.deepEqual(strip(after).Geosets,strip(before).Geosets);assert.deepEqual(after.Bones,before.Bones);assert.deepEqual(after.Sequences[0].Interval,before.Sequences[0].Interval);assert.equal(sanityProposals(after).filter(p=>p.kind==='bounds').length,0);
 });
 
 function tableFixture(counts=[1,3,2],intervals=[[100,200],[400,500]]){
@@ -36,7 +39,7 @@ for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations f
  const findings=hive(source).findings.filter(f=>f.message.startsWith('Number of sequence extents'));
  assert.equal(findings.length,1);assert.equal(classifyHiveFindings(findings,[fix])[0].status,'preview');
  const bytes=runOptimizeStage(source,'sanity',{},fix).bytes,after=openDocument(bytes,'x.mdx').model;
- assert.equal(after.Geosets[0].Anims.length,2);assert.deepEqual(after.Geosets[1],before.Geosets[1]);
+ assert.equal(after.Geosets[0].Anims.length,2);assert.equal(after.Geosets[1].Anims.length,2);
  assert.ok(!hive(bytes).findings.some(f=>f.message.startsWith('Number of sequence extents')));
  assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));
  const renderer=new ModelRenderer(structuredClone(before));
@@ -52,7 +55,7 @@ for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations f
    assert.deepEqual(renderer.rendererData.nodes.filter(Boolean).map(n=>n.matrix),other.rendererData.nodes.filter(Boolean).map(n=>n.matrix));
   }
  }
- after.Geosets[0].Anims=before.Geosets[0].Anims;assert.deepEqual(after,before);
+ assert.deepEqual(strip(after),strip(before));
 });
 
 test('one bounds owner covers mismatched tables and invalid records without overlapping writes',()=>{
@@ -63,14 +66,15 @@ test('one bounds owner covers mismatched tables and invalid records without over
  assert.deepEqual(fix.targets.map(t=>t.path),[['Geosets',0,'Anims'],['Geosets',1,'Anims'],['Geosets',2,'Anims',1]]);
  assert.ok(classifyHiveFindings(hive(source).findings,[fix]).filter(f=>/extent|radius/i.test(f.message)).every(f=>f.status==='preview'));
  const after=openDocument(runOptimizeStage(source,'sanity',{},fix).bytes,'x.mdx').model;
- assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));assert.deepEqual(after.Geosets[2].Anims[0],before.Geosets[2].Anims[0]);
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));assert.deepEqual(strip(after),strip(before));
 });
 
-test('matching tables stay unchanged and models with no animations discard only stray extent records',()=>{
- const doc=tableFixture([2]);assert.ok(!sanityProposals(doc.model).some(f=>f.kind==='bounds'));
+test('calculated extents are stable and models with no animations discard only stray extent records',()=>{
+ const doc=tableFixture([2]);const loose=sanityProposals(doc.model).find(f=>f.kind==='bounds');assert.ok(loose);assert.equal(loose.targets.length,0);
+ const fitted=openDocument(runOptimizeStage(doc.serialize('mdx'),'sanity',{},loose).bytes,'x.mdx').model;assert.ok(!sanityProposals(fitted).some(f=>f.kind==='bounds'));
  const empty=tableFixture([3],[]),source=empty.serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
  const after=openDocument(runOptimizeStage(source,'sanity',{},fix).bytes,'x.mdx').model;
- assert.deepEqual(after.Geosets[0].Anims,[]);after.Geosets[0].Anims=before.Geosets[0].Anims;assert.deepEqual(after,before);
+ assert.deepEqual(after.Geosets[0].Anims,[]);assert.deepEqual(strip(after),strip(before));
 });
 
 test('extent findings cannot route a different geoset and stale or duplicate table proposals fail',()=>{

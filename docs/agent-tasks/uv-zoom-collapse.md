@@ -15,7 +15,7 @@ behavior and no changes to other UV tools or 3D zoom.
 - PR: [#549](https://github.com/UnsctMagic/MDLxL/pull/549), merged as `4fc8c1b13a55c807a957eddc1e9718908e05b821`.
 - Branch: `codex/uv-zoom-collapse`; base `f67cbb55` (current main at task start).
 - Only application change: `app/UVEditor.jsx`, `applyMove` scale factor.
-- Contract: [UV Zoom drag](../UV-ZOOM-DRAG.md).
+- Contract: [UV Rotate and Zoom](../UV-ROTATE-ZOOM.md) (Zoom later changed to right/up and left/down, 6 Nov).
 - Check: `test/uv-zoom-collapse.electron.cjs`.
 - Fixture: `fixturePath('footman')` from the permanent test-model collection;
   source file verified unchanged.

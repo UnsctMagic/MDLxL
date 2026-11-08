@@ -45,6 +45,18 @@ test('conflicting endpoint groups without a majority do not nominate an arbitrar
  const doc=combatFixture([0,10,20,30,40]);assert.equal(findIrregularities(doc.model).filter(f=>f.kind==='commonPose').length,0);
 });
 
+test('a different stance (Alternate) is measured only against animations of the same stance',()=>{
+ const doc=combatFixture();doc.apply('Alternate stance',['Sequences','Bones'],m=>{
+  m.Sequences.push(...['Stand Ready Alternate','Attack Alternate','Attack - 2 Alternate','Death Alternate','Attack Alternate Slam'].map((n,i)=>sequence(n,5+i)));
+  // The whole Alternate stance sits 70 units away; its own Slam is the outlier.
+  m.Bones[0].Translation.Keys.push(...[70,70,70,70,95].flatMap((v,i)=>[key((5+i)*100,v),key((5+i)*100+40,v+50),key((5+i)*100+80,i===3?150:v)]));
+ });
+ const fixes=findIrregularities(doc.model).filter(f=>f.kind==='commonPose');
+ assert.deepEqual(fixes.map(f=>f.sequence),[4,9]);assert.deepEqual(fixes[1].support,[5,6,7,8]);
+ const bytes=doc.serialize('mdx'),after=openDocument(runOptimizeStage(bytes,'irregularities',{},fixes[1]).bytes,'x.mdx').model;
+ assert.deepEqual(pose(after,9,0),[70,0,0]);assert.deepEqual(pose(after,9,1),[70,0,0]);
+});
+
 test('duplicate review identifies only affected geosets without animation details',()=>{
  const doc=createStarterDocument();doc.apply('Visible duplicate fixture',['Geosets','Sequences','GeosetAnims'],m=>{
   m.Geosets.push(structuredClone(m.Geosets[0]));const g=m.Geosets[0];g.Vertices=new Float32Array([...g.Vertices,...g.Vertices.slice(0,3)]);g.Normals=new Float32Array([...g.Normals,...g.Normals.slice(0,3)]);g.TVertices=g.TVertices.map(a=>new Float32Array([...a,...a.slice(0,2)]));g.VertexGroup=new Uint8Array(9);g.Faces=new Uint16Array([...g.Faces,8,1,2]);

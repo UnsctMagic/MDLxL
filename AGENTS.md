@@ -75,20 +75,16 @@ separate and are not a shared handover.
 - Every 3D preview must allow normal mouse camera rotation unless explicitly
   requested otherwise. Verify actual mouse drags in the packaged app;
   programmatic camera changes do not verify the user's controls.
-- Rotate has two settled rules, both owner-approved; keep them apart. 3D editors
-  use `src/rotation-drag.js` and the Mouse → Rotation settings. The 2D UV map
-  uses only `uvTurn` in `src/uv-tools.js`: straight input uses fixed screen
-  directions, and circles follow their own clockwise/counter-clockwise winding.
-  Earlier movement or model rotation must never redefine either control. Do not
-  latch a direction or force one-way rotation. Circles retain 70% angular
-  sensitivity; toward/away travel contributes at 0.7 radians per 48 px, without
-  a centre dead zone or any 3D rotation setting. One piece turns on its own spot,
-  several around their shared centre. Hold Shift for fine rotation; releasing it
-  restores normal speed within the same drag. Alt fine control stays available.
-  Only UVWorkspace enables `UVEditor.wrapperControls`; FX texture fitting keeps
-  its original input. Wrapper Zoom also supports hold-Shift fine control, with
-  its existing axis locks and Alt precision. Never share settings with 3D tools.
-  Test feel with the owner's real mouse settings, not a fresh profile.
+- Rotate has two settled rules; keep them apart. 3D editors use
+  `src/rotation-drag.js` and the Mouse → Rotation settings. The UV Wrapper's
+  Rotate and Zoom are **owner-locked** in [UV Rotate and Zoom](docs/UV-ROTATE-ZOOM.md):
+  Rotate turns only with movement around the centre (70%, steady within 24 px
+  or the piece's own size, so a big piece never outruns the mouse; straight
+  moves do not turn); Zoom grows right/up and shrinks left/down to
+  exactly zero. Do not change either feel unless the owner explicitly asks for
+  a new rule; fix complaints inside the rule and never edit the locked test
+  numbers to pass. Never share settings with 3D tools. Test feel with the
+  owner's real mouse settings, not a fresh profile.
 - Never reset the user's viewpoint. Edits, choices, rebuilds, undo/redo and
   animation or frame changes keep the camera exactly where the user left it.
   Frame automatically only when the user opens something new to look at (a
@@ -158,16 +154,18 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - Continue the task's explicitly named feature branch when switching tools.
   Otherwise use the tool's own prefix: `codex/` for Codex, `claude/` for Claude
   Code. Preserve unrelated local work.
-- Push the feature branch to `origin`, open a PR into `main`, and include its URL
-  in the handover (attach it to the Codex chat when using Codex). A local-only
-  commit/merge or direct push/merge to `main` is not a completed handoff.
+- Nothing goes online until the owner says "merge" (or "release", which merges
+  too) in the current conversation. Until then, commit on the local feature
+  branch only and report `saved on your PC, not online`. Do not push, open or
+  update a PR, tag, release or post anywhere before that, not even for a
+  handover: hand over the local branch name and revision instead.
+- When the owner says "merge", do it all at once: push the feature branch to
+  `origin`, open a PR into `main`, merge it through the PR, then verify the
+  merged PR and its change on online `main` before reporting completion. Never
+  push or merge directly to `main`.
 - Every PR description names the session that did the work in one line:
   `Session: claude local_<id>` or `Session: codex <task or chat name/link>`.
-  Before merging, add the line if it is missing (edit the description; no commit).
-- Merge through the PR only after explicit user authorization. Until then, report
-  `ready for review; awaiting merge approval`. After authorized merging, verify
-  both the merged PR and its change on online `main` before reporting completion.
-  After merging, mark the task note completed with the merge revision and remove
+- After merging, mark the task note completed with the merge revision and remove
   its [README](docs/agent-tasks/README.md) row in the same or the next PR.
 - Starting with the release after 0.38.0, notes, new PDF guides, release-body
   links and update/site release text ship in EN/ES/RU/ZH-CN/FR/DE. Follow

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from 'three';
 import {createDemoDocument,openDocument,createNode} from '../src/editor-document.js';
-import {ribbonPolygonSelection,fitRibbonToPolygons} from '../src/particle-ribbon-fit.js';
+import {ribbonPolygonSelection,fitRibbonToPolygons,ribbonSwingWindow,NATIVE_RIBBON_COLOR} from '../src/particle-ribbon-fit.js';
+import {RIBBON_TEXTURE} from '../src/particle-starters.js';
 import {placeTimedParticleRecipe} from '../src/particle-placement.js';
 import {sampleNodeMatrices,sampleTrack} from '../src/animation.js';
 import {hasCanonicalSerializedNodeOrder,serializedNodes} from '../src/node-id-order.js';
@@ -78,4 +79,27 @@ test('fitted ribbons attach directly and keep later event pivots and references 
  assert.deepEqual(doc.model.Geosets,before.Geosets);assert.deepEqual(doc.model.Bones,before.Bones);
  for(const format of ['mdx','mdl']){const reopened=openDocument(doc.serialize(format),'created.'+format).model;assert.ok(hasCanonicalSerializedNodeOrder(reopened));for(const node of serializedNodes(reopened))assert.deepEqual(node.PivotPoint,doc.model.PivotPoints[node.ObjectId]);assert.equal(reopened.RibbonEmitters[0].Parent,0);assert.equal(reopened.EventObjects[0].Parent,0);}
  doc.undo();assert.deepEqual(doc.model,before);
+});
+
+test('fitted weapon ribbons start with the native weapon-trail look',()=>{
+ const {recipe}=fitRibbonToPolygons(fixture().model,{0:[0,1,2,3]}),ribbon=recipe.native.RibbonEmitters[0],layer=recipe.native.Materials[0].Layers[0];
+ // Blademaster, Hellscream and their copies: RibbonBlur1, Additive, faint orange, short life.
+ assert.equal(recipe.native.Textures[layer.TextureID].Image,RIBBON_TEXTURE);assert.equal(layer.FilterMode,3);
+ assert.equal(ribbon.Alpha,.35);assert.deepEqual(Array.from(ribbon.Color),Array.from(new Float32Array(NATIVE_RIBBON_COLOR)));assert.equal(ribbon.LifeSpan,.35);assert.equal(ribbon.EmissionRate,35);
+});
+test('weapon ribbons show only while the weapon swings',()=>{
+ const doc=fixture();doc.apply('Wind-up, strike, recovery',['Sequences','Nodes'],m=>{
+  m.Sequences=[{...m.Sequences[0],Name:'Attack',Interval:new Uint32Array([0,3000])},{...m.Sequences[0],Name:'Stand',Interval:new Uint32Array([4000,5000])}];
+  const turn=angle=>new Float32Array(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),angle).toArray());
+  delete m.Bones[0].Translation;delete m.Bones[0].Scaling;
+  // A slow raise, a fast strike from 1000 to 1400, then a still follow-through; Stand never moves.
+  m.Bones[0].Rotation={LineType:1,GlobalSeqId:null,Keys:[[0,0],[1000,-.3],[1400,2],[3000,2],[4000,0],[5000,0]].map(([Frame,angle])=>({Frame,Vector:turn(angle)}))};
+ });
+ const fit=fitRibbonToPolygons(doc.model,{0:[0,1,2,3]}),[on,off]=ribbonSwingWindow(doc.model,0,0,fit.endpoints);
+ assert.ok(on>=900&&on<=1050,'Starts with the strike, not the wind-up: '+on);assert.ok(off>1400&&off<=1900,'Ends shortly after the strike: '+off);
+ assert.deepEqual(ribbonSwingWindow(doc.model,1,0,fit.endpoints),[4000,5000],'A still weapon keeps the whole animation');
+ const placed=placeTimedParticleRecipe(doc.model,fit.recipe,{ribbon:fit,sequences:[0,1],sequence:0,parent:'0',position:[0,0,0],motion:'target',fit:true});
+ const ribbon=doc.model.Nodes[placed.ids[0]],seen=(frame,i)=>sampleTrack(ribbon.Visibility,frame,{interval:doc.model.Sequences[i].Interval,fallback:1});
+ assert.equal(seen(500,0),0,'Hidden during the wind-up');assert.equal(seen(1200,0),1,'Shown during the strike');assert.equal(seen(2600,0),0,'Hidden during the recovery');
+ assert.equal(seen(4000,1),1);assert.equal(seen(4900,1),1);
 });

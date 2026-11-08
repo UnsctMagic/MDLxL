@@ -71,6 +71,20 @@ Codex-managed sign-in remains the account mechanism. A request for externally
 managed auth tokens or client attestation receives a visible connection error;
 MDLxL does not fabricate credentials or attestation tokens.
 
+### Local JavaScript workspace
+
+The folder-and-code switch in the chat header enables the workspace for new requests with any embedded tool-capable provider. It starts off. If repeated measurements or candidate comparisons would benefit from a script, the AI can offer it once during a job. The green card explains the specific benefit. **Yes** enables it immediately for that job and keeps its selection and progress. **No** continues with the ordinary tools. Neither answer changes the header preference.
+
+The built-in JavaScript runner can keep named scripts and JSON results in private scratch files for the current job. A candidate preview draws only complete triangles from the proposed vertices. Applying a candidate uses the original marked selection and model revision as its boundary and reports the vertex count read back from the editor. Programs run in the existing protected renderer. Scratch files close with the request and start empty on resume.
+
+### Editing while the AI is working
+
+An embedded job captures the unsaved model and marked selection when you send the prompt. You can orbit, scrub, select other parts, or switch tabs while it works. If the live target diverges, modeling tools and off-screen pictures continue on a private copy. Tools that click or drag a visible editor control require the live tab.
+
+If you edit model data during the job and your edits and the AI's touch separate data, such as two different geosets, MDLxL combines them itself when the AI finishes. There is no question and no extra AI use, and the AI's part is one Undo step. Only the model-wide bounding box may change on both sides; it is rebuilt from the geosets. Adding or removing a list item, such as a geoset or bone, counts as overlap when the other side changed that same list.
+
+When the edits overlap, or you have unfinished paint, UV previews or animation drafts, the chat offers **Open as new model** and **Merge**. Opening creates a separate unsaved tab. Merging gives the same provider the common starting model, its candidate, and a fresh copy of your latest model. It verifies the result before applying it as one Undo step. Editing again during that merge can bring the choice back. View navigation alone does not require a merge.
+
 ### Editing handbook
 
 The **Editing handbook** switch (the book icon in the console header) is off until you turn it on, and MDLxL remembers your choice. While it is on,
@@ -83,7 +97,7 @@ applies from the next request.
 
 ### Web research
 
-The **Web research** switch (the globe next to the Editing handbook book) is off
+The **Web research** switch (the globe in the chat header) is off
 until you turn it on, and MDLxL remembers your choice. While it is on, the AI can
 search the web and read pages, such as Hive Workshop and XGM tutorials, when it
 needs to look something up or you ask it to. Each search shows as a step in the
@@ -265,8 +279,7 @@ context at the next tool boundary. External MCP clients can subscribe to
 `mdlxl://editor/context`. Turning the switch off clears that live resource and
 stops future updates. Context already sent remains in the conversation.
 
-Live awareness never moves an existing edit onto a new selection. If the user
-changes the captured model or selection, delayed mutations still stop.
+Live awareness keeps an embedded job tied to its original selection. External MCP clients retain the strict stale-target check and must capture a fresh target after changes.
 
 **Look first, then change once.** Before the first edit of a job, the AI records
 a plan (the **Planning the change** step; click it to read the plan):
@@ -316,6 +329,8 @@ After MDLxL closes, reopen the saved file to establish the reference again.
 
 **Motion measurements.** Animation reviews include MDLxL's own before/after
 measurement for each touched animation, cached until the model revision changes.
+It runs in `app/ai-motion-compare.worker.js`, never on the window's thread, because
+every frame of a real model takes tens of seconds; Stop ends it at once.
 `ai-motion-compare.compareMotion` imports the preview's sampler and skinning;
 it reports distances, speed differences, exact endpoint samples, horizontal
 centre drift, structural contact travel, changed topology and non-geometric

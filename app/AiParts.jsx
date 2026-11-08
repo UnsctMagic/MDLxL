@@ -11,6 +11,7 @@ export const activity = {
   mdlxl_sample: 'Inspecting the model',
   mdlxl_assets: 'Checking model files',
   mdlxl_read: 'Reading model data',
+  mdlxl_workspace: 'Using the local workspace',
   mdlxl_script: 'Working on the model',
   mdlxl_patch: 'Applying a precise edit',
   mdlxl_select: 'Selecting model elements',
@@ -177,15 +178,34 @@ function QuestionPart({ part }) {
     [sending, setSending] = useState(false), [error, setError] = useState('');
   const pending = part.status === 'running';
   const answer = q => [...(values[q.id] || []), ...(custom[q.id]?.trim() ? [custom[q.id].trim()] : [])];
-  async function submit(event, cancel = false) {
+  async function submit(event, cancel = false, choice) {
     event.preventDefault();
     if (sending || !pending) return;
     setSending(true); setError('');
     try {
       await window.desktop.aiAnswerQuestion({ questionId: part.questionId, cancel,
-        answers: Object.fromEntries(part.questions.map(q => [q.id, { answers: answer(q) }])) });
+        answers: Object.fromEntries(part.questions.map(q => [q.id, { answers: choice ? [choice] : answer(q) }])) });
     } catch (reason) { setError(reason.message); }
     finally { setSending(false); }
+  }
+  if (part.kind === 'model-conflict') return <div className="ai-question ai-model-conflict" role="group" aria-label="Model changed during the AI job">
+    <strong>The model changed while the AI was working.</strong>
+    {pending ? <><p>Open the AI result separately, or let the AI merge it with your latest edits.</p>
+      <p>Editing during the merge can bring this choice back. You can still change the view, selection or animation.</p>
+      <div className="ai-workspace-choices">{['Open as new model', 'Merge'].map(choice => <button key={choice} type="button" disabled={sending} onClick={event => submit(event, false, choice)}>{choice}</button>)}</div></>
+      : <p>{part.answers?.delivery?.answers?.[0] || 'Question stopped'}</p>}
+    {error && <p role="alert">{error}</p>}
+  </div>;
+  if (part.kind === 'workspace-offer') {
+    const accepted = part.answers?.workspace?.answers?.[0] === 'Yes';
+    return <div className="ai-workspace-offer" role="group" aria-label="JavaScript workspace">
+      <strong>{pending ? 'Use JavaScript for this job?' : part.status === 'done' ? (accepted ? 'JavaScript enabled for this job' : 'Continuing without the workspace') : 'Workspace offer closed'}</strong>
+      {pending && <p>JavaScript can speed up repeated checks.</p>}
+      <p translate="no">{part.message}</p>
+      {pending && <div className="ai-workspace-choices">{['Yes', 'No'].map(choice => <button key={choice} type="button"
+        disabled={sending} onClick={event => submit(event, false, choice)}>{choice}</button>)}</div>}
+      {error && <p role="alert">{error}</p>}
+    </div>;
   }
   return <form className="ai-question" onSubmit={submit}>
     <div className="ai-message-note">{part.name && <span translate="no">{part.name}: </span>}{pending ? 'Waiting for your answer' : part.status === 'done' ? 'Answered' : 'Question stopped'}</div>

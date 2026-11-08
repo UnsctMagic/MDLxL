@@ -43,7 +43,7 @@ function previewAssets(textures){
 /** Center stage: one persistent preview. A new model replaces the old one when it has loaded and the camera glides to it. */
 function ModelStage({shown,sequence,time,setTime,playing,setPlaying,isolated,hidden,hovered,highlight,onHover}){
   if(!shown)return null;
-  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera glideKey={shown.key} fitSequenceExtent isolatedGeosets={isolated} hiddenGeosets={hidden} interactivePreview hoveredGeoset={highlight?hovered:null} highlightSelection={highlight} onHoverGeoset={highlight?onHover:undefined} model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
+  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera glideKey={shown.key} fitSequenceExtent isolatedGeosets={isolated} frameKey={shown.key+':'+(isolated||[]).join(',')} hiddenGeosets={hidden} interactivePreview hoveredGeoset={highlight?hovered:null} highlightSelection={highlight} onHoverGeoset={highlight?onHover:undefined} model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
 }
 function FileStage({entry,signature}){
   const [state,setState]=useState({loading:true});

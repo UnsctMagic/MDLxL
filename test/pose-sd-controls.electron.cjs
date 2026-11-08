@@ -59,7 +59,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     }
     const undo = async () => { await page.keyboard.press('Control+z'); await settle(); };
     const redo = async () => { await page.keyboard.press('Control+y'); await settle(); };
-    async function swivel(chain, ending = 'commit', name = '') {
+    async function swivel(chain, ending = 'commit', name = '', pinned = false) {
       await select('endpoint', chain.key); await select('bend', chain.key);
       assert.equal(await pin.isVisible(), true, 'Pin remains available on the selected elbow or knee');
       assert.equal(await tool('Rotate').isEnabled(), true, 'Bend accepts the ordinary Rotate tool');
@@ -71,11 +71,18 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       assert.equal(await pin.isVisible(), false, 'Pin stays out of the way during a drag');
       assert.deepEqual(await snap(), before, 'drag preview is outside the document and history');
       const preview = await page.evaluate(id => ({ model: posePlain(poseProbe().runtime.native.model), rootMatrix: Array.from(poseProbe().runtime.native.rendererData.nodes[id].matrix), status: document.querySelector('.game-preview-root [role=status]')?.textContent }), chain.root);
-      assert.notDeepEqual(preview.rootMatrix, nativeBefore, 'the renderer actually moves the limb');
+      assert.ok(await page.evaluate(() => document.querySelector('[data-pose-blockers]')?.dataset.rotationFeedback), 'elbow/knee Rotate uses the ordinary rotation drag');
       const posed = samplePoseChain(preview.model, chain, 500, 0);
-      const measurement = { name, positionError: posed.end.distanceTo(pose.end), orientationError: 1 - Math.abs(posed.rotations[2].dot(pose.rotations[2])), middleMotion: posed.middle.distanceTo(pose.middle) };
-      assert.ok(measurement.positionError < .004 && measurement.orientationError < 1e-6, JSON.stringify(measurement));
-      assert.ok(measurement.middleMotion > .005, 'elbow or knee visibly turns');
+      const measurement = { name, pinned, positionError: posed.end.distanceTo(pose.end), orientationError: 1 - Math.abs(posed.rotations[2].dot(pose.rotations[2])), middleMotion: posed.middle.distanceTo(pose.middle), rootMotion: posed.root.distanceTo(pose.root) };
+      assert.ok(measurement.rootMotion < .004, JSON.stringify(measurement));
+      if (pinned) {
+        assert.notDeepEqual(preview.rootMatrix, nativeBefore, 'the renderer actually moves the limb');
+        assert.ok(measurement.positionError < .004 && measurement.orientationError < 1e-6, JSON.stringify(measurement));
+        assert.ok(measurement.middleMotion > .005, 'elbow or knee turns around the pinned endpoint');
+      } else {
+        // Like any handle's Rotate: the joint turns in place and the forearm/shin swings with it.
+        assert.ok(measurement.middleMotion < .004 && measurement.positionError > .005, JSON.stringify(measurement));
+      }
       if (name) { await shot(name); results.measurements.push(measurement); }
       if (ending === 'cancel') await page.keyboard.press('Escape');
       if (ending === 'return') { await page.mouse.move(x, y, { steps: 8 }); await settle(); }
@@ -195,7 +202,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       const after = await page.evaluate(() => poseProbe().runtime.controls.object.quaternion.toArray());
       assert.notDeepEqual(after, before, 'normal Alt + mouse rotates the camera');
     }
-    results.checks.push('Arm and leg swivel at three mouse-rotated views: fixed endpoints, native renderer movement, atomic Undo/Redo');
+    results.checks.push('Arm and leg elbow/knee Rotate at three mouse-rotated views: joint turns in place like other handles, atomic Undo/Redo');
     results.checks.push('Pin mouse/Space toggles at three views: stable position and size, distinct state, same limb selection, no native edits');
     await pinViewportCheck(limbs[1]);
     results.checks.push('Pin supports Enter, follows real camera pan/zoom, hides offscreen, leaves an unselected badge, and pauses playback without authoring keys');
@@ -205,8 +212,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.getByRole('button', { name: 'Pin selected foot', exact: true }).click();
     await page.waitForFunction(() => document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'true');
     assert.equal(await page.getByRole('button', { name: 'Pin selected foot', exact: true }).getAttribute('aria-pressed'), 'true');
-    const pinned = await swivel(limbs[1]); await undo(); assertModelEquivalent((await snap()).model, pinned.before.model);
-    results.checks.push('A pinned foot can swivel its knee without releasing or moving the pin');
+    const pinned = await swivel(limbs[1], 'commit', '', true); await undo(); assertModelEquivalent((await snap()).model, pinned.before.model);
+    results.checks.push('Rotating the knee of a pinned foot turns the knee without releasing or moving the pin');
     // Native Undo also restores selection. Select the knee again before
     // checking restrictions on its rotation-driven Move gesture.
     await select('endpoint', limbs[1].key); await select('bend', limbs[1].key);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoDocument, openDocument, EditorDocument, deleteGeoset } from '../src/editor-document.js';
-import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, validateUVPreview, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection, imageTextureLayers, chooseUVImageLayer } from '../src/uv-preview.js';
+import { beginUVPreview, applyUVPreviews, revertUVPreviews, dropUVPreviews, uvPreviewModel, restoreUVPreviews, validateUVPreview, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection, imageTextureLayers, chooseUVImageLayer } from '../src/uv-preview.js';
 
 import { deleteVertices } from '../src/editor-commands.js';
 import { extrudeFaces } from '../src/mesh-tools.js';
@@ -20,6 +20,11 @@ test('temporary material only paints chosen geoset, retaining shared animated ma
   assert.notEqual(preview.Geosets[0].MaterialID, original.Geosets[0].MaterialID);
   assert.equal(preview.Textures.at(-1).Image, 'Textures\\Rust.blp');
   assert.deepEqual(preview.Materials[original.Geosets[0].MaterialID], original.Materials[original.Geosets[0].MaterialID]);
+});
+test('dropping temporary textures cancels only the named geosets', () => {
+  const drafts = { 0: { geosetIndex: 0 }, 1: { geosetIndex: 1 } };
+  assert.deepEqual(dropUVPreviews(drafts, [0]), { 1: { geosetIndex: 1 } });
+  assert.deepEqual(Object.keys(drafts), ['0', '1']);
 });
 test('switching temporary textures and Revert preserve UV edits and the underlying material', () => {
   const {model} = createDemoDocument();

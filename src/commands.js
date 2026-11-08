@@ -29,7 +29,7 @@ export const COMMANDS = coreHotkeyDefaults([
   ...group('Tools', [['anchorSelect','Choose Zoom anchor','1'],['alignSelect','Choose Zoom align','Shift+1']]),
   ...group('Modules', [['paint','Citadel Paint','F6']]),
   ...group('Citadel Paint', [['paint:select','Select geoset or light','Q'],['paint:draw','Paint / draw','B']]),
-  ...group('Bones', [['bone:detach','Detach from parent bone','D'],['bone:detachVertices','Detach selected vertices from bone','V']]),
+  ...group('Bones', [['bone:detach','Detach from parent bone','D'],['bone:detachVertices','Detach selected vertices from bone','V'],['bone:wiggle','Wiggle selected bones in the preview','J']]),
   ...group('MDLxL FORGE', [
     ['forge:shape:add','Forge: Add shape','G'],
     ['forge:shape:mode:Shape','Forge: Shape control points','1'],
