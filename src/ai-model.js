@@ -1,5 +1,5 @@
 import { createChanges, applyChanges } from './history-store.js';
-import { ignoreHistoryAlias, MODEL_COUNT_FIELDS } from './editor-document.js';
+import { ignoreHistoryAlias, MODEL_COUNT_FIELDS, nodeCollectionKeys } from './editor-document.js';
 import FORBIDDEN_KEYS from './forbidden-keys.json' with { type: 'json' };
 
 const types = {
@@ -202,7 +202,8 @@ function keepArrayTypes(a, b, path) {
 }
 export function prepareAiEdit(before, after, { scope, protectedPaths = [], animationRanges } = {}) {
   if (!Array.isArray(scope) || !scope.length) throw Error('An edit needs an explicit model scope.');
-  const allowed = scope.map(pointerParts),
+  // A bare /Nodes means every node collection; model.Nodes itself is only an alias.
+  const allowed = scope.map(pointerParts).flatMap(p => (p.length === 1 && p[0] === 'Nodes' ? [...nodeCollectionKeys].map(key => [key]) : [p])),
     protectedScopes = protectedPaths.map(pointerParts);
   if (allowed.some(p => !p.length || p[0] === 'Nodes'))
     throw Error(

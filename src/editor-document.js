@@ -56,7 +56,7 @@ const fingerprint = (value) => JSON.stringify(value, (key, val) => {
   if (typeof val === 'number' && !Number.isFinite(val)) return { $number: String(val) };
   return val;
 });
-const nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
+export const nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
 // Node collections and PivotPoints alias the canonical Nodes list; diffs compare the canonical copy only.
 export const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === 'PivotPoint';
 const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && (path[2] === GEOSET_TAB_KEY || path[2] === FORGE_ITEM_KEY) || path.some(key => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
