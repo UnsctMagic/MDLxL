@@ -13,6 +13,8 @@ import { flushSync } from 'react-dom';
 import { SHOWCASE_PRESETS, builtinSetup, listShowcasePresets, saveShowcasePreset, snapshotShowcase, hydrateShowcase } from './showcase-presets.js';
 import { ShowcaseHistory } from './showcase-history.js';
 import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { holdGestureKey } from './gesture-keys.js';
+import { dragKeys, isModifierKey } from '../src/modifier-bindings.js';
 import { windowCommandActions } from '../src/commands.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { moveDragPoint } from './classic-gestures.js';
@@ -170,21 +172,22 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     const box = event.currentTarget.getBoundingClientRect();
     return { x: (event.clientX - box.left) / box.width, y: (event.clientY - box.top) / box.height };
   };
+  const cropLock = useRef(); cropLock.current = event => dragKeys(event, 'move', preferences).shiftKey;
   function startCrop(event) {
     if (event.button !== 0) return;
     const point={x:event.clientX,y:event.clientY};
-    cropDrag.current = { start: cropPoint(event), motion:{pointer:point,point,shift:event.shiftKey,axis:null}, previous: crop, previousPreset: cropPreset };
+    cropDrag.current = { start: cropPoint(event), motion:{pointer:point,point,shift:cropLock.current(event),axis:null}, previous: crop, previousPreset: cropPreset };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
   }
   function cropMotionPoint(event) {
-    const box=event.currentTarget.getBoundingClientRect(),point=moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},event.shiftKey);
+    const box=event.currentTarget.getBoundingClientRect(),point=moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},cropLock.current(event));
     return {x:(point.x-box.left)/box.width,y:(point.y-box.top)/box.height};
   }
   // A crop drag records the point; the crop state (and preview re-render) updates once per frame.
   function moveCrop(event) {
     if (!cropDrag.current) return;
-    cropDrag.current.next = { point: moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},event.shiftKey), target: event.currentTarget };
+    cropDrag.current.next = { point: moveDragPoint(cropDrag.current.motion,{x:event.clientX,y:event.clientY},cropLock.current(event)), target: event.currentTarget };
     cropFrame.current.schedule();
   }
   function applyCropMove() {
@@ -195,10 +198,15 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   const cropFrame = useRef(null); cropFrame.current ||= createFrameCoalescer(() => applyCropMove());
   useEffect(() => () => cropFrame.current.cancel(), []);
   useEffect(()=>{
-    const shift=event=>{if(event.key==='Shift'&&cropDrag.current)moveDragPoint(cropDrag.current.motion,cropDrag.current.motion.pointer,event.shiftKey);};
+    const shift=event=>{if(isModifierKey(event.key)&&cropDrag.current)moveDragPoint(cropDrag.current.motion,cropDrag.current.motion.pointer,cropLock.current(event));};
     window.addEventListener('keydown',shift);window.addEventListener('keyup',shift);
     return()=>{window.removeEventListener('keydown',shift);window.removeEventListener('keyup',shift);};
   },[]);
+  useWindowKeyClaim(({event})=>{
+    if(event.key!=='Escape'||!cropDrag.current)return false;
+    cropFrame.current.cancel();setCropPreset(cropDrag.current.previousPreset);setCrop(cropDrag.current.previous);cropDrag.current=null;return true;
+  },0);
+  useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!cropDrag.current),0);
   function finishCrop(event) {
     if (!cropDrag.current) return;
     cropFrame.current.flush();

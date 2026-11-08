@@ -5,6 +5,7 @@
 .learn-keycap[data-size=small]{--learn-size:14px;padding:3px 9px}
 .learn-keycap[data-size=large]{--learn-size:30px;padding:7px 16px}
 .learn-keycap kbd{font:inherit;color:inherit}
+.learn-keycap-drag{display:block;font-size:.62em;font-weight:500}
 .learn-keycap:hover{background:#151a22}
 .learn-keycap[data-position=bottom]{left:50%;bottom:70px;transform:translateX(-50%)}
 .learn-keycap[data-position=top]{left:50%;top:70px;transform:translateX(-50%)}

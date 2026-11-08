@@ -1,4 +1,5 @@
 import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {holdGestureKey} from './gesture-keys.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createFrameCoalescer} from './viewport-performance.js';
 import {placeTimedParticleRecipe} from '../src/particle-placement.js';
@@ -14,6 +15,7 @@ export default function ParticlePlacementStage({doc,recipe,placement,onPosition,
  const stop=()=>{frame.current.flush();drag.current=null;};
  const abort=()=>{frame.current.cancel();if(drag.current)onPosition(drag.current.position);drag.current=null;};
  useWindowKeyClaim(({event})=>{if(event.key!=='Escape'||!drag.current)return false;abort();return true;},0);
+ useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
  const graph=useMemo(()=>{
   try{const model=structuredClone(doc.model),inserted=placeTimedParticleRecipe(model,recipe,placement,{preview:true,convertHD:true}),anchor=model.Nodes[inserted.anchorId];
    return {model,...inserted,position:[...placement.position],translation:structuredClone(anchor?.Translation)};

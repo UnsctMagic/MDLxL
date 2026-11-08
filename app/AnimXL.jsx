@@ -1,4 +1,5 @@
 import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { holdGestureKey } from './gesture-keys.js';
 import { windowCommandActions } from '../src/commands.js';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
@@ -162,7 +163,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const sectionDone = Array.isArray(settings.range) && !sectionOn;
   const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
-  const dialog = useRef(null), touched = useRef(new Set()), drag = useRef(null), stripApply = useRef(null), stripFrame = useRef(null);
+  const dialog = useRef(null), touched = useRef(new Set()), drag = useRef(null), stripApply = useRef(null), stripFrame = useRef(null), stripBefore = useRef(null);
   stripFrame.current ||= createFrameCoalescer(() => stripApply.current());
   useEffect(() => () => stripFrame.current.cancel(), []);
   const history = useRef({ undo: [], redo: [], at: 0 });
@@ -451,6 +452,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
     const box = event.currentTarget.getBoundingClientRect(), x = event.clientX - box.left;
     event.currentTarget.setPointerCapture(event.pointerId);
     setPlaying(false);
+    stripBefore.current = settings;
     // Shift-drag (or Pick section, then drag) marks the section to shape.
     if (event.shiftKey || armed) { const t = stripTime(event, box); drag.current = { section: t, box }; setDraft([t, t]); return; }
     const near = t => Math.abs((t - interval[0]) / span * box.width - x) < 7;
@@ -525,6 +527,11 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const status = outcome.error ? outcome.error : sectionDone ? 'Section committed. Drag over the next part of the timeline to shape it.' : target === 'selected' && !selection.length ? 'Click bones or POSE handles in the preview to choose what to shape.' : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Switch an effect on to shape the animation.';
 
   useWindowHotkeys('animxl', windowCommandActions('animxl', 'AnimXL', {undo: () => undoSettings(false), redo: () => undoSettings(true), play: () => setPlaying(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
+  useWindowKeyClaim(({event}) => {
+    if (event.key !== 'Escape' || !drag.current) return false;
+    stripFrame.current.cancel(); drag.current = null; setDraft(null); setSettings(stripBefore.current); return true;
+  }, 0);
+  useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!drag.current), 0);
   useWindowKeyClaim(({event, localWindow}) => {
     if (localWindow !== dialog.current || event.key !== 'Escape') return false;
     if (naming != null && event.target.closest('[aria-label="Preset name"]')) { setNaming(null); return true; }

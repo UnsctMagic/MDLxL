@@ -127,7 +127,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     return () => { windowActions.current.delete(scope); setRevision(value => value + 1); };
   }, []);
   const controlRoots = () => [root.current, ...detachedRoots.current].filter(element => element?.isConnected);
-  const [leaderCode, setLeaderCode] = useState(null), [discardCue, setDiscardCue] = useState('');
+  const [leaderCode, setLeaderCode] = useState(null), [discardCue, setDiscardCue] = useState(''), altInGesture = useRef(false);
   if (!discovered.current) discovered.current = loadCatalog();
   const merged = useMemo(() => {
     const map = new Map(discovered.current);
@@ -298,9 +298,10 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const claim = new CustomEvent('mdlxl-window-key', { cancelable: true, detail: { event, scope: localWindow?.getAttribute('data-hotkey-scope') || [latest.current.activeScope].flat().at(-1), localWindow, claims: [] } });
       window.dispatchEvent(claim);
       for (const candidate of claim.detail.claims.sort((a, b) => a.priority - b.priority)) if (candidate.run()) { claim.preventDefault(); break; }
+      if (event.key === 'Alt' && !event.repeat) altInGesture.current = !!claim.detail.gesture;
       if (claim.defaultPrevented) { if (!claim.detail.native) consume(event); cancel(); return; }
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
-      if (event.key === 'Alt') { if (!event.repeat) altAlone = !event.ctrlKey && !event.metaKey && !event.shiftKey && !isTextEditingTarget(event.target); disarm(); }
+      if (event.key === 'Alt') { if (!event.repeat) altAlone = !altInGesture.current && !event.ctrlKey && !event.metaKey && !event.shiftKey && !isTextEditingTarget(event.target); disarm(); }
       else if (!['Control', 'Shift', 'Meta', 'AltGraph'].includes(event.key)) {
         altAlone = false;
         if (altArmed) {
@@ -332,7 +333,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     };
     window.addEventListener('keydown', keydown, true);
     // Handled here, the lone Alt release no longer focuses the window's menu bar.
-    const keyup = event => { if (event.key !== 'Alt' || !altAlone) return; altAlone = false; altArmed = true; event.preventDefault(); };
+    // Alt pressed during a mouse drag is a drag key: no armed shortcut, and the menu bar stays out of it.
+    const keyup = event => { if (event.key === 'Alt' && altInGesture.current) { altInGesture.current = false; event.preventDefault(); return; } if (event.key !== 'Alt' || !altAlone) return; altAlone = false; altArmed = true; event.preventDefault(); };
     window.addEventListener('keyup', keyup, true);
     const detachedKeydown = event => keydown(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedKeydown);
@@ -364,7 +366,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       }
     };
     const reveal = event => {
-      if (persistent || event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
+      if (persistent || event.key !== 'Alt' || altInGesture.current || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
       held = true; activeDocument = event.target?.ownerDocument || document;
       update(event.target?.ownerDocument || document, event.target);
     };

@@ -2,6 +2,7 @@ import {createPaintMaterial,enablePaintMaterials,repairPaintMaterials,markPaintM
 import {paintLampLight} from './paint-lamps.js';
 import {normalizePaintAppearance} from '../src/paint-appearance.js';
 import {APPLICATION_THEMES,cameraBindings} from '../src/preferences.js';
+import {modifierLabel} from '../src/modifier-bindings.js';
 import {createPaintDirtyRows,createPaintPreview,updatePaintPreview,paintRowsBounds,mergePaintRows} from '../src/paint-preview.js';
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import PaintViewport from './PaintViewport.jsx';
@@ -75,7 +76,10 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   // Navigation belongs to the shared editor preferences, including MDLVis's
   // middle-click Rotation/Work toggle. Citadel never reverses those bindings.
   const viewportPreferences=useMemo(()=>({...preferences,graphics:{...preferences?.graphics,...(lowPower?{pixelRatio:1,antialias:false}:{})}}),[preferences,lowPower]);
-  const navigation=cameraBindings(preferences),navigationHint=`Alt-drag: rotate · Right-drag: ${navigation.right} · Wheel: zoom · Shift add / Ctrl subtract`;
+  const orbitKey=modifierLabel('view.orbit',preferences),addKey=modifierLabel('select.add',preferences),removeKey=modifierLabel('select.remove',preferences);
+  const navigation=cameraBindings(preferences),navigationHint=[orbitKey&&`${orbitKey}-drag: rotate`,`Right-drag: ${navigation.right}`,'Wheel: zoom',[addKey&&`${addKey} add`,removeKey&&`${removeKey} subtract`].filter(Boolean).join(' / ')].filter(Boolean).join(' · ');
+  const selectionHint=(add,subtract)=>[addKey&&`${addKey} ${add}`,removeKey&&`${removeKey} ${subtract}`].filter(Boolean).join('; ');
+  const withSelectionHint=(lead,add,subtract,tail='')=>{const hint=selectionHint(add,subtract);return lead+(hint?' '+hint+'.':'')+tail;};
   const paintAppearance=useMemo(()=>normalizePaintAppearance(preferences?.citadelPaint),[preferences?.citadelPaint]);
   const activeTarget=project?paintProjectTarget(project):null,activeCoat=project?paintProjectCoat(project):null;
   const coordId=activeTarget?.bindings.find(b=>b.geosetIndex===activeGeoset)?.coordId||0;
@@ -267,10 +271,10 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   }
   function chooseStudioTool(tool){
     endStroke();cancelPlacement();cameraProps.onWorkMode?.();setShowOriginal(false);
-    if(tool==='select'){setPickPart(v=>!v);setRegionTool(v=>!v);onStatus?.(pickPart?'Brush ready. Shift adds to selection; Ctrl subtracts.':'Click parts to select. Shift adds; Ctrl subtracts. Q returns to the brush.');return;}
+    if(tool==='select'){setPickPart(v=>!v);setRegionTool(v=>!v);onStatus?.(pickPart?withSelectionHint('Brush ready.','adds to selection','subtracts'):withSelectionHint('Click parts to select.','adds','subtracts',' Q returns to the brush.'));return;}
     setStudioTool(tool);setPickPart(false);setRegionTool(false);window.dispatchEvent(new CustomEvent('paint-texture-action',{detail:'paint'}));
     setBrush(value=>({...value,mode:tool==='erase'?'erase':'paint',materialId:tool==='stamp'?material?.id||null:null}));
-    onStatus?.(({paint:'Paint on the model or texture. Shift adds to selection; Ctrl subtracts.',blend:'Blend the colors under the brush. Strength limits the whole stroke.',sample:'Click the model or texture to pick its color.',erase:'Erase the active paint layer to reveal the skin beneath.',stamp:'Click to stamp; drag while pressed to position. , / . rotate, M mirrors, [ ] changes size. Hold R to start outside the edge.',smudge:'Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.'})[tool]);
+    onStatus?.(({paint:withSelectionHint('Paint on the model or texture.','adds to selection','subtracts'),blend:'Blend the colors under the brush. Strength limits the whole stroke.',sample:'Click the model or texture to pick its color.',erase:'Erase the active paint layer to reveal the skin beneath.',stamp:'Click to stamp; drag while pressed to position. , / . rotate, M mirrors, [ ] changes size. Hold R to start outside the edge.',smudge:'Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.'})[tool]);
   }
   function chooseShape(id){const value=PAINT_BRUSH_SHAPES.find(s=>s.id===id);if(!value)return;endStroke();setShape(id);setBrush(b=>({...b,hardness:value.hardness,flow:value.flow,spacing:value.spacing}));}
   function studioHistory(redo=false){endStroke();commitPlacement();if(travelPaintHistory(project,redo))notify();}

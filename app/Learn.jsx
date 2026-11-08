@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
-import { LEARN_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, readLearnNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps, forgetRebound } from '../src/learn-keycaps.js';
+import { LEARN_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, readLearnNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps, forgetRebound, learnBindings, reboundDragKeys } from '../src/learn-keycaps.js';
+import { usePreferencesContext } from './PreferencesContext.jsx';
 import { paintKeyCaption } from '../src/paint-keys.js';
 import { isCloseControl } from '../src/hotkey-allocation.js';
 import './learn.css';
@@ -45,19 +46,19 @@ const windowCloseKeys = element => {
  * the popup dismisses only this reminder. Rules live in src/learn-keycaps.js.
  */
 export default function Learn({ settings }) {
-  const { catalog, shortcuts } = useHotkeys();
+  const { catalog, shortcuts } = useHotkeys(), { preferences } = usePreferencesContext();
   const [popup, setPopup] = useState(null);
   const notebook = useRef(null), latest = useRef({}), box = useRef(null), bound = useRef(null);
   latest.current = { settings, catalog, shortcuts, popup };
   const enabled = !!settings?.enabled;
 
-  // A rebound command is a new key to learn, whether or not Learn is on right now.
+  // A rebound command or drag key is a new key to learn, whether or not Learn is on right now.
   useEffect(() => {
-    const before = bound.current; bound.current = shortcuts;
+    const before = bound.current, now = learnBindings(shortcuts, preferences); bound.current = now;
     if (!before) return;
-    const current = loadLearnNotebook(), next = forgetRebound(current, before, shortcuts, id => latest.current.catalog.find(action => action.id === id)?.learnGroup || id);
+    const current = loadLearnNotebook(), next = forgetRebound(current, before, now, id => latest.current.catalog.find(action => action.id === id)?.learnGroup || id);
     if (next !== current) updateLearnNotebook(() => next);
-  }, [shortcuts]);
+  }, [shortcuts, preferences?.modifiers]);
 
   useEffect(() => {
     setPopup(null);
@@ -82,7 +83,7 @@ export default function Learn({ settings }) {
       const key = reminderFor(notebook.current, id, closeKeys || keysOf(id), Date.now());
       if (!key) return;
       const rect = element?.getBoundingClientRect?.();
-      const next = { id, chord: formatChord(key) || key, rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, doc: element?.ownerDocument || document, serial: ++serial };
+      const next = { id, chord: formatChord(key) || key, rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, doc: element?.ownerDocument || document, uv: !!element?.closest?.('.uv-workspace'), serial: ++serial };
       // Repeated clicks leave the same popup, animation and original expiry alone.
       const reveal = () => setPopup(current => current?.id === id && current.chord === next.chord ? current : next);
       // A capture-phase render can restore a controlled checkbox before React
@@ -166,11 +167,13 @@ export default function Learn({ settings }) {
     updateLearnNotebook(current => silenceKey(current, popup.id));
     setPopup(null);
   };
+  const changedDragKeys = reboundDragKeys(popup.id, preferences, popup.uv);
   // A plain element, like the K.E.Y. overlay, so the app's button styles leave its look alone.
   const keycap = <div ref={box} key={popup.serial} role="button" className="learn-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
-    data-size={settings.size} data-style={settings.style} aria-label={popup.chord} title="Click to dismiss. Right-click to mute this shortcut."
+    data-size={settings.size} data-style={settings.style} aria-label={[popup.chord, ...changedDragKeys.map(item => `${item.key}: ${item.label}`)].join(', ')} title="Click to dismiss. Right-click to mute this shortcut."
     onPointerDown={event => { event.preventDefault(); event.stopPropagation(); }} onClick={dismiss} onContextMenu={silence}>
     {keyCaps(popup.chord).map((part, index) => <React.Fragment key={index}>{index > 0 && ' + '}<kbd translate="no">{translate(part)}</kbd></React.Fragment>)}
+    {changedDragKeys.map(item => <span key={item.id} className="learn-keycap-drag"><kbd translate="no">{translate(item.key)}</kbd> {translate(item.label)}</span>)}
   </div>;
   return popup.doc !== document && popup.doc?.body ? createPortal(keycap, popup.doc.body) : keycap;
 }

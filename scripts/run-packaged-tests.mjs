@@ -56,6 +56,8 @@ const SPECIAL = {
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
   'uv-drag-settings': { needs: [footman] },
+  // Mouse drag keys and keys pressed during a drag, about 7 app starts.
+  'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
   // Each Rotate setting from its own seeded profile, about 30 app starts.
   'rotate-settings': { needs: [footman], timeout: 25 * 60 * 1000 },
   'toolbar-modes': { needs: [citadelFootman] },

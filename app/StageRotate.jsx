@@ -3,6 +3,8 @@ import {Vector3} from 'three';
 import {useWindowKeyClaim} from './Hotkeys.jsx';
 import {beginGizmoRotation,drawGizmoRotationFeedback,drawMovementGizmo,movementAxisHandles,pickMovementHandle,rotationDisplayHandles} from './movement-overlay.js';
 import {rotationDragDegrees} from '../src/rotation-drag.js';
+import {dragKeys,isModifierKey,modifierSentence} from '../src/modifier-bindings.js';
+import {holdGestureKey} from './gesture-keys.js';
 import {viewportAppearanceOptions} from '../src/preferences.js';
 import {createFrameCoalescer,pointerSensitivityValue} from './viewport-performance.js';
 
@@ -14,8 +16,8 @@ import {createFrameCoalescer,pointerSensitivityValue} from './viewport-performan
 // onBegin() → onTurn(axis [x,y,z] in world space, degrees from the start) … →
 // onEnd() or onCancel() (Escape or a lost pointer).
 const ring=handle=>handle.points.map(p=>p.x+','+p.y).join(' ');
-const turnTo=(d,x,y,shift,ctrl)=>{
-  d.last={x,y};rotationDragDegrees(d.rotation,x-d.x,y-d.y,d.sensitivity,shift,ctrl);
+const turnTo=(d,x,y,keys)=>{
+  d.last={x,y};d.keys=keys;rotationDragDegrees(d.rotation,x-d.x,y-d.y,d.sensitivity,keys.shiftKey,keys.ctrlKey);
   const axis=d.rotation.axisName;
   if(axis)d.turn=[d.rotation.directions[axis].toArray(),d.rotation.degrees];
 };
@@ -23,19 +25,22 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
   const canvas=useRef(null),drag=useRef(null),frame=useRef(null),latest=useRef(null),[hover,setHover]=useState(null),[active,setActive]=useState(null);
   // The per-frame redraw must use this render's drawing (size, handles, hover), never the
   // first render's: a stale size of 0 blanked the gizmo every frame of a drag.
-  latest.current={onTurn,draw:()=>draw()};
+  latest.current={onTurn,preferences,draw:()=>draw()};
   frame.current||=createFrameCoalescer(()=>{const d=drag.current;if(d?.turn)latest.current.onTurn(...d.turn);latest.current.draw();});
   useEffect(()=>()=>frame.current.cancel(),[]);
-  // With a snap set, Ctrl or Shift alone changes the turn; everything else waits for the mouse.
+  // With a snap set, its key alone changes the turn; everything else waits for the mouse.
   useEffect(()=>{
     const key=event=>{
-      const d=drag.current;if(!d?.last||!(event.key==='Control'&&d.rotation.snap||event.key==='Shift'&&d.rotation.shiftMode==='snap'))return;
-      turnTo(d,d.last.x,d.last.y,event.shiftKey,event.ctrlKey||event.metaKey);frame.current.schedule();
+      const d=drag.current;if(!d?.last||!isModifierKey(event.key))return;
+      const keys=dragKeys(event,'rotate',latest.current.preferences);
+      if(!(keys.ctrlKey!==d.keys.ctrlKey&&d.rotation.snap||keys.shiftKey!==d.keys.shiftKey&&d.rotation.shiftMode==='snap'))return;
+      turnTo(d,d.last.x,d.last.y,keys);frame.current.schedule();
     };
     window.addEventListener('keydown',key,true);window.addEventListener('keyup',key,true);
     return()=>{window.removeEventListener('keydown',key,true);window.removeEventListener('keyup',key,true);};
   },[]);
   useWindowKeyClaim(({event})=>{if(event.key!=='Escape'||!drag.current)return false;abort();return true;},0);
+  useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
   const appearance=viewportAppearanceOptions(preferences).controllers;
   const shown=!!(at&&camera&&width&&height)||!!drag.current;
   let handles=[];
@@ -61,7 +66,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
     event.preventDefault();event.stopPropagation();
     const {x,y}=local(event),handle=pickMovementHandle(handles,x,y,'rotate',12)||own;
     event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
-    const rotation=beginGizmoRotation({x,y,world:new Vector3().fromArray(at),camera,width,height,handle,preferences,editor,ctrl:event.ctrlKey||event.metaKey});
+    const rotation=beginGizmoRotation({x,y,world:new Vector3().fromArray(at),camera,width,height,handle,preferences,editor,ctrl:dragKeys(event,'rotate',preferences).ctrlKey});
     drag.current={handle,handles,rotation,x,y,box:event.currentTarget.ownerSVGElement.getBoundingClientRect(),sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)};
     setActive(handle.axis);onBegin?.();
   }
@@ -69,7 +74,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
     const d=drag.current;if(!d)return;
     // Every sample counts: a ring turn follows the path the pointer took.
     for(const sample of [...(event.nativeEvent.getCoalescedEvents?.()||[]),event]){
-      turnTo(d,(sample.clientX-d.box.left)*width/(d.box.width||width),(sample.clientY-d.box.top)*height/(d.box.height||height),sample.shiftKey,sample.ctrlKey||sample.metaKey);
+      turnTo(d,(sample.clientX-d.box.left)*width/(d.box.width||width),(sample.clientY-d.box.top)*height/(d.box.height||height),dragKeys(sample,'rotate',preferences));
     }
     frame.current.schedule();
   }
@@ -86,7 +91,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
       onPointerDown={event=>start(event,handle)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>nudge(event,handle)}
       onPointerEnter={()=>setHover(handle.axis)} onPointerLeave={()=>setHover(axis=>axis===handle.axis?null:axis)}>
       {handle.ring?<polyline points={ring(handle)}/>:<><line x1={handle.startX} y1={handle.startY} x2={handle.x} y2={handle.y}/><circle cx={handle.x} cy={handle.y} r="12"/></>}
-      <title>Drag to rotate. Hold Shift for fine control.</title>
+      <title>{['Drag to rotate.',modifierSentence('Hold {0} for fine control.','drag.rotate.fine',preferences)].filter(Boolean).join(' ')}</title>
     </g>;
   });
   return {canvas:element,targets:targets||null,dragging:!!active};

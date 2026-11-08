@@ -303,8 +303,7 @@ const RAD = Math.PI / 180;
     await sideCase(r, 'Reverse at 50%: 90 px right is 45 degrees counter-clockwise', [60, 0], 90, 0, -45 * RAD);
     await sideCase(r, 'Reverse at 50%: 90 px left is 45 degrees clockwise', [60, 0], -90, 0, 45 * RAD);
     const zoom = await rig(page, opened, 'Zoom'), real = d => 1 + (d - 120) / 120 * 1.7;
-    await page.keyboard.down('Control');
-    await zoom.press(120, 0); await zoom.moveTo(150, 0);
+    await zoom.press(120, 0); await page.keyboard.down('Control'); await zoom.moveTo(150, 0);
     near('Size snap 25%: Ctrl held rounds to the step', (await zoom.factorNow()).factor, 1.5, 1e-5);
     await zoom.moveTo(160, 0);
     near('Size snap 25%: Ctrl held rounds to the next step', (await zoom.factorNow()).factor, 1.5, 1e-5);
@@ -318,6 +317,15 @@ const RAD = Math.PI / 180;
     near('Size snap 25%: releasing the mouse with Ctrl held keeps the snapped size', (await zoom.factorNow()).factor, 2, 1e-5);
     await page.keyboard.up('Control');
     await zoom.undo('Size snap 25%: one Ctrl+Z restores the exact UVs');
+    // Ctrl already down at the press keeps its old meaning until it is let go once, as in the 3D tools.
+    await page.keyboard.down('Control');
+    await zoom.press(120, 0); await zoom.moveTo(150, 0);
+    near('Size snap 25%: Ctrl held from before the press does not snap', (await zoom.factorNow()).factor, real(150), .002);
+    await page.keyboard.up('Control'); await page.keyboard.down('Control');
+    await zoom.moveTo(151, 0, 1);
+    near('Size snap 25%: let go once, Ctrl snaps', (await zoom.factorNow()).factor, 1.5, 1e-5);
+    await page.keyboard.up('Control');
+    await page.keyboard.press('Escape'); await page.mouse.up();
     // Without Ctrl the setting does nothing.
     await zoomCase(zoom, 'Size snap 25%: no snap without Ctrl', [120, 0], [150, 0], real(150));
   });
@@ -341,8 +349,8 @@ const RAD = Math.PI / 180;
   });
   await test('angle-snap', { uvDrag: { rotateStyle: 'circle', rotateSpeed: 100, rotateZone: 0, rotateBigPieces: false, rotateSnap: 15 } }, async ({ page }) => {
     const r = await rig(page, await openUV(page), 'Rotate'), uvNow = async () => (await r.read()).uv;
-    await page.keyboard.down('Control');
     await page.mouse.move(r.cx + 100, r.cy); await page.mouse.down();
+    await page.keyboard.down('Control');
     await r.arc(100, 0, 37 * RAD);
     near('Angle snap 15: the real turn keeps counting under Ctrl', await r.turn(), 37 * RAD, .002);
     assert.ok(r.maxError(await uvNow(), r.rotated(30 * RAD)) < .0005, 'Angle snap 15: Ctrl held applies 30 degrees for a 37 degree turn');

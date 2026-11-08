@@ -4,6 +4,8 @@ import { createModelSmoothing, MODEL_LAYER } from './model-smoothing.js';
 export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { rotationBehavior, rotationDragDegrees } from '../src/rotation-drag.js';
+import { dragKeys, isModifierKey, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { holdGestureKey } from './gesture-keys.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
@@ -378,7 +380,7 @@ export default function Viewport(inputProps) {
     function cameraAction(event) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
-      let action = event.button === 2 ? binding.right : event.button === 1 ? binding.middle : event.altKey ? 'rotate' : p.cameraMode;
+      let action = event.button === 2 ? binding.right : event.button === 1 ? binding.middle : modifierHeld(event, 'view.orbit', p.preferences) ? 'rotate' : p.cameraMode;
       if (action === 'pan') action = 'move';
       return action;
     }
@@ -408,7 +410,7 @@ export default function Viewport(inputProps) {
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
       const p = latest.current, start = point(event);
-      down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
+      down = { ...start, pointerId: event.pointerId, ...selectionKeys(event, p.preferences), pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; surface.setPointerCapture(event.pointerId);
       if (action === 'zoom') { down.zoomFactor = 1; return; }
       // The NormalsXL preview shows proposed geometry with new vertex indices:
@@ -421,9 +423,9 @@ export default function Viewport(inputProps) {
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,state.frame,p.sequenceIndex,camera,start.width,start.height,state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
-          const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:event.shiftKey,ctrl:false});
+          const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:down.shift,ctrl:false});
           p.onSelectNodes(ids);down.action='node';
-          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:currentLockedPlane()||(quad ? boundPane.constraintPlane : p.workplane),workplaneEnabled:!!currentLockedPlane()||(quad ? boundPane.constraints !== false : p.workplaneEnabled !== false),delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
+          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:currentLockedPlane()||(quad ? boundPane.constraintPlane : p.workplane),workplaneEnabled:!!currentLockedPlane()||(quad ? boundPane.constraints !== false : p.workplaneEnabled !== false),delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,dragKeys(event,'translate',p.preferences).shiftKey)};
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
@@ -466,9 +468,9 @@ export default function Viewport(inputProps) {
         if (rotationBehavior(p.preferences, editor).offHandle === 'none' && !constrained && !gizmoHandle) return;
         if (p.rotateEachPiece && !p.constrainTransform && p.preferences?.rotation?.eachPiece === true) rotatePieces = Object.fromEntries(Object.entries(selectedMap).map(([key, indices]) => [key, rotationPieces(state.entries[key].geoset.Faces || [], indices, snapshots[key])]));
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: pivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
-          workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor, ctrl: down.ctrl, reach: screenPivot => selectionReach(selectedMap, snapshots, rotatePieces, screenPivot, start) });
+          workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor, ctrl: dragKeys(event, 'rotate', p.preferences).ctrlKey, reach: screenPivot => selectionReach(selectedMap, snapshots, rotatePieces, screenPivot, start) });
       }
-      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, event.shiftKey), rotatePieces };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
       if (down.rotationDrag?.straight) invalidate();
     }
     /** Big selections: how far the selection reaches on screen from its pivot, or each piece from its own centre. */
@@ -513,8 +515,9 @@ export default function Viewport(inputProps) {
     function pointerMove(event) {
       if (!down) {
         // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
-        if (sketch.tool && altHover !== event.altKey) { altHover = event.altKey; invalidate(); }
-        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, altKey: event.altKey, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
+        const orbitHeld = modifierHeld(event, 'view.orbit', latest.current.preferences);
+        if (sketch.tool && altHover !== orbitHeld) { altHover = orbitHeld; invalidate(); }
+        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
         hoverFrame.schedule(); return;
       }
       if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
@@ -535,10 +538,11 @@ export default function Viewport(inputProps) {
       // Turning around the pivot sums wrapped angle steps; feed every sample so a fast
       // turn between frames cannot flip direction. Repeating the last point adds nothing.
       if (state.drag?.rotationDrag) {
-        for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, sample.shiftKey, sample.ctrlKey || sample.metaKey); }
-        rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, event.shiftKey, event.ctrlKey || event.metaKey);
+        for (const sample of event.getCoalescedEvents?.() || []) { const at = point(sample), keys = dragKeys(sample, 'rotate', latest.current.preferences); rotationDragDegrees(state.drag.rotationDrag, at.x - down.x, at.y - down.y, down.pointerSensitivity, keys.shiftKey, keys.ctrlKey); }
+        const keys = dragKeys(event, 'rotate', latest.current.preferences);
+        rotationDragDegrees(state.drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity, keys.shiftKey, keys.ctrlKey);
       }
-      transformMove = { down, rawEnd, end, dx, dy, clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey || event.metaKey }; transformFrame.schedule();
+      transformMove = { down, rawEnd, end, dx, dy, clientX: event.clientX, clientY: event.clientY, ...dragKeys(event, state.nodeDrag ? 'translate' : state.drag.action, latest.current.preferences) }; transformFrame.schedule();
     }
     // These run at the start of the next drawn frame, so the drag is drawn in that frame.
     const drawFrames = { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) };
@@ -736,7 +740,7 @@ export default function Viewport(inputProps) {
       if (!p.onDoubleClickParts || editClicks < 2 || event.button !== 0 || cameraAction(event) !== 'work') return;
       editClicks = 0;
       const end = point(event);
-      p.onDoubleClickParts({ start: { ...end, shift: event.shiftKey }, end, camera, grabThrough: false, mode: p.mode });
+      p.onDoubleClickParts({ start: { ...end, shift: modifierHeld(event, 'select.add', p.preferences) }, end, camera, grabThrough: false, mode: p.mode });
     }
     function cancelGesture() {
       if (state.nodeDrag || state.drag) clearMoveLock(surface.ownerDocument.defaultView);
@@ -761,17 +765,13 @@ export default function Viewport(inputProps) {
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
     const gestureKey = event => {
-      // Ctrl can be pressed or let go mid-Resize, or mid-Rotate when a snap step is set; redraw at once with the new mode.
-      if (event.key === 'Control' && (state.drag?.action === 'scale' || state.drag?.rotationDrag?.snap) && state.drag.lastMove) {
+      // A drag key pressed or let go mid-drag redraws at once. Resize's plane lock waits for the mouse, as it always has.
+      const held = state.nodeDrag || state.drag;
+      if (held && isModifierKey(event.key)) {
         transformFrame.flush();
-        transformMove = {...state.drag.lastMove, ctrlKey: event.type === 'keydown'}; transformFrame.schedule(); invalidate();
-        return;
-      }
-      if (event.key === 'Shift' && (state.nodeDrag || ['translate','rotate'].includes(state.drag?.action))) {
-        transformFrame.flush();
-        const last = (state.nodeDrag || state.drag)?.lastMove;
-        if (last) { transformMove = {...last, shiftKey: event.type === 'keydown'}; transformFrame.schedule(); invalidate(); }
-        return;
+        const kind = state.nodeDrag ? 'translate' : held.action, last = held.lastMove, keys = dragKeys(event, kind, latest.current.preferences);
+        const redraw = last && (['translate', 'rotate'].includes(kind) && keys.shiftKey !== last.shiftKey || (kind === 'scale' || held.rotationDrag?.snap) && keys.ctrlKey !== last.ctrlKey);
+        if (redraw) { transformMove = {...last, ...keys}; transformFrame.schedule(); invalidate(); }
       }
       if(event.key==='Shift') {
         const shift=event.type==='keydown';
@@ -789,6 +789,7 @@ export default function Viewport(inputProps) {
     const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
     const claimWindowKey = claim => {
       const {event,localWindow}=claim.detail,canvas=renderer.domElement;
+      claim.detail.claims.push({priority:0,run:()=>holdGestureKey(claim.detail,canvas,()=>!!down&&down.action!=='zoom')});
       if(event.key!=='Escape'||(event.target?.ownerDocument||document)!==canvas.ownerDocument||!canvas.getClientRects().length||localWindow&&!localWindow.contains(canvas))return;
       claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
     };

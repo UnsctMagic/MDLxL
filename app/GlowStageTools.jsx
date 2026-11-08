@@ -1,4 +1,5 @@
 import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {holdGestureKey} from './gesture-keys.js';
 import { clamp } from '../src/math.js';
 import React,{useEffect,useRef} from 'react';
 import {particleAxisMapping} from '../src/particle-handles.js';
@@ -23,6 +24,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
     if(event.key!=='Escape'||!drag.current)return false;
     abort();return true;
   },0);
+  useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
   const line=glow?.weapon&&layout?.weapons?.[0],pivot=line?.frame&&line.start&&line.end&&snapshot?.turns?.mid;
   const rings=useStageRotate({editor:'glow',at:pivot?.world,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
     onBegin(){turn.current={line:structuredClone(line),bone:pivot.rotation,before:structuredClone(glow)};onDrag?.(true);},

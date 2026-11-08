@@ -3,6 +3,9 @@ import {usePaintImageNavigation} from './usePaintImageNavigation.js';
 import {createFrameCoalescer,sensitivityIndicatorStyle,sensitivityIndicatorText} from './viewport-performance.js';
 import {shapeSelection,combineSelection} from '../src/paint-selection.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
+import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {holdGestureKey,PAINT_STROKE_KEYS} from './gesture-keys.js';
+import {selectionKeys} from '../src/modifier-bindings.js';
 
 /** A texture/UV view of the current paint target. Pixel edits share the 3D
  * painter's coats and history; UV edits are owned by the portable preset.
@@ -24,8 +27,10 @@ export default function PaintTextureCanvas({preferences,onSensitivityChange,onPo
   useEffect(()=>{setDraft(null);},[geoset,coordId]);
   const point=e=>{const rect=image.current.getBoundingClientRect();return{x:(e.clientX-rect.left)/zoom,y:(e.clientY-rect.top)/zoom};};
   const hit=e=>({textureView:true,screen:point(e),viewport:{width,height}});
+  useWindowKeyClaim(detail=>holdGestureKey(detail,image.current,()=>!!gesture.current,PAINT_STROKE_KEYS),0);
   function down(e){if(e.button!==0||disabled)return;e.preventDefault();image.current.setPointerCapture(e.pointerId);
-    if(tool==='pixels'||e.shiftKey||e.ctrlKey){gesture.current={mask:true,before:regionMask,start:point(e),operation:e.ctrlKey?'subtract':e.shiftKey?'add':'replace'};return;}
+    const select=selectionKeys(e,preferences);
+    if(tool==='pixels'||select.shift||select.ctrl){gesture.current={mask:true,before:regionMask,start:point(e),operation:select.ctrl?'subtract':select.shift?'add':'replace'};return;}
     if(tool==='moveUV'&&uv){gesture.current={start:point(e),uv:new Float32Array(uv)};return;}
     gesture.current={paint:true};onStart(hit(e));
   }

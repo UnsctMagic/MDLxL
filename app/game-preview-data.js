@@ -1,3 +1,5 @@
+import { modifierHeld } from '../src/modifier-bindings.js';
+
 // A UV drag changes only texture coordinates. The document may recreate its
 // Nodes index and a temporary texture may recreate resource arrays on commit.
 export function isUVOnlyPreviewChange(before, after, stableResourceRevision = false) {
@@ -21,7 +23,7 @@ export function isUVOnlyPreviewChange(before, after, stableResourceRevision = fa
 /** In Portrait Movement, an empty node selection gives blank-space left drag
  * exclusively to the camera. Selecting a node gives Work back to the rig. */
 export function portraitBlankDragRotatesCamera(props, event = {}) {
-  return !!props?.portraitMode && (props.cameraMode ?? 'work') === 'work' && !event.altKey && !(props.selectedNodeIds?.length);
+  return !!props?.portraitMode && (props.cameraMode ?? 'work') === 'work' && !modifierHeld(event, 'view.orbit', props.preferences) && !(props.selectedNodeIds?.length);
 }
 
 const BIND_MATRIX = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);

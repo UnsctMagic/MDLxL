@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useDismiss from './useDismiss.js';
+import { useWindowKeyClaim } from './Hotkeys.jsx';
+import { holdGestureKey } from './gesture-keys.js';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
 import { timelineTracks, timelineKeys, timelineSections, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys } from '../src/keyframe-timeline.js';
@@ -88,6 +90,12 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   useEffect(() => { setRange(null); setKeySelection(null); setContext(null); editingTime.current = false; setDraftTime(String(frame)); }, [domainStamp]);
   useEffect(() => { if (keySelection && !selectedKeysById) setKeySelection(null); }, [selectionStamp, activeController]);
   useEffect(() => () => cleanup.current?.(), []);
+  const scrubStart = useRef(0);
+  useWindowKeyClaim(({ event }) => {
+    if (event.key !== 'Escape' || !cleanup.current) return false;
+    cleanup.current(); cleanup.current = null; seek(scrubStart.current); return true;
+  }, 0);
+  useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!cleanup.current), 0);
   useDismiss(context, [menu], event => { setContext(null); if (event.type === 'keydown') panel.current?.focus(); }, { capture: false, stopEscape: false });
 
   function report(operation) {
@@ -196,6 +204,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     const extend = event.shiftKey || event.button === 2, anchor = selectionAnchor();
     if (event.button === 2) suppressContext.current = true;
     let dragging = upper;
+    scrubStart.current = frame;
     if (upper) seek(at(event), extend, anchor);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     // Scrubbing seeks the whole editor; follow the pointer once per frame.

@@ -23,6 +23,8 @@ import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { decodePaintBlp } from '../src/paint-blp.js';
 import { allNodes, sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
+import { modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { holdGestureKey, PAINT_STROKE_KEYS } from './gesture-keys.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
@@ -201,7 +203,7 @@ export default function PaintViewport(inputProps) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
       if (event.button === 2 || event.button === 1) { const action = event.button === 2 ? binding.right : binding.middle; return action === 'pan' ? 'move' : action; }
-      if (event.altKey) return 'rotate';
+      if (modifierHeld(event, 'view.orbit', p.preferences)) return 'rotate';
       return p.cameraMode;
     }
     function paintHit(event, outside = false) {
@@ -223,7 +225,7 @@ export default function PaintViewport(inputProps) {
       return {
         geosetIndex: hit.object.userData.geosetIndex, materialId: hit.object.userData.materialId, layerIndex: hit.object.userData.layerIndex, textureId: textureId, coordId: hit.object.userData.coordId,
         textureTarget: { textureId, texturePath: texture?.Image || '', flags: Number(texture?.Flags) || 0 },
-        triangle: p.model.Geosets[hit.object.userData.geosetIndex].paintFaceIndices?.[faceIndex]??faceIndex, subtract:event.ctrlKey||event.metaKey, add:event.shiftKey, vertexIds: ids, barycentric: barycentric.toArray(), uv: hit.uv?.toArray() || [0, 0], worldPosition: hit.point.toArray(), normal: normal.toArray(), depth: hit.point.clone().project(camera).z,
+        triangle: p.model.Geosets[hit.object.userData.geosetIndex].paintFaceIndices?.[faceIndex]??faceIndex, subtract:modifierHeld(event,'select.remove',p.preferences), add:modifierHeld(event,'select.add',p.preferences), vertexIds: ids, barycentric: barycentric.toArray(), uv: hit.uv?.toArray() || [0, 0], worldPosition: hit.point.toArray(), normal: normal.toArray(), depth: hit.point.clone().project(camera).z,
         screen: { x: cursor.x, y: cursor.y }, viewport: { width: cursor.width, height: cursor.height }, viewProjectionMatrix: viewProjection.elements.slice(),
       };
     }
@@ -240,7 +242,7 @@ export default function PaintViewport(inputProps) {
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
       const p = latest.current, start = point(event);
-      down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
+      down = { ...start, pointerId: event.pointerId, ...selectionKeys(event, p.preferences), lampFine: event.shiftKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; renderer.domElement.setPointerCapture(event.pointerId);
       if (action === 'zoom') { down.zoomFactor = 1; return; }
       if(p.paintMode&&p.paintSelectOnly&&!p.paintLampPickingDisabled){
@@ -251,7 +253,7 @@ export default function PaintViewport(inputProps) {
         p.onPaintLampSelect?.(null);
       }
       if (p.paintMode) {
-        const selecting=p.paintSelectOnly||event.shiftKey||event.ctrlKey||event.metaKey;
+        const selecting=p.paintSelectOnly||down.shift||down.ctrl;
         down.action = selecting ? 'paintPick' : 'paint';
         if (p.paintDisabled && !selecting) return;
         const hit = paintHit(event, !selecting && p.paintOutside); down.paintHit = hit;
@@ -265,18 +267,20 @@ export default function PaintViewport(inputProps) {
     const dragFrame = createFrameCoalescer(applyDrag, { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) });
     function applyDrag() {
       if (!down) return;
-      if(down.action==='paintLamp'&&down.pendingLamp){const {dx,dy,width,height}=down.pendingLamp;down.pendingLamp=null;latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,width,height,down.lampMode,down.shift?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}
+      if(down.action==='paintLamp'&&down.pendingLamp){const {dx,dy,width,height}=down.pendingLamp;down.pendingLamp=null;latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,width,height,down.lampMode,down.lampFine?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}
       if(down.action==='paintPick'&&down.pendingPicks?.length){const hits=down.pendingPicks.map(sample=>paintHit(sample)).filter(Boolean);down.pendingPicks=[];if(hits.length)latest.current.onPaintPick?.({...hits.at(-1),continueSelection:true,sweep:hits});}
     }
+    /** The brush outline hides while a key says this press will not paint. */
+    function paintKeyHeld(event) { const preferences = latest.current.preferences; return ['view.orbit', 'select.add', 'select.remove'].some(id => modifierHeld(event, id, preferences)); }
     function pointerMove(event) {
       if (latest.current.paintMode && paintCursor.current) {
         const cursor = point(event), decal=latest.current.paintDecal, width=decal?.width||Math.max(1,Number(latest.current.paintBrushSize)||1),height=decal?.height||width;
-        Object.assign(paintCursor.current.style, { display: latest.current.paintSelectOnly || latest.current.paintDisabled || latest.current.cameraMode!=='work' || event.buttons>1 || event.altKey || event.shiftKey || event.ctrlKey ? 'none' : 'block', left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${width}px`, height: `${height}px`,transform:`translate(-50%,-50%) rotate(${decal?.angle||0}deg)` });
+        Object.assign(paintCursor.current.style, { display: latest.current.paintSelectOnly || latest.current.paintDisabled || latest.current.cameraMode!=='work' || event.buttons>1 || paintKeyHeld(event) ? 'none' : 'block', left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${width}px`, height: `${height}px`,transform:`translate(-50%,-50%) rotate(${decal?.angle||0}deg)` });
       }
       if (!down) {
         // Only a stamp previews on hover. It needs the camera and cursor, not a
         // raycast, so moving the mouse stays cheap.
-        const p=latest.current;if(p.paintMode&&p.paintDecal&&!p.paintSelectOnly&&!p.paintDisabled&&p.cameraMode==='work'&&!event.buttons&&!event.altKey&&!event.shiftKey&&!event.ctrlKey)p.onPaintHover?.(paintHit(event,true));else p.onPaintHover?.(null);
+        const p=latest.current;if(p.paintMode&&p.paintDecal&&!p.paintSelectOnly&&!p.paintDisabled&&p.cameraMode==='work'&&!event.buttons&&!paintKeyHeld(event))p.onPaintHover?.(paintHit(event,true));else p.onPaintHover?.(null);
         return;
       }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
@@ -284,7 +288,7 @@ export default function PaintViewport(inputProps) {
       // needs screen coordinates only, not another full-model raycast.
       if (down.action === 'paint') { if (down.paintHit) latest.current.onPaintMove?.({ screen: { x: rawEnd.x, y: rawEnd.y } }); return; }
       if(down.action==='paintLamp'){down.pendingLamp={dx,dy,width:rawEnd.width,height:rawEnd.height};dragFrame.schedule();return;}
-      if (down.action === 'paintPick') { if(latest.current.paintSelectFaces){(down.pendingPicks||=[]).push({clientX:event.clientX,clientY:event.clientY,ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey});dragFrame.schedule();} return; }
+      if (down.action === 'paintPick') { if(latest.current.paintSelectFaces){(down.pendingPicks||=[]).push({clientX:event.clientX,clientY:event.clientY,ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey,altKey:event.altKey});dragFrame.schedule();} return; }
       if (down.action === 'zoom') {
         const factor = Math.exp(-dy * .01);
         controls.zoomView(factor / down.zoomFactor); down.zoomFactor = factor;
@@ -375,6 +379,8 @@ export default function PaintViewport(inputProps) {
       invalidate();
     };
     const contextMenu = event => event.preventDefault();
+    const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_KEYS) });
+    window.addEventListener('mdlxl-window-key', claimStrokeKey);
     const paintDragOver=event=>{if(latest.current.paintDecal&&!latest.current.paintDisabled)event.preventDefault();};
     const paintDrop=event=>{if(!latest.current.paintDecal||latest.current.paintDisabled)return;event.preventDefault();const hit=paintHit(event);if(hit)latest.current.onPaintDrop?.(hit);};
     const paintLeave=()=>{if(paintCursor.current)paintCursor.current.style.display='none';latest.current.onPaintHover?.(null);};
@@ -586,7 +592,7 @@ export default function PaintViewport(inputProps) {
       state.disposed = true; cameraReport.cancel(); dragFrame.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); unbindScroll(); resizeObserver.disconnect(); controls.removeEventListener('change', cameraChanged); controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove); renderer.domElement.removeEventListener('pointerup', pointerUp); unwatchContext();
       renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey);
+      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', claimStrokeKey);
       lampKeyHost.removeEventListener('keydown',lampKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); grid.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
