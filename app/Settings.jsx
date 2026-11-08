@@ -1,4 +1,5 @@
 import { DEFAULT_ROTATION, ROTATION_EDITORS } from '../src/rotation-drag.js';
+import { DEFAULT_UV_DRAG, normalizeUVDrag, UV_DRAG_LIMITS, UV_ROTATE_PRESETS, UV_ROTATE_SNAPS, UV_ZOOM_SNAPS, uvRotatePreset } from '../src/uv-drag-settings.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
@@ -77,9 +78,9 @@ function Toggle({ id = null, checked, ...props }) {
   return <Check className="settings-toggle" id={id} value={checked} {...props}/>;
 }
 // Commits on Enter or on leaving the box, like every other number field.
-function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
+function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '', title }) {
   const field = useDraftNumber({ value, onCommit: onChange });
-  return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} {...field}/>{unit}</span></label>;
+  return <label className="settings-number" title={title}><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} {...field}/>{unit}</span></label>;
 }
 function SettingsNumberInput({ value, onChange, disabled, ...props }) {
   const field = useDraftNumber({ value, disabled, onCommit: onChange });
@@ -101,7 +102,7 @@ function RotationSettings({ value, onChange }) {
   const inheritSpeed = !global && override.sensitivity === undefined;
   return <section className="settings-appearance-section"><h4>Rotation</h4><div className="settings-appearance-content">
     <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-    <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map always turns with your mouse."><label className="settings-number"><span>Rotation sensitivity</span><span><SettingsNumberInput aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={sensitivity => change({ sensitivity })}/>×</span></label>
+    <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer sensitivity. A smaller value turns more slowly. The UV map has its own Rotate settings on the UV page."><label className="settings-number"><span>Rotation sensitivity</span><span><SettingsNumberInput aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={sensitivity => change({ sensitivity })}/>×</span></label>
       {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
     </div>
     <div className="settings-rotation-speed"><label className="settings-number" title="Hold Shift while rotating to multiply the speed by this amount."><span>Shift rotation precision</span><span><SettingsNumberInput aria-label="Shift rotation precision" min="0.01" max="1" step="0.01" disabled={inheritPrecision} value={override.precision ?? value.precision} onChange={precision => change({ precision })}/>×</span></label>
@@ -109,6 +110,30 @@ function RotationSettings({ value, onChange }) {
     </div>
     <p className="settings-hint">With Workplane Constraints on, follow the yellow arrow: drag along a straight arrow for one degree per pixel at 1×, or circle around the selection centre when the plane faces you. Handles follow the angle swept around the centre. Pointer sensitivity multiplies both. Hold Shift for precision.</p>
   </div></section>;
+}
+function UVDragSelect({ id, label, aria = label, tip, value, options, onChange }) {
+  return <label className="settings-select" title={tip}><span>{label}</span><select aria-label={aria} data-hotkey={id} value={value} onChange={event => onChange(event.target.value)}>{options.map(([entry, name, disabled]) => <option key={entry} value={entry} disabled={disabled}>{name}</option>)}</select></label>;
+}
+/** Mouse > UV: how the UV Wrapper's Rotate and Zoom drags feel. 3D tools never read these. */
+function UVDragSettings({ value, onChange }) {
+  const preset = uvRotatePreset(value), style = value.rotateStyle, limits = UV_DRAG_LIMITS;
+  return <>
+    <section className="settings-appearance-section"><h4>Rotate</h4><div className="settings-appearance-content">
+      <UVDragSelect id="mouse:uv-rotate-preset" label="Preset" aria="UV Rotate preset" tip="Fills in the settings below. Changing any of them makes this Custom." value={preset} onChange={id => onChange(UV_ROTATE_PRESETS[id])} options={[['mdlxl', 'MDLxL (default)'], ['follow', 'Follow the mouse (Blender, Photoshop style)'], ['leftRight', 'Left/right drag (MdlVis style)'], ['both', 'Circle + left/right'], ...(preset === 'custom' ? [['custom', 'Custom', true]] : [])]}/>
+      <UVDragSelect id="mouse:uv-rotate-style" label="How you drag" aria="UV Rotate drag" tip="Which mouse movement turns the selection." value={style} onChange={rotateStyle => onChange({ rotateStyle })} options={[['circle', 'Circle around the centre'], ['leftRight', 'Left and right'], ['both', 'Circle + left and right']]}/>
+      <Numeric id="mouse:uv-rotate-speed" label="Turn speed" title="How far the selection turns for the same mouse movement." value={value.rotateSpeed} {...limits.rotateSpeed} unit="%" onChange={rotateSpeed => onChange({ rotateSpeed })}/>
+      {style !== 'leftRight' && <Numeric id="mouse:uv-rotate-zone" label="Deadzone near centre" title="Close to the centre the turn is gentler, so the selection does not snap around as the mouse passes over it. 0 turns this off." value={value.rotateZone} {...limits.rotateZone} unit="px" onChange={rotateZone => onChange({ rotateZone })}/>}
+      {style !== 'leftRight' && <div title="While the mouse is over a big piece, it turns gently so no point moves faster than the mouse."><Toggle id="mouse:uv-rotate-big-pieces" label="Big pieces turn slower" checked={value.rotateBigPieces} onChange={rotateBigPieces => onChange({ rotateBigPieces })}/></div>}
+      {style !== 'circle' && <div title="Swaps which way left and right turn."><Toggle id="mouse:uv-rotate-reverse" label="Reverse direction" checked={value.rotateReverse} onChange={rotateReverse => onChange({ rotateReverse })}/></div>}
+      <UVDragSelect id="mouse:uv-rotate-snap" label="Angle snap (hold Ctrl)" tip="While Ctrl is held, turns in these steps." value={value.rotateSnap} onChange={rotateSnap => onChange({ rotateSnap: Number(rotateSnap) })} options={UV_ROTATE_SNAPS.map(snap => [snap, snap ? `${snap}°` : 'Off'])}/>
+    </div></section>
+    <section className="settings-appearance-section"><h4>Zoom</h4><div className="settings-appearance-content">
+      <UVDragSelect id="mouse:uv-zoom-style" label="How you drag" aria="UV Zoom drag" tip="Which mouse movement resizes the selection." value={value.zoomStyle} onChange={zoomStyle => onChange({ zoomStyle })} options={[['centre', 'Away from or toward the centre'], ['rightUp', 'Right or up grows, left or down shrinks'], ['leftRight', 'Left and right only']]}/>
+      <Numeric id="mouse:uv-zoom-speed" label="Zoom speed" title="How much the size changes for the same mouse movement." value={value.zoomSpeed} {...limits.zoomSpeed} unit="%" onChange={zoomSpeed => onChange({ zoomSpeed })}/>
+      <UVDragSelect id="mouse:uv-zoom-snap" label="Size snap (hold Ctrl)" tip="While Ctrl is held, resizes in these steps." value={value.zoomSnap} onChange={zoomSnap => onChange({ zoomSnap: Number(zoomSnap) })} options={UV_ZOOM_SNAPS.map(snap => [snap, snap ? `${snap}%` : 'Off'])}/>
+    </div></section>
+    <button data-hotkey="mouse:uv-reset" onClick={() => onChange(DEFAULT_UV_DRAG)}>Restore UV defaults</button>{' '}
+  </>;
 }
 const LEARN_CHOICES = [
   ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
@@ -364,7 +389,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <div className="settings-range-labels"><span>Ultra-precise · 0.01×</span><span>Fast · 4×</span></div>
         <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/></section>}
           {mousePage === 'UV' && <section><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p></section>}
-          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: DEFAULT_ROTATION })}>Restore mouse defaults</button>
+          {mousePage === 'UV' && <UVDragSettings value={normalizeUVDrag(prefs.uvDrag)} onChange={change => commit({ uvDrag: { ...normalizeUVDrag(prefs.uvDrag), ...change } })}/>}
+          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: DEFAULT_ROTATION, uvDrag: DEFAULT_UV_DRAG })}>Restore mouse defaults</button>
         </div>
       </div>}
       {tab === 'hotkeys' && <div className="settings-page hotkeys-page">

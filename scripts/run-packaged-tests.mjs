@@ -55,6 +55,7 @@ const SPECIAL = {
   'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
   'uv-wrapping': { argv: [footman], needs: [footman] },
+  'uv-drag-settings': { needs: [footman] },
   // About 18 minutes of real mouse drags across every editing Rotate tool.
   'rotation-interaction': { timeout: 30 * 60 * 1000 },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },

@@ -163,10 +163,10 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const selectedGeosets = Object.keys(eligibleSelection).filter(index => eligibleSelection[index]?.length).map(Number);
   const rgbTarget = selectedGeosets.includes(activeGeoset) ? activeGeoset : selectedGeosets[0] ?? -1;
   const hiddenPreviewGeosets = hiddenUVPreviewGeosets(model, eligibleSelection, showOnlySelected);
-  // UV-grid preferences belong only to the 2D texture canvas. Keep the 3D
-  // renderer's preference object stable while a grid control is adjusted.
+  // UV-grid and UV-drag preferences belong only to the 2D texture canvas. Keep
+  // the 3D renderer's preference object stable while one of them is adjusted.
   const uvPreferences = { ...(preferences || {}), scrollSensitivity };
-  const previewPreferencesInput = { ...uvPreferences }; delete previewPreferencesInput.uvGrid;
+  const previewPreferencesInput = { ...uvPreferences }; delete previewPreferencesInput.uvGrid; delete previewPreferencesInput.uvDrag; delete previewPreferencesInput.uvEachPiece;
   const previewPreferencesKey = JSON.stringify(previewPreferencesInput);
   const previewPreferences = useMemo(() => previewPreferencesInput, [previewPreferencesKey]);
   const liveOverlay = showVerticles
@@ -281,7 +281,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
           onValue={setActivePreviewPercent} onPointerValue={event => { const rect = sidePanel.current?.getBoundingClientRect(); if (rect) setActivePreviewPercent(uvPreviewPercentAtPointer(event.clientY, rect)); }}/>
         <div className="uv-side-controls">
           <section className="uv-projection" aria-label="UV projection"><div className="uv-panel-title"><strong>Projection</strong></div><p>Rotate the model to the required viewpoint, or choose a standard projection plane.</p><div className="uv-projection-actions"><button disabled={editingLocked || !selectedCount(allSelected)} onClick={project}>Project from Current View</button><select aria-label="Standard projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Standard…</option>{STANDARD_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Angled projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Angled…</option>{ANGLED_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>
-          <section className="uv-toolbox" aria-label="UV tools"><div className="uv-panel-title"><strong>Tools</strong><div className="uv-axis-controls" role="group" aria-label="UV axis when Shift is held">{['X','Y'].map(value => <button key={value} type="button" aria-label={`UV ${value} axis`} aria-pressed={axis === value} onClick={() => setAxis(previous => previous === value ? null : value)}>{value}</button>)}</div></div><div className="uv-tool-grid">
+          <section className="uv-toolbox" aria-label="UV tools"><div className="uv-panel-title"><strong>Tools</strong><div className="uv-axis-controls uv-each-piece-control"><button type="button" aria-label="Each piece" aria-pressed={preferences?.uvEachPiece === true} data-hotkey="uv:each-piece" data-hotkey-category="UV" title="On: Rotate and Zoom work on each separate piece, on its own spot. Off: the whole selection moves as one group." onClick={() => onPreferences?.({ ...preferences, uvEachPiece: preferences?.uvEachPiece !== true })}>Each piece</button></div><div className="uv-axis-controls" role="group" aria-label="UV axis when Shift is held">{['X','Y'].map(value => <button key={value} type="button" aria-label={`UV ${value} axis`} aria-pressed={axis === value} onClick={() => setAxis(previous => previous === value ? null : value)}>{value}</button>)}</div></div><div className="uv-tool-grid">
             <Tool action="select" icon="select" label="Select" active={uvTool === 'select'} onClick={() => setUVTool('select')}/>
             <Tool action="translate" icon="move" label="Move" active={uvTool === 'move'} disabled={!toolState.move} onClick={() => setUVTool('move')}/>
             <Tool action="rotate" icon="rotate" label="Rotate" active={uvTool === 'rotate'} disabled={!toolState.rotate} onClick={() => setUVTool('rotate')}/>

@@ -4,7 +4,8 @@ import { bindScrollSensitivity, createFrameCoalescer, graphicsOptions, pointerDr
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
-import { collapseUVCoordinates, foldUVCoordinates, uvTurn } from '../src/uv-tools.js';
+import { collapseUVCoordinates, foldUVCoordinates, uvPieceCenters, uvSnapFactor, uvSnapTurn, uvTurn, uvZoom } from '../src/uv-tools.js';
+import { normalizeUVDrag } from '../src/uv-drag-settings.js';
 import { occupiedUVTextureFrames } from '../src/uv-preview-display.js';
 import { normalizeUVGrid, snapUVCoordinates, visibleUVGridLines } from '../src/uv-grid.js';
 import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js';
@@ -167,18 +168,25 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // Owner-locked Rotate and Zoom: docs/UV-ROTATE-ZOOM.md. The 3D editors'
-      // rotation settings never apply here.
+      // Rotate and Zoom's defaults are owner-locked: docs/UV-ROTATE-ZOOM.md. The
+      // options in Settings (`uvDrag`, `uvEachPiece`) are for the UV Wrapper only:
+      // FX texture fitting never reads them, and the 3D editors' rotation
+      // settings never apply here.
+      if (p.wrapperControls && (type === 'rotate' || type === 'scale')) {
+        s.drag.settings = normalizeUVDrag(p.preferences?.uvDrag);
+        if (p.preferences?.uvEachPiece) s.drag.pieceCenters = uvPieceCenters(p.geoset, p.uvSet, indices, eligible(), s.uv);
+      }
       if (type === 'scale' && p.wrapperControls) {
-        s.drag.scaleDX = 0; s.drag.scaleX = x; s.drag.scaleY = y;
         s.drag.shiftFine = event.altKey ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
+        uvZoom(s.drag, x, y, 0);
       }
       if (type === 'rotate') {
         s.drag.wrapperControls = p.wrapperControls;
         s.drag.fineWithoutShift = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
         s.drag.fine = s.drag.fineWithoutShift;
         // The piece's farthest point from its centre, in screen pixels.
-        s.drag.reach = indices.reduce((most, index) => Math.max(most, Math.hypot((s.uv[index * 2] - s.drag.center[0]) * m.sizeX, (s.uv[index * 2 + 1] - s.drag.center[1]) * m.sizeY)), 0);
+        const pieces = s.drag.pieceCenters;
+        s.drag.reach = indices.reduce((most, index, position) => Math.max(most, Math.hypot((s.uv[index * 2] - (pieces ? pieces[position * 2] : s.drag.center[0])) * m.sizeX, (s.uv[index * 2 + 1] - (pieces ? pieces[position * 2 + 1] : s.drag.center[1])) * m.sizeY)), 0);
         uvTurn(s.drag, x, y);
       }
       draw();
@@ -200,12 +208,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         uvTurn(s.drag, rawEnd.x, rawEnd.y);
       }
       if (s.drag.type === 'scale' && current.current.wrapperControls) {
-        // Like Movement's Resize: right/up grows, left/down shrinks (screen y is down).
         // Shift may change between frames: retain each weighted movement, redraw once.
-        s.drag.scaleDX += ((rawEnd.x - s.drag.scaleX) - (rawEnd.y - s.drag.scaleY)) * s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1);
-        s.drag.scaleX = rawEnd.x; s.drag.scaleY = rawEnd.y;
+        uvZoom(s.drag, rawEnd.x, rawEnd.y, s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1));
       }
-      s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
+      s.pendingMove = { rawEnd, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey || event.metaKey }; moveFrame.schedule();
     }
     function applyMove() {
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
@@ -216,17 +222,25 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
-        const factor = Math.max(0, 1 + (p.wrapperControls && drag.type === 'scale' ? drag.scaleDX : dx) / 100);
+        // Ctrl snaps only what is applied, so the real amount survives releasing it.
+        const rotateSnap = event.ctrlKey && drag.type === 'rotate' ? drag.settings?.rotateSnap : 0, zoomSnap = event.ctrlKey && drag.type === 'scale' ? drag.settings?.zoomSnap : 0;
+        const angle = drag.type === 'rotate' ? uvSnapTurn(uvTurn(drag, rawEnd.x, rawEnd.y), rotateSnap) : 0;
+        const factor = p.wrapperControls && drag.type === 'scale' ? uvSnapFactor(uvZoom(drag, rawEnd.x, rawEnd.y, 0), zoomSnap) : Math.max(0, 1 + dx / 100);
+        if (rotateSnap) drag.moved = angle !== 0;
+        if (zoomSnap) drag.moved = Math.abs(factor - 1) > 1e-9;
+        else if (drag.settings && drag.type === 'scale' && drag.zoomStyle === 'centre') drag.moved = Math.abs(drag.zoomVirtual - drag.zoomStart) > 1;
         // An axis lock squashes a turn into a skew, so rotation ignores it.
         const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
+        let position = 0;
         for (const index of drag.indices) {
-          const offset = index * 2, u = drag.original[offset] - drag.center[0], v = drag.original[offset + 1] - drag.center[1];
+          // Each piece: the same angle or size around its own centre.
+          const centerU = drag.pieceCenters ? drag.pieceCenters[position * 2] : drag.center[0], centerV = drag.pieceCenters ? drag.pieceCenters[position * 2 + 1] : drag.center[1]; position++;
+          const offset = index * 2, u = drag.original[offset] - centerU, v = drag.original[offset + 1] - centerV;
           let nextU = drag.original[offset], nextV = drag.original[offset + 1];
           if (drag.type === 'translate' || drag.type === 'move') { nextU += dx / drag.sizeX; nextV += dy / drag.sizeY; }
-          if (drag.type === 'scale') { nextU = drag.center[0] + u * factor; nextV = drag.center[1] + v * factor; }
+          if (drag.type === 'scale') { nextU = centerU + u * factor; nextV = centerV + v * factor; }
           // Turn in screen pixels so a non-square texture rotates without skewing.
-          if (drag.type === 'rotate') { const su = u * drag.sizeX, sv = v * drag.sizeY; nextU = drag.center[0] + (su * Math.cos(angle) - sv * Math.sin(angle)) / drag.sizeX; nextV = drag.center[1] + (su * Math.sin(angle) + sv * Math.cos(angle)) / drag.sizeY; }
+          if (drag.type === 'rotate') { const su = u * drag.sizeX, sv = v * drag.sizeY; nextU = centerU + (su * Math.cos(angle) - sv * Math.sin(angle)) / drag.sizeX; nextV = centerV + (su * Math.sin(angle) + sv * Math.cos(angle)) / drag.sizeY; }
           if (lockedAxis !== 'Y') s.uv[offset] = nextU;
           if (lockedAxis !== 'X') s.uv[offset + 1] = nextV;
         }
@@ -301,12 +315,15 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         const changed = kind === 'collapse' ? collapseUVCoordinates(uv, indices) : foldUVCoordinates(uv, indices, value || 'right-to-left');
         s.uv = changed; p.onChange?.(restrictUVChange(p.geoset, p.uvSet, changed, indices)); draw(); return;
       }
+      const pieces = p.wrapperControls && p.preferences?.uvEachPiece && (kind === 'rotate' || kind === 'scale') ? uvPieceCenters(p.geoset, p.uvSet, indices, all, uv) : null;
+      let position = 0;
       for (const index of indices) {
-        const offset = index * 2, u = uv[offset] - center[0], v = uv[offset + 1] - center[1];
-        if (kind === 'flip-u') uv[offset] = center[0] - u;
-        if (kind === 'flip-v') uv[offset + 1] = center[1] - v;
-        if (kind === 'rotate') { uv[offset] = center[0] + u * Math.cos(angle) - v * Math.sin(angle); uv[offset + 1] = center[1] + u * Math.sin(angle) + v * Math.cos(angle); }
-        if (kind === 'scale') { uv[offset] = center[0] + u * (Array.isArray(value) ? value[0] : value); uv[offset + 1] = center[1] + v * (Array.isArray(value) ? value[1] : value); }
+        const centerU = pieces ? pieces[position * 2] : center[0], centerV = pieces ? pieces[position * 2 + 1] : center[1]; position++;
+        const offset = index * 2, u = uv[offset] - centerU, v = uv[offset + 1] - centerV;
+        if (kind === 'flip-u') uv[offset] = centerU - u;
+        if (kind === 'flip-v') uv[offset + 1] = centerV - v;
+        if (kind === 'rotate') { uv[offset] = centerU + u * Math.cos(angle) - v * Math.sin(angle); uv[offset + 1] = centerV + u * Math.sin(angle) + v * Math.cos(angle); }
+        if (kind === 'scale') { uv[offset] = centerU + u * (Array.isArray(value) ? value[0] : value); uv[offset + 1] = centerV + v * (Array.isArray(value) ? value[1] : value); }
         if (kind === 'move' || kind === 'translate') { uv[offset] += value[0]; uv[offset + 1] += value[1]; }
       }
       if ([...uv].some(v => !Number.isFinite(v))) return;
