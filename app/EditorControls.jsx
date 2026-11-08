@@ -29,7 +29,7 @@ export function TransformTools({ value, onChange, look }) {
 /** Rotate's "Each piece", stored with the other Rotate settings. Beside Workplane Constraints, also in quad view. */
 export function EachPieceToggle() {
   const { preferences, changePreferences } = usePreferencesContext(), on = preferences?.rotation?.eachPiece === true;
-  return <div className="classic-selection-actions each-piece-control"><button type="button" data-hotkey="eachPiece" data-hotkey-manual="" aria-label="Each piece" aria-pressed={on} title="On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group." onClick={() => changePreferences?.(previous => ({ ...previous, rotation: { ...previous.rotation, eachPiece: !on } }))}>Each piece</button></div>;
+  return <label className="check grabthrough-option" title="On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group."><input data-hotkey="eachPiece" data-hotkey-manual="" aria-label="Each piece" type="checkbox" checked={on} onChange={event => changePreferences?.(previous => ({ ...previous, rotation: { ...previous.rotation, eachPiece: event.target.checked } }))}/>Each piece</label>;
 }
 export function WorkplaneControls({ enabled, onEnabled, value, onChange, locked }) {
   const group = React.useId();

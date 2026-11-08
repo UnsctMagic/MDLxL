@@ -143,9 +143,9 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
 
   // ---- The untouched profile first: today's behaviour, against which every option below differs.
   await test('defaults', {}, async ({ page }) => {
-    const r = await openVertices(page), toggle = page.locator('.classic-sidebar').getByRole('button', { name: 'Each piece', exact: true });
+    const r = await openVertices(page), toggle = page.locator('.classic-sidebar').getByRole('checkbox', { name: 'Each piece', exact: true });
     check('Default: Each piece is visible', await toggle.isVisible());
-    check('Default: Each piece starts unpressed', await toggle.getAttribute('aria-pressed'), 'false');
+    check('Default: Each piece starts off', await toggle.isChecked(), false);
     await r.set({ view: 'perspective' });
     let info = await r.begin();
     check('Default: workplane drag is the arrow', [info.straight, info.circle], [true, false]);
@@ -357,18 +357,15 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
   const geometry = (page, keys) => page.evaluate(keys => Object.fromEntries(keys.map(key => { const g = __mdlxl.model().Geosets[key]; return [key, { vertices: Array.from(g.Vertices), normals: Array.from(g.Normals) }]; })), keys);
 
   await test('each-piece-vertices', {}, async ({ page }) => {
-    const r = await openVertices(page, [0, 1]), sidebar = page.locator('.classic-sidebar'), toggle = sidebar.getByRole('button', { name: 'Each piece', exact: true });
-    check('Each piece: tooltip', (await toggle.getAttribute('title')).startsWith('On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group.'));
+    const r = await openVertices(page, [0, 1]), sidebar = page.locator('.classic-sidebar'), toggle = sidebar.getByRole('checkbox', { name: 'Each piece', exact: true });
+    check('Each piece: tooltip', (await toggle.locator('xpath=..').getAttribute('title')).startsWith('On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group.'));
     await r.set({ view: 'perspective' });
     let info = await r.begin(); await r.moveTo(along(r.start, info.tangent, 30));
     check('Each piece off: one group', (await r.read()).pieces, null);
     await r.commitAndUndo('Each piece off');
-    const look = () => toggle.evaluate(element => { const style = getComputedStyle(element); return [style.boxShadow, style.backgroundColor, style.fontWeight, style.borderTopStyle].join('|'); });
-    await toggle.hover(); const unpressedLook = await look();
     await toggle.click();
-    check('Each piece: pressed after a real click', await toggle.getAttribute('aria-pressed'), 'true');
+    check('Each piece: on after a real click', await toggle.isChecked(), true);
     await waitForEachPiece(page, true);
-    assert.notEqual(await look(), unpressedLook, 'the pressed look is visible'); check('Each piece: pressed look', true);
     info = await r.begin();
     const live = await r.moveTo(along(r.start, info.tangent, 40)), keys = Object.keys(live.pieces);
     check('Each piece: both geosets are in the turn', keys.length, 2); near('Each piece: the turn', live.degrees, 40);
@@ -394,13 +391,13 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
     check('Each piece: stays visible in quad view', await toggle.isVisible()); check('Each piece: quad view still hides the plane controls', await sidebar.locator('.classic-planes').count(), 0);
     await page.getByRole('button', { name: 'Quad View', exact: true }).click();
     await toggle.click();
-    check('Each piece: released after a real click', await toggle.getAttribute('aria-pressed'), 'false');
+    check('Each piece: off after a real click', await toggle.isChecked(), false);
     await waitForEachPiece(page, false);
   });
 
   await test('each-piece-remembered', { rotation: { eachPiece: true } }, async ({ page }) => {
     const r = await openVertices(page);
-    check('Each piece: remembered from the profile', await page.locator('.classic-sidebar').getByRole('button', { name: 'Each piece', exact: true }).getAttribute('aria-pressed'), 'true');
+    check('Each piece: remembered from the profile', await page.locator('.classic-sidebar').getByRole('checkbox', { name: 'Each piece', exact: true }).isChecked(), true);
     await r.set({ view: 'perspective' });
     const info = await r.begin(); assert.ok((await r.moveTo(along(r.start, info.tangent, 30))).pieces, 'the drag uses pieces'); check('Each piece: a drag after a restart uses pieces', true);
     await r.commitAndUndo('Each piece after a restart');
@@ -420,7 +417,7 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
     await r.set({ plane: 'XY' });
     const draft = () => page.evaluate(selector => findFiberState(document.querySelector(selector), v => v?.shapes && v?.mode, { last: true }).shapes.map(shape => shape.vertices.filter(Boolean)), FORGE);
     const centres = shapes => shapes.map(vertices => [0, 1, 2].map(axis => vertices.reduce((sum, v) => sum + v[axis], 0) / vertices.length));
-    const undo = forge.getByRole('button', { name: 'Undo', exact: true }), toggle = sidebar.getByRole('button', { name: 'Each piece', exact: true });
+    const undo = forge.getByRole('button', { name: 'Undo', exact: true }), toggle = sidebar.getByRole('checkbox', { name: 'Each piece', exact: true });
     check('Forge: Each piece is visible', await toggle.isVisible());
     const original = await draft();
     const turn = async () => {
@@ -433,7 +430,7 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
     check('Forge, Each piece off: one group', live.pieces, null);
     assert.ok(centres(await draft()).some((centre, i) => Math.hypot(...centre.map((v, a) => v - centres(original)[i][a])) > 1), 'the cubes swing around their shared centre'); check('Forge, Each piece off: the pieces swing around the shared centre', true);
     await undo.click(); await page.waitForFunction(({ selector, before }) => JSON.stringify(findFiberState(document.querySelector(selector), v => v?.shapes && v?.mode, { last: true }).shapes.map(shape => shape.vertices.filter(Boolean))) === before, { selector: FORGE, before: JSON.stringify(original) });
-    await toggle.click(); check('Forge: Each piece pressed after a real click', await toggle.getAttribute('aria-pressed'), 'true');
+    await toggle.click(); check('Forge: Each piece on after a real click', await toggle.isChecked(), true);
     live = await turn();
     check('Forge: per-triangle meshes group into one piece per cube', Object.values(live.pieces).map(list => list.length), [1, 1]);
     centres(await draft()).forEach((centre, i) => centre.forEach((value, axis) => assert.ok(Math.abs(value - centres(original)[i][axis]) < .05, `cube ${i} left its spot`)));
