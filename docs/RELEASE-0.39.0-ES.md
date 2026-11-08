@@ -1,5 +1,8 @@
 # MDLxL 0.39.0
 
+- **Ajustes:** nueva disposición con pequeñas vistas previas animadas. El Editor UV y Rotar/Zoom en 3D tienen ajustes completos con preajustes (MDLxL, MDLVis, Freeform, Manipulator) y Cada pieza.
+- Todos los atajos y las teclas de arrastre del ratón se pueden reasignar, y los archivos de preajustes los comparten junto con los ajustes de arrastre y la apariencia.
+- **Barra de herramientas:** cambia entre Gráfica, Borde y Ocultos, con un buscador de comandos en Ctrl+F2. Ocultar extras también oculta el brillo de héroe y los efectos temporales.
 - **Citadel Paint:** **Nueva capa base** tiene una disposición nueva con piezas limpias y rectas y muchas menos costuras, y las cabezas reciben más píxeles por defecto. **Detalle** define cuántos píxeles recibe la parte seleccionada. También hay presión del lápiz, Suavizado, Simetría (V), navegación con Alt, Ctrl + arrastrar con botón derecho para tamaño y dureza del pincel, opacidad de capa y capas base de 1024.
 - **Calcular límites** es ahora un único cálculo en el inspector del modelo, OptimizeXL y Save As. Deja fuera los fondos de retrato, los brillos de héroe y de equipo y las mallas de efecto aditivas, para que la barra de vida quede a la altura correcta.
 - **EMTR y Brillo de héroe** tienen ahora los controles de Rotar del editor principal en X, Y y Z. **Añadir cinta** crea una estela de arma nativa que solo aparece durante el golpe. Los campos de cinta actualizan la estela en directo, y las cintas aditivas siguen la Intensidad.

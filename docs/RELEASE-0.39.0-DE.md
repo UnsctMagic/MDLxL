@@ -1,5 +1,8 @@
 # MDLxL 0.39.0
 
+- **Einstellungen:** neues Layout mit kleinen animierten Vorschauen. UV Wrapper und 3D-Drehen/Zoom haben vollständige Einstellungen mit Vorgaben (MDLxL, MDLVis, Freeform, Manipulator) und Jedes Teil.
+- Alle Tastenkürzel und Maus-Ziehtasten lassen sich neu belegen, und Vorgabedateien teilen sie zusammen mit Zieheinstellungen und Erscheinungsbild.
+- **Werkzeugleiste:** Wechsel zwischen Grafisch, Kürzen und Verborgen, mit Befehlssuche auf Strg+F2. Extras aus blendet nun auch Heldenleuchten und zeitweise Effekte aus.
 - **Citadel Paint:** **Neue Grundierung** hat ein neues Layout mit sauberen, geraden Teilen und deutlich weniger Nähten, und Köpfe erhalten standardmäßig mehr Pixel. **Detail** legt fest, wie viele Pixel ein ausgewähltes Teil bekommt. Außerdem neu: Stiftdruck, Glättung, Symmetrie (V), Alt-Navigation, Strg + Ziehen mit rechter Maustaste für Pinselgröße und -weichheit, Ebenendeckkraft und 1024er-Grundierungen.
 - **Ausdehnung berechnen** ist jetzt eine einzige Berechnung im Modellinspektor, in OptimizeXL und bei Save As. Porträthintergründe, Helden- und Teamleuchten sowie additive Effektmeshes werden ausgelassen, damit die Lebensleiste auf der richtigen Höhe sitzt.
 - **EMTR und Glow Up** haben jetzt die Drehen-Griffe des Haupteditors auf X, Y und Z. **Band hinzufügen** erzeugt eine spielgerechte Waffenspur, die nur beim Schlag sichtbar ist. Bandfelder aktualisieren die Spur live, und additive Bänder folgen der Intensität.
