@@ -154,16 +154,18 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - Continue the task's explicitly named feature branch when switching tools.
   Otherwise use the tool's own prefix: `codex/` for Codex, `claude/` for Claude
   Code. Preserve unrelated local work.
-- Push the feature branch to `origin`, open a PR into `main`, and include its URL
-  in the handover (attach it to the Codex chat when using Codex). A local-only
-  commit/merge or direct push/merge to `main` is not a completed handoff.
+- Nothing goes online until the owner says "merge" (or "release", which merges
+  too) in the current conversation. Until then, commit on the local feature
+  branch only and report `saved on your PC, not online`. Do not push, open or
+  update a PR, tag, release or post anywhere before that, not even for a
+  handover: hand over the local branch name and revision instead.
+- When the owner says "merge", do it all at once: push the feature branch to
+  `origin`, open a PR into `main`, merge it through the PR, then verify the
+  merged PR and its change on online `main` before reporting completion. Never
+  push or merge directly to `main`.
 - Every PR description names the session that did the work in one line:
   `Session: claude local_<id>` or `Session: codex <task or chat name/link>`.
-  Before merging, add the line if it is missing (edit the description; no commit).
-- Merge through the PR only after explicit user authorization. Until then, report
-  `ready for review; awaiting merge approval`. After authorized merging, verify
-  both the merged PR and its change on online `main` before reporting completion.
-  After merging, mark the task note completed with the merge revision and remove
+- After merging, mark the task note completed with the merge revision and remove
   its [README](docs/agent-tasks/README.md) row in the same or the next PR.
 - Starting with the release after 0.38.0, notes, new PDF guides, release-body
   links and update/site release text ship in EN/ES/RU/ZH-CN/FR/DE. Follow

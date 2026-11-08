@@ -49,9 +49,10 @@ credentials, global settings or built-in memory stores into the repository.
 2. The receiving agent inspects `git status --short --branch`, `git rev-parse HEAD`,
    relevant history and `git diff` / `git diff --cached`. Compare them with the
    note before relying on its findings. Do not overwrite unrelated work.
-3. Continue the task's named branch. Another checkout must obtain the relevant
-   commits and note through the normal Git workflow; uncommitted/ignored files
-   require an explicit handoff too. Record how any needed local fixture is obtained.
+3. Continue the task's named branch. Checkouts and worktrees on the owner's PC see
+   local branches directly, so hand over the local branch; nothing is pushed for a
+   handover (branches go online only when the owner says "merge"). Uncommitted/ignored
+   files require an explicit handoff too. Record how any needed local fixture is obtained.
 4. Read only the matching map entry and current note, then inspect the owner code.
    Correct stale statements and distinguish already verified results from new gaps.
 
