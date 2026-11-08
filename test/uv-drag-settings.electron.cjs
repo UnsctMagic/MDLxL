@@ -247,6 +247,7 @@ const RAD = Math.PI / 180;
     const r = await rig(page, await openUV(page), 'Zoom');
     await zoomCase(r, 'default Zoom at 1x: half the distance is half the size', [120, 0], [60, 0], .5);
     await zoomCase(r, 'default Zoom at 1x: twice the distance is twice the size', [-120, 0], [-240, 0], 2);
+    await zoomCase(r, 'default Zoom at 1x: one pixel near the centre commits what the map shows, with one undo step', [20, 0], [21, 0], 21 / 20, .03);
     for (const offset of [10, -10]) {
       await r.press(120, offset);
       let previous = 1, rebound = 0, closest = null;

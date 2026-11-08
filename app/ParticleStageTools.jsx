@@ -1,4 +1,4 @@
-import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
 import {holdGestureKey} from './gesture-keys.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {particleAimAngles,particleValue} from '../src/particle-bindings.js';
@@ -29,6 +29,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
     abort();return true;
   },0);
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
+  useMousePressLost(()=>{if(drag.current)abort();});
   useEffect(()=>{frame.current.cancel();drag.current=null;setPinned(null);},[emitter?.ObjectId,tool,cancelVersion]);
   if(!snapshot||!emitter)return null;
   const {width,height,guide}=snapshot;

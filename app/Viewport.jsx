@@ -5,7 +5,7 @@ export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideL
 import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { rotationBehavior, rotationDragDegrees } from '../src/rotation-drag.js';
 import { dragKeys, isModifierKey, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
-import { holdGestureKey } from './gesture-keys.js';
+import { holdGestureKey, onMousePressLost } from './gesture-keys.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
@@ -799,6 +799,7 @@ export default function Viewport(inputProps) {
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
     window.addEventListener('mdlxl-window-key',claimWindowKey);
+    const stopPressLost = onMousePressLost(() => { if (down) cancelGesture(); });
     const unwatchContext = watchContextLoss(renderer.domElement, () => { state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); });
 
     let callbackTime = performance.now();
@@ -1082,7 +1083,7 @@ export default function Viewport(inputProps) {
       state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
-      window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
+      stopPressLost(); window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
   }, []);

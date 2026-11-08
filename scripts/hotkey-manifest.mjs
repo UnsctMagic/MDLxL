@@ -20,6 +20,7 @@ export const MANUAL_WINDOWS = Object.freeze({
   showcase: { group: 'editor', category: 'Showcase' },
   optimizexl: { group: 'optimizexl', category: 'OptimizeXL' },
   'forge-image': { group: 'Forge', category: 'Forge' },
+  uv: { group: 'UV Wrapper', category: 'UV' },
   'uv-wrapper': { group: 'UV Wrapper', category: 'UV Wrapper' },
   'animation-controller': { group: 'editor', category: 'Animation Controller' },
   portrait: { group: 'editor', category: 'Portrait' },

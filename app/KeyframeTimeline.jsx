@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useDismiss from './useDismiss.js';
-import { useWindowKeyClaim } from './Hotkeys.jsx';
+import { useMousePressLost, useWindowKeyClaim } from './Hotkeys.jsx';
 import { holdGestureKey } from './gesture-keys.js';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
@@ -96,6 +96,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     cleanup.current(); cleanup.current = null; seek(scrubStart.current); return true;
   }, 0);
   useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!cleanup.current), 0);
+  useMousePressLost(() => { if (cleanup.current) { cleanup.current(); cleanup.current = null; seek(scrubStart.current); } });
   useDismiss(context, [menu], event => { setContext(null); if (event.type === 'keydown') panel.current?.focus(); }, { capture: false, stopEscape: false });
 
   function report(operation) {

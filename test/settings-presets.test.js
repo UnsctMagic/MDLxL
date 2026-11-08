@@ -15,7 +15,9 @@ import { normalizeModifiers } from '../src/modifier-bindings.js';
 import { ROTATION_PRESETS, normalizeRotationPreferences, rotationPresetId } from '../src/rotation-drag.js';
 import { DEFAULT_UV_DRAG, UV_DRAG_PRESETS, normalizeUVDrag, uvDragPreset } from '../src/uv-drag-settings.js';
 import { BUILT_IN_VIEWPORT_PRESETS, MAX_VIEWPORT_PRESETS, normalizeViewportPresets } from '../src/viewport-appearance.js';
-import { APPEARANCE_HELPER_KEYS, helpersForPreset, paintForPreset, viewportPresetChange } from '../src/light-dark-switch.js';
+import { APPEARANCE_HELPER_KEYS, APPEARANCE_LOOK_KEYS } from '../src/viewport-appearance.js';
+import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
+import { helpersForPreset, paintForPreset, viewportPresetChange } from '../src/light-dark-switch.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const source = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -215,10 +217,11 @@ for (const domain of PRESET_DOMAINS) {
 }
 test('restore matches the existing per-page buttons', () => {
   const uv = restoreDomain('uv', fresh({ uvSensitivity: 3, uvDrag: { rotateSpeed: 200 } }));
-  assert.deepEqual(uv, { uvDrag: normalizeUVDrag(UV_DRAG_PRESETS.mdlxl) });
+  assert.deepEqual(uv, { uvDrag: normalizeUVDrag(UV_DRAG_PRESETS.mdlxl), uvSensitivity: 1 }, 'Restore also takes UV transform sensitivity back');
   assert.deepEqual(normalizeUVDrag(UV_DRAG_PRESETS.mdlxl), normalizeUVDrag(DEFAULT_UV_DRAG), 'MDLxL is today\'s default');
   assert.deepEqual(restoreDomain('hotkeys', edited.hotkeys()), { hotkeys: {}, modifiers: {} });
-  assert.deepEqual(restoreDomain('appearance', edited.appearance()), { theme: 'light', accent: '#71b5f3', toolHighlight: '', viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS });
+  const look = edited.appearance(), restored = restoreDomain('appearance', look), lordaeron = viewportPresetChange(look, 'mdlvis-vanilla');
+  assert.deepEqual({ ...restored }, { ...lordaeron, visuals: { ...lordaeron.visuals, occludedOpacity: 1, keyframeSize: 10, helperSize: 6 }, citadelPaint: { ...lordaeron.citadelPaint, borderThickness: DEFAULT_PAINT_APPEARANCE.borderThickness }, emitterMarker: 'pentagram', toolHighlight: '' }, 'Restore is what picking Lordaeron from the bar gives, and clears the tool highlight');
   const mouse = commit(fresh({ scrollSensitivity: 9 }), restoreDomain('mouse', fresh({ scrollSensitivity: 9 })));
   assert.equal(mouse.scrollSensitivity, CAMERA_PRESETS.classic.scrollSensitivity);
 });
@@ -259,7 +262,7 @@ test('appearance keeps its storage and its limit of 24', () => {
   assert.throws(() => savePreset('appearance', full, 'One more'), /up to 24/);
   assert.throws(() => loadPreset(full, parsePresetFile(serializePreset('appearance', full, CUSTOM_PRESET, '1', { name: 'One more' }))), /up to 24/);
   const prefs = edited.appearance(), next = commit(prefs, savePreset('appearance', prefs, 'Mine'));
-  assert.deepEqual(Object.keys(next.viewportPresets[0]).sort(), ['accent', 'appearance', 'citadelPaint', 'id', 'name', 'theme', 'toolHighlight', 'visuals']);
+  assert.deepEqual(Object.keys(next.viewportPresets[0]).sort(), ['accent', 'appearance', 'citadelPaint', 'emitterMarker', 'id', 'name', 'theme', 'toolHighlight', 'visuals']);
   assert.equal(next.viewportPreset, next.viewportPresets[0].id);
   assert.deepEqual(next.settingsPresets, fresh().settingsPresets);
 });
@@ -412,10 +415,10 @@ test('a saved look brings back tool highlight, helpers and Citadel colours', () 
   assert.deepEqual(domainState.appearance(prefs), wanted);
   assert.equal(prefs.toolHighlight, '#654321'); assert.equal(prefs.visuals.bone, '#010203'); assert.equal(prefs.citadelPaint.borderThickness, 4);
 });
-test('a file carries the three look fields and only the helper colours', () => {
+test('a file carries the look fields and only the look part of visuals', () => {
   const { values } = lookFile(edited.appearance());
   assert.equal(values.toolHighlight, '#654321');
-  assert.deepEqual(Object.keys(values.visuals), [...APPEARANCE_HELPER_KEYS]);
+  assert.deepEqual(Object.keys(values.visuals), [...APPEARANCE_LOOK_KEYS]);
   assert.equal(values.citadelPaint.brushCursor, '#070809');
   const sender = fresh({ ...edited.appearance(), visuals: { ...edited.appearance().visuals, gridMajor: '#123123' } });
   const receiver = fresh({ visuals: { ...fresh().visuals, gridMajor: '#456456' } });
@@ -473,8 +476,8 @@ test('going back to Unsaved custom restores the tool highlight too', () => {
 });
 test('appearanceLook is what the Presets page stores beside a look', () => {
   const look = appearanceLook(edited.appearance());
-  assert.deepEqual(Object.keys(look), ['toolHighlight', 'visuals', 'citadelPaint']);
-  assert.deepEqual(Object.keys(look.visuals), [...APPEARANCE_HELPER_KEYS]);
+  assert.deepEqual(Object.keys(look), ['toolHighlight', 'visuals', 'citadelPaint', 'emitterMarker']);
+  assert.deepEqual(Object.keys(look.visuals), [...APPEARANCE_LOOK_KEYS]);
 });
 test('bad look values in a file are refused with the exact path', () => {
   const { values } = lookFile(edited.appearance());
@@ -794,4 +797,38 @@ test('the bar claims Escape at priority 20 and styles only with theme tokens', (
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(/i);
   assert.match(css, /flex-wrap:wrap/);
   assert.doesNotMatch(jsx, /Blender|Maya/i);
+});
+
+test('a hotkey file that gives one drag key two jobs is refused, as a hotkey clash is', () => {
+  const file = values => JSON.stringify({ schema: 'mdlxl-preset', version: 1, domain: 'hotkeys', name: 'Shared', app: '1', values: { hotkeys: {}, modifiers: {}, ...values } });
+  for (const modifiers of [{ 'drag.rotate.fine': 'Ctrl' }, { 'view.orbit': 'Shift' }]) assert.throws(() => parsePresetFile(file({ modifiers })), /one mouse drag key for two jobs/);
+  assert.equal(parsePresetFile(file({ modifiers: { 'drag.rotate.fine': 'Alt' } })).values.modifiers['drag.rotate.fine'], 'Alt');
+});
+test('hidden wire intensity, marker sizes and the emitter marker belong to the look', () => {
+  const base = fresh(), withVisuals = change => appearanceEdit(base, { visuals: { ...base.visuals, ...change } });
+  for (const change of [{ occludedOpacity: .4 }, { keyframeSize: 20 }, { helperSize: 12 }]) assert.equal(withVisuals(change).viewportPreset, CUSTOM_PRESET, JSON.stringify(change));
+  assert.equal(withVisuals({ gridMajor: '#123123' }).viewportPreset, undefined, 'the Grid page stays out of it');
+  assert.equal(appearanceEdit(base, { emitterMarker: 'cube' }).viewportPreset, CUSTOM_PRESET);
+  assert.equal(appearanceEdit(base, { emitterMarker: base.emitterMarker }).viewportPreset, undefined);
+  const edited = fresh({ visuals: { ...base.visuals, keyframeSize: 20, occludedOpacity: .4, helperSize: 12 }, emitterMarker: 'cube', viewportPreset: CUSTOM_PRESET });
+  const saved = commit(edited, savePreset('appearance', edited, 'Big keys'));
+  const reset = commit(saved, applyPreset('appearance', saved, 'mdlvis-vanilla'));
+  assert.deepEqual([reset.visuals.keyframeSize, reset.visuals.occludedOpacity, reset.visuals.helperSize, reset.emitterMarker], [10, 1, 6, 'pentagram'], 'a built-in writes every part of the look');
+  const back = commit(reset, applyPreset('appearance', reset, saved.viewportPresets[0].id));
+  assert.deepEqual([back.visuals.keyframeSize, back.visuals.occludedOpacity, back.visuals.helperSize, back.emitterMarker], [20, .4, 12, 'cube'], 'a saved look brings them back');
+  const shared = parsePresetFile(serializePreset('appearance', edited, CUSTOM_PRESET, '1', { name: 'Shared' }));
+  assert.equal(shared.values.visuals.keyframeSize, 20);
+  assert.equal(shared.values.emitterMarker, 'cube');
+  const text = JSON.parse(serializePreset('appearance', edited, CUSTOM_PRESET, '1', { name: 'Shared' }));
+  text.values.visuals.keyframeSize = 99;
+  assert.throws(() => parsePresetFile(JSON.stringify(text)), /values.visuals.keyframeSize|visuals\.keyframeSize/);
+});
+test('Restore leaves the Grid page and matches what the bar then reads', () => {
+  const edited = fresh({ citadelPaint: { ...fresh().citadelPaint, brushCursor: '#123456', borderThickness: 5 }, visuals: { ...fresh().visuals, gridMajor: '#123123' }, viewportPreset: CUSTOM_PRESET });
+  const next = commit(edited, restoreDomain('appearance', edited)), lordaeron = commit(fresh(), applyPreset('appearance', fresh(), 'mdlvis-vanilla'));
+  assert.equal(next.visuals.gridMajor, '#123123', 'Grid colours are not Appearance settings');
+  assert.deepEqual(next.citadelPaint, lordaeron.citadelPaint);
+  assert.equal(activePreset('appearance', next), 'mdlvis-vanilla');
+  const uv = commit(fresh({ uvSensitivity: 2 }), restoreDomain('uv', fresh({ uvSensitivity: 2 })));
+  assert.equal(uv.uvSensitivity, 1);
 });

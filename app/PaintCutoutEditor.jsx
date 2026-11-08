@@ -1,4 +1,4 @@
-import {useWindowHotkeys,useWindowKeyClaim,useHotkeys,controlActionId} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowHotkeys,useWindowKeyClaim,useHotkeys,controlActionId} from './Hotkeys.jsx';
 import {holdGestureKey} from './gesture-keys.js';
 import {windowCommandActions} from '../src/commands.js';
 import {PAINT_CUTOUT_KEYS,PAINT_CUTOUT_SCOPE,paintCutoutActionId,paintCutoutCaption} from '../src/paint-keys.js';
@@ -95,6 +95,7 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
   const closeButton=dialog.current?.querySelector('[data-hotkey="close"]'),closeKeys=closeButton?shortcuts[controlActionId(closeButton)]:undefined;
   const keyHint=keys=><kbd className="paint-key" aria-hidden="true">{keys==='Esc' ? closeKeys?.join(' / ')||keys : paintCutoutCaption(keys,shortcuts)}</kbd>;
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
+  useMousePressLost(()=>{if(drag.current)cancelDrag();});
   useWindowKeyClaim(({event,localWindow})=>{
     if(localWindow!==dialog.current||event.key!=='Escape'||!(drag.current||points.length))return false;
     cancelDrag();return true;

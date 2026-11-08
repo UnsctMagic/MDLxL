@@ -113,6 +113,8 @@ export function uvZoom(drag, x, y, weight) {
 
 /** Ctrl snapping: the applied value only, so releasing Ctrl loses nothing. */
 export const uvSnapTurn = (turn, degrees) => degrees > 0 ? Math.round(turn * 180 / Math.PI / degrees) * degrees * Math.PI / 180 : turn;
+/** True when a drag left any of its coordinates somewhere else. */
+export const uvDragChanged = (original, current, indices) => indices.some(index => original[index * 2] !== current[index * 2] || original[index * 2 + 1] !== current[index * 2 + 1]);
 export const uvSnapFactor = (factor, percent) => percent > 0 ? Math.round(factor * 100 / percent) * percent / 100 : factor;
 
 /** "Each piece": selected points grouped by triangle connection, the same walk

@@ -1899,7 +1899,7 @@ export default function App() {
     {mode==='animation' && timeline}
     <div className="classic-status"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
     <AppDialogs {...{
-      activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
+      visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
       forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
       importPart, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,

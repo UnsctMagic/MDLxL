@@ -1,5 +1,5 @@
 import { shiftDragLatch, solveCollisionMove, moveOffset, clearMoveLock } from '../src/shift-lock.js';
-import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
 import { holdGestureKey } from './gesture-keys.js';
 import { usePreferencesContext } from './PreferencesContext.jsx';
 import { dragKeys, isModifierKey, modifierSentence } from '../src/modifier-bindings.js';
@@ -36,6 +36,7 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
     cancel();return true;
   },0);
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!gesture.current),0);
+  useMousePressLost(()=>{if(gesture.current)cancel();});
   useEffect(() => () => { frame.current.cancel(); pending.current = null; }, []);
   useEffect(() => {
     const active = gesture.current;

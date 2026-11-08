@@ -301,5 +301,6 @@
   {"id":"uv-wrapper:uv-grid-size","label":"UV grid size","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:uv-map-tile-limit","label":"UV map tile limit","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:uv-material","label":"UV material","group":"UV Wrapper","category":"UV Wrapper"},
-  {"id":"uv-wrapper:wrap","label":"Wrap U and V","group":"UV Wrapper","category":"UV Wrapper"}
+  {"id":"uv-wrapper:wrap","label":"Wrap U and V","group":"UV Wrapper","category":"UV Wrapper"},
+  {"id":"uv:each-piece","label":"Each piece","group":"UV Wrapper","category":"UV"}
 ]

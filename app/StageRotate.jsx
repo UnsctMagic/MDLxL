@@ -1,6 +1,6 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Vector3} from 'three';
-import {useWindowKeyClaim} from './Hotkeys.jsx';
+import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
 import {beginGizmoRotation,drawGizmoRotationFeedback,drawMovementGizmo,movementAxisHandles,pickMovementHandle,rotationDisplayHandles} from './movement-overlay.js';
 import {rotationDragDegrees} from '../src/rotation-drag.js';
 import {dragKeys,isModifierKey,modifierSentence} from '../src/modifier-bindings.js';
@@ -41,6 +41,7 @@ export function useStageRotate({at,camera,width,height,preferences,onBegin,onTur
   },[]);
   useWindowKeyClaim(({event})=>{if(event.key!=='Escape'||!drag.current)return false;abort();return true;},0);
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
+  useMousePressLost(()=>{if(drag.current)abort();});
   const appearance=viewportAppearanceOptions(preferences).controllers;
   const shown=!!(at&&camera&&width&&height)||!!drag.current;
   let handles=[];

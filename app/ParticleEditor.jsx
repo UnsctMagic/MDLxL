@@ -333,13 +333,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const asset=assets.get(gamePathKey(working.Textures[emitter?.TextureID]?.Image));
   useWindowHotkeys('particles', windowCommandActions('particles', 'Particle Editor', {undo: () => undo(false), redo: () => undo(true), play: () => setPlaying(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
   // A number field or an arrow-keyed slider also holds an open gesture: only a held mouse button is a drag.
-  const mouseHeld = useRef(false);
-  useEffect(() => {
-    const down = () => { mouseHeld.current = true; }, up = () => { mouseHeld.current = false; };
-    window.addEventListener('pointerdown', down, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
-    return () => { window.removeEventListener('pointerdown', down, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); };
-  }, []);
-  useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!gesture.current && mouseHeld.current), 0);
+  useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!gesture.current), 0);
   useWindowKeyClaim(({event, localWindow}) => {
     if (localWindow !== dialog.current || event.key !== 'Escape') return false;
     if(sizeKey){setSizeKey(null);sync();}else if(gesture.current)cancel();else if(placement)setPlacement(null);else if(glow)setGlow(null);else if(ingredients)setIngredients(null);else if(library)setLibrary(false);else return false;

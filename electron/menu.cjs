@@ -28,7 +28,7 @@ function buildMenuTemplate(bindings, dispatch, platform = process.platform, rece
   };
   const separator = () => ({ type: 'separator' });
   // Ignored while the VIS look is on, so the choice is greyed out rather than appearing to do nothing.
-  const toolbar = { label: 'Toolbar', enabled: !editorState.vanilla, submenu: [['Graphic', 'graphic'], ['Trim', 'trim'], ['Hidden', 'hidden']].map(([label, mode]) => ({ label, type: 'radio', checked: (editorState.toolbarMode || 'graphic') === mode, click: () => dispatch('toolbar:' + mode) })) };
+  const toolbar = { label: 'Toolbar', enabled: !editorState.vanilla, submenu: [['Graphic', 'graphic'], ['toolbar-mode\u0004Trim', 'trim'], ['Hidden', 'hidden']].map(([label, mode]) => ({ label, type: 'radio', checked: (editorState.toolbarMode || 'graphic') === mode, click: () => dispatch('toolbar:' + mode) })) };
   const language = { label: 'Language', submenu: (editorState.languages || []).map(({ id, nativeLabel }) => ({ label: nativeLabel, keepLabel: true, type: 'radio', checked: editorState.language === id, click: () => dispatch('language:' + id) })) };
   const template = [
     { label: '&File', submenu: [item('&Open…', 'open'), { label:'Recent Files', submenu: recentFiles.length ? [...recentFiles.map(file=>({label:file.replaceAll('&','&&'),click:()=>dispatch({action:'openRecent',path:file}),keepLabel:true})),separator(),item('Clear Recent Files','clearRecent')] : [{label:'No recent files',enabled:false}] }, item('&Save', 'save'), item('Save as…', 'saveAs'), item('Convert MDX800 / MDX1000', 'convertVersion'), separator(), item('New model', 'new'), item('Recovery…', 'recovery'), separator(), item('Exit', 'exit')] },

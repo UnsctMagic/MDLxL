@@ -47,7 +47,7 @@ test('preset application pairs theme and accent while native windows use the sam
   const presetLoad=readFileSync(new URL('../src/light-dark-switch.js',import.meta.url),'utf8');
   const presets=readFileSync(new URL('../src/settings-presets.js',import.meta.url),'utf8');
   assert.match(settings,/<PresetBar domain="appearance"/);
-  assert.match(presets,/apply: \(prefs, preset\) => viewportPresetChange\(prefs, preset\.id\)/);
+  assert.match(presets,/apply: \(prefs, preset\) => fullLook\(viewportPresetChange\(prefs, preset\.id\)\)/);
   assert.match(presetLoad,/theme: preset.theme, accent: preset.accent \|\| APPLICATION_THEMES\[preset.theme\].accent/);
   assert.match(settings,/Object.values\(BUILT_IN_VIEWPORT_PRESETS\)/);
   assert.doesNotMatch(desktop,/theme==='dark'/);

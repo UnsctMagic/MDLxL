@@ -11,13 +11,14 @@
  * preferences.js export while modules load; the domain table is built on first use.
  */
 export { DEFAULT_SETTINGS_PRESETS } from './settings-presets-defaults.js';
-import { APPLICATION_THEMES, CAMERA_PRESETS, DEFAULT_VISUALS, effectiveBindings, formatChord, hotkeyConflicts, LIGHT_DARK_KEYS, normalizePreferences, uvTransformSensitivity } from './preferences.js';
+import { APPLICATION_THEMES, CAMERA_PRESETS, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, hotkeyConflicts, LIGHT_DARK_KEYS, normalizePreferences, uvTransformSensitivity } from './preferences.js';
 import { HOTKEY_LEADER, migrateHotkeyBindings } from './hotkey-defaults.js';
-import { APPEARANCE_HELPER_KEYS, viewportPresetChange } from './light-dark-switch.js';
-import { normalizeModifiers } from './modifier-bindings.js';
+import { viewportPresetChange } from './light-dark-switch.js';
+import { modifierConflicts, normalizeModifiers } from './modifier-bindings.js';
+import { DEFAULT_PAINT_APPEARANCE } from './paint-appearance.js';
 import { DEFAULT_ROTATION_BEHAVIOR, normalizeRotationPreferences, ROTATION_PRESETS, rotationPresetId } from './rotation-drag.js';
 import { normalizeUVDrag, UV_DRAG_PRESETS, uvDragPreset } from './uv-drag-settings.js';
-import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_PRESET_ID, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
+import { APPEARANCE_LOOK_KEYS, APPEARANCE_SIZE_KEYS, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_PRESET_ID, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
 
 export const PRESET_SCHEMA = 'mdlxl-preset', PRESET_VERSION = 1, PRESET_EXTENSION = 'mdlxl-preset';
 export const PRESET_DOMAINS = Object.freeze(['mouse', 'rotate', 'uv', 'hotkeys', 'appearance']);
@@ -98,11 +99,16 @@ function standardDomain(spec) {
 const dragBuiltIns = (presets, normalize) => DRAG_PRESET_NAMES.map(([id, name]) => ({ id, name, values: normalize(presets[id]) }));
 function viewportToPreset(preset) {
   const { id, name, appearance, theme, accent } = preset;
-  return { id, name, values: { appearance, ...(theme ? { theme, accent: accent || APPLICATION_THEMES[theme].accent } : {}), ...pick(preset, ['toolHighlight', 'visuals', 'citadelPaint']) } };
+  return { id, name, values: { appearance, ...(theme ? { theme, accent: accent || APPLICATION_THEMES[theme].accent } : {}), ...pick(preset, ['toolHighlight', 'visuals', 'citadelPaint', 'emitterMarker']) } };
 }
 /** The parts of a look outside viewportAppearance, for storing beside it in a saved viewport preset. */
 export function appearanceLook(prefs) {
-  return { toolHighlight: prefs.toolHighlight, visuals: pick(record(prefs.visuals), APPEARANCE_HELPER_KEYS), citadelPaint: prefs.citadelPaint };
+  return { toolHighlight: prefs.toolHighlight, visuals: pick(record(prefs.visuals), APPEARANCE_LOOK_KEYS), citadelPaint: prefs.citadelPaint, emitterMarker: prefs.emitterMarker };
+}
+/** A built-in writes every part of the look, so nothing set before shows through. The Grid page's colours are not part of it. */
+function fullLook(change) {
+  if (!own(BUILT_IN_VIEWPORT_PRESETS, change.viewportPreset)) return change;
+  return { ...change, visuals: { ...change.visuals, ...pick(DEFAULT_VISUALS, APPEARANCE_SIZE_KEYS) }, citadelPaint: { ...change.citadelPaint, borderThickness: DEFAULT_PAINT_APPEARANCE.borderThickness }, emitterMarker: DEFAULT_PREFERENCES.emitterMarker };
 }
 
 let domainTable = null;
@@ -120,12 +126,12 @@ function domains() {
     parseValues: input => ({ values: strictValues(appearance, isRecord(input) && own(input, 'appearance') ? { ...input, appearance: withoutImageNames(input.appearance) } : input) }),
     // The stored flag says it: comparing hundreds of values and images on every render buys nothing.
     active: prefs => viewportPresetById(prefs.viewportPreset, prefs.viewportPresets) ? prefs.viewportPreset : CUSTOM_PRESET,
-    apply: (prefs, preset) => viewportPresetChange(prefs, preset.id),
+    apply: (prefs, preset) => fullLook(viewportPresetChange(prefs, preset.id)),
     select: id => ({ viewportPreset: id }),
     afterDelete: (prefs, id) => prefs.viewportPreset === id ? { viewportPreset: CUSTOM_PRESET } : {},
     deleted: name => `${name} deleted. Current appearance was kept.`,
-    capture: prefs => pick(prefs, [...LIGHT_DARK_KEYS, 'toolHighlight']), restoreCaptured: (prefs, captured) => ({ ...captured }),
-    restore: () => ({ theme: 'light', accent: APPLICATION_THEMES.light.accent, toolHighlight: '', viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: BUILT_IN_VIEWPORT_PRESETS[DEFAULT_VIEWPORT_PRESET_ID].appearance, visuals: DEFAULT_VISUALS }),
+    capture: prefs => pick(prefs, [...LIGHT_DARK_KEYS, 'toolHighlight', 'emitterMarker']), restoreCaptured: (prefs, captured) => ({ ...captured }),
+    restore: prefs => ({ ...fullLook(viewportPresetChange(prefs, DEFAULT_VIEWPORT_PRESET_ID)), toolHighlight: '' }),
   };
   domainTable = {
     mouse: standardDomain({
@@ -149,6 +155,7 @@ function domains() {
       builtIns: dragBuiltIns(UV_DRAG_PRESETS, normalizeUVDrag), activeBuiltIn: prefs => uvDragPreset(prefs.uvDrag),
       read: prefs => ({ ...normalizeUVDrag(prefs.uvDrag), uvSensitivity: uvTransformSensitivity(prefs) }), normalize: normalizeUVValues,
       write: (prefs, { uvSensitivity, ...uvDrag }) => ({ uvDrag, ...(uvSensitivity === undefined ? {} : { uvSensitivity }) }),
+      restore: () => ({ uvDrag: normalizeUVDrag(UV_DRAG_PRESETS.mdlxl), uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity }),
     }),
     hotkeys: standardDomain({
       id: 'hotkeys', label: 'Hotkeys', maxBytes: HOTKEY_FILE, fallback: 'default', unorderedLists: true,
@@ -245,7 +252,7 @@ export function deletePreset(domainId, prefs, id) {
 }
 export function restoreDomain(domainId, prefs) {
   const domain = domainOf(domainId);
-  const change = domain.restore ? domain.restore() : domain.write(prefs, domain.builtIns.find(preset => preset.id === domain.fallback).values);
+  const change = domain.restore ? domain.restore(prefs) : domain.write(prefs, domain.builtIns.find(preset => preset.id === domain.fallback).values);
   return withStatus(change, 'Defaults restored.', domain.fallback ?? DEFAULT_VIEWPORT_PRESET_ID);
 }
 function loadStatus(name, { skipped = 0, waiting = 0 }) {
@@ -266,13 +273,13 @@ export function captureCustom(domainId, prefs) { return domainOf(domainId).captu
 /** The change that returns to a captureCustom copy. */
 export function restoreCustom(domainId, prefs, captured) { return withStatus(domainOf(domainId).restoreCaptured(prefs, captured), 'Unsaved custom restored.', null); }
 /**
- * Accent, tool highlight, helper and Citadel edits are not part of viewportAppearance,
+ * Accent, tool highlight, helper, marker and Citadel edits are not part of viewportAppearance,
  * so the page routes them through this to make Appearance read as Custom. A write that
  * changes nothing, or only the Grid page's colours in `visuals`, leaves the preset alone.
  */
 export function appearanceEdit(prefs, change) {
-  const edited = ['accent', 'toolHighlight'].some(key => own(change, key) && change[key] !== prefs[key])
-    || (own(change, 'visuals') && APPEARANCE_HELPER_KEYS.some(key => change.visuals?.[key] !== prefs.visuals?.[key]))
+  const edited = ['accent', 'toolHighlight', 'emitterMarker'].some(key => own(change, key) && change[key] !== prefs[key])
+    || (own(change, 'visuals') && APPEARANCE_LOOK_KEYS.some(key => change.visuals?.[key] !== prefs.visuals?.[key]))
     || (own(change, 'citadelPaint') && canonical(change.citadelPaint) !== canonical(prefs.citadelPaint));
   return edited ? { ...change, viewportPreset: CUSTOM_PRESET } : change;
 }
@@ -387,6 +394,7 @@ function parseHotkeyValues(input, { catalog = [] } = {}) {
   for (const keys of Object.values(values.hotkeys)) if (keys.includes(HOTKEY_LEADER)) throw Error('Ctrl+Alt+Space starts a Hotkeys sequence, so it cannot be a shortcut.');
   const conflict = hotkeyFileConflict(catalog, values.hotkeys);
   if (conflict) throw Error(conflictMessage(conflict));
+  if (modifierConflicts(values.modifiers).length) throw Error('This preset uses one mouse drag key for two jobs, so it was not loaded.');
   let skipped = 0;
   for (const [id, keys] of Object.entries(rawHotkeys)) skipped += own(values.hotkeys, id) ? keys.length - values.hotkeys[id].length : 1;
   for (const [key, value] of Object.entries(rawModifiers)) if (values.modifiers[key] !== value) skipped += 1;

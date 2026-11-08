@@ -5,8 +5,8 @@ export const DEFAULT_UV_DRAG = Object.freeze({
   zoomStyle: 'centre', zoomSpeed: 100, zoomSnap: 0
 });
 
-export const UV_ROTATE_STYLES = Object.freeze(['circle', 'leftRight', 'both']);
-export const UV_ZOOM_STYLES = Object.freeze(['centre', 'rightUp', 'leftRight', 'upDown']);
+const UV_ROTATE_STYLES = Object.freeze(['circle', 'leftRight', 'both']);
+const UV_ZOOM_STYLES = Object.freeze(['centre', 'rightUp', 'leftRight', 'upDown']);
 export const UV_ROTATE_SNAPS = Object.freeze([0, 1, 5, 15, 45, 90]);
 export const UV_ZOOM_SNAPS = Object.freeze([0, 5, 10, 25]);
 export const UV_DRAG_LIMITS = Object.freeze({

@@ -6,6 +6,8 @@ import { COMMANDS } from '../src/commands.js';
 import { TOOLBAR_MODES, normalizeToolbarMode, nextToolbarMode } from '../src/toolbar-mode.js';
 import { launcherExtraRows, launcherRows, filterLauncherRows, LAUNCHER_EDITORS } from '../src/command-launcher.js';
 import APPLICATION_THEMES from '../src/application-themes.json' with { type: 'json' };
+import { setToolbarTabStops } from '../app/toolbar-tab-order.js';
+import { translate } from '../src/localization.js';
 
 const require = createRequire(import.meta.url);
 const { buildMenuTemplate } = require('../electron/menu.cjs');
@@ -111,7 +113,7 @@ test('Settings has a Toolbar radio, Language and VIS look, and Add-ons still end
   const addons = items.findIndex(item => item.label === 'Add-ons…');
   assert.equal(items[addons + 1].type, 'separator');
   const toolbar = items.find(item => item.label === 'Toolbar');
-  assert.deepEqual(toolbar.submenu.map(item => [item.label, item.type, item.checked]), [['Graphic', 'radio', false], ['Trim', 'radio', true], ['Hidden', 'radio', false]]);
+  assert.deepEqual(toolbar.submenu.map(item => [item.label, item.type, item.checked]), [['Graphic', 'radio', false], ['toolbar-mode\u0004Trim', 'radio', true], ['Hidden', 'radio', false]]);
   toolbar.submenu[2].click();
   assert.deepEqual(sent, ['toolbar:hidden']);
   const language = items.find(item => item.label === 'Language');
@@ -253,4 +255,39 @@ test('hovering a muted label brings it to the text colour, since muted on hover 
   assert.ok(trim.some(([selector, body]) => /label:hover/.test(selector) && /color:var\(--ui-text\)/.test(body)));
   assert.ok(trim.some(([selector, body]) => /quick-display-options>button:hover/.test(selector) && /color:var\(--ui-text\)/.test(body)));
   assert.ok(trim.some(([selector, body]) => /compact-input-strength>span:hover/.test(selector) && /color:var\(--ui-text\)/.test(body)));
+});
+
+test('the Hidden toolbar sits off-screen on purpose: its controls still count as reachable', () => {
+  const hotkeys = read('app/Hotkeys.jsx'), source = hotkeys.slice(hotkeys.indexOf('const FIELD ='), hotkeys.indexOf('function placeHint'));
+  const clippedOut = new Function(source + '; return clippedOut;')();
+  const rect = { left: -9000, right: -8960, top: 5, bottom: 40, width: 40, height: 35 };
+  const element = hiddenBar => ({ matches: () => false, closest: selector => hiddenBar && selector.includes('data-toolbar="hidden"') ? {} : null, getBoundingClientRect: () => rect, parentElement: null, ownerDocument: { documentElement: { clientWidth: 1440, clientHeight: 900 }, defaultView: { getComputedStyle: () => ({ position: 'static' }) } } });
+  assert.equal(clippedOut(element(true), new Map()), false, 'a button of the Hidden toolbar');
+  assert.equal(clippedOut(element(false), new Map()), true, 'any other off-screen button stays out of reach');
+  const selector = /HIDDEN_BAR = '([^']+)'/.exec(hotkeys)[1].replace(/["\s]/g, '');
+  assert.ok(look.replace(/\s/g, '').includes(selector + '{position:fixed;left:-9999px'), 'the selector is the rule that moves the bars off-screen');
+});
+
+function tabStopRoot(items) {
+  return { querySelectorAll: selector => items.filter(item => selector.startsWith('[') ? item.attrs.has('data-toolbar-no-tab') : true) };
+}
+const control = (attrs = {}) => { const map = new Map(Object.entries(attrs)); return { attrs: map, hasAttribute: name => map.has(name), setAttribute: (name, value) => map.set(name, value), removeAttribute: name => map.delete(name) }; };
+test('Tab skips the Hidden toolbar, keeps controls findable and gives back what it took', () => {
+  const plain = control(), own = control({ tabindex: '-1' }), root = tabStopRoot([plain, own]);
+  setToolbarTabStops(root, true);
+  assert.equal(plain.attrs.get('tabindex'), '-1');
+  setToolbarTabStops(root, true);
+  setToolbarTabStops(root, false);
+  assert.equal(plain.attrs.has('tabindex'), false, 'back to no tabindex');
+  assert.equal(own.attrs.get('tabindex'), '-1', 'a control that set its own is left alone');
+  assert.doesNotMatch(bar, /inert/, 'inert would hide the controls from their own keys');
+  assert.match(bar, /toolbarHidden = preferences\.toolbarMode === 'hidden' && !visUI/);
+});
+
+test('Trim has its own meaning in the toolbar, separate from the Forge word', () => {
+  for (const [locale, word] of Object.entries({ ru: 'Компактная', es: 'Compacta', zh: '精简', fr: 'Compacte', de: 'Kompakt' })) {
+    assert.equal(translate('toolbar-mode\u0004Trim', locale), word, locale);
+    assert.notEqual(translate('Trim', locale), word, locale);
+  }
+  assert.equal(translate('toolbar-mode\u0004Trim', 'en'), 'Trim');
 });

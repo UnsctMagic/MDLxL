@@ -12,7 +12,7 @@ import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
 import { SHOWCASE_PRESETS, builtinSetup, listShowcasePresets, saveShowcasePreset, snapshotShowcase, hydrateShowcase } from './showcase-presets.js';
 import { ShowcaseHistory } from './showcase-history.js';
-import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { useMousePressLost, useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { holdGestureKey } from './gesture-keys.js';
 import { dragKeys, isModifierKey } from '../src/modifier-bindings.js';
 import { windowCommandActions } from '../src/commands.js';
@@ -207,6 +207,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     cropFrame.current.cancel();setCropPreset(cropDrag.current.previousPreset);setCrop(cropDrag.current.previous);cropDrag.current=null;return true;
   },0);
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!cropDrag.current),0);
+  useMousePressLost(()=>{if(cropDrag.current){cropFrame.current.cancel();setCropPreset(cropDrag.current.previousPreset);setCrop(cropDrag.current.previous);cropDrag.current=null;}});
   function finishCrop(event) {
     if (!cropDrag.current) return;
     cropFrame.current.flush();

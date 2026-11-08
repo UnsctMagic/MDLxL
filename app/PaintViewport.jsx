@@ -24,7 +24,7 @@ import { decodePaintBlp } from '../src/paint-blp.js';
 import { allNodes, sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
 import { modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
-import { holdGestureKey, PAINT_STROKE_KEYS } from './gesture-keys.js';
+import { holdGestureKey, onMousePressLost, PAINT_STROKE_ACTIONS } from './gesture-keys.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
@@ -379,8 +379,9 @@ export default function PaintViewport(inputProps) {
       invalidate();
     };
     const contextMenu = event => event.preventDefault();
-    const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_KEYS) });
+    const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_ACTIONS) });
     window.addEventListener('mdlxl-window-key', claimStrokeKey);
+    const stopPressLost = onMousePressLost(() => { if (down) cancelGesture(); });
     const paintDragOver=event=>{if(latest.current.paintDecal&&!latest.current.paintDisabled)event.preventDefault();};
     const paintDrop=event=>{if(!latest.current.paintDecal||latest.current.paintDisabled)return;event.preventDefault();const hit=paintHit(event);if(hit)latest.current.onPaintDrop?.(hit);};
     const paintLeave=()=>{if(paintCursor.current)paintCursor.current.style.display='none';latest.current.onPaintHover?.(null);};
@@ -592,7 +593,7 @@ export default function PaintViewport(inputProps) {
       state.disposed = true; cameraReport.cancel(); dragFrame.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); unbindScroll(); resizeObserver.disconnect(); controls.removeEventListener('change', cameraChanged); controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove); renderer.domElement.removeEventListener('pointerup', pointerUp); unwatchContext();
       renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', claimStrokeKey);
+      stopPressLost(); window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', claimStrokeKey);
       lampKeyHost.removeEventListener('keydown',lampKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); grid.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };

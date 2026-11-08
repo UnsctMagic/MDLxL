@@ -4,6 +4,7 @@ import { GRAPHICS_PRESETS, GRID_PRESETS } from '../../src/preferences.js';
 import { CAPTURE_QUALITIES } from '../../src/capture-settings.js';
 import { controllerShapePoints } from '../../src/controller-appearance.js';
 import { backgroundImageRect } from '../../src/viewport-appearance.js';
+import { FOLDER_COLORS, NODE_COLORS } from '../../src/tree-appearance.js';
 import { wireDashArray } from '../../src/wire-pattern.js';
 import { gestureAt } from './clock.js';
 import { luminance, mix } from './palette.js';
@@ -76,6 +77,14 @@ export const compareScene = {
         <BandStrip ctx={ctx} x={left} width={width} y={90} height={34} bands={QUALITY_BANDS[quality]}/>
       </>, hud: <Readout x={view.right} y={view.top + 2} text={text}/> };
     }
+    if (focus === 'pauseHidden') {
+      const paused = graphics.pauseWhenHidden !== false, x = 110 + (paused ? 0 : 44 * Math.sin(phase * Math.PI * 2));
+      return { stage: <>
+        <rect x="36" y="46" width="148" height="74" rx="4" fill={look.ink} fillOpacity=".06" stroke={look.ink} strokeOpacity=".4" strokeWidth={STROKE.line} strokeDasharray="4 3"/>
+        <circle cx={x} cy="83" r="12" fill={look.accent}/>
+        {paused && <g fill={look.paper}><rect x="104" y="76" width="4" height="14"/><rect x="112" y="76" width="4" height="14"/></g>}
+      </>, hud: null };
+    }
     const preset = value.preset ? GRAPHICS_PRESETS[value.preset] : null;
     if (preset) return { stage: <><SplitBall ctx={ctx} before={full} after={{ ...preset }}/>{preset.particles && <Sparks ctx={ctx} side={1}/>}{full.particles && <Sparks ctx={ctx} side={-1}/>}<Divider ctx={ctx} activeRight/></>, hud: <Readout x={view.right} y={view.top + 2} text={`${preset.pixelRatio}× ${preset.maxFps}`}/> };
     const SWITCHES = { antialias: true, textures: true, lighting: true, particles: true };
@@ -134,7 +143,7 @@ function Cube({ ctx, basis, half, center = [0, 0], wire, hiddenLine, occluded = 
   const dash = wireDashArray(wire).join(' ') || undefined;
   return <g fill="none" strokeLinecap={wire.style === 'dotted' ? 'round' : 'butt'} strokeLinejoin="round">
     {fill && <polygon points={toPoints(hull(points.map(p => p.at)))} fill={fill} fillOpacity=".55" stroke="none"/>}
-    {EDGES.map(([a, b], i) => { const hidden = hiddenLine && back([a, b]); return <line key={i} x1={points[a].at[0]} y1={points[a].at[1]} x2={points[b].at[0]} y2={points[b].at[1]} stroke={wire.color} strokeWidth={wire.thickness} strokeOpacity={wire.opacity * (hidden ? occluded * .5 : 1)} strokeDasharray={hidden ? '2 3' : dash}/>; })}
+    {EDGES.map(([a, b], i) => { const behind = back([a, b]); return <line key={i} x1={points[a].at[0]} y1={points[a].at[1]} x2={points[b].at[0]} y2={points[b].at[1]} stroke={wire.color} strokeWidth={wire.thickness} strokeOpacity={wire.opacity * (behind ? occluded * (hiddenLine ? .5 : 1) : 1)} strokeDasharray={hiddenLine && behind ? '2 3' : dash}/>; })}
     {markers && points.map((p, i) => (markerBack || p.depth > Math.min(...points.map(q => q.depth))) && <Marker key={i} marker={markers} x={p.at[0]} y={p.at[1]}/>)}
   </g>;
 }
@@ -156,7 +165,7 @@ function SampleImage({ ctx, id, rect, opacity }) {
 
 export const viewportSampleScene = {
   label: 'Viewport appearance preview',
-  read: preferences => ({ appearance: preferences?.viewportAppearance, wireMode: preferences?.wireMode, xray: !!preferences?.xrayVertices, occluded: preferences?.visuals?.occludedOpacity ?? 1, paint: preferences?.citadelPaint || preferences?.viewportAppearance?.citadelPaint || {} }),
+  read: preferences => ({ appearance: preferences?.viewportAppearance, wireMode: preferences?.viewportAppearance?.wireMode, xray: !!preferences?.viewportAppearance?.xrayVertices, occluded: preferences?.visuals?.occludedOpacity ?? 1, paint: preferences?.citadelPaint || preferences?.viewportAppearance?.citadelPaint || {} }),
   draw({ value, focus, ctx, view }) {
     const { look, u } = ctx, { appearance } = value, basis = viewBasis(), selected = appearance.selectedGeoset, other = appearance.otherGeoset, highlight = appearance.geosetHighlight || {};
     const hud = null;
@@ -328,6 +337,19 @@ export const uiSampleScene = {
         <rect x="22" y="28" width="176" height="116" rx="3" fill={look.ink} fillOpacity=".05" stroke={look.ink} strokeOpacity=".4" strokeWidth={STROKE.line}/>
         <MiniToolbar ctx={ctx} mode={mode} active={mode === 'hidden'}/>
         <rect x="30" y={top + 4} width="160" height={140 - top - 4} fill={look.ink} fillOpacity=".06"/>
+      </>, hud: null };
+    }
+    if (focus === 'folders' || focus === 'nodes') {
+      const t = value.tree, folders = focus === 'folders', rows = folders ? FOLDER_COLORS : NODE_COLORS, colors = folders ? t.folders : t.nodes, perColumn = Math.ceil(rows.length / 2), rowHeight = 116 / perColumn;
+      return { stage: <>
+        <rect x="16" y="22" width="188" height="122" fill={t.background} stroke={t.border} strokeWidth={STROKE.line}/>
+        {rows.map(([key], i) => {
+          const x = 24 + (i < perColumn ? 0 : 92), y = 25 + i % perColumn * rowHeight + rowHeight / 2;
+          return <g key={key} fill={colors[key]}>
+            {folders ? <path d={`M${x} ${y - 5}h5l2 2h7v8h-14z`}/> : <circle cx={x + 7} cy={y} r="5"/>}
+            <rect x={x + 18} y={y - 3} width="58" height="6" rx="2" fillOpacity=".78"/>
+          </g>;
+        })}
       </>, hud: null };
     }
     if (focus === 'tree') {

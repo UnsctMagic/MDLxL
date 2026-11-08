@@ -1,4 +1,4 @@
-import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
+import { useMousePressLost, useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { holdGestureKey } from './gesture-keys.js';
 import { windowCommandActions } from '../src/commands.js';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -155,6 +155,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const fresh = () => ({ ...ANIMXL_DEFAULTS, ...suggestAnimXLBones(model) });
   const keyFor = index => storageKey(modelPath || doc.name, sequences[index]?.Name || index);
   const [settings, setSettings] = useState(() => ({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }));
+  // What the sliders held when this animation was opened: saved sliders come back, so only a change from these is unapplied work.
+  const opened = useRef(null); opened.current ??= JSON.stringify(settings);
   const interval = sequences[seq] ? Array.from(sequences[seq].Interval) : [0, 1000];
   // Section: the part of the timeline AnimXL works on; none means the whole animation.
   // After a section commit it is empty (nothing shaped) until the next one is dragged.
@@ -193,7 +195,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const selectFromPreview = ids => ids.length === 1 ? toggleBones(ids) : setSelection(ids.filter(id => boneOptions.has(id)));
   const selectHandle = t => { setPoseTarget(t); toggleBones(handleBones(t)); };
 
-  useEffect(() => { setTime(interval[0]); setSettings({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }); history.current = { undo: [], redo: [], at: 0 }; setAlso([]); }, [seq]);
+  useEffect(() => { const next = { ...fresh(), ...(readSaved(keyFor(seq)) || {}) }; opened.current = JSON.stringify(next); setTime(interval[0]); setSettings(next); history.current = { undo: [], redo: [], at: 0 }; setAlso([]); }, [seq]);
+  const edited = useMemo(() => JSON.stringify(settings) !== opened.current, [settings]);
   useEffect(() => { dialog.current?.focus(); }, []);
   useEffect(() => { const id = setTimeout(() => writeSaved(keyFor(seq), settings), 300); return () => clearTimeout(id); }, [settings, seq]);
 
@@ -532,13 +535,14 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
     stripFrame.current.cancel(); drag.current = null; setDraft(null); setSettings(stripBefore.current); return true;
   }, 0);
   useWindowKeyClaim(detail => holdGestureKey(detail, null, () => !!drag.current), 0);
+  useMousePressLost(() => { if (drag.current) { stripFrame.current.cancel(); drag.current = null; setDraft(null); setSettings(stripBefore.current); } });
   useWindowKeyClaim(({event, localWindow}) => {
     if (localWindow !== dialog.current || event.key !== 'Escape') return false;
     if (naming != null && event.target.closest('[aria-label="Preset name"]')) { setNaming(null); return true; }
     if (picking) { setPicking(null); return true; }
     return false;
   });
-  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" windowRef={dialog} onClose={onClose} unapplied={!!result?.tracks.length && !doc.readOnly} sectionProps={{'data-hotkey-prefix':'animxl', 'data-hotkey-scope':'animxl'}}>
+  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" windowRef={dialog} onClose={onClose} unapplied={edited && !!result?.tracks.length && !doc.readOnly} sectionProps={{'data-hotkey-prefix':'animxl', 'data-hotkey-scope':'animxl'}}>
       <div className="ax-toolbar">
         <label title="The animation to shape">Animation <select data-hotkey="animxl:animation" data-hotkey-manual data-hotkey-label="Animation" aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
         <button data-hotkey="animxl:play" data-hotkey-absolute onClick={() => setPlaying(v => !v)} title="Play or pause the preview">{playing ? 'Pause' : 'Play'}</button>

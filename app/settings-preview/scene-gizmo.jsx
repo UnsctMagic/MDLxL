@@ -34,7 +34,7 @@ function ringHalves(axis, basis, radius, start, end) {
 }
 
 /** The rotate handles in the user's own style; `active` is the one being dragged. */
-export function RotateHandles({ ctx, basis, style, active, lever, leverPose }) {
+function RotateHandles({ ctx, basis, style, active, lever, leverPose }) {
   const { look, u } = ctx, axes = ['X', 'Y', 'Z'].sort((a, b) => basis.depth(AXIS[a]) - basis.depth(AXIS[b]));
   return <g fill="none" strokeLinecap="round">
     {axes.map(axis => {

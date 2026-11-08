@@ -39,8 +39,7 @@
 .settings-form{grid-column:1;min-width:0}
 .settings-preset-bar{grid-column:1/-1;position:sticky;top:0;z-index:2;margin:-12px 0 12px;padding:12px 0 10px;border-bottom:1px solid var(--settings-line);background:var(--ui-panel)}
 .settings-preview{grid-column:2;position:sticky;top:12px}
-.settings-preset-bar~.settings-preview{top:62px}
-.settings-split:has(.preset-bar-row) .settings-preview{top:100px}
+.settings-preset-bar~.settings-preview{top:calc(var(--settings-bar-height,50px) + 12px)}
 .settings-learn{display:grid;grid-template-columns:minmax(0,1fr) 220px;column-gap:16px;align-items:start}
 .settings-learn .settings-preview-scene{height:96px}
 .settings-window .settings-preview-scene{border-color:var(--settings-line);border-radius:var(--settings-radius)}
@@ -91,7 +90,7 @@
 .settings-rotation-speed>.settings-toggle{grid-column:1/3}
 .settings-rotation-speed>.settings-rotation-option{grid-column:2;grid-row:2;margin-bottom:6px}
 .settings-rotation-speed>.settings-use-default{grid-column:3;grid-row:1}
-.settings-rotation-option{display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px}
+.settings-rotation-option{display:flex;align-items:center;gap:4px;font-size:11px}
 .settings-rotation-option input{margin:0}
 .settings-appearance-set{display:grid;grid-template-columns:minmax(0,1fr) var(--settings-control);column-gap:12px;align-items:center;min-height:var(--settings-row);padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid var(--settings-line)}
 .settings-appearance-set select{width:100%}
@@ -155,7 +154,7 @@
 .hotkeys-capture{margin:9px 0;padding:13px;text-align:center;border:1px dashed var(--ui-border);border-radius:var(--settings-inner-radius);background:var(--ui-field);cursor:text;color:var(--ui-text)}
 .hotkeys-capture:focus{outline:2px solid var(--ui-accent);outline-offset:1px}
 .hotkeys-capture kbd{font:700 16px Tahoma,Arial,sans-serif;color:var(--ui-text)}
-.hotkeys-conflict{color:#7a3b00;font-size:12px}
+.hotkeys-conflict{color:var(--ui-text);font-size:12px}
 .hotkeys-page .settings-inline-actions+.settings-hint{margin-top:10px}
 
 /* Warcraft III. */
@@ -173,10 +172,11 @@
 @media(max-width:899px){
   .settings-split{grid-template-columns:minmax(0,1fr)}
   .settings-form,.settings-preview{grid-column:1}
-  .settings-preview{order:1;z-index:1;margin-bottom:12px;background:var(--ui-panel)}
+  /* Painted up to the bar above it, so nothing scrolling underneath shows through the gap. */
+  .settings-preview{order:1;z-index:1;top:0;margin:-12px 0 12px;padding-top:12px;background:var(--ui-panel)}
+  .settings-preset-bar~.settings-preview{top:var(--settings-bar-height,50px)}
   .settings-form{order:2}
   .settings-preview .settings-preview-scene{width:100%;height:96px}
-  .settings-split:has(.preset-bar-row) .settings-preview{top:100px}
   .settings-learn{grid-template-columns:minmax(0,1fr)}
   .settings-learn .settings-preview-scene{width:100%}
 }

@@ -36,9 +36,9 @@ const rotationGroups = (fine, snap, usesPointer) => [
 
 function RotationControl({ row, value, disabled, onChange }) {
   const aria = row.aria || row.label;
-  if (row.toggle) return <Check className="settings-toggle" id={row.id} label={row.label} value={value} disabled={disabled} onChange={onChange}/>;
-  if (row.number) return <label className="settings-number"><span>{row.label}</span><span><SettingsNumberInput aria-label={aria} data-hotkey={row.id} min={row.number.min} max={row.number.max} step={row.number.step} disabled={disabled} value={value} onChange={onChange}/>{row.number.unit}</span></label>;
-  return <label className="settings-select"><span>{row.label}</span><select aria-label={aria} data-hotkey={row.id} disabled={disabled} value={value} onChange={event => onChange(typeof value === 'number' ? Number(event.target.value) : event.target.value)}>{row.options.map(([entry, name]) => <option key={entry} value={entry}>{name}</option>)}</select></label>;
+  if (row.toggle) return <Check className="settings-toggle" id={row.id} label={row.label} title={row.tip} value={value} disabled={disabled} onChange={onChange}/>;
+  if (row.number) return <label className="settings-number"><span>{row.label}</span><span><SettingsNumberInput aria-label={aria} title={row.tip} data-hotkey={row.id} min={row.number.min} max={row.number.max} step={row.number.step} disabled={disabled} value={value} onChange={onChange}/>{row.number.unit}</span></label>;
+  return <label className="settings-select"><span>{row.label}</span><select aria-label={aria} title={row.tip} data-hotkey={row.id} disabled={disabled} value={value} onChange={event => onChange(typeof value === 'number' ? Number(event.target.value) : event.target.value)}>{row.options.map(([entry, name]) => <option key={entry} value={entry}>{name}</option>)}</select></label>;
 }
 function Checkbox({ className, label, aria = label, checked, disabled, onChange }) {
   return <label className={`settings-rotation-option ${className}`}><input type="checkbox" aria-label={aria} checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}/>{label}</label>;

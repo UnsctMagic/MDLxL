@@ -1,5 +1,5 @@
 /** Which control the preview follows: one delegated hover and focus listener. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { previewEntry } from './registry.js';
 
 const CONTROL = '[data-hotkey],[aria-label]';
@@ -22,10 +22,12 @@ export function resolvePreviewTarget(target) {
 /**
  * Follows hover and focus inside `rootRef`. Returns { id, restart } for SettingsPreview.
  * `defaultId` is shown until a control is reached and again when the page changes.
- * Moving onto something with no preview keeps the current one, and coming back replays it.
+ * Moving onto empty space keeps the current one and coming back replays it; a control with
+ * no scene of its own shows the page's default, never the last control's scene.
  */
 export function useSettingsPreviewTarget(rootRef, defaultId) {
-  const [target, setTarget] = useState({ id: defaultId, restart: 0 });
+  const [target, setTarget] = useState({ id: defaultId, restart: 0 }), pageDefault = useRef(defaultId);
+  pageDefault.current = defaultId;
   useEffect(() => setTarget(previous => previous.id === defaultId ? previous : { id: defaultId, restart: previous.restart + 1 }), [defaultId]);
   useEffect(() => {
     const root = rootRef.current;
@@ -33,7 +35,11 @@ export function useSettingsPreviewTarget(rootRef, defaultId) {
     let current = null;
     const follow = event => {
       const found = resolvePreviewTarget(event.target);
-      if (!found) { current = null; return; }
+      if (!found) {
+        current = null;
+        if (event.target?.closest?.(HOST)) setTarget(previous => previous.id === pageDefault.current ? previous : { id: pageDefault.current, restart: previous.restart + 1 });
+        return;
+      }
       if (found.element === current) return;
       current = found.element;
       setTarget(previous => ({ id: found.id, restart: previous.restart + 1 }));

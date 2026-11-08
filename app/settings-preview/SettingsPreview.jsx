@@ -9,7 +9,7 @@ const REDUCE = '(prefers-reduced-motion: reduce)';
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia(REDUCE).matches;
 
 /** Fits the stage into the element: the subject scales, HUD parts keep their size. */
-export function previewView(width, height) {
+function previewView(width, height) {
   const k = Math.min(width / STAGE.width, height / STAGE.height), left = 8, top = 7;
   return { width, height, k, u: 1 / k, x: (width - STAGE.width * k) / 2, y: (height - STAGE.height * k) / 2, left, top, right: width - left, bottom: height - top };
 }

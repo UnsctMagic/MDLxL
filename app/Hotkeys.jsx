@@ -5,6 +5,7 @@ import { hotkeyHint } from '../src/hotkey-badge.js';
 import { controlKind, isCloseControl } from '../src/hotkey-allocation.js';
 import HOTKEY_MANIFEST from '../src/hotkey-manifest.json';
 import { translate } from '../src/localization.js';
+import { onMousePressLost, watchMousePress } from './gesture-keys.js';
 import './settings.css';
 import './hotkey-sequences.css';
 
@@ -32,6 +33,11 @@ export function useWindowKeyClaim(handler, priority = 10) {
     return () => window.removeEventListener('mdlxl-window-key', claim);
   }, [priority]);
 }
+/** Runs `cancel` when a mouse press ends with no pointerup reaching the app, so a drag owner can end its drag. */
+export function useMousePressLost(cancel) {
+  const latest = useRef(cancel); latest.current = cancel;
+  useEffect(() => onMousePressLost(() => latest.current()), []);
+}
 const CATALOG_STORAGE_KEY = 'mdlvis-classic-hotkeys-catalog-v1';
 const MODIFIER_KEYS = ['Control', 'Shift', 'Alt', 'Meta', 'AltGraph'], DISCARD_MS = 4000;
 function loadCatalog() {
@@ -58,9 +64,11 @@ function visible(element) {
 function activeDialog(root) { return [...root.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(visible).at(-1); }
 function enabled(element) { return !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.closest('fieldset[disabled]'); }
 const FIELD = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]';
+/** The Hidden toolbar waits off-screen on purpose, so its keys keep working. */
+const HIDDEN_BAR = '.classic-app[data-toolbar="hidden"]:not([data-vis-ui]) > :is(.classic-toolbar, .classic-modules)';
 /** A key does not reach a button scrolled out of its panel. A field still takes focus, which scrolls it into view. */
 function clippedOut(element, styles) {
-  if (element.matches(FIELD)) return false;
+  if (element.matches(FIELD) || element.closest(HIDDEN_BAR)) return false;
   const { width, height } = element.getBoundingClientRect();
   return width > 0 && height > 0 && !hintRect(element, styles, true);
 }
@@ -195,17 +203,19 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       observer.disconnect();
       for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-hotkey', 'data-hotkey-prefix', 'data-hotkey-scope', 'data-hotkey-label', 'data-hotkey-category'] });
     };
+    const pressWatches = new Map([[window, watchMousePress(window)]]);
     const registerRoot = event => {
       const element = event.detail?.root;
       if (!element?.querySelectorAll) return;
-      if (event.detail.add) detachedRoots.current.add(element); else detachedRoots.current.delete(element);
+      if (event.detail.add) { detachedRoots.current.add(element); if (!pressWatches.has(element)) pressWatches.set(element, watchMousePress(element.ownerDocument.defaultView)); }
+      else { detachedRoots.current.delete(element); pressWatches.get(element)?.(); pressWatches.delete(element); }
       observeRoots(); schedule();
     };
     window.addEventListener('mdlxl-detached-root', registerRoot); observeRoots();
     window.dispatchEvent(new CustomEvent('mdlxl-hotkeys-ready'));
     root.current.__refreshHotkeys = discover;
     discover();
-    return () => { disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshHotkeys; };
+    return () => { disposed = true; observer.disconnect(); for (const stop of pressWatches.values()) stop(); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshHotkeys; };
   }, []);
   // Command enablement changes during playback; only actual binding changes need a DOM scan.
   useEffect(() => { root.current?.__refreshHotkeys?.(); }, [shortcutSignature]);
@@ -295,7 +305,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const modal = activeDialog(root.current) || controlRoots().filter(root => root.ownerDocument === ownerDocument).map(activeDialog).filter(Boolean).at(-1);
       const focusedWindow = event.target?.closest?.('[data-hotkey-window]');
       const localWindow = focusedWindow && (!modal || modal.contains(focusedWindow)) ? focusedWindow : modal;
-      const claim = new CustomEvent('mdlxl-window-key', { cancelable: true, detail: { event, scope: localWindow?.getAttribute('data-hotkey-scope') || [latest.current.activeScope].flat().at(-1), localWindow, claims: [] } });
+      const claim = new CustomEvent('mdlxl-window-key', { cancelable: true, detail: { event, scope: localWindow?.getAttribute('data-hotkey-scope') || [latest.current.activeScope].flat().at(-1), localWindow, shortcuts: latest.current.shortcuts, claims: [] } });
       window.dispatchEvent(claim);
       for (const candidate of claim.detail.claims.sort((a, b) => a.priority - b.priority)) if (candidate.run()) { claim.preventDefault(); break; }
       if (event.key === 'Alt' && !event.repeat) altInGesture.current = !!claim.detail.gesture;

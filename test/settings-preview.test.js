@@ -2,6 +2,7 @@
 // the loop plays three times, rests, stops while hidden and cleans up after itself.
 import { build } from 'esbuild';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import React from 'react';
@@ -64,7 +65,7 @@ const AUDIT_CONTROLS = [
   'grid:preset:classic', 'grid:preset:fine', 'grid:preset:world', 'grid:preset:xyz', 'grid:spacing', 'grid:major-every', 'grid:extent', 'grid:opacity', 'grid:major-opacity', 'grid:small', ...['xz', 'yz', 'xy'].map(p => `grid:plane:${p}`), ...['x', 'y', 'z'].map(a => `grid:axis:${a}`), ...['gridMinor', 'gridMajor', 'axisX', 'axisY', 'axisZ'].map(c => `grid:color:${c}`),
 ];
 const NEW_CONTROLS = ['mouse:rotation-workplane-drag', 'mouse:rotation-handle-drag', 'mouse:rotation-line-pick', 'mouse:rotation-lever-pick', 'mouse:rotation-off-handle', 'mouse:rotation-face-on', 'mouse:rotation-reverse', 'mouse:rotation-handle-speed', 'mouse:rotation-dpi', 'mouse:rotation-zone', 'mouse:rotation-big-selections', 'mouse:rotation-shift', 'mouse:rotation-snap', 'preset:uv:select', 'preset:rotate:select', 'appearance:toolbar-mode'];
-const NOTHING_TO_SHOW = ['mouse:reset', 'mouse:uv-reset', 'appearance:reset', 'updates:check', 'hotkeys:search', 'graphics:pause-when-hidden', 'game-data:choose', 'close', 'done', 'tab:mouse', 'file-icon:mdl:page'];
+const NOTHING_TO_SHOW = ['mouse:reset', 'mouse:uv-reset', 'appearance:reset', 'updates:check', 'hotkeys:search', 'game-data:choose', 'close', 'done', 'tab:mouse', 'file-icon:mdl:page'];
 
 test('the registry covers every audited control and every new one, and only those with something to show', () => {
   for (const key of [...AUDIT_CONTROLS, ...NEW_CONTROLS]) assert.ok(preview.previewEntry(key), `no scene for ${key}`);
@@ -242,4 +243,21 @@ test('the accent stays readable on any stage, and a preview is the default page 
   const look = previewLook(prefs({}));
   assert.equal(look.stage, '#cccccc', 'the user\'s background');
   assert.equal(look.axes.X, '#ff0000', 'the user\'s axis colours');
+});
+
+test('appearance scenes read each setting where it is stored', () => {
+  const html = (target, changes) => renderToStaticMarkup(React.createElement(preview.SettingsPreview, { preferences: prefs(changes), target }));
+  const base = prefs({}), view = change => ({ viewportAppearance: { ...base.viewportAppearance, ...change } }), visuals = change => ({ visuals: { ...base.visuals, ...change } });
+  assert.notEqual(html('Wire style', view({ wireMode: 'hidden-line' })), html('Wire style', view({ wireMode: 'all' })), 'Wire style');
+  assert.notEqual(html('appearance:xray-vertices', view({ xrayVertices: true })), html('appearance:xray-vertices', view({ xrayVertices: false })), 'X-Ray');
+  for (const wireMode of ['all', 'hidden-line']) assert.notEqual(html('appearance:size:occludedOpacity', { ...view({ wireMode }), ...visuals({ occludedOpacity: .2 }) }), html('appearance:size:occludedOpacity', view({ wireMode })), 'Hidden wire intensity: ' + wireMode);
+  const tree = change => view({ tree: { ...base.viewportAppearance.tree, ...change } });
+  assert.match(html('Folder Sound', tree({ folders: { ...base.viewportAppearance.tree.folders, Sound: '#abc123' } })), /#abc123/, 'Sound folder colour');
+  assert.match(html('Node Ubersplats', tree({ nodes: { ...base.viewportAppearance.tree.nodes, ubersplat: '#abc124' } })), /#abc124/, 'every node colour');
+  assert.notEqual(html('graphics:pause-when-hidden', { graphics: { ...base.graphics, pauseWhenHidden: false } }), html('graphics:pause-when-hidden', { graphics: { ...base.graphics, pauseWhenHidden: true } }), 'Pause rendering');
+});
+test('controls that lacked a scene have one, and a control with none shows the page default', () => {
+  for (const key of ['preset:mouse:select', 'Use Rotation sensitivity', 'Use default: Rotation sensitivity', 'Use default: Deadzone near centre', 'graphics:pause-when-hidden']) assert.ok(preview.previewEntry(key), key);
+  const hook = readFileSync(new URL('../app/settings-preview/use-target.js', import.meta.url), 'utf8');
+  assert.match(hook, /if \(event\.target\?\.closest\?\.\(HOST\)\) setTarget\(previous => previous\.id === pageDefault\.current \? previous : \{ id: pageDefault\.current,/);
 });

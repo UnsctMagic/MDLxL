@@ -12,6 +12,13 @@ const SELECT_TIP = 'Picks a set of the settings on this page. Changing any of th
 // Bindable, but they take no default letter: the defaults stay as they were.
 const hotkey = (domain, part) => ({ 'data-hotkey': `preset:${domain}:${part}`, 'data-hotkey-manual': '' });
 
+/** Picks a preset as the bar's select does, so Custom left behind can be picked again. `say` receives the status line. */
+export function pickPreset(domain, preferences, id, commit, say) {
+  const change = applyPreset(domain, preferences, id);
+  if (activePreset(domain, preferences, lastChosen.get(domain)) === CUSTOM_PRESET) unsavedCustom.set(domain, captureCustom(domain, preferences));
+  lastChosen.set(domain, change.presetId); commit(change); say(change.status);
+}
+
 async function writePresetFile(name, text) {
   if (globalThis.desktop?.presetSaveFile) return !!await globalThis.desktop.presetSaveFile({ name, text });
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), link = document.createElement('a');
@@ -55,8 +62,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
 
   const choose = id => attempt(() => {
     if (id === UNSAVED_OPTION) { use(restoreCustom(domain, preferences, unsavedCustom.get(domain))); return; }
-    const change = applyPreset(domain, preferences, id);
-    keepCustom(); use(change);
+    pickPreset(domain, preferences, id, commit, say);
   });
   const save = () => attempt(() => { use(savePreset(domain, preferences, name)); closeRows(); });
   const saveFile = async () => {
@@ -104,7 +110,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
       <button type="button" {...hotkey(domain, 'save-as')} aria-expanded={onSaveAs ? undefined : naming} title="Keeps the current settings under a name, or writes them to a file to share." onClick={() => { if (onSaveAs) onSaveAs(); else { setConfirming(false); setNaming(open => !open); } }}>Save as…</button>
       {onSaveAs && <button type="button" {...hotkey(domain, 'save-file')} title="Writes the current settings to a file you can share." onClick={saveFile}>Save to file…</button>}
       <button type="button" {...hotkey(domain, 'load')} title="Opens a preset file. It is added to Saved and used right away." onClick={load}>Load from…</button>
-      <button type="button" {...(restoreHotkey ? { 'data-hotkey': restoreHotkey } : hotkey(domain, 'restore'))} title="Goes back to the default settings on this page." onClick={() => { if (question) { setNaming(false); setConfirming(true); } else restore(); }}>Restore</button>
+      <button type="button" {...(restoreHotkey ? { 'data-hotkey': restoreHotkey } : hotkey(domain, 'restore'))} title={domain === 'mouse' ? 'Goes back to the default settings on the Camera, Wheel and Pointer pages.' : 'Goes back to the default settings on this page.'} onClick={() => { if (question) { setNaming(false); setConfirming(true); } else restore(); }}>Restore</button>
     </div>
     {!desktopFiles && <input ref={fileInput} className="preset-bar-file" type="file" accept=".mdlxl-preset,.json" aria-label="Preset file" onChange={loadPicked}/>}
     {naming && !onSaveAs && <PresetNameRow domain={domain} name={name} onName={setName} onSave={save} onSaveFile={saveFile} onClose={closeRows}/>}

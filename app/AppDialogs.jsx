@@ -27,7 +27,7 @@ const MODEL_NAME_TIP = 'The name stored inside the model, separate from the file
 /** Dialogs, popups, detached windows and the geoset context menu rendered at the end of App.
  * Every prop is the App value of the same name, so this markup reads exactly as it did inline. */
 export default function AppDialogs({
-  activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
+  visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
   clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
   forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
   importPart, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
@@ -113,7 +113,7 @@ export default function AppDialogs({
       const {adoptOptimizeXLResult}=await import('../src/optimizexl-session.js');
       edit('OptimizeXL',['Info'],m=>adoptOptimizeXLResult(m,bytes),{rethrow:true});
     }} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
-    {settingsTab && <Suspense fallback={null}><Settings onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
+    {settingsTab && <Suspense fallback={null}><Settings visUI={visUI} onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
     {notice && <Dialog title={notice.title || "HD models"} onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
     {updates.open && <UpdatePrompt helmetEffects={updates.effects} status={updates.status} onInstall={updates.install} onClose={updates.close} disableSounds={preferences.disableSounds} onDisableSounds={disableSounds => changePreferences(previous => ({ ...previous, disableSounds }))}/> }
   </>;

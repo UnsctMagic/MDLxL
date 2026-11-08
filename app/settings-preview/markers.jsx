@@ -87,7 +87,7 @@ export function AxisTriad({ ctx, x, y, size = 16, project, active }) {
 
 export const keyBadgeWidth = label => Math.max(16, label.length * CHAR + 9);
 /** A kbd-style modifier key, lit while it is held. */
-export function KeyBadge({ x, y, label, lit = false, opacity = 1 }) {
+function KeyBadge({ x, y, label, lit = false, opacity = 1 }) {
   const width = keyBadgeWidth(label), height = 16;
   return <g opacity={opacity}>
     <rect x={n(x)} y={y} width={n(width)} height={height} rx="3" className={lit ? 'settings-preview-key is-lit' : 'settings-preview-key'}/>
@@ -122,7 +122,7 @@ export function Ring({ ctx, x, y, radius, lit = false }) {
   return <circle cx={n(x)} cy={n(y)} r={n(radius)} fill={lit ? look.accent : 'none'} fillOpacity=".12" stroke={lit ? look.accent : look.ink} strokeOpacity={lit ? 1 : .55} strokeWidth={STROKE.line} strokeDasharray="4 4"/>;
 }
 
-export const readoutWidth = text => text.length * CHAR + 10;
+const readoutWidth = text => text.length * CHAR + 10;
 /** A short value chip. Numbers are never translated. */
 export function Readout({ x, y, text, anchor = 'end', lit = false }) {
   if (text === null || text === undefined || text === '') return null;

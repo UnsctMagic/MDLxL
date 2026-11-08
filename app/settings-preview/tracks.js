@@ -127,7 +127,7 @@ export const ringPoint = (axis, degrees, radius) => { const [u, v] = ringBasis(a
 
 export const GIZMO_RADIUS = 68;
 export const BLOCK_HALF = Object.freeze([27, 15, 19]);
-export const BLOCK_REACH = Math.hypot(...BLOCK_HALF);
+const BLOCK_REACH = Math.hypot(...BLOCK_HALF);
 /** The furthest a straight drag can go from `start` along `direction`, either way, and stay on the stage. */
 function fitTravel(start, direction, travel) {
   const room = sign => { let t = travel; for (const axis of [0, 1]) { const low = 12, high = axis ? STAGE.height - 12 : STAGE.width - 12, d = direction[axis] * sign; if (d > 1e-6) t = Math.min(t, (high - start[axis]) / d); else if (d < -1e-6) t = Math.min(t, (low - start[axis]) / d); } return Math.max(0, t); };
