@@ -81,6 +81,18 @@ test('scope and protected paths reject collateral changes before commit', () => 
   );
   assert.throws(() => prepareAiEdit(before, after, { scope: [''] }), /canonical/);
 });
+test('a bare /Nodes scope covers the node collections and nothing else', () => {
+  const before = createStarterDocument().model;
+  before.Bones = [{ Name: 'a', ObjectId: 0 }];
+  const after = structuredClone(before);
+  after.Bones[0].Name = 'b';
+  assert.deepEqual(prepareAiEdit(before, after, { scope: ['/Nodes'] }).sections, ['Bones']);
+  assert.throws(() => prepareAiEdit(before, after, { scope: ['/Nodes'], protectedPaths: ['/Bones/0/Name'] }), /protected/);
+  assert.throws(() => prepareAiEdit(before, after, { scope: ['/Nodes/0'] }), /canonical/);
+  const geometry = structuredClone(before);
+  geometry.Geosets[0].Vertices[0] += 2;
+  assert.throws(() => prepareAiEdit(before, geometry, { scope: ['/Nodes'] }), /exceeds/);
+});
 test('typed arrays retain type, narrow reads report truncation and patches reject unsafe paths', () => {
   const value = { a: new Float32Array([1, 2]), b: new Uint16Array([3, 4]) };
   assert.deepEqual(decodeAiValue(encodeAiValue(value)), value);
