@@ -77,11 +77,11 @@ function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
 // switches it on); the corner switch turns it off and on again.
 function EffectCard({ effect, value, active, selected, onSelect, onToggle, onHover }) {
   return <div className={`ax-card${active ? ' ax-card-on' : ''}${selected ? ' ax-card-selected' : ''}`} onPointerEnter={() => onHover(effect.id)} onPointerLeave={() => onHover(null)}>
-    <button className="ax-card-main" aria-pressed={selected} title={effect.tip} onClick={onSelect}>
+    <button data-hotkey={'animxl:effect:' + effect.id} data-hotkey-manual data-hotkey-label={effect.name} className="ax-card-main" aria-pressed={selected} title={effect.tip} onClick={onSelect}>
       <svg viewBox="0 0 44 30" className="ax-icon" aria-hidden="true">{ICONS[effect.id]}</svg>
       <span className="ax-card-text"><b>{effect.name}</b><small>{effect.hint}</small></span>
     </button>
-    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? Math.round(value) : ''}</button>}
+    {effect.key && <button data-hotkey={'animxl:effect-switch:' + effect.id} data-hotkey-manual data-hotkey-label={`${effect.name} on / off`} className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? Math.round(value) : ''}</button>}
   </div>;
 }
 
@@ -531,18 +531,18 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
     if (picking) { setPicking(null); return true; }
     return false;
   });
-  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" windowRef={dialog} onClose={onClose} sectionProps={{'data-hotkey-prefix':'animxl', 'data-hotkey-scope':'animxl'}}>
+  return <ToolWindow title="AnimXL" overlayClass="resource-editor anim-xl" className="re-window ax-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close without changing the animation" windowRef={dialog} onClose={onClose} unapplied={!!result?.tracks.length && !doc.readOnly} sectionProps={{'data-hotkey-prefix':'animxl', 'data-hotkey-scope':'animxl'}}>
       <div className="ax-toolbar">
-        <label title="The animation to shape">Animation <select aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
+        <label title="The animation to shape">Animation <select data-hotkey="animxl:animation" data-hotkey-manual data-hotkey-label="Animation" aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
         <button data-hotkey="animxl:play" data-hotkey-absolute onClick={() => setPlaying(v => !v)} title="Play or pause the preview">{playing ? 'Pause' : 'Play'}</button>
         {/* The preview's speed is a percentage: 100 plays in real time. */}
         {[100, 50, 25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value}%</button>)}
-        <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
-        <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy or loose bone to see the arc it draws' : 'Draw the arc the chosen bone\'s tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
-        {arcs && arcChoices.length > 1 && <select aria-label="Arc bone" title="Which bone's arc to draw" value={arcWeapon ?? ''} onChange={event => setArcPick(Number(event.target.value))}>{arcChoices.map(id => <option key={id} value={id}>{boneOptions.get(id)}</option>)}</select>}
-        <button aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
-        <button aria-pressed={ghost} title="Ghost: the original skeleton (dashed white) under the AnimXL skeleton. Bones turn yellow, orange and red the more AnimXL moved them." onClick={() => setGhost(v => !v)}>Ghost</button>
-        <button aria-pressed={magnify} className="ax-magnify" title="Show every change three times as strong, so small differences are easy to see. Only the preview; Commit writes the real result." onClick={() => setMagnify(v => !v)}>×3</button>
+        <button data-hotkey="animxl:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
+        <button data-hotkey="animxl:arcs" data-hotkey-manual data-hotkey-label="Arcs" aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy or loose bone to see the arc it draws' : 'Draw the arc the chosen bone\'s tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
+        {arcs && arcChoices.length > 1 && <select data-hotkey="animxl:arc-bone" data-hotkey-manual data-hotkey-label="Arc bone" aria-label="Arc bone" title="Which bone's arc to draw" value={arcWeapon ?? ''} onChange={event => setArcPick(Number(event.target.value))}>{arcChoices.map(id => <option key={id} value={id}>{boneOptions.get(id)}</option>)}</select>}
+        <button data-hotkey="animxl:side-by-side" data-hotkey-manual data-hotkey-label="Side by side" aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
+        <button data-hotkey="animxl:ghost" data-hotkey-manual data-hotkey-label="Ghost" aria-pressed={ghost} title="Ghost: the original skeleton (dashed white) under the AnimXL skeleton. Bones turn yellow, orange and red the more AnimXL moved them." onClick={() => setGhost(v => !v)}>Ghost</button>
+        <button data-hotkey="animxl:three-times" data-hotkey-manual data-hotkey-label="Show three times" aria-pressed={magnify} className="ax-magnify" title="Show every change three times as strong, so small differences are easy to see. Only the preview; Commit writes the real result." onClick={() => setMagnify(v => !v)}>×3</button>
         <span className="ax-time" title="Current time in this animation">{Math.round(time - interval[0])} / {span} ms</span>
       </div>
       <div className="ax-body">
@@ -564,11 +564,11 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
           </div>
           </div>
           <div className="ax-section-bar">
-            <button aria-pressed={armed} onClick={() => setArmed(v => !v)} title="Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.">Pick section</button>
+            <button data-hotkey="animxl:pick-section" data-hotkey-manual data-hotkey-label="Pick section" aria-pressed={armed} onClick={() => setArmed(v => !v)} title="Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.">Pick section</button>
             {sectionOn ? <span className="ax-section-on">Section {Math.round(settings.range[0] - interval[0])}–{Math.round(settings.range[1] - interval[0])} ms</span>
               : sectionDone ? <span>Drag the next section on the timeline</span>
               : <span>Whole animation</span>}
-            {settings.range && <button onClick={() => change('range', null)} title="Shape the whole animation again">Whole animation</button>}
+            {settings.range && <button data-hotkey="animxl:whole-animation" data-hotkey-manual data-hotkey-label="Whole animation" onClick={() => change('range', null)} title="Shape the whole animation again">Whole animation</button>}
             {armed && <small>Drag on the timeline now</small>}
           </div>
           <div className={`ax-strip${armed ? ' ax-strip-picking' : ''}`} role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: hit stops. Red marks: hit reactions. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it. Shift-drag to pick a section to shape on its own." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={stripUp} onDoubleClick={resetPose}>
@@ -596,10 +596,10 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
           </div>
           <div className="ax-target" role="group" aria-label="Apply to">
             <span>Apply to</span>
-            <button aria-pressed={target === 'auto'} onClick={() => setTarget('auto')} title="AnimXL decides which bones each effect moves: it detects the weapon, cloth, feet and body.">Auto</button>
-            <button aria-pressed={target === 'selected'} onClick={() => setTarget('selected')} title="Effects shape only the bones you select. Click bones or POSE handles in the preview; click again to deselect.">Selected bones</button>
+            <button data-hotkey="animxl:auto" data-hotkey-manual data-hotkey-label="Auto" aria-pressed={target === 'auto'} onClick={() => setTarget('auto')} title="AnimXL decides which bones each effect moves: it detects the weapon, cloth, feet and body.">Auto</button>
+            <button data-hotkey="animxl:selected-bones" data-hotkey-manual data-hotkey-label="Selected bones" aria-pressed={target === 'selected'} onClick={() => setTarget('selected')} title="Effects shape only the bones you select. Click bones or POSE handles in the preview; click again to deselect.">Selected bones</button>
             {target === 'selected' && <b>{selection.length}</b>}
-            {target === 'selected' && selection.length > 0 && <button onClick={() => setSelection([])} title="Deselect all bones">Clear</button>}
+            {target === 'selected' && selection.length > 0 && <button data-hotkey="animxl:clear-bones" data-hotkey-manual data-hotkey-label="Clear bones" onClick={() => setSelection([])} title="Deselect all bones">Clear</button>}
           </div>
           {target === 'selected' && <small className="ax-note ax-selection">{selection.length ? selection.map(id => boneOptions.get(id)).join(', ') : 'Click bones or POSE handles in the preview to select them. Click again to deselect.'}</small>}
           <div className="ax-cards">
@@ -611,33 +611,33 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
                 {selectedEffect.key && <Slider id={selectedEffect.key} label={selectedEffect.name} low={selectedEffect.low} high={selectedEffect.high} tip={selectedEffect.tip} value={settings[selectedEffect.key]} onChange={change}/>}
                 {selectedEffect.id === 'weapon' && <>
                   <small className="ax-note">{target === 'selected' ? 'Applies to your selected bones.' : `Detected: ${settings.heavyIds.map(id => boneOptions.get(id)).filter(Boolean).join(', ') || 'none'}. Switch Apply to Selected bones to choose others.`}</small>
-                  <label className="ax-check" title="If the other hand holds the weapon too (a two-handed grip), it stays on the weapon while the weapon drags."><input type="checkbox" checked={settings.grip !== false} onChange={event => change('grip', event.target.checked)}/> Keep both hands on the weapon</label>
+                  <label className="ax-check" title="If the other hand holds the weapon too (a two-handed grip), it stays on the weapon while the weapon drags."><input data-hotkey="animxl:keep-both-hands-on-the-weapon" data-hotkey-manual data-hotkey-label="Keep both hands on the weapon" type="checkbox" checked={settings.grip !== false} onChange={event => change('grip', event.target.checked)}/> Keep both hands on the weapon</label>
                 </>}
                 {selectedEffect.id === 'cloth' && <small className="ax-note">{target === 'selected' ? (settings.heavy > 0 ? 'Drag is on, so your selected bones drag instead. Turn Drag off to use Secondary Motion on them.' : 'Applies to your selected bones.') : `Detected: ${settings.looseIds.map(id => boneOptions.get(id)).filter(Boolean).join(', ') || 'none'}. Switch Apply to Selected bones to choose others.`}</small>}
                 {selectedEffect.id === 'steps' && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found: the green ticks on the timeline.` : 'No feet touch the ground in this animation. Pick the feet under Fine-tune.'}</small>}
                 {selectedEffect.id === 'hits' && <>
                   <small className="ax-note">Pause where the hit lands, then add it. Drag a mark on the timeline to move it.</small>
                   <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this hit stop" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
-                  <button onClick={() => addMarker('thunks')} title="Hit stop at the current time: the pose holds briefly at the moment of impact and heavy parts recoil.">Add hit stop here</button>
+                  <button data-hotkey="animxl:add-hit-stop-here" data-hotkey-manual data-hotkey-label="Add hit stop here" onClick={() => addMarker('thunks')} title="Hit stop at the current time: the pose holds briefly at the moment of impact and heavy parts recoil.">Add hit stop here</button>
                   <Slider id="thunk" label="Hit stop" low="Short" high="Long" tip="How long the hit stop holds and how strongly heavy parts recoil." value={settings.thunk} onChange={change}/>
                   <SoundPicker label="Hit stop sound" tip="A sound played at each hit stop: heard in the preview, and written as a sound event on the weapon on Commit so it plays in game." value={settings.thunkSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('thunkSound', id)}/>
                   {soundError && <small className="ax-note">{soundError}</small>}
                   <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this hit reaction" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
-                  <button onClick={() => addMarker('flinches')} title="Hit reaction at the current time: the body is knocked back and the torso recoils, then recovers.">Add hit reaction here</button>
-                  <label className="ax-check" title="Hit reactions come from behind: the body is pushed forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
+                  <button data-hotkey="animxl:add-hit-reaction-here" data-hotkey-manual data-hotkey-label="Add hit reaction here" onClick={() => addMarker('flinches')} title="Hit reaction at the current time: the body is knocked back and the torso recoils, then recovers.">Add hit reaction here</button>
+                  <label className="ax-check" title="Hit reactions come from behind: the body is pushed forward instead of back."><input data-hotkey="animxl:hit-from-behind" data-hotkey-manual data-hotkey-label="Hit from behind" type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
                   <Slider id="flinch" label="Hit reaction" low="Weak" high="Strong" tip="How strongly the unit is knocked back by each hit reaction." value={settings.flinch} onChange={change}/>
                   <SoundPicker label="Reaction sound" tip="A sound played at each hit reaction: heard in the preview, and written as a sound event on the body on Commit so it plays in game." value={settings.flinchSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('flinchSound', id)}/>
                 </>}
                 {selectedEffect.id === 'collapse' && <>
                   <Slider id="collapseAt" label="Start time" low="Start" high="End" tip="When the fall begins, as a share of the animation. Before it the animation plays as keyed." value={settings.collapseAt} onChange={change}/>
                   <label className="ax-field" title="How the unit dies. Each type first poses the body the way Warcraft III deaths do (knees buckle, the torso leans), then gravity takes over for the fall and landing. Limp only goes slack and drops.">Death type
-                    <select aria-label="Death type" value={settings.collapseStyle} onChange={event => change('collapseStyle', event.target.value)}>
+                    <select data-hotkey="animxl:death-type" data-hotkey-manual data-hotkey-label="Death type" aria-label="Death type" value={settings.collapseStyle} onChange={event => change('collapseStyle', event.target.value)}>
                       <option value="auto">Auto{result?.rig?.deathStyle && settings.collapseStyle === 'auto' ? ` (${DEATH_NAMES[result.rig.deathStyle]})` : ''}</option>
                       {Object.entries(DEATH_NAMES).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
                     </select>
                   </label>
                   {['limp', 'side'].includes(result?.rig?.deathStyle ?? 'limp') && <label className="ax-field" title={result?.rig?.deathStyle === 'side' ? 'The side the unit falls onto.' : 'The direction the unit falls in.'}>Direction
-                    <select aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
+                    <select data-hotkey="animxl:fall-direction" data-hotkey-manual data-hotkey-label="Fall direction" aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
                       <option value="auto">Natural</option>{result?.rig?.deathStyle !== 'side' && <><option value="back">Backwards</option><option value="forward">Forwards</option></>}<option value="left">To its left</option><option value="right">To its right</option>
                     </select>
                   </label>}
@@ -650,10 +650,10 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
           <Section className="ax-section" defaultOpen={false} title="Fine-tune" note={[movedPoses && `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved`, settings.stiffIds.length && `${settings.stiffIds.length} stiff`, also.length && `${also.length} more animations`].filter(Boolean).join(', ')}>
             <Slider id="poses" label="Stick to my poses" low="Loose" high="Exact" tip="How closely the result lands on your key poses. Exact keeps every pose; Loose lets follow-through and wobble carry through them." value={settings.poses} onChange={change}/>
             <small className="ax-note">Timing: drag a diamond on the timeline to change when that pose happens; double-click it to put it back.</small>
-            <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
-            <label className="ax-check" title="Feet stay exactly where your animation puts them. The body still sinks and sways; the knees bend to make up the difference. Legs that never touch the ground (a rider's) are left free."><input type="checkbox" checked={settings.feet !== false} onChange={event => change('feet', event.target.checked)}/> Keep feet planted</label>
+            <button data-hotkey="animxl:reset-timing" data-hotkey-manual data-hotkey-label="Reset timing" disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
+            <label className="ax-check" title="Feet stay exactly where your animation puts them. The body still sinks and sways; the knees bend to make up the difference. Legs that never touch the ground (a rider's) are left free."><input data-hotkey="animxl:keep-feet-planted" data-hotkey-manual data-hotkey-label="Keep feet planted" type="checkbox" checked={settings.feet !== false} onChange={event => change('feet', event.target.checked)}/> Keep feet planted</label>
             <label className="ax-field" title="The bone that carries the body's weight (usually the pelvis or root). Weight, Heavy steps, Flinch and Collapse move it.">Body
-              <select aria-label="Body bone" value={settings.bodyId ?? ''} onChange={event => change('bodyId', event.target.value === '' ? null : Number(event.target.value))}>
+              <select data-hotkey="animxl:body-bone" data-hotkey-manual data-hotkey-label="Body bone" aria-label="Body bone" value={settings.bodyId ?? ''} onChange={event => change('bodyId', event.target.value === '' ? null : Number(event.target.value))}>
                 <option value="">Found: {boneOptions.get(result?.rig?.body) || 'none'}</option>
                 {[...boneOptions].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
@@ -665,7 +665,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
             <small className="ax-note">Also apply to: Commit shapes these animations too, with the same settings. THUNKs and flinches stay on this animation.</small>
             <div className="ax-also">{sequences.map((s, i) => i === seq ? null : <label key={i} title={`Shape ${s.Name || 'this animation'} too when you commit`}><input type="checkbox" checked={also.includes(i)} onChange={event => setAlso(list => event.target.checked ? [...list, i] : list.filter(x => x !== i))}/> {s.Name || `Animation ${i + 1}`}</label>)}</div>
             {naming === null
-              ? <button title="Remember the current settings as your own preset button, for any model" onClick={() => setNaming('')}>Save as preset…</button>
+              ? <button data-hotkey="animxl:save-as-preset" data-hotkey-manual data-hotkey-label="Save as preset…" title="Remember the current settings as your own preset button, for any model" onClick={() => setNaming('')}>Save as preset…</button>
               : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
           </Section>
         </div>
@@ -673,9 +673,9 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
       <footer className="ax-footer">
         <span className="ax-status" role="status">{status}</span>
         <button data-hotkey="animxl:undo" data-hotkey-absolute onClick={() => undoSettings(false)} title="Undo the last slider change">Undo</button>
-        <button onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
-        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commitAsNew} title={`Keep ${sequences[seq]?.Name || 'this animation'} as it is and add the shaped version as a new animation named "${sequences[seq]?.Name || 'Animation'} (AnimXL)". Rename it in Animations if you want the game to use it.`}>Commit as new</button>
-        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{sectionOn ? 'Commit section' : also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
+        <button data-hotkey="animxl:reset" data-hotkey-manual data-hotkey-label="Reset all sliders" onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
+        <button data-hotkey="animxl:commit-as-new" data-hotkey-manual data-hotkey-label="Commit as new" disabled={!result?.tracks.length || doc.readOnly} onClick={commitAsNew} title={`Keep ${sequences[seq]?.Name || 'this animation'} as it is and add the shaped version as a new animation named "${sequences[seq]?.Name || 'Animation'} (AnimXL)". Rename it in Animations if you want the game to use it.`}>Commit as new</button>
+        <button data-hotkey="animxl:commit" data-hotkey-manual data-hotkey-label="Commit" disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{sectionOn ? 'Commit section' : also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
         <button onClick={onClose} title="Close without changing the animation. Your slider settings are remembered for this animation.">Cancel</button>
       </footer>
   </ToolWindow>;

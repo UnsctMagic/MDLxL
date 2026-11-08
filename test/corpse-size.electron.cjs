@@ -74,7 +74,9 @@ function snapshot(scope='[aria-label="Auto Corpse preview"]'){
    assert.ok(row.sizeFollowError<6,`At Size 200% the part stays under the mouse (off by ${row.sizeFollowError.toFixed(1)} px)`);
    const count=await vertexCount();await page.keyboard.press('Delete');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)<count,count);
    await page.keyboard.press('Control+z');await page.waitForFunction(count=>window.readCorpsePreview().model.Geosets.reduce((n,g)=>n+g.Vertices.length,0)===count,count);
-   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, raise, Size 200% drag, Delete, Ctrl+Z, Escape close';
+   // The window holds unapplied changes: the first Esc only warns, the second discards.
+   await page.keyboard.press('Escape');await page.locator('.hotkeys-discard-cue').waitFor();assert.match(await page.locator('.hotkeys-discard-cue').innerText(),/Press Esc again to discard/);assert.equal(await dialog.count(),1,'The first Esc keeps the unapplied work');
+   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});row.keys='drag, Escape cancel, drag, raise, Size 200% drag, Delete, Ctrl+Z, Escape warn, Escape close';
   }
   row.result='captured';results.push(row);console.log('captured',tag);
  }catch(error){row.error=error.stack;results.push(row);console.log('FAILED',tag,error.message);if(!captureOnly)process.exitCode=1;}

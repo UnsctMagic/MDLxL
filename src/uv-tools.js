@@ -91,6 +91,13 @@ export function uvZoom(drag, x, y, weight) {
     drag.zoomStart = drag.zoomVirtual = drag.zoomSigned = radius; drag.zoomAimX = px / (radius || 1); drag.zoomAimY = py / (radius || 1);
     return 1;
   }
+  if (drag.zoomStyle === 'upDown') {
+    // Up grows, compounding, so it can never reach zero or flip. UV transform
+    // sensitivity is taken back out of the weight; Shift and Alt fine control stay.
+    drag.scaleDX += (y - drag.scaleY) * weight / (drag.uvSensitivity ?? 1);
+    drag.scaleX = x; drag.scaleY = y;
+    return Math.exp(-drag.scaleDX / 100 * speed);
+  }
   if (drag.zoomStyle !== 'centre') {
     // Like Movement's Resize: right/up grows, left/down shrinks (screen y is down).
     drag.scaleDX += ((x - drag.scaleX) - (drag.zoomStyle === 'rightUp' ? y - drag.scaleY : 0)) * weight;

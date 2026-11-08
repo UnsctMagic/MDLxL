@@ -1,5 +1,5 @@
 import { DEFAULT_ROTATION, ROTATION_EDITORS } from '../src/rotation-drag.js';
-import { DEFAULT_UV_DRAG, normalizeUVDrag, UV_DRAG_LIMITS, UV_ROTATE_PRESETS, UV_ROTATE_SNAPS, UV_ZOOM_SNAPS, uvRotatePreset } from '../src/uv-drag-settings.js';
+import { DEFAULT_UV_DRAG, normalizeUVDrag, UV_DRAG_LIMITS, UV_DRAG_PRESETS, UV_ROTATE_SNAPS, UV_ZOOM_SNAPS, uvDragPreset } from '../src/uv-drag-settings.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
@@ -116,10 +116,10 @@ function UVDragSelect({ id, label, aria = label, tip, value, options, onChange }
 }
 /** Mouse > UV: how the UV Wrapper's Rotate and Zoom drags feel. 3D tools never read these. */
 function UVDragSettings({ value, onChange }) {
-  const preset = uvRotatePreset(value), style = value.rotateStyle, limits = UV_DRAG_LIMITS;
+  const preset = uvDragPreset(value), style = value.rotateStyle, limits = UV_DRAG_LIMITS;
   return <>
     <section className="settings-appearance-section"><h4>Rotate</h4><div className="settings-appearance-content">
-      <UVDragSelect id="mouse:uv-rotate-preset" label="Preset" aria="UV Rotate preset" tip="Fills in the settings below. Changing any of them makes this Custom." value={preset} onChange={id => onChange(UV_ROTATE_PRESETS[id])} options={[['mdlxl', 'MDLxL (default)'], ['follow', 'Follow the mouse (Blender, Photoshop style)'], ['leftRight', 'Left/right drag (MdlVis style)'], ['both', 'Circle + left/right'], ...(preset === 'custom' ? [['custom', 'Custom', true]] : [])]}/>
+      <UVDragSelect id="mouse:uv-rotate-preset" label="Preset" aria="UV Rotate preset" tip="Fills in the settings below. Changing any of them makes this Custom." value={preset} onChange={id => onChange(UV_DRAG_PRESETS[id])} options={[['mdlxl', 'MDLxL (default)'], ['mdlvis', 'MDLVis'], ['freeform', 'Freeform'], ['manipulator', 'Manipulator'], ...(preset === 'custom' ? [['custom', 'Custom', true]] : [])]}/>
       <UVDragSelect id="mouse:uv-rotate-style" label="How you drag" aria="UV Rotate drag" tip="Which mouse movement turns the selection." value={style} onChange={rotateStyle => onChange({ rotateStyle })} options={[['circle', 'Circle around the centre'], ['leftRight', 'Left and right'], ['both', 'Circle + left and right']]}/>
       <Numeric id="mouse:uv-rotate-speed" label="Turn speed" title="How far the selection turns for the same mouse movement." value={value.rotateSpeed} {...limits.rotateSpeed} unit="%" onChange={rotateSpeed => onChange({ rotateSpeed })}/>
       {style !== 'leftRight' && <Numeric id="mouse:uv-rotate-zone" label="Deadzone near centre" title="Close to the centre the turn is gentler, so the selection does not snap around as the mouse passes over it. 0 turns this off." value={value.rotateZone} {...limits.rotateZone} unit="px" onChange={rotateZone => onChange({ rotateZone })}/>}
@@ -128,7 +128,7 @@ function UVDragSettings({ value, onChange }) {
       <UVDragSelect id="mouse:uv-rotate-snap" label="Angle snap (hold Ctrl)" tip="While Ctrl is held, turns in these steps." value={value.rotateSnap} onChange={rotateSnap => onChange({ rotateSnap: Number(rotateSnap) })} options={UV_ROTATE_SNAPS.map(snap => [snap, snap ? `${snap}°` : 'Off'])}/>
     </div></section>
     <section className="settings-appearance-section"><h4>Zoom</h4><div className="settings-appearance-content">
-      <UVDragSelect id="mouse:uv-zoom-style" label="How you drag" aria="UV Zoom drag" tip="Which mouse movement resizes the selection." value={value.zoomStyle} onChange={zoomStyle => onChange({ zoomStyle })} options={[['centre', 'Away from or toward the centre'], ['rightUp', 'Right or up grows, left or down shrinks'], ['leftRight', 'Left and right only']]}/>
+      <UVDragSelect id="mouse:uv-zoom-style" label="How you drag" aria="UV Zoom drag" tip="Which mouse movement resizes the selection." value={value.zoomStyle} onChange={zoomStyle => onChange({ zoomStyle })} options={[['centre', 'Away from or toward the centre'], ['rightUp', 'Right or up grows, left or down shrinks'], ['leftRight', 'Left and right only'], ['upDown', 'Up and down only']]}/>
       <Numeric id="mouse:uv-zoom-speed" label="Zoom speed" title="How much the size changes for the same mouse movement." value={value.zoomSpeed} {...limits.zoomSpeed} unit="%" onChange={zoomSpeed => onChange({ zoomSpeed })}/>
       <UVDragSelect id="mouse:uv-zoom-snap" label="Size snap (hold Ctrl)" tip="While Ctrl is held, resizes in these steps." value={value.zoomSnap} onChange={zoomSnap => onChange({ zoomSnap: Number(zoomSnap) })} options={UV_ZOOM_SNAPS.map(snap => [snap, snap ? `${snap}%` : 'Off'])}/>
     </div></section>

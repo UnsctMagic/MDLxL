@@ -98,6 +98,18 @@ export function clearSilences(notebook) {
 export function clearLearned(notebook) {
   return { ...notebook, keys: Object.fromEntries(Object.entries(notebook.keys).map(([id, record]) => [id, { ...record, uses: 0, quietUntil: 0 }])) };
 }
+/**
+ * A command given a different key is a new key to learn: forget its uses and quiet time, but keep a
+ * mute. `groupOf` maps an action to its notebook entry (Paint's sliders share one). Commands that
+ * were not known before are not rebinds. Returns the same notebook when nothing changed.
+ */
+export function forgetRebound(notebook, previous, next, groupOf = id => id) {
+  const ids = Object.keys(next).filter(id => Object.hasOwn(previous, id) && String(previous[id]) !== String(next[id])).map(groupOf).filter(id => notebook.keys[id]);
+  if (!ids.length) return notebook;
+  const keys = { ...notebook.keys };
+  for (const id of ids) keys[id] = { ...keys[id], uses: 0, quietUntil: 0 };
+  return { ...notebook, keys };
+}
 export function notebookCounts(notebook, now) {
   const records = Object.values(notebook.keys);
   return { silenced: records.filter(record => record.silenced).length, learned: records.filter(record => record.quietUntil > now).length };
@@ -130,5 +142,5 @@ export function paintKeyLabel(key, { ctrl = false, shift = false, alt = false } 
   return shift && /^[A-Z]$/.test(name) ? 'Shift+' + name : name;
 }
 
-/** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. */
-export const keyCaps = chord => String(chord || '').split(/\+(?=.)/).filter(Boolean);
+/** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. A rebound pair ("F1 / F2") stays one cap. */
+export const keyCaps = chord => String(chord || '').includes(' / ') ? [String(chord)] : String(chord || '').split(/\+(?=.)/).filter(Boolean);

@@ -1,4 +1,4 @@
-import { normalizePreferences, normalizeChord, migratePreferences } from './preferences.js';
+import { normalizePreferences, migratePreferences } from './preferences.js';
 
 export function exportConfiguration(preferences) {
   return {schema:'mdlxl-configuration', version:1, preferences:normalizePreferences(preferences)};
@@ -19,11 +19,6 @@ export function importConfiguration(input) {
     else if (a!==b) throw new Error(`Invalid ${path}.`);
   };
   compare(migratePreferences(p),normalized,'preferences');
-  const assigned = new Map();
-  for (const [id,keys] of Object.entries(normalized.hotkeys)) for (const value of keys) {
-    const chord = normalizeChord(value);
-    if (assigned.has(chord)) throw new Error(`Shortcut ${chord} is assigned to both ${assigned.get(chord)} and ${id}.`);
-    assigned.set(chord,id);
-  }
+  // Scope-aware shortcut clashes are checked where the catalog is known (configurationHotkeyConflict).
   return normalized;
 }

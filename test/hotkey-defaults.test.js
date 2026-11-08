@@ -10,7 +10,7 @@ const keyCount = chord => chord.split('+').length;
 test('every core action has a default of one or two keys, unique where it works, and original MDLVis shortcuts retain their command', () => {
   const assigned = { editor: new Map(), forge: new Map(), paint: new Map() };
   for (const action of COMMANDS) {
-    if(action.id==='surfaceEffects')assert.deepEqual(action.defaultKeys,[],'FX has an owner-assigned shortcut only');
+    if(['surfaceEffects','showcase','managers','autoCorpse','visToggle'].includes(action.id))assert.deepEqual(action.defaultKeys,[],`${action.id} has no default key, by decision`);
     else assert.ok(action.defaultKeys.length, `${action.id} needs a default`);
     for (const key of action.defaultKeys) {
       assert.equal(hotkeyCode(key), '', `${action.id} has a generated code`);
@@ -59,6 +59,37 @@ test('the editor\'s own controls avoid every command key and the keys MDLVis lea
   assert.equal(given.length, 6);
   for (const key of given) { assert.equal(commandKeys.has(key), false, key); assert.equal(EDITOR_RESERVED.includes(key), false, key); }
   assert.equal(new Set(given).size, given.length);
+});
+
+test('a key assigned elsewhere does not move a saved key in another window', () => {
+  const saved = [control('Material Manager:new', 'New', 'Material Manager', { defaultKey: 'N' }), control('Node Manager:name', 'Name', 'Node Manager', { defaultKey: 'N' })];
+  const keysAfter = overrides => effectiveBindings(contextualHotkeyDefaults([...COMMANDS, ...saved], Object.values(overrides).flat(), overrides), overrides);
+  const moved = keysAfter({ Sequences: ['N'] });
+  assert.deepEqual([moved['Material Manager:new'], moved['Node Manager:name']], [['N'], ['N']], 'a rebind in the editor leaves both windows alone');
+  const sameWindow = keysAfter({ 'Material Manager:other': ['N'] });
+  assert.deepEqual(sameWindow['Node Manager:name'], ['N']);
+  const clash = contextualHotkeyDefaults([...saved, control('Material Manager:other', 'Other', 'Material Manager')], ['N'], { 'Material Manager:other': ['N'] });
+  assert.notEqual(clash.find(action => action.id === 'Material Manager:new').defaultKey, 'N', 'a clash inside the same window still moves it');
+  const editorKey = control('editor:thing', 'Thing', 'editor', { defaultKey: 'Alt+J' });
+  assert.notDeepEqual(effectiveBindings(contextualHotkeyDefaults([...COMMANDS, editorKey], ['Alt+J'], { save: ['Alt+J'] }), { save: ['Alt+J'] })['editor:thing'], ['Alt+J'], 'a command key fires in the editor, so it does move an editor control');
+});
+
+test('a manual control can be bound but gets no default key, and takes nothing from others', () => {
+  const window = 'Particle Editor', manual = control('particles:new', 'New', window, { manual: true, defaultKey: 'N' }), plain = control('other:new', 'New', window);
+  const actions = contextualHotkeyDefaults([manual, plain]);
+  assert.deepEqual(actions.find(action => action.id === 'particles:new').defaultKeys, []);
+  assert.deepEqual(actions.find(action => action.id === 'other:new').defaultKeys, ['N']);
+  const assigned = assignHotkey({}, actions, 'particles:new', 'F9');
+  assert.deepEqual(assigned.hotkeys['particles:new'], ['F9']);
+});
+
+test('a non-modal panel avoids editor keys but keeps Esc for its Close', () => {
+  const close = control('addons:close', 'Close add-ons', 'addons', { embedsEditor: true, panel: true }), mode = control('addons:mode', 'Mode', 'addons', { embedsEditor: true, panel: true });
+  const keys = effectiveBindings(contextualHotkeyDefaults([...COMMANDS, close, mode]), {});
+  assert.deepEqual(keys['addons:close'], ['Escape']);
+  assert.equal(new Set(COMMANDS.flatMap(action => action.defaultKeys)).has(keys['addons:mode'][0]), false, keys['addons:mode'][0]);
+  const forgeClose = control('forge:close', 'Close', 'forge', { embedsEditor: true });
+  assert.deepEqual(effectiveBindings(contextualHotkeyDefaults([...COMMANDS, forgeClose]), {})['forge:close'], [], 'a window with the editor tools still leaves Esc to the editor');
 });
 
 test('new window keys avoid custom assignments; corrupted duplicate saved keys are repaired', () => {
@@ -139,8 +170,10 @@ test('Forge owns nearby single keys without replacing other editors or allowing 
   assert.equal(result.ok, true);
   assert.deepEqual(effectiveBindings(COMMANDS, result.hotkeys).Collapse, ['C']);
   assert.deepEqual(hotkeyConflicts(COMMANDS, {}, 'forge:shape:cut', 'E'), ['forge:shape:extrude']);
-  const global = [...COMMANDS, {id:'global:test',scope:'global',defaultKeys:['F8']}];
-  assert.deepEqual(hotkeyConflicts(global, {}, 'forge:shape:cut', 'F8'), ['global:test']);
+  // Only a key that fires in every window clashes everywhere; Undo's scope makes it work in the manager, not in Forge.
+  const everywhere = [...COMMANDS, {id:'modal:test',allowInModal:true,defaultKeys:['F8']}, {id:'global:test',scope:'global',defaultKeys:['F7']}];
+  assert.deepEqual(hotkeyConflicts(everywhere, {}, 'forge:shape:cut', 'F8'), ['modal:test']);
+  assert.deepEqual(hotkeyConflicts(everywhere, {}, 'forge:shape:cut', 'F7'), []);
 });
 
 test('window history and playback use the command bindings and can be rebound locally', async () => {

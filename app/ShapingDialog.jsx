@@ -53,6 +53,8 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
   const setLengthAxis = next => { setAxis(next); if (next === direction) setDirection((next + 1) % 3); setOriginal(false); };
   const sourceTriangles = source.reduce((n, g) => n + g.Faces.length / 3, 0), triangles = preview.geosets.reduce((n, g) => n + g.Faces.length / 3, 0);
 
+  const settingsNow = JSON.stringify({ tool, axis, direction, amount, pivot, bendStyle, local, radius, support, affect });
+  const [startingSettings] = useState(settingsNow), unapplied = history.length > 0 || settingsNow !== startingSettings;
   const shown = original ? model : preview.model;
   const previewModel = useMemo(() => ({ ...shown, Geosets: geosetIds.map(i => shown.Geosets[i]) }), [shown, geosetIds]);
   const previewColors = useMemo(() => geosetIds.map(i => surfaceColors[i % surfaceColors.length]), [surfaceColors, geosetIds]);
@@ -74,7 +76,7 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
       remember();setWorking(next);setAmount(0);setOriginal(false);setMessage('');
     } catch(e) { setMessage(e.message); }
   };
-  return <div className="forge-overlay shaping-overlay"><section className="forge-shape-dialog shaping-simple" data-hotkey-category="MDLxL FORGE" role="dialog" aria-modal="true" data-hotkey-scope="dialog" aria-label="Shape geosets"><header><img src="./classic/wc3-forge.gif" alt=""/><h2>MDLxL FORGE · SHAPE</h2><button data-hotkey="forge:effect:close" onClick={onClose} aria-label="Close shaping tools">×</button></header>
+  return <div className="forge-overlay shaping-overlay"><section className="forge-shape-dialog shaping-simple" data-hotkey-category="MDLxL FORGE" role="dialog" aria-modal="true" data-hotkey-scope="dialog" data-hotkey-unapplied={unapplied ? '' : undefined} aria-label="Shape geosets"><header><img src="./classic/wc3-forge.gif" alt=""/><h2>MDLxL FORGE · SHAPE</h2><button data-hotkey="forge:effect:close" onClick={onClose} aria-label="Close shaping tools">×</button></header>
     <ForgeEditor model={previewModel} editorState={editorState} surfaceColors={previewColors} modelingOverlay={modelingOverlay} selection={localSelection} onSelectionChange={select} onTransform={transform} onUndo={()=>restore(false)} onRedo={()=>restore(true)} canUndo={history.length>0} canRedo={future.length>0} toolbar={<button data-hotkey="forge:effect:original" aria-label="Original" aria-pressed={original} className={original?'active':''} onClick={()=>setOriginal(!original)}>Original</button>}
       sidebar={<div className="forge-effect-controls" data-hotkey-prefix="forge:effect">      <div className="shaping-tools" role="group" aria-label="Shape effect">{TOOLS.map(([label, next, style, path]) => <button data-hotkey={'tool:'+label} aria-label={label} key={label} className={tool === next && bendStyle === style ? 'active' : ''} aria-pressed={tool === next && bendStyle === style} onClick={() => chooseTool(next, style)}><svg viewBox="0 0 64 46" aria-hidden="true"><path d={path}/></svg>{label}</button>)}</div>
       <label className="shaping-amount">Amount<HotkeyBadge actionId="forge:effect:amount"/><input data-hotkey="amount" aria-label="Amount" type="number" min={range[0]} max={range[1]} value={amount} onChange={e => changeAmount(+e.target.value)}/></label>

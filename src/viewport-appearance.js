@@ -1,6 +1,7 @@
 import themes from './application-themes.json' with { type: 'json' };
 import { normalizeTreeAppearance, treeAppearanceForTheme, rigNodeColorsForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme, normalizeControllerAppearance } from './controller-appearance.js';
+import { normalizePaintAppearance } from './paint-appearance.js';
 
 const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
 const number = (value, min, max, fallback) => value !== null && value !== '' && Number.isFinite(Number(value))
@@ -114,6 +115,9 @@ export const GEOSET_HIGHLIGHT_TYPES = Object.freeze(['wire-vertices', 'wire', 'f
 export const VIEWPORT_BACKGROUND_DISPLAYS = Object.freeze(['fit', 'fill', 'stretch', 'center']);
 export const MAX_VIEWPORT_PRESETS = 24;
 export const MAX_VIEWPORT_BACKGROUND_DATA_LENGTH = 12_000_000;
+/** The helper colours within preferences.visuals; the rest of visuals belongs to the Grid page. */
+export const APPEARANCE_HELPER_KEYS = Object.freeze(['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection']);
+const hexColor = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
 function normalizeWire(value, fallback) {
   const input = record(value);
@@ -205,6 +209,18 @@ export function normalizeViewportAppearance(value, fallback = DEFAULT_VIEWPORT_A
   };
 }
 
+/** The rest of a saved look. A field an older preset lacks stays absent, and applying that preset leaves the setting alone. */
+function normalizePresetLook(item) {
+  const look = {}, helpers = record(item.visuals);
+  // normalizePaintAppearance would keep an array that reads as a colour.
+  const paint = Object.fromEntries(Object.entries(record(item.citadelPaint)).filter(([, value]) => typeof value !== 'object'));
+  if (item.toolHighlight === '' || hexColor(item.toolHighlight)) look.toolHighlight = item.toolHighlight.toLowerCase();
+  const visuals = Object.fromEntries(APPEARANCE_HELPER_KEYS.filter(key => hexColor(helpers[key])).map(key => [key, helpers[key].toLowerCase()]));
+  if (Object.keys(visuals).length) look.visuals = visuals;
+  if (Object.keys(paint).length) look.citadelPaint = normalizePaintAppearance(paint);
+  return look;
+}
+
 export function normalizeViewportPresets(value) {
   if (!Array.isArray(value)) return [];
   const ids = new Set(), names = new Set(), output = [];
@@ -216,7 +232,7 @@ export function normalizeViewportPresets(value) {
     ids.add(id); names.add(name.toLowerCase());
     const theme = Object.hasOwn(themes, item.theme) ? item.theme : null;
     const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, geosetSet: geosetSetForTheme(theme), tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme), bones: boneAppearanceForTheme(theme) });
-    output.push({ id, name, appearance, ...(theme ? { theme, accent: color(item.accent, themes[theme].accent) } : {}) });
+    output.push({ id, name, appearance, ...(theme ? { theme, accent: color(item.accent, themes[theme].accent) } : {}), ...normalizePresetLook(item) });
   }
   return output;
 }

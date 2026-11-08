@@ -24,7 +24,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
     abort();return true;
   },0);
   const line=glow?.weapon&&layout?.weapons?.[0],pivot=line?.frame&&line.start&&line.end&&snapshot?.turns?.mid;
-  const rings=useStageRotate({at:pivot?.world,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
+  const rings=useStageRotate({editor:'glow',at:pivot?.world,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
     onBegin(){turn.current={line:structuredClone(line),bone:pivot.rotation,before:structuredClone(glow)};onDrag?.(true);},
     onTurn(axis,degrees){const t=turn.current;if(t)set(turnWeaponEnds(t.line,t.bone,axis,degrees));},
     onEnd(){turn.current=null;onDrag?.(false);},

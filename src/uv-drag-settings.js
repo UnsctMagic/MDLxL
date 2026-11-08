@@ -6,7 +6,7 @@ export const DEFAULT_UV_DRAG = Object.freeze({
 });
 
 export const UV_ROTATE_STYLES = Object.freeze(['circle', 'leftRight', 'both']);
-export const UV_ZOOM_STYLES = Object.freeze(['centre', 'rightUp', 'leftRight']);
+export const UV_ZOOM_STYLES = Object.freeze(['centre', 'rightUp', 'leftRight', 'upDown']);
 export const UV_ROTATE_SNAPS = Object.freeze([0, 1, 5, 15, 45, 90]);
 export const UV_ZOOM_SNAPS = Object.freeze([0, 5, 10, 25]);
 export const UV_DRAG_LIMITS = Object.freeze({
@@ -15,12 +15,13 @@ export const UV_DRAG_LIMITS = Object.freeze({
   zoomSpeed: Object.freeze({ min: 10, max: 400 })
 });
 
-/** One click fills in these Rotate settings; anything else reads as Custom. */
-export const UV_ROTATE_PRESETS = Object.freeze({
-  mdlxl: Object.freeze({ rotateStyle: 'circle', rotateSpeed: 70, rotateZone: 24, rotateBigPieces: true }),
-  follow: Object.freeze({ rotateStyle: 'circle', rotateSpeed: 100, rotateZone: 0, rotateBigPieces: false }),
-  leftRight: Object.freeze({ rotateStyle: 'leftRight', rotateSpeed: 100, rotateZone: 24, rotateBigPieces: true }),
-  both: Object.freeze({ rotateStyle: 'both', rotateSpeed: 70, rotateZone: 24, rotateBigPieces: true })
+/** A built-in writes all nine settings, so its result never depends on what was set before. */
+const preset = (rotateStyle, rotateSpeed, rotateZone, rotateBigPieces, rotateSnap, zoomStyle, zoomSnap) => Object.freeze({ rotateStyle, rotateSpeed, rotateZone, rotateBigPieces, rotateReverse: false, rotateSnap, zoomStyle, zoomSpeed: 100, zoomSnap });
+export const UV_DRAG_PRESETS = Object.freeze({
+  mdlxl: preset('circle', 70, 24, true, 0, 'centre', 0),
+  mdlvis: preset('leftRight', 100, 0, false, 0, 'upDown', 0),
+  freeform: preset('circle', 100, 0, false, 5, 'centre', 10),
+  manipulator: preset('circle', 100, 24, false, 15, 'leftRight', 10)
 });
 
 const record = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -47,9 +48,9 @@ export function normalizeUVDrag(value) {
   };
 }
 
-/** The preset the current Rotate settings match, or 'custom'. */
-export function uvRotatePreset(value) {
+/** The built-in all nine current settings match, or 'custom'. */
+export function uvDragPreset(value) {
   const settings = normalizeUVDrag(value);
-  const match = Object.entries(UV_ROTATE_PRESETS).find(([, preset]) => Object.entries(preset).every(([key, entry]) => settings[key] === entry));
+  const match = Object.entries(UV_DRAG_PRESETS).find(([, preset]) => Object.entries(preset).every(([key, entry]) => settings[key] === entry));
   return match ? match[0] : 'custom';
 }

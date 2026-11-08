@@ -1,8 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
-import { LEARN_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, readLearnNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/learn-keycaps.js';
+import { LEARN_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, readLearnNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps, forgetRebound } from '../src/learn-keycaps.js';
+import { paintKeyCaption } from '../src/paint-keys.js';
 import { isCloseControl } from '../src/hotkey-allocation.js';
 import './learn.css';
 
@@ -31,6 +33,11 @@ export function updateLearnNotebook(update) {
 const CONTROLS = 'button, summary, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], input[type="checkbox"], input[type="radio"]';
 const OWN_UI = '.learn-keycap';
 const GAP = 8, EDGE = 6;
+/** The keys that close the window this control is in, from its own close control. */
+const windowCloseKeys = element => {
+  const close = [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts]') || [])].find(other => other.getAttribute('data-hotkey-shortcuts') && isCloseControl(controlActionId(other), other.getAttribute('aria-label') || other.textContent || ''));
+  return close ? close.getAttribute('data-hotkey-shortcuts').split(' / ') : null;
+};
 
 /**
  * Learn: when the user clicks something that has a key, a keycap popup shows that key.
@@ -40,9 +47,17 @@ const GAP = 8, EDGE = 6;
 export default function Learn({ settings }) {
   const { catalog, shortcuts } = useHotkeys();
   const [popup, setPopup] = useState(null);
-  const notebook = useRef(null), latest = useRef({}), box = useRef(null);
+  const notebook = useRef(null), latest = useRef({}), box = useRef(null), bound = useRef(null);
   latest.current = { settings, catalog, shortcuts, popup };
   const enabled = !!settings?.enabled;
+
+  // A rebound command is a new key to learn, whether or not Learn is on right now.
+  useEffect(() => {
+    const before = bound.current; bound.current = shortcuts;
+    if (!before) return;
+    const current = loadLearnNotebook(), next = forgetRebound(current, before, shortcuts, id => latest.current.catalog.find(action => action.id === id)?.learnGroup || id);
+    if (next !== current) updateLearnNotebook(() => next);
+  }, [shortcuts]);
 
   useEffect(() => {
     setPopup(null);
@@ -52,21 +67,22 @@ export default function Learn({ settings }) {
     let serial = 0, clickTimer;
     const save = next => { notebook.current = next; storeNotebook(next); };
     /** Citadel Paint's keys are its own (`data-paint-key`); everything else uses the shortcut settings. */
-    const keysOf = id => latest.current.shortcuts[id] || (id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : undefined);
+    const keysOf = id => latest.current.shortcuts[id] || (id.startsWith(PAINT_KEY_PREFIX) ? [paintKeyCaption(id.slice(PAINT_KEY_PREFIX.length), latest.current.shortcuts)] : undefined);
     const show = (id, element, afterClick = false) => {
-      // A window's extra Close / Cancel / Done buttons close it like its own close button: with Esc,
-      // when Esc closes that window (in Forge it clears the selection).
-      // Only hand-picked command keys are taught: a window's own buttons get keys from their names
-      // (Settings' file icons), which are for working that window, not for learning.
-      const command = id.startsWith(PAINT_KEY_PREFIX) || latest.current.catalog.some(action => action.id === id && (!action.contextual || action.bindingCommand || action.keys));
+      // A window's extra Close / Cancel / Done buttons close it like its own close button: with the
+      // key that closes that window, if one does (in Forge Esc clears the selection).
+      // Only hand-picked keys are taught: a window's own buttons get keys from their names
+      // (Settings' file icons), which are for working that window, not for learning, unless
+      // the user chose that key.
+      const handPicked = action => !action.contextual || action.bindingCommand || action.keys || action.manual || String(latest.current.shortcuts[action.id]) !== String(action.defaultKeys || []);
+      const command = id.startsWith(PAINT_KEY_PREFIX) || latest.current.catalog.some(action => action.id === id && handPicked(action));
       const label = element?.getAttribute('aria-label') || element?.textContent || '';
-      const closer = !command && isCloseControl(id, label) && [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts="Escape"]') || [])]
-        .some(other => isCloseControl(controlActionId(other), other.getAttribute('aria-label') || other.textContent || ''));
-      if (!command && !closer) return;
-      const key = reminderFor(notebook.current, id, closer ? ['Escape'] : keysOf(id), Date.now());
+      const closeKeys = !command && isCloseControl(id, label) ? windowCloseKeys(element) : null;
+      if (!command && !closeKeys) return;
+      const key = reminderFor(notebook.current, id, closeKeys || keysOf(id), Date.now());
       if (!key) return;
       const rect = element?.getBoundingClientRect?.();
-      const next = { id, chord: id.startsWith(PAINT_KEY_PREFIX) ? key : formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial };
+      const next = { id, chord: formatChord(key) || key, rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, doc: element?.ownerDocument || document, serial: ++serial };
       // Repeated clicks leave the same popup, animation and original expiry alone.
       const reveal = () => setPopup(current => current?.id === id && current.chord === next.chord ? current : next);
       // A capture-phase render can restore a controlled checkbox before React
@@ -106,10 +122,21 @@ export default function Learn({ settings }) {
       const current = latest.current.popup;
       if (current && !reminderFor(notebook.current, current.id, keysOf(current.id), Date.now())) setPopup(null);
     };
+    // OptimizeXL's own window: clicks there get a reminder there.
+    const detached = new Set();
+    const detachedRoot = event => {
+      const doc = event.detail?.root?.ownerDocument;
+      if (!doc) return;
+      if (event.detail.add) { detached.add(doc); doc.addEventListener('click', click, true); }
+      else { detached.delete(doc); doc.removeEventListener('click', click, true); setPopup(current => current?.doc === doc ? null : current); }
+    };
+    window.addEventListener('mdlxl-detached-root', detachedRoot);
     window.addEventListener('click', click, true); window.addEventListener('mdlxl-menu-command', menu);
     window.addEventListener('mdlxl-hotkey-used', used); window.addEventListener(CHANGED, changed);
     return () => {
       clearTimeout(clickTimer);
+      window.removeEventListener('mdlxl-detached-root', detachedRoot);
+      for (const doc of detached) doc.removeEventListener('click', click, true);
       window.removeEventListener('click', click, true); window.removeEventListener('mdlxl-menu-command', menu);
       window.removeEventListener('mdlxl-hotkey-used', used); window.removeEventListener(CHANGED, changed);
     };
@@ -126,9 +153,9 @@ export default function Learn({ settings }) {
   useLayoutEffect(() => {
     const element = box.current;
     if (!element || !anchored) return;
-    const { rect } = popup, width = element.offsetWidth, height = element.offsetHeight;
-    const above = rect.top - GAP - height, top = above >= EDGE ? above : Math.min(window.innerHeight - height - EDGE, rect.top + rect.height + GAP);
-    const left = Math.max(EDGE, Math.min(window.innerWidth - width - EDGE, rect.left + rect.width / 2 - width / 2));
+    const { rect } = popup, width = element.offsetWidth, height = element.offsetHeight, view = element.ownerDocument.defaultView || window;
+    const above = rect.top - GAP - height, top = above >= EDGE ? above : Math.min(view.innerHeight - height - EDGE, rect.top + rect.height + GAP);
+    const left = Math.max(EDGE, Math.min(view.innerWidth - width - EDGE, rect.left + rect.width / 2 - width / 2));
     element.style.left = `${left}px`; element.style.top = `${top}px`;
   }, [popup?.serial, anchored, settings?.size]);
 
@@ -140,9 +167,10 @@ export default function Learn({ settings }) {
     setPopup(null);
   };
   // A plain element, like the K.E.Y. overlay, so the app's button styles leave its look alone.
-  return <div ref={box} key={popup.serial} role="button" className="learn-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
+  const keycap = <div ref={box} key={popup.serial} role="button" className="learn-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
     data-size={settings.size} data-style={settings.style} aria-label={popup.chord} title="Click to dismiss. Right-click to mute this shortcut."
     onPointerDown={event => { event.preventDefault(); event.stopPropagation(); }} onClick={dismiss} onContextMenu={silence}>
     {keyCaps(popup.chord).map((part, index) => <React.Fragment key={index}>{index > 0 && ' + '}<kbd translate="no">{translate(part)}</kbd></React.Fragment>)}
   </div>;
+  return popup.doc !== document && popup.doc?.body ? createPortal(keycap, popup.doc.body) : keycap;
 }

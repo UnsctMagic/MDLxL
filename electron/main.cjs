@@ -72,6 +72,7 @@ const fileTypes=userRun&&process.platform==='win32'?new FileTypeRegistration({ex
 function registerFileTypes(claim=false){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
+let nativeLanguages=[];
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
 // Particles index and read one installation, the first CASC folder: the
 // Settings folder first, then added CASC sources, then other installations.
@@ -92,6 +93,22 @@ ipcMain.handle('particles:export',async(_,id)=>{
  const data=await particleLibrary.exportData(id),{parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(data);
  const destination=await chooseSavePath({title:'Export particle preset',defaultPath:safeWindowsName(recipe.name,{fallback:'Particle preset'})+'.mdlxl-particle',extension:'mdlxl-particle',filterName:'MDLxL particle preset'});
  if(!destination)return null;await fs.writeFile(destination,data,'utf8');return {path:destination};
+});
+// Settings presets: main only guards the size and the file type; parsePresetFile
+// in src/settings-presets.js validates the content. Keep MAX_PRESET_FILE equal to
+// MAX_PRESET_FILE_BYTES there.
+const MAX_PRESET_FILE=32*1024*1024;
+ipcMain.handle('presets:openFile',async event=>{
+ editorOnly(event,'Presets can only be loaded from the editor.');
+ const result=await dialog.showOpenDialog(win,{title:'Load preset',filters:[{name:'MDLxL preset',extensions:['mdlxl-preset','json']}],properties:['openFile']});
+ if(result.canceled)return null;const file=result.filePaths[0],info=await fs.stat(file);if(info.size>MAX_PRESET_FILE)throw Error('This file is too large to be a preset.');
+ return {name:path.basename(file),text:await fs.readFile(file,'utf8')};
+});
+ipcMain.handle('presets:saveFile',async(event,payload)=>{
+ editorOnly(event,'Presets can only be saved from the editor.');
+ if(typeof payload?.name!=='string'||typeof payload.text!=='string'||Buffer.byteLength(payload.text)>MAX_PRESET_FILE)throw Error('Invalid preset.');
+ const destination=await chooseSavePath({title:'Save preset',defaultPath:safeWindowsName(payload.name,{fallback:'Preset'})+'.mdlxl-preset',extension:'mdlxl-preset',filterName:'MDLxL preset'});
+ if(!destination)return null;await writeFileAtomic(destination,payload.text);return {path:destination};
 });
 ipcMain.handle('particles:thumbnail',(_,data)=>particleLibrary.thumbnail(data));
 ipcMain.handle('particles:catalog',()=>particleLibrary.catalog());
@@ -243,7 +260,7 @@ ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(va
 ipcMain.on('menu:state',(event,value)=>{
   if(!editorOnly(event)||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
   const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks};
+  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
@@ -517,7 +534,7 @@ async function updateSettings(value){
 function refreshMenu(){
   if(!win||win.isDestroyed())return;
   const bindings=preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys);
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),nativeEditorState)));
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages})));
 }
 // Headless test runs keep the scriptable native message box; people get the
 // themed prompt whose Cancel and Close are colored and set apart.
@@ -607,6 +624,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   const [preferences,commands,localization]=await Promise.all([import('../src/preferences.js'),import('../src/commands.js'),import('../src/localization.js')]);
   translateText=localization.translate;
+  nativeLanguages=localization.LANGUAGES;
   // Localize native dialog presentation while retaining paths, extensions and IDs.
   for(const method of ['showOpenDialog','showSaveDialog','showMessageBox','showMessageBoxSync']){
     const original=dialog[method].bind(dialog);

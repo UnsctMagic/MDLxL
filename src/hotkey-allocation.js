@@ -57,13 +57,14 @@ export const isCloseControl = (id, label = '') => /(^|:)close$/.test(id) || /^(c
  * Keys for new controls of one window. `taken` holds the keys already used there (by
  * earlier controls, user assignments or commands that also work in it). `wide` also tries
  * Alt+, Ctrl+ and F keys, for crowded windows. Returns id → key;
- * a control that finds no free key is left out.
+ * a control that finds no free key is left out. A `manual` control (data-hotkey-manual) can be
+ * bound by the user but never gets a default key.
  */
 export function allocateGroup(controls, taken = [], { editor = false, wide = editor, bindings = {} } = {}) {
   const used = new Set([...taken, ...(editor ? [] : DIALOG_KEEP)]), result = new Map();
   const order = [...controls].sort((a, b) => Number(isCloseControl(b.id, b.label)) - Number(isCloseControl(a.id, a.label)) || Number(!!(b.bindingCommand || b.keys)) - Number(!!(a.bindingCommand || a.keys)) || CONTROL_KINDS.indexOf(a.kind || 'action') - CONTROL_KINDS.indexOf(b.kind || 'action'));
   for (const control of order) {
-    if (perItemControl(control.id)) continue;
+    if (perItemControl(control.id) || control.manual) continue;
     if (isCloseControl(control.id, control.label)) {
       if (!editor && !used.has('Escape')) { used.add('Escape'); result.set(control.id, 'Escape'); }
       continue;

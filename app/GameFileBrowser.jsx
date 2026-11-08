@@ -221,8 +221,8 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
   };
   const interval=shown?.doc.model.Sequences[sequence]?.Interval;
   return <BrowserFrame toolbar={<BrowserToolbar input={input} query={query} onQuery={setQuery} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} label="Search game files">
-      <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
-      {preset==='all'&&<select aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
+      <select data-hotkey="game-files:game-version" data-hotkey-manual data-hotkey-label="Game version" aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+      {preset==='all'&&<select data-hotkey="game-files:file-type" data-hotkey-manual data-hotkey-label="File type" aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
     </BrowserToolbar>} tree={<BrowserTree rows={rows} expanded={expanded} toggle={toggle} selected={selected} onChoose={choose}
       onOpen={row=>{if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}} rowIcon={rowIcon} style={style} focusKey={focusKey} setFocusKey={setFocusKey}
       onStyle={preset==='models'?value=>{setStyle(value);remember('mdlvis.game-files.style',value);}:undefined} resetKey={worldEditor+'|'+filters}
@@ -237,24 +237,24 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
       </>} info={selected&&!selected.folder?<>
         <h3 translate="no">{selected.name}</h3>
         {selected.node&&<p className="tl-version" translate="no">{selected.node.id}</p>}
-        {selectedModels.length>1&&<select aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
+        {selectedModels.length>1&&<select data-hotkey="game-files:model" data-hotkey-manual data-hotkey-label="Model" aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
         {showsModel&&!current&&<p className="tl-note">Loading model…</p>}
         {current&&<>
           <p className="tl-version">Game version: <strong translate="no">{shown.entry.module}</strong> · {fileSize(shown.entry.size)}</p>
           <code translate="no">{shown.entry.path}</code>
           {shown.doc.model.Sequences.length>0&&<div className="gf-transport">
-            <button type="button" onClick={()=>setPlaying(value=>!value)}>{playing?'Pause':'Play'}</button>
-            <select aria-label="Model animation" value={sequence} onChange={event=>{const index=Number(event.target.value);setSequence(index);setTime(shown.doc.model.Sequences[index].Interval[0]);setPlaying(true);}}>{shown.doc.model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name||'Animation '+(index+1)}</option>)}</select>
+            <button data-hotkey="game-files:play" data-hotkey-manual data-hotkey-label="Play / pause" type="button" onClick={()=>setPlaying(value=>!value)}>{playing?'Pause':'Play'}</button>
+            <select data-hotkey="game-files:model-animation" data-hotkey-manual data-hotkey-label="Model animation" aria-label="Model animation" value={sequence} onChange={event=>{const index=Number(event.target.value);setSequence(index);setTime(shown.doc.model.Sequences[index].Interval[0]);setPlaying(true);}}>{shown.doc.model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name||'Animation '+(index+1)}</option>)}</select>
           </div>}
-          {interval&&<input className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
+          {interval&&<input data-hotkey="game-files:animation-time" data-hotkey-manual data-hotkey-label="Animation time" className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
           {shown.missing.length>0&&<details className="gf-missing"><summary>{shown.missing.length} texture{shown.missing.length===1?'':'s'} not found</summary>{shown.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
           {shown.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
           <LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} message={message} messageRef={messageRef} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>
         </>}
         {selectedEntry&&selectedEntry.type!=='models'&&<><p className="tl-version">Game version: <strong translate="no">{selectedEntry.module}</strong> · {fileSize(selectedEntry.size)}</p><code translate="no">{selectedEntry.path}</code></>}
         {(selectedEntry&&selectedEntry.type!=='models'||current)&&<div className="gf-file-actions">
-          <button type="button" onClick={async()=>{setMessage('');try{await window.desktop.copyTexturePath((showsModel?shown.entry:selectedEntry).path);setMessage('Path copied.');}catch(caught){setMessage(caught.message);}}}>Copy path</button>
-          <button type="button" onClick={async()=>{setMessage('');try{const target=showsModel?shown.entry:selectedEntry,saved=await window.desktop.gameFilesExport({id:target.id,signature});if(saved)setMessage('Saved '+saved);}catch(caught){setMessage(caught.message);}}}>Save a copy…</button>
+          <button data-hotkey="game-files:copy-path" data-hotkey-manual data-hotkey-label="Copy path" type="button" onClick={async()=>{setMessage('');try{await window.desktop.copyTexturePath((showsModel?shown.entry:selectedEntry).path);setMessage('Path copied.');}catch(caught){setMessage(caught.message);}}}>Copy path</button>
+          <button data-hotkey="game-files:save-a-copy" data-hotkey-manual data-hotkey-label="Save a copy…" type="button" onClick={async()=>{setMessage('');try{const target=showsModel?shown.entry:selectedEntry,saved=await window.desktop.gameFilesExport({id:target.id,signature});if(saved)setMessage('Saved '+saved);}catch(caught){setMessage(caught.message);}}}>Save a copy…</button>
         </div>}
         {message&&!current&&<p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}

@@ -37,7 +37,7 @@ import usePortraitState from './usePortraitState.js';
 import useEditorDisplay from '../src/useEditorDisplay.js';
 import { PreferencesContext } from './PreferencesContext.jsx';
 import { Coordinate } from './EditorControls.jsx';
-import { setLanguage, translate } from '../src/localization.js';
+import { LANGUAGES, setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 import Dialog from './Dialog.jsx';
@@ -65,7 +65,7 @@ import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
-import { APPLICATION_THEMES, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { APPLICATION_THEMES, effectiveBindings, formatChord, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
 import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
@@ -102,7 +102,11 @@ import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, edi
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
 import { currentBackdropLook, findPortraitBackground, refreshPortraitBackground } from './portrait-background.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
-import AppToolbar, { AppViewLabel } from './AppToolbar.jsx';
+import AppToolbar, { AppViewLabel, ToolbarHiddenStatus } from './AppToolbar.jsx';
+import CommandLauncher from './CommandLauncher.jsx';
+import { launcherExtraRows } from '../src/command-launcher.js';
+import { nextToolbarMode, TOOLBAR_MODES } from '../src/toolbar-mode.js';
+import { TEAM_COLORS } from '../src/team-colors.js';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
 import { VertexTools, GeosetPicker, RigSidebar } from './AppSidebar.jsx';
 import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
@@ -191,6 +195,9 @@ export default function App() {
   const [adjustingInput, setAdjustingInput] = useState(null);
   // VIS switches display controls while retaining editing and portrait state.
   const [visUI, setVisUI] = useState(false);
+  // Null while closed; otherwise the text the search field opens with.
+  const [launcherQuery, setLauncherQuery] = useState(null);
+  const toolbarHidden = preferences.toolbarMode === 'hidden' && !visUI;
   // Where the detached Geosets panel floats; null = in the sidebar. Never saved, so a restart docks it back.
   const [geosetsFloat, setGeosetsFloat] = useState(null);
   const [quadView, setQuadView] = useState(false), [activeVertexPane, setActiveVertexPane] = useState(null);
@@ -392,6 +399,8 @@ export default function App() {
     const warning = { id: ++warningId.current, message: 'Error: ' + message };
     setWarnings(previous => [warning, ...previous.filter(item => item.message !== warning.message)].slice(0, 2));
   };
+  // A one-off tip in the toast corner: no "Error:" label, flash or sound.
+  const note = message => setWarnings(previous => [{ id: ++warningId.current, message, quiet: true, title: 'Click to dismiss' }, ...previous.filter(item => item.message !== message)].slice(0, 2));
   const selectBackground = value => { setBackground(value); writeStoredText('mdlvis-preview-background', value); };
   // Backgrounds belong to Showcase only; the editors always show the plain view.
   const backgroundLibrary = usePreviewBackgrounds(mode === 'showcase', background, selectBackground, say);
@@ -1127,7 +1136,7 @@ export default function App() {
       setSelection(restored.selection); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setHiddenByUser(restored.hiddenByUser || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
   };
-  const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation&&!payload.modelPositions)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) { const positions=payload.modelPositions?.[gi]; if(positions)setVertexPositions(m.Geosets[gi],ids,positions); else transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); } }); return result; };
+  const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation&&!payload.modelPositions)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) { const positions=payload.modelPositions?.[gi]; if(positions)setVertexPositions(m.Geosets[gi],ids,positions); else if(payload.pieces?.[gi]){const kept=new Set(ids);for(const piece of payload.pieces[gi]){const part=piece.indices.filter(id=>kept.has(id));if(part.length)transformVertices(m.Geosets[gi],part,[0,0,0],[1,1,1],payload.rotation,piece.center);}} else transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); } }); return result; };
   // NormalsXL: analyse once per opening (and after Fix facing), re-plan on
   // each angle change, and preview the plan on a copy of the model. Apply
   // commits it as one edit. Vertex indices never change, so the selection
@@ -1331,6 +1340,8 @@ export default function App() {
   }
   commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():doc.hdViewOnly?save(true):setDialog({type:'saveFormat'}), new: () => install(newSession(createEmptyDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalizer) { setNormalizer(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if ((mode === 'vertices' || rigWorkspace) && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(uvEditing)return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(uvEditing, true), sanityCheck: () => setDialog({ type: 'sanityCheck' }), help: () => setDialog({ type: 'help' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
   Object.assign(commands.current, {
+    launcher: () => setLauncherQuery(''), toolbarCycle: () => changePreferences(previous => ({ ...previous, toolbarMode: nextToolbarMode(previous.toolbarMode) })),
+    showcase: () => selectMode('showcase'), managers: () => selectMode('manager'), autoCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }, visToggle: () => setVisUI(value => !value),
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), surfaceEffects:()=>setDialog({type:'surfaceEffects'}), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
@@ -1373,8 +1384,21 @@ export default function App() {
     'bone:detachVertices': () => bindSelectedVertices('detach'),
     ...Object.fromEntries(['flip-u','flip-v','rotate','fold','select-connected','select-invert'].map(v=>['uv:'+v,()=>uvAction(v)])),
   });
+  // Presentation choices for the menus and the launcher. They stay out of commands.current, which the AI console is offered.
+  const uiCommands = {
+    ...Object.fromEntries(TOOLBAR_MODES.map(value => ['toolbar:' + value, () => changePreferences(previous => ({ ...previous, toolbarMode: value }))])),
+    ...Object.fromEntries(LANGUAGES.map(item => ['language:' + item.id, () => changePreferences(previous => ({ ...previous, language: item.id }))])),
+    ...Object.fromEntries(TEAM_COLORS.map(row => ['team:' + row.rgbHex, () => { setTeamColor(row.rgbHex); setRenderMode('textured'); }])),
+    smoothEdges: () => changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, antialias: !previous.graphics.antialias } })),
+    showHotkeys: () => changePreferences(previous => ({ ...previous, showHotkeys: !previous.showHotkeys })),
+    learnSettings: () => setSettingsTab('learn'),
+    'ai:open': () => document.querySelector('[data-hotkey="ai:open"]')?.click(),
+  };
   function commandEnabled(id) {
-    if (mode === 'manager' && (['Shape', 'Transform', 'Selection', 'Geometry', 'UV', 'Animation', 'Frames', 'View'].includes(COMMANDS.find(command => command.id === id)?.category) || ['copy', 'paste', 'pasteSpecial', 'select', 'translate', 'rotate', 'scale', 'normalRotate', 'Delete vertices', 'Create triangle', 'Delete triangles', 'Uncouple', 'Collapse', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id))) return false;
+    if (id === 'toolbarCycle' || id === 'ai:open' || id.startsWith('toolbar:')) return !visUI;
+    if (id === 'autoCorpse') return !doc.readOnly && !saving && !dialog && !settingsTab && mode !== 'paint' && mode !== 'showcase';
+    // With the toolbar hidden, keys and menus are the only way back from the Managers workspace.
+    if (mode === 'manager' && !(toolbarHidden && ['vertices', 'bones', 'uv', 'animation'].includes(id)) && (['Shape', 'Transform', 'Selection', 'Geometry', 'UV', 'Animation', 'Frames', 'View'].includes(COMMANDS.find(command => command.id === id)?.category) || ['copy', 'paste', 'pasteSpecial', 'select', 'translate', 'rotate', 'scale', 'normalRotate', 'Delete vertices', 'Create triangle', 'Delete triangles', 'Uncouple', 'Collapse', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id))) return false;
     if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='surfaceEffects')return !doc.readOnly&&!saving&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0;
     if(id==='particles')return !saving;
@@ -1392,6 +1416,8 @@ export default function App() {
     // N is easy to hit while wrapping UVs and would leave normals on in the main view.
     // The UV mapper may still turn them off.
     if (id==='normals' && uvEditing && !overlays.normals) return false;
+    // View and workplane keys would change the 3D editor hidden behind the focused UV window.
+    if (uvEditing && (id.startsWith('plane:') || ['orthographic','perspective','front','back','left','right','top','bottom'].includes(id))) return false;
     if (id==='uv' && uvWindow) return true;
     if (id==='uv') return Object.entries(validSelection).some(([index,ids])=>ids.length && model.Geosets[index]?.TVertices?.length);
     if (id==='anchorSelect' || id==='alignSelect') return editable && mode === 'vertices' && tool === 'scale' && selectionCount > 1;
@@ -1422,8 +1448,8 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)||mode==='manager'&&['File','Modules','Resources','Help'].includes(command.category)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
-  const runCommand = id => { if(commandEnabled(id)) commands.current[id]?.(); };
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)||mode==='manager'&&['File','Modules','Resources','Help'].includes(command.category)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const runCommand = id => { if(commandEnabled(id)) (uiCommands[id] || commands.current[id])?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
   const afterPaint = frames => new Promise(resolve => { const step = n => n ? requestAnimationFrame(() => step(n - 1)) : resolve(); step(frames); });
@@ -1559,9 +1585,16 @@ export default function App() {
 
 
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
-  useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,surfaceEffectsEnabled:commandEnabled('surfaceEffects'),uvEnabled:commandEnabled('uv')});},[doc.readOnly,saving,displayMode,mode,model.Geosets.length,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset]);
+  useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,surfaceEffectsEnabled:commandEnabled('surfaceEffects'),uvEnabled:commandEnabled('uv'),toolbarMode:preferences.toolbarMode,language:preferences.language,disabledCommands:['forge','bitsAndParts','optimizeModel','paint','autoCorpse','convertVersion','ai:open'].filter(id=>!commandEnabled(id))});},[doc.readOnly,saving,displayMode,mode,model.Geosets.length,model.Version,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset,preferences.toolbarMode,preferences.language,!!dialog,!!settingsTab]);
+  // The first time the toolbar goes away, by any route, say how to bring it back.
+  useEffect(() => {
+    if (!preferencesReady || !toolbarHidden || preferences.toolbarHiddenNoted) return;
+    changePreferences(previous => ({ ...previous, toolbarHiddenNoted: true }));
+    const key = effectiveBindings(commandCatalog, preferences.hotkeys).toolbarCycle?.[0];
+    note(key ? `Toolbar hidden. Settings > Toolbar or ${formatChord(key)} brings it back.` : 'Toolbar hidden. Settings > Toolbar brings it back.');
+  }, [preferencesReady, toolbarHidden, preferences.toolbarHiddenNoted]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
-  useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
+  useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || /^(toolbar|language):/.test(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
   useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); loadPreferences(); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
   const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
@@ -1759,8 +1792,9 @@ export default function App() {
     transformSpace: movementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
-  const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings }), [preferences, openHotkeySettings]);
-  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
+  // changePreferences only touches refs and state setters, so an earlier render's copy stays valid.
+  const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings, changePreferences }), [preferences, openHotkeySettings]);
+  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-toolbar={preferences.toolbarMode === 'graphic' ? undefined : preferences.toolbarMode} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
@@ -1769,7 +1803,8 @@ export default function App() {
       runCommand, runLatest, saving, selectAnimationPanel, selectMode,
       setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
-      placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }
+      placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); },
+      onHiddenTeamColor: () => setLauncherQuery(translate('Team color'))
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     <Addons open={addonsOpen} onClose={() => setAddonsOpen(false)} onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/>
     {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={options => {
@@ -1788,7 +1823,7 @@ export default function App() {
       {mode === 'manager' && <ResourceManagerView embedded kind={managerKind} onKindChange={setManagerKind} {...{activeGeoset, doc, edit, model, openLibrary, openParticles, preferences, refresh, selectAnimationPanel, selectManagerTextureFiles, selectSequence, selectedNodeIds, sequence, session, setActiveGeoset, setDialog, setMaterialVisibility, setPlaying, setSelectable, setSelectedNodeIds, setSelection, setTime, setUvSet, setView, teamColor, time, undo, validSelection}}/>}
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && mode !== 'manager' && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
-      {preferencesReady && mode === 'vertices' && <Viewport moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
+      {preferencesReady && mode === 'vertices' && <Viewport rotateEachPiece moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}
@@ -1862,7 +1897,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}</div>
+    <div className="classic-status"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
     <AppDialogs {...{
       activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
@@ -1882,5 +1917,5 @@ export default function App() {
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Learn settings={preferences.learn}/>
     <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
-  </div></HotkeysProvider></PreferencesContext.Provider>;
+  </div>{launcherQuery !== null && <CommandLauncher initialQuery={launcherQuery} extras={launcherExtraRows({ toolbarMode: preferences.toolbarMode, visUI, language: preferences.language, antialias: preferences.graphics.antialias, showHotkeys: preferences.showHotkeys, teamColor, modelVersion: model.Version, displayMode, checks: menuChecks, translate })} isEnabled={commandEnabled} onRun={id => runLatest.current(id)} onClose={() => setLauncherQuery(null)}/>}</HotkeysProvider></PreferencesContext.Provider>;
 }

@@ -1,4 +1,4 @@
-import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
+import { beginRotationDrag, rotationBehavior, rotationDragDegrees } from '../src/rotation-drag.js';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { moveDragPoint } from './classic-gestures.js';
 import { scaleTextRuns } from './showcase-rich-text.js';
@@ -70,21 +70,22 @@ export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeI
     if(!latest.current.editing||event.button!==0)return;
     const box=root.current.getBoundingClientRect();latest.current.onSelect?.(layer.id);
     const centerX=box.left+(layer.rect.x+layer.rect.width/2)*box.width,centerY=box.top+(layer.rect.y+layer.rect.height/2)*box.height;
-    const point={x:event.clientX,y:event.clientY};
-    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...rotationOptions(latest.current.preferences,'showcase'),x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY},axis:[0,0,-1]})};
+    const point={x:event.clientX,y:event.clientY},how=rotationBehavior(latest.current.preferences,'showcase');
+    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...how,sensitivity:how.handleSensitivity??how.sensitivity,x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY},axis:[0,0,-1],ctrl:event.ctrlKey||event.metaKey,reach:Math.hypot(layer.rect.width*box.width,layer.rect.height*box.height)/2})};
     event.currentTarget.setPointerCapture(event.pointerId);event.stopPropagation();event.preventDefault();
   }
   // A move only records the point; the layer change (and canvas redraw) runs once per frame.
   function move(event){
     const row=drag.current;if(!row)return;
     // Turning sums wrapped angle steps: feed every sample; repeating the last point adds nothing.
-    if(row.rotate)rotationDragDegrees(row.rotationDrag,event.clientX-row.x,event.clientY-row.y);
-    row.next={point:moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),clientX:event.clientX,clientY:event.clientY};moveFrame.current.schedule();event.stopPropagation();
+    const ctrl=event.ctrlKey||event.metaKey;
+    if(row.rotate)rotationDragDegrees(row.rotationDrag,event.clientX-row.x,event.clientY-row.y,1,false,ctrl);
+    row.next={point:moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),clientX:event.clientX,clientY:event.clientY,ctrl};moveFrame.current.schedule();event.stopPropagation();
   }
   function applyMove(){
-    const row=drag.current;if(!row?.next)return;const {point,clientX,clientY}=row.next,dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;
+    const row=drag.current;if(!row?.next)return;const {point,clientX,clientY,ctrl}=row.next,dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;
     if(row.rotate){
-      const angle=row.angle+rotationDragDegrees(row.rotationDrag,clientX-row.x,clientY-row.y)*Math.PI/180;
+      const angle=row.angle+rotationDragDegrees(row.rotationDrag,clientX-row.x,clientY-row.y,1,false,ctrl)*Math.PI/180;
       const rotation=((Math.round(angle*180/Math.PI)+180)%360+360)%360-180;
       latest.current.onChange?.(row.id,{rotation});return;
     }
@@ -96,7 +97,11 @@ export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeI
     latest.current.onChange?.(row.id,{rect:next,...(row.resize&&row.size?{size:Math.max(6,Math.min(300,Math.round(row.size*next.width/rect.width))),runs:scaleTextRuns(row.layer,next.width/rect.width)}:{})});
   }
   useEffect(()=>{
-    const shift=event=>{if(event.key==='Shift'&&drag.current)moveDragPoint(drag.current.motion,drag.current.motion.pointer,event.shiftKey);};
+    const shift=event=>{
+      if(event.key==='Shift'&&drag.current)moveDragPoint(drag.current.motion,drag.current.motion.pointer,event.shiftKey);
+      // Ctrl alone changes a snapped turn; without a snap step nothing depends on it.
+      if(event.key==='Control'&&drag.current?.rotate&&drag.current.rotationDrag.snap&&drag.current.next){drag.current.next.ctrl=event.type==='keydown';moveFrame.current.schedule();}
+    };
     const cancel=()=>{moveFrame.current.cancel();drag.current=null;};
     window.addEventListener('keydown',shift);window.addEventListener('keyup',shift);window.addEventListener('blur',cancel);
     return()=>{window.removeEventListener('keydown',shift);window.removeEventListener('keyup',shift);window.removeEventListener('blur',cancel);};

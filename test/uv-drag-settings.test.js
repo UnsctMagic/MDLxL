@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { uvPieceCenters, uvPieces, uvSnapFactor, uvSnapTurn, uvTurn, uvZoom } from '../src/uv-tools.js';
-import { DEFAULT_UV_DRAG, UV_ROTATE_PRESETS, normalizeUVDrag, uvRotatePreset } from '../src/uv-drag-settings.js';
+import { DEFAULT_UV_DRAG, UV_DRAG_PRESETS, normalizeUVDrag, uvDragPreset } from '../src/uv-drag-settings.js';
 import { connectedVertices } from '../app/classic-gestures.js';
 import { normalizePreferences } from '../src/preferences.js';
 
@@ -245,11 +245,33 @@ test('normalizeUVDrag clamps numbers and refuses bad input', () => {
   assert.deepEqual(normalizeUVDrag(good), good); assert.equal(normalizeUVDrag({ rotateSpeed: '50.6' }).rotateSpeed, 51);
 });
 
-test('uvRotatePreset names the matching preset or custom', () => {
-  assert.equal(uvRotatePreset(), 'mdlxl');
-  for (const [name, preset] of Object.entries(UV_ROTATE_PRESETS)) assert.equal(uvRotatePreset({ ...DEFAULT_UV_DRAG, ...preset }), name);
-  assert.equal(uvRotatePreset({ ...DEFAULT_UV_DRAG, rotateSpeed: 71 }), 'custom');
-  assert.equal(uvRotatePreset({ ...DEFAULT_UV_DRAG, rotateSnap: 45, rotateReverse: true, zoomSpeed: 300 }), 'mdlxl', 'snap, reverse and Zoom are not part of a preset');
+test('uvDragPreset compares all nine settings and names the built-in or custom', () => {
+  assert.equal(uvDragPreset(), 'mdlxl');
+  assert.deepEqual({ ...UV_DRAG_PRESETS.mdlxl }, { ...DEFAULT_UV_DRAG }, 'MDLxL is the locked default');
+  for (const [name, preset] of Object.entries(UV_DRAG_PRESETS)) {
+    assert.deepEqual(Object.keys(preset).sort(), Object.keys(DEFAULT_UV_DRAG).sort(), `${name} writes every key`);
+    assert.deepEqual(normalizeUVDrag(preset), { ...preset }, `${name} survives normalizing`);
+    assert.equal(uvDragPreset(preset), name);
+    assert.equal(uvDragPreset({ rotateStyle: 'both', rotateSpeed: 33, zoomSnap: 25, ...preset }), name, `${name} ignores what was set before`);
+  }
+  for (const change of [{ rotateSpeed: 71 }, { rotateSnap: 45 }, { rotateReverse: true }, { zoomStyle: 'rightUp' }, { zoomSpeed: 300 }, { zoomSnap: 5 }, { rotateZone: 12 }, { rotateBigPieces: false }, { rotateStyle: 'both' }])
+    assert.equal(uvDragPreset({ ...DEFAULT_UV_DRAG, ...change }), 'custom', Object.keys(change)[0]);
+  assert.deepEqual(Object.keys(UV_DRAG_PRESETS), ['mdlxl', 'mdlvis', 'freeform', 'manipulator']);
+  const table = { rotateStyle: ['circle', 'leftRight', 'circle', 'circle'], rotateSpeed: [70, 100, 100, 100], rotateZone: [24, 0, 0, 24], rotateBigPieces: [true, false, false, false], rotateReverse: [false, false, false, false], rotateSnap: [0, 0, 5, 15], zoomStyle: ['centre', 'upDown', 'centre', 'leftRight'], zoomSpeed: [100, 100, 100, 100], zoomSnap: [0, 0, 10, 10] };
+  for (const [key, values] of Object.entries(table)) assert.deepEqual(Object.values(UV_DRAG_PRESETS).map(preset => preset[key]), values, key);
+});
+
+test('UV Zoom upDown: only vertical movement counts, up grows, compounding, ignoring UV sensitivity', () => {
+  const up = zoomDrag({ zoomStyle: 'upDown' });
+  close(uvZoom(up, 100, -100, 1), Math.E, 'one hundred pixels up'); close(uvZoom(up, 500, -100, 1), Math.E, 'left and right do nothing');
+  close(uvZoom(up, 500, 0, 1), 1, 'coming back returns exactly'); close(uvZoom(up, 500, 200, 1), Math.exp(-2), 'down shrinks');
+  for (let dy = 200; dy < 6000; dy += 800) assert.ok(uvZoom(up, 0, dy, 1) > 0, 'never reaches zero or flips');
+  const fast = zoomDrag({ zoomStyle: 'upDown', zoomSpeed: 200 }); close(uvZoom(fast, 100, -50, 1), Math.E, 'speed');
+  const steady = (uvSensitivity, shift) => { const drag = zoomDrag({ zoomStyle: 'upDown' }); drag.uvSensitivity = uvSensitivity; return uvZoom(drag, 100, -100, uvSensitivity * shift); };
+  close(steady(1.7, 1), steady(1, 1), 'UV transform sensitivity does not change it'); close(steady(.3, 1), Math.E, 'nor does a small one');
+  close(steady(1.7, .2), Math.exp(.2), 'Shift fine control stays');
+  const drag = zoomDrag({ zoomStyle: 'upDown' }); uvZoom(drag, 100, -40, 1); close(uvZoom(drag, 100, -40, .2), Math.exp(.4), 'pressing Shift without moving'); close(uvZoom(drag, 100, -50, .2), Math.exp(.42), 'Shift makes each step small');
+  assert.equal(drag.zoomStyle, 'upDown', 'a drag near the centre keeps its style'); assert.equal(zoomDrag({ zoomStyle: 'upDown' }, [2, 0]).zoomStyle, 'upDown');
 });
 
 test('preferences keep uvDrag and uvEachPiece, defaulting to the locked rule', () => {

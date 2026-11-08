@@ -32,8 +32,8 @@ Shown on the existing Settings → Mouse → UV page. No new panels.
 `preferences.uvEachPiece` (default false) is the always-visible "Each piece"
 toggle in the UV Wrapper's Tools section.
 
-Presets fill the four Rotate fields in `UV_ROTATE_PRESETS`; `uvRotatePreset`
-reports which one matches, or `custom`.
+Built-ins write all nine fields of `UV_DRAG_PRESETS`; `uvDragPreset` reports
+which one matches all nine, or `custom`.
 
 ## Rotate rules
 

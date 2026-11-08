@@ -76,9 +76,42 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
     the shaping tools), avoid every command key. They may also use Alt+, Ctrl+
     and F keys.
   - A key, once given, is saved with the discovered controls (`defaultKey`), so
-    new controls never move an existing shortcut.
+    new controls never move an existing shortcut. A key the user assigns only
+    moves a saved key where both can fire; assigning N in the editor leaves New
+    in the Material Manager alone.
+  - A non-modal panel (`aria-modal="false"`: Add-ons, Glow Up, NormalsXL) sits
+    over the working editor, so its keys avoid the commands, like Forge. It
+    keeps Esc for its Close.
+- **Manual controls** (`data-hotkey-manual`, with `data-hotkey-label`) get **no
+  default key**. Settings lists them and the user can bind them. Their window
+  sets the Settings category. Every one is in the generated
+  [src/hotkey-manifest.json](../src/hotkey-manifest.json), so a window never
+  opened on this PC can still be bound. After adding one, run
+  `node scripts/hotkey-manifest.mjs`; the id's first segment must be listed in
+  `MANUAL_WINDOWS` there.
+- `Search commands` (Ctrl+F2) and `Next toolbar style` (Shift+F3) are new
+  commands. Both keys sit outside the automatic pool, so adding them moved no
+  existing default.
 
 Tool-window keys come from the catalog, including local Undo/Redo/Play and Paint’s plain keys. Window actions follow the user’s command bindings until rebound separately, so Settings, badges and Learn agree. Escape closes every tool window after its active inner state is cancelled. AI drawing tools, Learn, bone creation and shortcut recording keep their Escape order through claims; the generic `mdlxl-window-key` event carries `detail.scope` and `detail.event`. Active drags claim at priority 0, after the menus and before window-local dismissal (priority 10), so the first Escape restores the drag and a later Escape dismisses its window.
+
+A window holding work that closing would discard sets `data-hotkey-unapplied` (`unapplied` on `ToolWindow`). Its close key then shows `Press Esc again to discard.`, and the second press within four seconds closes it; any other key or a click starts over. The × button still closes at once, and a window with nothing unapplied closes on one Esc. Each window decides from its own state:
+
+| Window | Unapplied when |
+| --- | --- |
+| AnimXL | the settings produce shaped tracks that are not committed, and the model is not read-only |
+| Auto Corpse | Size, Height, colour, pieces or blood were changed (`changed`) |
+| Attachemator | a point was dragged, given another bone, or a tick differs from the proposal |
+| Surface Effects | a part's effect stack differs from how that part was first shown |
+| Sort My Mess | any group has a chosen change (`selected`) |
+| Forge | the mask has edits, or Shape has at least one shape |
+| Shaping | history exists, or any setting differs from when it opened |
+
+## Keys on any keyboard
+
+`layoutKey` in [src/preferences.js](../src/preferences.js) decides what a press means. A Latin letter is the letter printed on the key, so Ctrl+Z is Undo on QWERTZ and AZERTY. Digit-row keys are digits even where the layout needs Shift for them. Russian and other non-Latin layouts use the key's position for letters, and for `, . - = \` [ ]`, where it types a non-ASCII letter. Hold-A selection and Forge and texture-fit tool keys read the same value.
+
+With a closed dropdown, slider or colour swatch focused, only its navigation keys (arrows, Home, End, PageUp, PageDown, Enter, Space) stay with it; every other key still runs. A control scrolled out of its panel does not fire; a field still takes focus. After a tapped Alt, the next key means Alt+key or nothing.
 
 ## The same key in different windows
 
@@ -121,8 +154,17 @@ together.
   and an MDX800 demo for Paint (the Footman is MDX1800, unsupported by Paint).
   The new MDL/MDX icon choices use letters from their names; Bones keeps F4.
   Scratch scripts and audit evidence are in the D: review task's report.
-- The Particle Editor, AnimXL and the Texture Library have no hotkey-reachable
-  controls yet.
+- [test/hotkey-default-overlaps.test.js](../test/hotkey-default-overlaps.test.js)
+  is the permanent guard, driven by the real command table, Paint's real key
+  table, the window sources and the allocator: no overlap in a scope, nothing
+  over two keys, reserved keys free, and the manifest up to date.
+  [test/hotkey-layouts.test.js](../test/hotkey-layouts.test.js) covers QWERTY,
+  QWERTZ, AZERTY and Russian event shapes.
+  [test/hotkey-defaults-audit.electron.cjs](../test/hotkey-defaults-audit.electron.cjs)
+  opens every window and checks the keys the running app hands out.
+- The Particle Editor, AnimXL, the Texture Library and the other windows in
+  `MANUAL_WINDOWS` keep few default keys; the rest of their primary controls
+  are manual, so users can bind them.
 
 - [AI console interaction test](../test/ai-hotkeys.electron.cjs) separately
   audits 101 keyed control sightings across the console, API/native settings,

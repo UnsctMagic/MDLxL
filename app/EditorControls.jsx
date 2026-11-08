@@ -2,6 +2,7 @@ import React from 'react';
 import { useDraftNumber } from './Fields.jsx';
 import ModernIcon, { hasModernIcon } from './ModernIcon.jsx';
 import LookIcon, { hasLookIcon } from './LookIcon.jsx';
+import { usePreferencesContext } from './PreferencesContext.jsx';
 
 // look: also draw the new look's icon for this action (shown only with VIS off).
 export function Tool({ icon, title, description, onClick, active, disabled, children, flip, action, badge, className = '', look = false, ...rest }) {
@@ -22,6 +23,11 @@ export function CameraTools({ value, onChange, look }) {
 }
 export function TransformTools({ value, onChange, look }) {
   return <>{[['select', 'sb_select', 'Select'], ['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_zoom', 'Resize', 'Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.']].map(([mode, icon, title, description]) => <Tool action={mode} key={mode} icon={icon} title={title} description={description} look={look} active={value === mode} onClick={() => onChange(mode)}/>)}</>;
+}
+/** Rotate's "Each piece", stored with the other Rotate settings. Beside Workplane Constraints, also in quad view. */
+export function EachPieceToggle() {
+  const { preferences, changePreferences } = usePreferencesContext(), on = preferences?.rotation?.eachPiece === true;
+  return <div className="classic-selection-actions each-piece-control"><button type="button" data-hotkey="eachPiece" data-hotkey-manual="" aria-label="Each piece" aria-pressed={on} title="On: Rotate works on each separate piece, on its own spot. Off: the whole selection turns as one group." onClick={() => changePreferences?.(previous => ({ ...previous, rotation: { ...previous.rotation, eachPiece: !on } }))}>Each piece</button></div>;
 }
 export function WorkplaneControls({ enabled, onEnabled, value, onChange, locked }) {
   const group = React.useId();

@@ -178,6 +178,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       }
       if (type === 'scale' && p.wrapperControls) {
         s.drag.shiftFine = event.altKey ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
+        s.drag.uvSensitivity = sensitivity;
         uvZoom(s.drag, x, y, 0);
       }
       if (type === 'rotate') {
@@ -344,7 +345,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       }
       // The focused UV workspace owns the number pad, even when nothing can move: its keys never
       // reach the app's digit shortcuts from here.
-      if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
+      if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[0-9]$/.test(key.code)) event.preventDefault();
       if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || s.drag || !selection().length) return;
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;

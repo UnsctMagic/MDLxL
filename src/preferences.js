@@ -250,11 +250,27 @@ export function normalizeChord(value) {
   }
   return key ? [...modifiers.filter(modifier => held.has(modifier)), key].join('+') : '';
 }
+// The US characters of the punctuation keys, plain and with Shift. Only used where the layout puts a
+// non-ASCII letter on that key (Russian Б Ю Ё Х Ъ, German Ü), so [ ] , . stay reachable there.
+const US_PUNCTUATION = Object.freeze({ Comma: [',', '<'], Period: ['.', '>'], Minus: ['-', '_'], Equal: ['=', '+'], Backquote: ['`', '~'], BracketLeft: ['[', '{'], BracketRight: [']', '}'] });
+/**
+ * The key an event means, across keyboard layouts. A Latin letter is the letter printed on the
+ * key, so Ctrl+Z is Undo on QWERTZ and AZERTY. Digits are the digit row wherever it needs Shift
+ * (AZERTY). Non-Latin layouts (Russian) use the key's position for letters and punctuation.
+ */
+export function layoutKey(event) {
+  const key = event?.key, code = event?.code || '';
+  if (typeof key === 'string' && /^[a-z]$/i.test(key)) return key;
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (typeof key === 'string' && /^[\x21-\x7e]$/.test(key)) return key;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (typeof key === 'string' && [...key].length === 1 && /[^\x00-\x7f]/.test(key) && own(US_PUNCTUATION, code)) return US_PUNCTUATION[code][event.shiftKey ? 1 : 0];
+  return key;
+}
 export function chordFromEvent(event) {
   if (!event || event.isComposing || event.keyCode === 229 || event.getModifierState?.('AltGraph')) return '';
-  // Shortcuts describe physical letter/digit positions consistently across EN/RU layouts.
-  const physical = /^Key[A-Z]$/.test(event.code || '') ? event.code.slice(3) : /^Digit[0-9]$/.test(event.code || '') ? event.code.slice(5) : event.key;
-  const key = physical === '+' ? 'Plus' : physical === ' ' ? 'Space' : physical;
+  const pressed = layoutKey(event);
+  const key = pressed === '+' ? 'Plus' : pressed === ' ' ? 'Space' : pressed;
   if (typeof key !== 'string' || modifierAliases[key.toLowerCase()] || ['Dead', 'Unidentified', 'Process'].includes(key)) return '';
   return normalizeChord([event.ctrlKey && 'Ctrl', event.altKey && 'Alt', event.shiftKey && 'Shift', event.metaKey && 'Meta', key].filter(Boolean).join('+'));
 }
@@ -277,7 +293,7 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
     if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
-    if ([action, other].some(item => item?.scope === 'global' || item?.allowInModal === true)) return true;
+    if ([action, other].some(item => item?.allowInModal === true)) return true;
     const mine = hotkeyContext(action), theirs = hotkeyContext(other);
     if (mine === theirs) return true;
     // Forge and the shaping tools also show the editor's own buttons.
@@ -324,6 +340,16 @@ function isNativeControlKey(event, chord) {
   if ((inputControl || buttonControl) && ['Space', 'Enter'].includes(chord)) return true;
   return tag === 'input' && type === 'radio' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(chord);
 }
+const PICKER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', 'Space']);
+function isPickerTarget(target) {
+  const tag = String(target?.tagName || '').toLowerCase();
+  if (tag === 'select') return !target.matches?.(':open');
+  return tag === 'input' && ['range', 'color'].includes(String(target.type || '').toLowerCase());
+}
+/** Whether the focused field keeps this key. A closed dropdown, slider or colour swatch keeps only its own navigation keys. */
+export function fieldKeepsKey(target, chord) {
+  return isPickerTarget(target) ? PICKER_KEYS.has(chord) : isTextEditingTarget(target);
+}
 export function canHandleHotkeyEvent(event, action = {}) {
   const chord = chordFromEvent(event);
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
@@ -331,8 +357,8 @@ export function canHandleHotkeyEvent(event, action = {}) {
   // but must not take Space from play. Only typing fields keep their space.
   if (chord === 'Space' && (action.id === 'play' || action.bindingCommand === 'play') && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
-  if (isNativeControlKey(event, chord)) return false;
-  if (isTextEditingTarget(event.target) && !action.allowInInput) return false;
+  if (!action.overridesNativeKeys && isNativeControlKey(event, chord)) return false;
+  if (fieldKeepsKey(event.target, chord) && !action.allowInInput) return false;
   return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
 }
 // Applied once when no graphics card draws the views: every frame is then

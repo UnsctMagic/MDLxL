@@ -1,4 +1,6 @@
-import {useWindowKeyClaim,useHotkeys,controlActionId} from './Hotkeys.jsx';
+import {useWindowHotkeys,useWindowKeyClaim,useHotkeys,controlActionId} from './Hotkeys.jsx';
+import {windowCommandActions} from '../src/commands.js';
+import {PAINT_CUTOUT_KEYS,PAINT_CUTOUT_SCOPE,paintCutoutActionId,paintCutoutCaption} from '../src/paint-keys.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {shapeSelection,magicSelection,combineSelection,featherSelection,extractPaintCutout} from '../src/paint-selection.js';
 import {flattenPaintRasterAlpha} from '../src/paint-raster.js';
@@ -90,25 +92,27 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
   const a=points[0],b=points.at(-1);
   const {shortcuts}=useHotkeys();
   const closeButton=dialog.current?.querySelector('[data-hotkey="close"]'),closeKeys=closeButton?shortcuts[controlActionId(closeButton)]:undefined;
-  const keyHint=keys=><kbd className="paint-key" aria-hidden="true">{keys==='Esc' ? closeKeys?.join(' / ')||keys : keys}</kbd>;
+  const keyHint=keys=><kbd className="paint-key" aria-hidden="true">{keys==='Esc' ? closeKeys?.join(' / ')||keys : paintCutoutCaption(keys,shortcuts)}</kbd>;
   useWindowKeyClaim(({event,localWindow})=>{
     if(localWindow!==dialog.current||event.key!=='Escape'||!(drag.current||points.length))return false;
     cancelDrag();return true;
   });
-  function keydown(event){
-    event.stopPropagation();if(event.key!=='Escape'&&(event.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName)))return;
-    const key=/^Key[A-Z]$/.test(event.code)?event.code.slice(3).toLowerCase():event.key.toLowerCase(),ctrl=event.ctrlKey||event.metaKey;let action;
-    if(key==='escape')action=()=>{if(drag.current||points.length)cancelDrag();else if(!busy)onClose();};
-    else if(key==='backspace'&&tool==='polygon')action=()=>setPoints(previous=>previous.slice(0,-1));
-    else if(ctrl&&points.length&&['enter','s'].includes(key))action=()=>setError('Finish the outline first: Enter. Esc cancels it.');
-    else if(ctrl)action=({z:()=>{if(history.current.length){redo.current.push(mask);setMask(history.current.pop());setCrop(null);}},y:()=>{if(redo.current.length){history.current.push(mask);setMask(redo.current.pop());setCrop(null);}},enter:()=>onMask?onMask(softened):act(onUse),s:()=>onSave&&act(onSave),t:()=>onUse&&act(onUse,true)})[key];
-    else if(['r','l','p','w'].includes(key))action=()=>changeTool(({r:'crop',l:'lasso',p:'polygon',w:'wand'})[key]);
-    else action=({a:()=>commit(new Uint8ClampedArray(mask.length).fill(255)),n:()=>commit(new Uint8ClampedArray(mask.length)),i:()=>commit(Uint8ClampedArray.from(mask,v=>255-v)),o:()=>setOperation(v=>{const a=['replace','add','subtract','intersect'];return a[(a.indexOf(v)+1)%a.length];}),c:()=>setContiguous(v=>!v),f:()=>document.querySelector('[aria-label="Selection feather"]')?.focus(),t:()=>document.querySelector('[aria-label="Selection tolerance"]')?.focus(),'=':()=>setZoom(v=>Math.min(32,v*1.25)),'+':()=>setZoom(v=>Math.min(32,v*1.25)),'-':()=>setZoom(v=>Math.max(.05,v/1.25)),'0':()=>setZoom([8,4,2,1,.5,.25].find(v=>raster.width*v<window.innerWidth-160&&raster.height*v<window.innerHeight-300)||.25),enter:()=>{if(tool==='polygon')polygon();else if(onMask)onMask(softened);else act(onUse);}})[key];
-    if(action){event.preventDefault();action();}
-  }
+  const undoMask=()=>{if(history.current.length){redo.current.push(mask);setMask(history.current.pop());setCrop(null);}},redoMask=()=>{if(redo.current.length){history.current.push(mask);setMask(redo.current.pop());setCrop(null);}};
+  const applyMask=()=>onMask?onMask(softened):act(onUse),outlineFirst=run=>()=>{if(points.length)setError('Finish the outline first: Enter. Esc cancels it.');else run();};
+  const keyActions={crop:()=>changeTool('crop'),lasso:()=>changeTool('lasso'),polygon:()=>changeTool('polygon'),wand:()=>changeTool('wand'),
+    all:()=>commit(new Uint8ClampedArray(mask.length).fill(255)),none:()=>commit(new Uint8ClampedArray(mask.length)),invert:()=>commit(Uint8ClampedArray.from(mask,v=>255-v)),
+    operation:()=>setOperation(v=>{const a=['replace','add','subtract','intersect'];return a[(a.indexOf(v)+1)%a.length];}),contiguous:()=>setContiguous(v=>!v),
+    feather:()=>document.querySelector('[aria-label="Selection feather"]')?.focus(),tolerance:()=>document.querySelector('[aria-label="Selection tolerance"]')?.focus(),
+    zoomIn:()=>setZoom(v=>Math.min(32,v*1.25)),zoomOut:()=>setZoom(v=>Math.max(.05,v/1.25)),zoomFit:()=>setZoom([8,4,2,1,.5,.25].find(v=>raster.width*v<window.innerWidth-160&&raster.height*v<window.innerHeight-300)||.25),
+    finish:()=>{if(tool==='polygon')polygon();else applyMask();},removePoint:()=>setPoints(previous=>previous.slice(0,-1)),
+    use:outlineFirst(applyMask),save:outlineFirst(()=>onSave&&act(onSave)),whole:()=>onUse&&act(onUse,true)};
+  useWindowHotkeys(PAINT_CUTOUT_SCOPE,[
+    ...PAINT_CUTOUT_KEYS.map(([name,label,...keys])=>({id:paintCutoutActionId(name),label,category:'Paint cut-out',group:'cutout',keys,repeat:true,overridesNativeKeys:name==='finish',run:keyActions[name],enabled:name!=='removePoint'||tool==='polygon'})),
+    ...windowCommandActions(PAINT_CUTOUT_SCOPE,'Paint cut-out',{undo:undoMask,redo:redoMask},{group:'cutout',repeat:true}),
+  ]);
 
-  return <div className="paint-modal-shade" tabIndex={-1} onKeyDown={keydown}>
-    <section ref={dialog} data-hotkey-prefix="cutout" className="paint-cutout-dialog" role="dialog" aria-modal="true" aria-label={onMask?'Paint region':msg('paint.cutout')}>
+  return <div className="paint-modal-shade" tabIndex={-1} onKeyDown={event=>event.stopPropagation()}>
+    <section ref={dialog} data-hotkey-prefix="cutout" data-hotkey-scope={PAINT_CUTOUT_SCOPE} className="paint-cutout-dialog" role="dialog" aria-modal="true" aria-label={onMask?'Paint region':msg('paint.cutout')}>
       <header><strong>{onMask?'Paint region · Destination':msg('paint.cutout')} · {name}</strong><button data-hotkey="close" data-hotkey-badges="false" autoFocus disabled={busy} onClick={onClose}>{msg('paint.close')}{keyHint('Esc')}</button></header>
       <div className="paint-cutout-toolbar">{['crop','lasso','polygon','wand'].map(id=><button key={id} aria-pressed={tool===id} onClick={()=>changeTool(id)}>{msg('paint.select.'+id)}{keyHint(({crop:'R',lasso:'L',polygon:'P',wand:'W'})[id])}</button>)}
         {keyHint('O')}<select aria-label={msg('paint.selectionMode')} value={operation} onChange={e=>setOperation(e.target.value)}>{['replace','add','subtract','intersect'].map(id=><option key={id} value={id}>{msg('paint.select.'+id)}</option>)}</select>

@@ -174,7 +174,7 @@ stops while hidden. Every new control in this note gets a scene.
 `hidden`; `toolbar.md` sections 3 and 4. Trim is two slim rows, CSS only. Hidden
 keeps everything mounted off-screen, never `display:none`, and is ignored while
 VIS is on. Status-row chip shows MDX format when hidden; DPI and Scroll only
-while adjusting. Launcher on **F11**; cycle modes on **Shift+F3**; Settings menu
+while adjusting. Launcher on **Ctrl+F2** (outside the automatic key pool, so no default moves; F11 was auto-given to an editor field); cycle modes on **Shift+F3**; Settings menu
 radio, Appearance > Interface select, one-time toast. Fix the "no menu route" gaps
 for all modes.
 
