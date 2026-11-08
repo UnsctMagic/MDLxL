@@ -531,6 +531,100 @@ This is sampled skin-displacement acceptance, not continuous-time/velocity accep
 
 Reproduce with node test/manual/optimizexl-world-budget.mjs ORIGINAL ACCEPTED OUTPUT_DIRECTORY. MDLXL_FX_RESUME=1 reuses only previously measured identical reference/legacy bytes. The hidden command for this follow-up is node scripts/run-packaged-tests.mjs default optimizexl-world-budget,optimizexl-workflow,optimizexl-preview. PR #437 remains open; do not merge.
 
+## Exact redundancy from the Slaanesh Champion study — 2026-11-04
+
+The owner requested additional capability without reducing existing OptimizeXL
+capacity. The supplied before/after Unit and Hero files remain private test
+references. Geoset 9's incidental RGB swap is excluded from the optimization
+lesson; the owner reviewed and accepted geoset 35 visually. The new rule preserves
+both animated and Unanimated colours and does not copy reference data at runtime.
+
+### Correction boundary and composition
+
+One additional **Remove exact redundancy** proposal in Insanity FIxer uses the
+existing preview/selected approval/Back/save path. Classic v800 data only:
+
+- Local step/linear terminal holds whose predecessor, sequence opening and next
+  authored value agree. The whole-track last key remains; globals, overlapping
+  domains, cubic curves and non-unit interpolated rotations remain authored.
+- Constant GEOA alpha/colour only when static base and empty-domain defaults stay
+  equal, or node TRS only at actual identity. The existing RGB codec owns colour.
+- Triangles with two exactly coincident positions and identical ordered skin
+  influences, including multiplicities. Surviving corner attributes and bounds
+  remain exact. Keep additive duplicates, previously unused vertices and entire
+  all-collapsed geosets; remove only newly orphaned vertices.
+
+Existing track corrections retain ownership. Timeline relocation and checker
+structural remapping finish before affected cleanup is proposed. Disjoint bounds,
+geometry and origin creation compose; stale track/geometry plans fail before any
+writes. World mode reuses its existing terminal-hold loop through a shared helper,
+with the same eligibility and old output. Duplicate/local animation/unused/Nuclear
+settings, tolerances and outputs remain unchanged.
+
+### Measured results
+
+| Private input | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| Slaanesh Champion Unit 03 | 259,364 B | 250,636 B | 8,728 B |
+| Slaanesh Champion Hero 03 | 263,308 B | 254,580 B | 8,728 B |
+
+Each saves 372 B more than the supplied reference. Each changes 90 tracks and
+removes 12 permanently collapsed triangles plus 12 newly unused vertices. Every
+changed track is compared at every integer millisecond of all 15 sequences:
+13,227,660 exact comparisons per model. Each model also passes 135 native-renderer
+poses with zero retained-vertex displacement. Rig identity, surviving ordered
+triangle attributes, original inputs, materials, bounds and both colour modes are
+preserved. Existing world-zero saves 4,684 B; applying it after the new cleanup
+saves 9,628 B total per model.
+
+### Regression evidence
+
+- Fail-first source checkpoint: 7 fail / 1 pass without the implementation; the
+  new packaged test fails selecting the absent option on the baseline build.
+  Added cubic and ownership counterexamples also failed before their guards.
+- All 56 immutable flail comparisons pass (25 Flail03, 31 Flail01), with unchanged
+  golden files and only the existing authored-key/weld/serializer allowances. The
+  historical Mounted bytes match the original 084d34e0... hash before the existing
+  serializer-permutation allowance is used.
+- Original-source comparison of the format, cleanup and bounds UI fixtures proves
+  every existing proposal and its evidence identical. Automatic counts increase
+  only by this addition: 172->173, 188->189 and 1->2. Updated UI counts explicitly
+  verify that extra option. The bounds test unchecks it and retains its original
+  bounds-only saved-byte assertion. The source bounds composition case now verifies
+  the newly enabled identity-scale cleanup after existing repairs finish.
+- Build/package pass. Hidden packaged tests: 8 pass / 0 fail / 0 skip:
+  optimizexl-exact-cleanup, optimizexl-world-budget, optimizexl-workflow,
+  optimizexl-preview, optimizexl-selection, optimizexl-format, optimizexl-bounds,
+  optimizexl-cleanup. Tests exercise actual paired mouse rotation, selection,
+  approval, Back and disk save. Existing optional glow/portrait-particle branches
+  remain disabled on their documented fixtures; those are not newly verified.
+- Compatibility suite: 57 pass / 0 fail / 0 skip. Final source suite: 2,823 pass /
+  0 fail / 9 existing skips. All 13 new source cases pass. One concurrent-build source run could not
+  load dist/particle-runtime.mjs; rerun after the build, without an exception or
+  baseline change.
+
+Nine existing source skips are outside this feature: the Windows-inapplicable
+SIGTERM check; archer overlay input (MDLXL_ARCHER); private broken/rebuilt skin pair
+(MDLXL_SKIN_COLLAPSE_BROKEN/REBUILT); two pose corpus manifest checks; dense rider
+input (MDLXL_POSE_PERFORMANCE_MODEL); Windows symlink privilege; accepted sorting
+input (MDLXL_SORT_NURGLE); and unavailable 8.3 short names. All new source tests and
+the supplied-study replay run without skips. The private Fx world test is enabled.
+
+Reproduce the private replay with node test/manual/optimizexl-exact-cleanup.mjs;
+fixtures.cjs resolves permanent test-model inputs. Evidence is retained at
+D:/Codex/optixl-exact-cleanup-results-20261104. No full packaged release suite,
+independent Claude QA or Warcraft III gameplay was run. No installed profile,
+version, merge or release changed. Disposable packages/profiles are removed.
+
+Independent Claude QA (2026-11-05, after merging #569): one defect fixed. A
+colour track without keys in some animation plays black there in mdx-m3-viewer
+(KGAC default 0,0,0), so static conversion now requires colour keys in every
+animation. Across all 437 classic 800 files in MDLxL-TestModels (77 offer the cleanup;
+Fix everything compared with main on all 437) there are zero node-matrix, skinned
+vertex, geoset colour/alpha and new Hive differences, and zero differences in 130.7
+million changed-track samples using the vendored mdx-m3-viewer wrap-around sequence
+rule (`i_` in hive-viewer-5.12.0.js). Saved section sets are unchanged and node
+sections stay in game order. Warcraft III remains untested.
 
 ## Unused trailing pivot warning — 2026-11-04
 

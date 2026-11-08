@@ -101,5 +101,12 @@ test('table repair composes with opening, unused, exact redundant keys and timel
   assert.deepEqual(bytes,batch);
  }
  const checked=hive(batch);assert.deepEqual(checked.findings.filter(f=>/sequence extents|starts before|Missing opening|same value|not in any sequence/.test(f.message)),[]);
- assert.deepEqual(sanityProposals(openDocument(batch,'x.mdx').model).filter(f=>f.kind!=='checker'),[]);
+ const after=openDocument(batch,'x.mdx').model,remaining=sanityProposals(after).filter(f=>f.kind!=='checker');
+ assert.deepEqual(remaining.map(f=>f.kind),['exactCleanup'],'old repairs finish first; only the newly enabled exact cleanup remains');
+ assert.deepEqual(remaining[0].tracks.map(t=>[t.path.join('.'),t.mode,t.drop]),[['Bones.0.Scaling','static',true]]);
+ const clean=openDocument(runOptimizeStage(batch,'sanity',{},remaining[0]).bytes,'clean.mdx').model;
+ assert.equal(clean.Bones[0].Scaling,undefined,'the new pass removes only the now-constant identity scale');
+ assert.deepEqual(clean.Bones[0].Translation,after.Bones[0].Translation);
+ assert.deepEqual(clean.Sequences,after.Sequences);assert.deepEqual(clean.Geosets,after.Geosets);
+ assert.deepEqual(sanityProposals(clean).filter(f=>f.kind!=='checker'),[]);
 });

@@ -155,3 +155,32 @@ export function animationMotionGuard(original, property, interval, {reach=0,worl
   return p.value.every((v,axis)=>p.motionLimits[axis]*10*spatial>worldBudget||Math.abs(v-actual[axis])<=p.motionLimits[axis]*.95+p.roundoff[axis]);
  });
 }
+/** Exact terminal holds, shared with the opt-in world reducer. The study's
+ * cross-sequence form additionally retains the whole-track last key, requires
+ * the next key and the sequence opening to agree, and never changes globals. */
+export function trimTerminalHolds(model,track,property,onRemove=()=>{},{acrossSequences=false}={}){
+ if(!track?.Keys||!optimizexlLocalTrack(track)||![0,1,2,3].includes(track.LineType))return 0;
+ // Keep world mode's existing eligibility at its caller. The additional
+ // review proposal is deliberately limited to step/linear data.
+ if(acrossSequences&&![0,1].includes(track.LineType))return 0;
+ const rotation=property==='Rotation',width=track.Keys[0]?.Vector?.length;
+ if(acrossSequences&&(![1,3,4].includes(width)||track.Keys.some((k,i,a)=>!Number.isInteger(k.Frame)||k.Frame<0||i&&k.Frame<=a[i-1].Frame||k.Vector?.length!==width||!Array.from(k.Vector).every(Number.isFinite))))return 0;
+ let removed=0;
+ for(const [sequence,s]of model.Sequences.entries()){
+  const [lo,hi]=s.Interval;
+  if(acrossSequences&&(!Number.isInteger(lo)||!Number.isInteger(hi)||lo>=hi)||model.Sequences.some((other,i)=>i!==sequence&&other.Interval[0]<=hi&&other.Interval[1]>=lo))continue;
+  const inside=track.Keys.filter(k=>k.Frame>=lo&&k.Frame<=hi);
+  while(inside.length>1){
+   const a=inside.at(-2),b=inside.at(-1),index=track.Keys.indexOf(b);
+   if(!(track.LineType===0?same(a.Vector,b.Vector):constantSegment(track,a,b,rotation)))break;
+   if(rotation&&track.LineType!==0&&Math.hypot(...a.Vector)!==1)break;
+   if(acrossSequences){
+    const next=track.Keys[index+1];
+    if(!next||!same(inside[0].Vector,b.Vector)||!constantSegment(track,b,next,rotation))break;
+   }
+   track.Keys.splice(index,1);inside.pop();removed++;
+   onRemove({sequence,frame:b.Frame,from:a.Frame,to:hi});
+  }
+ }
+ return removed;
+}
