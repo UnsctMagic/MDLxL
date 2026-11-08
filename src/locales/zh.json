@@ -7321,5 +7321,22 @@
   "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "缩放：拖动以放大或缩小。拖动时按住 Ctrl，可让分开的部件靠近或远离，而不改变它们的大小。",
   "Nuke": "炸开",
   "Uncouple vertices. Right-click for options.": "解除顶点耦合。右键单击查看选项。",
-  "On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot.": "开启：解除耦合时会将分离的角拉开。关闭：角会分离，但保持在原位。"
+  "On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot.": "开启：解除耦合时会将分离的角拉开。关闭：角会分离，但保持在原位。",
+  "Symmetry": "对称",
+  "Smoothing": "平滑",
+  "Pen pressure": "压感",
+  "Layer opacity": "图层不透明度",
+  "Share pixels between left and right": "左右共用像素",
+  "Paint both sides of the model at once": "同时绘制模型两侧",
+  "Pan / zoom model": "平移 / 缩放模型",
+  "Brush size (left-right) / softness (up-down)": "画笔大小（左右）/ 柔边（上下）",
+  "Symmetry (V): every stroke also lands on the opposite side of the model.": "对称 (V)：每一笔也会落在模型的另一侧。",
+  "What pressing harder with a drawing pen changes": "用力按压数位笔时改变的内容",
+  "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "左右相同的部件共用同一批像素：画一侧，另一侧随之变化，整体更清晰。如果两侧必须不同，请不要勾选。",
+  "Show the texture filtered, as the game draws it": "按游戏中的效果显示过滤后的贴图",
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "平滑显示 (Z)：按游戏中的效果显示过滤后的贴图。关闭时显示每个像素。",
+  "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "此选区获得多少贴图像素。其他部件会让出空间，已画内容会随之移动。",
+  "Share pixels between matching parts": "相同部件共用像素",
+  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "左右两侧和重复部件共用同一批像素：画一个，其余随之变化，整体更清晰。如果它们必须不同，请不要勾选。",
+  "Paint key labels": "Paint 按键标签"
 }

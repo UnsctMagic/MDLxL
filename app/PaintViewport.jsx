@@ -123,6 +123,8 @@ export default function PaintViewport(inputProps) {
     const cameraChanged=()=>{latest.current.onPaintCameraChange?.();invalidate();};
     controls.addEventListener('change', cameraChanged);
     const unbindScroll = bindScrollSensitivity(renderer.domElement, scrollSensitivityCallbacks(latest, {
+      // Alt + middle pans in Paint, so the camera-mode toggle leaves it alone.
+      altMiddleFree: true,
       onIndicator: setAdjustingSensitivity,
       // A Wisp left-button wheel gesture is a settings gesture, never a select or transform.
       onPointerAdjustment: () => cancelGesture(),
@@ -200,6 +202,8 @@ export default function PaintViewport(inputProps) {
     function cameraAction(event) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
+      // Alt + middle pans and Alt + right zooms, the way 3D painting tools navigate.
+      if (p.paintMode && event.altKey && (event.button === 2 || event.button === 1)) return event.button === 1 ? 'move' : 'zoom';
       if (event.button === 2 || event.button === 1) { const action = event.button === 2 ? binding.right : binding.middle; return action === 'pan' ? 'move' : action; }
       if (event.altKey) return 'rotate';
       return p.cameraMode;
@@ -228,14 +232,18 @@ export default function PaintViewport(inputProps) {
       };
     }
     // OrbitControls is used only for navigation. Capture configures it before its handler runs.
+    const penPressure = event => event.pointerType === 'pen' ? event.pressure : undefined;
     function pointerDown(event) {
       if (down) return;
       host.current?.focus();if(latest.current.paintWorkspace)latest.current.onPaintInteractionChange?.(true);
+      if(latest.current.paintMode&&event.pointerType==='pen')latest.current.onPenSeen?.();
+      if(latest.current.paintMode&&!latest.current.paintSelectOnly&&event.button===2&&(event.ctrlKey||event.metaKey)){const start=point(event);down={...start,pointerId:event.pointerId,action:'brushAdjust'};latest.current.onBrushAdjust?.(null);controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);return;}
       const action = cameraAction(event);
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       state.refreshCursor();
       controls.enabled = true;
       applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work' });
+      if (latest.current.paintMode && event.altKey && event.button) { controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN; controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY; }
       if (action === 'move' || action === 'rotate') return;
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
@@ -255,7 +263,7 @@ export default function PaintViewport(inputProps) {
         down.action = selecting ? 'paintPick' : 'paint';
         if (p.paintDisabled && !selecting) return;
         const hit = paintHit(event, !selecting && p.paintOutside); down.paintHit = hit;
-        if (hit) { if (selecting) p.onPaintPick?.(hit); else p.onPaintStart?.(hit); }
+        if (hit) { if (selecting) p.onPaintPick?.(hit); else { hit.screen.pressure = penPressure(event); p.onPaintStart?.(hit); } }
         return;
       }
       down.action = 'select';
@@ -282,7 +290,15 @@ export default function PaintViewport(inputProps) {
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       // The stroke already owns a fixed camera/depth projection. Pointer motion
       // needs screen coordinates only, not another full-model raycast.
-      if (down.action === 'paint') { if (down.paintHit) latest.current.onPaintMove?.({ screen: { x: rawEnd.x, y: rawEnd.y } }); return; }
+      if (down.action === 'paint') {
+        if (down.paintHit) { const samples = event.getCoalescedEvents?.(); for (const sample of samples?.length ? samples : [event]) { const at = point(sample); latest.current.onPaintMove?.({ screen: { x: at.x, y: at.y, pressure: penPressure(sample) } }); } }
+        return;
+      }
+      if (down.action === 'brushAdjust') {
+        latest.current.onBrushAdjust?.({ dx: rawEnd.x - down.x, dy: rawEnd.y - down.y });
+        if (paintCursor.current) Object.assign(paintCursor.current.style, { display: 'block', left: down.x + 'px', top: down.y + 'px', width: latest.current.paintBrushSize + 'px', height: latest.current.paintBrushSize + 'px' });
+        return;
+      }
       if(down.action==='paintLamp'){down.pendingLamp={dx,dy,width:rawEnd.width,height:rawEnd.height};dragFrame.schedule();return;}
       if (down.action === 'paintPick') { if(latest.current.paintSelectFaces){(down.pendingPicks||=[]).push({clientX:event.clientX,clientY:event.clientY,ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey});dragFrame.schedule();} return; }
       if (down.action === 'zoom') {

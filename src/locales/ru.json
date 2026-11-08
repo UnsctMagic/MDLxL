@@ -7417,5 +7417,22 @@
   "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "Масштаб: перетащите, чтобы увеличить или уменьшить. Удерживайте Ctrl во время перетаскивания, чтобы сближать или раздвигать отдельные части, не меняя их размер.",
   "Nuke": "Разнести",
   "Uncouple vertices. Right-click for options.": "Разъединить вершины. Правый клик — параметры.",
-  "On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot.": "Вкл.: разъединение разводит отделённые углы в стороны. Выкл.: углы разделяются, но остаются на том же месте."
+  "On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot.": "Вкл.: разъединение разводит отделённые углы в стороны. Выкл.: углы разделяются, но остаются на том же месте.",
+  "Symmetry": "Симметрия",
+  "Smoothing": "Сглаживание",
+  "Pen pressure": "Нажим пера",
+  "Layer opacity": "Непрозрачность слоя",
+  "Share pixels between left and right": "Общие пиксели для левой и правой стороны",
+  "Paint both sides of the model at once": "Рисовать сразу обе стороны модели",
+  "Pan / zoom model": "Сдвиг / масштаб модели",
+  "Brush size (left-right) / softness (up-down)": "Размер кисти (влево-вправо) / мягкость (вверх-вниз)",
+  "Symmetry (V): every stroke also lands on the opposite side of the model.": "Симметрия (V): каждый мазок ложится и на противоположную сторону модели.",
+  "What pressing harder with a drawing pen changes": "Что меняет нажим пера",
+  "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "Одинаковые левые и правые части используют одни пиксели: рисуете одну сторону, другая повторяет, и всё становится чётче. Не включайте, если стороны должны различаться.",
+  "Show the texture filtered, as the game draws it": "Показать текстуру сглаженной, как в игре",
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "Сглаживать (Z): показывать текстуру сглаженной, как в игре. Выкл. — видно каждый пиксель.",
+  "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "Сколько пикселей текстуры получает выделение. Остальные части освободят место, а краска переместится вместе с ними.",
+  "Share pixels between matching parts": "Общие пиксели для одинаковых частей",
+  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Левая и правая стороны и повторяющиеся части используют одни пиксели: рисуете одну, остальные повторяют, и всё чётче. Не включайте, если они должны различаться.",
+  "Paint key labels": "Подписи клавиш в Paint"
 }

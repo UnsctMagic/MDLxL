@@ -70,7 +70,7 @@ SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
 for (const name of ['ai-awareness', 'ai-attachments', 'ai-console', 'ai-editor', 'ai-multi-tab', 'ai-questions', 'ai-versions']) SPECIAL[name] = { env: { MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
-for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-pro', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
 // The owner's private OptimizeXL review models, copied to out/ by out/fixtures.sh (docs/PACKAGED-TESTS.md).
 const flail01 = testModel('optimizexl/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx');
 const expression = [testModel('optimizexl-expression/WH_WOC_KnightKhorneFlail07.mdx'), testModel('optimizexl-expression/WH_WOC_KnightKhorneFlail03.mdx')];
