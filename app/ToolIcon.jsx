@@ -78,6 +78,7 @@ const ICONS = Object.freeze({
   hardBind: [['f', bone, 'blue'], ['f', circle(18, 5.5, 4), 'green']],
   detachVertices: [['s', 'M3 21 21 3', 'ink', 2.2], ['f', circle(4, 15, 2) + circle(8, 9, 2) + circle(12, 4, 2) + circle(15, 20, 2), 'red']],
   attachment: [['s', 'M12 8v11l-2 3M8 10h8', 'ink', 2], ['f', circle(12, 5, 3), 'red']],
+  boneWiggle: [['s', 'M4 6q3-3 6 0M14 6q3-3 6 0', 'orange', 1.8], ['s', 'M12 21 12 11', 'ink', 2.4], ['s', 'M12 11 6 7M12 11l6-4', 'blue', 2.4], ['f', circle(12, 11, 2.2), 'green']],
   // Paint
   brush: [['f', 'M14 3.5l6.5 6.5-7 7-6.5-6.5Z', 'orange'], ['f', brushTip, 'blue']],
   stamp: [['f', 'M9 3h6v5l-1 3h-4l-1-3Z', 'orange'], ['f', round(4, 11, 16, 5, 1), 'ink'], ['f', 'M5 17h14v3.5H5Z', 'red']],
