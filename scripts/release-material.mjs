@@ -16,7 +16,7 @@ export const discordDescriptionLimit = 4096;
 export const portableZip = 'MDLxL-win32-x64.zip', ffmpegSourceZip = 'MDLxL-FFmpeg-corresponding-source.zip';
 const guideTitles = {'New-Features':'New in ','AI-Guide':'AI console','AI-Sign-in':'AI sign-in','Interface-Map':'Interface map'};
 // What a "New in <version>" guide covers. Add the entry when its guide is written.
-const newFeatureTopics = {'0.38.0':'layout and geoset tabs, Workplane Constraints, FX, EMTR effects, Sphereomancer, World Editor Style textures, Nuclear Weld, Fix model'};
+const newFeatureTopics = {'0.39.0':'Citadel Paint New base coat, Bones Wiggle, Uncouple and Resize, EMTR Rotate and ribbons, FX emitters, Calculate extents, OptimizeXL exact cleanup','0.38.0':'layout and geoset tabs, Workplane Constraints, FX, EMTR effects, Sphereomancer, World Editor Style textures, Nuclear Weld, Fix model'};
 const separator = ' · ';
 function guideLabel(guide) {
  const match = /^(\d+\.\d+\.\d+)-(.+)$/.exec(guide);
