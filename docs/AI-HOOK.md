@@ -327,6 +327,8 @@ After MDLxL closes, reopen the saved file to establish the reference again.
 
 **Motion measurements.** Animation reviews include MDLxL's own before/after
 measurement for each touched animation, cached until the model revision changes.
+It runs in `app/ai-motion-compare.worker.js`, never on the window's thread, because
+every frame of a real model takes tens of seconds; Stop ends it at once.
 `ai-motion-compare.compareMotion` imports the preview's sampler and skinning;
 it reports distances, speed differences, exact endpoint samples, horizontal
 centre drift, structural contact travel, changed topology and non-geometric
