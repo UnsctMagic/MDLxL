@@ -8040,5 +8040,18 @@
   "Rebuilds the boxes the game uses for the health bar height, clicking and hiding the unit at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes are left out.": "Пересчитывает рамки, по которым игра определяет высоту полосы здоровья, выбор кликом и скрытие юнита у края экрана. Свечение героя, фоны портрета и светящиеся сетки эффектов не учитываются.",
   "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes (geosets {0}) are left out. Meshes, keys and visibility stay unchanged.": "Пересчитывает границы модели, анимаций и геосетов по модели и её анимации. Они задают высоту полосы здоровья, область клика и момент, когда юнит скрывается у края экрана. Свечение героя, фоны портрета и светящиеся сетки эффектов (геосеты {0}) не учитываются. Сетки, ключи и видимость не меняются.",
   "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Meshes, keys and visibility stay unchanged.": "Пересчитывает границы модели, анимаций и геосетов по модели и её анимации. Они задают высоту полосы здоровья, область клика и момент, когда юнит скрывается у края экрана. Сетки, ключи и видимость не меняются.",
-  "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "Масштаб: перетащите, чтобы увеличить или уменьшить. Удерживайте Ctrl во время перетаскивания, чтобы сближать или раздвигать отдельные части, не меняя их размер."
+  "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "Масштаб: перетащите, чтобы увеличить или уменьшить. Удерживайте Ctrl во время перетаскивания, чтобы сближать или раздвигать отдельные части, не меняя их размер.",
+  "Symmetry": "Симметрия",
+  "Smoothing": "Сглаживание",
+  "Pen pressure": "Нажим пера",
+  "Layer opacity": "Непрозрачность слоя",
+  "Share pixels between left and right": "Общие пиксели для левой и правой стороны",
+  "Paint both sides of the model at once": "Рисовать сразу обе стороны модели",
+  "Pan / zoom model": "Сдвиг / масштаб модели",
+  "Brush size (left-right) / softness (up-down)": "Размер кисти (влево-вправо) / мягкость (вверх-вниз)",
+  "Symmetry (V): every stroke also lands on the opposite side of the model.": "Симметрия (V): каждый мазок ложится и на противоположную сторону модели.",
+  "What pressing harder with a drawing pen changes": "Что меняет нажим пера",
+  "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "Одинаковые левые и правые части используют одни пиксели: рисуете одну сторону, другая повторяет, и всё становится чётче. Не включайте, если стороны должны различаться.",
+  "Show the texture filtered, as the game draws it": "Показать текстуру сглаженной, как в игре",
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "Сглаживать (Z): показывать текстуру сглаженной, как в игре. Выкл. — видно каждый пиксель."
 }

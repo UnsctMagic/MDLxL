@@ -38,6 +38,7 @@ export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate,opt
   const navigation={
     onContextMenu:e=>e.preventDefault(),
     onPointerDownCapture:e=>{
+      if(e.button===2&&(e.ctrlKey||e.metaKey)&&current.current.onBrushAdjust){e.preventDefault();e.stopPropagation();pan.current={type:'brush',x:e.clientX,y:e.clientY};current.current.onBrushAdjust(null);scroll.current.setPointerCapture(e.pointerId);return;}
       const preferences=current.current.preferences,bindings=cameraBindings(preferences),binding=e.button===2?bindings.right:e.button===1?bindings.middle:null;
       if(!binding||binding==='none'||binding==='toggle')return;
       e.preventDefault();e.stopPropagation();current.current.onNavigate?.();
@@ -46,6 +47,7 @@ export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate,opt
     },
     onPointerMoveCapture:e=>{
       const p=pan.current;if(!p)return;e.preventDefault();e.stopPropagation();
+      if(p.type==='brush'){current.current.onBrushAdjust?.({dx:e.clientX-p.x,dy:e.clientY-p.y});return;}
       // A zoom drag re-renders the image; follow the pointer once per frame. Panning only scrolls.
       if(p.type==='zoom'){p.clientY=e.clientY;zoomFrame.current.schedule();}
       else{scroll.current.scrollLeft=p.left+(p.x-e.clientX)*p.sensitivity;scroll.current.scrollTop=p.top+(p.y-e.clientY)*p.sensitivity;}

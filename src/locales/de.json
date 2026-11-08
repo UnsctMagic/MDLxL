@@ -8186,5 +8186,18 @@
   "{0} · {1} rendered layer{2} · seamless tiled view": "{0} · Render-Layer{2}: {1} · nahtlos gekachelt",
   "Add portrait background": "Porträthintergrund hinzufügen",
   "Add Background": "Hintergrund hinzufügen",
-  "geoset-selection\u0004Clear": "Keine"
+  "geoset-selection\u0004Clear": "Keine",
+  "Symmetry": "Symmetrie",
+  "Smoothing": "Glättung",
+  "Pen pressure": "Stiftdruck",
+  "Layer opacity": "Ebenendeckkraft",
+  "Share pixels between left and right": "Pixel zwischen links und rechts teilen",
+  "Paint both sides of the model at once": "Beide Modellseiten gleichzeitig malen",
+  "Pan / zoom model": "Modell verschieben / zoomen",
+  "Brush size (left-right) / softness (up-down)": "Pinselgröße (links-rechts) / Weichheit (oben-unten)",
+  "Symmetry (V): every stroke also lands on the opposite side of the model.": "Symmetrie (V): Jeder Strich landet auch auf der gegenüberliegenden Modellseite.",
+  "What pressing harder with a drawing pen changes": "Was stärkerer Stiftdruck verändert",
+  "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "Gleiche linke und rechte Teile nutzen dieselben Pixel: Eine Seite malen, die andere folgt, und alles wird schärfer. Aus lassen, wenn sich die Seiten unterscheiden sollen.",
+  "Show the texture filtered, as the game draws it": "Textur gefiltert anzeigen, wie im Spiel",
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "Glätten (Z): zeigt die Textur gefiltert wie im Spiel. Aus zeigt jedes Pixel."
 }

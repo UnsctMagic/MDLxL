@@ -7909,5 +7909,18 @@
   "Rebuilds the boxes the game uses for the health bar height, clicking and hiding the unit at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes are left out.": "重新计算游戏用于血条高度、点击选取以及在屏幕边缘隐藏单位的边界框。英雄光环、头像背景和发光特效网格不计入。",
   "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes (geosets {0}) are left out. Meshes, keys and visibility stay unchanged.": "根据模型及其采样动画重新计算模型、动画和几何体的边界。它们决定血条高度、点击区域以及单位何时在屏幕边缘被隐藏。英雄光环、头像背景和发光特效网格（几何体 {0}）不计入。网格、关键帧和可见性保持不变。",
   "Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Meshes, keys and visibility stay unchanged.": "根据模型及其采样动画重新计算模型、动画和几何体的边界。它们决定血条高度、点击区域以及单位何时在屏幕边缘被隐藏。网格、关键帧和可见性保持不变。",
-  "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "缩放：拖动以放大或缩小。拖动时按住 Ctrl，可让分开的部件靠近或远离，而不改变它们的大小。"
+  "Resize: drag to grow or shrink. Hold Ctrl while dragging to move separate pieces closer or apart without changing their size.": "缩放：拖动以放大或缩小。拖动时按住 Ctrl，可让分开的部件靠近或远离，而不改变它们的大小。",
+  "Symmetry": "对称",
+  "Smoothing": "平滑",
+  "Pen pressure": "压感",
+  "Layer opacity": "图层不透明度",
+  "Share pixels between left and right": "左右共用像素",
+  "Paint both sides of the model at once": "同时绘制模型两侧",
+  "Pan / zoom model": "平移 / 缩放模型",
+  "Brush size (left-right) / softness (up-down)": "画笔大小（左右）/ 柔边（上下）",
+  "Symmetry (V): every stroke also lands on the opposite side of the model.": "对称 (V)：每一笔也会落在模型的另一侧。",
+  "What pressing harder with a drawing pen changes": "用力按压数位笔时改变的内容",
+  "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "左右相同的部件共用同一批像素：画一侧，另一侧随之变化，整体更清晰。如果两侧必须不同，请不要勾选。",
+  "Show the texture filtered, as the game draws it": "按游戏中的效果显示过滤后的贴图",
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "平滑显示 (Z)：按游戏中的效果显示过滤后的贴图。关闭时显示每个像素。"
 }

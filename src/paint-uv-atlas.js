@@ -49,7 +49,7 @@ function properCross(a, b, c, d) {
   const abC = orient(a, b, c), abD = orient(a, b, d), cdA = orient(c, d, a), cdB = orient(c, d, b);
   return abC * abD < -EPSILON && cdA * cdB < -EPSILON;
 }
-function trianglesOverlap(a, b) {
+export function trianglesOverlap(a, b) {
   const bounds = triangle => [Math.min(...triangle.map(p => p[0])), Math.min(...triangle.map(p => p[1])), Math.max(...triangle.map(p => p[0])), Math.max(...triangle.map(p => p[1]))], aa = bounds(a), bb = bounds(b);
   if (aa[2] <= bb[0] + EPSILON || bb[2] <= aa[0] + EPSILON || aa[3] <= bb[1] + EPSILON || bb[3] <= aa[1] + EPSILON) return false;
   const center = triangle => [(triangle[0][0] + triangle[1][0] + triangle[2][0]) / 3, (triangle[0][1] + triangle[1][1] + triangle[2][1]) / 3];
@@ -109,13 +109,13 @@ function splitFreeRectangles(free, used) {
   return result.filter((rectangle, index, all) => rectangle.w > 0 && rectangle.h > 0 && !all.some((other, otherIndex) => index !== otherIndex && contains(other, rectangle)));
 }
 
-function tryPack(charts, resolution, padding, scale) {
+function tryPack(charts, resolution, padding, scale, upright = false) {
   const rectangles = charts.map((chart, index) => ({ chart, index, innerW: Math.max(2, Math.ceil(chart.width * scale)), innerH: Math.max(2, Math.ceil(chart.height * scale)) }))
     .sort((a, b) => Math.max(b.innerW, b.innerH) - Math.max(a.innerW, a.innerH) || b.innerW * b.innerH - a.innerW * a.innerH || a.index - b.index);
   let free = [{ x: 0, y: 0, w: resolution, h: resolution }]; const placements = new Map();
   for (const rectangle of rectangles) {
     let best = null;
-    for (const space of free) for (const rotated of [false, true]) {
+    for (const space of free) for (const rotated of upright ? [false] : [false, true]) {
       const innerW = rotated ? rectangle.innerH : rectangle.innerW, innerH = rotated ? rectangle.innerW : rectangle.innerH, w = innerW + padding * 2, h = innerH + padding * 2;
       if (w > space.w || h > space.h) continue;
       const score = [Math.min(space.w - w, space.h - h), Math.max(space.w - w, space.h - h), space.y, space.x, rotated ? 1 : 0];
@@ -127,12 +127,12 @@ function tryPack(charts, resolution, padding, scale) {
   return placements;
 }
 
-function packCharts(charts, resolution, padding) {
-  let best = tryPack(charts, resolution, padding, 0);
+export function packCharts(charts, resolution, padding, { upright = false } = {}) {
+  let best = tryPack(charts, resolution, padding, 0, upright);
   if (!best) throw Error(`This model has too many UV islands for a ${resolution}×${resolution} paint texture. Create another material for some geosets.`);
-  let low = 0, high = 1, attempt = tryPack(charts, resolution, padding, high);
-  while (attempt && high < 1e7) { low = high; best = attempt; high *= 2; attempt = tryPack(charts, resolution, padding, high); }
-  for (let step = 0; step < 24; step++) { const middle = (low + high) / 2, packed = tryPack(charts, resolution, padding, middle); if (packed) { low = middle; best = packed; } else high = middle; }
+  let low = 0, high = 1, attempt = tryPack(charts, resolution, padding, high, upright);
+  while (attempt && high < 1e7) { low = high; best = attempt; high *= 2; attempt = tryPack(charts, resolution, padding, high, upright); }
+  for (let step = 0; step < 24; step++) { const middle = (low + high) / 2, packed = tryPack(charts, resolution, padding, middle, upright); if (packed) { low = middle; best = packed; } else high = middle; }
   return { scale: low, placements: best };
 }
 
@@ -150,7 +150,7 @@ function chartUV(chart, placement, scale, resolution, padding, point) {
     : [(placement.x + padding + u) / resolution, (placement.y + padding + v) / resolution];
 }
 
-function applyAtlasToGeoset(geoset, charts, packed, resolution, padding) {
+export function applyAtlasToGeoset(geoset, charts, packed, resolution, padding) {
   const sourceCount = geoset.Vertices.length / 3;
   if ((geoset.TVertices?.length || 0) >= 16) throw Error('A fresh Citadel material needs one free UV set; this geoset already has 16.');
   const sources = Array.from({ length: sourceCount }, (_, index) => index), owners = new Int32Array(sourceCount).fill(-1), faces = new Uint32Array(geoset.Faces.length), uv = [];

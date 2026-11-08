@@ -47,7 +47,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
     | Paint: Paste texture | Ctrl+Alt+V | Alt+V |
     | Paint: Import image | Ctrl+Shift+O | Alt+O |
 
-    Citadel Paint keeps its keycap renderer; its plain keys use the same catalog.
+    Citadel Paint keeps its keycap renderer; its plain keys use the same catalog. V is Symmetry.
 
   - Patterns:
     - F4–F9 open the workspaces and editors.
