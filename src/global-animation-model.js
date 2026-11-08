@@ -1,5 +1,5 @@
 import {Quaternion,Vector3} from 'three';
-import {createNode,removeGeosets,recalculateExtents,updateCounts} from './editor-document.js';
+import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateCounts} from './editor-document.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
@@ -441,12 +441,18 @@ export function readAnimationStack(model,index){
 }
 export function compileAnimation(model,index,draft,{rune}={}){
  const source=model.Geosets[index];if(!source)throw Error('Select a part first.');
+ // Several selected geosets are fitted as one surface; each original stays as it is.
+ const members=[...new Set(draft.group||[])].filter(i=>i!==index&&model.Geosets[i]&&!model.Geosets[i]._FxTag);
+ if(members.length)draft={...draft,group:members,asOverlay:true};
+ else if(draft.group){draft={...draft};delete draft.group;}
+ let surface=source;
+ if(members.length){surface=structuredClone(source);delete surface._FxStack;for(const i of members)appendGeosetGeometry(surface,model.Geosets[i]);}
  const before=readAnimationStack(model,index),owner=draft.owner;
  const base=before&&source.MaterialID!==before.baseMaterial&&model.Materials[source.MaterialID]?._FxTag!==before.owner+'/underlay'?source.MaterialID:before?.baseMaterial??source.MaterialID;
  const strikeGeo=draft.impact?model.Geosets[draft.contact?.geoset]:null;
  if(draft.impact&&(!strikeGeo||strikeGeo._FxTag||!(draft.contact.vertex>=0&&draft.contact.vertex*3<strikeGeo.Vertices.length)))draft={...draft,...impactDefaults(model,index,draft.sequence,draft.hit)};
  const attachmentCache=new Map(),originalClockCount=model.GlobalSequences.length;
- const frame=partFrame(source),created=[...(before?.createdClockIds||[])],used=new Set();
+ const frame=partFrame(surface),created=[...(before?.createdClockIds||[])],used=new Set();
  const ms=Math.max(200,Math.round(draft.loop)),id=draft.layers.length&&!draft.impact?clockFor(model,ms,created):-1;
  const state=JSON.parse(JSON.stringify(draft));state.baseMaterial=base;state.createdClockIds=created;state.createdClocks=[];
  source.MaterialID=base;source._FxStack=state;
@@ -467,9 +473,9 @@ export function compileAnimation(model,index,draft,{rune}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
-  const tag=owner+'/'+l.id,context={model,source,index,base,frame,parent:effectAnchor(model,source),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameClock:before?.loop===ms};
+  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameClock:before?.loop===ms};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(before?.look===draft.look&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(before?.look===draft.look&&JSON.stringify(before?.group||[])===JSON.stringify(draft.group||[])&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);

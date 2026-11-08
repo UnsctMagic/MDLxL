@@ -1,4 +1,4 @@
-# MDLxL 0.38.3
+# MDLxL 0.39.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,9 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.38.3 is an important hotfix: models saved after OptimizeXL (or after adding a model's first collision shapes, ribbons or attachments) could show stretched spikes in Warcraft III, and saving now uses the game's section order. It also keeps recovery saving after Citadel Paint, during heavy clicking and while closing, adds the AI console's Local workspace with Open as new model / Merge, and translates every Hive finding into Spanish, Russian and Chinese. See [the hotfix notes](docs/RELEASE-0.38.3.md).
+Version 0.39.0 adds a new Citadel Paint New base coat layout with Detail, one Calculate extents, Rotate handles and native weapon ribbons in EMTR, emitter preview in FX, OptimizeXL Remove exact redundancy, and Wiggle for checking bone binding. See [the release notes](docs/RELEASE-0.39.0.md).
+
+From 0.38.3: models saved after OptimizeXL (or after adding a model's first collision shapes, ribbons or attachments) could show stretched spikes in Warcraft III, and saving now uses the game's section order. It also keeps recovery saving after Citadel Paint, during heavy clicking and while closing, adds the AI console's Local workspace with Open as new model / Merge, and translates every Hive finding into Spanish, Russian and Chinese. See [the hotfix notes](docs/RELEASE-0.38.3.md).
 
 From 0.38.2: the permanent portable ZIP download, smoother editor responsiveness and recovery, UV Wrapper dragging and rotation, OptimizeXL playback and unused pivots, small file icons, persistent Select through, and French and German interface translations.
 
@@ -55,6 +57,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.39.0](docs/RELEASE-0.39.0.md) ([ES](docs/RELEASE-0.39.0-ES.md), [RU](docs/RELEASE-0.39.0-RU.md), [ZH-CN](docs/RELEASE-0.39.0-ZH-CN.md), [FR](docs/RELEASE-0.39.0-FR.md), [DE](docs/RELEASE-0.39.0-DE.md))
 - [0.38.3](docs/RELEASE-0.38.3.md) ([ES](docs/RELEASE-0.38.3-ES.md), [RU](docs/RELEASE-0.38.3-RU.md), [ZH-CN](docs/RELEASE-0.38.3-ZH-CN.md), [FR](docs/RELEASE-0.38.3-FR.md), [DE](docs/RELEASE-0.38.3-DE.md))
 - [0.38.2](docs/RELEASE-0.38.2.md) ([ES](docs/RELEASE-0.38.2-ES.md), [RU](docs/RELEASE-0.38.2-RU.md), [ZH-CN](docs/RELEASE-0.38.2-ZH-CN.md), [FR](docs/RELEASE-0.38.2-FR.md), [DE](docs/RELEASE-0.38.2-DE.md))
 - [0.38.0](docs/RELEASE-0.38.0.md) ([ES](docs/RELEASE-0.38.0-ES.md), [RU](docs/RELEASE-0.38.0-RU.md), [ZH-CN](docs/RELEASE-0.38.0-ZH-CN.md))

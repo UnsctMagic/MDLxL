@@ -100,11 +100,11 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await editor.getByRole('button',{name:'Adjust Manually',exact:true}).click();await text.fill(mdl.replace(/MaterialID \d+/,'MaterialID 999'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
   await manual.getByRole('alert').waitFor();assert.equal((await read()).undo,now.undo);await manual.getByRole('button',{name:'Cancel',exact:true}).click();
 
-  // The one-screen ribbon panel, slower preview, pause while editing.
+  // The one-screen ribbon panel, slower preview, keeps playing while editing.
   for(const name of ['Basics','Appearance','Sweep'])assert.equal(await editor.getByRole('button',{name,exact:true}).count(),0,name);
   assert.equal(await editor.getByLabel('Playback Speed',{exact:true}).inputValue(),'0.25');
   await editor.getByRole('button',{name:'Play',exact:true}).click();await editor.getByRole('button',{name:'Pause',exact:true}).waitFor();
-  await editor.getByLabel('Ribbon lasts',{exact:true}).click();await page.keyboard.press('ArrowLeft');await editor.getByRole('button',{name:'Play',exact:true}).waitFor();
+  await editor.getByLabel('Ribbon lasts',{exact:true}).click();await page.keyboard.press('ArrowLeft');await editor.getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out}));
  }catch(error){if(app){const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});}throw error;}
  finally{if(app)await closeApp(app);}
