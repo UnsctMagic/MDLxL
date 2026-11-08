@@ -1201,7 +1201,7 @@ export default function App() {
         if (name === 'Delete vertices') { if (ids.length === g.Vertices.length / 3) { deleteGeoset(m, gi); removedGeosets.push(gi); } else deleteVertices(g, ids); }
         else if (name === 'Create triangle') addTriangle(g, ids);
         else if (name === 'Delete triangles') outcome = deleteSelectedFaces(g, ids);
-        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids);
+        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids, { nuke: preferences.uncoupleNuke });
         else if (name === 'Collapse') outcome = collapseVertices(g, ids, centroid);
         else if (name === 'Weld') outcome = weldSelectedVertices(g, ids, centroid);
         else if (name === 'Smooth normals') outcome = averageSelectedNormals(g, ids);
@@ -1845,7 +1845,7 @@ export default function App() {
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
-        setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
+        setContext, setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
