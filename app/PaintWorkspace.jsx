@@ -22,10 +22,10 @@ import {mirroredPaintMatrix,paintPenBrush,fillPaintMask,interpolatePaintStroke,p
 import {paintGeosetMask,paintProjectModel,paintStandHidden} from '../src/paint-view.js';
 import {rgbaColor,clonePaintRaster,resizePaintRaster,compositePaintRasters,createPaintRaster,samplePaintRaster} from '../src/paint-raster.js';
 import {enumeratePaintTargets,findTextureAsset,preferredPaintTarget} from '../src/paint-targets.js';
-import {preparePaintSurfaceChange} from '../src/paint-surface.js';
+import {preparePaintDetailChange,preparePaintSurfaceChange} from '../src/paint-surface.js';
 import {preparePaintSelectionSpace,preparePaintUVSelectionChange} from '../src/paint-selection-space.js';
 import {regionPaintTarget,connectedPaintFaces,isolatePaintRegion,paintRegionEntries,paintRegionFaces,changePaintRegion} from '../src/paint-region.js';
-import {createPaintLayout} from '../src/paint-uv-layout.js';
+import {createPaintLayout,paintHeadDetail} from '../src/paint-uv-layout.js';
 import {PAINT_COATS,normalizeBrushSettings} from '../src/paint-types.js';
 import {readWarcraftDnc,sampleWarcraftDnc,wc3DncPath} from '../src/warcraft-dnc.js';
 import {decodePaintImage,paintBaseRaster,paintRasterCanvas} from './paint-raster.js';
@@ -60,6 +60,7 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   const placement=useRef(null),clipboard=useRef(null);
   const [shape,setShape]=useState('round'),[palette,setPalette]=useState(null),[shading,setShading]=useState(false),[outlines,setOutlines]=useState(false),[colorfy,setColorfy]=useState(false),[clipboardVersion,setClipboardVersion]=useState(0);
   const tip=useMemo(()=>paintBrushTip(shape),[shape]);
+  const selectionDetail=useMemo(()=>{if(!region||!project?.pieceDetail)return region?1:null;let level;for(const [index,faces] of paintRegionEntries(region))for(const face of faces){const value=project.pieceDetail[index]?.[face]||1;if(level!==undefined&&level!==value)return null;level=value;}return level??null;},[region,project?.pieceDetail]);
   const stroke=useRef(null),frame=useRef(0),projectionCache=useRef(null),regionMaskCache=useRef(null),canvasCache=useRef(new Map()),dirtyTargets=useRef(new Map()),mounted=useRef(true),cameraAPI=useRef(null),imageInput=useRef(null),dncCache=useRef(new Map());
   const shelfAPI=useRef();
   const endCurrentStroke=useRef(null);endCurrentStroke.current=()=>{endStroke();commitPlacement();};
@@ -164,7 +165,7 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
       const next=createPaintProject({modelName,resolution:resolution||256,sourceMode});next.preserveMaterials=sourceMode==='current';next.viewSettings=scene;next.dirty=true;let working=model;
       if(sourceMode==='primer'){
         const geosets=paintableGeosets(originalModel,{requireUV:false});if(!geosets.length)throw Error(msg('paint.empty'));
-        const atlas=createPaintLayout(model,geosets,resolution,{mirror:shareSides});working=atlas.model;next.generatedUVSets=atlas.coordIds;next.paintAtlasVersion=2;
+        const pieceDetail=paintHeadDetail(model,geosets),atlas=createPaintLayout(model,geosets,resolution,{mirror:shareSides,detail:pieceDetail});working=atlas.model;next.generatedUVSets=atlas.coordIds;next.paintAtlasVersion=2;next.pieceDetail=pieceDetail;next.shareSides=shareSides;
         createPaintMaterial(next,working,{name:'Material 1',raster:createPaintRaster(resolution,resolution,rgbaColor(brush.color)),geosets,basecoat:true,generatedUV:true,sourceModel:originalModel});
         onWorkingModelChange?.(working);
       }else{
@@ -408,6 +409,17 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
     try{await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));const staged=preparePaintSurfaceChange(baseModel,project,activeTarget,{resolution:surfaceSize,unique:false});markPaintMaterialEdited({...project,targets:project.targets.map(t=>t===activeTarget?staged.target:t)},staged.target);recordPaintSurfaceChange(project,activeTarget.id,staged,'Resize paint destination');setRegion(null);setTextureRegion(null);setRegionTool(false);setDialog(null);notify();onStatus?.('Texture resized. Undo restores its original resolution.');}
     catch(e){onStatus?.(e.message,true);}finally{setBusy(false);}
   }
+  async function setSelectionDetail(level){
+    if(!ready||!region||busy)return;endStroke();cancelPlacement();setBusy(true);
+    try{
+      await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+      const pieceDetail=structuredClone(project.pieceDetail||{});
+      for(const [index,faces] of paintRegionEntries(region))for(const face of faces){if(level===1){if(pieceDetail[index])delete pieceDetail[index][face];}else (pieceDetail[index]||={})[face]=level;}
+      const staged=preparePaintDetailChange(baseModel,originalModel,project,pieceDetail);
+      for(const target of staged.targets)markPaintMaterialEdited({...project,targets:project.targets.map(t=>t.id===target.id?target:t)},target);
+      recordPaintSurfaceChange(project,staged.targets[0].id,staged,'Change detail');notify();onStatus?.('Detail changed. Your paint moved with its pieces; Undo restores the old layout.');
+    }catch(e){onStatus?.(e.message,true);}finally{setBusy(false);}
+  }
   function separateSelection(){
     endStroke();cancelPlacement();
     try{
@@ -469,7 +481,7 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
     sourceMode={sourceMode} onSourceMode={value=>{setSourceMode(value);if(value==='primer'&&!resolution)setResolution(512);}} resolution={resolution} onResolution={setResolution} onBegin={begin} onOpen={onOpenProject} split={split} onSplit={value=>{cancelPlacement();setSplit(Math.max(30,Math.min(78,value)));}}
     selecting={pickPart} onSelectToggle={()=>chooseStudioTool('select')} shape={shape} onShape={chooseShape} palette={palette} onPalette={()=>setPalette(relatedPaintColors(brush.color))} shading={shading} onShading={()=>setShading(v=>!v)} outlines={outlines} onOutlines={()=>setOutlines(v=>!v)} colorfy={colorfy} onColorfy={()=>setColorfy(v=>!v)} onCopy={copySelection} onPaste={pasteSelection} canPaste={!!clipboard.current} onCopyTexture={copyTexture} onPasteTexture={pasteTexture} strokes={project?paintStrokeHistory(project):[]} onToggleStroke={entry=>toggleStroke(entry)} onUndoStroke={undoLastStroke} onGrab={grabPatch} onInvertSelection={invertSelection} onSelectAll={selectAllParts} onTextureAction={action=>window.dispatchEvent(new CustomEvent('paint-texture-action',{detail:action}))} onNative={()=>setDialog('native')} onImport={()=>imageInput.current.click()} region={region} textureRegion={textureRegion} targetMode={targetMode} activeGeoset={activeGeoset} selectionKind={selectionKind} onSelectionKind={kind=>{endStroke();setSelectionKind(kind);setPickPart(true);setRegionTool(true);cameraProps.onWorkMode?.();}} isolate={isolate} onIsolate={setIsolate} onClearSelection={clearSelection} onFill={fillGeoset} onSeparate={separateSelection} onTextureMask={()=>setDialog('region')}
     onCrop={()=>{if(material){endStroke();setCutoutSource(material);setDialog('cutout');}}} onSaveSource={()=>{if(material)saveTexture({...material,shelfOnly:true});}} onSurface={()=>{cancelPlacement();setDialog('surface');}}
-    coat={activeCoat} coats={PAINT_COATS} onCoat={id=>{cancelPlacement();endStroke();project.activeCoatId=id;notify();}} onCoatVisible={visible=>mutateCoat(c=>{c.visible=visible;})} onCoatOpacity={opacity=>mutateCoat(c=>{c.opacity=opacity;})} smooth={!!scene.textureSmoothing} onSmooth={()=>updateScene({...scene,textureSmoothing:!scene.textureSmoothing})} symmetry={symmetry} onSymmetry={()=>setSymmetry(v=>!v)} smoothing={smoothing} onSmoothing={setSmoothing} penSeen={penSeen} pen={pen} onPen={change=>setPen(v=>({...v,...change}))} shareSides={shareSides} onShareSides={setShareSides} onTarget={id=>{cancelPlacement();selectMaterial(id);}}
+    coat={activeCoat} coats={PAINT_COATS} onCoat={id=>{cancelPlacement();endStroke();project.activeCoatId=id;notify();}} onCoatVisible={visible=>mutateCoat(c=>{c.visible=visible;})} onCoatOpacity={opacity=>mutateCoat(c=>{c.opacity=opacity;})} detailAvailable={!!project?.paintAtlasVersion&&project.paintAtlasVersion>=2} detailLevel={selectionDetail} onDetail={setSelectionDetail} smooth={!!scene.textureSmoothing} onSmooth={()=>updateScene({...scene,textureSmoothing:!scene.textureSmoothing})} symmetry={symmetry} onSymmetry={()=>setSymmetry(v=>!v)} smoothing={smoothing} onSmoothing={setSmoothing} penSeen={penSeen} pen={pen} onPen={change=>setPen(v=>({...v,...change}))} shareSides={shareSides} onShareSides={setShareSides} onTarget={id=>{cancelPlacement();selectMaterial(id);}}
     textureName={textureName} width={activeTarget?.base.width} height={activeTarget?.base.height} onHistory={studioHistory} onNew={()=>{endStroke();cancelPlacement();setDialog('new');}} onSave={()=>{endStroke();commitPlacement();onSaveProject?.(project);}} onExport={()=>{endStroke();commitPlacement();onExport?.(project);}} onDone={()=>{endStroke();commitPlacement();onExit?.();}}
     shelf={<PaintTextureShelf language={preferences?.language} key={project?.id} epoch={shelfEpoch} {...shelfCallbacks} onFolderChange={setFolders}/>}
     texture={project&&activeCanvas&&<PaintTextureCanvas {...cameraProps} onPenSeen={()=>setPenSeen(true)} onBrushAdjust={adjustBrushByDrag} preferences={preferences} outside={outside&&studioTool!=='sample'} title={textureName+' · '+activeTarget.base.width+' × '+activeTarget.base.height} onHover={previewHover} regionMask={textureRegion?.targetId===activeTarget.id?textureRegion.data:null} version={textureOverrides.get(activeTarget.textureId)?.revision} canvas={activeCanvas} geoset={baseModel.Geosets[activeGeoset]} coordId={coordId} brush={brush} brushPreview={footprint} decal={decal} textureSmoothing={scene.textureSmoothing} disabled={!geosetReady} onStart={startStroke} onMove={moveStroke} onEnd={endStroke} onCancel={cancelStroke} onUVChange={editUV} onGrab={grabPatch} onCopyTexture={copyTexture} onPasteTexture={pasteTexture} onCopy={copySelection} onPaste={pasteSelection} selectedFaces={paintRegionFaces(region,activeGeoset)} onSeparate={separateSelection} onMask={data=>setTextureRegion({targetId:activeTarget.id,width:activeTarget.base.width,height:activeTarget.base.height,data})} />}

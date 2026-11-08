@@ -335,8 +335,9 @@ function mirrorCopy(mesh, chart, partners) {
   return { ...chart, faces, coordinates, sharedWith: chart, pieceFaces: undefined };
 }
 
-function layoutMesh(mesh, mirror, tolerance) {
+function layoutMesh(mesh, mirror, tolerance, detail) {
   prepareFaces(mesh);
+  for (const face of mesh.faces) face.detail = detail?.[mesh.geosetIndex]?.[face.id] || 1;
   let working = mesh.faces, partners = null;
   const copies = [];
   if (mirror) {
@@ -353,7 +354,9 @@ function layoutMesh(mesh, mirror, tolerance) {
     });
   }
   const allowed = new Set(working);
-  if (mirror) for (const face of working) face.links = face.links.filter(link => allowed.has(link.face));
+  if (mirror) for (const face of working) { const partner = partners.get(face); if (partner) face.detail = Math.max(face.detail, partner.face.detail); }
+  // A piece has one scale, so parts of different detail never share a piece.
+  for (const face of working) face.links = face.links.filter(link => (!mirror || allowed.has(link.face)) && link.face.detail === face.detail);
   const pieces = connectedParts(working).flatMap(part => growPieces(part));
   const charts = absorbSmall(mesh, pieces.flatMap(faces => chartsOf(mesh, faces)));
   if (mirror) for (const chart of charts) {
@@ -427,6 +430,29 @@ function nestCharts(charts, resolution, padding, packed) {
   return best ? { scale: low, placements: best } : packed;
 }
 
+/** Identical panels, rivets and spikes read the same pixels when sharing is on. */
+function stackRepeats(charts, copies) {
+  const groups = new Map();
+  for (const chart of charts) { if (chart.pieceFaces.length > 200) continue; const key = [chart.pieceFaces.length, Math.round(chart.width * 2), Math.round(chart.height * 2)].join(':'); (groups.get(key) || groups.set(key, []).get(key)).push(chart); }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const primary = group[0];
+    for (const other of group.slice(1)) {
+      const limit = Math.max(primary.width, primary.height) * .04 + .05, coordinates = new Map(); let matched = true;
+      for (const [vertex, point] of other.coordinates) {
+        let best = null, nearest = limit * limit;
+        for (const candidate of primary.coordinates.values()) { const dx = candidate[0] - primary.minU - point[0] + other.minU, dy = candidate[1] - primary.minV - point[1] + other.minV, d = dx * dx + dy * dy; if (d <= nearest) { nearest = d; best = candidate; } }
+        if (!best) { matched = false; break; }
+        coordinates.set(vertex, best);
+      }
+      if (!matched) continue;
+      for (const copy of copies) if (copy.sharedWith === other) copy.sharedWith = primary;
+      charts.splice(charts.indexOf(other), 1);
+      copies.push({ ...other, coordinates, sharedWith: primary, minU: primary.minU, minV: primary.minV, width: primary.width, height: primary.height, pieceFaces: undefined });
+    }
+  }
+}
+
 /** Glows and shockwaves blend over the game, and corpse gore only shows briefly;
  * the unit itself should get the pixels. Filter modes alone cannot tell: some
  * units draw their whole body with an additive-alpha layer, so size counts too. */
@@ -443,18 +469,47 @@ function shrink(chart, share) {
   chart.minU *= share; chart.minV *= share; chart.width *= share; chart.height *= share;
 }
 
+/** Heads get extra pixels by default, as hand-painted units do. Uses the head
+ * bone and what hangs from it; a model without one uses the loose parts at the
+ * top centre of the model. Returns { geoset: { face: detail } }. */
+export const PAINT_DETAIL_MOST = 2.5;
+export function paintHeadDetail(model, geosetIndices) {
+  const bones = model.Bones || [], head = new Set(bones.filter(bone => /head/i.test(bone.Name || '')).map(bone => bone.ObjectId)), nodes = [...bones, ...(model.Helpers || [])], detail = {};
+  if (head.size) for (let changed = true; changed;) { changed = false; for (const node of nodes) if (!head.has(node.ObjectId) && head.has(node.Parent)) { head.add(node.ObjectId); changed = true; } }
+  if (head.size) for (const index of geosetIndices) {
+    const geoset = model.Geosets[index], onHead = (geoset.Groups || []).map(group => [...group].some(id => head.has(Number(id))));
+    for (let face = 0; face < geoset.Faces.length / 3; face++) { let count = 0; for (let corner = 0; corner < 3; corner++) if (onHead[geoset.VertexGroup?.[geoset.Faces[face * 3 + corner]]]) count++; if (count >= 2) (detail[index] ||= {})[face] = PAINT_DETAIL_MOST; }
+  }
+  if (Object.keys(detail).length) return detail;
+  let low = Infinity, high = -Infinity;
+  for (const index of geosetIndices) { const v = model.Geosets[index].Vertices; for (let i = 2; i < v.length; i += 3) { low = Math.min(low, v[i]); high = Math.max(high, v[i]); } }
+  const height = high - low, line = high - height * .16;
+  for (const index of geosetIndices) {
+    const mesh = meshOf(model.Geosets[index], index);
+    if (roomFor(model, model.Geosets[index]) !== 1) continue;
+    for (const part of connectedParts(mesh.faces)) {
+      let top = 0, total = 0, sideways = 0;
+      for (const face of part) { const z = (mesh.positions[face.welded[0]][2] + mesh.positions[face.welded[1]][2] + mesh.positions[face.welded[2]][2]) / 3, y = (mesh.positions[face.welded[0]][1] + mesh.positions[face.welded[1]][1] + mesh.positions[face.welded[2]][1]) / 3, area = Math.max(face.area, 1e-6); total += area; if (z >= line) top += area; sideways += Math.abs(y) * area; }
+      if (top / total >= .6 && sideways / total < height * .14) for (const face of part) (detail[index] ||= {})[face.id] = PAINT_DETAIL_MOST;
+    }
+  }
+  return detail;
+}
+
 /** Build the New base coat layout. `mirror` lets left and right share pixels. */
-export function createPaintLayout(model, geosetIndices, resolution = 512, { mirror = false } = {}) {
+export function createPaintLayout(model, geosetIndices, resolution = 512, { mirror = false, detail = null } = {}) {
   if (![256, 512, 1024, 2048].includes(Number(resolution))) throw Error('Fresh paint textures must be 256, 512, 1024 or 2048 pixels.');
   const indices = [...new Set(geosetIndices)].sort((a, b) => a - b), charts = [], copies = [], tolerance = largestDimension(model, indices) * MIRROR_TOLERANCE;
   for (const index of indices) {
     const geoset = model?.Geosets?.[index];
     if (!geoset?.Vertices?.length || !geoset?.Faces?.length) throw Error(`Geoset ${index + 1} has no paintable triangles.`);
-    const result = layoutMesh(meshOf(geoset, index), mirror, tolerance), share = roomFor(model, geoset);
-    if (share !== 1) { result.charts.forEach(chart => shrink(chart, share)); for (const copy of result.copies) Object.assign(copy, { minU: copy.sharedWith.minU, minV: copy.sharedWith.minV, width: copy.sharedWith.width, height: copy.sharedWith.height }); }
+    const result = layoutMesh(meshOf(geoset, index), mirror, tolerance, detail), share = roomFor(model, geoset);
+    result.charts.forEach(chart => { const room = share * chart.pieceFaces[0].detail; if (room !== 1) shrink(chart, room); });
+    for (const copy of result.copies) Object.assign(copy, { minU: copy.sharedWith.minU, minV: copy.sharedWith.minV, width: copy.sharedWith.width, height: copy.sharedWith.height });
     charts.push(...result.charts); copies.push(...result.copies);
   }
   if (!charts.length) throw Error('This model has no paintable triangles.');
+  if (mirror) stackRepeats(charts, copies);
   // Wide gutters keep pieces apart once the game shrinks the texture. Fall back
   // to a narrow one only when a very detailed model would lose real resolution.
   const wide = Math.max(2, Math.round(resolution / 128)), packedNarrow = packCharts(charts, resolution, 1, { upright: true }), packedWide = packCharts(charts, resolution, wide, { upright: true });

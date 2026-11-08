@@ -100,8 +100,14 @@ and the old five-tool toolbar.
   planes and corpse gore, which get less room. Edit the texture never comes here,
   and saved projects keep the UVs they were painted on.
   `createFreshPaintAtlas` remains for Resize texture and Separate this part.
-- **Share pixels between left and right** is an off-by-default start option: one
-  side is unwrapped and the matching side reads the same pixels.
+- **Share pixels between matching parts** is an off-by-default start option: one
+  side is unwrapped and the matching side reads the same pixels, and repeated
+  identical pieces stack.
+- **Detail** (Less, Normal, More, Most) is the artist-style texel density control.
+  It appears with a selection on a New base coat, re-lays out from the original
+  mesh, carries all paint to the new positions and is one undo step. Heads start
+  at Most, found from the head bone or the top-centre loose parts. Single-stroke
+  undo stops at the last layout change, since every pixel moved.
 - Stamp source coordinates come from destination texel centers. Filter and
   magnified-screen samples are fallbacks and must not drag source imagery
   toward the stamp center. Pressed preview and release use the same projector.

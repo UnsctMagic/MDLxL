@@ -13,6 +13,9 @@ Contract: [Citadel Paint design](../citadel-paint/DESIGN.md).
 - Paint runs three texels past each piece of a version 2 layout (`uvGutter`), so the
   empty gaps never show at piece edges with filtering on.
 
+- Detail levels per selection (`preparePaintDetailChange`), heads at Most by default,
+  repeated parts stack when sharing is on, compact left panel with visible layers.
+
 ## Evidence
 
 - `test/paint-uv-layout.test.js` and the other `test/paint-*.test.js` files.

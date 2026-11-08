@@ -8199,5 +8199,9 @@
   "What pressing harder with a drawing pen changes": "Ce que change une pression plus forte du stylet",
   "Matching left and right parts use the same texture pixels: paint one side, the other follows, and everything gets sharper. Leave this off if the two sides must differ.": "Les parties gauche et droite identiques utilisent les mêmes pixels : peignez un côté, l’autre suit, et tout gagne en netteté. Laissez désactivé si les deux côtés doivent différer.",
   "Show the texture filtered, as the game draws it": "Afficher la texture filtrée, comme dans le jeu",
-  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "Lisser (Z) : affiche la texture filtrée, comme dans le jeu. Désactivé, chaque pixel est visible."
+  "Smooth (Z): show the texture filtered, as the game draws it. Off shows every pixel.": "Lisser (Z) : affiche la texture filtrée, comme dans le jeu. Désactivé, chaque pixel est visible.",
+  "Most": "Maximum",
+  "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "Nombre de pixels de texture accordés à la sélection. Les autres pièces font de la place et la peinture les suit.",
+  "Share pixels between matching parts": "Partager les pixels entre parties identiques",
+  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Les côtés et les parties répétées utilisent les mêmes pixels : peignez-en une, les autres suivent, et tout gagne en netteté. Laissez désactivé si elles doivent différer."
 }

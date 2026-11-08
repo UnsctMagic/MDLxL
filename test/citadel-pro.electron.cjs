@@ -40,7 +40,7 @@ async function run() {
   ({ app, page, errors: result.errors } = await launchApp({ fixture, out, bounds: { x: -3000, y: 0, width: 1500, height: 1000 }, pageTimeout: 20000 }));
   await page.locator('[data-hotkey="paint"]').click(); await settle(500);
   await page.getByRole('button', { name: /New base coat/ }).click(); await settle();
-  assert.equal(await page.getByLabel('Share pixels between left and right').isChecked(), false, 'sharing starts off');
+  assert.equal(await page.getByLabel('Share pixels between matching parts').isChecked(), false, 'sharing starts off');
   await page.getByRole('button', { name: 'Begin painting', exact: true }).click(); await page.locator('.paint-texture-view').waitFor(); await settle(800);
   await page.evaluate(() => {
     window.audit = () => { const props = findFiberState('.paint-workspace', p => p?.onWorkingModelChange && p?.originalModel, { tree: true, props: true }), viewport = findFiberState('.paint-workspace', p => p?.onPaintStart && p?.paintMode, { tree: true, props: true }), runtime = findFiberState('.paint-workspace', s => s?.renderer && s?.camera, { tree: true }), layout = findFiberState('.paint-workspace', p => p?.onBrush && p?.onShape, { tree: true, props: true }); return { props, project: props.project, runtime, viewport, layout }; };
@@ -115,13 +115,24 @@ async function run() {
 
   // Layer opacity changes what is shown, not the painted pixels.
   await drag(a2, b2);
-  await page.locator('details').filter({ hasText: 'Layers & texture' }).locator('summary').click(); await settle();
   const composite = () => page.evaluate(() => { const c = audit().project.targets[0]; let n = 0; const d = c.coats.find(x => x.id === 'base').raster.data; return { opacity: c.coats.find(x => x.id === 'base').opacity, sum: d.reduce((s, v) => s + v, 0) }; });
   const before = await composite();
   await page.getByLabel('Layer opacity value').fill('40'); await settle();
   const after = await composite(); assert.equal(after.opacity, .4); assert.equal(after.sum, before.sum); passed('Layer opacity changes the layer without touching its pixels');
   await page.getByLabel('Layer opacity value').fill('100'); await settle();
 
+  // Detail: real clicks, paint keeps its place, Undo restores the layout.
+  assert.ok(Object.keys(await page.evaluate(() => audit().project.pieceDetail)).length > 0, 'the head starts with extra detail'); passed('the head starts with extra detail');
+  const selectTool = page.getByRole('button', { name: 'Select', exact: true }); await selectTool.click(); await settle(); await page.mouse.click(...a2); await settle(300); await selectTool.click(); await settle(300);
+  const layoutKey = () => page.evaluate(() => Array.from(audit().viewport.model.Geosets[0].TVertices[0].slice(0, 40)).join());
+  const paintedOn = () => page.evaluate(() => audit().project.targets[0].coats.find(c => c.id === 'base').raster.data.reduce((n, v, i) => n + (i % 4 === 0 && v > 150 ? 1 : 0), 0));
+  const oldLayout = await layoutKey(), oldPaint = await paintedOn();
+  await page.getByRole('group', { name: 'Detail' }).getByRole('button', { name: 'More' }).click();
+  await page.waitForFunction(() => audit().layout.detailLevel === 1.6, null, { timeout: 15000 }); await settle(400);
+  assert.notEqual(await layoutKey(), oldLayout); const newPaint = await paintedOn(); assert.ok(newPaint > oldPaint, 'the selected part grows, so its paint covers more pixels: ' + oldPaint + ' to ' + newPaint); passed('Detail gives the selection more pixels and its paint comes along');
+  await page.keyboard.press('Control+z'); await settle(600);
+  assert.equal(await layoutKey(), oldLayout); assert.equal(await paintedOn(), oldPaint); passed('Undo restores the old layout and paint exactly');
+  await page.keyboard.press('Control+d'); await settle();
   assert.deepEqual(result.errors, []);
   console.log(JSON.stringify({ out, checks: result.checks.length }, null, 2));
 }
