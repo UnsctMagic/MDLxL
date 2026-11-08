@@ -1,5 +1,5 @@
 import { createChanges, applyChanges } from '../src/history-store.js';
-import { ignoreHistoryAlias } from '../src/editor-document.js';
+import { ignoreHistoryAlias, recalculateExtents } from '../src/editor-document.js';
 
 const changes = (before, after) => createChanges(before, after, { ignore: ignoreHistoryAlias });
 
@@ -52,6 +52,23 @@ function checkMerge(job, diff, result) {
   if (lostCandidate) return 'Carry the candidate change at ' + JSON.stringify(lostCandidate.path) + ' into the latest model. The user did not edit it.';
 }
 
+const isModelBounds = edit => edit.path[0] === 'Info' && ['MinimumExtent', 'MaximumExtent', 'BoundsRadius'].includes(edit.path[1]);
+const noPendingWork = (a, b) => a === b || !Object.keys(a || {}).length && !Object.keys(b || {}).length;
+
+// When the user and the job changed separate data, the job's edits apply to the latest model
+// as they are. Returns null when they overlap. The model-wide box only summarizes the geosets'
+// own boxes, so two sides changing it is not an overlap: it is rebuilt from the combined geosets.
+function planIndependentEdits(job, source, diff) {
+  if (source.paintProject?.dirty && source.paintWorkingRevision !== job.paintRevision) return null;
+  if (!noPendingWork(source.uvPreviews, job.uvPreviews) || !noPendingWork(source.animationDrafts, job.animationDrafts)) return null;
+  const userEdits = changes(job.recovery.model, source.doc.model);
+  const userChanged = changeIndex(userEdits.filter(edit => !isModelBounds(edit)));
+  if (diff.some(edit => !isModelBounds(edit) && userChanged(edit))) return null;
+  if (!userEdits.some(isModelBounds)) return { edits: diff, rebound: false };
+  const edits = diff.filter(edit => !isModelBounds(edit));
+  return { edits, rebound: edits.length !== diff.length };
+}
+
 // The task's candidate, latest source, and common ancestor stay separate during a merge.
 // Final transfer checks the live revision and commits synchronously in one editor Undo.
 export function deliverJob(bridge, target, action) {
@@ -83,18 +100,25 @@ export function deliverJob(bridge, target, action) {
     if (job.resultSelection && !changedSource(job, source)) host.deliverAiSelection(source.id, job.resultSelection);
     return { delivered: true, selectionSkipped: !!job.resultSelection && !!changedSource(job, source) };
   }
-  if (changedSource(job, source)) return { conflict: true };
+  const combined = changedSource(job, source);
+  const plan = combined ? planIndependentEdits(job, source, diff) : { edits: diff, rebound: false };
+  if (!plan) return { conflict: true };
   if (job.merge) {
     const correction = checkMerge(job, diff, draft.doc.model);
     if (correction) return { correction };
   }
-  if (diff.length) {
-    const sections = [...new Set(diff.map(change => change.path[0]))];
-    const result = host.editIn(source.id, job.merge ? 'Merge AI result' : 'Apply AI result', sections,
-      model => applyChanges(model, diff), { rethrow: true });
+  if (plan.edits.length) {
+    const sections = [...new Set(plan.edits.map(change => change.path[0]))];
+    let result;
+    // A combination the editor rejects leaves the model untouched; the user then gets the choice.
+    try {
+      result = host.editIn(source.id, job.merge || combined ? 'Merge AI result' : 'Apply AI result', sections,
+        model => { applyChanges(model, plan.edits); if (plan.rebound) recalculateExtents(model, []); }, { rethrow: true });
+    } catch (error) { if (!combined) throw error; return { conflict: true }; }
+    if (result === false && combined) return { conflict: true };
     if (result === false) throw Error('The editor could not apply the AI result.');
     // Existing assets win name collisions. Source textures added during the job stay available.
     source.assets = new Map([...draft.assets, ...source.assets]);
   }
-  return { delivered: true, merged: !!job.merge, revision: source.doc.revision };
+  return { delivered: true, merged: !!job.merge || !!combined, revision: source.doc.revision };
 }

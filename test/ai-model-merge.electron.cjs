@@ -19,6 +19,7 @@ async function waitForProvider(point) {
 async function run(scenario) {
   const paused = [waitPoint(), waitPoint()], proceed = paused.map(waitPoint);
   let generation = 0, action = 0, failure;
+  const overlaps = scenario === 'repeat' || scenario === 'apply';
   const server = http.createServer(async (req, res) => {
     if (req.url.endsWith('/models')) { res.end('{"data":[{"id":"fixture"}]}'); return; }
     let body = ''; for await (const chunk of req) body += chunk;
@@ -29,9 +30,12 @@ async function run(scenario) {
       if (!action) { paused[generation].resolve(); await proceed[generation].promise; }
       const prior = data.messages.filter(m => m.role === 'tool').at(-1)?.content;
       if (action && prior && !prior.startsWith('{')) throw Error(prior.slice(0, 500));
+      const firstEdit = 'model.Info.BlendTime = 321;' + (scenario === 'geosets' ? 'model.Geosets[1].Vertices[0] += 5;' : '');
+      const mergeEdit = 'if (!references["merge:candidate"] || !references["merge:base"]) throw Error("Missing merge inputs"); model.Info.BlendTime = references["merge:candidate"].model.Info.BlendTime;';
+      const scope = ['/Info/BlendTime', ...(scenario === 'geosets' ? ['/Geosets/1/Vertices'] : [])];
       const calls = [
         ['mdlxl_plan', { cause: 'Blend time needs the requested value.', reach: 'Model header only.', keep: ['All user animation properties'], options: [{ fix: 'Edit only BlendTime.', cost: 'One field' }, { fix: 'Rebuild the header', cost: 'Broader' }], choice: 0, why: 'Smallest change', checks: ['Header and animations'] }],
-        ['mdlxl_script', { edit: true, label:'Set blend time', scope:['/Info/BlendTime'], code: generation ? 'if (!references["merge:candidate"] || !references["merge:base"]) throw Error("Missing merge inputs"); model.Info.BlendTime = references["merge:candidate"].model.Info.BlendTime;' : 'model.Info.BlendTime = 321;' }],
+        ['mdlxl_script', { edit: true, label:'Set blend time', scope, code: generation ? mergeEdit : firstEdit }],
         ['mdlxl_review', { action:'inspect', checksCode:'return [{ name: "Blend time and authored animations", passed:model.Info.BlendTime===321 && JSON.stringify(model.Sequences)===JSON.stringify(before.Sequences)}];' }],
         ['mdlxl_review', { action:'finish', outcome:'passed', summary:'The candidate preserves the animations and changes the requested blend time.' }],
       ];
@@ -66,6 +70,8 @@ async function run(scenario) {
     await page.getByRole('button',{ name: 'Animations', exact: true }).click();
     const rarity = page.getByLabel('Use Rarity',{exact:true});
     const initial = await rarity.isChecked();
+    // A real overlap: the user and the AI both set the same header field.
+    const setUserBlend = value => page.evaluate(v => { window.__mdlxl.document().apply('Test edit', ['Info'], m => { m.Info.BlendTime = v; }); }, value);
     const preview = page.locator('.game-preview-root:visible').first();
     const orientation = () => preview.evaluate(el => window.__mdlxl.preview(el).runtime.controls.object.quaternion.toArray());
     let rotated;
@@ -81,7 +87,13 @@ async function run(scenario) {
       await page.keyboard.up('Alt');
       rotated = await orientation();
       assert.ok(Math.hypot(...rotated.map((v,i) => v-before[i])) > 0.01, 'normal mouse drag rotated the camera');
-    } else await rarity.click();
+    } else if (scenario === 'geosets') {
+      assert.ok(original.Geosets.length > 1, 'the fixture has separate geosets');
+      await page.evaluate(() => window.__mdlxl.document().apply('Test edit', ['Geosets'], m => { m.Geosets[0].Vertices[0] += 3; }));
+    } else {
+      await rarity.click();
+      if (overlaps) await setUserBlend(200);
+    }
     proceed[0].resolve();
     const choice = page.getByRole('group',{ name: 'Model changed during the AI job'}).filter({ has: page.getByRole('button',{ name: 'Merge', exact: true })});
     if (scenario === 'view') {
@@ -90,6 +102,23 @@ async function run(scenario) {
       assert.ok(Math.hypot(...(await orientation()).map((v,i) => v-rotated[i])) < 1e-5, 'AI delivery preserves the new viewpoint');
       const saved = await readModel();
       assert.equal(saved.Info.BlendTime,321); assert.deepEqual(saved.Sequences,original.Sequences);
+      return;
+    }
+    if (scenario === 'auto' || scenario === 'geosets') {
+      await page.getByRole('button',{ name: 'Stop', exact: true }).waitFor({ state: 'hidden', timeout: 35000 });
+      assert.equal(await choice.count(),0,'separate edits combine without the choice');
+      assert.equal(generation,1,'the provider was not asked to merge');
+      const merged = await readModel();
+      assert.equal(merged.Info.BlendTime,321);
+      if (scenario === 'geosets') {
+        assert.equal(merged.Geosets[0].Vertices[0],Math.fround(original.Geosets[0].Vertices[0] + 3),'the user geoset edit survived');
+        assert.equal(merged.Geosets[1].Vertices[0],Math.fround(original.Geosets[1].Vertices[0] + 5),'the AI geoset edit arrived');
+      } else assert.notDeepEqual(merged.Sequences,original.Sequences,'the animation edit survived');
+      await page.keyboard.press('Control+z');
+      await page.waitForFunction(blend => window.__mdlxl.model().Info.BlendTime === blend, original.Info.BlendTime);
+      const undone = await readModel();
+      assert.deepEqual(undone.Sequences,merged.Sequences,'one Undo removes only the AI result');
+      assert.equal(undone.Geosets[0].Vertices[0],merged.Geosets[0].Vertices[0]);
       return;
     }
     await choice.waitFor({ timeout: 35000 }).catch(async error => { console.error((await page.locator('body').innerText()).slice(0,6500)); throw error; });
@@ -103,13 +132,13 @@ async function run(scenario) {
       assert.equal(merged.Info.BlendTime,321);
       assert.notDeepEqual(merged.Sequences,original.Sequences,'the animation edit survived');
       await page.keyboard.press('Control+z');
-      await page.waitForFunction(blend => window.__mdlxl.model().Info.BlendTime === blend, original.Info.BlendTime);
+      await page.waitForFunction(blend => window.__mdlxl.model().Info.BlendTime === blend, 200);
       const undone = await readModel();
-      assert.equal(undone.Info.BlendTime,original.Info.BlendTime);
+      assert.equal(undone.Info.BlendTime,200,'one Undo returns to the user value');
       assert.deepEqual(undone.Sequences,merged.Sequences);
       return;
     }
-    await rarity.click(); proceed[1].resolve(); await choice.waitFor({ timeout: 35000 });
+    await rarity.click(); await setUserBlend(201); proceed[1].resolve(); await choice.waitFor({ timeout: 35000 });
     assert.equal(await rarity.isChecked(),initial);
     await choice.getByRole('button',{ name: 'Open as new model', exact: true }).click();
     await page.getByRole('tab',{ name: /\(AI\)\.mdx$/}).waitFor({ timeout: 20000 });
@@ -118,7 +147,7 @@ async function run(scenario) {
     assert.notDeepEqual(copy.Sequences,original.Sequences);
     await page.getByRole('tab',{ name: path.basename(fixture), exact: true }).click();
     assert.equal(await rarity.isChecked(),initial,'source retains the second edit');
-    assert.equal((await readModel()).Info.BlendTime,original.Info.BlendTime);
+    assert.equal((await readModel()).Info.BlendTime,201);
   } finally {
     for (const turn of proceed) turn.resolve();
     server.closeAllConnections();
@@ -128,7 +157,7 @@ async function run(scenario) {
   }
 }
 async function main() {
-  for (const scenario of ['repeat', 'apply', 'view']) {
+  for (const scenario of ['repeat', 'apply', 'view', 'auto', 'geosets']) {
     await run(scenario);
     console.log('PASS',scenario);
   }
