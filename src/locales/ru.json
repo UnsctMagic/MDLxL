@@ -8057,5 +8057,6 @@
   "Most": "Максимум",
   "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "Сколько пикселей текстуры получает выделение. Остальные части освободят место, а краска переместится вместе с ними.",
   "Share pixels between matching parts": "Общие пиксели для одинаковых частей",
-  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Левая и правая стороны и повторяющиеся части используют одни пиксели: рисуете одну, остальные повторяют, и всё чётче. Не включайте, если они должны различаться."
+  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Левая и правая стороны и повторяющиеся части используют одни пиксели: рисуете одну, остальные повторяют, и всё чётче. Не включайте, если они должны различаться.",
+  "Learn: open learning controls and settings. Right-click turns the hotkey overlay on or off.": "Обучение: открыть управление обучением и его настройки. Правый клик включает или выключает подсказки горячих клавиш."
 }

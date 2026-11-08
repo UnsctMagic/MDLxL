@@ -8067,5 +8067,6 @@
   "Most": "Máximo",
   "How many texture pixels this selection gets. Other pieces make room and your paint moves with them.": "Cuántos píxeles de textura recibe la selección. Las demás piezas dejan sitio y la pintura se mueve con ellas.",
   "Share pixels between matching parts": "Compartir píxeles entre partes iguales",
-  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Los lados y las partes repetidas usan los mismos píxeles: pintas una y las demás la siguen, con más nitidez. Déjalo desactivado si deben ser distintas."
+  "Left and right sides and repeated parts use the same texture pixels: paint one, the others follow, and everything gets sharper. Leave this off if they must differ.": "Los lados y las partes repetidas usan los mismos píxeles: pintas una y las demás la siguen, con más nitidez. Déjalo desactivado si deben ser distintas.",
+  "Learn: open learning controls and settings. Right-click turns the hotkey overlay on or off.": "Aprender: abrir los controles y ajustes de aprendizaje. El clic derecho activa o desactiva la superposición de atajos."
 }
