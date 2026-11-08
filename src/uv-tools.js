@@ -77,14 +77,23 @@ export function relevantUVMaterials(model, selectionByGeoset, time = 0, sequence
     const entry = grouped.get(materialID) || { materialID, geosetIndices: [] };
     entry.geosetIndices.push(geosetIndex); grouped.set(materialID, entry);
   }
-  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => {
-    const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
-    const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
-    const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
-    const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
-    const names = [...new Set(layers.map(layer => layer.label))];
-    return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
-  });
+  return [...grouped.values()].sort((a, b) => a.materialID - b.materialID).map(entry => describeUVMaterial(model, entry, time, sequenceIndex));
+}
+
+function describeUVMaterial(model, entry, time, sequenceIndex) {
+  const layers = uvMaterialLayers(model, entry.materialID, time, sequenceIndex);
+  const availableSets = entry.geosetIndices.map(index => model.Geosets[index].TVertices || []);
+  const preferred = layers.map(layer => layer.coordId).find(coordId => availableSets.every(sets => sets[coordId]));
+  const coordId = preferred ?? availableSets[0]?.findIndex((_, index) => availableSets.every(sets => sets[index])) ?? 0;
+  const names = [...new Set(layers.map(layer => layer.label))];
+  return { ...entry, layers, coordId: Math.max(0, coordId), label: `Material ${entry.materialID + 1} · ${names.join(' + ') || 'No texture'}` };
+}
+
+/** The model's other materials, described as if these geosets used them. */
+export function otherUVMaterials(model, geosetIndices, excludedMaterialIDs, time = 0, sequenceIndex = -1) {
+  const excluded = new Set(excludedMaterialIDs);
+  return (model?.Materials || []).flatMap((material, materialID) => material && !excluded.has(materialID)
+    ? [describeUVMaterial(model, { materialID, geosetIndices }, time, sequenceIndex)] : []);
 }
 
 /** Flatten geosets into one temporary UV canvas with their shared model positions. */

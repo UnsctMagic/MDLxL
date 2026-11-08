@@ -236,6 +236,13 @@ export function revertUVPreviews(model, drafts) {
   return count;
 }
 
+/** The drafts left after cancelling the unsaved textures on these geosets. */
+export function dropUVPreviews(drafts, geosetIndices) {
+  const next = { ...drafts };
+  for (const index of geosetIndices) delete next[index];
+  return next;
+}
+
 export function uvPreviewModel(model, drafts, liveUV = null) {
   const liveChanges = Array.isArray(liveUV) ? liveUV : liveUV ? [liveUV] : [];
   if (!Object.keys(drafts).length && !liveChanges.length) return model;
