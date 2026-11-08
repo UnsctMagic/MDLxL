@@ -66,9 +66,16 @@ export function contextualHotkeyDefaults(actions, reservedKeys = [], overrides =
   for (const group of order) {
     const members = groups.get(group), editor = group === 'editor', embedsEditor = !editor && members.some(action => action.embedsEditor);
     const parent = members.find(action => action.parentGroup)?.parentGroup;
-    const taken = new Set([...custom, ...everywhere, ...(editor || embedsEditor ? [...commandKeys, ...EDITOR_RESERVED] : []), ...(embedsEditor ? keysOf.get('editor') || [] : []), ...(parent ? keysOf.get(parent) || [] : [])]), fresh = [];
+    // A non-modal panel (`panel`) stays clear of the editor's keys but keeps Esc for its Close.
+    const panel = members.some(action => action.panel);
+    const firm = new Set([...everywhere, ...(editor || embedsEditor ? [...commandKeys.filter(key => !(panel && key === 'Escape')), ...EDITOR_RESERVED] : []), ...(embedsEditor ? keysOf.get('editor') || [] : []), ...(parent ? keysOf.get(parent) || [] : [])]);
+    const taken = new Set([...custom, ...firm]), fresh = [];
+    // A key the user assigned elsewhere must not move a saved key here: it only yields to a key that can fire in this window.
+    const firesHere = action => editor || embedsEditor || action.scope === 'global' || action.allowInModal;
+    const windowCustom = new Set([...[...members, ...(parent ? groups.get(parent) || [] : [])], ...commands.filter(firesHere)].flatMap(action => overrides[action.id] || []).filter(direct));
     for (const action of members) {
-      if (!action.bindingCommand && !action.keys && direct(action.defaultKey) && !taken.has(action.defaultKey)) { taken.add(action.defaultKey); assigned.set(action.id, action.defaultKey); } else fresh.push(action);
+      const saved = action.defaultKey;
+      if (!action.manual && !action.bindingCommand && !action.keys && direct(saved) && !firm.has(saved) && !windowCustom.has(saved)) { firm.add(saved); taken.add(saved); assigned.set(action.id, saved); } else fresh.push(action);
     }
     for (const [id, key] of allocateGroup(fresh, taken, { editor, wide: editor || embedsEditor, bindings })) assigned.set(id, key);
     keysOf.set(group, members.flatMap(action => assigned.get(action.id) || []).filter(Boolean));

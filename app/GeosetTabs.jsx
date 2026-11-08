@@ -98,22 +98,22 @@ export default function GeosetTabs({ model, active, onActive, selected, edit, di
   const button = action === 'create' ? 'Create' : action === 'rename' ? 'Rename' : 'Move';
   return <div className="geoset-tabs" ref={root}>
     {actionsContainer && createPortal(<span className="geoset-tab-buttons" ref={controls}>
-      <button type="button" aria-label="New geoset tab" title="New tab" disabled={disabled} onClick={event => { event.preventDefault(); event.stopPropagation(); openAction('create'); }}><Plus size={13}/></button>
-      <button type="button" aria-label="Geoset tab actions" title="Tab actions" aria-haspopup="menu" aria-expanded={menu === 'actions'} onClick={event => openMenu(event, 'actions')}><Menu size={13}/></button>
+      <button data-hotkey="geoset-tabs:new-geoset-tab" data-hotkey-manual data-hotkey-label="New geoset tab" type="button" aria-label="New geoset tab" title="New tab" disabled={disabled} onClick={event => { event.preventDefault(); event.stopPropagation(); openAction('create'); }}><Plus size={13}/></button>
+      <button data-hotkey="geoset-tabs:geoset-tab-actions" data-hotkey-manual data-hotkey-label="Geoset tab actions" type="button" aria-label="Geoset tab actions" title="Tab actions" aria-haspopup="menu" aria-expanded={menu === 'actions'} onClick={event => openMenu(event, 'actions')}><Menu size={13}/></button>
     </span>, actionsContainer)}
     <div className="geoset-tab-strip">
       <div className="geoset-tab-viewport" role="tablist" aria-label="Geoset tabs" ref={strip} onKeyDown={tabKeys}>
         {entries.map(tab => <button type="button" role="tab" key={tab.id} data-tab-id={tab.id} aria-selected={active === tab.id} aria-label={tab.name} title={tab.name + (tab.visible === false ? ' (hidden)' : '')} onClick={() => choose(tab.id)}><span>{tab.name}</span>{tab.visible === false && <EyeOff size={10}/>}</button>)}
       </div>
-      {overflow && <button type="button" className="geoset-tab-overflow" aria-label="More geoset tabs" title="More tabs" aria-haspopup="menu" aria-expanded={menu === 'tabs'} onClick={event => openMenu(event, 'tabs')}><ChevronsRight size={13}/></button>}
+      {overflow && <button data-hotkey="geoset-tabs:more-geoset-tabs" data-hotkey-manual data-hotkey-label="More geoset tabs" type="button" className="geoset-tab-overflow" aria-label="More geoset tabs" title="More tabs" aria-haspopup="menu" aria-expanded={menu === 'tabs'} onClick={event => openMenu(event, 'tabs')}><ChevronsRight size={13}/></button>}
     </div>
     {menu && <div ref={popup} className="geoset-tab-menu" role="menu" aria-label={menu === 'actions' ? 'Tab actions' : 'Geoset tabs'} style={position} onContextMenu={event => event.stopPropagation()} onKeyDown={menuKeys}>
       {menu === 'tabs' ? entries.map(tab => <button type="button" role="menuitemradio" aria-checked={active === tab.id} aria-label={tab.name} data-tab-id={tab.id} key={tab.id} onClick={() => choose(tab.id, true)}><span aria-hidden="true">{active === tab.id ? '✓' : ''}</span><span>{tab.name}</span>{tab.visible === false && <EyeOff size={11}/>}</button>) : <>
-        <button type="button" role="menuitem" disabled={disabled} onClick={() => openAction('create')}>New tab…</button>
-        <button type="button" role="menuitem" disabled={disabled || !tabs.length || !selected.size} onClick={() => openAction('move')}>Move checked…</button>
-        <button type="button" role="menuitem" disabled={disabled || !current} onClick={() => openAction('rename')}>Rename tab…</button>
+        <button data-hotkey="geoset-tabs:new-tab" data-hotkey-manual data-hotkey-label="New tab…" type="button" role="menuitem" disabled={disabled} onClick={() => openAction('create')}>New tab…</button>
+        <button data-hotkey="geoset-tabs:move-checked" data-hotkey-manual data-hotkey-label="Move checked…" type="button" role="menuitem" disabled={disabled || !tabs.length || !selected.size} onClick={() => openAction('move')}>Move checked…</button>
+        <button data-hotkey="geoset-tabs:rename-tab" data-hotkey-manual data-hotkey-label="Rename tab…" type="button" role="menuitem" disabled={disabled || !current} onClick={() => openAction('rename')}>Rename tab…</button>
         <hr/>
-        <button type="button" role="menuitem" disabled={disabled || !current} onClick={() => openAction('delete')}>Delete tab</button>
+        <button data-hotkey="geoset-tabs:delete-tab" data-hotkey-manual data-hotkey-label="Delete tab" type="button" role="menuitem" disabled={disabled || !current} onClick={() => openAction('delete')}>Delete tab</button>
       </>}
     </div>}
     <GeosetListBox overlay={current && <button className="geoset-tab-eye" aria-label={`Show tab ${current.name}`} aria-pressed={current.visible} disabled={disabled} title={current.visible ? `Hide ${current.name}` : `Show ${current.name}`} onClick={() => change('Set geoset tab visibility', currentModel => { currentModel[GEOSET_TABS_KEY].find(tab => tab.id === current.id).visible = !current.visible; })}>{current.visible ? <Eye size={12}/> : <EyeOff size={12}/>}</button>}>
@@ -122,7 +122,7 @@ export default function GeosetTabs({ model, active, onActive, selected, edit, di
     {action && <div onKeyDown={event => { event.stopPropagation(); }} onContextMenu={event => event.stopPropagation()}>
       <Dialog title={title} onClose={() => setAction(null)} footer={<><button onClick={() => setAction(null)}>Cancel</button><button type="submit" form="geoset-tab-form" disabled={disabled || (action === 'move' ? !selected.size : !name.trim())}>{button}</button></>}>
         <form id="geoset-tab-form" onSubmit={submit}>
-          {action === 'move' ? <select autoFocus aria-label="Move checked geosets to tab" value={targetId} onChange={event => setTarget(event.target.value)} disabled={disabled}><option value="">Ungrouped</option>{tabs.map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select> : <input autoFocus aria-label={action === 'create' ? 'New geoset tab name' : 'Geoset tab name'} placeholder="Tab name" value={name} onChange={event => setName(event.target.value)} disabled={disabled}/>}
+          {action === 'move' ? <select data-hotkey="geoset-tabs:move-checked-geosets-to-tab" data-hotkey-manual data-hotkey-label="Move checked geosets to tab" autoFocus aria-label="Move checked geosets to tab" value={targetId} onChange={event => setTarget(event.target.value)} disabled={disabled}><option value="">Ungrouped</option>{tabs.map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select> : <input autoFocus aria-label={action === 'create' ? 'New geoset tab name' : 'Geoset tab name'} placeholder="Tab name" value={name} onChange={event => setName(event.target.value)} disabled={disabled}/>}
         </form>
       </Dialog>
     </div>}

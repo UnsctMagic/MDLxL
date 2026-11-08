@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Matrix3} from 'three';
-import {useWindowKeyClaim} from './Hotkeys.jsx';
-import {isTypingTarget} from '../src/preferences.js';
+import {useHotkeys,useWindowKeyClaim} from './Hotkeys.jsx';
+import {chordFromEvent,isTypingTarget} from '../src/preferences.js';
 import {Tool} from './EditorControls.jsx';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import UVEditor from './UVEditor.jsx';
@@ -10,11 +10,13 @@ import UVEditor from './UVEditor.jsx';
 export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change}){
  const [mode,setMode]=useState(layer.glyphs?'move':null),[texture,setTexture]=useState(null),[error,setError]=useState(false);
  const fit=useRef(null);
+ const {shortcuts}=useHotkeys();
  useWindowKeyClaim(({event,localWindow})=>{
-  if(localWindow!==fit.current?.closest('[role="dialog"]')||isTypingTarget(event.target)||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey)return false;
-  const action={m:'move',r:'rotate',z:'scale'}[event.key.toLowerCase()];
-  if(!action)return false;
-  setMode(action);return true;
+  if(localWindow!==fit.current?.closest('[role="dialog"]')||isTypingTarget(event.target))return false;
+  // Move, Rotate and Resize on the user's own keys.
+  const chord=chordFromEvent(event),tool=[['translate','move'],['rotate','rotate'],['scale','scale']].find(([id])=>shortcuts[id]?.includes(chord));
+  if(!tool)return false;
+  setMode(tool[1]);window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used',{detail:{id:tool[0],chord,event}}));return true;
  },5);
  const visible=!!mode;
  useEffect(()=>{

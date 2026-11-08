@@ -6,7 +6,9 @@ BITZ, OPXL, EMTR, ANIM, KEY, LER, VIS). The owner approved this look on
 looks like one set.
 
 These rules cover the new look only. The VIS (classic) look keeps its own
-labels in [modules.css](../app/modules.css).
+labels in [modules.css](../app/modules.css). The Trim toolbar has no pictures:
+the same labels are plain theme-coloured text, styled at the end of
+[new-look.css](../app/new-look.css).
 
 ## Picture and frame
 

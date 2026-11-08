@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_LEARN, LEARN_TEST_VERSION, normalizeLearn, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
-  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps, paintKeyLabel,
+  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps, paintKeyLabel, forgetRebound,
 } from '../src/learn-keycaps.js';
-import { normalizePreferences } from '../src/preferences.js';
+import { assignHotkey, effectiveBindings, normalizePreferences } from '../src/preferences.js';
+import { COMMANDS } from '../src/commands.js';
+import { applyPreset, CUSTOM_PRESET, loadPreset, parsePresetFile, restoreDomain, serializePreset } from '../src/settings-presets.js';
+import { paintCutoutCaption, paintKeyCaption, paintKeyText } from '../src/paint-keys.js';
 import { readLearnNotebook, LEARN_STORAGE_KEY } from '../src/learn-keycaps.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 
@@ -157,4 +160,67 @@ test('learned shortcuts stay quiet from their last use, including after a break 
   assert.equal(notebook.keys.translate.quietUntil, NOW + 74 * HOUR, 'one remembered shortcut use renews it after a break');
   notebook = recordKeyUse(clearLearned(notebook), 'translate', { now: NOW + 51 * HOUR });
   assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 51 * HOUR), 'M', 'bring back learned keys resets learning');
+});
+
+const learnedNotebook = () => {
+  const NOW = 1_700_000_000_000; let notebook = emptyNotebook();
+  for (const id of ['translate', 'rotate']) for (let use = 0; use < 5; use++) notebook = recordKeyUse(notebook, id, { now: NOW });
+  notebook = silenceKey(notebook, 'translate');
+  return { notebook, NOW };
+};
+const assertForgotMoveOnly = next => {
+  const { notebook, NOW } = learnedNotebook();
+  assert.notEqual(next, notebook);
+  assert.deepEqual(next.keys.translate, { uses: 0, quietUntil: 0, silenced: true }, 'learning restarts, a mute stays');
+  assert.deepEqual(next.keys.rotate, notebook.keys.rotate, 'other keys are untouched');
+  assert.equal(reminderFor({ ...next, keys: { ...next.keys, translate: { ...next.keys.translate, silenced: false } } }, 'translate', ['G'], NOW), 'G');
+};
+
+test('a rebind forgets what was learned for that key only, and keeps its mute', () => {
+  const { notebook } = learnedNotebook(), before = effectiveBindings(COMMANDS, {});
+  const assigned = assignHotkey({}, COMMANDS, 'translate', 'Alt+J');
+  assert.equal(assigned.ok, true);
+  assertForgotMoveOnly(forgetRebound(notebook, before, effectiveBindings(COMMANDS, assigned.hotkeys)));
+  assert.equal(forgetRebound(notebook, before, effectiveBindings(COMMANDS, {})), notebook, 'nothing changed, same notebook');
+  assert.equal(forgetRebound(notebook, {}, before), notebook, 'commands seen for the first time are not rebinds');
+  const paint = { keys: { 'paint-key:[ ]': { uses: 2, quietUntil: 9, silenced: false } }, version: 1 };
+  assert.equal(forgetRebound(paint, { 'paint-key:[': ['['] }, { 'paint-key:[': ['F1'] }, () => 'paint-key:[ ]').keys['paint-key:[ ]'].uses, 0, 'sliders share one entry');
+});
+
+test('a hotkeys preset forgets learned keys exactly as a manual rebind does', () => {
+  const { notebook } = learnedNotebook(), start = normalizePreferences({}), before = effectiveBindings(COMMANDS, start.hotkeys);
+  const moved = { hotkeys: { translate: ['Alt+J'] } };
+  const file = serializePreset('hotkeys', normalizePreferences(moved), CUSTOM_PRESET, '0.0.0', { name: 'Mine' });
+  const loaded = loadPreset(start, parsePresetFile(file, { expectDomain: 'hotkeys', catalog: COMMANDS }));
+  assert.deepEqual(loaded.hotkeys, moved.hotkeys);
+  assertForgotMoveOnly(forgetRebound(notebook, before, effectiveBindings(COMMANDS, loaded.hotkeys)));
+  // Back to Default, by the built-in preset and by Restore: Move changes again.
+  const rebound = normalizePreferences({ ...start, ...loaded }), bound = effectiveBindings(COMMANDS, rebound.hotkeys);
+  for (const change of [applyPreset('hotkeys', rebound, 'default'), restoreDomain('hotkeys', rebound)]) assertForgotMoveOnly(forgetRebound(notebook, bound, effectiveBindings(COMMANDS, change.hotkeys)));
+});
+
+test('Paint captions keep their written text by default and follow a rebind', () => {
+  const defaults = { 'paint-key:[': ['['], 'paint-key:]': [']'], 'paint-key:-': ['-'], 'paint-key:=': ['=', 'Shift+Plus'], 'paint-key:,': [','], 'paint-key:.': ['.'], 'paint-key:Shift+[': ['Shift+{'], 'paint-key:Shift+]': ['Shift+}'], 'paint-key:B': ['B'], 'paint-key:T': ['T'], 'paint-key:R': ['R'], 'paint-key:Shift+Z': ['Shift+Z'], 'paint-key:N': ['N'], 'paint-key:?': ['?', 'Shift+?'] };
+  for (const text of ['[ ]', '− +', ', .', 'Shift+[ ]', 'B / T', '[ / ]', '- / +', 'Shift+[ / Shift+]', 'R (hold)', 'Alt + left drag', 'Wheel / Right drag', '?', 'Shift']) assert.equal(paintKeyCaption(text, defaults), text);
+  assert.equal(paintKeyCaption('[ ]', undefined), '[ ]', 'Paint not open yet');
+  const rebound = { ...defaults, 'paint-key:[': ['ArrowLeft'], 'paint-key:B': ['Ctrl+B'], 'paint-key:R': ['Alt+R'], 'paint-key:=': ['F2'] };
+  assert.equal(paintKeyCaption('[ ]', rebound), 'Left / ]');
+  assert.equal(paintKeyCaption('− +', rebound), '- / F2');
+  assert.equal(paintKeyCaption('B / T', rebound), 'Ctrl+B / T');
+  assert.equal(paintKeyCaption('- / +', rebound), '- / F2');
+  assert.equal(paintKeyCaption('R (hold)', rebound), 'Alt+R (hold)');
+  assert.equal(paintKeyText(defaults, 'Shift+Z'), 'Shift+Z');
+  assert.equal(paintKeyText({ 'paint-key:Shift+Z': ['F9'] }, 'Shift+Z'), 'F9');
+  assert.deepEqual(keyCaps('Left / ]'), ['Left / ]'], 'a rebound pair stays one cap');
+  assert.deepEqual(keyCaps('Ctrl+Shift+K'), ['Ctrl', 'Shift', 'K']);
+});
+
+test('Paint cut-out hints follow the bindings', () => {
+  const defaults = { 'paint-cutout:crop': ['R'], 'paint-cutout:zoomOut': ['-'], 'paint-cutout:zoomIn': ['=', 'Plus', 'Shift+Plus'], 'paint-cutout:zoomFit': ['0'], 'paint-cutout:undo': ['Ctrl+Z'] };
+  assert.equal(paintCutoutCaption('R', defaults), 'R');
+  assert.equal(paintCutoutCaption('− + / 0', defaults), '− + / 0');
+  assert.equal(paintCutoutCaption('Ctrl+Z', defaults), 'Ctrl+Z');
+  assert.equal(paintCutoutCaption('R', {}), 'R', 'before the window has registered its keys');
+  assert.equal(paintCutoutCaption('R', { ...defaults, 'paint-cutout:crop': ['ArrowUp'] }), 'Up');
+  assert.equal(paintCutoutCaption('− + / 0', { ...defaults, 'paint-cutout:zoomFit': ['F4'] }), '- = / F4');
 });

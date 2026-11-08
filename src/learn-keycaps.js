@@ -4,6 +4,7 @@
  * DOM-free: every update returns a new notebook so callers can persist it.
  */
 import { hotkeyCode, migrateHotkeyId } from './hotkey-defaults.js';
+import { MODIFIER_MEANINGS, modifierValue } from './modifier-bindings.js';
 
 const LEGACY_LEARN_STORAGE_KEY = 'mdlxl-shredder-keycaps-v1';
 export const LEARN_STORAGE_KEY = 'mdlxl-learn-keycaps-v1';
@@ -98,6 +99,37 @@ export function clearSilences(notebook) {
 export function clearLearned(notebook) {
   return { ...notebook, keys: Object.fromEntries(Object.entries(notebook.keys).map(([id, record]) => [id, { ...record, uses: 0, quietUntil: 0 }])) };
 }
+/**
+ * A command given a different key is a new key to learn: forget its uses and quiet time, but keep a
+ * mute. `groupOf` maps an action to its notebook entry (Paint's sliders share one). Commands that
+ * were not known before are not rebinds. Returns the same notebook when nothing changed.
+ */
+export function forgetRebound(notebook, previous, next, groupOf = id => id) {
+  const ids = Object.keys(next).filter(id => Object.hasOwn(previous, id) && String(previous[id]) !== String(next[id])).map(groupOf).filter(id => notebook.keys[id]);
+  if (!ids.length) return notebook;
+  const keys = { ...notebook.keys };
+  for (const id of ids) keys[id] = { ...keys[id], uses: 0, quietUntil: 0 };
+  return { ...notebook, keys };
+}
+// The drag keys that go with each tool. The UV Wrapper's tools share these command ids.
+const SELECT_KEYS = ['select.add', 'select.remove'];
+const TOOL_DRAG_KEYS = Object.freeze({ select: SELECT_KEYS, translate: ['drag.move.axisLock'], rotate: ['drag.rotate.fine', 'drag.rotate.snap'], scale: ['drag.scale.planeLock', 'drag.scale.spread', 'drag.scale.snap'] });
+const UV_FINE = ['drag.uv.fine', 'drag.uv.pressFine', 'drag.uv.snap'];
+const UV_TOOL_DRAG_KEYS = Object.freeze({ select: SELECT_KEYS, translate: ['drag.uv.axisLock'], rotate: UV_FINE, scale: [...UV_FINE, 'drag.uv.axisLock'] });
+const changedKeys = (ids, preferences) => MODIFIER_MEANINGS.filter(item => ids?.includes(item.id) && modifierValue(item.id, preferences) !== item.defaultValue);
+/** The drag keys the user has changed for this tool, as `{ id, key, label }`, for its reminder. Empty on an untouched profile. */
+export function reboundDragKeys(id, preferences, uv = false) {
+  return changedKeys((uv ? UV_TOOL_DRAG_KEYS : TOOL_DRAG_KEYS)[id], preferences).map(item => ({ id: item.id, key: modifierValue(item.id, preferences), label: item.label })).filter(item => item.key);
+}
+/** Effective bindings for forgetRebound: a changed drag key is a new key to learn for its tool. */
+export function learnBindings(shortcuts, preferences) {
+  const result = { ...shortcuts };
+  for (const id of Object.keys(TOOL_DRAG_KEYS)) {
+    const changed = changedKeys([...TOOL_DRAG_KEYS[id], ...UV_TOOL_DRAG_KEYS[id]], preferences).map(item => `${item.id}=${modifierValue(item.id, preferences)}`);
+    if (changed.length && result[id]) result[id] = [...result[id], ...changed];
+  }
+  return result;
+}
 export function notebookCounts(notebook, now) {
   const records = Object.values(notebook.keys);
   return { silenced: records.filter(record => record.silenced).length, learned: records.filter(record => record.quietUntil > now).length };
@@ -130,5 +162,5 @@ export function paintKeyLabel(key, { ctrl = false, shift = false, alt = false } 
   return shift && /^[A-Z]$/.test(name) ? 'Shift+' + name : name;
 }
 
-/** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. */
-export const keyCaps = chord => String(chord || '').split(/\+(?=.)/).filter(Boolean);
+/** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. A rebound pair ("F1 / F2") stays one cap. */
+export const keyCaps = chord => String(chord || '').includes(' / ') ? [String(chord)] : String(chord || '').split(/\+(?=.)/).filter(Boolean);

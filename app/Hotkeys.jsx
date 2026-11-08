@@ -1,9 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, isTypingTarget, MAX_HOTKEY_ID_LENGTH, normalizeChord } from '../src/preferences.js';
+import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, isTypingTarget, layoutKey, MAX_HOTKEY_ID_LENGTH, normalizeChord } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyHint } from '../src/hotkey-badge.js';
 import { controlKind, isCloseControl } from '../src/hotkey-allocation.js';
+import HOTKEY_MANIFEST from '../src/hotkey-manifest.json';
 import { translate } from '../src/localization.js';
+import { onMousePressLost, watchMousePress } from './gesture-keys.js';
 import './settings.css';
 import './hotkey-sequences.css';
 
@@ -31,13 +33,19 @@ export function useWindowKeyClaim(handler, priority = 10) {
     return () => window.removeEventListener('mdlxl-window-key', claim);
   }, [priority]);
 }
+/** Runs `cancel` when a mouse press ends with no pointerup reaching the app, so a drag owner can end its drag. */
+export function useMousePressLost(cancel) {
+  const latest = useRef(cancel); latest.current = cancel;
+  useEffect(() => onMousePressLost(() => latest.current()), []);
+}
 const CATALOG_STORAGE_KEY = 'mdlvis-classic-hotkeys-catalog-v1';
+const MODIFIER_KEYS = ['Control', 'Shift', 'Alt', 'Meta', 'AltGraph'], DISCARD_MS = 4000;
 function loadCatalog() {
   try {
     // A profile from before the rename keeps its discovered controls; saves use the new key only.
     // Each control keeps the window it lives in and the short key it was first given.
     const records = JSON.parse(localStorage.getItem(CATALOG_STORAGE_KEY) || localStorage.getItem(LEGACY_HOTKEY_CATALOG_STORAGE_KEY) || '[]');
-    return new Map((Array.isArray(records) ? records : []).slice(0, 40000).filter(item => item && typeof item.id === 'string' && item.id.length <= MAX_HOTKEY_ID_LENGTH && typeof item.label === 'string').map(item => [migrateHotkeyId(item.id), { id: migrateHotkeyId(item.id), label: item.label.slice(0, 250), category: typeof item.category === 'string' ? item.category.slice(0, 100) : 'Context controls', scope: typeof item.scope === 'string' ? item.scope : 'context', group: typeof item.group === 'string' ? item.group.slice(0, 250) : undefined, parentGroup: typeof item.parentGroup === 'string' ? item.parentGroup.slice(0, 250) : undefined, kind: typeof item.kind === 'string' ? item.kind : undefined, bindingCommand: typeof item.bindingCommand === 'string' ? item.bindingCommand : undefined, keys: Array.isArray(item.keys) ? item.keys.filter(key => typeof key === 'string') : undefined, learnGroup: typeof item.learnGroup === 'string' ? item.learnGroup : undefined, embedsEditor: item.embedsEditor === true, defaultKey: typeof item.defaultKey === 'string' ? item.defaultKey.slice(0, 40) : '', defaultKeys: [], contextual: true }]));
+    return new Map((Array.isArray(records) ? records : []).slice(0, 40000).filter(item => item && typeof item.id === 'string' && item.id.length <= MAX_HOTKEY_ID_LENGTH && typeof item.label === 'string').map(item => [migrateHotkeyId(item.id), { id: migrateHotkeyId(item.id), label: item.label.slice(0, 250), category: typeof item.category === 'string' ? item.category.slice(0, 100) : 'Context controls', scope: typeof item.scope === 'string' ? item.scope : 'context', group: typeof item.group === 'string' ? item.group.slice(0, 250) : undefined, parentGroup: typeof item.parentGroup === 'string' ? item.parentGroup.slice(0, 250) : undefined, kind: typeof item.kind === 'string' ? item.kind : undefined, bindingCommand: typeof item.bindingCommand === 'string' ? item.bindingCommand : undefined, keys: Array.isArray(item.keys) ? item.keys.filter(key => typeof key === 'string') : undefined, learnGroup: typeof item.learnGroup === 'string' ? item.learnGroup : undefined, embedsEditor: item.embedsEditor === true, ...(item.panel === true ? { panel: true } : {}), ...(item.manual === true ? { manual: true } : {}), defaultKey: typeof item.defaultKey === 'string' ? item.defaultKey.slice(0, 40) : '', defaultKeys: [], contextual: true }]));
   } catch { return new Map(); }
 }
 
@@ -45,7 +53,7 @@ function loadCatalog() {
 export function controlActionId(element) {
   const id = element.getAttribute('data-hotkey');
   if (!id) return '';
-  if (element.hasAttribute('data-hotkey-absolute')) return id;
+  if (element.hasAttribute('data-hotkey-absolute') || element.hasAttribute('data-hotkey-manual')) return id;
   const prefixes = []; let parent = element.parentElement;
   while (parent) { const prefix = parent.getAttribute('data-hotkey-prefix'); if (prefix) prefixes.unshift(prefix); parent = parent.parentElement; }
   return [...prefixes, id].join(':');
@@ -55,19 +63,32 @@ function visible(element) {
 }
 function activeDialog(root) { return [...root.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(visible).at(-1); }
 function enabled(element) { return !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.closest('fieldset[disabled]'); }
+const FIELD = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]';
+/** The Hidden toolbar waits off-screen on purpose, so its keys keep working. */
+const HIDDEN_BAR = '.classic-app[data-toolbar="hidden"]:not([data-vis-ui]) > :is(.classic-toolbar, .classic-modules)';
+/** A key does not reach a button scrolled out of its panel. A field still takes focus, which scrolls it into view. */
+function clippedOut(element, styles) {
+  if (element.matches(FIELD) || element.closest(HIDDEN_BAR)) return false;
+  const { width, height } = element.getBoundingClientRect();
+  return width > 0 && height > 0 && !hintRect(element, styles, true);
+}
 
 // A badge may escape its button's clipping, but an off-screen control gets no badge.
-function hintRect(element, styles) {
+function hintRect(element, styles, stopAtFixed = false) {
   const rect = element.getBoundingClientRect(), doc = element.ownerDocument;
   let left = Math.max(0, rect.left), top = Math.max(0, rect.top), right = Math.min(doc.documentElement.clientWidth, rect.right), bottom = Math.min(doc.documentElement.clientHeight, rect.bottom);
+  // A fixed menu escapes the overflow of the bar it is written inside.
+  if (stopAtFixed && doc.defaultView.getComputedStyle(element).position === 'fixed') return right > left && bottom > top ? rect : null;
   for (let parent = element.parentElement; parent && right > left && bottom > top; parent = parent.parentElement) {
     let style = styles.get(parent);
     if (!style) { style = doc.defaultView.getComputedStyle(parent); styles.set(parent, style); }
     const clipsX = /hidden|clip|auto|scroll/.test(style.overflowX), clipsY = /hidden|clip|auto|scroll/.test(style.overflowY);
-    if (!clipsX && !clipsY) continue;
-    const bounds = parent.getBoundingClientRect();
-    if (clipsX) { left = Math.max(left, bounds.left); right = Math.min(right, bounds.right); }
-    if (clipsY) { top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom); }
+    if (clipsX || clipsY) {
+      const bounds = parent.getBoundingClientRect();
+      if (clipsX) { left = Math.max(left, bounds.left); right = Math.min(right, bounds.right); }
+      if (clipsY) { top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom); }
+    }
+    if (stopAtFixed && style.position === 'fixed') break;
   }
   return right > left && bottom > top ? rect : null;
 }
@@ -90,14 +111,19 @@ function controlWindow(element) {
   if (!modal) return { group: 'editor', embedsEditor: false };
   const group = modal.getAttribute('data-hotkey-prefix') || modal.getAttribute('aria-label') || 'dialog';
   const page = element.closest('[role="tabpanel"][id]');
-  // Forge and the shaping tools show the editor's own buttons, so their keys stay clear of the editor's.
-  const embedsEditor = !!modal.querySelector('[data-hotkey="undo"], [data-hotkey="select"], [data-hotkey="fit"]');
-  return page && modal.contains(page) ? { group: `${group} › ${page.id}`, parentGroup: group, embedsEditor } : { group, embedsEditor };
+  // Forge and the shaping tools show the editor's own buttons, and a non-modal panel sits over the
+  // working editor, so their keys stay clear of the editor's.
+  const showsEditor = !!modal.querySelector('[data-hotkey="undo"], [data-hotkey="select"], [data-hotkey="fit"]');
+  const panel = !showsEditor && modal.getAttribute('aria-modal') === 'false', embedsEditor = panel || showsEditor;
+  const place = { embedsEditor, ...(panel ? { panel } : {}) };
+  return page && modal.contains(page) ? { group: `${group} › ${page.id}`, parentGroup: group, ...place } : { group, ...place };
 }
+/** "Attach (T)" names the default key in its own words; keep the words in step with a rebind. */
+const withCurrentKey = (title, defaults, keys) => title.replace(/ \(([^()]+)\)$/, (whole, key) => !defaults.includes(normalizeChord(key)) ? whole : keys.length ? ` (${formatChord(keys[0])})` : '');
 function actionMetadata(element, id) {
   const title = element.hasAttribute('data-hotkey-base-title') ? element.getAttribute('data-hotkey-base-title') : element.getAttribute('title');
   const label = element.getAttribute('data-hotkey-label') || element.getAttribute('aria-label') || title || element.closest('label')?.textContent?.trim() || element.textContent?.replaceAll(element.querySelector('[data-hotkey-badge]')?.textContent || '\u0000', '').trim() || id;
-  return { id, label, category: element.getAttribute('data-hotkey-category') || element.closest('[data-hotkey-category]')?.getAttribute('data-hotkey-category') || (id.includes(':') ? 'Context controls' : 'Controls'), scope: element.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope') || 'editor', ...controlWindow(element), kind: controlKind(element), defaultKeys: [], contextual: true };
+  return { id, label, category: element.getAttribute('data-hotkey-category') || element.closest('[data-hotkey-category]')?.getAttribute('data-hotkey-category') || (id.includes(':') ? 'Context controls' : 'Controls'), scope: element.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope') || 'editor', ...controlWindow(element), kind: controlKind(element), ...(element.hasAttribute('data-hotkey-manual') ? { manual: true } : {}), defaultKeys: [], contextual: true };
 }
 
 /** All identities come from the catalog or explicit data-hotkey attributes, never inferred labels. */
@@ -109,15 +135,17 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     return () => { windowActions.current.delete(scope); setRevision(value => value + 1); };
   }, []);
   const controlRoots = () => [root.current, ...detachedRoots.current].filter(element => element?.isConnected);
-  const [leaderCode, setLeaderCode] = useState(null);
+  const [leaderCode, setLeaderCode] = useState(null), [discardCue, setDiscardCue] = useState(''), altInGesture = useRef(false);
   if (!discovered.current) discovered.current = loadCatalog();
   const merged = useMemo(() => {
     const map = new Map(discovered.current);
+    // Controls with no default key can be bound before their window has ever been opened.
+    for (const entry of HOTKEY_MANIFEST) map.set(entry.id, { ...entry, scope: 'context', defaultKeys: [], ...map.get(entry.id), category: entry.category, contextual: true, manual: true });
     for (const action of catalog) map.set(action.id, { ...map.get(action.id), contextual: false, scope: 'editor', ...action });
     for (const id of Object.keys(preferences?.hotkeys || {})) if (!map.has(id)) map.set(id, { id, label: id, category: 'Saved controls', scope: 'context', contextual: true, defaultKeys: [] });
     for (const actions of windowActions.current.values()) for (const action of actions) map.set(action.id, action);
     const actions = contextualHotkeyDefaults([...map.values()], Object.values(preferences?.hotkeys || {}).flat(), preferences?.hotkeys);
-    for (const action of actions) if (action.contextual) {
+    for (const action of actions) if (action.contextual && (!action.manual || discovered.current.has(action.id))) {
       const { run, enabled, accepts, ...metadata } = action;
       discovered.current.set(action.id, metadata);
     }
@@ -131,7 +159,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
   useEffect(() => {
     if (!revision) return;
     const timer = setTimeout(() => {
-      try { localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify([...discovered.current.values()].slice(-40000).map(({ id, label, category, scope, group, parentGroup, kind, embedsEditor, defaultKey, bindingCommand, keys, learnGroup }) => ({ id, label, category, scope, group, parentGroup, kind, embedsEditor, defaultKey, bindingCommand, keys, learnGroup })))); } catch { /* Settings still work when browser storage is unavailable. */ }
+      try { localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify([...discovered.current.values()].slice(-40000).map(({ id, label, category, scope, group, parentGroup, kind, embedsEditor, panel, manual, defaultKey, bindingCommand, keys, learnGroup }) => ({ id, label, category, scope, group, parentGroup, kind, embedsEditor, panel, manual, defaultKey, bindingCommand, keys, learnGroup })))); } catch { /* Settings still work when browser storage is unavailable. */ }
     }, 250);
     return () => clearTimeout(timer);
   }, [revision]);
@@ -147,7 +175,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         if (currentTitle !== element.getAttribute('data-hotkey-tooltip')) element.setAttribute('data-hotkey-base-title', currentTitle);
         const previous = discovered.current.get(id), meta = { ...actionMetadata(element, id), defaultKey: previous?.defaultKey || '', defaultKeys: previous?.defaultKeys || [] };
         // A control keeps the window it was first found in (the shaping tools reuse some editor controls).
-        if (previous?.group) Object.assign(meta, { group: previous.group, parentGroup: previous.parentGroup, embedsEditor: previous.embedsEditor });
+        if (previous?.group) Object.assign(meta, { group: previous.group, parentGroup: previous.parentGroup, embedsEditor: previous.embedsEditor || !!meta.panel });
         if (![...windowActions.current.values()].some(actions => actions.some(action => action.id === id)) && (!previous || JSON.stringify(previous) !== JSON.stringify(meta))) { discovered.current.set(id, meta); changed = true; }
         const keys = latest.current.shortcuts[id] || [];
         // aria-keyshortcuts describes simultaneous keys, not three-character sequences.
@@ -155,7 +183,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         element.setAttribute('data-hotkey-shortcuts', keys.join(' / '));
         const forgeHint = id.startsWith('forge:');
         const shortKeys = keys.filter(key => !hotkeyCode(key));
-        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : shortKeys.length ? translate(`Hotkey: ${shortKeys.map(formatChord).join(' / ')}`) : ''].filter(Boolean).join('\n');
+        const title = [withCurrentKey(element.getAttribute('data-hotkey-base-title') || '', latest.current.catalog.find(action => action.id === id)?.defaultKeys || [], keys), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : shortKeys.length ? translate(`Hotkey: ${shortKeys.map(formatChord).join(' / ')}`) : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
         // Forge's own tiles keep their compact look: their window keys show in the tooltip only.
         if (element.tagName !== 'BUTTON' || element.closest('[data-hotkey-badges]')?.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
@@ -175,17 +203,19 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       observer.disconnect();
       for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-hotkey', 'data-hotkey-prefix', 'data-hotkey-scope', 'data-hotkey-label', 'data-hotkey-category'] });
     };
+    const pressWatches = new Map([[window, watchMousePress(window)]]);
     const registerRoot = event => {
       const element = event.detail?.root;
       if (!element?.querySelectorAll) return;
-      if (event.detail.add) detachedRoots.current.add(element); else detachedRoots.current.delete(element);
+      if (event.detail.add) { detachedRoots.current.add(element); if (!pressWatches.has(element)) pressWatches.set(element, watchMousePress(element.ownerDocument.defaultView)); }
+      else { detachedRoots.current.delete(element); pressWatches.get(element)?.(); pressWatches.delete(element); }
       observeRoots(); schedule();
     };
     window.addEventListener('mdlxl-detached-root', registerRoot); observeRoots();
     window.dispatchEvent(new CustomEvent('mdlxl-hotkeys-ready'));
     root.current.__refreshHotkeys = discover;
     discover();
-    return () => { disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshHotkeys; };
+    return () => { disposed = true; observer.disconnect(); for (const stop of pressWatches.values()) stop(); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshHotkeys; };
   }, []);
   // Command enablement changes during playback; only actual binding changes need a DOM scan.
   useEffect(() => { root.current?.__refreshHotkeys?.(); }, [shortcutSignature]);
@@ -196,8 +226,20 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     // Otherwise Windows hands the keyboard to the hidden File/Edit menu bar.
     let altAlone = false, altArmed = false;
     const disarm = () => { if (!altArmed) return; altArmed = false; window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); };
+    // A window with unapplied work closes on the second press of its close key.
+    let discard = null, discardTimer;
+    const clearDiscard = () => { discard = null; clearTimeout(discardTimer); setDiscardCue(''); };
+    const heldForDiscard = (target, chord) => {
+      // Closing a dialog opened from that window discards nothing.
+      const work = target.closest('[data-hotkey-unapplied]');
+      if (!work || target.closest('[role="dialog"]') !== work) return false;
+      if (discard?.work === work && discard.chord === chord) { clearDiscard(); return false; }
+      discard = { work, chord }; clearTimeout(discardTimer); discardTimer = setTimeout(clearDiscard, DISCARD_MS);
+      setDiscardCue(chord === 'Escape' ? translate('Press Esc again to discard.') : translate('Press {0} again to discard.').replace('{0}', formatChord(chord)));
+      return true;
+    };
     // A click or drag while Alt is held (camera rotation) means Alt was not tapped alone.
-    const cancel = () => { altAlone = false; sequence.cancel(); clearTimeout(timer); setLeaderCode(null); disarm(); };
+    const cancel = () => { altAlone = false; sequence.cancel(); clearTimeout(timer); setLeaderCode(null); disarm(); clearDiscard(); };
     const consume = event => { window.dispatchEvent(new CustomEvent('mdlxl-input-observed', {detail:event})); event.preventDefault(); event.stopImmediatePropagation(); };
     const runShortcut = (chord, event) => {
       if (!root.current) return false;
@@ -222,9 +264,9 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const candidates = local.length ? local : matching;
       // The same key may belong to controls in different windows or modes; only those
       // on screen in the active window (or commands that can run there) take part.
-      const controls = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]);
+      const controls = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]), clipStyles = new Map();
       const plans = candidates.map(action => {
-        const available = controls.filter(element => controlActionId(element) === action.id && visible(element) && (localWindow ? localWindow.contains(element) : !element.closest('[role="dialog"][aria-modal="true"], [data-hotkey-window]')));
+        const available = controls.filter(element => controlActionId(element) === action.id && visible(element) && (localWindow ? localWindow.contains(element) : !element.closest('[role="dialog"][aria-modal="true"], [data-hotkey-window]')) && !clippedOut(element, clipStyles));
         if (available.length && available.every(element => !enabled(element))) return null;
         const target = available.find(enabled);
         // A dialog's local button owns its availability (and its own history).
@@ -245,8 +287,9 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if (!chosen) return false;
       const { action, target } = chosen;
       consume(event);
+      if (target && isCloseControl(action.id, action.label) && heldForDiscard(target, chord)) return true;
       if (target) {
-        if (target.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]')) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
+        if (target.matches(FIELD)) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
         // A toggled checkbox keeps focus where the user works (e.g. the UV Wrapper).
         else { if (!target.matches('input[type="checkbox"]')) target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
@@ -255,29 +298,32 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       return true;
     };
     const keydown = event => {
+      if (discard && !MODIFIER_KEYS.includes(event.key) && chordFromEvent(event) !== discard.chord) clearDiscard();
       // AI drawing tools cancel before menus, inner tool states and shortcut recording.
       if (event.key === 'Escape' && !window.dispatchEvent(new CustomEvent('mdlxl-escape-key', { detail: event, cancelable: true }))) { consume(event); cancel(); return; }
       const ownerDocument = event.target?.ownerDocument || document;
       const modal = activeDialog(root.current) || controlRoots().filter(root => root.ownerDocument === ownerDocument).map(activeDialog).filter(Boolean).at(-1);
       const focusedWindow = event.target?.closest?.('[data-hotkey-window]');
       const localWindow = focusedWindow && (!modal || modal.contains(focusedWindow)) ? focusedWindow : modal;
-      const claim = new CustomEvent('mdlxl-window-key', { cancelable: true, detail: { event, scope: localWindow?.getAttribute('data-hotkey-scope') || [latest.current.activeScope].flat().at(-1), localWindow, claims: [] } });
+      const claim = new CustomEvent('mdlxl-window-key', { cancelable: true, detail: { event, scope: localWindow?.getAttribute('data-hotkey-scope') || [latest.current.activeScope].flat().at(-1), localWindow, shortcuts: latest.current.shortcuts, claims: [] } });
       window.dispatchEvent(claim);
       for (const candidate of claim.detail.claims.sort((a, b) => a.priority - b.priority)) if (candidate.run()) { claim.preventDefault(); break; }
+      if (event.key === 'Alt' && !event.repeat) altInGesture.current = !!claim.detail.gesture;
       if (claim.defaultPrevented) { if (!claim.detail.native) consume(event); cancel(); return; }
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
-      if (event.key === 'Alt') { if (!event.repeat) altAlone = !event.ctrlKey && !event.metaKey && !event.shiftKey && !isTextEditingTarget(event.target); disarm(); }
+      if (event.key === 'Alt') { if (!event.repeat) altAlone = !altInGesture.current && !event.ctrlKey && !event.metaKey && !event.shiftKey && !isTextEditingTarget(event.target); disarm(); }
       else if (!['Control', 'Shift', 'Meta', 'AltGraph'].includes(event.key)) {
         altAlone = false;
         if (altArmed) {
           altArmed = false;
           if (event.key === 'Escape') { consume(event); window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); return; }
           const plain = chordFromEvent(event);
-          if (plain && !/(^|\+)(Ctrl|Alt|Meta)\+/.test(plain) && runShortcut(normalizeChord('Alt+' + plain), event)) return;
+          // After a tapped Alt the key means Alt+key or nothing; it never falls through as the plain key.
+          if (plain && !/(^|\+)(Ctrl|Alt|Meta)\+/.test(plain)) { if (!runShortcut(normalizeChord('Alt+' + plain), event)) consume(event); return; }
         }
       }
       const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
-      if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
+      if (!inLocalWindow && layoutKey(event)?.toLowerCase?.() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
       // Text selected in the AI chat copies as text; the editor's Copy is for the model.
@@ -297,7 +343,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     };
     window.addEventListener('keydown', keydown, true);
     // Handled here, the lone Alt release no longer focuses the window's menu bar.
-    const keyup = event => { if (event.key !== 'Alt' || !altAlone) return; altAlone = false; altArmed = true; event.preventDefault(); };
+    // Alt pressed during a mouse drag is a drag key: no armed shortcut, and the menu bar stays out of it.
+    const keyup = event => { if (event.key === 'Alt' && altInGesture.current) { altInGesture.current = false; event.preventDefault(); return; } if (event.key !== 'Alt' || !altAlone) return; altAlone = false; altArmed = true; event.preventDefault(); };
     window.addEventListener('keyup', keyup, true);
     const detachedKeydown = event => keydown(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedKeydown);
@@ -306,7 +353,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     window.addEventListener('pointerdown', cancel, true);
     const visibility = () => { if (document.hidden) cancel(); };
     document.addEventListener('visibilitychange', visibility);
-    return () => { clearTimeout(timer); window.removeEventListener('keydown', keydown, true); window.removeEventListener('keyup', keyup, true);window.removeEventListener('mdlxl-detached-keydown', detachedKeydown); window.removeEventListener('blur', cancel); window.removeEventListener('mdlxl-detached-blur', cancel); window.removeEventListener('pointerdown', cancel, true); document.removeEventListener('visibilitychange', visibility); };
+    return () => { clearTimeout(timer); clearTimeout(discardTimer); window.removeEventListener('keydown', keydown, true); window.removeEventListener('keyup', keyup, true);window.removeEventListener('mdlxl-detached-keydown', detachedKeydown); window.removeEventListener('blur', cancel); window.removeEventListener('mdlxl-detached-blur', cancel); window.removeEventListener('pointerdown', cancel, true); document.removeEventListener('visibilitychange', visibility); };
   }, []);
 
   useEffect(() => {
@@ -329,7 +376,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       }
     };
     const reveal = event => {
-      if (persistent || event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
+      if (persistent || event.key !== 'Alt' || altInGesture.current || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
       held = true; activeDocument = event.target?.ownerDocument || document;
       update(event.target?.ownerDocument || document, event.target);
     };
@@ -391,7 +438,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-shortcut-hints-hide', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss();
     };
   }, [preferences?.showHotkeys]);
-  return <HotkeysContext.Provider value={{ catalog: merged, shortcuts, registerActions }}><div ref={root} className="hotkeys-root">{children}{leaderCode !== null && <div className="hotkeys-sequence-cue" data-hotkey-sequence="" role="status" aria-live="polite"><strong>Hotkeys</strong><kbd>{leaderCode.padEnd(3, '·')}</kbd><span>Type the green code · Esc cancels</span></div>}</div></HotkeysContext.Provider>;
+  return <HotkeysContext.Provider value={{ catalog: merged, shortcuts, registerActions }}><div ref={root} className="hotkeys-root">{children}{leaderCode !== null && <div className="hotkeys-sequence-cue" data-hotkey-sequence="" role="status" aria-live="polite"><strong>Hotkeys</strong><kbd>{leaderCode.padEnd(3, '·')}</kbd><span>Type the green code · Esc cancels</span></div>}{discardCue && <div className="hotkeys-discard-cue" role="status" aria-live="polite">{discardCue}</div>}</div></HotkeysContext.Provider>;
 }
 
 /** Optional explicit badge for controls outside the discovery root. */

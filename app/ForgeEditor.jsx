@@ -3,9 +3,9 @@ import { Vector3 } from 'three';
 import { degreesToQuaternion } from '../src/rotation-math.js';
 import ToolIcon from './ToolIcon.jsx';
 import Viewport from './Viewport.jsx';
-import { CameraTools, Coordinate, Tool, TransformTools, WorkplaneControls } from './EditorControls.jsx';
+import { CameraTools, Coordinate, EachPieceToggle, Tool, TransformTools, WorkplaneControls } from './EditorControls.jsx';
 import { useHotkeys } from './Hotkeys.jsx';
-import { chordFromEvent, isTextEditingTarget } from '../src/preferences.js';
+import { chordFromEvent, fieldKeepsKey } from '../src/preferences.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
 import SidebarResizer from './SidebarResizer.jsx';
 
@@ -19,7 +19,7 @@ function ForgeCoordinates({ center, preview, disabled, onCommit }) {
 
 // Forge uses the vertex editor itself. This component only supplies the draft
 // document and the existing controls; it owns no picking or transform math.
-export default function ForgeEditor({ model, editorState = {}, selection = {}, onSelectionChange, onTransform, onSelectParts, onDoubleClickParts, onHoverParts, onStartPartDrag, onCancelPartDrag, onView, frame = 0, toolRequest, toolbar, controlPoints, sidebar, operations, status, onUndo, onRedo, canUndo, canRedo, onDelete, onDuplicate, duplicateAction, duplicateDescription, onCopy, onPaste, canCopy, textureAssets, teamColor, surfaceColors, modelingOverlay, editHandles, shapingTools, viewportTools, detailMagnet, constrainTransform, initialView, initialRenderMode = 'solid', initialGrid = false, frameGrid = true, wire, previewOnly = false }) {
+export default function ForgeEditor({ model, editorState = {}, selection = {}, onSelectionChange, onTransform, onSelectParts, onDoubleClickParts, onHoverParts, onStartPartDrag, onCancelPartDrag, onView, frame = 0, toolRequest, toolbar, controlPoints, sidebar, operations, status, onUndo, onRedo, canUndo, canRedo, onDelete, onDuplicate, duplicateAction, duplicateDescription, onCopy, onPaste, canCopy, textureAssets, teamColor, surfaceColors, modelingOverlay, editHandles, shapingTools, viewportTools, detailMagnet, constrainTransform, initialView, initialRenderMode = 'solid', initialGrid = false, frameGrid = true, wire, previewOnly = false, eachPiece = false, historyCancelsDrag = false }) {
   const [view, setStoredView] = useState(initialView || editorState.view || 'orthographic'), [quad, setQuad] = useState(!!editorState.quadView), [pane, setPane] = useState(null), [viewRequest, requestView] = useState(null);
   const [tool, setTool] = useState(editorState.tool || 'select'), [cameraMode, setCameraMode] = useState('work');
   const dragPreview = useRef(null), previewDrag = useMemo(() => center => dragPreview.current?.(center), []);
@@ -40,9 +40,12 @@ export default function ForgeEditor({ model, editorState = {}, selection = {}, o
   const invert = () => onSelectionChange?.(Object.fromEntries(model.Geosets.map((g, i) => { const picked = new Set(selection[i]); return [i, Array.from({ length: g.Vertices.length / 3 }, (_, v) => v).filter(v => !picked.has(v))]; })));
   const actions = { selectAll: all, clear: () => { if (window.dispatchEvent(new Event('mdlxl-cancel-gesture', {cancelable:true}))) onSelectionChange?.({}); }, invertSelection: invert, cameraToggle: toggleCamera, frame: () => setRenderMode(renderMode === 'textured' ? 'wireframe' : 'textured'), frameSelection: () => setRenderMode('solid'), wireframe: () => setRenderMode('wireframe'), grid: () => setGrid(!grid), showVertices: () => setVertices(!vertices), ...Object.fromEntries(['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(v => [v, () => setView(v)])) };
   const keys = e => {
-    if (isTextEditingTarget(e.target)) return;
-    const chord = chordFromEvent(e), id = Object.keys(actions).find(id => shortcuts[id]?.includes(chord));
-    if (id) { e.preventDefault(); e.stopPropagation(); actions[id](); }
+    const chord = chordFromEvent(e);
+    if (fieldKeepsKey(e.target, chord)) return;
+    // A disabled shape tool keeps its key: 5 must not turn into Perspective.
+    if (root.current?.closest('[data-hotkey-scope="forge-shapes"]') && Object.entries(shortcuts).some(([id, keys]) => id.startsWith('forge:shape:') && keys.includes(chord))) return;
+    const id = Object.keys(actions).find(id => shortcuts[id]?.includes(chord));
+    if (id) { e.preventDefault(); e.stopPropagation(); actions[id](); window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id, chord, event: e.nativeEvent } })); }
   };
   const receiveAngles = value => {
     setAngles(previous => ['x','y','z'].every(a=>Math.abs(previous[a]-value[a])<1e-8)?previous:value);
@@ -58,7 +61,7 @@ export default function ForgeEditor({ model, editorState = {}, selection = {}, o
     </div>
     <div className="classic-workspace forge-editor-workspace"><section className="classic-view">
       <div className="classic-view-label"><select data-hotkey="viewDirection" aria-label="View direction" value={quad ? pane?.view || 'front' : view} onChange={e => setView(e.target.value)}>{(quad ? QUAD_VIEW_OPTIONS : ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(v => [v, v[0].toUpperCase() + v.slice(1)])).map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select><select aria-label="Render mode" value={renderMode} onChange={e => setRenderMode(e.target.value)}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option></select><button aria-pressed={quad} onClick={() => setQuad(!quad)}>Quad View</button><button data-hotkey="fit" title="Fit model" onClick={() => fit(false)}>Fit</button><button data-hotkey="fitSelection" title="Fit selection" onClick={() => fit(true)}>Fit selection</button></div>
-      <Viewport rotationEditor="forge" model={model} mode={renderMode} view={view} onViewChange={setView} quadView={quad} viewRequest={viewRequest} onActivePaneChange={setPane} cameraMode={cameraMode} onCameraModeToggle={toggleCamera} onCameraAnglesChange={receiveAngles} cameraAnglesRequest={angleRequest} frameRequest={frameRequest} workplane={workplane} workplaneEnabled={workplaneEnabled} transformMode={previewOnly ? 'select' : tool} selectionByGeoset={selection} selectableGeosets={selectable} visibleGeosets={selectable} onSelectionChange={onSelectionChange} onSelectParts={onSelectParts} onDoubleClickParts={onDoubleClickParts} onHoverParts={onHoverParts} onStartPartDrag={onStartPartDrag} onCancelPartDrag={onCancelPartDrag} onTransform={onTransform} onTransformPreview={previewDrag} constrainTransform={constrainTransform} detailMagnet={detailMagnet} showVertices={vertices} showGrid={grid} frameGrid={frameGrid} showAxes={true} shaded={true} grabThrough={grabThrough} textureAssets={textureAssets} teamColor={teamColor} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} editHandles={editHandles} highlightSelection={true}/>
+      <Viewport rotationEditor="forge" rotateEachPiece={eachPiece} historyCancelsDrag={historyCancelsDrag} model={model} mode={renderMode} view={view} onViewChange={setView} quadView={quad} viewRequest={viewRequest} onActivePaneChange={setPane} cameraMode={cameraMode} onCameraModeToggle={toggleCamera} onCameraAnglesChange={receiveAngles} cameraAnglesRequest={angleRequest} frameRequest={frameRequest} workplane={workplane} workplaneEnabled={workplaneEnabled} transformMode={previewOnly ? 'select' : tool} selectionByGeoset={selection} selectableGeosets={selectable} visibleGeosets={selectable} onSelectionChange={onSelectionChange} onSelectParts={onSelectParts} onDoubleClickParts={onDoubleClickParts} onHoverParts={onHoverParts} onStartPartDrag={onStartPartDrag} onCancelPartDrag={onCancelPartDrag} onTransform={onTransform} onTransformPreview={previewDrag} constrainTransform={constrainTransform} detailMagnet={detailMagnet} showVertices={vertices} showGrid={grid} frameGrid={frameGrid} showAxes={true} shaded={true} grabThrough={grabThrough} textureAssets={textureAssets} teamColor={teamColor} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} editHandles={editHandles} highlightSelection={true}/>
       {viewportTools}
     </section><aside className="classic-sidebar forge-editor-sidebar">
       {(!previewOnly || sidebar) && <SidebarResizer/>}
@@ -66,6 +69,7 @@ export default function ForgeEditor({ model, editorState = {}, selection = {}, o
         <div className="classic-counts"><div>Vertices: <span>{model.Geosets.reduce((n, g) => n + g.Vertices.length / 3, 0)}</span></div><div>Selected: <span>{points.length}</span></div><div>Triangles: <span>{model.Geosets.reduce((n, g) => n + g.Faces.length / 3, 0)}</span></div></div>
         <ForgeCoordinates center={center} preview={dragPreview} disabled={!points.length || !onTransform} onCommit={(i, value) => onTransform({ selections: selection, pivot: center, translation: center.map((n, a) => a === i ? value - n : 0) })}/>
         {!quad && <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane}/>}
+        {eachPiece && <EachPieceToggle/>}
         {controlPoints && <div className="forge-control-points">{controlPoints}</div>}
         <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><ToolIcon name="duplicate" className="modern-retro-icon"/></Tool>}</div>
         {shapingTools}

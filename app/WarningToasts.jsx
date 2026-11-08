@@ -9,8 +9,9 @@ function WarningToast({ warning, onDismiss, persistent = false }) {
     const timer = setTimeout(() => dismiss.current(), 5000);
     return () => clearTimeout(timer);
   }, [warning.id, persistent]);
-  return <div className="warning-toast" data-alert="" data-persistent={persistent || undefined} role="alert">
-    <button className="warning-message" title={warning.title || 'Click to dismiss this warning'} onClick={warning.onAction || onDismiss}><TriangleAlert size={13} aria-hidden="true"/>{warning.message}</button>
+  // A note (warning.quiet) is a plain tip: no alert role, flash, sound or warning sign.
+  return <div className="warning-toast" data-alert={warning.quiet ? undefined : ''} data-persistent={persistent || undefined} role={warning.quiet ? 'status' : 'alert'}>
+    <button className="warning-message" title={warning.title || 'Click to dismiss this warning'} onClick={warning.onAction || onDismiss}>{!warning.quiet && <TriangleAlert size={13} aria-hidden="true"/>}{warning.message}</button>
     {persistent && <button className="warning-dismiss" aria-label={`Dismiss ${warning.message}`} onClick={onDismiss}>×</button>}
   </div>;
 }

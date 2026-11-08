@@ -45,11 +45,15 @@ export default function DetachedWindow({ childWindow, title, preferences, onClos
     childWindow.addEventListener('blur', forwardBlur);
     copyStyles(targetDocument).then(() => {
       if (disposed) return;
+      // Closed before beforeunload was being listened for: nothing may mount in a dead document.
+      if (childWindow.closed) { onCloseRef.current?.(); return; }
       registered = true;
       window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: true } }));
       setContainer(root);
       childWindow.focus();
     });
+    // A window can go without beforeunload being heard, for example the moment it opens.
+    const closedWatch = setInterval(() => { if (childWindow.closed && !closing.current) { clearInterval(closedWatch); onCloseRef.current?.(); } }, 250);
     // A child may keep its window open (unsaved work) by cancelling
     // beforeunload. Its listener can run after this one, so decide once the
     // whole event has been handled.
@@ -58,6 +62,7 @@ export default function DetachedWindow({ childWindow, title, preferences, onClos
     return () => {
       disposed = true;
       closing.current = true;
+      clearInterval(closedWatch);
       childWindow.removeEventListener('beforeunload', closed);
       childWindow.removeEventListener('blur', forwardBlur);
       targetDocument.removeEventListener('keydown', forwardKeyDown, true);

@@ -1,3 +1,5 @@
+import { isModifierKey } from './modifier-bindings.js';
+
 export function planeAxes(workplane = 'xz') {
   return workplane === 'xy' ? [0, 1] : workplane === 'yz' ? [1, 2] : [0, 2];
 }
@@ -177,14 +179,14 @@ export function solveViewMove(gesture, pointer, shift, camera, pivot, width, hei
 
 // Bind feedback to the document that owns pointer capture, including portals.
 const hosts = new WeakMap();
-export function bindLockBadge(win, paint) {
+export function bindLockBadge(win, paint, locked = event => event.shiftKey) {
   let down = false, held = false;
   const clear = () => paint(null);
   const stop = () => { down = false; clear(); };
-  const press = e => { if (e.button === 0) { down = true; held = e.shiftKey; } };
+  const press = e => { if (e.button === 0) { down = true; held = locked(e); } };
   const key = e => {
     if (e.key === 'Escape') stop();
-    if (e.key === 'Shift') { held = e.type === 'keydown'; if (!held) clear(); }
+    if (isModifierKey(e.key)) { held = locked(e); if (!held) clear(); }
   };
   const events = {pointerdown: press, pointerup: stop, pointercancel: stop, lostpointercapture: stop, blur: e => { if (e.target === win) stop(); }, keydown: key, keyup: key};
   hosts.set(win, {clear, update: (lock, event) => paint(down && held && lock ? {label: lock.label, x: event.clientX, y: event.clientY} : null)});

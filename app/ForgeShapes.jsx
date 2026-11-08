@@ -49,7 +49,7 @@ function ShapeThumbnail({ shape }) {
 }
 
 
-export default function ForgeShapes({ modelPath, preferences, editorState, onClose, onCommit, onBusyChange }) {
+export default function ForgeShapes({ modelPath, preferences, editorState, onClose, onCommit, onBusyChange, onDirtyChange }) {
   const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [palette, setPalette] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const paletteMenu = useRef(null), paletteControl = useRef(null);
   useDismiss(palette, [paletteMenu, paletteControl], () => setPalette(false), { claimEscape: true, escapePriority: -10 });
@@ -62,6 +62,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     }
   }, [palette]);
   const [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' });
+  useEffect(() => { onDirtyChange?.(draft.shapes.length > 0); }, [draft.shapes.length > 0, onDirtyChange]);
   const [historySize, setHistorySize] = useState([0, 0]), [frame, setFrame] = useState(0), [toolRequest, requestTool] = useState(null);
   const history = useRef([]), future = useRef([]), clipboard = useRef([]), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] });
   const [extrudeReady, setExtrudeReady] = useState(false), [preview, setPreview] = useState(null);
@@ -172,6 +173,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
         const indices = entries[gi].mesh.vertexIds.flatMap((id, index) => affected.has(id) ? [index] : []);
         if(repeat?.magnet)mesh.Vertices=Float64Array.from(entries[gi].mesh.vertexIds.flatMap(id=>shape.vertices[id]));
         if(payload.modelPositions?.[gi])setVertexPositions(mesh,indices,payload.modelPositions[gi]);
+        else if(payload.pieces?.[gi])for(const piece of payload.pieces[gi]){const own=new Set(piece.indices.map(i=>entries[gi].mesh.vertexIds[i]));transformVertices(mesh,entries[gi].mesh.vertexIds.flatMap((id,index)=>own.has(id)?[index]:[]),undefined,undefined,payload.rotation,piece.center);}
         else transformVertices(mesh, indices, payload.translation, payload.scale, payload.rotation, payload.pivot || forgeSelectionCenter(draft.shapes, draft.selection, draft.mode), {allowSingularScale:payload.allowSingularScale===true});
         const next = structuredClone(shape); next.committed = false;
         entries[gi].mesh.vertexIds.forEach((id, index) => { if (affected.has(id)) next.vertices[id] = Array.from(mesh.Vertices.slice(index*3,index*3+3)); });
@@ -393,7 +395,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     <button data-hotkey="forge:shape:commit" aria-label="Apply detail" title="Keep the preview as one Undo step." disabled={!repeatResult?.draft} onClick={applyRepeat}>✓</button><button aria-label="Cancel detail" title="Discard the preview (Escape)." onClick={cancelRepeat}>×</button>
   </div>;
   return <div ref={workspace} className="forge-shape-workspace" data-hotkey-scope="forge-shapes" data-hotkey-category="MDLxL FORGE" onKeyDown={event => { if (repeat && event.key==='Escape') { event.preventDefault(); event.stopPropagation(); cancelRepeat(); } }}>
-    <ForgeEditor model={model} editorState={{ ...editorState, quadView: false }} initialView="perspective" initialGrid frameGrid={false} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} selection={selection} onSelectionChange={cut || repeat ? undefined : onSelectionChange} onSelectParts={repeat || draft.mode==='Vertices' ? undefined : event => setDraft({ ...draft, selection: pickForgeParts(entries, draft.selection, draft.mode, event) })} onDoubleClickParts={cut || repeat ? () => {} : selectFace} onHoverParts={cut?.mode === 'manual' ? hoverCut : undefined} onStartPartDrag={mold ? startMoldDrag : cut ? placeCut : extrudeReady ? startExtrude : undefined} onCancelPartDrag={reason => reason==='tool' && repeat ? false : cancelRepeat() || cancelMold() || cancelCut() || cancelExtrude()} onTransform={cut ? undefined : transform} onView={(up, normal) => {viewBasis.current={up,normal};}} frame={frame} toolRequest={toolRequest} textureAssets={textureAssets}
+    <ForgeEditor eachPiece historyCancelsDrag model={model} editorState={{ ...editorState, quadView: false }} initialView="perspective" initialGrid frameGrid={false} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} selection={selection} onSelectionChange={cut || repeat ? undefined : onSelectionChange} onSelectParts={repeat || draft.mode==='Vertices' ? undefined : event => setDraft({ ...draft, selection: pickForgeParts(entries, draft.selection, draft.mode, event) })} onDoubleClickParts={cut || repeat ? () => {} : selectFace} onHoverParts={cut?.mode === 'manual' ? hoverCut : undefined} onStartPartDrag={mold ? startMoldDrag : cut ? placeCut : extrudeReady ? startExtrude : undefined} onCancelPartDrag={reason => reason==='tool' && repeat ? false : cancelRepeat() || cancelMold() || cancelCut() || cancelExtrude()} onTransform={cut ? undefined : transform} onView={(up, normal) => {viewBasis.current={up,normal};}} frame={frame} toolRequest={toolRequest} textureAssets={textureAssets}
       onUndo={() => historyAction(false)} onRedo={() => historyAction(true)} canUndo={repeat ? true : !!mold || !!cut || extrudeReady || historySize[0]>0} canRedo={repeat ? repeatHistorySize[1]>0 : !mold && !cut && !extrudeReady && historySize[1]>0} onDelete={remove} duplicateAction="forge:shape:duplicate" duplicateDescription="Duplicate: copy the marked detail on this shape, or a whole piece in Shape mode. Choose Copy or Mirror in the preview." onDuplicate={() => duplicate()} onCopy={copy} onPaste={paste} canCopy={selected.length>0 && (draft.mode==='Shape' || selected.length===1 && selectedFaces(selected[0]).length>0)}
 
       editHandles={handles}

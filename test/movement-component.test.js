@@ -102,7 +102,7 @@ test('Animations enables RGB and visibility fields on a global sequence',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:-1,globalSeqId:0,time:0,selectedGeosets:[0]}));
   assert.doesNotMatch(html,/<input[^>]*aria-label="Animation R"[^>]*disabled/);
   assert.doesNotMatch(html,/<input[^>]*aria-label="Visibility alpha percent"[^>]*disabled/);
-  assert.match(html,/<button disabled="">Bake Sequence RGB<\/button>/);
+  assert.match(html,/<button[^>]*\sdisabled=""[^>]*>Bake Sequence RGB<\/button>/);
 });
 test('actual setup dialog renders every missing-requirement combination',()=>{
   for(const [missingSequence,missingCamera]of [[true,false],[false,true],[true,true]]) {
@@ -124,11 +124,11 @@ test('camera toolbar renders inside Movement with one create-or-update action an
     assert.equal(html.includes('Snap to Camera'),active);
     assert.doesNotMatch(html,/>Create<\/button>/);
     assert.match(html,/<button[^>]*>Set Current View<\/button>/);
-    assert.doesNotMatch(html,/<button disabled[^>]*>Set Current View/);
+    assert.doesNotMatch(html,/<button[^>]*\sdisabled=""[^>]*>Set Current View/);
     assert.match(html,hasCamera?/Camera 01/:/No camera/);
   }
   const html=renderToStaticMarkup(React.createElement(Toolbar,{model:fixture(),active:true,cameraIndex:0,disabled:true}));
-  assert.match(html,/<button disabled[^>]*>Set Current View/);
+  assert.match(html,/<button[^>]*\sdisabled=""[^>]*>Set Current View/);
 });
 
 test('quick display shows only the active editor options without Reveal',()=>{

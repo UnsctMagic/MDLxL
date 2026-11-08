@@ -37,7 +37,7 @@ const bindingsOf = (g, id) => vertexBones(g, id, { minWeight: 128 });
 const point = (g, id) => [g.Vertices[id * 3], g.Vertices[id * 3 + 1], g.Vertices[id * 3 + 2]];
 
 const glowLayer = (model, material) => (material?.Layers || []).find(l => isTeamGlowLayer(model, l) && l.FilterMode >= 3);
-const isGlowGeoset = (model, g) => !!glowLayer(model, model.Materials?.[g.MaterialID]);
+export const isGlowGeoset = (model, g) => !!glowLayer(model, model.Materials?.[g.MaterialID]);
 
 /** Does the model already carry visible team glow geometry? */
 export function hasHeroGlow(model) {

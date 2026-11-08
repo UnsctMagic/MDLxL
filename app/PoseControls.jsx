@@ -116,12 +116,12 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   const remove = () => { onChange({ ...without(config, editor.original), picking: null, inspectIds: [] }); setEditor(null); setError(''); };
   const pickSlot = key => { setSlot(key); onChange({ ...config, picking: part }); };
   return <div className="pose-controls" ref={anchor} data-pose-revision={revision}>
-    <button type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with Move, Rotate and Scale" onClick={enable}>POSE</button>
+    <button data-hotkey="pose:mode" data-hotkey-manual data-hotkey-label="POSE" type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with Move, Rotate and Scale" onClick={enable}>POSE</button>
     {config.enabled && <>
-      <button type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
-      <button type="button" className="pose-restrict" aria-label="Restrict POSE" aria-pressed={config.restrict !== false} disabled={disabled} title="Keep the body still when moving a hand or foot" onClick={() => onChange({ ...config, restrict: config.restrict === false })}>Restrict</button>
-      <button type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
-      <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
+      <button data-hotkey="pose:add-pose-handle" data-hotkey-manual data-hotkey-label="Add POSE handle" type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
+      <button data-hotkey="pose:restrict-pose" data-hotkey-manual data-hotkey-label="Restrict POSE" type="button" className="pose-restrict" aria-label="Restrict POSE" aria-pressed={config.restrict !== false} disabled={disabled} title="Keep the body still when moving a hand or foot" onClick={() => onChange({ ...config, restrict: config.restrict === false })}>Restrict</button>
+      <button data-hotkey="pose:setup" data-hotkey-manual data-hotkey-label="POSE setup" type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
+      <button data-hotkey="pose:blocker-crosshair" data-hotkey-manual data-hotkey-label="Blocker crosshair" type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>
       </button>
     </>}
@@ -129,21 +129,21 @@ export default function PoseControls({ model, revision, config, onChange, onSele
       {editor ? <>
         <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'navigation\u0004Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
         <p>{editor.end == null ? 'Click the bone you want to grab.' : draft ? 'Ready. The connected bones are highlighted.' : 'Choose the bones in the view.'}</p>
-        <button className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
-        {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
+        <button data-hotkey="pose:pick-endpoint" data-hotkey-manual data-hotkey-label="Pick endpoint" className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
+        {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button data-hotkey="pose:use-selected-bone" data-hotkey-manual data-hotkey-label="Use selected bone" className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
         <details className="pose-adjust"><summary>{isChain ? 'Adjust chain' : 'Change bone'}</summary>
         <div className="pose-bounds">{(isChain ? ['root','end'] : ['end']).map(key => <button key={key} aria-label={`Pick ${isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}`} aria-pressed={slot === key} onClick={() => pickSlot(key)}><b>{isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}</b><span>{names.get(editor[key]) || 'Click a bone…'}</span></button>)}</div>
         <p className="pose-pick-prompt">Picking {isChain ? slot === 'root' ? 'Start' : 'End' : 'Bone'} · click again to cycle overlaps.</p>
         {path.length > 2 && <><p>Bending joints</p><div className="pose-chain" aria-label="Bending joints">{path.slice(1,-1).map(id => <label key={id} title={names.get(id)}><input type="checkbox" aria-label={`Use joint ${names.get(id)}`} checked={!editor.excluded.includes(id)} onChange={() => setEditor(previous => ({ ...previous, excluded: previous.excluded.includes(id) ? previous.excluded.filter(value => value !== id) : [...previous.excluded,id] }))}/><span>{names.get(id)}</span></label>)}</div></>}
         </details>
         {hint && <p role="status" className="pose-setup-hint">{hint}</p>}
-        {repair && <button className="pose-new-chain" onClick={repairSharedStart}>Use separate limbs</button>}
+        {repair && <button data-hotkey="pose:use-separate-limbs" data-hotkey-manual data-hotkey-label="Use separate limbs" className="pose-new-chain" onClick={repairSharedStart}>Use separate limbs</button>}
         {conflict && !repair && <button onClick={() => edit(mappings.find(item => item.chain?.key === conflict.key))}>Edit {names.get(conflict.end)}</button>}
-        <div className="pose-actions"><button disabled={!draft || disabled} onClick={save}>{editor.original ? 'Save changes' : isChain && config.chains.some(chain => chain.end === draft?.end) ? 'Replace handle' : 'Add handle'}</button><button onClick={back}>Cancel</button></div>
-        {editor.original && <button className="pose-remove" onClick={remove}>Remove handle</button>}
+        <div className="pose-actions"><button data-hotkey="pose:save-handle" data-hotkey-manual data-hotkey-label="Save handle" disabled={!draft || disabled} onClick={save}>{editor.original ? 'Save changes' : isChain && config.chains.some(chain => chain.end === draft?.end) ? 'Replace handle' : 'Add handle'}</button><button onClick={back}>Cancel</button></div>
+        {editor.original && <button data-hotkey="pose:remove-handle" data-hotkey-manual data-hotkey-label="Remove handle" className="pose-remove" onClick={remove}>Remove handle</button>}
       </> : open === 'add' ? <>
         <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role}/><span>{role}</span></button>)}</div>
-        <button className="pose-new-chain" onClick={() => choose('Chain')}>+ New bone chain</button>
+        <button data-hotkey="pose:new-bone-chain" data-hotkey-manual data-hotkey-label="+ New bone chain" className="pose-new-chain" onClick={() => choose('Chain')}>+ New bone chain</button>
       </> : <>
         {!mappings.length && <p>No handles yet.</p>}
         <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div>

@@ -9,7 +9,9 @@ import { TEAM_COLORS } from '../src/team-colors.js';
 import { paintMessage } from '../src/paint-messages.js';
 import QuickDisplay from './QuickDisplay.jsx';
 import LanguageSwitch from './LanguageSwitch.jsx';
-import { translate } from '../src/localization.js';
+import { LANGUAGES, translate } from '../src/localization.js';
+import { TOOLBAR_MODES, TOOLBAR_MODE_LABELS } from '../src/toolbar-mode.js';
+import { setToolbarTabStops } from './toolbar-tab-order.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
 
 const teamColors = TEAM_COLORS.map(row => [row.index === null ? row.name : `${row.index} · ${row.name}`, row.rgbHex]);
@@ -30,9 +32,18 @@ export default function AppToolbar({
   openOptimizeXL, openParticles, preferences, pressedKeysIcon, resources,
   runCommand, runLatest, saving, selectAnimationPanel, selectMode,
   setDialog, setRenderMode,
-  setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI, aiControl, placeCorpse
+  setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI, aiControl, placeCorpse, onHiddenTeamColor
 }) {
-  const editorRow = useRef(null);
+  const editorRow = useRef(null), toolbarHidden = preferences.toolbarMode === 'hidden' && !visUI;
+  useLayoutEffect(() => {
+    if (!toolbarHidden) return undefined;
+    const roots = [dock.current.closest('.classic-toolbar'), editorRow.current.closest('.classic-modules')], apply = () => roots.forEach(root => setToolbarTabStops(root, true));
+    apply();
+    // Buttons come and go with the active editor.
+    const observer = new MutationObserver(apply);
+    roots.forEach(root => observer.observe(root, { childList: true, subtree: true }));
+    return () => { observer.disconnect(); roots.forEach(root => setToolbarTabStops(root, false)); };
+  }, [toolbarHidden]);
   const dock = useRef(null), [learnOpen, setLearnOpen] = useState(false), [learnPosition, setLearnPosition] = useState({});
   useLayoutEffect(() => {
     if (!learnOpen) return;
@@ -59,12 +70,20 @@ export default function AppToolbar({
     observer.observe(row);
     return () => observer.disconnect();
   }, [mode, animationPanel, visUI, preferences.language]);
+  // Trim draws the row's buttons at another width, which the observer above cannot see.
+  useLayoutEffect(() => {
+    const row = editorRow.current;
+    row.removeAttribute('data-short-editors');
+    if (!visUI && row.scrollWidth > row.clientWidth) row.setAttribute('data-short-editors', '');
+  }, [preferences.toolbarMode]);
   // Both looks keep view controls beside the editor buttons.
   const quickDisplay = mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <QuickDisplay key={displayMode} vanilla={visUI} viewMode={displayMode} checks={menuChecks} onCommand={runCommand} isEnabled={commandEnabled} onClear={clearDisplay}/>;
-  const teamPicker = <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>;
+  // With the toolbar hidden this select cannot be seen, so its key searches for a colour instead of taking the keyboard.
+  const teamPicker = <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }} onFocus={event => { if (preferences.toolbarMode === 'hidden' && !visUI) { event.currentTarget.blur(); onHiddenTeamColor(); } }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>;
   const moduleDock = <div className="classic-toolbar-group toolbar-modules" ref={dock}>{aiControl}<Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary(undefined, true)}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><Tool action="surfaceEffects" className="surface-effects-tool" icon="btn-magical-sentry" badge="FX" title="Surface Effects" disabled={!commandEnabled('surfaceEffects')} onClick={()=>runCommand('surfaceEffects')}/><Tool action="animXL" className="animxl-tool" icon="btn-animate-dead" badge="ANIM" title="AnimXL: shape an animation with sliders" disabled={!commandEnabled('animXL')} onClick={()=>setDialog({type:'animXL'})}/><Tool className="auto-corpse-tool" icon="btn-exhume-corpses" badge="CORP" title="Auto Corpse (test)" description="Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model." disabled={doc.readOnly||saving||!!dialog||!!settingsTab||mode==='paint'||mode==='showcase'} onClick={placeCorpse}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool action="learn" className="learner-tool" icon="btn-ancient-of-lore" badge="LER" title="Learn" description="Learn: open learning controls and settings." onContextMenu={event => { event.preventDefault(); setLearnOpen(value => !value); }} active={preferences.learn.enabled} onClick={event => { if (event.isTrusted) setLearnOpen(value => !value); else commands.current.learn(); }}/>{learnOpen && <div className="learn-menu" role="menu" aria-label="Learn" tabIndex={-1} data-hotkey-window="" data-hotkey-scope="editor" data-hotkey-prefix="learn-menu" style={learnPosition}><button role="menuitemcheckbox" aria-checked={preferences.learn.enabled} data-hotkey="mode" data-hotkey-label="Learn mode" onClick={() => commands.current.learn()}><span aria-hidden="true">{preferences.learn.enabled ? '✓' : ''}</span>Learn mode</button><button role="menuitemcheckbox" aria-checked={preferences.showHotkeys} data-hotkey="show-hotkeys" data-hotkey-label="Show hotkeys" onClick={() => changePreferences(previous => ({ ...previous, showHotkeys: !previous.showHotkeys }))}><span aria-hidden="true">{preferences.showHotkeys ? '✓' : ''}</span>Show hotkeys</button>{mode === 'paint' && <button role="menuitemcheckbox" aria-checked={preferences.paintKeyLabels} data-hotkey="paint-key-labels" data-hotkey-label="Paint key labels" onClick={() => changePreferences(previous => ({ ...previous, paintKeyLabels: !previous.paintKeyLabels }))}><span aria-hidden="true">{preferences.paintKeyLabels ? '✓' : ''}</span>Paint key labels</button>}<button role="menuitem" data-hotkey="settings" data-hotkey-label="Learn settings" onClick={() => { setLearnOpen(false); setSettingsTab('learn'); }}><span aria-hidden="true"/>Learn settings…</button></div>}<Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>;
+  const settingChecks = Object.fromEntries([...TOOLBAR_MODES.map(value => ['toolbar:' + value, preferences.toolbarMode === value]), ...LANGUAGES.map(item => ['language:' + item.id, preferences.language === item.id]), ['visToggle', visUI], ['showHotkeys', preferences.showHotkeys]]);
   return <>
-    {!window.desktop && <nav className="classic-menu">{[['File', [['New', 'new'], ['Open...', 'open'], ['Save', 'save'], ['Save as...', 'saveAs'], ['Recovery...', 'recovery']]], ['Edit', [['Undo', 'undo'], ['Redo', 'redo'], ['Copy', 'copy'], ['Paste', 'paste'], ['Special paste...', 'pasteSpecial'], ['Select all', 'selectAll'], ['Clear selection', 'clear'], ['Undo settings...', 'history'], ['Copy keyframes','keyframe:copy'], ['Copy Frame','keyframe:copyPose'], ['Paste keyframes','keyframe:paste'], ['Delete keyframes','keyframe:delete'], ['Clear keyframes','keyframe:clear']]], ['View', VIEW_MENU[displayMode] || []], ['Modules', [['Vertices', 'vertices'], ['Bones', 'bones'], ['UV-maps', 'uv'], ['Movement', 'animation'], ['Animations', 'animations']]], ['Shape', SHAPE_TOOLS.map(tool=>[tool,'shape:'+tool.toLowerCase()])], ['Managers', [['Material & Texture Library', 'textureLibrary'], ['Particle Editor', 'particles'], ['Surface Effects','surfaceEffects'], ['AnimXL', 'animXL'], ...resources.map(v => [v, v])]], ['Settings', [['Mouse and general…', 'settings'], ['Keyboard Shortcuts…', 'hotkeys'], ['Graphical settings…', 'graphics'], ['Recording and screenshots…','captureSettings'], ['Appearance…','appearanceSettings'], ['Configuration…','configurationSettings'], ['Grid…','gridSettings'], ['Warcraft III…','gameDataSettings'], ['Add-ons…','addons'], null, ['Undo cache…', 'history'], ['Show pressed keys','pressedKeys'], ['Choose Warcraft III folder…','gameData']]], ['Help', [['Help', 'help'], ['Sanity Check', 'sanityCheck'], ['About', 'about']]]].map(([name, items]) => <details key={name}><summary>{name}</summary><div role="menu">{items.map((row,index) => { if(!row)return <hr key={index}/>; const [label,action]=row; return <button data-hotkey={action} role={name==='View' && action!=='clearDisplay'?'menuitemcheckbox':'menuitem'} aria-checked={name==='View' && action!=='clearDisplay'?!!menuChecks[action]:undefined} disabled={!commandEnabled(action)} key={action} onClick={event => { event.currentTarget.closest('details').open = false; runLatest.current(action); }}><span>{name==='View'?(menuChecks[action]?'✓ ':'　 '):''}{label}</span>{['frame','frameSelection','normals'].includes(action)&&<kbd>{(preferences.hotkeys[action]||COMMANDS.find(item=>item.id===action)?.defaultKeys||[]).find(key=>key.length===1)||''}</kbd>}</button>;})}</div></details>)}</nav>}
+    {!window.desktop && <nav className="classic-menu">{[['File', [['New', 'new'], ['Open...', 'open'], ['Save', 'save'], ['Save as...', 'saveAs'], ['Convert MDX800 / MDX1000', 'convertVersion'], ['Recovery...', 'recovery']]], ['Edit', [['Undo', 'undo'], ['Redo', 'redo'], ['Copy', 'copy'], ['Paste', 'paste'], ['Special paste...', 'pasteSpecial'], ['Select all', 'selectAll'], ['Clear selection', 'clear'], ['Undo settings...', 'history'], ['Copy keyframes','keyframe:copy'], ['Copy Frame','keyframe:copyPose'], ['Paste keyframes','keyframe:paste'], ['Delete keyframes','keyframe:delete'], ['Clear keyframes','keyframe:clear']]], ['View', VIEW_MENU[displayMode] || []], ['Modules', [['Vertices', 'vertices'], ['Bones', 'bones'], ['UV-maps', 'uv'], ['Movement', 'animation'], ['Animations', 'animations'], ['Citadel Paint', 'paint'], ['Managers', 'managers'], ['Showcase', 'showcase'], ['Forge…', 'forge'], ['BitsAndParts…', 'bitsAndParts'], ['OptimizeXL…', 'optimizeModel'], ['Auto Corpse…', 'autoCorpse'], ['AI console', 'ai:open']]], ['Shape', SHAPE_TOOLS.map(tool=>[tool,'shape:'+tool.toLowerCase()])], ['Managers', [['Material & Texture Library', 'textureLibrary'], ['Particle Editor', 'particles'], ['Surface Effects','surfaceEffects'], ['AnimXL', 'animXL'], ...resources.map(v => [v, v])]], ['Settings', [['Mouse and general…', 'settings'], ['Keyboard Shortcuts…', 'hotkeys'], ['Graphical settings…', 'graphics'], ['Recording and screenshots…','captureSettings'], ['Appearance…','appearanceSettings'], ['Configuration…','configurationSettings'], ['Grid…','gridSettings'], ['Warcraft III…','gameDataSettings'], ['Add-ons…','addons'], null, ...TOOLBAR_MODES.map(value => [`Toolbar: ${translate(TOOLBAR_MODE_LABELS[value])}`, 'toolbar:' + value]), ...LANGUAGES.map(item => [item.nativeLabel, 'language:' + item.id]), ['VIS look','visToggle'], null, ['Undo cache…', 'history'], ['Show pressed keys','pressedKeys'], ['Show hotkeys','showHotkeys'], ['Learn settings…','learnSettings'], ['Choose Warcraft III folder…','gameData']]], ['Help', [['Search commands…','launcher'], ['Help', 'help'], ['Sanity Check', 'sanityCheck'], ['About', 'about']]]].map(([name, items]) => <details key={name}><summary>{name}</summary><div role="menu">{items.map((row,index) => { if(!row)return <hr key={index}/>; const [label,action]=row, checked=name==='View'?menuChecks[action]:settingChecks[action], checkable=name==='View'?action!=='clearDisplay':action in settingChecks; return <button data-hotkey={/^(toolbar|language|ai):|^(showHotkeys|learnSettings)$/.test(action)?undefined:action} role={checkable?'menuitemcheckbox':'menuitem'} aria-checked={checkable?!!checked:undefined} disabled={!commandEnabled(action)} key={action} onClick={event => { event.currentTarget.closest('details').open = false; runLatest.current(action); }}><span>{name==='View'||checkable?(checked?'✓ ':'　 '):''}{label}</span>{['frame','frameSelection','normals'].includes(action)&&<kbd>{(preferences.hotkeys[action]||COMMANDS.find(item=>item.id===action)?.defaultKeys||[]).find(key=>key.length===1)||''}</kbd>}</button>;})}</div></details>)}</nav>}
     <div className="classic-toolbar">
       <div className="toolbar-primary">
       <div className="classic-toolbar-group"><Tool action="save" look icon="sb_save" title="Save" onClick={() => runLatest.current('save')}/></div>
@@ -87,6 +106,27 @@ export default function AppToolbar({
       </div>
     </div>
   </>;
+}
+
+/** What the status row keeps of a hidden toolbar: the model format, the active editor, and DPI / Scroll only while they change. */
+export function ToolbarHiddenStatus({ adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving }) {
+  const { pointerSensitivity: pointer, scrollSensitivity: scroll } = preferences;
+  const [changed, setChanged] = useState(null), seen = useRef({ pointer, scroll });
+  useEffect(() => {
+    const kind = pointer !== seen.current.pointer ? 'pointer' : scroll !== seen.current.scroll ? 'scroll' : null;
+    seen.current = { pointer, scroll };
+    if (!kind) return;
+    setChanged(kind);
+    const timer = setTimeout(() => setChanged(null), 1500);
+    return () => clearTimeout(timer);
+  }, [pointer, scroll]);
+  const adjusting = adjustingInput?.kind || changed;
+  const editor = mode === 'animation' ? (animationPanel === 'movement' ? 'Movement' : 'Animations') : mode === 'paint' ? paintMessage('paint.module') : { vertices: 'Vertices', bones: 'Bones', uv: 'UV-maps', manager: 'Managers', showcase: 'Showcase' }[mode];
+  return <div className="toolbar-hidden-status">
+    {adjusting && <span role="status" className="toolbar-hidden-input">{adjusting === 'pointer' ? `DPI ${pointer}×` : `Scroll ${scroll}×`}</span>}
+    <span className="toolbar-hidden-editor">{editor}</span>
+    <button type="button" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly || saving} onClick={() => commands.current.convertVersion()}>MDX{model.Version} ⇄</button>
+  </div>;
 }
 
 import { BONE_INFLUENCE_TIP } from './bone-display.js';

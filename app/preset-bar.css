@@ -1,0 +1,11 @@
+.preset-bar{display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--ui-text)}
+.preset-bar-main{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.preset-bar-field{display:flex;align-items:center;gap:6px;min-width:0;flex:1 1 200px}
+.preset-bar-field select{flex:1 1 130px;min-width:110px;max-width:280px;height:25px;background:var(--ui-field);color:var(--ui-text);border:1px solid var(--ui-border)}
+.preset-bar-main>button,.preset-bar-row>button{min-height:24px;white-space:nowrap}
+.preset-bar-delete{min-width:24px;padding:0 6px}
+.preset-bar-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;margin:0;padding:6px;border:1px solid var(--ui-border);background:var(--ui-surface)}
+.preset-bar-row>input{flex:1 1 150px;min-width:110px;height:24px;background:var(--ui-field);color:var(--ui-text);border:1px solid var(--ui-border)}
+.preset-bar-row>span{flex:1 1 180px;min-width:0}
+.preset-bar-status{min-height:14px;font-size:11px;line-height:1.3;overflow-wrap:anywhere}
+.preset-bar-file{display:none}

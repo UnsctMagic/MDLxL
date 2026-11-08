@@ -29,6 +29,8 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
+import { dragKeys, isModifierKey, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { holdGestureKey } from './gesture-keys.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
@@ -36,6 +38,8 @@ import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesC
 import { applyWiggleMatrices } from '../src/bone-wiggle.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
+import { rotationBehavior } from '../src/rotation-drag.js';
+import { downstreamBoneIds } from '../src/node-hierarchy.js';
 import { createGLPreviewBackground } from './game-preview-background-gl.js';
 import { createAnimatedPreviewBackground } from './animated-preview-background.js';
 import { createVideoPreviewBackground } from './video-preview-background.js';
@@ -48,7 +52,7 @@ import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRe
 import { createEventPreview } from './event-preview-runtime.js';
 import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, screenPlaneTranslation } from './viewport-math.js';
 import { shiftDragLatch } from './classic-gestures.js';
-import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
+import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings, layoutKey } from '../src/preferences.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
 import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout, portraitCompositionRect } from './portrait-view.js';
 import './portrait-view.css';
@@ -271,7 +275,7 @@ export default function GamePreview(inputProps) {
     hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], projectedNodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -440,14 +444,20 @@ export default function GamePreview(inputProps) {
     // Move/Rotate/Scale edit a global sequence on the renderer's private
     // 0..duration reel; POSE stays limited to the model's sequences.
     const nodeEditSequence = (p, frame) => !p.restPose && Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0 ? globalPreviewId !== null ? timelineSequenceIndex : -1 : movementSequence(p, frame);
-    const beginRotationDrag = (gesture, rotation) => {
+    const beginRotationDrag = (gesture, rotation, event, offHandle, turning) => {
       if (gesture.mode !== 'rotate') return;
-      const p = latest.current, rect = canvas.getBoundingClientRect();
+      const p = latest.current, rect = canvas.getBoundingClientRect(), editor = p.rotationEditor || (p.showcase ? 'showcase' : 'movement');
+      // Off the handles with that drag switched off: clicks still select, the drag does nothing.
+      gesture.inert = offHandle && rotationBehavior(p.preferences, editor).offHandle === 'none';
+      // Big selections: how far the bones that turn reach on screen from the pivot.
+      const reach = pivot => { const ids = new Set(turning()); return projectedNodePoints.reduce((most, point) => ids.has(point.node.ObjectId) ? Math.max(most, Math.hypot(point.x - pivot.x, point.y - pivot.y)) : most, 0); };
       gesture.rotationDrag = beginGizmoRotation({ x: gesture.x, y: gesture.y, world: gesture.origin, camera, width: rect.width, height: rect.height, handle: gesture.handle,
-        rotation, space: movementRotationSpace(gesture), workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, preferences: p.preferences, editor: p.rotationEditor || (p.showcase ? 'showcase' : 'movement') });
+        rotation, space: movementRotationSpace(gesture), workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, preferences: p.preferences, editor, ctrl: dragKeys(event, 'rotate', p.preferences).ctrlKey, reach });
     };
-    const rotationAmount = (gesture, dx, dy, sensitivity, shift) => {
-      const amount = movementRotationAmount(gesture.rotationDrag, dx, dy, sensitivity, shift);
+    /** The two flags this gesture's math reads, from the keys the user has bound. */
+    const gestureKeys = (event, gesture) => dragKeys(event, gesture.mode === 'scale' && !gesture.pose && !gesture.freeScaleDrag ? 'scale-handle' : gesture.mode, latest.current.preferences);
+    const rotationAmount = (gesture, dx, dy, sensitivity, shift, ctrl) => {
+      const amount = movementRotationAmount(gesture.rotationDrag, dx, dy, sensitivity, shift, ctrl);
       if (gesture.rotationDrag.axisName) gesture.handle.axis = gesture.rotationDrag.axisName;
       return amount;
     };
@@ -493,10 +503,10 @@ export default function GamePreview(inputProps) {
         const gesture = { pose: true, id: event.pointerId, x, y, target, baseline, config, configStamp: poseStamp(config), inputTime: Math.round(p.time), inputSequence: p.sequenceIndex,
           model: p.poseDocumentModel || p.model, previewModel: p.model, revision: p.revision, tool: p.transformMode, space: p.transformSpace, cameraMode: p.cameraMode, mode: p.transformMode, handle: axis ? { ...axis } : movementWorkplaneHandle(p.workplane || 'xy', handle.unitsPerPixel),
           camera: camera.clone(), width: rect.width, height: rect.height, origin: (handle.kind === 'bend' && p.transformMode === 'rotate' && handle.joint?.world || handle.world).clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
-          restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickSelection: p.transformMode === 'rotate' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !axis && !picked ? [] : null, clickTarget: next ? poseHandleTarget(next) : null };
+          restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickSelection: p.transformMode === 'rotate' && !Object.values(selectionKeys(event, p.preferences)).some(Boolean) && !axis && !picked ? [] : null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
-        gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
-        beginRotationDrag(gesture, handle.rotation);
+        gesture.latch = shiftDragLatch({ x: 0, y: 0 }, dragKeys(event, 'move', p.preferences).shiftKey);
+        beginRotationDrag(gesture, handle.rotation, event, !axis && !picked && !p.workplaneEnabled, () => scope.map(item => item.id));
         nodeGesture = gesture; controls.enabled = false; posedGeometryCache = null;
         p.onPlayingChange?.(false); p.onTimeChange?.(frame); canvas.setPointerCapture(event.pointerId);
         canvas.style.cursor = viewportCursor('work', gesture.mode);
@@ -533,7 +543,7 @@ export default function GamePreview(inputProps) {
           const pins = poseNodeConstraints(gesture.baseline, gesture.config, id, gesture.mode, nodeTarget);
           let values = offset.toArray();
           if (gesture.mode === 'rotate') {
-            let degrees = rotationAmount(gesture, dx, dy, sensitivity, event.shiftKey);
+            let degrees = rotationAmount(gesture, dx, dy, sensitivity, event.shiftKey, event.ctrlKey);
             if (degrees === 0) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
             const normal = gesture.handle.axis === 'XYZ' ? gesture.camera.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1);
             values = normal.multiplyScalar(degrees).toArray();
@@ -542,7 +552,7 @@ export default function GamePreview(inputProps) {
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.mode === 'rotate') {
-            let degrees = rotationAmount(gesture, dx, dy, sensitivity, event.shiftKey);
+            let degrees = rotationAmount(gesture, dx, dy, sensitivity, event.shiftKey, event.ctrlKey);
 
             if (degrees === 0) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
             const normal = gesture.rotationDrag.directions[gesture.rotationDrag.axisName].clone();
@@ -573,7 +583,7 @@ export default function GamePreview(inputProps) {
       if (p.suspended) return;
       rememberShowcasePointer(event);
       canvas.style.cursor = cursorFor(p);
-      const work = (p.cameraMode ?? 'work') === 'work' && !event.altKey;
+      const work = (p.cameraMode ?? 'work') === 'work' && !modifierHeld(event, 'view.orbit', p.preferences), select = selectionKeys(event, p.preferences);
       const portraitCameraDrag = portraitBlankDragRotatesCamera(p, event);
       const pickable = nodePoints;
       if (!p.vanilla && event.button === 2) {
@@ -594,11 +604,11 @@ export default function GamePreview(inputProps) {
         invalidate(); event.preventDefault(); event.stopImmediatePropagation(); return;
       }
       let moveClickSelection = null;
-      if (event.button === 0 && work && (p.restPose || p.transformMode === 'rotate') && !p.poseConfig?.picking && p.onSelectNodes && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+      if (event.button === 0 && work && (p.restPose || p.transformMode === 'rotate') && !p.poseConfig?.picking && p.onSelectNodes && (select.shift || select.ctrl)) {
         const rect = canvas.getBoundingClientRect();
-        const marker = pickMovementNode(pickable, event.clientX - rect.left, event.clientY - rect.top, p.selectedNodeIds, 13, event.ctrlKey || event.metaKey);
+        const marker = pickMovementNode(pickable, event.clientX - rect.left, event.clientY - rect.top, p.selectedNodeIds, 13, select.ctrl);
         if (marker) {
-          const ids = movementNodeSelection(p.selectedNodeIds, marker.node.ObjectId, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey });
+          const ids = movementNodeSelection(p.selectedNodeIds, marker.node.ObjectId, { multiple: true, ...select });
           if (p.restPose && p.transformMode === 'move') moveClickSelection = ids;
           else {
             p.onSelectNodes(ids);
@@ -606,17 +616,17 @@ export default function GamePreview(inputProps) {
           }
         }
       }
-      if (event.button === 0 && work && !(event.ctrlKey && p.onInspectGeoset)) {
+      if (event.button === 0 && work && !(select.ctrl && p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         if (beginPoseGesture(event, p, event.clientX - rect.left, event.clientY - rect.top, rect)) return;
       }
-      if (event.button === 0 && work && (moveClickSelection || !(event.ctrlKey && p.onInspectGeoset)) && pickable.length) {
+      if (event.button === 0 && work && (moveClickSelection || !(select.ctrl && p.onInspectGeoset)) && pickable.length) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         const editSequence = nodeEditSequence(p, Math.round(native.getFrame()));
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
         const selected = pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
-        const markerRotate = p.transformMode === 'rotate' && picked && !gizmo && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+        const markerRotate = p.transformMode === 'rotate' && picked && !gizmo && !select.shift && !select.ctrl;
         const active = (p.transformMode==='move'||markerRotate)&&picked&&!gizmo?picked:selected;
         const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0);
         const directMove=!!picked&&!gizmo&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
@@ -630,7 +640,7 @@ export default function GamePreview(inputProps) {
           const ids = (directMove||markerRotate)&&!p.selectedNodeIds?.includes(picked.node.ObjectId)?[picked.node.ObjectId]:[...(p.selectedNodeIds || [])], snapshots = new Map();
           if((directMove && !moveClickSelection)||markerRotate)p.onSelectNodes?.(ids, { record: !markerRotate });
           for (const node of allNodes(ownedModel)) if (ids.includes(node.ObjectId)) snapshots.set(node.ObjectId, structuredClone({ Translation: node.Translation, Rotation: node.Rotation, Scaling: node.Scaling, PivotPoint: node.PivotPoint }));
-          nodeGesture = { id: event.pointerId, x, y, handle: { ...handle, offHandle: !!directRotate }, clickSelection: p.transformMode === 'rotate' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !axisHandle ? (picked ? [picked.node.ObjectId] : []) : null, camera: camera.clone(), width: rect.width, height: rect.height, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'world', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
+          nodeGesture = { id: event.pointerId, x, y, handle: { ...handle, offHandle: !!directRotate }, clickSelection: p.transformMode === 'rotate' && !select.shift && !select.ctrl && !axisHandle ? (picked ? [picked.node.ObjectId] : []) : null, camera: camera.clone(), width: rect.width, height: rect.height, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'world', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
           if (moveClickSelection) {
             nodeGesture.clickSelection = moveClickSelection;
             nodeGesture.selectOnMove = directMove;
@@ -639,37 +649,37 @@ export default function GamePreview(inputProps) {
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
-          nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
-          beginRotationDrag(nodeGesture, active.rotation);
+          nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},dragKeys(event,'move',p.preferences).shiftKey);
+          beginRotationDrag(nodeGesture, active.rotation, event, !!directRotate, () => downstreamBoneIds(ownedModel, ids));
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
         if (picked && p.onSelectNodes) {
           const ids = p.selectedNodeIds || [], id = picked.node.ObjectId;
-          p.onSelectNodes(moveClickSelection || movementNodeSelection(ids, id, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }), { record: p.transformMode !== 'rotate' });
+          p.onSelectNodes(moveClickSelection || movementNodeSelection(ids, id, { multiple: true, ...select }), { record: p.transformMode !== 'rotate' });
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
       if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && !p.emptyDragRotates && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
-        selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
+        selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, ...select };
         controls.enabled = false; canvas.setPointerCapture(event.pointerId);
         event.preventDefault(); event.stopImmediatePropagation(); return;
       }
       if (event.button === 0 && p.previewSelectionMode && p.onSelectionChange && previewSelectHeld) {
         const rect = canvas.getBoundingClientRect();
         selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top,
-          shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, uv: true };
+          ...select, uv: true };
         controls.enabled = false;
         canvas.setPointerCapture(event.pointerId);
         event.preventDefault(); event.stopImmediatePropagation(); return;
       }
-      if (event.button === 0) leftGesture = { id: event.pointerId, x: event.clientX, y: event.clientY, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, alt: event.altKey,
+      if (event.button === 0) leftGesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
         position: camera.position.clone(), quaternion: camera.quaternion.clone(), target: controls.target.clone(), zoom: camera.zoom, adjusted: false };
       const binding = cameraBindings(p.preferences);
       // Tool windows that edit points (Attachemator) still spin the camera
       // when a drag starts on empty space.
-      const action = event.altKey || portraitCameraDrag || event.button === 0 && work && p.emptyDragRotates ? 'rotate' : p.cameraMode ?? 'rotate';
+      const action = modifierHeld(event, 'view.orbit', p.preferences) || portraitCameraDrag || event.button === 0 && work && p.emptyDragRotates ? 'rotate' : p.cameraMode ?? 'rotate';
       const buttonAction=event.button===0?(action==='move'?'pan':action):event.button===1?binding.middle:binding.right;
       rotating = p.showcase ? controls.enabled && controls.enableRotate && ((event.ctrlKey||event.metaKey)?buttonAction==='pan':buttonAction==='rotate')
         : event.button === 0 ? action === 'rotate' : event.button === 1 ? binding.middle === 'rotate' : binding.right === 'rotate';
@@ -723,11 +733,11 @@ export default function GamePreview(inputProps) {
       if (nodeGesture.rotationDrag) {
         const rect = canvas.getBoundingClientRect();
         for (const sample of [...(event.getCoalescedEvents?.() || []), event]) {
-          const dx = sample.clientX - rect.left - nodeGesture.x, dy = sample.clientY - rect.top - nodeGesture.y;
-          movementRotationAmount(nodeGesture.rotationDrag, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), sample.shiftKey);
+          const dx = sample.clientX - rect.left - nodeGesture.x, dy = sample.clientY - rect.top - nodeGesture.y, keys = gestureKeys(sample, nodeGesture);
+          movementRotationAmount(nodeGesture.rotationDrag, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), keys.shiftKey, keys.ctrlKey);
         }
       }
-      nodeGesture.lastPointer = { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey };
+      nodeGesture.lastPointer = { clientX: event.clientX, clientY: event.clientY, ...gestureKeys(event, nodeGesture) };
       nodeMove = { gesture: nodeGesture, event: nodeGesture.lastPointer }; nodeFrame.schedule();
     };
     let nodeHoverMove = null;
@@ -759,6 +769,7 @@ export default function GamePreview(inputProps) {
       const p = latest.current;
       const rect = canvas.getBoundingClientRect(), dx = event.clientX - rect.left - nodeGesture.x, dy = event.clientY - rect.top - nodeGesture.y;
       const distance = Math.hypot(dx, dy);
+      if (nodeGesture.inert) { if (distance > 5) nodeGesture.clickSelection = null; return; }
       const rotateClick = nodeGesture.mode === 'rotate' && (nodeGesture.clickSelection || nodeGesture.pose && nodeGesture.handle.free);
       if (!nodeGesture.moved && (rotateClick ? distance <= 5 : distance < 2)) return;
       if (nodeGesture.pose) {
@@ -774,7 +785,7 @@ export default function GamePreview(inputProps) {
         nodeGesture.values = movementFreeScaleValues(dx, dy, { sensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), workplaneEnabled: nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, shiftKey: event.shiftKey });
         nodeGesture.amount = Math.max(...nodeGesture.values); nodeGesture.scaleConstrained = nodeGesture.workplaneEnabled && event.shiftKey;
       } else nodeGesture.amount = nodeGesture.mode === 'rotate'
-        ? rotationAmount(nodeGesture, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey)
+        ? rotationAmount(nodeGesture, dx, dy, pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey, event.ctrlKey)
         : movementDragAmount(nodeGesture.handle, dx, dy, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
       if (event.shiftKey && nodeGesture.mode === 'scale' && !nodeGesture.freeScaleDrag) nodeGesture.amount = Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
@@ -836,7 +847,8 @@ export default function GamePreview(inputProps) {
         if (event.type === 'pointerup' && !gesture.moved && !gesture.adjusted && valid && gesture.clickTarget) latest.current.onPoseSelect?.(gesture.clickTarget);
         invalidate(); return;
       }
-      if (event.type !== 'pointerup' || !gesture.moved || gesture.adjusted || movementRestricted(gesture.mode, latest.current.restrictions)) restoreGestureTracks(gesture);
+      // A snap that lands on no turn at all leaves nothing to commit.
+      if (event.type !== 'pointerup' || !gesture.moved || gesture.adjusted || gesture.rotationDrag?.snapped && gesture.amount === 0 || movementRestricted(gesture.mode, latest.current.restrictions)) restoreGestureTracks(gesture);
       else {
         try { const result = latest.current.onNodeTransform?.({ mode: gesture.mode, space: gesture.space, rotateOnOwnAxis: gesture.rotateOnOwnAxis, axis: gesture.handle.axis, amount: gesture.amount, values: gesture.values, restPose: gesture.restPose, workplaneEnabled: gesture.mode === 'scale' ? gesture.scaleConstrained : gesture.workplaneEnabled, workplane: gesture.workplane, restrictions: latest.current.restrictions, time: gesture.frame, sequenceIndex: gesture.sequence, nodeIds: gesture.ids }); if (result === false) restoreGestureTracks(gesture); }
         catch (cause) { restoreGestureTracks(gesture); setError(cause.message); }
@@ -859,7 +871,7 @@ export default function GamePreview(inputProps) {
     canvas.addEventListener('dblclick',pickFxPart,true);
     canvas.addEventListener('dblclick',pickParticle,true);
     // Double-click a bone or a part of the model: its bones are selected with Focused Skeleton on.
-    const pickPartBones=event=>{const p=latest.current;if(event.button!==0||event.altKey||!p.onPartBones)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,bone=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='bones'),x,y);
+    const pickPartBones=event=>{const p=latest.current;if(event.button!==0||modifierHeld(event,'view.orbit',p.preferences)||!p.onPartBones)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,bone=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='bones'),x,y);
       if(bone){event.preventDefault();event.stopImmediatePropagation();p.onPartBones({nodeId:bone.node.ObjectId});return;}
       const geometry=projectPreviewGeosets(posedGeosets,camera,rect.width,rect.height),hit=pickPreviewGeoset(geometry,x,y);if(!hit)return;
       const points=geometry.find(geo=>geo.index===hit.index).points,distance=id=>Math.hypot(points[id].x-x,points[id].y-y);
@@ -870,17 +882,26 @@ export default function GamePreview(inputProps) {
     canvas.addEventListener('lostpointercapture', endShowcaseCursor);
     canvas.addEventListener('lostpointercapture', cancelGestureCapture);
     canvas.addEventListener('pointerdown', pointerDown, true); canvas.addEventListener('pointermove', suppressAdjustedMove, true); canvas.addEventListener('pointerup', finishLeftGesture, true); canvas.addEventListener('pointercancel', finishLeftGesture, true);
+    // A drag key pressed or let go redraws at once; the snap key only matters with a snap step set.
+    const dragKeyChanged = event => {
+      if (!isModifierKey(event.key) || !nodeGesture?.lastPointer) return;
+      const last = nodeGesture.lastPointer, keys = gestureKeys(event, nodeGesture);
+      if (keys.shiftKey === last.shiftKey && (keys.ctrlKey === last.ctrlKey || !nodeGesture.rotationDrag?.snap)) return;
+      nodeFrame.flush(); nodeGesture.lastPointer = { ...nodeGesture.lastPointer, ...keys }; nodeMove = { gesture: nodeGesture, event: nodeGesture.lastPointer }; nodeFrame.schedule();
+    };
     const previewKeyDown = event => {
       if (event.key === 'Escape' && (nodeGesture || selectionGesture)) cancelNodeGesture(event);
-      if(event.key==='Shift') { controls.shiftScreenDrag(event.shiftKey); if (nodeGesture?.lastPointer) { nodeFrame.flush(); nodeMove = { gesture: nodeGesture, event: { ...nodeGesture.lastPointer, shiftKey: event.type === 'keydown' } }; nodeFrame.schedule(); } }
-      if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
+      if(event.key==='Shift') controls.shiftScreenDrag(event.shiftKey);
+      dragKeyChanged(event);
+      if (layoutKey(event)?.toLowerCase?.() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           // A checkbox keeps focus after a click but never types, so it must not block A.
           !event.target?.closest?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]') &&
           (!latest.current.previewSelectionMode || canvas.closest('.uv-workspace-body')?.dataset.pointerRegion === 'preview')) previewSelectHeld = true;
     };
     const previewKeyUp = event => {
-      if(event.key==='Shift') { controls.shiftScreenDrag(event.shiftKey); if (nodeGesture?.lastPointer) { nodeFrame.flush(); nodeMove = { gesture: nodeGesture, event: { ...nodeGesture.lastPointer, shiftKey: event.type === 'keydown' } }; nodeFrame.schedule(); } }
-      if (event.key?.toLowerCase() !== 'a') return;
+      if(event.key==='Shift') controls.shiftScreenDrag(event.shiftKey);
+      dragKeyChanged(event);
+      if (layoutKey(event)?.toLowerCase?.() !== 'a') return;
       previewSelectHeld = false;
       if (selectionGesture?.uv) finishNodeGesture({ pointerId: selectionGesture.id, type: 'pointercancel', preventDefault() {}, stopImmediatePropagation() {} });
     };
@@ -893,6 +914,7 @@ export default function GamePreview(inputProps) {
     };
     const claimWindowKey = claim => {
       const {event,localWindow}=claim.detail;
+      claim.detail.claims.push({priority:0,run:()=>holdGestureKey(claim.detail,canvas,()=>!!nodeGesture||!!selectionGesture)});
       if(event.key!=='Escape'||(event.target?.ownerDocument||document)!==ownerDocument||!canvas.getClientRects().length||localWindow&&!localWindow.contains(canvas))return;
       claim.detail.claims.push({priority:0,run:()=>{
         if(!nodeGesture&&!selectionGesture)return false;
@@ -1544,6 +1566,7 @@ export default function GamePreview(inputProps) {
         const width = canvas.clientWidth, height = canvas.clientHeight;
         const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices(),p.vanilla)
           .filter(point=>!p.vanilla || !p.cleanAnimationPreview || point.overlayKind!=='particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
+        projectedNodePoints = projectedNodes;
         const focusHighlights = overlayOptions.focusedBoneMarkers && !(poseVisible && !p.poseConfig.picking) ? boneHighlightColors(projectedNodes, p.selectedNodeIds) : null;
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions, focusHighlights);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
@@ -1615,14 +1638,15 @@ export default function GamePreview(inputProps) {
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
         nodeCanvas.dataset.poseSkeleton = String(poseSkeleton?.length || 0);
         drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge }, controllerAppearance, poseSkeleton);
-        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), rotationDisplayHandles(nodeHandles, nodeGesture?.rotationDrag), canvas.width / Math.max(1, width), activeAxis, controllerAppearance);
-        drawGizmoRotationFeedback(nodeCanvas.getContext('2d'), nodeGesture?.rotationDrag, canvas.width / Math.max(1, width));
+        const shownRotation = nodeGesture?.inert ? null : nodeGesture?.rotationDrag;
+        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), rotationDisplayHandles(nodeHandles, shownRotation), canvas.width / Math.max(1, width), activeAxis, controllerAppearance);
+        drawGizmoRotationFeedback(nodeCanvas.getContext('2d'), shownRotation, canvas.width / Math.max(1, width));
         nodeCanvas.dataset.activeHandle = activeAxis || '';
-        nodeCanvas.dataset.rotationFeedback = nodeGesture?.rotationDrag ? `${nodeGesture.rotationDrag.axisName || ''} ${nodeGesture.rotationDrag.degrees}` : '';
-        nodeCanvas.dataset.rotationMode = nodeGesture?.rotationDrag ? nodeGesture.rotationDrag.circle ? 'circle' : 'line' : '';
-        nodeCanvas.dataset.rotationPivot = nodeGesture?.rotationDrag?.circle ? `${nodeGesture.rotationDrag.pivot.x},${nodeGesture.rotationDrag.pivot.y}` : '';
-        nodeCanvas.dataset.rotationSign = nodeGesture?.rotationDrag?.circle ? String(nodeGesture.rotationDrag.sign) : '';
-        nodeCanvas.dataset.rotationDirection = nodeGesture?.rotationDrag?.tangent ? `${nodeGesture.rotationDrag.tangent.x},${nodeGesture.rotationDrag.tangent.y}` : '';
+        nodeCanvas.dataset.rotationFeedback = shownRotation ? `${shownRotation.axisName || ''} ${shownRotation.degrees}` : '';
+        nodeCanvas.dataset.rotationMode = shownRotation ? shownRotation.circle ? 'circle' : 'line' : '';
+        nodeCanvas.dataset.rotationPivot = shownRotation?.circle ? `${shownRotation.pivot.x},${shownRotation.pivot.y}` : '';
+        nodeCanvas.dataset.rotationSign = shownRotation?.circle ? String(shownRotation.sign) : '';
+        nodeCanvas.dataset.rotationDirection = shownRotation?.tangent ? `${shownRotation.tangent.x},${shownRotation.tangent.y}` : '';
         if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);

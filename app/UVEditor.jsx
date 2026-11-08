@@ -4,7 +4,10 @@ import { bindScrollSensitivity, createFrameCoalescer, graphicsOptions, pointerDr
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
-import { collapseUVCoordinates, foldUVCoordinates, uvTurn } from '../src/uv-tools.js';
+import { collapseUVCoordinates, foldUVCoordinates, uvDragChanged, uvPieceCenters, uvSnapFactor, uvSnapTurn, uvTurn, uvZoom } from '../src/uv-tools.js';
+import { normalizeUVDrag } from '../src/uv-drag-settings.js';
+import { isModifierKey, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { holdGestureKey, onMousePressLost } from './gesture-keys.js';
 import { occupiedUVTextureFrames } from '../src/uv-preview-display.js';
 import { normalizeUVGrid, snapUVCoordinates, visibleUVGridLines } from '../src/uv-grid.js';
 import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js';
@@ -165,20 +168,30 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const sensitivity = ['pan', 'zoom'].includes(type) ? pointerSensitivityValue(p.preferences?.pointerSensitivity) : uvTransformSensitivity(p.preferences);
       const navigationMode = binding === 'pan' ? 'move' : binding || p.cameraMode;
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
-      s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
+      const pressFine = modifierHeld(event, 'drag.uv.pressFine', p.preferences);
+      s.pendingMove = null;
+      s.drag = { type, cursor, x, y, endX: x, endY: y, indices, ...selectionKeys(event, p.preferences), pointerSensitivity: sensitivity * (pressFine ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, snapHeldAtPress: modifierHeld(event, 'drag.uv.snap', p.preferences) };
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
-      // Owner-locked Rotate and Zoom: docs/UV-ROTATE-ZOOM.md. The 3D editors'
-      // rotation settings never apply here.
+      // Rotate and Zoom's defaults are owner-locked: docs/UV-ROTATE-ZOOM.md. The
+      // options in Settings (`uvDrag`, `uvEachPiece`) are for the UV Wrapper only:
+      // FX texture fitting never reads them, and the 3D editors' rotation
+      // settings never apply here.
+      if (p.wrapperControls && (type === 'rotate' || type === 'scale')) {
+        s.drag.settings = normalizeUVDrag(p.preferences?.uvDrag);
+        if (p.preferences?.uvEachPiece) s.drag.pieceCenters = uvPieceCenters(p.geoset, p.uvSet, indices, eligible(), s.uv);
+      }
       if (type === 'scale' && p.wrapperControls) {
-        s.drag.scaleDX = 0; s.drag.scaleX = x; s.drag.scaleY = y;
-        s.drag.shiftFine = event.altKey ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
+        s.drag.shiftFine = pressFine ? 1 : (p.preferences?.fineSensitivity ?? 0.2);
+        s.drag.uvSensitivity = sensitivity;
+        uvZoom(s.drag, x, y, 0);
       }
       if (type === 'rotate') {
         s.drag.wrapperControls = p.wrapperControls;
-        s.drag.fineWithoutShift = event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
+        s.drag.fineWithoutShift = pressFine ? (p.preferences?.fineSensitivity ?? 0.2) : 1;
         s.drag.fine = s.drag.fineWithoutShift;
         // The piece's farthest point from its centre, in screen pixels.
-        s.drag.reach = indices.reduce((most, index) => Math.max(most, Math.hypot((s.uv[index * 2] - s.drag.center[0]) * m.sizeX, (s.uv[index * 2 + 1] - s.drag.center[1]) * m.sizeY)), 0);
+        const pieces = s.drag.pieceCenters;
+        s.drag.reach = indices.reduce((most, index, position) => Math.max(most, Math.hypot((s.uv[index * 2] - (pieces ? pieces[position * 2] : s.drag.center[0])) * m.sizeX, (s.uv[index * 2 + 1] - (pieces ? pieces[position * 2 + 1] : s.drag.center[1])) * m.sizeY)), 0);
         uvTurn(s.drag, x, y);
       }
       draw();
@@ -191,42 +204,47 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
     function pointerMove(event) {
       if (!s.drag) return;
-      const rawEnd = point(event);
+      const rawEnd = point(event), preferences = current.current.preferences;
       // Turning sums wrapped angle steps; feed every sample so a fast turn between
       // frames cannot flip direction. Repeating the last point adds nothing.
       if (s.drag.type === 'rotate') {
         // Shift changes only the next turn increment, so toggling it never jumps.
-        s.drag.fine = s.drag.wrapperControls && event.shiftKey ? (current.current.preferences?.fineSensitivity ?? 0.2) : s.drag.fineWithoutShift;
+        s.drag.fine = s.drag.wrapperControls && modifierHeld(event, 'drag.uv.fine', preferences) ? (preferences?.fineSensitivity ?? 0.2) : s.drag.fineWithoutShift;
         uvTurn(s.drag, rawEnd.x, rawEnd.y);
       }
       if (s.drag.type === 'scale' && current.current.wrapperControls) {
-        // Like Movement's Resize: right/up grows, left/down shrinks (screen y is down).
         // Shift may change between frames: retain each weighted movement, redraw once.
-        s.drag.scaleDX += ((rawEnd.x - s.drag.scaleX) - (rawEnd.y - s.drag.scaleY)) * s.drag.pointerSensitivity * (event.shiftKey ? s.drag.shiftFine : 1);
-        s.drag.scaleX = rawEnd.x; s.drag.scaleY = rawEnd.y;
+        uvZoom(s.drag, rawEnd.x, rawEnd.y, s.drag.pointerSensitivity * (modifierHeld(event, 'drag.uv.fine', preferences) ? s.drag.shiftFine : 1));
       }
-      s.pendingMove = { rawEnd, shiftKey: event.shiftKey }; moveFrame.schedule();
+      const snap = modifierHeld(event, 'drag.uv.snap', preferences);
+      if (!snap) s.drag.snapHeldAtPress = false;
+      s.pendingMove = { rawEnd, axisLock: modifierHeld(event, 'drag.uv.axisLock', preferences), snap }; moveFrame.schedule();
     }
     function applyMove() {
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
       const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
-      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = p.wrapperControls && drag.type === 'rotate' ? drag.turn !== 0 : Math.hypot(dx, dy) > 1;
-      if (p.wrapperControls && drag.type === 'scale') drag.moved ||= Math.abs(drag.scaleDX) > 1;
+      const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const angle = drag.type === 'rotate' ? uvTurn(drag, rawEnd.x, rawEnd.y) : 0;
-        const factor = Math.max(0, 1 + (p.wrapperControls && drag.type === 'scale' ? drag.scaleDX : dx) / 100);
+        // The snap key snaps only what is applied, so the real amount survives releasing it.
+        // Held from before the press it waits for one release, as in the 3D tools.
+        const snapping = event.snap && !drag.snapHeldAtPress, rotateSnap = snapping && drag.type === 'rotate' ? drag.settings?.rotateSnap : 0, zoomSnap = snapping && drag.type === 'scale' ? drag.settings?.zoomSnap : 0;
+        const angle = drag.type === 'rotate' ? uvSnapTurn(uvTurn(drag, rawEnd.x, rawEnd.y), rotateSnap) : 0;
+        const factor = p.wrapperControls && drag.type === 'scale' ? uvSnapFactor(uvZoom(drag, rawEnd.x, rawEnd.y, 0), zoomSnap) : Math.max(0, 1 + dx / 100);
         // An axis lock squashes a turn into a skew, so rotation ignores it.
-        const lockedAxis = event.shiftKey && drag.type !== 'rotate' ? p.axis : null;
+        const lockedAxis = event.axisLock && drag.type !== 'rotate' ? p.axis : null;
+        let position = 0;
         for (const index of drag.indices) {
-          const offset = index * 2, u = drag.original[offset] - drag.center[0], v = drag.original[offset + 1] - drag.center[1];
+          // Each piece: the same angle or size around its own centre.
+          const centerU = drag.pieceCenters ? drag.pieceCenters[position * 2] : drag.center[0], centerV = drag.pieceCenters ? drag.pieceCenters[position * 2 + 1] : drag.center[1]; position++;
+          const offset = index * 2, u = drag.original[offset] - centerU, v = drag.original[offset + 1] - centerV;
           let nextU = drag.original[offset], nextV = drag.original[offset + 1];
           if (drag.type === 'translate' || drag.type === 'move') { nextU += dx / drag.sizeX; nextV += dy / drag.sizeY; }
-          if (drag.type === 'scale') { nextU = drag.center[0] + u * factor; nextV = drag.center[1] + v * factor; }
+          if (drag.type === 'scale') { nextU = centerU + u * factor; nextV = centerV + v * factor; }
           // Turn in screen pixels so a non-square texture rotates without skewing.
-          if (drag.type === 'rotate') { const su = u * drag.sizeX, sv = v * drag.sizeY; nextU = drag.center[0] + (su * Math.cos(angle) - sv * Math.sin(angle)) / drag.sizeX; nextV = drag.center[1] + (su * Math.sin(angle) + sv * Math.cos(angle)) / drag.sizeY; }
+          if (drag.type === 'rotate') { const su = u * drag.sizeX, sv = v * drag.sizeY; nextU = centerU + (su * Math.cos(angle) - sv * Math.sin(angle)) / drag.sizeX; nextV = centerV + (su * Math.sin(angle) + sv * Math.cos(angle)) / drag.sizeY; }
           if (lockedAxis !== 'Y') s.uv[offset] = nextU;
           if (lockedAxis !== 'X') s.uv[offset + 1] = nextV;
         }
@@ -253,7 +271,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       moveFrame.flush();
       const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
-      if (['translate', 'move', 'rotate', 'scale'].includes(drag.type) && drag.moved) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
+      // What the map shows is what commits: any visible change is one undo step, and a click that changed nothing is none.
+      if (['translate', 'move', 'rotate', 'scale'].includes(drag.type) && uvDragChanged(drag.original, s.uv, drag.indices)) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
       p.onPreviewChange?.(null);
       if (drag.type === 'select') {
         const m = mapping(), found = [], allowed = eligible(), rectangle = Math.hypot(drag.endX - drag.x, drag.endY - drag.y) > 5;
@@ -301,12 +320,15 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         const changed = kind === 'collapse' ? collapseUVCoordinates(uv, indices) : foldUVCoordinates(uv, indices, value || 'right-to-left');
         s.uv = changed; p.onChange?.(restrictUVChange(p.geoset, p.uvSet, changed, indices)); draw(); return;
       }
+      const pieces = p.wrapperControls && p.preferences?.uvEachPiece && (kind === 'rotate' || kind === 'scale') ? uvPieceCenters(p.geoset, p.uvSet, indices, all, uv) : null;
+      let position = 0;
       for (const index of indices) {
-        const offset = index * 2, u = uv[offset] - center[0], v = uv[offset + 1] - center[1];
-        if (kind === 'flip-u') uv[offset] = center[0] - u;
-        if (kind === 'flip-v') uv[offset + 1] = center[1] - v;
-        if (kind === 'rotate') { uv[offset] = center[0] + u * Math.cos(angle) - v * Math.sin(angle); uv[offset + 1] = center[1] + u * Math.sin(angle) + v * Math.cos(angle); }
-        if (kind === 'scale') { uv[offset] = center[0] + u * (Array.isArray(value) ? value[0] : value); uv[offset + 1] = center[1] + v * (Array.isArray(value) ? value[1] : value); }
+        const centerU = pieces ? pieces[position * 2] : center[0], centerV = pieces ? pieces[position * 2 + 1] : center[1]; position++;
+        const offset = index * 2, u = uv[offset] - centerU, v = uv[offset + 1] - centerV;
+        if (kind === 'flip-u') uv[offset] = centerU - u;
+        if (kind === 'flip-v') uv[offset + 1] = centerV - v;
+        if (kind === 'rotate') { uv[offset] = centerU + u * Math.cos(angle) - v * Math.sin(angle); uv[offset + 1] = centerV + u * Math.sin(angle) + v * Math.cos(angle); }
+        if (kind === 'scale') { uv[offset] = centerU + u * (Array.isArray(value) ? value[0] : value); uv[offset + 1] = centerV + v * (Array.isArray(value) ? value[1] : value); }
         if (kind === 'move' || kind === 'translate') { uv[offset] += value[0]; uv[offset + 1] += value[1]; }
       }
       if ([...uv].some(v => !Number.isFinite(v))) return;
@@ -319,15 +341,25 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     const contextMenu = event => event.preventDefault();
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
+    // Pressing or releasing the snap key alone changes a snapped turn or size, as in the 3D tools.
+    const snapKey = event => {
+      const drag = s.drag; if (!drag || !isModifierKey(event.key)) return;
+      const snap = modifierHeld(event, 'drag.uv.snap', current.current.preferences);
+      if (!snap) drag.snapHeldAtPress = false;
+      const step = drag.type === 'rotate' ? drag.settings?.rotateSnap : drag.type === 'scale' ? drag.settings?.zoomSnap : 0;
+      if (!step || !s.pendingMove || s.pendingMove.snap === snap) return;
+      s.pendingMove = { ...s.pendingMove, snap }; moveFrame.schedule();
+    };
     const nudgeKey = event => {
       const key = event.detail.event, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      event.detail.claims.push({ priority: 0, run: () => holdGestureKey(event.detail, element, () => !!s.drag && !['pan', 'zoom'].includes(s.drag.type)) });
       if (key.key === 'Escape' && s.drag && (key.target?.ownerDocument || document) === ownerDocument && container.getClientRects().length && (!event.detail.localWindow || event.detail.localWindow.contains(container))) {
         event.detail.claims.push({ priority: 0, run: () => { if (!s.drag) return false; cancelGesture(); return true; } });
         return;
       }
       // The focused UV workspace owns the number pad, even when nothing can move: its keys never
       // reach the app's digit shortcuts from here.
-      if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
+      if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[0-9]$/.test(key.code)) event.preventDefault();
       if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || s.drag || !selection().length) return;
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;
@@ -344,11 +376,12 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }));
     element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
     ownerDocument.addEventListener('visibilitychange', draw);
-    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-window-key', nudgeKey);
+    const stopPressLost = onMousePressLost(() => { if (s.drag) cancelGesture(); });
+    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); ownerWindow.addEventListener('keydown', snapKey, true); ownerWindow.addEventListener('keyup', snapKey, true); window.addEventListener('mdlxl-window-key', nudgeKey);
     return () => {
-      observer.disconnect(); unbindScroll(); moveFrame.cancel(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
+      stopPressLost(); observer.disconnect(); unbindScroll(); moveFrame.cancel(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', nudgeKey);
+      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); ownerWindow.removeEventListener('keydown', snapKey, true); ownerWindow.removeEventListener('keyup', snapKey, true); window.removeEventListener('mdlxl-window-key', nudgeKey);
     };
   }, []);
   useEffect(() => { state.current.resize?.(); }, [graphics.pixelRatio, suspended, graphics.pauseWhenHidden]);

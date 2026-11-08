@@ -51,7 +51,14 @@ test('a shortcut can repeatedly toggle its focused control without stealing nati
     assert.equal(canHandleHotkeyEvent({ key: 'Enter', target }, { allowInInput: true }), false, `native Enter remains on ${type} even for commands allowed in inputs`);
     assert.equal(canHandleHotkeyEvent({ key: ' ', ctrlKey: true, target }), true, `an explicit modified shortcut still works on ${type}`);
   }
-  for (const type of ['text', 'number', 'range', 'search']) assert.equal(canHandleHotkeyEvent({ key: 'j', target: { tagName: 'INPUT', type } }), false, `${type} entry remains protected`);
+  for (const type of ['text', 'number', 'search']) assert.equal(canHandleHotkeyEvent({ key: 'j', target: { tagName: 'INPUT', type } }), false, `${type} entry remains protected`);
+  // A closed dropdown, slider or colour swatch keeps only its navigation keys; every other key still works.
+  for (const target of [{ tagName: 'SELECT', matches: () => false }, { tagName: 'INPUT', type: 'range' }, { tagName: 'INPUT', type: 'color' }]) {
+    assert.equal(canHandleHotkeyEvent({ key: 'm', target }), true, `a key works with a ${target.type || 'select'} focused`);
+    assert.equal(canHandleHotkeyEvent({ key: 'z', ctrlKey: true, target }), true, `Ctrl+Z works with a ${target.type || 'select'} focused`);
+    for (const key of ['ArrowLeft', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', ' ']) assert.equal(canHandleHotkeyEvent({ key, target }), false, `${key} stays with the ${target.type || 'select'}`);
+  }
+  assert.equal(canHandleHotkeyEvent({ key: 'm', target: { tagName: 'SELECT', matches: selector => selector === ':open' } }), false, 'an open dropdown keeps its type-ahead letters');
   assert.equal(canHandleHotkeyEvent({ key: 'ArrowLeft', target: { tagName: 'INPUT', type: 'radio' } }), false, 'radio group arrow navigation remains native');
   assert.equal(canHandleHotkeyEvent({ key: ' ', target: { tagName: 'BUTTON' } }), false, 'a focused button keeps native Space activation');
 });

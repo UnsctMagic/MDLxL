@@ -5,7 +5,7 @@ import { openDocument, createNode } from '../src/editor-document.js';
 import { TEAM_COLORS } from '../src/team-colors.js';
 import { animationMarkerTimes } from '../src/animation-markers.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
-import { normalizePreferences, chordFromEvent } from '../src/preferences.js';
+import { normalizePreferences, chordFromEvent, configurationHotkeyConflict } from '../src/preferences.js';
 import { wheelOptionIndex } from '../src/dropdown-wheel.js';
 
 test('New starter is exact in both versions and survives MDL/MDX save/reopen', () => {
@@ -42,7 +42,15 @@ test('portable settings validate atomically and preserve warm accents and hotkey
   assert.deepEqual(importConfiguration(JSON.stringify(exportConfiguration(prefs))),prefs);
   assert.throws(()=>importConfiguration({...exportConfiguration(prefs),version:2}));
   assert.throws(()=>importConfiguration({schema:'mdlxl-configuration',version:1,preferences:{panelScale:999}}));
-  assert.throws(()=>importConfiguration({schema:'mdlxl-configuration',version:1,preferences:{hotkeys:{a:['F'],b:['F']}}}));
+  // One letter may serve different windows, so the file alone cannot be refused; the window-aware check decides.
+  const imported=importConfiguration({schema:'mdlxl-configuration',version:1,preferences:{hotkeys:{a:['F'],b:['F']}}});
+  assert.deepEqual(imported.hotkeys,{a:['F'],b:['F']});
+  const sameWindow=[{id:'a',scope:'editor',defaultKeys:[]},{id:'b',scope:'editor',defaultKeys:[]}];
+  assert.equal(configurationHotkeyConflict(sameWindow,imported.hotkeys),'F','two commands that fire in one scope are refused');
+  const differentWindows=[{id:'a',contextual:true,group:'Material Manager',defaultKeys:[]},{id:'b',contextual:true,group:'Node Manager',defaultKeys:[]}];
+  assert.equal(configurationHotkeyConflict(differentWindows,imported.hotkeys),null,'the same letter in two windows is allowed');
+  const windowAndCommand=[{id:'undo',scope:'editor',defaultKeys:['Ctrl+Z']},{id:'animxl:undo',contextual:true,group:'animxl',bindingCommand:'undo',defaultKeys:[]}];
+  assert.equal(configurationHotkeyConflict(windowAndCommand,{undo:['Ctrl+Z'],'animxl:undo':['Ctrl+Z']}),null,'a window action may keep its command key');
 });
 test('EN/RU physical-key shortcuts use the same label without handling IME/AltGraph',()=>{
   assert.equal(chordFromEvent({key:'А',code:'KeyF'}),'F'); assert.equal(chordFromEvent({key:'f',code:'KeyF'}),'F');
