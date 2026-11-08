@@ -6393,6 +6393,7 @@
   "Select new vertices to work with or a different geoset": "选择要处理的新顶点或其他几何集",
   "UV wrapper workspace": "UV 展开工作区",
   "UV material": "UV 材质",
+  "Picks the material for the selected geosets. An unsaved test texture on them is cancelled.": "为所选多边形组选择材质。其上未保存的试用纹理将被取消。",
   "No material for this selection": "此选择没有材质",
   "UV texture map": "UV 纹理贴图",
   "Select new vertices": "选择新顶点",
