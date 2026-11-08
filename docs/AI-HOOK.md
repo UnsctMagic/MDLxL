@@ -81,7 +81,9 @@ The built-in JavaScript runner can keep named scripts and JSON results in privat
 
 An embedded job captures the unsaved model and marked selection when you send the prompt. You can orbit, scrub, select other parts, or switch tabs while it works. If the live target diverges, modeling tools and off-screen pictures continue on a private copy. Tools that click or drag a visible editor control require the live tab.
 
-If you edit model data during the job, the chat offers **Open as new model** and **Merge** when the AI has a result. Opening creates a separate unsaved tab. Merging gives the same provider the common starting model, its candidate, and a fresh copy of your latest model. It verifies the result before applying it as one Undo step. Editing again during that merge can bring the choice back. View navigation alone does not require a merge.
+If you edit model data during the job and your edits and the AI's touch separate data, such as two different geosets, MDLxL combines them itself when the AI finishes. There is no question and no extra AI use, and the AI's part is one Undo step. Only the model-wide bounding box may change on both sides; it is rebuilt from the geosets. Adding or removing a list item, such as a geoset or bone, counts as overlap when the other side changed that same list.
+
+When the edits overlap, or you have unfinished paint, UV previews or animation drafts, the chat offers **Open as new model** and **Merge**. Opening creates a separate unsaved tab. Merging gives the same provider the common starting model, its candidate, and a fresh copy of your latest model. It verifies the result before applying it as one Undo step. Editing again during that merge can bring the choice back. View navigation alone does not require a merge.
 
 ### Editing handbook
 
