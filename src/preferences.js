@@ -13,6 +13,9 @@ import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-prev
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
 import { DEFAULT_UV_VIEW_TILE_LIMIT, normalizeUVViewTileLimit } from './uv-view-limit.js';
 import { DEFAULT_UV_DRAG, normalizeUVDrag } from './uv-drag-settings.js';
+import { DEFAULT_MODIFIERS, normalizeModifiers } from './modifier-bindings.js';
+import { DEFAULT_SETTINGS_PRESETS, normalizeSettingsPresets } from './settings-presets.js';
+import { DEFAULT_TOOLBAR_MODE, normalizeToolbarMode } from './toolbar-mode.js';
 import { boneAppearanceForTheme, geosetSetForTheme, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_APPEARANCE, DEFAULT_VIEWPORT_PRESET_ID, normalizeViewportAppearance, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
 export const DEFAULT_VISUALS = Object.freeze({
   background: '#cccccc', vertex: '#167bff', selectedVertex: '#ff0000', occludedVertex: '#8cacd0',
@@ -46,6 +49,8 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
   uvDrag: DEFAULT_UV_DRAG, uvEachPiece: false,
+  modifiers: DEFAULT_MODIFIERS, settingsPresets: DEFAULT_SETTINGS_PRESETS,
+  toolbarMode: DEFAULT_TOOLBAR_MODE, toolbarHiddenNoted: false,
   language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, updateOfferAnswered: false, modelLookAnswered: false, disableSounds: false, saveCalculateExtents: false, showPressedKeys: false, showHotkeys: false, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
@@ -193,6 +198,8 @@ export function normalizePreferences(value = {}) {
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
     uvDrag: normalizeUVDrag(input.uvDrag), uvEachPiece: boolean(input.uvEachPiece, false),
+    modifiers: normalizeModifiers(input.modifiers), settingsPresets: normalizeSettingsPresets(input.settingsPresets),
+    toolbarMode: normalizeToolbarMode(input.toolbarMode), toolbarHiddenNoted: boolean(input.toolbarHiddenNoted, false),
     language: ['ru', 'es', 'zh', 'fr', 'de', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), modelLookAnswered: boolean(input.modelLookAnswered, Object.keys(record(value)).length > 0), saveCalculateExtents: boolean(input.saveCalculateExtents, false), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.scrollSensitivity.max, Math.max(PREFERENCE_LIMITS.scrollSensitivity.min, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: PREFERENCE_LIMITS.wheelModes.includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
