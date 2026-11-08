@@ -7,7 +7,7 @@
 - **Calculer les limites** est désormais un seul calcul dans l’inspecteur de modèle, OptimizeXL et Save As. Il ignore les fonds de portrait, les lueurs de héros et d’équipe et les maillages d’effet additifs : la barre de vie est à la bonne hauteur.
 - **EMTR et Glow Up** ont maintenant les poignées Tourner de l’éditeur principal sur X, Y et Z. **Ajouter un ruban** crée une traînée d’arme native visible seulement pendant le coup. Les champs de ruban actualisent la traînée en direct, et les rubans additifs suivent l’Intensité.
 - **Gestionnaire de nœuds :** affichez, masquez et retirez les clés de visibilité des émetteurs à l’image actuelle.
-- **FX :** un émetteur de particules choisi est d’abord prévisualisé, et **Ajouter** le conserve. Dix nouveaux styles sont dans les dossiers normaux de la bibliothèque.
+- **FX :** plusieurs géosets cochés sont ajustés comme une seule surface. Un émetteur de particules choisi est d’abord prévisualisé, et **Ajouter** le conserve. Dix nouveaux styles sont dans les dossiers normaux de la bibliothèque.
 - **OptimizeXL :** **Retirer la redondance exacte** dans Insanity FIxer retire les clés finales répétées, les pistes constantes et les triangles aplatis sans changer l’aspect du modèle. Les animations de posture alternative sont maintenant comparées uniquement à leur propre posture.
 - **Onglet Os :** **Agiter** (J) balance les os sélectionnés dans l’aperçu, pour repérer aussitôt les parties mal liées. Le modèle n’est pas modifié.
 - **Modélisation :** maintenez Ctrl avec Redimensionner pour rapprocher ou écarter des pièces sans changer leur taille. Clic droit sur **Dissocier** puis désactivez **Éclater** pour séparer des sommets sans les déplacer.

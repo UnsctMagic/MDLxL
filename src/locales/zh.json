@@ -7648,6 +7648,7 @@
   "Merge AI result": "合并 AI 结果",
   "Show at {0}": "在第 {0} 帧显示",
   "Hide at {0}": "在第 {0} 帧隐藏",
+  "Selected geosets ({0})": "所选几何体（{0}）",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "拖动时按住 {0} 可让部件靠拢或分开而不改变大小。",
   "Hold {0} to lock direction.": "按住 {0} 锁定方向。",
   "Hold {0} for fine control.": "按住 {0} 进行精细控制。",

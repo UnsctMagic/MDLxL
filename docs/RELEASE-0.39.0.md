@@ -6,7 +6,7 @@
 - **Citadel Paint:** **New base coat** has a new layout with far fewer seams and more pixels for heads. **Detail** sets how many pixels a selected part gets. Also new: pen pressure, Smoothing, Symmetry and layer opacity.
 - **Calculate extents:** one calculator in the model inspector, OptimizeXL and Save As. Portrait backgrounds, glows and additive meshes no longer raise the health bar.
 - **EMTR and Glow Up:** Rotate handles on X, Y and Z. **Add ribbon** makes a native weapon trail shown only during the swing, and ribbon fields update it live.
-- **Nodes manager:** emitter visibility keys. **FX:** emitters preview before **Add**, and ten new looks.
+- **Nodes manager:** emitter visibility keys. **FX:** several checked geosets are fitted as one surface, emitters preview before **Add**, and ten new looks.
 - **OptimizeXL:** **Remove exact redundancy** removes repeated end keys, constant tracks and collapsed triangles. Alternate stances compare only with their own stance.
 - **Bones:** **Wiggle** (J) swings selected bones to reveal bad binding.
 - **Modeling:** Ctrl + Resize moves pieces at full size. Right-click **Uncouple** and turn off **Nuke** to separate without moving.

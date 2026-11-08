@@ -7,7 +7,7 @@
 - **Calcular límites** es ahora un único cálculo en el inspector del modelo, OptimizeXL y Save As. Deja fuera los fondos de retrato, los brillos de héroe y de equipo y las mallas de efecto aditivas, para que la barra de vida quede a la altura correcta.
 - **EMTR y Brillo de héroe** tienen ahora los controles de Rotar del editor principal en X, Y y Z. **Añadir cinta** crea una estela de arma nativa que solo aparece durante el golpe. Los campos de cinta actualizan la estela en directo, y las cintas aditivas siguen la Intensidad.
 - **Gestor de nodos:** muestra, oculta y elimina claves de visibilidad de emisores en el fotograma actual.
-- **FX:** al elegir un emisor de partículas primero se previsualiza y **Añadir** lo conserva. Hay diez aspectos nuevos en las carpetas normales de la biblioteca.
+- **FX:** varios geosets marcados se ajustan como una sola superficie. Al elegir un emisor de partículas primero se previsualiza y **Añadir** lo conserva. Hay diez aspectos nuevos en las carpetas normales de la biblioteca.
 - **OptimizeXL:** **Eliminar redundancia exacta** en Insanity FIxer elimina claves finales repetidas, pistas constantes y triángulos colapsados sin cambiar el aspecto del modelo. Las animaciones de postura alternativa ahora solo se comparan con su propia postura.
 - **Pestaña Huesos:** **Menear** (J) balancea los huesos seleccionados en la vista previa para que las partes mal vinculadas se vean enseguida. El modelo no cambia.
 - **Modelado:** mantén Ctrl con Escalar para juntar o separar piezas sin cambiar su tamaño. Haz clic derecho en **Desacoplar** y desactiva **Dispersar** para separar vértices sin moverlos.

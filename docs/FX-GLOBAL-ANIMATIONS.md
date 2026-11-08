@@ -77,6 +77,8 @@ produce a clearly strong glow without erasing the model's shape.
 
 ## Placement and model preservation
 
+With two or more geosets checked in the editor, the Geoset dropdown starts on **Selected geosets (n)**. The effect is fitted to them as one surface and drawn as one overlay; the geosets themselves stay separate. Create as overlay is locked on for this choice. Picking one geoset in the dropdown returns to fitting that geoset alone.
+
 Fit the whole selected part as it is drawn in the current animation, on any model.
 A blade effect covers hilt to tip; particles originate on its actual surface.
 Separate pieces sharing one geoset may use different bones. Do not fit their

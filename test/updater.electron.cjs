@@ -59,7 +59,7 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
         }else{
           const prompt=page.getByRole('dialog',{name:'MDLxL update'});await prompt.waitFor();assert.equal(await prompt.locator('li').count(),2);
           const top=await prompt.evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('[role="dialog"]')===node;});assert.equal(top,true,'update prompt appears above Settings');
-          assert.equal(await prompt.locator('a').count(),5);
+          assert.equal(await prompt.locator('a').count(),7);
           await prompt.locator('a').first().dispatchEvent('click');assert.match((await app.evaluate(()=>updaterTest.links)).at(-1),/RELEASE-0.19.0.md$/);
           await page.locator('[data-hotkey="update:install"]').dispatchEvent('click');
           // The prepared update is cancelled by the close confirmation and returns to "available".

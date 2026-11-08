@@ -7753,6 +7753,7 @@
   "Merge AI result": "Combinar resultado de la IA",
   "Show at {0}": "Mostrar en {0}",
   "Hide at {0}": "Ocultar en {0}",
+  "Selected geosets ({0})": "Geosets seleccionados ({0})",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "Mantén {0} al arrastrar para acercar o separar piezas sin cambiar su tamaño.",
   "Hold {0} to lock direction.": "Mantén {0} para bloquear la dirección.",
   "Hold {0} for fine control.": "Mantén {0} para un control fino.",

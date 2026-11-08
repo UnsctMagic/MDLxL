@@ -199,3 +199,19 @@ test('an EMTR ribbon already present at startup previews gravity',async()=>{
  const falling=simulate(80),level=simulate(0);
  assert.ok(level.vertices[2]-falling.vertices[2]>8,'ordinary ribbon gravity drops the trail: '+JSON.stringify({level:level.vertices[2],falling:falling.vertices[2],count:level.creationTimes.length}));
 });
+test('several selected geosets are fitted as one surface and stay separate',()=>{
+ const {doc,frame}=fixture(),model=doc.model,look=GLOBAL_LOOKS.find(l=>authoredStack(l,frame,'x').layers.some(layer=>layer.type!=='Particles'&&!layer.nativeSpec&&!layer.nativeSurface&&layer.type!=='Rune'&&layer.type!=='Edge'&&!layer.impact)&&!l.impact);
+ const second=structuredClone(model.Geosets[0]);for(let i=2;i<second.Vertices.length;i+=3)second.Vertices[i]+=frame.length*2;model.Geosets.push(second);
+ const [one,two]=model.Geosets.map(g=>structuredClone(g)),stack={...authoredStack(look,frame,'combined'),group:[1]};
+ const result=doc.apply('Apply',FX_SECTIONS,m=>compileAnimation(m,0,stack,{}));
+ assert.ok(result!==false);
+ const shapes=model.Geosets.filter(g=>g._FxTag?.endsWith('/shape'));assert.ok(shapes.length>0,'the look draws a surface');
+ for(const shape of shapes)assert.equal(shape.Vertices.length,one.Vertices.length+two.Vertices.length,'one overlay covers every selected geoset');
+ assert.deepEqual(model.Geosets[1],two,'the other selected geoset is left as it was');
+ assert.deepEqual(model.Geosets[0].Vertices,one.Vertices);assert.equal(model.Geosets[0].MaterialID,one.MaterialID,'the original surface stays visible');
+ assert.deepEqual(readAnimationStack(model,0).group,[1],'reopening FX keeps the combined choice');
+ assert.equal(readAnimationStack(model,0).asOverlay,true);
+ const single=doc.apply('Apply',FX_SECTIONS,m=>compileAnimation(m,0,{...readAnimationStack(m,0),group:undefined},{}));assert.ok(single!==false);
+ for(const shape of model.Geosets.filter(g=>g._FxTag?.endsWith('/shape')))assert.equal(shape.Vertices.length,one.Vertices.length,'choosing one geoset again fits only that one');
+ assert.equal(readAnimationStack(model,0).group,undefined);
+});

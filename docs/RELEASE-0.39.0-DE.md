@@ -7,7 +7,7 @@
 - **Ausdehnung berechnen** ist jetzt eine einzige Berechnung im Modellinspektor, in OptimizeXL und bei Save As. Porträthintergründe, Helden- und Teamleuchten sowie additive Effektmeshes werden ausgelassen, damit die Lebensleiste auf der richtigen Höhe sitzt.
 - **EMTR und Glow Up** haben jetzt die Drehen-Griffe des Haupteditors auf X, Y und Z. **Band hinzufügen** erzeugt eine spielgerechte Waffenspur, die nur beim Schlag sichtbar ist. Bandfelder aktualisieren die Spur live, und additive Bänder folgen der Intensität.
 - **Knotenverwaltung:** Sichtbarkeitsschlüssel von Emittern am aktuellen Frame anzeigen, ausblenden und entfernen.
-- **FX:** Ein gewählter Partikelemitter erscheint zuerst in der Vorschau, und **Hinzufügen** behält ihn. Zehn neue Looks liegen in den normalen Ordnern der Bibliothek.
+- **FX:** Mehrere markierte Geosets werden als eine Oberfläche angepasst. Ein gewählter Partikelemitter erscheint zuerst in der Vorschau, und **Hinzufügen** behält ihn. Zehn neue Looks liegen in den normalen Ordnern der Bibliothek.
 - **OptimizeXL:** **Exakte Redundanz entfernen** im Insanity FIxer entfernt wiederholte Endschlüssel, konstante Spuren und kollabierte Dreiecke, ohne das Aussehen des Modells zu ändern. Animationen alternativer Haltungen werden jetzt nur noch mit ihrer eigenen Haltung verglichen.
 - **Knochen-Tab:** **Wackeln** (J) schwingt die ausgewählten Knochen in der Vorschau, sodass schlecht gebundene Teile sofort auffallen. Das Modell wird nicht verändert.
 - **Modellieren:** Halte Strg beim Skalieren, um Teile in voller Größe zusammen- oder auseinanderzuschieben. Rechtsklicke **Trennen** und schalte **Sprengen** aus, um Scheitelpunkte zu trennen, ohne sie zu bewegen.

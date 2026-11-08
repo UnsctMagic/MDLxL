@@ -7743,6 +7743,7 @@
   "Merge AI result": "Объединить результат ИИ",
   "Show at {0}": "Показать на кадре {0}",
   "Hide at {0}": "Скрыть на кадре {0}",
+  "Selected geosets ({0})": "Выбранные геосеты ({0})",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "Удерживайте {0} при перетаскивании, чтобы сдвигать или раздвигать части, не меняя размер.",
   "Hold {0} to lock direction.": "Удерживайте {0}, чтобы зафиксировать направление.",
   "Hold {0} for fine control.": "Удерживайте {0} для точного управления.",
