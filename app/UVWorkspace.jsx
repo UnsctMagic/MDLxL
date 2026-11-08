@@ -5,7 +5,7 @@ import useStoredState from './useStoredState.js';
 import { createFrameCoalescer } from './viewport-performance.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
-import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
+import { combineSelectedUVGeosets, otherUVMaterials, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
 import { Tool as EditorTool } from './EditorControls.jsx';
 import { uvToolState } from '../src/uv-tool-state.js';
 import { hiddenUVPreviewGeosets, normalizeUVPreviewDisplay, previewMeshDomain, uvPreviewOverlay } from '../src/uv-preview-display.js';
@@ -84,7 +84,7 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
 }
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,
-  onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, textureAssets, teamColor, preferences, onPreferences,
+  onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, onMaterialAssign, textureAssets, teamColor, preferences, onPreferences,
   draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
@@ -121,10 +121,13 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const previewDomain = useMemo(() => previewMeshDomain(model), [model, revision]);
   const materialEntries = useMemo(() => relevantUVMaterials(materialModel, eligibleSelection), [materialModel, revision, eligibilityKey]);
   const current = materialEntries.find(entry => entry.materialID === materialID) || materialEntries[0] || null;
+  // Labels come from the document, so an unsaved test texture never names a material it isn't saved on.
+  const assignableMaterials = useMemo(() => current && !editingLocked ? otherUVMaterials(model, current.geosetIndices, materialEntries.map(entry => entry.materialID)) : [], [model, revision, materialEntries, current?.materialID, editingLocked]);
+  const materialOptions = [...materialEntries, ...assignableMaterials].sort((a, b) => a.materialID - b.materialID);
   const imageLayers = (current?.layers || []).filter(({ texture }) => texture && !texture.ReplaceableId && texture.Image?.trim());
   const wrappingEnabled = imageLayers.length > 0 && imageLayers.every(({ texture }) => (texture.Flags & 3) === 3);
   // UV drags keep the renderer alive; material and texture changes must reload it.
-  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, density: densityChanges?.map(change => [change.index, change.geoset.Faces.length]) || [] });
+  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, geosetMaterials: previewModel?.Geosets?.map(geoset => geoset.MaterialID), density: densityChanges?.map(change => [change.index, change.geoset.Faces.length]) || [] });
 
   useEffect(() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }, [revision]);
 
@@ -175,7 +178,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
 
   const dispatch = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
   const chooseMaterial = value => {
-    const id = Number(value), entry = materialEntries.find(item => item.materialID === id); setMaterialID(id); setUVTool('select'); onPreviewChanges?.(null);
+    const id = Number(value), entry = materialOptions.find(item => item.materialID === id); setMaterialID(id); setUVTool('select'); onPreviewChanges?.(null);
+    if (assignableMaterials.includes(entry)) onMaterialAssign?.(entry.geosetIndices, id);
     if (entry?.geosetIndices.length) onGeosetChange?.(entry.geosetIndices[0], entry.coordId);
   };
   const selectCombined = ids => {
@@ -242,7 +246,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
       </UVGridControls></div>
       <div className="uv-header-divider" aria-hidden="true"/>
       <div className="uv-header-actions"><button disabled={editingLocked} onClick={onLibrary}>Replace Texture…</button>{draftCount > 0 && <><button disabled={editingLocked} onClick={onSavePreview}>Save texture</button><button disabled={editingLocked} onClick={onRevertPreview}>Revert texture</button></>}<button onClick={onExit}>Exit UV Wrapper</button></div>
-      <div className="uv-material-controls"><label><select aria-label="UV material" value={current?.materialID ?? ''} disabled={densityOpen} onChange={event => chooseMaterial(event.target.value)}>{materialEntries.map(entry => <option key={entry.materialID} value={entry.materialID}>{entry.label}</option>)}</select></label><MaterialProperties model={materialModel} materialID={current?.materialID} disabled={editingLocked} onChange={(_, preset, tint) => onMaterialPreset?.(model.Geosets[current.geosetIndices[0]].MaterialID, preset, tint)} compact filterModes/></div>
+      <div className="uv-material-controls"><label title="Picks the material for the selected geosets. An unsaved test texture on them is cancelled."><select aria-label="UV material" value={current?.materialID ?? ''} disabled={densityOpen} onChange={event => chooseMaterial(event.target.value)}>{materialOptions.map(entry => <option key={entry.materialID} value={entry.materialID}>{entry.label}</option>)}</select></label><MaterialProperties model={materialModel} materialID={current?.materialID} disabled={editingLocked} onChange={(_, preset, tint) => onMaterialPreset?.(model.Geosets[current.geosetIndices[0]].MaterialID, preset, tint)} compact filterModes/></div>
     </header>
     {(materialError || materialPreview?.warnings?.length > 0) && <div className="uv-workspace-warning" role="status" data-alert="">{materialError || materialPreview.warnings.join(' · ')}</div>}
     <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%`, '--uv-right-header-height': `${rightHeaderHeight}px`, '--uv-left-header-height': `${leftHeaderHeight}px` }}>

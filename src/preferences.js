@@ -53,6 +53,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   rotation: DEFAULT_ROTATION, rotationRevision: 2,
   rightScrollAdjust: true,
   highlightSelection: false,
+  uncoupleNuke: true,
   theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
   cameraBindings: CAMERA_PRESETS.classic.cameraBindings,
   visuals: DEFAULT_VISUALS, grid: DEFAULT_GRID,
@@ -198,6 +199,7 @@ export function normalizePreferences(value = {}) {
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.pointerSensitivity.max, Math.max(PREFERENCE_LIMITS.pointerSensitivity.min, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
     rotation: normalizeRotationPreferences(input.rotation), rotationRevision: 2,
     highlightSelection: boolean(input.highlightSelection, false),
+    uncoupleNuke: boolean(input.uncoupleNuke, true),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
     // Empty follows the UI accent.

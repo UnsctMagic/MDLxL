@@ -3,7 +3,8 @@
 ## Claude Code only
 
 - Branches use the `claude/` prefix.
-- When the owner says "merge", merge right away. Run the merge as its own
+- When the owner says "merge", push, open the PR and merge right away; that one
+  word covers all three. Until then everything stays local. Run the merge as its own
   command, exactly `gh api repos/UnsctMagic/MDLxL/pulls/<n>/merge -X PUT -f merge_method=merge`;
   that form is pre-approved in `.claude/settings.json`. After merging, mark the
   task note completed with the merge revision and remove its README row in the
