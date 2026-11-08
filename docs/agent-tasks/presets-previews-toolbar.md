@@ -1,13 +1,11 @@
 # Presets, 3D Rotate settings, hotkeys, previews and toolbar
 
-Status: built on local branch `claude/uv-drag-settings`. Not online until the
-owner says "merge". The full packaged suite is for releases only. Targeted
-packaged run on the final build, 8 Nov: 16 of 19 pass. The three that fail do
-not come from this branch: `citadel-studio` and `game-file-library` fail the same
-way on the pre-branch build (`5e2746b7`), and `emtr-add-like-ribbons` needs a real
-profile whose Warcraft index is current. The 46 tests picked for the code this
-branch changed passed on the build before the last Paint Cut-out fix, apart from
-`pose-ik`, whose stale step was corrected and passes on the final build. Audits in `out/audit/` are
+Status: complete; the owner said "merge" on 8 Nov. Combined with main at
+`5837079d`, where the 29 packaged tests overlapping main pass. The full packaged
+suite is for releases only. Known failures that do not come from this branch:
+`citadel-studio` and `game-file-library` fail the same way on the pre-branch
+build (`5e2746b7`), and `emtr-add-like-ribbons` needs a real profile whose
+Warcraft index is current. Audits in `out/audit/` are
 git-ignored working notes; decisions below are the durable record. Follows [UV drag settings](uv-drag-settings.md).
 
 ## Owner's request (8 Nov 2026), in their words

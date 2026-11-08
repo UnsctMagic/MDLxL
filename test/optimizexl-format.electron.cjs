@@ -16,8 +16,8 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   // 0 errors / 0 severe / 0 warnings / 784 notices).
   // No LowPolyWorks, Downloads or SD MDX800 model has the original's sequence-timeline quirk (out/fixture-scan/scan.mjs found
   // no sequenceTimeline proposal anywhere), so this fixture covers the visibility-interpolation repair only.
-  // Exact cleanup adds one separately reviewed proposal; the original 172 remain.
-  const BEFORE='mdx-m3-viewer: 0 errors · 0 severe · 1 warnings · 784 notices',AFTER='mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 784 notices',AUTOMATIC=173,INSPECTION=72,NOTICES_KEPT=784,FORMAT_KINDS=new Set(['visibilityInterpolation','sequenceTimeline']);
+  // Exact cleanup adds one separately reviewed proposal; the bounds repair adds one more, and the original 172 remain.
+  const BEFORE='mdx-m3-viewer: 0 errors · 0 severe · 1 warnings · 784 notices',AFTER='mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 784 notices',AUTOMATIC=174,INSPECTION=72,NOTICES_KEPT=784,FORMAT_KINDS=new Set(['visibilityInterpolation','sequenceTimeline']);
   // Portrait effects: no model with a format quirk has a particle emitter visible in a Portrait sequence (sampled with
   // src/animation.js sampleTrack: this fixture's BlizPart_RidingDust Visibility is 0 at 106667 and 109500, the whole Portrait;
   // Vile Knight and SteamTank are the same or have no Portrait), so the authored portrait-particle check is not coverable
@@ -27,7 +27,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','format-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
   const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js');
   const before=openDocument(new Uint8Array(source),'x.mdx').model,fixes=sanityProposals(before).filter(f=>!f.inspectionOnly);
-  assert.equal(fixes.filter(f=>f.kind!=='exactCleanup').length,172,'every existing automatic proposal remains');assert.equal(fixes.filter(f=>f.kind==='exactCleanup').length,1,'one additional exact cleanup');
+  assert.equal(fixes.filter(f=>f.kind!=='exactCleanup').length,173,'every existing automatic proposal remains');assert.equal(fixes.filter(f=>f.kind==='exactCleanup').length,1,'one additional exact cleanup');
   assert.equal(fixes.length,AUTOMATIC);const formatFixes=fixes.filter(f=>FORMAT_KINDS.has(f.kind));assert.equal(formatFixes.length,1);
   const expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'sanity',{}, {kind:'batch',stage:'sanity',entries:formatFixes.map(fix=>({fix}))}).bytes);
   const exe=appTarget().packaged;

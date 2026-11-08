@@ -7,8 +7,8 @@ const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app
   // with out/fixture-scan/sim.mjs (prepareOptimizeXL bytes, test/helpers/hive.mjs sanityTest, sanityProposals, one select-all
   // batch through runOptimizeStage): 0 errors / 1 severe / 0 warnings / 409 notices, 188 automatic proposals (0 inspection-
   // only), and that one approved batch leaves 0 errors / 0 severe / 0 warnings / 0 notices.
-  // Exact cleanup adds one proposal to the existing 188.
-  const SEVERE='mdx-m3-viewer: 0 errors · 1 severe · 0 warnings · 409 notices',AUTOMATIC=189;
+  // Exact cleanup and the bounds repair each add one proposal to the existing 188.
+  const SEVERE='mdx-m3-viewer: 0 errors · 1 severe · 0 warnings · 409 notices',AUTOMATIC=190;
   // The glow check needs an additive glow geoset that stays visible while the geometry it is bound to is hidden
   // (src/optimizexl-effect-visibility.js). out/fixture-scan/irr-after.mjs ran findIrregularities, before and after the
   // Insanity FIxer passes, over every LowPolyWorks model, the owner's Downloads and the SD MDX800 corpus: none has such a
