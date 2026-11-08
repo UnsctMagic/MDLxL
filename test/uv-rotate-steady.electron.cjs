@@ -39,10 +39,15 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // A stationary press reads the existing map transform without editing it.
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
     const map = await page.evaluate(() => {
-      const d = uvRotateState().drag; return { pivot: d.pivotScreen, center: d.center, sizeX: d.sizeX, sizeY: d.sizeY };
+      const d = uvRotateState().drag; return { pivot: d.pivotScreen, center: d.center, sizeX: d.sizeX, sizeY: d.sizeY, reach: d.reach };
     });
     await page.mouse.up();
     const cx = box.x + map.pivot[0], cy = box.y + map.pivot[1];
+    // Owner, 7 Nov: over a big piece its farthest point never moves faster than
+    // 70% of the mouse, so the steady zone is the piece's own size (at least 24 px).
+    const zone = Math.max(24, map.reach), near = radius => Math.min(1, radius / zone);
+    measurements.push({ name: 'piece reach on screen', reach: map.reach });
+    check('the whole geoset is bigger than the 60 px circles, so both rules are exercised', map.reach > 60 && map.reach < 120);
     const expectedUV = angle => {
       const values = before.uv.slice();
       for (const i of before.ids) {
@@ -70,7 +75,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     for (const winding of [1, -1]) {
       await page.mouse.move(cx + 60, cy); await page.mouse.down();
       await arc(60, 0, winding * Math.PI / 4);
-      const normal = winding * Math.PI / 4 * .7;
+      const normal = winding * Math.PI / 4 * .7 * near(60);
       await page.waitForFunction(expected => uvRotateInfo().uv.every((v, i) => Math.abs(v - expected[i]) < 2e-6), expectedUV(normal));
       await page.keyboard.down('Shift');
       check('Shift press keeps the current UV orientation ' + winding, matches((await page.evaluate(() => uvRotateInfo())).uv, expectedUV(normal)));
@@ -90,7 +95,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // Owner lock (6 Nov 2026, docs/UV-ROTATE-ZOOM.md): only movement AROUND the
     // centre turns the selection. These checks fail on the 4 Nov straight-line rule.
     const turnNow = () => page.evaluate(() => uvRotateState().drag.turn);
-    // Same circle, same strength at any distance from 48 px outward.
+    // Same circle, same strength at any distance outside the piece; slower over it.
     for (const [name, radius, start, sweep, fine] of [
       ['quarter circle at 24 px', 24, 0, Math.PI / 2, false],
       ['quarter circle at 60 px', 60, 0, Math.PI / 2, false],
@@ -109,10 +114,11 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await page.mouse.up();
       if (fine) await page.keyboard.up('Alt');
       await page.waitForFunction(() => !uvRotateState().drag);
-      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1);
+      const after = await page.evaluate(() => uvRotateInfo().uv), angle = sweep * .7 * (fine ? .2 : 1) * near(radius);
       const expected = expectedUV(angle), maxUVError = Math.max(...after.map((v, i) => Math.abs(v - expected[i])));
       measurements.push({ name, radius, expectedDegrees: angle * 180 / Math.PI, actualDegrees: turn * 180 / Math.PI, maxUVError });
-      check(name + ': turns 70% of the mouse circle', Math.abs(turn - angle) < .002 && maxUVError < .002);
+      check(name + ': turns 70% of the mouse circle, slower over the piece', Math.abs(turn - angle) < .002 && maxUVError < .002);
+      check(name + ': the far edge never outruns 70% of the mouse', Math.abs(turn) * map.reach <= Math.abs(sweep) * radius * .7 + .5);
       await undo();
     }
     // Close to the centre the same circle turns less, steadily, never more.
@@ -121,7 +127,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await arc(12, 0, Math.PI / 2);
       const turn = await turnNow(); await page.mouse.up();
       measurements.push({ name: 'quarter circle at 12 px', actualDegrees: turn * 180 / Math.PI });
-      check('quarter circle at 12 px turns half as far, same direction', Math.abs(turn - Math.PI / 2 * .7 * .5) < .01);
+      check('quarter circle at 12 px turns less, same direction', Math.abs(turn - Math.PI / 2 * .7 * 12 / zone) < .01);
       await page.screenshot({ path: path.join(out, 'circular-rotate.png') });
       await undo();
     }
@@ -157,22 +163,23 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // An imperfect circle keeps its direction when its radius wobbles.
     for (const winding of [1, -1]) {
       await page.mouse.move(cx + 80, cy); await page.mouse.down();
-      let previousTurn = 0;
+      let previousTurn = 0, expectedTurn = 0, previousRadius = 80;
       for (let step = 1; step <= 72; step++) {
         const angle = winding * 2 * Math.PI * step / 72, radius = 80 + 20 * Math.sin(3 * angle);
+        expectedTurn += winding * 2 * Math.PI / 72 * .7 * Math.min(near(radius), near(previousRadius)); previousRadius = radius;
         await page.mouse.move(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
         const turn = await turnNow();
         assert.ok((turn - previousTurn) * winding > 0, 'varying-radius circle keeps its winding at step ' + step);
         previousTurn = turn;
       }
       await page.mouse.up();
-      check('varying-radius circle ' + winding + ' turns exactly one 70% circle', Math.abs(previousTurn - winding * 2 * Math.PI * .7) < .002);
+      check('varying-radius circle ' + winding + ' turns its expected amount', Math.abs(previousTurn - expectedTurn) < .005);
       await undo();
     }
     // A committed rotation does not change how the next circle turns.
     await page.mouse.move(cx + 60, cy); await page.mouse.down();
     await arc(60, 0, Math.PI / 2); await page.mouse.up();
-    const rotated = await page.evaluate(() => uvRotateInfo().uv), firstAngle = Math.PI / 2 * .7;
+    const rotated = await page.evaluate(() => uvRotateInfo().uv), firstAngle = Math.PI / 2 * .7 * near(60);
     check('first committed circle turns clockwise', matches(rotated, expectedUV(firstAngle)));
     await page.mouse.move(cx + 60, cy); await page.mouse.down();
     await arc(60, 0, Math.PI / 2); await page.mouse.up();

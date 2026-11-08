@@ -44,8 +44,12 @@ export default function AppDialogs({
   // Save as can rename the model itself (its Info name), not only the file.
   const saveAsFormat = async format => {
     const name = dialog.modelName?.trim();
-    if (name && name !== model.Info.Name && edit('Rename model', ['Info'], m => { m.Info.Name = name; }) === false) return;
-    if (preferences.saveCalculateExtents && !doc.readOnly && edit('Calculate extents', ['Info', 'Sequences', 'Geosets'], m => { calculateExtents(m); }) === false) return;
+    // edit() also returns false when nothing changed (extents already right),
+    // so only a thrown error stops the save; edit() shows that error itself.
+    try {
+      if (name && name !== model.Info.Name) edit('Rename model', ['Info'], m => { m.Info.Name = name; }, { rethrow: true });
+      if (preferences.saveCalculateExtents && !doc.readOnly) edit('Calculate extents', ['Info', 'Sequences', 'Geosets'], m => { calculateExtents(m); }, { rethrow: true });
+    } catch { return; }
     if (await save(true, format)) setDialog(null);
   };
   return <>

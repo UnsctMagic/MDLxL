@@ -10,15 +10,28 @@ const value=(m,n,p,sequence,frame)=>sampleNodeProperty(m,n,p,frame,sequence,0);
 const error=(a,b,p)=>a.every((v,i)=>v===b[i])||p==='Rotation'&&a.every((v,i)=>v===-b[i])?0:trackValueError(a,b,p==='Rotation');
 const name=s=>s.Name.toLowerCase().replace(/[^a-z]+/g,' ').trim();
 const eligible=s=>/^(attack|death)( |$)/.test(name(s))||/^stand ready( |$)/.test(name(s));
+// Warcraft III name tags for a different body stance or form (morphed
+// Alternate form, Defend stance, swimming, carrying gold/lumber). Animations
+// only share a reference pose with animations of the same stance.
+const stanceTags=new Set(['alternate','alternateex','defend','swim','gold','lumber']);
+const stance=s=>name(s).split(' ').filter(w=>stanceTags.has(w)).sort().join(' ');
 
 /** Infer a reference from repeated complete rig poses, not a privileged name.
  * Only Death's first frame votes. An attack/ready proposal repairs both ends
- * together, preserving every interior key and the independent effect tracks. */
+ * together, preserving every interior key and the independent effect tracks.
+ * Each stance (plain, Alternate, ...) votes and is corrected separately. */
 export function commonEndpointProposals(m) {
   const rig=protectedGeosetData(m,{excludedGeosets:m.Geosets.map((_,i)=>i)}).nodes;
   const channels=allNodes(m).filter(n=>rig.has(n.ObjectId)).flatMap(n=>properties.filter(p=>local(n[p])).map(p=>({node:n.ObjectId,property:p,n})));
-  const endpoints=m.Sequences.flatMap((s,sequence)=>eligible(s)?[0,...(/^death( |$)/.test(name(s))?[]:[1])].map(end=>({sequence,end,frame:s.Interval[end],pose:channels.map(c=>value(m,c.n,c.property,sequence,s.Interval[end]))})):[]);
-  if(!channels.length||endpoints.length<3)return [];
+  if(!channels.length)return [];
+  const groups=new Map();
+  m.Sequences.forEach((s,sequence)=>{if(eligible(s)){const k=stance(s);groups.set(k,[...(groups.get(k)||[]),sequence]);}});
+  return [...groups.values()].flatMap(sequences=>stanceProposals(m,channels,sequences)).sort((a,b)=>a.sequence-b.sequence);
+}
+
+function stanceProposals(m,channels,sequences) {
+  const endpoints=sequences.flatMap(sequence=>{const s=m.Sequences[sequence];return [0,...(/^death( |$)/.test(name(s))?[]:[1])].map(end=>({sequence,end,frame:s.Interval[end],pose:channels.map(c=>value(m,c.n,c.property,sequence,s.Interval[end]))}));});
+  if(endpoints.length<3)return [];
   const distance=(a,b)=>channels.map((c,i)=>error(a.pose[i],b.pose[i],c.property)/(c.property==='Rotation'?.5:.05));
   const ranked=endpoints.map(reference=>{const members=endpoints.filter(e=>distance(e,reference).every(v=>v<=1));return {reference,members,cost:members.reduce((sum,e)=>sum+distance(e,reference).reduce((n,v)=>n+v*v,0),0)};}).sort((a,b)=>b.members.length-a.members.length||a.cost-b.cost||a.reference.sequence-b.reference.sequence||a.reference.end-b.reference.end);
   const winner=ranked[0],support=[...new Set(winner.members.map(e=>e.sequence))];

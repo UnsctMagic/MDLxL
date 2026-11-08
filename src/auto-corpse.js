@@ -32,6 +32,24 @@ const corpseTexture=(model,g)=>textureNames(model,g).some(name=>/(?:^|[\\/])(?:g
 // tangents equal the value. A sink passes its own straight-line tangents.
 const key=(frame,value,line,[inTan,outTan]=[])=>{const v=vector(value),flat=line===2&&v.length!==4?v.map(()=>0):v;return {Frame:frame,Vector:v,...(line>=2?{InTan:vector(inTan??flat),OutTan:vector(outTan??flat)}:{})};};
 const TRANSFORMS={Translation:[0,0,0],Rotation:[0,0,0,1],Scaling:[1,1,1]};
+const EFFECT_OUTPUT={Attachments:[],ParticleEmitters:['EmissionRate'],ParticleEmitters2:['EmissionRate'],ParticleEmitterPopcorns:['EmissionRate'],RibbonEmitters:['Alpha'],Lights:['Intensity','AmbIntensity']};
+// MDLxL's preview draws meshes bound to the first 254 nodes only. When a model
+// already has that many, the new corpse bones move to just after the model's
+// own bones (the game's section order) and later non-bone nodes shift up.
+function lowerCorpseBones(model,ids) {
+  const nodes=allNodes(model).sort((a,b)=>a.ObjectId-b.ObjectId);
+  if(!ids.some(id=>id>=254)||model.Geosets.some(g=>g.SkinWeights?.length)||nodes.some((n,i)=>n.ObjectId!==i))return;
+  const moved=nodes.filter(n=>ids.includes(n.ObjectId)),rest=nodes.filter(n=>!ids.includes(n.ObjectId));
+  const after=rest.reduce((last,n,i)=>model.Bones.includes(n)?i:last,-1);
+  const order=[...rest.slice(0,after+1),...moved,...rest.slice(after+1)];
+  if(moved.some(n=>order.indexOf(n)>=254))return;
+  const map=new Map(order.map((n,i)=>[n.ObjectId,i])),pivots=order.map(n=>model.PivotPoints[n.ObjectId]);
+  for(const n of order){n.ObjectId=map.get(n.ObjectId);if(n.Parent!=null&&n.Parent>=0)n.Parent=map.get(n.Parent)??n.Parent;}
+  for(const g of model.Geosets)g.Groups=g.Groups.map(group=>group.map(id=>map.get(id)??id));
+  model.PivotPoints=pivots;for(const n of order)n.PivotPoint=pivots[n.ObjectId];
+  model.Nodes=[];for(const n of order)model.Nodes[n.ObjectId]=n;
+  for(const key of ['Bones','Helpers','Attachments','EventObjects','CollisionShapes','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','Lights','RibbonEmitters'])model[key]?.sort((a,b)=>a.ObjectId-b.ObjectId);
+}
 
 /** Replace only the keys inside the given decay spans ([start,end,keys]).
  * Original interpolation, tangents, globals and keys outside them are never
@@ -167,18 +185,25 @@ export function autoCorpse(model, options={}) {
   // fuzzy texture-name match that would mistake living skeletons for corpses.
   for(let i=0;i<model.Geosets.length;i++)if(!glow(model,model.Geosets[i])&&nonDecay.length&&nonDecay.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[0],si).alpha<.01)&&deaths.every(({s,i:si})=>sampleGeosetAnimation(model,i,s.Interval[1],si).alpha<.01)&&model.Sequences.some((s,si)=>isDecaySequence(s)&&/^bones?$/.test(sequenceWords(s.Name)[1])&&sampleGeosetAnimation(model,i,s.Interval[0],si).alpha>.5))oldCorpses.add(i);
   // Plan all terminal poses before masking the source visibility.
+  // An extra Death variant whose body vanishes (turns into bats, shrinks to
+  // nothing) leaves no corpse in Warcraft III; it gets no decay of its own.
+  // The first Death still needs a body.
+  const leavesNothing=/no body geometry|collapses the body|no measurable ground footprint/;
   const plans=deaths.map(({s,i},n)=>{
     const frame=s.Interval[1],eligible=model.Geosets.map((g,id)=>({g,id})).filter(({g,id})=>!oldCorpses.has(id)&&!glow(model,g)&&g.Faces?.length);
     let body=eligible.filter(({id})=>bodyVisible(model,id,frame,i));
     if(!body.length) body=eligible.filter(({id})=>[0,.5,.99].some(t=>bodyVisible(model,id,s.Interval[0]+(frame-s.Interval[0])*t,i)));
-    if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
-    const geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,{...options,pieces:n===0?options.pieces:null});
+    let geometry;
+    try {
+      if(!body.length)throw Error('Death has no body geometry to place a corpse beneath.');
+      geometry=buildCorpseGeometry(model,body.map(x=>x.id),i,{...options,pieces:n===0?options.pieces:null});
+    } catch(error) { if(n>0&&leavesNothing.test(error.message))return null; throw error; }
     // The body keeps the look it has on the last Death frame. Many native
     // deaths switch the body off on exactly that frame; decay shows it whole.
     const shown=v=>v>.01?v:1;
     const look=new Map(body.map(({id})=>{const anim=model.GeosetAnims.find(a=>a.GeosetId===id);return [id,{alpha:anim&&!global(anim.Alpha)?shown(sample(model,anim.Alpha,frame,i,1)):1,color:anim?.Color?.Keys&&!global(anim.Color)?sample(model,anim.Color,frame,i,[1,1,1]):null,layers:model.Materials[model.Geosets[id].MaterialID]?.Layers.map(l=>global(l.Alpha)?null:shown(sample(model,l.Alpha,frame,i,1)))}];}));
     return {death:i,deathName:s.Name,geometry,frame,body:body.map(x=>x.id),look};
-  });
+  }).filter(Boolean);
   const pairs=plans.map(plan=>{const death=model.Sequences[plan.death],tail=suffix(death.Name),label=tail?' '+death.Name.trim().split(/\s+/).filter(t=>!/^death$/i.test(t)).join(' '):'';return {...plan,flesh:ensureSequence(model,'Decay Flesh'+label,death,'flesh'),bone:ensureSequence(model,'Decay Bone'+label,death,'bone')};});
   const intervals=pairs.flatMap(p=>[p.flesh,p.bone]).map(i=>Array.from(model.Sequences[i].Interval));
   const byId=new Map(originals.map(n=>[n.ObjectId,n]));
@@ -236,7 +261,11 @@ export function autoCorpse(model, options={}) {
     }
   }
   for(const key of ['Attachments','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','Lights'])for(const node of model[key]||[]) {
-    if(global(node.Visibility))throw Error('An effect has global visibility. Make its visibility local before using Auto Corpse.');
+    // An effect switched by a global loop keeps that loop everywhere. It is
+    // silenced in decay through its own local output instead (particles stop
+    // spawning, a ribbon or light fades to nothing); one with no such channel
+    // keeps running, like Blizzard's global loops in decay.
+    if(global(node.Visibility)){for(const channel of EFFECT_OUTPUT[key])if(!global(node[channel]))node[channel]=localMask(node[channel]??(channel==='Alpha'||channel==='Intensity'?1:0),model.Sequences,intervals);continue;}
     node.Visibility=localMask(node.Visibility,model.Sequences,intervals);
   }
   for(const event of model.EventObjects||[])if(event.EventTrack)event.EventTrack=new Uint32Array(Array.from(event.EventTrack).filter(t=>!intervals.some(([a,b])=>t>=a&&t<=b)));
@@ -264,6 +293,7 @@ export function autoCorpse(model, options={}) {
   // only when a geoset already uses the per-sequence extent convention.
   // A body geoset's new Decay Flesh slot covers the body lying and sinking.
   model.Geosets.slice(0,originalGeosetCount).forEach((g,id)=>{if(g.Anims?.length)while(g.Anims.length<model.Sequences.length){const s=model.Sequences[g.Anims.length],own=pairs.some(p=>p.flesh===g.Anims.length&&p.body.includes(id))?s:g;g.Anims.push({MinimumExtent:new Float32Array(own.MinimumExtent),MaximumExtent:new Float32Array(own.MaximumExtent),BoundsRadius:own.BoundsRadius});}});
+  lowerCorpseBones(model,pairs.map((_,number)=>model.Bones.find(n=>n.Name===PREFIX+number)?.ObjectId).filter(id=>id!=null));
   if(options.blood)applyDeathBlood(model,deaths[0].i,options.blood);
   return {corpses:results,originalNodes:originals.length};
 }

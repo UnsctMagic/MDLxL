@@ -154,6 +154,15 @@ test('UV map Rotate: only circling turns, same strength everywhere, never snaps'
   assert.ok(Math.abs(run(arc(80, 0, -720, 144)).total + 504) < 1e-9, 'counter-clockwise past two turns');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, fine: .2 }).total - 12.6) < 1e-9, 'Shift/Alt fine control');
   assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false }).total - 90) < 1e-9, 'FX texture fitting keeps one for one');
+  // Owner, 7 Nov: a big piece must never spin. Over the piece its farthest point
+  // moves at most 70% of the mouse; outside the piece nothing changes.
+  for (const radius of [24, 40, 100, 200]) {
+    const mousePath = radius * 90 * deg, { total } = run(arc(radius, 30, 120), { pivotScreen, reach: 400 });
+    assert.ok(Math.abs(total * deg * 400 - mousePath * .7) < 1e-6, `over a 400px piece at ${radius}px the far edge moves 70% of the mouse`);
+  }
+  assert.ok(Math.abs(run(arc(500, 30, 120), { pivotScreen, reach: 400 }).total - 63) < 1e-9, 'outside a big piece the turn is unchanged');
+  assert.ok(Math.abs(run(arc(60, 30, 120), { pivotScreen, reach: 10 }).total - 63) < 1e-9, 'a small piece turns as before');
+  assert.ok(Math.abs(run(arc(80, 0, 90), { pivotScreen, wrapperControls: false, reach: 400 }).total - 90) < 1e-9, 'FX texture fitting ignores piece size');
   // Straight toward/away from the centre does not turn, in any direction.
   for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [.6, .8], [-.8, .6]]) {
     assert.ok(Math.abs(run(line(vx * 24, vy * 24, vx * 230, vy * 230)).total) < 1, `straight away ${vx},${vy} does not turn`);

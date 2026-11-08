@@ -28,11 +28,18 @@ the tool each time:
 - Only movement **around** the selection's centre turns it. Circling clockwise
   turns clockwise, counter-clockwise turns counter-clockwise, past full turns.
 - Moving straight toward or away from the centre does **not** turn it.
-- From 24 px out, the same circle turns the same amount at any distance: 70% of
+- Outside the piece (and from 24 px out), the same circle turns the same amount at any distance: 70% of
   the mouse's angle (the UV Wrapper is 30% slower than the mouse).
 - Within 24 px of the centre the turn goes by distance moved around the centre,
   so the same circle turns less, steadily. Sweeping across the piece never
   snaps it to the other side (no step over 3°).
+- **A big piece never spins (owner, 7 Nov 2026).** The steady zone is the
+  piece's own size: its farthest selected point from the centre, in screen
+  pixels, measured when the drag starts (at least 24 px). While the mouse is
+  over the piece, no point of it moves faster than 70% of the mouse. Outside
+  the piece nothing changes. The owner: big pieces "rotate with disregard",
+  small ones were "somewhat okay"; it "should NEVER rotate that fast". Free
+  circling stays.
 - History: 6 Nov the zone was 48 px and the owner said it was "still resisting
   when im close too much"; 16 px was then "a lil bit" less smooth
   than wanted, so it is 24 px. Adding left/right drag turning was
