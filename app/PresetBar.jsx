@@ -34,9 +34,10 @@ export function PresetNameRow({ domain, name, onName, onSave, onSaveFile, onClos
  * Preset controls for one settings page. `commit` is Settings' commit(change); `catalog`
  * is the Hotkeys catalog (hotkeys page only). `onSaveAs` replaces the name row, `onMessage`
  * receives the status line instead of the bar showing it, and `selectLabel` overrides the
- * select's accessible name.
+ * select's accessible name. `selectHotkey` and `restoreHotkey` keep the saved key of a
+ * control the bar replaced.
  */
-export default function PresetBar({ domain, preferences, commit, catalog = NO_ACTIONS, onSaveAs, onMessage, selectLabel }) {
+export default function PresetBar({ domain, preferences, commit, catalog = NO_ACTIONS, onSaveAs, onMessage, selectLabel, selectHotkey, restoreHotkey }) {
   const root = useRef(null), fileInput = useRef(null);
   const [naming, setNaming] = useState(false), [confirming, setConfirming] = useState(false), [name, setName] = useState(''), [status, setStatus] = useState('');
   const presets = listPresets(domain, preferences), builtIns = presets.filter(preset => preset.builtIn), saved = presets.filter(preset => !preset.builtIn);
@@ -92,7 +93,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   return <div className="preset-bar" ref={root}>
     <div className="preset-bar-main">
       <label className="preset-bar-field" title={SELECT_TIP}><span>Preset</span>
-        <select {...hotkey(domain, 'select')} aria-label={selectLabel || `${label} preset`} title={SELECT_TIP} value={active} onChange={event => choose(event.target.value)}>
+        <select {...(selectHotkey ? { 'data-hotkey': selectHotkey } : hotkey(domain, 'select'))} aria-label={selectLabel || `${label} preset`} title={SELECT_TIP} value={active} onChange={event => choose(event.target.value)}>
           {active === CUSTOM_PRESET && <option value={CUSTOM_PRESET} disabled>Custom</option>}
           <optgroup label="Built-in">{builtIns.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</optgroup>
           {saved.length > 0 && <optgroup label="Saved">{saved.map(preset => <option key={preset.id} value={preset.id} translate="no">{preset.name}</option>)}</optgroup>}
@@ -103,7 +104,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
       <button type="button" {...hotkey(domain, 'save-as')} aria-expanded={onSaveAs ? undefined : naming} title="Keeps the current settings under a name, or writes them to a file to share." onClick={() => { if (onSaveAs) onSaveAs(); else { setConfirming(false); setNaming(open => !open); } }}>Save as…</button>
       {onSaveAs && <button type="button" {...hotkey(domain, 'save-file')} title="Writes the current settings to a file you can share." onClick={saveFile}>Save to file…</button>}
       <button type="button" {...hotkey(domain, 'load')} title="Opens a preset file. It is added to Saved and used right away." onClick={load}>Load from…</button>
-      <button type="button" {...hotkey(domain, 'restore')} title="Goes back to the default settings on this page." onClick={() => { if (question) { setNaming(false); setConfirming(true); } else restore(); }}>Restore</button>
+      <button type="button" {...(restoreHotkey ? { 'data-hotkey': restoreHotkey } : hotkey(domain, 'restore'))} title="Goes back to the default settings on this page." onClick={() => { if (question) { setNaming(false); setConfirming(true); } else restore(); }}>Restore</button>
     </div>
     {!desktopFiles && <input ref={fileInput} className="preset-bar-file" type="file" accept=".mdlxl-preset,.json" aria-label="Preset file" onChange={loadPicked}/>}
     {naming && !onSaveAs && <PresetNameRow domain={domain} name={name} onName={setName} onSave={save} onSaveFile={saveFile} onClose={closeRows}/>}
