@@ -461,6 +461,16 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
       script.value.modules > 30 &&
       script.value.source,
   );
+  const reduction = await tool('mdlxl_script', {
+    target: context.target,
+    code: 'const g=await api.module("optimizexl-geometry");return g.reducePolygons(model,{target:1,error:1,protectSeams:false});',
+  });
+  check(
+    'scripts can reduce polygons straight after loading OptimizeXL',
+    // The early "already small enough" return has no constrained field; this proves the simplifier ran.
+    'constrained' in reduction.value,
+    JSON.stringify(reduction.value),
+  );
   await assert.rejects(
     () =>
       tool('mdlxl_script', {
