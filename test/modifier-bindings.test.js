@@ -161,11 +161,11 @@ test('every meaning used in the app exists, and the drag owners keep no literal 
     for (const [, id] of appFile(name).matchAll(/modifierSentence\('[^']*',\s*'([a-z.A-Z]+)'/g)) assert.ok(ids.has(id), `${name}: ${id}`);
   }
   for (const name of ['UVEditor.jsx', 'StageRotate.jsx', 'ShowcaseLayers.jsx', 'ShiftLockBadge.jsx', 'game-preview-data.js']) assert.doesNotMatch(appFile(name), LITERAL, name);
-  // Every line left reads a flag the drag owner already computed, or one of the keys that stay fixed: Forge's part snap, the camera's own Shift, the Showcase camera swap, hold-A, lamps.
+  // Every line left reads a flag the drag owner already computed, or one of the keys that stay fixed: Forge's part snap, the camera's own Shift, the Showcase camera swap, hold-A, lamps, Paint's Alt camera buttons and Ctrl+right brush drag.
   const allowed = {
     'Viewport.jsx': ['function point(event)', 'gizmoMoveTranslation(', 'solveViewMove(', 'partHover =', 'hoverMove = {', 'hoverMove.event.shiftKey', 'dragScale(dx, drag.workplane', 'event.ctrlKey ? spreadOffsets(', 'rotationDragDegrees(drag.rotationDrag'],
     'GamePreview.jsx': ['gizmoMoveTranslation(', 'solveViewMove(', 'rotationAmount(', 'movementFreeScaleValues(', 'scaleConstrained =', 'Math.round(nodeGesture.amount', 'rotating = p.showcase', 'shiftScreenDrag', 'layoutKey(event)'],
-    'PaintViewport.jsx': ['lampFine: event.shiftKey', 'pendingPicks', '!p.paintSelectedLamp', 'paintLampDrag('],
+    'PaintViewport.jsx': ['lampFine: event.shiftKey', 'pendingPicks', '!p.paintSelectedLamp', 'paintLampDrag(', 'event.altKey && (event.button', 'event.altKey && event.button', "action:'brushAdjust'"],
   };
   for (const [name, known] of Object.entries(allowed)) for (const line of appFile(name).split('\n').filter(item => LITERAL.test(item))) assert.ok(known.some(part => line.includes(part)), name + ': ' + line.trim().slice(0, 90));
 });

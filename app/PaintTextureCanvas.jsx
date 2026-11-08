@@ -10,12 +10,12 @@ import {selectionKeys} from '../src/modifier-bindings.js';
 /** A texture/UV view of the current paint target. Pixel edits share the 3D
  * painter's coats and history; UV edits are owned by the portable preset.
  */
-export default function PaintTextureCanvas({preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle,canvas,version,title,geoset,coordId=0,brush,brushPreview,outside=false,textureSmoothing=false,decal,disabled,onStart,onMove,onEnd,onCancel,onHover,onUVChange,regionMask,onGrab,onCopyTexture,onPasteTexture,onCopy,onPaste,selectedFaces,onSeparate,onMask}) {
+export default function PaintTextureCanvas({preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle,onBrushAdjust,onPenSeen,canvas,version,title,geoset,coordId=0,brush,brushPreview,outside=false,textureSmoothing=false,decal,disabled,onStart,onMove,onEnd,onCancel,onHover,onUVChange,regionMask,onGrab,onCopyTexture,onPasteTexture,onCopy,onPaste,selectedFaces,onSeparate,onMask}) {
   const display=useRef(),regionCanvas=useRef(),image=useRef(),scroll=useRef(),cursor=useRef(),gesture=useRef(null),applyDrag=useRef(),dragFrame=useRef(null);
   dragFrame.current||=createFrameCoalescer(()=>applyDrag.current?.());useEffect(()=>()=>dragFrame.current.cancel(),[]);
   const [zoomChoice,setZoomChoice]=useState('fit'),[fit,setFit]=useState(1),[mesh,setMesh]=useState(false),[tool,setTool]=useState('paint'),[draft,setDraft]=useState(null),[angle,setAngle]=useState(0),[scale,setScale]=useState(100);
   const width=canvas?.width||256,height=canvas?.height||256,zoom=zoomChoice==='fit'?fit:Number(zoomChoice),uv=draft||geoset?.TVertices?.[coordId];
-  const {navigation,adjustingSensitivity}=usePaintImageNavigation(scroll,image,zoom,setZoomChoice,()=>{onEnd();onHover?.(null);},{preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle});
+  const {navigation,adjustingSensitivity}=usePaintImageNavigation(scroll,image,zoom,setZoomChoice,()=>{onEnd();onHover?.(null);},{preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle,onBrushAdjust});
   const selectedIds=useMemo(()=>selectedFaces?new Set([...selectedFaces].flatMap(face=>[...geoset.Faces.subarray(face*3,face*3+3)])):null,[selectedFaces,geoset]);
   const action=useRef();action.current=id=>{if(id==='mirror'&&tool==='moveUV')transform(true);if(id==='paint')setTool('paint');if(id==='fit')setZoomChoice('fit');if(id==='mesh')setMesh(v=>!v);if(id==='mapping'){setTool(v=>v==='moveUV'?'paint':'moveUV');setMesh(true);}if(id==='select')setTool(v=>v==='pixels'?'paint':'pixels');};
   useEffect(()=>{const fn=e=>action.current(e.detail);window.addEventListener('paint-texture-action',fn);return()=>window.removeEventListener('paint-texture-action',fn);},[]);
@@ -26,18 +26,18 @@ export default function PaintTextureCanvas({preferences,onSensitivityChange,onPo
   useEffect(()=>{if(!regionCanvas.current||!regionMask)return;const c=regionCanvas.current;c.width=width;c.height=height;const data=new Uint8ClampedArray(width*height*4);for(let i=0;i<regionMask.length;i++)data.set([5,20,30,Math.round((255-regionMask[i])*.35)],i*4);c.getContext('2d').putImageData(new ImageData(data,width,height),0,0);},[regionMask,width,height]);
   useEffect(()=>{setDraft(null);},[geoset,coordId]);
   const point=e=>{const rect=image.current.getBoundingClientRect();return{x:(e.clientX-rect.left)/zoom,y:(e.clientY-rect.top)/zoom};};
-  const hit=e=>({textureView:true,screen:point(e),viewport:{width,height}});
+  const hit=e=>({textureView:true,screen:{...point(e),pressure:e.pointerType==='pen'?e.pressure:undefined},viewport:{width,height}});
   useWindowKeyClaim(detail=>holdGestureKey(detail,image.current,()=>!!gesture.current,PAINT_STROKE_ACTIONS),0);
   function abort(){dragFrame.current.cancel();gesture.current=null;setDraft(null);onCancel();}
   useMousePressLost(()=>{if(gesture.current)abort();});
-  function down(e){if(e.button!==0||disabled)return;e.preventDefault();image.current.setPointerCapture(e.pointerId);
+  function down(e){if(e.button!==0||disabled)return;e.preventDefault();image.current.setPointerCapture(e.pointerId);if(e.pointerType==='pen')onPenSeen?.();
     const select=selectionKeys(e,preferences);
     if(tool==='pixels'||select.shift||select.ctrl){gesture.current={mask:true,before:regionMask,start:point(e),operation:select.ctrl?'subtract':select.shift?'add':'replace'};return;}
     if(tool==='moveUV'&&uv){gesture.current={start:point(e),uv:new Float32Array(uv)};return;}
     gesture.current={paint:true};onStart(hit(e));
   }
   function move(e){const p=point(e);if(cursor.current)Object.assign(cursor.current.style,{display:tool==='paint'?'block':'none',left:p.x*zoom+'px',top:p.y*zoom+'px'});
-    const drag=gesture.current;if(!drag){if(tool==='paint'&&!disabled)onHover?.(hit(e));return;}if(drag.paint){onMove(hit(e));return;}drag.pending=p;dragFrame.current.schedule();
+    const drag=gesture.current;if(!drag){if(tool==='paint'&&!disabled)onHover?.(hit(e));return;}if(drag.paint){const samples=e.getCoalescedEvents?.();for(const sample of samples?.length?samples:[e])onMove(hit(sample));return;}drag.pending=p;dragFrame.current.schedule();
   }
   // The rectangle mask and the UV draft follow the pointer once per frame.
   applyDrag.current=()=>{const drag=gesture.current,p=drag?.pending;if(!p)return;drag.pending=null;

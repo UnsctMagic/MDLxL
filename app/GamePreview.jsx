@@ -35,6 +35,7 @@ import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, ro
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
+import { applyWiggleMatrices } from '../src/bone-wiggle.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
 import { rotationBehavior } from '../src/rotation-drag.js';
@@ -1430,7 +1431,7 @@ export default function GamePreview(inputProps) {
         // prints continue aging. Pauses retain this clock; deliberate seeks reset it.
         const footprintPlayback = p.showcase ? undefined : {motionSeconds:footprintTime/1000,clipTime:footprintTime,speed:1,segment:footprintSegment,interval:footprintInterval,loop:p.loop !== false};
         if (poseSequence !== selected) updateNative(0);
-        applyRestPoseMatrices(native.rendererData, p.restPose);
+        if (applyRestPoseMatrices(native.rendererData, p.restPose) && p.wiggleNodeIds?.length) applyWiggleMatrices(native.rendererData, ownedModel, p.wiggleNodeIds, now / 1000, camera);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
         soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },p.overlays?.sounds ?? false);
         // frameKey: isolated parts are framed once per key. Edits, rebuilds,
@@ -1523,7 +1524,7 @@ export default function GamePreview(inputProps) {
       const presentationGuides = p.presentation === 'preview' && previewOverlaySettings(p.previewOverlay).mode !== 'none';
       const needsGeometry = presentationGuides || p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset || p.onDoubleClickGeoset || p.highlightSelection && p.onHoverGeoset || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size);
       if (needsGeometry) {
-        const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes;
+        const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes && !(p.restPose && p.wiggleNodeIds?.length);
         const cacheKey = `${native.getFrame()}:${poseSequence}:${globalClock}:${!!p.restPose}:${!!overlayOptions.normals}`;
         if (!cacheable || posedGeometryCache?.key !== cacheKey) {
           const geosets = ownedModel.Geosets.flatMap((geo, index) => sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001 ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
@@ -1682,7 +1683,7 @@ export default function GamePreview(inputProps) {
     const unwatchContext = watchContextLoss(canvas, () => { scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); });
     scheduler = state.scheduler = createRenderScheduler({ render,
       continuous: () => {
-        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || latest.current.playing && !latest.current.restPose && !playbackStopped;
+        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || !!(latest.current.restPose && latest.current.wiggleNodeIds?.length) || latest.current.playing && !latest.current.restPose && !playbackStopped;
       },
       // Electron may report an owned about:blank window as hidden during focus
       // transfer. Only the main-document preview uses hidden-tab suspension;
@@ -1877,7 +1878,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => exposePreviewForTests(root.current, () => ({ runtime: runtime.current, props: latest.current })), []);
   useEffect(() => { if (previewModel) runtime.current?.updateUV(previewModel, `${revision}|${props.uvRevision}`); }, [previewModel, revision, props.uvRevision]);
 
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.wiggleNodeIds, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.collisionMovePlane, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;

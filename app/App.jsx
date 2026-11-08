@@ -252,7 +252,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
   // Each model tab keeps its own cameras, so switching tabs returns to the view left there.
   const cameraHandoff = session.cameraHandoff ||= { current: null };
   const paintCamera = session.paintCamera ||= { current: null };
@@ -1382,6 +1382,7 @@ export default function App() {
     ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>(mode === 'bones'||vertexNodeCenter) && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
     'bone:detach': detachSelectedNode,
     'bone:detachVertices': () => bindSelectedVertices('detach'),
+    'bone:wiggle': () => setBoneWiggle(value => !value),
     ...Object.fromEntries(['flip-u','flip-v','rotate','fold','select-connected','select-invert'].map(v=>['uv:'+v,()=>uvAction(v)])),
   });
   // Presentation choices for the menus and the launcher. They stay out of commands.current, which the AI console is offered.
@@ -1411,6 +1412,7 @@ export default function App() {
       if (id === 'Create triangle') return editable && selectedRigNodes.length > 0;
       if (id === 'Collapse' || id === 'rotate' || id === 'bone:detachVertices') return editable && !!selectedBone && selectionCount > 0;
       if (id === 'bone:detach') return editable && parentedRigNodes.length > 0;
+      if (id === 'bone:wiggle') return true;
       if (['scale', 'Delete triangles', 'Uncouple', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id)) return false;
     } else if (id.startsWith('bone:')) return false;
     // N is easy to hit while wrapping UVs and would leave normals on in the main view.
@@ -1853,7 +1855,7 @@ export default function App() {
         vanilla={visUI} editorDisplayMode={displayMode}
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
-        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}
+        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} wiggleNodeIds={mode === 'bones' && boneWiggle ? selectedNodeIds : undefined} cleanAnimationPreview={cleanAnimationPreview}
         workplaneEnabled={workplaneEnabled} restrictions={restrictions}
         {...cameraProps}
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
@@ -1884,7 +1886,7 @@ export default function App() {
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
-        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen,
+        activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen, boneWiggle, setBoneWiggle,
         cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,

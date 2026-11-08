@@ -14,7 +14,15 @@ window.aiSandbox.onRun(async payload => {
       module: async name => {
         const loader = modules[`../src/${name}.js`];
         if (!loader) throw Error('Unknown module. Inspect api.modules.');
-        return loader();
+        const loaded = await loader();
+        // Polygon reduction is synchronous but its simplifier loads asynchronously,
+        // so have it ready before a script can call it. Without WebAssembly the
+        // reduction itself still reports why it cannot run.
+        if (name.startsWith('optimizexl'))
+          await modules['../src/optimizexl-geometry.js']()
+            .then(geometry => geometry.prepareNuclearReduction())
+            .catch(() => {});
+        return loaded;
       },
       source: async (name, offset = 0, limit = 16000) => {
         const loader = sources[`../src/${name}.js`];

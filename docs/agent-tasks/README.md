@@ -8,6 +8,8 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
+| Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
 | Local AI JavaScript workspace and model merges | In review | [Workspace and merges](ai-workspace-merge.md) / Codex |
 | Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
 | Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |

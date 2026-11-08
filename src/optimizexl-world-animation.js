@@ -2,7 +2,7 @@ import { Vector3, Quaternion } from 'three';
 import { allNodes, composeNodeMatrices, compileTrackSampler, sampleTrack, skinGeoset, TRANSFORM_DEFAULTS, isGlobalTrack } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { optimizexlLocalTrack } from './optimizexl-format.js';
-import { animationMotionGuard, constantSegment } from './optimizexl-animation.js';
+import { animationMotionGuard, constantSegment, trimTerminalHolds } from './optimizexl-animation.js';
 
 const properties=['Translation','Rotation','Scaling'];
 const same=(a,b)=>a?.length===b?.length&&Array.from(a).every((v,i)=>v===b[i]);
@@ -203,19 +203,7 @@ export function reduceWorldAnimation(model,settings,{protectedNodes=new Set(),si
  // competes with this boundary-only deletion.
  for(const node of nodes)if(!protectedNodes.has(node.ObjectId))for(const property of properties){
   const t=node[property];if(!supported(t,property))continue;
-  for(const [sequence,s]of model.Sequences.entries()){
-   if(model.Sequences.some((other,i)=>i!==sequence&&other.Interval[0]<=s.Interval[1]&&other.Interval[1]>=s.Interval[0]))continue;
-   let inside=keysIn(t,s.Interval);
-   while(inside.length>1){
-    const a=inside.at(-2),b=inside.at(-1);
-    if(!(t.LineType===0?same(a.Vector,b.Vector):constantSegment(t,a,b,property==='Rotation')))break;
-    // Holding a non-unit raw quaternion differs from interpolating normalized
-    // endpoints, even when the two raw values are equal.
-    if(property==='Rotation'&&t.LineType!==0&&Math.hypot(...a.Vector)!==1)break;
-    t.Keys.splice(t.Keys.indexOf(b),1);inside.pop();terminalKeys++;
-    onChange(node,property,{sequence,frame:b.Frame,from:a.Frame,to:s.Interval[1]});
-   }
-  }
+  terminalKeys+=trimTerminalHolds(model,t,property,change=>onChange(node,property,change));
  }
  const original=structuredClone(model),originalById=new Map(allNodes(original).map(n=>[n.ObjectId,n]));
  const originalLocals=model.Sequences.map((_,i)=>localSampler(original,i));

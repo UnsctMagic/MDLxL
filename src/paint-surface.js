@@ -1,4 +1,5 @@
 import {createFreshPaintAtlas} from './paint-uv-atlas.js';
+import {createPaintLayout} from './paint-uv-layout.js';
 import {forEachPaintUVTexel} from './paint-uv-coverage.js';
 import {createPaintRaster,resizePaintRaster} from './paint-raster.js';
 import {isPaintResolution} from './paint-types.js';
@@ -10,6 +11,34 @@ function sample(raster,u,v,flags,result,offset,premultiplied=false){
   const data=raster.data,p0=(y0*raster.width+x0)*4,p1=(y0*raster.width+x1)*4,p2=(y1*raster.width+x0)*4,p3=(y1*raster.width+x1)*4,w0=(1-fx)*(1-fy),w1=fx*(1-fy),w2=(1-fx)*fy,w3=fx*fy,alpha=data[p0+3]*w0+data[p1+3]*w1+data[p2+3]*w2+data[p3+3]*w3;
   const a=premultiplied?w0*data[p0+3]:w0,b=premultiplied?w1*data[p1+3]:w1,c=premultiplied?w2*data[p2+3]:w2,d=premultiplied?w3*data[p3+3]:w3,divisor=premultiplied?alpha||1:1;
   for(let channel=0;channel<3;channel++)result[offset+channel]=Math.round((data[p0+channel]*a+data[p1+channel]*b+data[p2+channel]*c+data[p3+channel]*d)/divisor);result[offset+3]=Math.round(alpha);
+}
+
+/** Lay out a New base coat again with new detail levels, carrying all paint to
+ * the new positions. Always starts from the original mesh, so repeat changes do
+ * not pile up extra vertices or UV sets. */
+export function preparePaintDetailChange(model,originalModel,project,pieceDetail){
+  const targets=project.targets.filter(target=>target.generatedUV&&target.bindings.length),indices=[...new Set(targets.flatMap(target=>target.bindings.map(binding=>binding.geosetIndex)))];
+  if(!indices.length)throw Error('Detail levels work on a New base coat.');
+  const atlas=createPaintLayout(originalModel,indices,targets[0].base.width,{mirror:!!project.shareSides,detail:pieceDetail}),geometry={},uvEdits={...project.uvEdits},generatedUVSets={...project.generatedUVSets};
+  const after=targets.map(target=>{
+    const width=target.base.width,height=target.base.height,before=[target.base,target.alphaMask,...target.coats.map(c=>c.raster)],rasters=before.map((_,r)=>createPaintRaster(width,height,r===0?Array.from(target.base.data.subarray(0,4)):r===1?[255,255,255,255]:[0,0,0,0])),owner=new Uint8Array(width*height);
+    for(const binding of target.bindings){
+      const oldGeo=model.Geosets[binding.geosetIndex],newGeo=atlas.model.Geosets[binding.geosetIndex],source=oldGeo.TVertices[binding.coordId],destination=newGeo.TVertices[atlas.coordIds[binding.geosetIndex]];
+      if(oldGeo.Faces.length!==newGeo.Faces.length)throw Error('This part changed shape, so its paint cannot be moved.');
+      for(let i=0;i<newGeo.Faces.length;i+=3){
+        if(binding.faceIndices&&!binding.faceIndices.has(i/3))continue;
+        const oldIds=[oldGeo.Faces[i],oldGeo.Faces[i+1],oldGeo.Faces[i+2]],newIds=[newGeo.Faces[i],newGeo.Faces[i+1],newGeo.Faces[i+2]],uv=newIds.map(id=>({x:destination[id*2],y:destination[id*2+1]}));
+        forEachPaintUVTexel(uv,width,height,0,(x,y,a,b,c,gutter)=>{
+          const pixel=y*width+x,priority=gutter?1:2;if(owner[pixel]>=priority)return;owner[pixel]=priority;
+          const u=source[oldIds[0]*2]*a+source[oldIds[1]*2]*b+source[oldIds[2]*2]*c,v=source[oldIds[0]*2+1]*a+source[oldIds[1]*2+1]*b+source[oldIds[2]*2+1]*c;
+          for(let r=0;r<rasters.length;r++)sample(before[r],u,v,0,rasters[r].data,pixel*4,r>=2);
+        },3);
+      }
+    }
+    return {...target,base:rasters[0],alphaMask:rasters[1],coats:target.coats.map((coat,i)=>({...coat,raster:rasters[i+2]})),revision:(target.revision||0)+1};
+  });
+  for(const index of indices){geometry[index]=atlas.model.Geosets[index];generatedUVSets[index]=atlas.coordIds[index];for(const key of Object.keys(uvEdits))if(key.startsWith(index+':'))delete uvEdits[key];}
+  return {targets:after,geometry,uvEdits,generatedUVSets,pieceDetail};
 }
 
 /** Stage a deliberate surface edit without touching any source or working data.

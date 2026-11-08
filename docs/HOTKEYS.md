@@ -47,7 +47,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
     | Paint: Paste texture | Ctrl+Alt+V | Alt+V |
     | Paint: Import image | Ctrl+Shift+O | Alt+O |
 
-    Citadel Paint keeps its keycap renderer; its plain keys use the same catalog.
+    Citadel Paint keeps its keycap renderer; its plain keys use the same catalog. V is Symmetry.
 
   - Patterns:
     - F4–F9 open the workspaces and editors.
@@ -184,4 +184,4 @@ together.
 - Drag code reads `modifierHeld`, `dragKeys` or `selectionKeys`, never `event.shiftKey` for a table meaning. Tooltips use `modifierSentence` so they name the current key.
 - [gesture-keys.js](../app/gesture-keys.js): while a mouse drag is live only modifier keys and Esc act. Each drag owner answers the window-key claim at priority 0 with `holdGestureKey`. Camera moves keep the keyboard. Alt pressed during a drag arms nothing, shows no key hints and does not open the menu bar. Paint keeps its brush and stamp keys during a stroke. Forge's Shape tab keeps Undo and Redo: there they cancel the live drag and edit nothing.
 - Snap keys: held from before the mouse press, a snap key keeps its old meaning and waits for one release, in every editor. Pressing or letting go of the key alone redraws the drag.
-- Keys that stay fixed on purpose: list ranges (Shift, Ctrl), timeline and AnimXL section Shift, Forge part snap, camera Shift speed and Shift+wheel, arrow nudges, Paint Cut-out's own table.
+- Keys that stay fixed on purpose: list ranges (Shift, Ctrl), timeline and AnimXL section Shift, Forge part snap, camera Shift speed and Shift+wheel, arrow nudges, Paint's Alt+middle and Alt+right camera drags and Ctrl+right brush drag, Paint Cut-out's own table.

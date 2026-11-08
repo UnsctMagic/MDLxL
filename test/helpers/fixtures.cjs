@@ -11,6 +11,8 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
+  'optimizexl-exact-unit': ['MDLXL_EXACT_UNIT', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionUnit03_1.mdx')],
+  'optimizexl-exact-hero': ['MDLXL_EXACT_HERO', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionHero03_1.mdx')],
   'optimizexl-pivots': ['MDLXL_OPTIMIZEXL_PIVOTS_MODEL', testModel('optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx')],
   'ribbon-attachment': ['MDLXL_RIBBON_MODEL', testModel('ribbon-direction/WH_WOC_KnightSlaaneshChampion01_fix_v3.mdx')],
   footman: ['MDLXL_SUITE_FOOTMAN', testModel('pose/Footman.mdx')], // SD Footman 1800 with Textures/ beside it

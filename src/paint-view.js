@@ -112,6 +112,6 @@ export function paintGeosetTarget(target, geosetIndex) {
 
 export function paintGeosetMask(model,target,size,height=size){
   const triangles=paintUVTriangles(model,target.bindings),coverage=paintUVCoverage(paintUVTriangles(model,target.coverageBindings||target.bindings),size,height,target.flags),mask=paintUVFilterCoverage(triangles,size,height,target.flags);
-  for(const uv of triangles)forEachPaintUVTexel(uv,size,height,target.flags,(x,y,u,v,w,gutter)=>{const pixel=y*size+x;if(!gutter||!coverage[pixel])mask[pixel]=255;},Math.SQRT2);
+  for(const uv of triangles)forEachPaintUVTexel(uv,size,height,target.flags,(x,y,u,v,w,gutter)=>{const pixel=y*size+x;if(!gutter||!coverage[pixel])mask[pixel]=255;},target.uvGutter||Math.SQRT2);
   return mask;
 }

@@ -64,7 +64,15 @@ and the old five-tool toolbar.
     Compressed axes gain nearest-copy pixels; the area-weighted median prevents
     a tiny sliver from inflating the whole selection. Constant-point UVs get
     local charts filled with their previous color. Undo restores the old state.
-12. Wheel zoom follows the pointer in both image views. Right/middle drag pans;
+12. For painters coming from Photoshop or Substance: a drawing pen's pressure
+    sets brush size (and optionally opacity; the two buttons appear only once a
+    pen has been used), pen and mouse strokes use every sample the OS reports,
+    **Smoothing** trails the pointer and catches up on release (off by default),
+    **Symmetry V** also paints the opposite side through a mirrored camera so it
+    reaches a side facing away, Ctrl + right drag sets size and softness, Alt +
+    middle drag pans and Alt + right drag zooms the model, and the Layers section
+    has a layer opacity. Plain mouse strokes are unchanged when these stay off.
+13. Wheel zoom follows the pointer in both image views. Right/middle drag pans;
     0 fits the destination. Alt-drag rotates the model using the shared camera
     controls. Green key labels accompany commands; ? opens a dismissible guide.
     Layers and destination controls remain collapsed. Save project, Export,
@@ -84,6 +92,24 @@ and the old five-tool toolbar.
   in [paint-current-materials.js](../../src/paint-current-materials.js)).
 - Blank base coats intentionally create a fresh paint mapping and solid RGBA
   color. View shading is never baked into the texture.
+- The fresh mapping comes from [paint-uv-layout.js](../../src/paint-uv-layout.js)
+  (`paintAtlasVersion` 2). It reads like a layout an artist would draw: faces join
+  by position (authored UV seams never cut a piece), pieces are cut only at hard
+  edges or when they turn too far, flattened conformally, and packed upright, large
+  to small. Same pixels per model unit everywhere, except small additive effect
+  planes and corpse gore, which get less room. Edit the texture never comes here,
+  and saved projects keep the UVs they were painted on.
+  `createFreshPaintAtlas` remains for Resize texture and Separate this part.
+- **Share pixels between matching parts** is an off-by-default start option: one
+  side is unwrapped and the matching side reads the same pixels, and repeated
+  identical pieces stack.
+- **Detail** is the artist-style texel density control: a slider from 0.25 to 5 and
+  a number box from 0.1 to 10, where 1 is normal.
+  It appears with a selection on a New base coat, applies on release or Enter,
+  re-lays out from the original
+  mesh, carries all paint to the new positions and is one undo step. Heads start
+  at 2.5, found from the head bone or the top-centre loose parts. Single-stroke
+  undo stops at the last layout change, since every pixel moved.
 - Stamp source coordinates come from destination texel centers. Filter and
   magnified-screen samples are fallbacks and must not drag source imagery
   toward the stamp center. Pressed preview and release use the same projector.
