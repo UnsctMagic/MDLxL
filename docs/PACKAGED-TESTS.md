@@ -126,6 +126,12 @@ Optional controls: `MDLXL_AI_LIVE_FROM=1` starts at a numbered scenario;
 The existing `MDLXL_SUITE_PKG` and `MDLXL_REAL_PLAYWRIGHT` select the package and
 Playwright as usual. All test profiles, textures and scratch are removed on exit.
 
+## Click sweep
+
+`click-sweep` clicks every control in the app. Like `ai-real-use` it is excluded from
+`all` and `core` and runs only when named. See the
+[QA and release kit](QA-AND-RELEASE-KIT.md#the-click-sweep-script).
+
 ## Variants
 
 | Variant | Imitates | How |

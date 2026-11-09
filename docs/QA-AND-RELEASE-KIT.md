@@ -45,6 +45,46 @@ First list every approval you will need, ask for them all at once, then work
 without further questions. If new tests fail: <fix them and continue / stop and ask>.
 ```
 
+## Release standard
+
+A build ships only when every line below is true **for the final build**. A result
+from an earlier build does not count.
+
+| # | What must be true | How it is shown |
+| --- | --- | --- |
+| 1 | The app builds and packages from the exact commit being released | Package made from that commit, online CI green |
+| 2 | Compatibility and source tests have no new failure | CI, against [known-test-failures.txt](../.github/known-test-failures.txt) |
+| 3 | The full packaged suite has no new failure | One run on the final package; every non-pass classified using [section 5](#5-repairing-failures) |
+| 4 | Rendering holds up on weaker machines | `core` on `no-gpu-warp`, `slow-cpu` and `hidpi`, no new failure |
+| 5 | Clicking everything causes no crash, freeze or failed Undo | [Click sweep](#the-click-sweep-script) on `baseline`, `footman`, `no-model`; every dead or stuck control judged |
+| 6 | Every feature and fix in this release works the way a user does it | Real clicks, drags and keys in the packaged app, with a test for each on-screen promise |
+| 7 | Previews still work | Real mouse rotation in each changed preview; Play measured at real speed |
+| 8 | Saved models are safe | Save and reopen `.mdx` and `.mdl`; unedited parts stay identical |
+| 9 | Release text is correct | Six languages of notes, every new PDF looked at, every body link exists as an asset |
+| 10 | What the public downloads is what was tested | CI ZIP tested before publishing; public ZIP SHA-256 matched by hand afterwards |
+
+**A hotfix** needs 1, 2, 6, 9 and 10, plus targeted tests for what changed and a
+`baseline` sweep of the affected window.
+
+**A full sweep** of every setup (`MDLXL_SWEEP_SETUPS=all`) also covers each language,
+theme and toolbar. Run it for a minor or major release if the owner asks.
+
+**What the words mean**
+
+- *No new failure* does not mean zero failures. A test that fails the same way on the
+  previous release does not block, but it is listed. It must be measured in this
+  release, not copied from an older list.
+- *Skipped* is not passed. Every skipped test goes in the report with its reason.
+- A *flaky* test passed on two reruns alone. It is recorded and watched.
+- A *dead* control does not block by itself. Someone must judge it: a real fault
+  gets fixed, and correct behaviour goes in the report with the reason.
+- Only the owner can waive a line, and the waiver is written in the report.
+
+**What this standard cannot prove.** Warcraft III itself is never run, so a model can
+pass here and still look wrong in the game. Tests cannot judge whether something looks
+good or feels right. Private test models missing from the PC leave gaps. Real AI answers
+are measured only on request. The owner's hand test covers these; say so in the report.
+
 ## 1. Rules that are never traded away
 
 **Online**
@@ -133,7 +173,8 @@ profile folder with particles. A skipped test is a gap: list it in the report.
 | Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | every visible change |
 | Core under other machines | `node scripts/run-packaged-tests.mjs <variant> core` | rendering, timing or layout changes; release |
 | Full packaged suite | `node scripts/run-packaged-tests.mjs default all` | release only, about 2 hours |
-| Click-through QA | [section 6](#6-click-through-qa) | on request; recommended for a release |
+| Click sweep | [`node scripts/run-packaged-tests.mjs default click-sweep`](#the-click-sweep-script) | release; a window or shared control changed |
+| Hand-style QA | [section 6](#things-clicks-cannot-find) | release; on request |
 | Updater gate | [gate guide](UPDATER_RELEASE_GATE.md) | only if the updater, installer or package layout changed, and ask first |
 | Real AI runs | [opt-in](PACKAGED-TESTS.md#opt-in-real-use-ai-measurements) | only when asked; they spend the owner's credits |
 
@@ -214,16 +255,61 @@ The goal is to prove that every control does what it says, in every setup users
 really have. Automated tests prove chosen paths. This pass looks for what nobody
 thought to test.
 
-**Tooling.** Drive the packaged app with Playwright through `launchApp`,
-`stubDialogs`, `clickMenu` and `closeApp` from
-[test/helpers/app.cjs](../test/helpers/app.cjs), on the hidden desktop. Read state
-through `window.__mdlxl` ([test hook](PACKAGED-TESTS.md#test-hook)). Put a throwaway
-sweep script and its output in `out/qa/<date>/`. Do not add it to `test/` unless
-asked, because the runner would then include it in every full run.
-[hotkey-defaults-audit](../test/hotkey-defaults-audit.electron.cjs) already opens
-every window with real clicks, and
-[settings-layout](../test/settings-layout.electron.cjs) walks every Settings page.
-Start from them.
+### The click sweep script
+
+[test/click-sweep.electron.cjs](../test/click-sweep.electron.cjs) does the clicking.
+It runs hidden, on a throwaway copy of the model and a throwaway profile, with the
+internet, browser and file dialogs blocked.
+
+```powershell
+$env:MDLXL_SWEEP_SETUPS = 'baseline,footman,no-model'   # or 'all'
+node scripts/run-packaged-tests.mjs default click-sweep
+```
+
+| Setting | Meaning |
+| --- | --- |
+| `MDLXL_SWEEP_SETUPS` | `baseline`, `no-model`, `footman`, `toolbar-trim`, `toolbar-hidden`, `vis`, `small`, `theme-<id>`, `lang-<ru, es, zh, fr, de, mordor>`, or `all` |
+| `MDLXL_SWEEP_MINUTES` | Time limit per setup, default 40 |
+| `MDLXL_SWEEP_OUT` | Results folder, default `out/click-sweep` |
+| first argument (`default`) | Any machine variant, such as `slow-cpu` or `hidpi` |
+
+It is never part of `all` or `core`; it runs only when named. Measured on 9 Nov 2026:
+about 36 minutes for `footman` (830 clicks), 23 for `no-model`. The three setups in the
+release standard take about 1.5 hours. Use a real model where you can: the bare demo
+model reports some working buttons as dead.
+
+It starts from each main mode, with and without a selection, plus Settings. It gives
+every visible, enabled control one real mouse click, sweeps any window that click
+opens, then restores the state. It finishes with the application menus.
+
+Read `out/click-sweep/report.md`:
+
+| Section | What to do |
+| --- | --- |
+| Crashes, Freezes, Undo did not restore | The run fails. Open the screenshot and repair using section 5 |
+| The sweep lost its place | Not an app fault by itself. A button can exist only in a state the sweep cannot rebuild. Check it by hand |
+| Could not be closed | Check whether Esc or Close should work there. The Managers pages appear here and are fine: you leave them by choosing another mode |
+| Windows or states not reached | Find out why. It is a gap until explained |
+| Dead | Judge each one. Many are correct: Fit when already fitted, Refresh with nothing new, Open folder (blocked on purpose) |
+| Unverified | The preview was moving and nothing else changed. Check by hand |
+| Not reached before the time limit | Raise `MDLXL_SWEEP_MINUTES` and rerun |
+| Deliberately not clicked | Confirm the list is only exit, update, sign-in, send and AI |
+| Clipped, Untranslated | Review the screenshot before changing anything |
+
+**Not covered by the script,** so test these another way: typing in text and number
+fields; color pickers and file pickers; dragging; hotkeys
+([window-hotkeys](../test/window-hotkeys.electron.cjs) and
+[hotkey-defaults-audit](../test/hotkey-defaults-audit.electron.cjs) cover those);
+right-click menus; AI features; a second window such as the OptimizeXL review, which
+is closed when it opens; and long lists beyond their first eight rows. Native menu items
+are fired by the menu itself rather than a mouse. Dropdowns choose their next option
+rather than opening the list, and only those with a command id are exercised.
+
+Passes 3, 6 and the list under [Things clicks cannot find](#things-clicks-cannot-find)
+still need a person or AI to drive them with
+[settings-layout](../test/settings-layout.electron.cjs) and the helpers in
+[test/helpers/app.cjs](../test/helpers/app.cjs). Put any one-off script in
+`out/qa/<date>/`.
 
 ### What to cover on each pass
 
@@ -258,7 +344,8 @@ every problem.
 ### Passes
 
 Testing every combination is impossible. Change one thing at a time from a
-known-good setup, and combine only where things interact.
+known-good setup, and combine only where things interact. The script covers passes 1,
+2 (no model and demo model), 4 and 5, and pass 7 through machine variants.
 
 | Pass | Setup | Sweep |
 | --- | --- | --- |
@@ -321,8 +408,9 @@ is away, keep the PC awake and do not stop until done.
 4. **Guides.** Each new PDF in six languages: `docs/MDLxL-<version>-<Name>-<LANG>.pdf`.
    Look at every page. Never backfill older releases.
 5. **Material.** `node scripts/release-material.mjs <version> <D:-folder>` must succeed.
-6. **Tests.** [Section 4](#4-running-the-full-suite-release-only), plus click-through QA if
-   requested. Report the results in the PR.
+6. **Tests.** Meet the [release standard](#release-standard), using
+   [section 4](#4-running-the-full-suite-release-only) and the
+   [click sweep](#the-click-sweep-script). Report each line of the standard in the PR.
 7. **Merge** (needs approval). Push, open the PR with a `Session:` line, wait for CI,
    merge, and confirm the change is on online `main`.
 8. **Tag** `v<version>` on the merge commit and push it. The

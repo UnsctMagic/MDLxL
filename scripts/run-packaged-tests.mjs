@@ -59,6 +59,8 @@ const SPECIAL = {
   'uv-drag-settings': { needs: [footman] },
   // Every Settings tab and sub-page, preset files, drag keys, toolbar, one restart.
   'settings-layout': { timeout: 10 * 60 * 1000 },
+  // Named runs only (never all/core). MDLXL_SWEEP_SETUPS picks the setups; each has its own time limit.
+  'click-sweep': { timeout: 8 * 60 * 60 * 1000 },
   // Mouse drag keys and keys pressed during a drag, about 7 app starts.
   'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
   // Each Rotate setting from its own seeded profile, about 30 app starts.
@@ -136,7 +138,7 @@ const nameOf = file => file.replace(/\.electron\.cjs$/, '').replace(/\.cjs$/, ''
 const fileOf = name => files.find(file => file === name + '.electron.cjs' || file === name + '.cjs');
 const variant = process.argv[2] || 'default', selection = process.argv[3] || 'all';
 if (!VARIANTS[variant]) fail(`Unknown variant "${variant}". Variants: ${Object.keys(VARIANTS).join(', ')}`);
-const names = selection === 'all' ? files.map(nameOf).filter(name => name !== 'ai-real-use') : selection === 'core' ? CORE : selection.split(',').map(name => name.trim()).filter(Boolean);
+const names = selection === 'all' ? files.map(nameOf).filter(name => name !== 'ai-real-use' && name !== 'click-sweep') : selection === 'core' ? CORE : selection.split(',').map(name => name.trim()).filter(Boolean);
 const outDir = out('suite', variant), summaryFile = path.join(outDir, 'summary.json'), doneFile = path.join(outDir, 'done.txt');
 const TIMEOUT = Number(process.env.SUITE_TIMEOUT_MS || 15 * 60 * 1000);
 
