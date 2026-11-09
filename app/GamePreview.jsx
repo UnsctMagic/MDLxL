@@ -340,13 +340,14 @@ export default function GamePreview(inputProps) {
       }
       return { ...influenceCache, opacity: influenceLook.opacity, colors: influenceLook.colors };
     };
+    const isUVWorkingGeoset = index => !!latest.current.previewEligibleByGeoset?.[index]?.length;
     const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }), props.previewEligibleByGeoset ? isUVWorkingGeoset : undefined);
     try {
       native = new ModelRenderer(ownedModel);
       // Synced Before/After previews run through playbackRunning; Showcase moves at its row speed,
@@ -1155,7 +1156,7 @@ export default function GamePreview(inputProps) {
         const visibleBounds = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []);
         for (const [index, geoset] of ownedModel.Geosets.entries()) {
           const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
-          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) continue;
+          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock, false, isUVWorkingGeoset(index))[3] > .001)) continue;
           for (const id of new Set(geoset.Faces)) visibleBounds.expandByPoint(point.fromArray(geoset.Vertices, id * 3));
         }
         if (!visibleBounds.isEmpty()) frameBounds = visibleBounds;
@@ -1526,9 +1527,9 @@ export default function GamePreview(inputProps) {
       if (needsGeometry) {
         const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes && !(p.restPose && p.wiggleNodeIds?.length);
         const cacheKey = `${native.getFrame()}:${poseSequence}:${globalClock}:${!!p.restPose}:${!!overlayOptions.normals}`;
-        if (!cacheable || posedGeometryCache?.key !== cacheKey) {
-          const geosets = ownedModel.Geosets.flatMap((geo, index) => sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001 ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
-          posedGeometryCache = cacheable ? { key: cacheKey, geosets } : null;
+        if (!cacheable || posedGeometryCache?.key !== cacheKey || posedGeometryCache?.uvDomain !== p.previewEligibleByGeoset) {
+          const geosets = ownedModel.Geosets.flatMap((geo, index) => (isUVWorkingGeoset(index) || sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001) ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
+          posedGeometryCache = cacheable ? { key: cacheKey, geosets, uvDomain: p.previewEligibleByGeoset } : null;
           posedGeosets = geosets.filter(geo => !hidden.has(geo.index));
         } else posedGeosets = posedGeometryCache.geosets.filter(geo => !hidden.has(geo.index));
       } else posedGeosets = [];
