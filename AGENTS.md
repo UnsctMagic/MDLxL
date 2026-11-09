@@ -134,6 +134,8 @@ and [README source development](README.md#source-development) explains setup.
 - `dist/` and FFmpeg executables/DLLs in `electron/ffmpeg/` are untracked: never
   commit them. `pnpm run fetch-ffmpeg` verifies the pinned binaries against
   [PROVENANCE.json](electron/ffmpeg/PROVENANCE.json).
+- For full test runs, click-through QA, repairing failures or a release, follow
+  the [QA and release kit](docs/QA-AND-RELEASE-KIT.md).
 - Report checks actually run and remaining gaps. Static checks do not prove a
   visible result; say `ready to test` when the changed behavior has not run.
 
