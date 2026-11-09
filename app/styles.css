@@ -39,9 +39,10 @@
 .classic-app.rig-workspace .classic-geosets{min-height:0;margin-top:3px}
 .classic-app.rig-workspace .classic-geosets [role=listbox]{display:flex;flex-wrap:wrap;align-content:flex-start;min-height:72px;max-height:112px;overflow:auto}
 .classic-app.rig-workspace .classic-geosets .geoset-row{flex:0 0 31px}
+.classic-geosets .classic-geoset-list,.classic-app.rig-workspace .classic-geosets .classic-geoset-list{display:grid;align-content:start}
 /* MDLVis geoset order: down each column, then continue in the next column. */
-.classic-geosets .classic-geoset-list,.classic-app.rig-workspace .classic-geosets .classic-geoset-list{display:grid;grid-auto-flow:column;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(var(--geoset-rows,1),20px);align-content:start}
-.classic-app.rig-workspace .classic-geosets .classic-geoset-list{grid-template-rows:repeat(var(--geoset-rows,1),18px)}
+.classic-geosets .classic-geoset-list:not(.compact-geoset-list){grid-auto-flow:column;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(var(--geoset-rows,1),20px)}
+.classic-app.rig-workspace .classic-geosets .classic-geoset-list:not(.compact-geoset-list){grid-template-rows:repeat(var(--geoset-rows,1),18px)}
 .classic-app.rig-workspace .geoset-row{height:18px;padding:0}
 .classic-app.rig-workspace .geoset-hover-target{padding:0}
 .classic-app.rig-workspace .binding-inspection-title{text-align:center;font-size:10px;line-height:13px;padding:4px 2px 2px}
