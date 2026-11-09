@@ -1,6 +1,7 @@
 # POSE anatomy from skeleton and skinned geometry
 
-Status: implemented and locally verified; owner authorized merge; PR preparation underway
+Status: completed; merged through [PR #609](https://github.com/UnsctMagic/MDLxL/pull/609)
+Merge revision: `0783216dc53774954165938b82886f2fe415cac0` (verified on online `main`)
 Owner / consolidator: Codex; Astra reasons and codes, explicitly configured low-reasoning workers execute checks
 Updated: 2026-11-09
 
@@ -12,7 +13,7 @@ Acceptance covers the supplied Lahmian, existing humanoids, four/six arms, multi
 
 ## Revision and local state
 
-- Branch: codex/pose-anatomy-evidence, D:/Codex/pose-anatomy-20261109/repo
+- Merged branch: `codex/pose-anatomy-evidence`; feature head `a9a1206187fdc56815cc2413f9dab6de0779a446`. The disposable checkout is removed after the completion note is merged; reports remain at `D:/Codex/pose-anatomy-20261109/report`.
 - Base: 5310d5fba793c50d7c05a437962c13be5f82b648 (online main at start).
 - Owner authorized merge on 2026-11-09; current main integrated at 411ad2807ddc775587adf1c11841a052f31a057c.
 - Dependencies linked to existing D:/Claude/MDLxL/node_modules.
@@ -30,7 +31,7 @@ Acceptance covers the supplied Lahmian, existing humanoids, four/six arms, multi
 - New test/pose-anatomy* and helper/census: independent acceptance, fail-first baseline, no weakening existing expectations without measured justification.
 - docs/POSE_IK.md and docs/POSE_IK_VERIFICATION.md describe final behavior and measured limits after implementation.
 
-## Verification and next action
+## Verification and completion
 
 The local candidate passed the source, native integration and packaged acceptance below. Current main permits shared QA evidence without an agent-specific rerun. Installed upgrades and releases remain separately authorized operations. Reports are in `D:/Codex/pose-anatomy-20261109/report`; the original source revision is recorded above; the disposable baseline snapshot is removed after verification.
 
@@ -43,9 +44,13 @@ The local candidate passed the source, native integration and packaged acceptanc
 - Compatibility suite passes 57 / fails 0 / skips 0. The intermediate bat-rider head failure was corrected and covered by the frozen head-boundary and native suites below. All four complex real-model native controls, pins, undo and round-trip groups pass.
 - Dense twin-head rider native controls, pins, save and undo pass 6 / 0 / 0 within the frozen native suite below.
 - Frozen candidate `frozen3` passes the strict census 160 / 0 / 0, focused checks plus the corpus suite 135 / 0 / 0, and the affected native/integration suite 135 / 0 / 0. The frozen census records source hashes. Intermediate unsuccessful trials remain in separate reports and are not acceptance.
-- Forty unequal-head and neck-proportion cases pass; their pre-fix run was 15 / 25 / 0. Six real head/body-boundary failures now have original/blank/scrambled/misleading/remapped checks in `test/pose-head-boundaries.test.js` (30 cases): baseline 6 / 24 / 0, frozen candidate 30 / 0 / 0.
+- Forty unequal-head and neck-proportion cases pass; their pre-fix run was 15 / 25 / 0. Six real head/body-boundary failures now have original/blank/scrambled/misleading/remapped checks in `test/pose-models/pose-head-boundaries.test.js` (30 cases): baseline 6 / 24 / 0, frozen candidate 30 / 0 / 0.
 - The Skink consumer's original numeric bounds remain unchanged. Its reference now uses the fixture's actual rear hip joints 27 and 30: baseline endpoints project to [-0.06048, 1.19374], current endpoints to [0.24989, 1.08175]. Averaging all four newly recognized ground limbs shortened the reference and falsely produced 1.58291. Evidence: `report/skink-stable-comparison.json`.
 - Auto Corpse passes 37 / 0 / 0 within the frozen native/integration suite. The dense 229-node native/pin/save/undo check was exercised with `MDLXL_POSE_PERFORMANCE_MODEL`, with no skips. Flat foot patches now contribute wing evidence in proportion to their extent versus the complete joint path; the static paired-leg regression passes. Build and packaging succeeded; hidden packaged mouse acceptance passes 64 / 0 / 0, including the exact Lahmian pose, extra arms, wings, native head manipulation and normal camera rotation. The package and profiles were removed afterward.
 - Test execution uses explicitly low-reasoning workers with exact commands and a stopping point (Luna for source runs; reused Sol for final packaging, mouse workflows and merge preparation). Astra reviews failures and codes corrections; no worker runs an open-ended fix/test loop.
 
-Next: verify the portable/local-model test separation, push and merge through a PR as authorized. The test separation preserves every assertion and fails on absent local inputs; it does not add skips. Keep the permanent model collection and installed profile unchanged. Source and reports remain; disposable baseline/build/runtime/profile/temp outputs are removed. The exact existing Electron cache is `D:/Claude/tools/cache/electron/55dc89a7fb0948840a03fd1e4c5ff38d07d35fdbf8f351eac8f4625ca2004876`; this shared cache is preserved.
+The portable/local-model test separation passed 173 / 0 / 0 at feature head `a9a12061`, preserving all prior assertions. Authored-model checks run with `pnpm run test:pose-models`; absent inputs fail. Existing frozen census/native/package evidence was reused because the integrated main changes affect UV rest-pose behavior rather than animated Movement.
+
+PR #609 was merged as authorized. Its GitHub Actions run [42671236196](https://github.com/UnsctMagic/MDLxL/actions/runs/42671236196) failed with an internal server error before any job or test ran (correlation ID `368c8b2f-614a-4e2f-bdd5-3a10d82d79cc`). Effective main rules required a PR but no status checks; no rules were bypassed or changed. Online main contains the exact feature head and unchanged runtime files. This is a source merge only: no release, installed upgrade or Warcraft III gameplay claim.
+
+The permanent model collection, shared dependencies/cache and installed profile remain unchanged. Disposable builds, profiles, temporary files and test processes were removed; small reports are retained.
