@@ -11,6 +11,7 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
+  'glow-eye-effect': ['MDLXL_GLOW_EYE_MODEL', testModel('glow-up/WH_VC_ZombieDragonVCarstein02.mdx')],
   'corpse-global-effect': ['MDLXL_CORPSE_GLOBAL_EFFECT', testModel('effect-fixture/WH_WOC_KnightKhorneFlail03.mdx')],
   'pose-corpus': ['MDLXL_POSE_CORPUS', testModel('pose-anatomy-holdouts/manifest.json')],
   'pose-mindflayer': ['MDLXL_POSE_MINDFLAYER', testModel('pose-anatomy-holdouts/Mindflayer.mdx')],

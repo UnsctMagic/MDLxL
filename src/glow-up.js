@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import { isTeamGlowLayer } from './texture-references.js';
-import { isWeaponName, nameSide, nameTokens } from './rig-names.js';
+import { isWeaponName, nameRegion, nameSide, nameTokens } from './rig-names.js';
 import { clamp } from './math.js';
 import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
@@ -39,7 +39,7 @@ const point = (g, id) => [g.Vertices[id * 3], g.Vertices[id * 3 + 1], g.Vertices
 const glowLayer = (model, material) => (material?.Layers || []).find(l => isTeamGlowLayer(model, l) && l.FilterMode >= 3);
 export const isGlowGeoset = (model, g) => !!glowLayer(model, model.Materials?.[g.MaterialID]);
 
-/** Does the model already carry visible team glow geometry? */
+/** Does any geoset use a team-glow material? Use findHeroGlow to classify its geometry. */
 export function hasHeroGlow(model) {
   return (model.Geosets || []).some(g => isGlowGeoset(model, g));
 }
@@ -49,7 +49,10 @@ export function hasHeroGlow(model) {
  * and Gluma heroes (mean error 15%). Big bodies get relatively smaller glows.
  */
 export function originGlowSize(model) {
-  const height = bodyHeight(model);
+  return fittedOriginSize(bodyHeight(model));
+}
+
+function fittedOriginSize(height) {
   if (height == null) return 250;
   const size = 8.9 * Math.max(height, 10) ** .71;
   return Number.isFinite(size) ? Math.min(600, Math.max(150, Math.round(size))) : 250;
@@ -338,8 +341,8 @@ function growBounds(model, geosets) {
  * butt, tip, glowing stretch and the middle square's half width. On a model
  * that already glows, the handles sit on its own glow (see glowUp).
  */
-export function glowLayout(model, { originSize = 1, originOffset = [0, 0], weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo } = {}) {
-  const fitted = originGlowSize(model), size = fitted * originSize, range = { from: weaponFrom, to: weaponTo }, found = findHeroGlow(model);
+export function glowLayout(model, { originSize = 1, originOffset = [0, 0], weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, excluded } = {}) {
+  const fitted = originGlowSize(model), size = fitted * originSize, range = { from: weaponFrom, to: weaponTo }, found = findHeroGlow(model, excluded);
   const origin = found?.origin
     ? { center: [originOffset[0], originOffset[1], found.origin.center[2] * size / found.origin.width], half: size / 2 }
     : { center: [originOffset[0], originOffset[1], size * ORIGIN_LAYERS[1].height], half: size * ORIGIN_LAYERS[1].width / 2 };
@@ -427,24 +430,58 @@ function weaponPart(model, pieces, nodes, holds) {
 }
 
 /**
- * The model's own hero glow, or null without any: `origin` (ground planes) and
- * `weapon` (every other glow square), each with its pieces, place, size and
- * brightness. Other glow shapes are left as the author made them.
+ * The model's own hero glow. Team glow (ReplaceableId 2) and a flat square
+ * make a candidate. Its attachment and scale decide whether it is hero glow.
+ * Exclusions identify individual connected pieces within a geoset.
  */
-export function findHeroGlow(model) {
-  const pieces = glowPieces(model);
-  if (!pieces.length) return null;
-  const nodes = new Map((model.Bones || []).map(b => [b.ObjectId, b])), loads = new Map(), body = bodyHeight(model) ?? 100;
+export function findHeroGlow(model, excluded) {
+  const candidates = glowPieces(model);
+  if (!candidates.some(p => p.square)) return null;
+  const tree = nodeIndex(model), nodes = new Map((model.Bones || []).map(b => [b.ObjectId, b]));
+  const height = bodyHeight(model), body = Math.max(1, height ?? 100), fitted = fittedOriginSize(height);
+  const roles = new Map();
+  function attachmentRole(id) {
+    if (!roles.has(id)) {
+      let role;
+      for (const at of tree.ancestors(id, true)) {
+        const name = tree.byId.get(at).Name;
+        if (nameRegion(name) === 'head') { role = 'head'; break; }
+        if (isWeaponName(name) && !nameTokens(name).includes('glow')) { role = 'weapon'; break; }
+      }
+      roles.set(id, role);
+    }
+    return roles.get(id);
+  }
+  const detected = candidates.filter(p => {
+    if (!p.square) return false;
+    const attachment = p.bones.map(attachmentRole), onHead = attachment.includes('head');
+    const billboard = p.bones.some(id => nodes.get(id).Flags & BILLBOARDED);
+    // A low, wide plane that does not turn to the camera is an origin glow.
+    // Leave room for the smallest size the editor can create.
+    p.ground = !onHead && !billboard && p.width >= .07 * fitted &&
+      Math.abs(p.normal[2]) > .9 && (p.center[2] < .5 * body || p.center[2] < .2 * p.width);
+    // Weapon attachment or billboarding supports smaller squares. Head effects
+    // need a much larger footprint: real head auras exist, as do tiny eye quads.
+    const weaponSupport = billboard || attachment.includes('weapon');
+    const weaponMinimum = weaponSupport ? Math.min(.02 * body, .016 * fitted) : .07 * body;
+    const minimum = onHead ? .15 * body : weaponMinimum;
+    return p.ground || p.width >= minimum;
+  });
+  if (!detected.length) return null;
+  for (const p of detected) {
+    const g = model.Geosets[p.geoset];
+    p.key = JSON.stringify([...p.vertices].sort((a, b) => a - b).map(v => [v, ...point(g, v)]));
+    p.excluded = excluded?.get(p.geoset)?.has(p.key) ?? false;
+  }
+  const pieces = detected.filter(p => !p.excluded), active = new Set(pieces);
+  const mixedGeosets = new Set(candidates.filter(p => p.square && !active.has(p)).map(p => p.geoset));
+  const loads = new Map();
   for (const g of model.Geosets) for (let v = 0; v * 3 < g.Vertices.length; v++) for (const id of vertexBones(g, v)) loads.set(id, (loads.get(id) || 0) + 1);
   // Does the bone hold these pieces' vertices and nothing else?
   const holds = (id, set) => loads.get(id) === set.reduce((sum, p) => sum + (p.load.get(id) || 0), 0);
-  // Ground planes lie flat or nearly (the Death Knight's tilt), below mid-body
-  // (a mounted Far Seer's sits high) or low for their size (a small body's
-  // glow is at least 150 wide), on bones that don't turn to the camera.
-  for (const p of pieces) p.ground = p.square && Math.abs(p.normal[2]) > .9 && (p.center[2] < .5 * body || p.center[2] < .2 * p.width) && !p.bones.some(id => nodes.get(id).Flags & BILLBOARDED);
-  const ground = pieces.filter(p => p.ground), rest = pieces.filter(p => p.square && !p.ground), widest = ground.reduce((a, b) => !a || b.width > a.width ? b : a, null);
+  const ground = pieces.filter(p => p.ground), rest = pieces.filter(p => !p.ground), widest = ground.reduce((a, b) => !a || b.width > a.width ? b : a, null);
   return {
-    pieces, nodes, holds,
+    pieces, nodes, holds, detected, mixedGeosets,
     origin: widest && { pieces: ground, center: widest.center, width: widest.width, brightness: piecesAlpha(model, ground) },
     weapon: rest.length ? weaponPart(model, rest, nodes, holds) : null,
   };
@@ -462,10 +499,10 @@ function ownWeaponHandles(model, part, { weaponSize = 1, weaponFrom, weaponTo })
  * clear weapon, 75%. With glow: the model's own parts ticked at their current
  * place, size and brightness.
  */
-export function glowStart(model, marked) {
-  const best = weaponChoices(model, marked)[0], found = findHeroGlow(model);
+export function glowStart(model, marked, excluded) {
+  const best = weaponChoices(model, marked)[0], found = findHeroGlow(model, excluded);
   const start = { origin: true, originSize: 1, originOffset: [0, 0], weapon: !!best?.sure, weaponKey: best?.key ?? '', weaponSize: 1, weaponFrom: null, weaponTo: null, originBrightness: .75, weaponBrightness: .75 };
-  if (!found) return start;
+  if (!found?.pieces.length) return start;
   Object.assign(start, { origin: !!found.origin, weapon: !!found.weapon });
   if (found.origin) Object.assign(start, { originSize: found.origin.width / originGlowSize(model), originOffset: found.origin.center.slice(0, 2), originBrightness: found.origin.brightness });
   if (found.weapon) start.weaponBrightness = found.weapon.brightness;
@@ -533,14 +570,15 @@ function adjustWeapon(model, found, { weaponSize = 1, weaponFrom, weaponTo }, mo
  * lacks is added only when ticked. One undo step inside EditorDocument.apply.
  */
 export function glowUp(model, options = {}) {
-  const found = findHeroGlow(model);
+  const found = findHeroGlow(model, options.excluded);
   if (!found) return addHeroGlow(model, options);
   const { origin = true, weapon = false } = options, add = { origin: origin && !found.origin, weapon: weapon && !found.weapon }, moved = new Set();
   const result = add.origin || add.weapon ? addHeroGlow(model, { ...options, ...add }) : { geosetIndices: [] };
   if (origin && found.origin) adjustOrigin(model, found, options, moved);
   if (weapon && found.weapon) adjustWeapon(model, found, options, moved);
   // Only a slider that moved applies; set to the same brightness, the two change together and a shared material stays one.
-  const lit = [[origin && found.origin, options.originBrightness], [weapon && found.weapon, options.weaponBrightness]].filter(([part, value]) => part && value != null && Math.abs(value - part.brightness) >= 1e-6);
+  const lit = [[origin && found.origin, options.originBrightness], [weapon && found.weapon, options.weaponBrightness]].filter(([part, value]) =>
+    part && value != null && Math.abs(value - part.brightness) >= 1e-6 && !part.pieces.some(p => found.mixedGeosets.has(p.geoset)));
   if (lit.length === 2 && lit[0][1] === lit[1][1]) setBrightness(model, [...lit[0][0].pieces, ...lit[1][0].pieces], lit[0][1]);
   else for (const [part, value] of lit) setBrightness(model, part.pieces, value);
   for (const index of moved) { const g = model.Geosets[index]; recalculateExtents({ Geosets: [g], Info: {} }); fillSequenceExtents(model, g, { onlyIfPresent: true }); }
@@ -583,8 +621,7 @@ function diagnose(model, found) {
 }
 
 /** Faults in the model's own glow, judged against Blizzard's heroes: [{ key, count, label, title }]. */
-export function heroGlowFaults(model) {
-  const found = findHeroGlow(model);
+export function heroGlowFaults(model, found = findHeroGlow(model)) {
   if (!found) return [];
   return Object.entries(diagnose(model, found)).filter(([, items]) => items.length).map(([key, items]) => ({ key, count: items.length, label: FAULTS[key][0], title: FAULTS[key][1] }));
 }
@@ -619,8 +656,8 @@ function faceCamera(g, p) {
  * bone is reused for its first piece; new bones are made only where a piece
  * has no bone of its own. Returns the number of pieces fixed.
  */
-export function repairHeroGlow(model) {
-  const found = findHeroGlow(model);
+export function repairHeroGlow(model, excluded) {
+  const found = findHeroGlow(model, excluded);
   if (!found) return 0;
   const faults = diagnose(model, found), { nodes } = found, claimed = new Set();
   const ownBone = (p, base, parent, flags) => {

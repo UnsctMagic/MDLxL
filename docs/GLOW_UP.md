@@ -25,11 +25,21 @@ Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer 
 When the model already has visible hero glow, Glow Up adjusts that glow instead
 of adding another: the panel says *Adjusts this model's own glow.* and **Create**
 becomes **Apply** (`glowUp`, `glowStart`). `findHeroGlow` splits the glow
-geosets into connected pieces. Ground planes (flat squares facing up within
-25°, below mid-body or lower than a fifth of their width, not on a billboarded
-bone) are the origin glow; every other glow square is the weapon glow. Other
-glow shapes (slash planes, streaks) and glow hidden throughout are left as the
-author made them.
+geosets into connected pieces. Detection requires a team-coloured glow layer
+(ReplaceableId 2) with additive filtering and flat, square geometry. The
+piece's relative size and bone ancestry determine whether it qualifies. Wide,
+low planes that face up are origin glow. Weapon attachments and billboarded
+bones support smaller weapon squares. Head attachments need a larger
+footprint, so small eye effects remain outside Glow Up even if they share
+the team-glow texture.
+
+**Review detected glow** lists the individual pieces by geoset and bone.
+Choose a piece and click **Not a glow** to exclude it from Glow Up. **Use as
+glow** restores detection. The choice applies while the model is open and
+writes no model data. Excluding the last weapon piece makes the weapon
+picker available again. When an active glow shares a geoset with an
+excluded effect, its brightness control is disabled because the material
+alpha affects both pieces.
 
 - The parts the model has start ticked at their own place, size and brightness;
   unticking leaves a part alone. A kind it lacks starts unticked and is added as

@@ -35,6 +35,7 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only (which includes MDLXL_TEST_EXE).
 const SPECIAL = {
+  'glow-detection': { needs: [fixturePath('glow-eye-effect')] },
   'ai-model-merge': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-local-workspace': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-review-responsive': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },

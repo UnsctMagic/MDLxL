@@ -59,6 +59,9 @@ async function assetsFor(recipe){
   if(names.length&&hasDesktop('resolveTextures')){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await resolveGameFiles(names);for(const record of records||[])if(record.bytes)assets.set(gamePathKey(record.name),record);}
   return assets;
 }
+// Glow Up exclusions are editor state tied to the open model's geoset objects.
+const ignoredGlowPieces=new WeakMap();
+
 export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {
   const [pictureLibrary,setPictureLibrary]=useState(false);
   const [recoveryReady,setRecoveryReady]=useState(false),[newOpen,setNewOpen]=useState(false),[examples,setExamples]=useState(false),[testView,setTestView]=useState(null),[ingredients,setIngredients]=useState(null),[muted,setMuted]=useState([]),[adding,setAdding]=useState(null);
@@ -209,9 +212,41 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   };
   // Glow Up: hero glow at the origin and along the weapon (docs/GLOW_UP.md).
   const glowChoices=useMemo(()=>glow&&doc?weaponChoices(doc.model,selectedGeometry):[],[!!glow,doc,revision,selectedGeometry]);
-  // A model that already glows: Glow Up adjusts its own glow and offers to repair it.
-  const glowOwn=useMemo(()=>{if(!glow||!doc)return null;const found=findHeroGlow(doc.model);return found&&{origin:!!found.origin,weapon:!!found.weapon,faults:heroGlowFaults(doc.model)};},[!!glow,doc,revision]);
-  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
+  const excluded=glow?.excluded;
+  const glowDetected=useMemo(()=>doc&&excluded?findHeroGlow(doc.model,excluded):null,[doc,revision,excluded]);
+  const glowFaults=useMemo(()=>glowDetected?heroGlowFaults(doc.model,glowDetected):[],[doc,glowDetected]);
+  const glowOwn=glowDetected?.pieces.length?glowDetected:null;
+  const startGlowDraft = () => {
+    const excluded = new Map();
+    doc.model.Geosets.forEach((geoset, index) => {
+      const keys = ignoredGlowPieces.get(geoset);
+      if (keys) excluded.set(index, keys);
+    });
+    return { ...glowStart(doc.model, selectedGeometry, excluded), excluded };
+  };
+  const toggleGlowPiece = piece => {
+    const geoset = doc.model.Geosets[piece.geoset];
+    const keys = new Set(ignoredGlowPieces.get(geoset));
+    if (piece.excluded) keys.delete(piece.key);
+    else keys.add(piece.key);
+    if (keys.size) ignoredGlowPieces.set(geoset, keys);
+    else ignoredGlowPieces.delete(geoset);
+    const start = startGlowDraft();
+    // Reset the affected handles against the newly classified pieces. Keep the other draft controls.
+    setGlow(value => {
+      const draft = { ...value, excluded: start.excluded };
+      if (piece.ground) return {
+        ...draft, origin: start.origin, originSize: start.originSize,
+        originOffset: start.originOffset, originBrightness: start.originBrightness,
+      };
+      return {
+        ...draft, weapon: start.weapon || (value.weapon && glowChoices.length > 0),
+        weaponKey: value.weaponKey || start.weaponKey, weaponSize: start.weaponSize,
+        weaponFrom: start.weaponFrom, weaponTo: start.weaponTo, weaponBrightness: start.weaponBrightness,
+      };
+    });
+  };
+  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {excluded:value.excluded,origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
   // Drag handles in the preview, as for emitters: their bind-pose points follow the weapon bone.
   const glowLayoutNow=useMemo(()=>{if(!glow||!doc)return null;try{return glowLayout(doc.model,glowOptions(glow));}catch{return null;}},[glow,doc,revision,glowChoices]);
   const glowMarks=useMemo(()=>{
@@ -245,7 +280,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       // A model that glows starts from its own glow.
       glowFitted.current=false;
       setGlowSnapshot(null);
-      setGlow(glowStart(doc.model,selectedGeometry));
+      setGlow(startGlowDraft());
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
   };
@@ -260,9 +295,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   // Repairs are their own undo step; Glow Up then starts again from the repaired glow.
   const fixGlow=()=>{
     try{
-      const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,repairHeroGlow,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,repairHeroGlow);
+      const mutate=m=>repairHeroGlow(m,glow.excluded);
+      const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,mutate,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,mutate);
       if(accepted===false)return;
-      setGlow(glowStart(doc.model,selectedGeometry));setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
+      setGlow(startGlowDraft());setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
     }catch(error){setMessage(error.message);}
   };
   const toggleLibrary=async()=>{
@@ -360,7 +396,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
           <select data-hotkey="particles:animation" data-hotkey-manual data-hotkey-label="Particle preview animation" aria-label="Particle preview animation" value={sequence} onChange={e=>{cancel();const next=Number(e.target.value);setSequence(next);setTime(model.Sequences[next].Interval[0]);}}>{model.Sequences.map((clip,index)=><option key={index} value={index}>{clip.Name}</option>)}</select></>}
         </div>
         <fieldset className="pe-controls inspector-fields" disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients}>
-          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} error={glowPreview?.error} onChange={setGlow} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
+          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} detected={glowDetected} faults={glowFaults} error={glowPreview?.error} onChange={setGlow} onTogglePiece={toggleGlowPiece} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
           emitter?<>{family==='RibbonEmitters'?<div className="pe-clueless-controls pe-ribbon-fields"><RibbonFields flat model={activeDoc.model} id={emitterId} time={frame} sequenceIndex={sequence} globalSeqId={null} restPose={false} disabled={activeDoc.readOnly} onEdit={(label,sections,mutate)=>apply(label,mutate,sections,{keepPlaying:true})} onPause={cancel}><div className="ribbon-box-actions"><button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this ribbon, for experienced users. Apply is one undo step." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div></RibbonFields></div>:<><div className="pe-tool-tabs">{['Look','Motion'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>{cancel();setTool(item);}}>{item}</button>)}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" className="pe-manual" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this emitter, for experienced users. Hover a word to see what it does." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div><ParticleCluelessControls onDemo={context==='Lab'?setDemo:undefined} demo={demo} teamColor={teamColor||'#ed3333'} {...{emitter,frame,sequence,tool,scope,setScope,asset,assets,preferences,update,patch,begin,change,finish,cancel,lifeStage,setLifeStage}} onImport={importPicture} onLibrary={()=>{cancel();setPictureLibrary(true);}} onChoosePicture={choosePicture} onRemovePicture={removePicture} onTeamPicture={teamPicture} model={working} globalTime={previewStatus.global??frame} onSeek={value=>{setPlaying(false);setTime(value);}}/></>}</>:<p>{selectedEffect?<>{translate("This emitter type has no sliders yet. ")}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></>:'Choose an effect in the library.'}</p>}
         </fieldset>
       </div>
