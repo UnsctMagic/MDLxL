@@ -188,7 +188,7 @@ test('tool windows share one shell: backdrop, movable window, close key and Tab 
   const ToolWindow = load(await bundle('ToolWindow.jsx')).default;
   const html = renderToStaticMarkup(React.createElement(ToolWindow, { title: 'Sort My Mess', overlayClass: 'smm-overlay', className: 'smm-window', sectionProps: { 'data-hotkey-scope': 'sort-my-mess' }, after: React.createElement('aside', null, 'over') }, 'body'));
   assert.match(html, /^<div class="mdlxl-overlay smm-overlay"><section tabindex="-1" class="mdlxl-window smm-window" data-hotkey-prefix="Sort My Mess" data-hotkey-scope="sort-my-mess" role="dialog" aria-modal="true" aria-label="Sort My Mess">/);
-  assert.match(html, /<header style="cursor:move[^"]*"><span>Sort My Mess<\/span><button data-hotkey="close" aria-label="Close Sort My Mess">×<\/button><\/header>body<\/section><aside>over<\/aside><\/div>$/);
+  assert.match(html, /<header style="cursor:move[^"]*"><span>Sort My Mess<\/span><button data-hotkey="close" aria-label="Close Sort My Mess">×<\/button><\/header>body<\/section><\/div><aside>over<\/aside>$/);
   const embedded = renderToStaticMarkup(React.createElement(ToolWindow, { title: 'Materials', embedded: true, overlayClass: 'resource-editor re-workspace', className: 're-window' }, 'list'));
   assert.equal(embedded, '<div class="resource-editor re-workspace"><section tabindex="-1" class="mdlxl-window re-window" role="region" aria-label="Materials">list</section></div>');
   const source = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
