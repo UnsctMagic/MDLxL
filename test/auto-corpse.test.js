@@ -8,7 +8,7 @@ import {sampleNodeMatrices,skinGeoset,sampleGeosetAnimation,sampleTrack} from '.
 import {createVisibilityGeosetAnimation} from '../src/geoset-animation-defaults.js';
 import {buildCorpseGeometry} from '../src/corpse-geometry.js';
 import {createRequire} from 'node:module';
-const {testModel}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const {testModel,fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 
 const track=(pairs,line=1,GlobalSeqId=null)=>({LineType:line,GlobalSeqId,Keys:pairs.map(([Frame,v])=>({Frame,Vector:new Float32Array(v)}))});
 function fixture({variants=1,globalMotion=false,sharedStart=false}={}) {
@@ -335,7 +335,10 @@ test('ribs stay on the chest and pelvis instead of consuming tail skin',{skip:!e
   const rig=suggestPoseRig(m,r.sourceFrame,r.death),M=sampleNodeMatrices(m,r.sourceFrame,r.death),nodes=new Map(allNodes(m).map(n=>[n.ObjectId,n]));
   const at=id=>new Vector3().fromArray(nodePivot(m,nodes.get(id),id)).applyMatrix4(M.get(id));
   const head=r.pieces.find(p=>p.kind==='skull'),rib=r.pieces.find(p=>p.kind==='torso');assert.ok(head&&rib);
-  const neck=at(head.ids[0]),hips=rig.chains.filter(c=>c.kind==='leg').map(c=>at(c.root));assert.ok(hips.length);
+  // The geometric recognizer correctly finds four ground-supporting limbs.
+  // Averaging front and hind hips shortens the reference torso artificially.
+  // Use this fixture's independent native hind hips for the unchanged bounds.
+  const neck=at(head.ids[0]),hips=[27,30].map(at);assert.ok(hips.length);
   const pelvis=hips.reduce((sum,p)=>sum.addScaledVector(p,1/hips.length),new Vector3()),dx=pelvis.x-neck.x,dy=pelvis.y-neck.y,length2=dx*dx+dy*dy;
   for(const p of [rib.start,rib.end]){
     const along=((p[0]-neck.x)*dx+(p[1]-neck.y)*dy)/length2;
@@ -504,13 +507,18 @@ test('past 254 nodes the corpse bone sits right after the model bones so the pre
   for(const n of allNodes(m))if(n.Parent!=null&&n.Parent>=0)assert.ok(m.Nodes[n.Parent],'parents still resolve');
   assert.ok(before.size>250);
 });
-test('an effect switched by a global loop no longer blocks Create and is silenced only in decay',{skip:!ownerFixture('WH_WOC_KnightKhorneAxe05.mdx')&&'owner Khorne knight not in the test models'},async()=>{
-  const {openDocument}=await import('../src/editor-document.js');
-  for(const name of ['WH_WOC_KnightKhorneAxe05.mdx','WH_WOC_AspiringChampionTzeentch01.mdx'].filter(ownerFixture)){
-    const d=openDocument(new Uint8Array(readFileSync(ownerFixture(name))),name),looped=d.model.ParticleEmitters2.filter(n=>n.Visibility?.GlobalSeqId!=null).map(n=>[n.Name,structuredClone(n.Visibility)]);
-    assert.ok(looped.length,`${name} has a looped effect`);
+// Select available models with the same global-visibility/local-emission mechanism.
+const globalEffectFixtures=()=>[...new Set([ownerFixture('WH_WOC_KnightKhorneAxe05.mdx'),fixturePath('corpse-global-effect'),ownerFixture('WH_WOC_AspiringChampionTzeentch01.mdx')].filter(file=>file&&existsSync(file)))];
+test('an effect switched by a global loop no longer blocks Create and is silenced only in decay',{skip:!globalEffectFixtures().length&&'prepare an available globally switched effect fixture'},async()=>{
+  const {openDocument}=await import('../src/editor-document.js');let checkedDecayOutputs=0;
+  for(const file of globalEffectFixtures()){
+    const d=openDocument(new Uint8Array(readFileSync(file)),file),looped=d.model.ParticleEmitters2.filter(n=>n.Visibility?.GlobalSeqId!=null).map(n=>[n.Name,structuredClone(n.Visibility)]);
+    assert.ok(looped.length,`${file} has a looped effect`);
     const r=apply(d),m=d.model,c=r.corpses[0];
-    for(const [effect,visibility] of looped){const n=m.ParticleEmitters2.find(e=>e.Name===effect);assert.deepEqual(n.Visibility,visibility,'the global loop itself is unchanged');
-      if(n.EmissionRate?.GlobalSeqId==null)for(const seq of [c.flesh,c.bone])assert.equal(sampleTrack(n.EmissionRate,m.Sequences[seq].Interval[0]+500,{interval:m.Sequences[seq].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:0}),0,'no particles in decay');}
+    for(const [effect,visibility] of looped){
+      const n=m.ParticleEmitters2.find(e=>e.Name===effect);assert.deepEqual(n.Visibility,visibility,'the global loop itself is unchanged');
+      if(n.EmissionRate?.GlobalSeqId==null){checkedDecayOutputs++;for(const seq of [c.flesh,c.bone])assert.equal(sampleTrack(n.EmissionRate,m.Sequences[seq].Interval[0]+500,{interval:m.Sequences[seq].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:0}),0,'no particles in decay');}
+    }
   }
+  assert.ok(checkedDecayOutputs>0,'at least one real local output is tested in both decay intervals');
 });

@@ -11,6 +11,14 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
+  'corpse-global-effect': ['MDLXL_CORPSE_GLOBAL_EFFECT', testModel('effect-fixture/WH_WOC_KnightKhorneFlail03.mdx')],
+  'pose-corpus': ['MDLXL_POSE_CORPUS', testModel('pose-anatomy-holdouts/manifest.json')],
+  'pose-mindflayer': ['MDLXL_POSE_MINDFLAYER', testModel('pose-anatomy-holdouts/Mindflayer.mdx')],
+  'pose-hero-nazgrel': ['MDLXL_POSE_HERO_NAZGREL', testModel('pose-anatomy-holdouts/HeroNazgrelV2.mdx')],
+  'pose-wyvern-spear': ['MDLXL_POSE_WYVERN_SPEAR', testModel('pose-anatomy-holdouts/WyvernSpearMissileV2.01.mdx')],
+  'pose-great-uco': ['MDLXL_POSE_GREAT_UCO', testModel('pose-complex-fixtures/WH_DOC_GreatUCO4.mdx')],
+  'pose-dense-rider': ['MDLXL_POSE_PERFORMANCE_MODEL', testModel('pose-performance/GnomeLindormrRider_TwinHeads_FaceAlphaWrap.mdx')],
+  'pose-anatomy-lahmian': ['MDLXL_POSE_LAHMIAN', testModel('pose-anatomy/Lahmian_Vampire_Death_Fix5.mdx')],
   'optimizexl-exact-unit': ['MDLXL_EXACT_UNIT', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionUnit03_1.mdx')],
   'optimizexl-exact-hero': ['MDLXL_EXACT_HERO', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionHero03_1.mdx')],
   'optimizexl-pivots': ['MDLXL_OPTIMIZEXL_PIVOTS_MODEL', testModel('optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx')],
