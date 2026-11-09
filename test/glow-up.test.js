@@ -343,3 +343,54 @@ test('glow squares that are not billboarded, not on own bones or not facing +X a
   const points = skinGeoset(m.Geosets[p.geoset], samplePreviewMatrices(m, 0, 0, 1000, camera)), [a, b, c] = p.vertices.slice(0, 3).map(v => new Vector3().fromArray(points, v * 3));
   assert.ok(Math.abs(b.clone().sub(a).cross(c.clone().sub(a)).normalize().dot(camera.position.clone().sub(expected).normalize())) > .99, 'faces the camera');
 });
+
+
+test('weapon glow requires team glow and size that fits its attachment', () => {
+  const { m, sword } = glowed({ origin: false });
+  const { pieces } = findHeroGlow(m).weapon;
+  const g = m.Geosets[pieces[0].geoset], head = createNode(m, 'Bone');
+  head.Name = 'Rider_Head';
+  const layer = m.Materials[g.MaterialID].Layers[0], teamGlow = layer.TextureID;
+  m.Textures.push({ Image: 'Textures\\purple_glow.blp', ReplaceableId: 0, Flags: 0 });
+  layer.TextureID = m.Textures.length - 1;
+  assert.equal(findHeroGlow(m)?.weapon, undefined, 'an additive texture without team glow does not qualify');
+  m.Materials[g.MaterialID].Layers.push({ ...layer, TextureID: teamGlow });
+  for (const piece of pieces) for (const v of piece.vertices) {
+    for (let axis = 0; axis < 3; axis++) {
+      const at = v * 3 + axis;
+      g.Vertices[at] = piece.center[axis] + (g.Vertices[at] - piece.center[axis]) * .04;
+    }
+  }
+  bindVertices(m, g, pieces.flatMap(piece => piece.vertices), sword.ObjectId);
+  assert.ok(findHeroGlow(m)?.weapon, 'a small team glow can follow a weapon');
+  bindVertices(m, g, pieces.flatMap(piece => piece.vertices), head.ObjectId);
+  assert.ok(!findHeroGlow(m)?.weapon, 'the same small quads on the face are an eye effect');
+  assert.deepEqual(heroGlowFaults(m), [], 'eye effects are outside the repair path');
+  assert.equal(glowStart(m).weaponKey, `bone-${sword.ObjectId}`);
+});
+
+test('marking detected pieces as not glow releases the picker and leaves those pieces intact', () => {
+  const { m, sword } = glowed(), { weapon, origin } = findHeroGlow(m);
+  const index = weapon.pieces[0].geoset;
+  const excluded = new Map([[index, new Set(weapon.pieces.map(piece => piece.key))]]);
+  const before = structuredClone(m.Geosets[index]);
+  const material = structuredClone(m.Materials[before.MaterialID]);
+  const partial = new Map([[index, new Set([weapon.pieces[0].key])]]);
+  const partialStart = glowStart(m, null, partial);
+  glowUp(m, { ...partialStart, excluded: partial, weaponBrightness: .4 });
+  assert.deepEqual(m.Geosets[index], before, 'an excluded piece shares the geoset material');
+  assert.deepEqual(m.Materials[before.MaterialID], material, 'brightness preserves the shared material');
+  const filtered = findHeroGlow(m, excluded);
+  assert.ok(!filtered.weapon, 'excluded pieces do not own weapon glow');
+  assert.equal(filtered.origin.pieces.length, origin.pieces.length);
+  const start = glowStart(m, null, excluded);
+  assert.equal(start.weapon, false, 'the missing kind remains unticked when the model has origin glow');
+  const options = { ...start, weapon: true, weaponIds: [sword.ObjectId], excluded };
+  assert.equal(glowLayout(m, options).weapons[0].parentId, sword.ObjectId);
+  assert.equal(repairHeroGlow(m, excluded), 0);
+  const beforeCount = m.Geosets.length;
+  glowUp(m, options);
+  assert.equal(m.Geosets.length, beforeCount + 1);
+  assert.deepEqual(m.Geosets[index], before);
+  assert.ok(findHeroGlow(m, excluded).weapon.pieces.every(piece => piece.geoset !== index));
+});
