@@ -1,8 +1,7 @@
 import { Quaternion, Vector3 } from 'three';
-import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
-import { vertexBones } from './part-bones.js';
+import { allNodes, NODE_COLLECTION_KEYS, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
+import { analyzePoseAnatomy } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -144,217 +143,27 @@ export function poseNodeRole(node) {
 
 export const poseRole = (model, config, id, nodes) => config.roles?.[id] || poseNodeRole((nodes || allNodes(model)).find(node => node.ObjectId === id));
 
-/** Anatomy names locate candidates; hierarchy and skinned geometry resolve the
- * control, including mounted rigs and feet below unnamed mesh children. */
+/** Anatomical hypotheses come from the joint graph and its skinned surface.
+ * This adapter only checks whether a proposed handle can drive native POSE IK;
+ * editability is separate from recognition, and names cannot discard anatomy. */
 export function suggestPoseRig(model, frame, sequence) {
-  const nodes = allNodes(model), transforms = transformNodes(model), tree = nodeIndex(model, nodes), { byId } = tree;
-  const descendantOf = tree.isAncestor, joints = new Set(transforms.map(node => node.ObjectId)), chains = [], unavailable = [];
-  const roles = {}, children = new Map(), evidence = poseRecognitionEvidence(model);
-  for (const node of transforms) { const siblings = children.get(node.Parent) || []; siblings.push(node); children.set(node.Parent, siblings); }
-  const rootOf = node => tree.root(node?.ObjectId);
-  // Native attachment references often name an otherwise anonymous rig. Prefer
-  // its real joint, not the offset attachment (or a mesh's arbitrary pivot).
-  for (const ref of model.Attachments || []) {
-    const role = poseNodeRole(ref), parent = byId.get(ref.Parent);
-    if (!parent || !joints.has(parent.ObjectId) || !['Head', 'Hand', 'Foot'].includes(role)) continue;
-    // A hull can carry imported hand/foot references on the same rigid mesh.
-    if ((model.Attachments || []).some(other => other.Parent === ref.Parent && ['Hand','Foot'].includes(poseNodeRole(other)) && poseNodeRole(other) !== role)) continue;
-    if (['Head', 'Hand', 'Foot', 'Hoof'].includes(poseNodeRole(parent))) continue;
-    if (role === 'Head') {
-      if (poseNodeRole(byId.get(parent.Parent)) === 'Chest' || !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head')) roles[parent.ObjectId] = role;
-      continue;
-    }
-    if (/(?:arm2|forearm|leg2|leg3|calf|shin|knee)(?:$|[ _.-])/i.test(parent.Name)) continue;
-    // Keep an already named wrist/ankle in this branch. A ref can be mounted on
-    // a forearm or weapon rather than on the anatomical end joint.
-    if (transforms.some(node => evidence.moving(node) && rootOf(node) === rootOf(parent) && (poseNodeRole(node) === role || role === 'Foot' && poseNodeRole(node) === 'Hoof') && (descendantOf(node.ObjectId, parent.ObjectId) || descendantOf(parent.ObjectId, node.ObjectId)))) continue;
-    const distance = node => v3(node.PivotPoint).distanceTo(v3(ref.PivotPoint));
-    const next = (children.get(parent.ObjectId) || []).filter(node => evidence.moving(node) && (children.get(node.ObjectId) || []).length).sort((a,b) => distance(a) - distance(b))[0];
-    const end = next && distance(next) < distance(parent) * .98 ? next : parent;
-    roles[end.ObjectId] = role;
-  }
-  const roleOf = node => roles[node?.ObjectId] || poseNodeRole(node);
-  // Process real ancestors before their mesh children. A pairwise ancestor
-  // comparator is not transitive when unrelated limbs sit between the two.
-  const depthOf = node => tree.depth(node.ObjectId);
-  const candidates = nodes.filter(node => ['Hand', 'Foot', 'Hoof'].includes(roleOf(node)))
-    .filter(node => joints.has(node.ObjectId) || !(model.Attachments || []).some(other => other.Parent === node.Parent && ['Hand','Foot'].includes(poseNodeRole(other)) && poseNodeRole(other) !== roleOf(node)))
-    .filter(node => !/wrist/i.test(node.Name) || !transforms.some(child => descendantOf(child.ObjectId, node.ObjectId) && /hand/i.test(child.Name) && roleOf(child) === 'Hand'))
-    .sort((a, b) => Number(joints.has(b.ObjectId)) - Number(joints.has(a.ObjectId)) || depthOf(a) - depthOf(b));
-  // A rider's boots may have generic mesh names. Locate the lowest descendant
-  // pivot beneath each named knee, backed by geometry rather than a model ID.
-  for (const knee of transforms.filter(node => /(?:leg2|calf|shin|knee)(?:$|[ _.-])/i.test(node.Name))) {
-    if (candidates.some(node => descendantOf(node.ObjectId, knee.ObjectId))) continue;
-    const pivot = v3(knee.PivotPoint || model.PivotPoints[knee.ObjectId]);
-    const feet = transforms.filter(node => node.ObjectId !== knee.ObjectId && descendantOf(node.ObjectId, knee.ObjectId) && movementBoneVertexCenter(model, node.ObjectId, new Map()))
-      .filter(node => v3(node.PivotPoint || model.PivotPoints[node.ObjectId]).z < pivot.z - 1e-4)
-      .sort((a, b) => a.PivotPoint[2] - b.PivotPoint[2]);
-    if (feet[0]) candidates.push(feet[0]);
-  }
-  for (const node of candidates) {
+  const anatomy = analyzePoseAnatomy(model, { nameRole: poseNodeRole }), index = nodeIndex(model);
+  const roles = Object.fromEntries(allNodes(model).map(node => [node.ObjectId, 'Object']));
+  Object.assign(roles, anatomy.roles);
+  const chains = [], unavailable = [], occupied = new Set();
+  for (const branch of anatomy.chains) {
+    const ids = branch.ids;
+    const chain = { root: ids[0], middle: ids[1], end: ids.at(-1), joints: ids.slice(), kind: branch.kind, key: `limb:${ids.at(-1)}`, ...(branch.label ? { label: branch.label } : {}), ...(branch.grip ? { grip: Array.from(branch.grip) } : {}) };
     try {
-      // Prefer the actual hand/hoof over its child attachment marker.
-      if (chains.some(chain => descendantOf(node.ObjectId, chain.end))) continue;
-      const chain = { ...suggestPoseChain(model, node.ObjectId, tree), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
-      if (['Body','Pelvis'].includes(roleOf(byId.get(chain.root))) || roleOf(byId.get(chain.root)) === 'Chest' && /arm|thigh|leg1/i.test(byId.get(chain.middle)?.Name)) continue;
-      if (chains.some(existing => poseChainIds(chain).some(id => poseChainIds(existing).includes(id)))) continue;
-      // Mapping is structural and must not lose a hoof at an authored scale key.
-      // Some imports attach a rigid boot mesh straight to the shin and leave
-      // its mesh origin near the torso. Grip its skin, retaining the authored
-      // pivot and hierarchy; the endpoint adapter compensates native keys.
-      const skin = evidence.profiles.get(node.ObjectId)?.rigidSkin;
-      const parent = byId.get(node.Parent);
-      if (parent && skin && !/^bone[ _]|^helper/i.test(node.Name) && !(children.get(node.ObjectId) || []).length && skin.distanceTo(v3(node.PivotPoint)) > v3(node.PivotPoint).distanceTo(v3(parent.PivotPoint)) * .7) chain.grip = skin.toArray();
-      const pivots = poseChainIds(chain).map(id => v3(id === chain.end && chain.grip || byId.get(id).PivotPoint));
-      if (pivots.slice(1).some((point, i) => point.distanceTo(pivots[i]) < 1e-7)) throw new Error('Choose joints with nonzero segment lengths.');
+      validatePoseChain(model, chain, index);
+      if (ids.some(id => occupied.has(id))) throw new Error('Limb controls must have separate joint chains.');
+      const points = ids.map(id => v3(id === chain.end && chain.grip || index.byId.get(id).PivotPoint || model.PivotPoints?.[id]));
+      if (points.slice(1).some((point, i) => point.distanceTo(points[i]) < 1e-7)) throw new Error('Choose joints with nonzero segment lengths.');
       chains.push(chain);
-    } catch (cause) { unavailable.push({ id: node.ObjectId, reason: cause.message }); }
+      ids.forEach(id => occupied.add(id));
+    } catch (cause) { unavailable.push({ id: chain.end, reason: cause.message }); }
   }
-  const occupied = new Set(chains.flatMap(poseChainIds));
-  for (const branch of inferPoseBranches(evidence, roleOf, occupied)) {
-    if (branch.ids.some(id => occupied.has(id))) continue;
-    const horseLimb = branch.kind === 'leg' && /horse|equine/i.test(byId.get(rootOf(byId.get(branch.ids[0])))?.Name || '');
-    const chain = { root: branch.ids[0], middle: branch.ids[1], end: branch.ids.at(-1), joints: branch.ids, kind: branch.kind, key: `limb:${branch.ids.at(-1)}`, ...(branch.label || horseLimb ? { label: branch.label || 'Hoof' } : {}) };
-    try { validatePoseChain(model, chain, tree); chains.push(chain); branch.ids.forEach(id => occupied.add(id)); } catch { /* Unsupported native inheritance remains available through bone editing. */ }
-  }
-  const bodies = transforms.filter(node => roleOf(node) === 'Body' && !/death|portrait/i.test(node.Name));
-  const groups = new Map();
-  for (const chain of chains) { const key = rootOf(byId.get(chain.root)), group = groups.get(key) || []; group.push(chain); groups.set(key, group); }
-  const actors = [];
-  for (const limbs of groups.values()) {
-    let body;
-    try { body = suggestPoseBody(model, limbs, tree); } catch { continue; }
-    // The arm junction is a chest, not a whole-body translation root. Ascend
-    // to the authored body driver so skirts, robes and spine travel together.
-    body = tree.ancestors(body, true).find(id => bodies.includes(byId.get(id))) ?? body;
-    if (roleOf(byId.get(body)) === 'Chest' && !bodies.some(node => node.ObjectId === body)) body = rootOf(byId.get(body));
-    roles[body] = 'Body';
-    const arms = limbs.filter(chain => chain.kind === 'arm' && chain.label !== 'Chain');
-    if (arms.length >= 2) {
-      try { const chest = suggestPoseBody(model, arms, tree); if (chest !== body && !['Body','Pelvis'].includes(roleOf(byId.get(chest)))) roles[chest] = 'Chest'; } catch { /* Separate shoulders remain native bones. */ }
-    }
-    const positions = limbs.flatMap(chain => poseChainIds(chain).map(id => v3(byId.get(id).PivotPoint)));
-    const lo = new Vector3(Infinity,Infinity,Infinity), hi = lo.clone().negate(); positions.forEach(p => { lo.min(p); hi.max(p); });
-    actors.push({ body, limbs, span: lo.distanceTo(hi) });
-  }
-  // Numbered SD helper rigs may have an extra ankle or upper limb. Continue
-  // through those actual links up to the body's branching joint, rather than
-  // silently dropping the first segment to force a two-bone template.
-  for (const chain of chains) {
-    const links = poseChainIds(chain).slice(); let parent = byId.get(byId.get(links[0])?.Parent);
-    while (parent && /^(?:bone|helper)(?:[ _-]*any)?[ _-]*[0-9]+$/i.test(parent.Name) && !['Body','Pelvis','Chest'].includes(roleOf(parent))) { links.unshift(parent.ObjectId); parent = byId.get(parent.Parent); }
-    if (links.length !== poseChainIds(chain).length) {
-      const extended = { ...chain, root: links[0], middle: links[1], joints: links };
-      try { validatePoseChain(model, extended, tree); if (links.slice(1).some((id, i) => v3(byId.get(id).PivotPoint).distanceTo(v3(byId.get(links[i]).PivotPoint)) < 1e-7)) throw new Error('Coincident joint'); Object.assign(chain,extended); } catch { /* Keep the already validated endpoint chain. */ }
-    }
-  }
-  actors.sort((a,b) => b.span - a.span);
-  // Bodies come from their limbs; a name only suggests a part. A trunk part
-  // belongs to a found body: it hangs from that body, or from a joint the body
-  // rides on that moves or carries skin (a mount, a beast's root). A static,
-  // skinless container (a root holding a body and its weapon), a separate
-  // skeleton (a flail, loose debris, an effect dummy) and a rigid prop held in
-  // a found hand (a wrench, a hammer's ribbon) are no body part ('Object'),
-  // whatever they are called. A wing may grow from a hand (a bat, a dragon);
-  // a trunk part past a hand is a prop unless it articulates.
-  if (actors.length) {
-    const trunk = new Set(), hands = new Set(chains.filter(chain => chain.kind === 'arm' && !chain.label && roleOf(byId.get(chain.end)) === 'Hand').map(chain => chain.end));
-    for (const actor of actors) for (const id of tree.ancestors(actor.body, true)) {
-      if (id !== actor.body && !evidence.moving(byId.get(id)) && !evidence.profiles.get(id)?.skin) break;
-      trunk.add(id);
-    }
-    const parts = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail','Wing'].includes(roleOf(node)));
-    // A detached piece can stand in for the body's own part: a Death that
-    // swaps the living head for a severed one. The two swap visibility: one
-    // clip ends with the part hidden and the piece shown, another with the
-    // part shown and the piece hidden. It stays that part, in every clip.
-    // Equipment that is always shown (a flail) never swaps.
-    const bones = (model.Geosets || []).map(geoset => new Set(Array.from({ length: (geoset.Vertices?.length || 0) / 3 }, (_, i) => vertexBones(geoset, i)).flat()));
-    const skin = id => bones.flatMap((set, i) => [...set].some(bone => tree.isAncestor(bone, id)) ? [i] : []);
-    const shown = (geosets, s) => geosets.some(i => sampleGeosetAnimation(model, i, model.Sequences[s].Interval[1], s).alpha > .01);
-    const standsIn = (node, living) => {
-      const own = skin(node.ObjectId), theirs = living.map(other => skin(other.ObjectId)).filter(list => list.length), clips = (model.Sequences || []).map((sequence, s) => s).filter(s => model.Sequences[s].Interval);
-      const swapped = (piece, part) => clips.some(s => shown(piece, s) && part.every(list => !shown(list, s)));
-      return own.length && theirs.length && swapped(own, theirs) && swapped(theirs.flat(), [own]);
-    };
-    const rejected = [];
-    for (const node of parts) {
-      const lineage = tree.ancestors(node.ObjectId, true), hand = lineage.findIndex((id, i) => i && hands.has(id));
-      const held = hand > 0 && roleOf(node) !== 'Wing' && lineage.slice(0, hand).some(id => !evidence.moving(byId.get(id)));
-      if (held) roles[node.ObjectId] = 'Object'; else if (!lineage.some(id => trunk.has(id))) rejected.push(node);
-    }
-    for (const node of rejected) {
-      const living = parts.filter(other => roleOf(other) === roleOf(node) && !rejected.includes(other) && tree.ancestors(other.ObjectId, true).some(id => trunk.has(id)));
-      if (!standsIn(node, living)) roles[node.ObjectId] = 'Object';
-    }
-  }
-  const structuralRoots = transforms.filter(node => !byId.has(node.Parent) && evidence.supported(node) && evidence.articulated(node)).sort((a,b) => evidence.descendants(b.ObjectId).filter(evidence.supported).length - evidence.descendants(a.ObjectId).filter(evidence.supported).length);
-  let body = actors[0]?.body ?? bodies[0]?.ObjectId ?? transforms.find(node => roleOf(node) === 'Pelvis')?.ObjectId ?? structuralRoots[0]?.ObjectId ?? null;
-  // Keep authored global motion intact. A local descendant carrying the same
-  // complete assembly is the usable body driver (for example a rocking hull).
-  while (byId.get(body)?.Translation?.GlobalSeqId != null) {
-    const links = (children.get(body) || []).filter(evidence.supported);
-    if (links.length !== 1) break;
-    body = links[0].ObjectId;
-  }
-  const followers = {}, carriers = {}, bodyNode = byId.get(body);
-  if (bodyNode) {
-    // Explicit seat/saddle anchors connect separately animated riders without
-    // reparenting, changing skin weights, or rewriting their authored keys.
-    const seats = transforms.filter(node => /(?:saddle|seat).*anchor|anchor.*(?:saddle|seat)/i.test(node.Name) && descendantOf(node.ObjectId,body));
-    for (const actor of actors.slice(1)) {
-      const rider = byId.get(actor.body);
-      const seat = seats.slice().sort((a,b) => v3(a.PivotPoint).distanceTo(v3(rider.PivotPoint)) - v3(b.PivotPoint).distanceTo(v3(rider.PivotPoint)))[0];
-      if (seat && actor.limbs.length >= 2) carriers[actor.body] = seat.ObjectId;
-    }
-    if (/horse|mount/i.test(bodyNode.Name)) {
-      const carried = transforms.filter(node => node.ObjectId !== body && node.Parent === bodyNode.Parent && /horse|mount/i.test(node.Name) && poseNodeRole(node) === 'Body' && v3(node.PivotPoint).distanceTo(v3(bodyNode.PivotPoint)) < 1e-3 &&
-        bodies.some(rider => rider.ObjectId !== body && descendantOf(rider.ObjectId, node.ObjectId)));
-      if (carried.length) followers[body] = carried.map(node => node.ObjectId);
-    }
-    // Detached reins are authored independently like the rider. Carry those
-    // explicit accessories with the seat; unrelated effects/debris stay alone.
-    if (Object.keys(carriers).length) for (const node of transforms) if (!byId.has(node.Parent) && /^(?:chain|reins?)[ _.-]/i.test(node.Name)) carriers[node.ObjectId] = seats[0].ObjectId;
-  }
-  for (const actor of actors) {
-    const armEnds = actor.limbs.filter(chain => chain.kind === 'arm');
-    for (const chain of armEnds) {
-      const end = byId.get(chain.end), peers = children.get(end.Parent) || [];
-      if (peers.filter(peer => v3(peer.PivotPoint).distanceTo(v3(end.PivotPoint)) < .01).length >= 3) chain.label = 'Wing';
-    }
-    // A long, unbranched rear spine opposite the chest is a tail. Skin child
-    // pivots are ignored; helpers with their own joints define the articulation.
-    const chest = transforms.find(node => roleOf(node) === 'Chest' && descendantOf(node.ObjectId,actor.body));
-    if (!chest) continue;
-    const origin = v3(byId.get(actor.body).PivotPoint), forward = v3(chest.PivotPoint).sub(origin);
-    for (const first of transforms.filter(node => node.Parent === actor.body || ['Pelvis','Body'].includes(roleOf(byId.get(node.Parent) || {})) && descendantOf(node.ObjectId, actor.body))) {
-      if (poseNodeRole(first) !== first.Name || actor.limbs.some(chain => descendantOf(chain.end,first.ObjectId))) continue;
-      const tail = [first]; let next = first;
-      while (true) { const links = evidence.links(next.ObjectId); if (links.length !== 1) break; next = links[0]; tail.push(next); }
-      if (tail.length >= 3 && v3(next.PivotPoint).sub(origin).dot(forward) < 0) roles[next.ObjectId] = 'Tail';
-    }
-  }
-  // A named wing can identify its unnamed mirrored partner when both branches
-  // own skin and articulate in existing clips. Small face/accessory joints do
-  // not satisfy the shared chest attachment and mirrored mesh evidence.
-  for (const wing of transforms.filter(node => roleOf(node) === 'Wing' && evidence.moving(node))) {
-    const parent = byId.get(wing.Parent), skin = evidence.profiles.get(wing.ObjectId)?.skin;
-    if (!parent || !skin) continue;
-    const span = skin.distanceTo(v3(parent.PivotPoint));
-    const peer = (children.get(wing.Parent) || []).filter(node => node !== wing && evidence.moving(node) && evidence.profiles.get(node.ObjectId)?.skin && !chains.some(chain => poseChainIds(chain).includes(node.ObjectId)))
-      .map(node => ({ node, error: evidence.mirrorError(skin, evidence.profiles.get(node.ObjectId).skin, v3(parent.PivotPoint), span) + evidence.mirrorError(v3(wing.PivotPoint), v3(node.PivotPoint), v3(parent.PivotPoint), span) }))
-      .sort((a,b) => a.error - b.error)[0];
-    if (peer?.error < .25) roles[peer.node.ObjectId] = 'Wing';
-  }
-  const controls = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail','Wing'].includes(roleOf(node)) && !/death|portrait/i.test(node.Name))
-    // One anatomical head can own separately named meshes, flaps or eyelids
-    // at any depth. Expose the controlling joint, not a second head handle.
-    .filter(node => !(roleOf(node) === 'Head' && tree.ancestors(node.ObjectId).some(id => roleOf(byId.get(id)) === 'Head')))
-    .filter(node => !(roleOf(node) === roleOf(byId.get(node.Parent) || {}) && !evidence.links(node.ObjectId).length && !/^bone[ _]/i.test(node.Name)))
-    .filter(node => !model.Geosets?.length || evidence.supported(node) && (roles[node.ObjectId] || /^bone[ _]/i.test(node.Name) || evidence.articulated(node) || !byId.has(node.Parent)))
-    .filter(node => roleOf(node) !== 'Tail' || !(children.get(node.ObjectId) || []).some(child => roleOf(child) === 'Tail' && evidence.moving(child)))
-    .map(node => node.ObjectId).filter(id => id !== body);
-  return { chains, body, nodes: controls, roles, followers, carriers, unavailable };
+  return { chains, body: anatomy.body ?? null, nodes: anatomy.nodes.filter(id => id !== anatomy.body), roles, followers: anatomy.followers || {}, carriers: anatomy.carriers || {}, unavailable };
 }
 
 function rigidRotation(matrix) {
@@ -659,16 +468,17 @@ const upperBodyRoles = new Set(['Spine', 'Chest', 'Neck', 'Head', 'Tail', 'Wing'
 /** A handle grips the part, while its native marker remains at the joint.
  * Use the existing skin centroid reader, including SD mesh children below a
  * helper. The grip is a fixed model-space point, never a new rig node. */
-export function poseControlGrip(model, id, nodes = allNodes(model)) {
+export function poseControlGrip(model, id, nodes = allNodes(model), roles) {
+  const role = node => roles?.[node.ObjectId] || poseNodeRole(node);
   const node = nodes.find(node => node.ObjectId === id);
   const pivot = v3(node.PivotPoint || model.PivotPoints[id]), identity = new Map();
-  const centers = [node, ...nodes.filter(child => child.Parent === id && !upperBodyRoles.has(poseNodeRole(child)))]
+  const centers = [node, ...nodes.filter(child => child.Parent === id && !upperBodyRoles.has(role(child)))]
     .map(child => movementBoneVertexCenter(model, child.ObjectId, identity)?.center).filter(Boolean);
   if (centers.length) {
     const center = centers.reduce((sum, center) => sum.add(center), new Vector3()).divideScalar(centers.length);
     if (center.distanceToSquared(pivot) > 1e-8) return center;
   }
-  const child = nodes.find(child => child.Parent === id && upperBodyRoles.has(poseNodeRole(child)));
+  const child = nodes.find(child => child.Parent === id && upperBodyRoles.has(role(child)));
   if (child) {
     const toward = v3(child.PivotPoint || model.PivotPoints[child.ObjectId]);
     if (toward.distanceToSquared(pivot) > 1e-8) return pivot.clone().lerp(toward, .5);
@@ -712,13 +522,13 @@ export function poseNodeControl(model, config, target, mode = 'move', index = no
     }
   }
   const heads = (config.nodes || []).filter(head => head !== id && poseRole(model, config, head) === 'Head' && [driver, ...followers].some(root => index.isAncestor(head, root)));
-  return { joints, heads, driver, followers, carriers };
+  return { joints, heads, driver, followers, carriers, ...(joints.length && config.roles ? { grip: poseControlGrip(model, id, [...byId.values()], config.roles).toArray() } : {}) };
 }
 
 export function poseControlPoint(model, config, id, matrices, nodes = allNodes(model)) {
   const node = nodes.find(node => node.ObjectId === id);
   const grip = id !== config.body && (upperBodyRoles.has(poseRole(model, config, id, nodes)) || poseRole(model, config, id, nodes) === 'Body') && (config.nodes || []).includes(id);
-  return (grip ? poseControlGrip(model, id, nodes) : v3(node.PivotPoint || model.PivotPoints[id])).applyMatrix4(matrices.get(id));
+  return (grip ? poseControlGrip(model, id, nodes, config.roles) : v3(node.PivotPoint || model.PivotPoints[id])).applyMatrix4(matrices.get(id));
 }
 
 // Solve only rotations on the existing upper-body links. Damped coordinate
@@ -820,7 +630,7 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   const control = change.control || { joints: [], heads: [] }, driver = control.driver ?? control.joints[0] ?? id, followers = control.followers || [];
   if (!control.joints.length) id = driver;
   const initialMatrices = control.joints.length || control.heads.length ? sampled(model, frame, sequence, globalTime) : null;
-  const grip = control.joints.length ? poseControlGrip(model, id) : null;
+  const grip = control.joints.length ? (control.grip ? v3(control.grip) : poseControlGrip(model, id)) : null;
   let offset = v3(values);
   if (grip && change.space === 'local') offset.applyQuaternion(rigidRotation(initialMatrices.get(id)));
   offset.fromArray(constrainMovementVector(offset.toArray(), change));

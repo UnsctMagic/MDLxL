@@ -92,7 +92,7 @@ const centroid = points => points.reduce((sum, point) => sum.add(point), new Vec
 function chooseParts(unit) {
   const { rig, byId, tree, world, height } = unit, descendantOf = tree.isAncestor;
   const chains = (rig?.chains || []).filter(chain => byId.has(chain.end));
-  const claimed = new Set([...chains.flatMap(poseChainIds), ...Object.keys(rig?.roles || {}).map(Number), ...(rig?.nodes || []), rig?.body].filter(id => id != null));
+  const claimed = new Set([...chains.flatMap(poseChainIds), ...Object.entries(rig?.roles || {}).filter(([, role]) => role !== 'Object').map(([id]) => Number(id)), ...(rig?.nodes || []), rig?.body].filter(id => id != null));
   const weapons = unit.transforms.filter(node => isWeaponName(node.Name) && !NOT_A_WEAPON.test(node.Name || '') && !claimed.has(node.ObjectId));
   weapons.forEach(node => claimed.add(node.ObjectId));
   const mesh = new Map(), meshOf = id => { if (!mesh.has(id)) mesh.set(id, ownMesh(unit, id, claimed)); return mesh.get(id); };

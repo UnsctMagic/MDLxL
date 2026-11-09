@@ -321,7 +321,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     // A long neck (two or more joints between chest and head, longer than a
     // limb bone, as on dragons) gets a bone per neck link; the rib cage then
     // lies from the chest to the pelvis instead of reaching up to the head.
-    const chestAt=headAncestors.findIndex(i=>role(i)==='Chest'),neckIds=winged&&refHeads.has(id)&&!quadruped&&chestAt>=3&&distance(at(headAncestors[chestAt]),neck)>unit?headAncestors.slice(1,chestAt):[];
+    const chestAt=headAncestors.findIndex(i=>role(i)==='Chest'),neckIds=winged&&(refHeads.has(id)||headAncestors.some(i=>role(i)==='Neck'))&&!quadruped&&chestAt>=3&&distance(at(headAncestors[chestAt]),neck)>unit?headAncestors.slice(1,chestAt):[];
     if(neckIds.length){for(let k=0;k<=neckIds.length-1;k++)neckLinks.push([headAncestors[k+1],headAncestors[k]]);for(let i=torsoIds.length-1;i>=0;i--)if(neckIds.includes(torsoIds[i]))torsoIds.splice(i,1);}
     const chest=quadruped?mean(front.map(at)):neckIds.length?at(headAncestors[chestAt]):neck,split=quadruped?headAncestors.find(i=>trunkSplits.has(i)):null;
     if(split!=null&&shoulders.length>=2){

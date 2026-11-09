@@ -1,9 +1,9 @@
 # Posing in Movement
 
 POSE uses the existing Movement tools and sidebar. Enable it once to get the
-hands, feet, hooves, wings, tail and main body controls recognized from anatomy names,
-native references, hierarchy, skinned geometry and existing joint animation. Setup is optional for recognized
-rigs, including joints named through their native attachment references.
+hands, feet, wings, tail and main body controls inferred jointly from the native
+skeleton and the surface it deforms. Names resolve ambiguous alternatives; they
+do not select the initial anatomy. Setup remains available for manual mappings.
 
 ## Start posing
 
@@ -101,14 +101,11 @@ Setup stays open while you pick or turn the camera. Drag its title bar if it
 covers a bone. Escape or the close button ends picking and restores the previous
 bone display. Sidebar widths and the normal Movement layout stay unchanged.
 
-Horse-and-rider recognition maps full multi-joint hoof chains, both rider hands,
-boots and upper bodies. Native head/hand references identify unnamed anatomical
-parents; skinned descendants below knees identify unnamed boots. Duplicate
-mount body roots with the same authored pivot are carried together when one
-owns the rider. Moving the horse carries its rider without reparenting the rig.
-The rider's own body handle bends around its seat; individual controls remain
-available. These rules are based on the model structure, never model filenames
-or fixed node IDs.
+Horse-and-rider recognition keeps separate body assemblies and the native links
+within each limb. Independent rider roots can follow a mount through measured
+contact, elevation and relative authored motion. Moving the mount carries the
+rider without reparenting it, while the rider retains its own controls. The
+recognizer has no model filenames, fixed node IDs or prescribed limb/head count.
 
 ## Edits, history and saving
 
@@ -187,7 +184,7 @@ chest handles use anatomical joints instead of separately named mesh pivots.
 Long limbs retain their real intermediate joints; they are not shortened to fit
 a three-joint template.
 
-Mounted rigs with an explicit saddle/seat anchor can carry a separately animated
+Mounted rigs with an inferred native seat anchor can carry a separately animated
 rider. Moving or bending the mount applies the seat's change to the rider using
 native keys. The rider keeps its own body and limb grips. Dragon wings and tails
 use their own symbols, also available in the same click-a-bone Setup palette.
@@ -200,47 +197,38 @@ The crosshair button beside Setup controls blocker pings. Red means enabled
 pins or change the pose.
 
 
-## Recognition from geometry and existing motion
+## Recognition from skeleton and skinned shape
 
-Automatic setup measures actual local joint rotation changes within the model's
-animation clips. It combines that evidence with skin attachment, branch lengths,
-mirrored geometry, anatomy names and attachment references. Repeated articulated
-branches can become generic Chain handles without being mislabeled as feet.
-Nested tails and mirrored wings are included when the native rig supports them.
-Real anatomical joints precede same-named mesh children; unused branches, cloth
-and rigid props do not become inferred limbs. Ships keep their local body driver
-without turning imported hand/foot attachment names into human anatomy.
+Automatic setup measures weighted surface regions, their connectivity and shape,
+together with native joint positions, paths and branch attachments. Head, limb,
+wing and tail interpretations compete over the same skeleton. Selecting an
+appendage reserves its subtree, so a held prop or a second interpretation of
+that limb cannot claim the same joints. Extra limbs and separate neck/head
+branches remain candidates without assuming pairs, bilateral symmetry or a
+humanoid template.
 
-Bodies come first, names second. The bodies are found from their limbs; a bone
-named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
-only when it hangs from a found body, or from a joint that body rides on and
-that moves or carries skin (a mount under its rider, a beast's root above its
-legs). A static, skinless container root, a separate skeleton (a flail, an
-effect dummy) and a rigid prop in a found hand (a wrench) become `Object`, the
-same role as **Object** in setup. A separate piece that swaps visibility with
-the body's own part of that kind keeps the role: one clip ends with the part
-hidden and the piece shown (a Death's severed head, a crumbled rock pelvis),
-another with the part shown and the piece hidden. Always-shown equipment never
-swaps. A wing may grow
-from a hand. Pieces inside a head (meshes, flaps, eyelids, a beak) still belong
-to the head but get no head handle of their own. So a body has one head unless
-its structure carries more: two-headed ogres, the hydra, the chimaera, a rider
-and mount, a mortar team. Only models with recognised limbs are affected.
-Evidence and the per-model change list: `node scripts/pose-head-census.mjs`.
+Surface adapters retain their actual joint owner and native ID. Whole-body
+controls include separately weighted body branches such as robes, while chest,
+pelvis and spine controls retain their own place in the hierarchy. Local
+animation supplies evidence when choosing among drivers of the same body;
+static rigs remain valid. Complementary geoset visibility can associate a
+detached replacement with the corresponding living part.
 
-This is a reusable recognition pass, not per-file presets or background learning.
-No supplied filenames or object IDs enter the runtime rules. The model examples
-are local regression fixtures, not redistributed program assets. Recognition is
-stable across clip boundaries; unsupported transforms can still prevent an IK
-solve at an individual frame. Entirely unnamed static or asymmetric branches may
-still need Add. Separate roots without an authored carrier remain independently
-controlled; for example the chariot and horse retain their own body controls.
+Names contribute only when structural alternatives remain ambiguous. They do
+not exclude an arm, admit a named prop, require an animation, or impose a limb
+count. The implementation is deterministic geometric inference, with scored
+hypotheses and confidence boundaries; it is not a trained visual model or a
+lookup table of studied models. Difficult shapes can still be ambiguous, and
+manual Add/Setup remains available.
 
-An imported mesh endpoint can have a pivot far from its visible foot or hand.
-For those rigid SD endpoints, recognition places the grip on vertices owned
-solely by that mesh. Posing keeps the grip in place with native endpoint
-Translation/Rotation keys; the authored pivot and skin weights stay intact.
-Setup preserves that grip while editing the same endpoint.
+Recognition preserves the model's hierarchy, pivots, skinning, geometry and
+animation. The native solver separately checks whether each inferred chain can
+be edited at the selected frame. An unavailable transform does not change the
+anatomical evidence. The local acceptance census is
+`node scripts/pose-anatomy-census.mjs <report.json>`; it compares independent
+anatomical expectations under original, blank, scrambled, misleading and
+remapped/reordered names and IDs. Local model examples are test inputs, not
+runtime presets or redistributed application assets.
 
 ## Focus and appearance
 
