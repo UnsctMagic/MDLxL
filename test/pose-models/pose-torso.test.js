@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { realAnatomyCases, loadAnatomyCase, challengeCase, nameVariants } from './helpers/pose-anatomy-fixtures.mjs';
-const source = process.env.MDLXL_POSE_SOURCE ? pathToFileURL(path.resolve(process.env.MDLXL_POSE_SOURCE, 'pose-ik.js')) : new URL('../src/pose-ik.js', import.meta.url);
+import { realAnatomyCases, loadAnatomyCase, challengeCase, nameVariants } from '../helpers/pose-anatomy-fixtures.mjs';
+const source = process.env.MDLXL_POSE_SOURCE ? pathToFileURL(path.resolve(process.env.MDLXL_POSE_SOURCE, 'pose-ik.js')) : new URL('../../src/pose-ik.js', import.meta.url);
 const { suggestPoseRig, poseRole } = await import(source);
 
 // Complete bodies must carry every native skinned branch, including robes;

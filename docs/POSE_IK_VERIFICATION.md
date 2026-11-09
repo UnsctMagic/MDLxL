@@ -1234,14 +1234,14 @@ joint turns around it. Move on the control still aims the bend (swivel).
   pinned foot keeps its pin, Escape/return leave no history, Save As/reopen.
 
 
-## Skeleton and surface recognition — 2026-11-09 (local candidate)
+## Skeleton and surface recognition ï¿½ 2026-11-09 (local candidate)
 
 Automatic POSE setup now compares native skeleton paths with weighted geoset
 regions, surface continuity, terminal lobes and body ownership. Labels resolve
 ambiguity; runtime recognition contains no model filenames, fixture IDs or
 fixed arm/head counts. Native handles, solver, pinning and undo remain in the
-existing workflow. This candidate is saved locally; independent Claude QA and
-any publication/installed upgrade remain separate gates.
+existing workflow. The owner authorized merging this candidate. Releases and
+installed upgrades remain separately authorized operations.
 
 Evidence directory: `D:/Codex/pose-anatomy-20261109/report`.
 
@@ -1284,5 +1284,18 @@ index.html hash is
 `4d06df767fae7aa49173e2884c9cd637b5fd3a58187c2604566c3f63ce337efc`.
 The package verified 1,525 runtime/asset files and 55 locale files. Its disposable
 package/profile files were removed and no task test processes remained.
-Independent Claude QA remains required before merge; Warcraft III gameplay was
-not exercised. No installed profile, release or online branch was changed.
+Current shared testing rules permit reuse of these passing results: integrated
+main changes affect the UV rest-pose path, not these animated Movement cases.
+Warcraft III gameplay was not exercised. No installed profile or release changed.
+
+## Portable and local-model acceptance commands
+
+`pnpm run test:source` keeps the analytical anatomy, geometry and native source
+checks portable for GitHub CI. `pnpm run test:pose-models` runs the authored-model
+anatomy, head boundaries, torso, assembly, motion, limb-root and replacement
+checks against `MDLXL_TEST_MODELS` (default `D:/Claude/MDLxL-TestModels`). Missing
+models fail this explicit acceptance suite; no anatomical assertion is skipped
+or weakened. Both commands are required for changes to these owners. The strict
+160-case census and `test/pose-anatomy.electron.cjs` remain separate entrypoints.
+Authored-model coverage is verified locally; hosted CI does not contain the
+owner's private model collection.
