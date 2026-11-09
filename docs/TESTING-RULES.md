@@ -8,10 +8,27 @@ request that breaks a rule below is not reviewed. It goes back.
 
 ## Who tests
 
-- Claude owns QA: release test runs, release checks and the final verdict.
-  Codex builds features and fixes. A Codex report of "tests pass" is a claim, not
-  evidence; Claude reruns the tests before anything merges.
-- The agent that built a feature never decides alone that it works.
+- Codex, Claude or another agent may run tests and assess the results, including
+  for their own changes. Everyone follows the same shared testing rules and
+  project scripts; no agent has exclusive ownership of QA or the release gate.
+- Use the maintained shared scripts and ruleset. Do not create a separate
+  agent-specific testing process. Reports must identify the commands, tested
+  revision/package, pass/fail/skip counts and remaining gaps; the agent's name
+  does not substitute for evidence.
+
+## Before merging
+
+- For code changes, build and run focused checks of the affected behavior,
+  proportional to the change. UI behavior needs the relevant real interaction
+  checks below. Documentation-only changes need link, path and rule-consistency
+  checks, not an application rebuild.
+- Do not require the full release regression or packaged-app suite, or a separate
+  Claude/second-agent rerun, solely to merge a change. Required configured CI
+  checks still apply; use their results rather than repeat them locally.
+- Reuse passing results while the tested behavior, tests, relevant dependencies
+  and build inputs remain unchanged. Rerun affected checks when a change,
+  failure or unresolved concern invalidates that evidence. Record which results
+  were reused and the revision/package they cover.
 
 ## Every test must
 
@@ -47,8 +64,9 @@ request that breaks a rule below is not reviewed. It goes back.
 - Widen `.github/known-test-failures.txt` or add a `SKIP` entry to hide a failure.
 - Report a missing fixture as "fixture absent" and move on. Prepare it
   (`out/fixtures.sh` in the release worktree) or ask the owner for the model.
-- Run the packaged suite on an older build and rerun only "the tests you think
-  changed". The release run is the full suite on the final package.
+- Run the full release suite on an older package and present it as evidence for
+  the release candidate. Start with the frozen release candidate, then follow
+  the affected-check rerun rules below for subsequent fixes.
 - Report "all pass" without the numbers: pass / fail / skip counts and every
   skip's reason.
 
@@ -59,11 +77,16 @@ request that breaks a rule below is not reviewed. It goes back.
 - The packaged tests run (names), their result, and any skip with its reason.
 - What was not verified (Warcraft III itself, visual taste) in one line.
 
-## Release gate (Claude)
+## Before releasing
 
-Zero failures in the full packaged suite on the final package, zero unexplained
-skips, source and compatibility suites green, every feature the owner asked to
-include merged and tested the user's way. Anything less: no tag, no publish.
+Run the full regression checks for the release: source and compatibility suites,
+plus the full packaged-app suite on the release candidate. Any agent may run and
+verify them using the shared scripts and rules.
+
+Require zero failures in the full packaged suite, zero unexplained skips, source
+and compatibility suites green, and every feature the owner asked to include
+merged and tested the user's way. Anything less: no tag, no publish. Owner
+approval is still required for merging and releasing.
 
 **One full run per release, never more.** The full suite takes about 1.5 hours
 and the owner waits for it. Run it once, after the release scope is frozen.
