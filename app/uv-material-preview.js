@@ -1,4 +1,4 @@
-import { sampleTrack } from '../src/animation.js';
+import { sampleTrack, unanimatedTrackValue } from '../src/animation.js';
 import { uvMaterialLayers } from '../src/uv-tools.js';
 import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
 import { clampByte } from '../src/math.js';
@@ -51,10 +51,10 @@ function replaceablePixels(id, color, width, height) {
 }
 
 /** Render the selected WC3 material into the tiled UV backdrop with the preview's team color. */
-export async function renderUVMaterialTexture(model, materialID, assets, { teamColor = '#ff0303', time = 0, sequenceIndex = -1 } = {}) {
+export async function renderUVMaterialTexture(model, materialID, assets, { teamColor = '#ff0303', time = 0, sequenceIndex = -1, restPose = false } = {}) {
   const map = assets instanceof Map ? assets : new Map(Object.entries(assets || {}));
   const lookup = path => map.get(gamePathKey(path)) || map.get(gamePathKey(String(path || '').split(/[\\/]/).at(-1)));
-  const layers = uvMaterialLayers(model, materialID, time, sequenceIndex), decoded = [], warnings = [];
+  const layers = uvMaterialLayers(model, materialID, time, sequenceIndex, restPose), decoded = [], warnings = [];
   for (const entry of layers) {
     if (entry.texture?.ReplaceableId) { decoded.push({ ...entry, replaceable: entry.texture.ReplaceableId }); continue; }
     const asset = lookup(entry.texture?.Image);
@@ -67,7 +67,8 @@ export async function renderUVMaterialTexture(model, materialID, assets, { teamC
   const width = Math.max(1, Math.round((base?.width || 256) * scale)), height = Math.max(1, Math.round((base?.height || 256) * scale));
   const interval = model?.Sequences?.[sequenceIndex]?.Interval;
   const prepared = decoded.map(entry => {
-    const sampled = sampleTrack(entry.layer.Alpha, time, { interval, globalSequences: model?.GlobalSequences, globalTime: time, fallback: 1 });
+    const sampled = restPose ? unanimatedTrackValue(entry.layer, 'Alpha', 1)
+      : sampleTrack(entry.layer.Alpha, time, { interval, globalSequences: model?.GlobalSequences, globalTime: time, fallback: 1 });
     const alpha = Number(Array.isArray(sampled) || ArrayBuffer.isView(sampled) ? sampled[0] : sampled);
     return { pixels: entry.replaceable ? replaceablePixels(entry.replaceable, teamColor, width, height) : resizePixels(entry.image, width, height), filterMode: entry.layer.FilterMode || 0, alpha: Number.isFinite(alpha) ? alpha : 1 };
   });

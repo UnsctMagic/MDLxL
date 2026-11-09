@@ -1,4 +1,4 @@
-import { sampleTrack } from './animation.js';
+import { sampleTrack, unanimatedTrackValue } from './animation.js';
 import { connectedVertices } from '../app/classic-gestures.js';
 import { eligibleUVFaces } from './uv-selection.js';
 import { DEFAULT_UV_DRAG } from './uv-drag-settings.js';
@@ -167,11 +167,13 @@ function textureLabel(texture) {
   return String(texture.Image || 'Unnamed texture').split(/[\\/]/).at(-1);
 }
 
-/** Resolve the layers that make up one Warcraft material at the current frame. */
-export function uvMaterialLayers(model, materialID, time = 0, sequenceIndex = -1) {
+/** Resolve a material's layers in the UV rest pose or at an animation frame. */
+export function uvMaterialLayers(model, materialID, time = 0, sequenceIndex = -1, restPose = sequenceIndex < 0) {
   const material = model?.Materials?.[materialID], interval = model?.Sequences?.[sequenceIndex]?.Interval;
   return (material?.Layers || []).map((layer, layerIndex) => {
-    const sampled = sampleTrack(layer.TextureID, time, { interval, globalSequences: model.GlobalSequences, globalTime: time, fallback: -1 });
+    const sampled = restPose && layer.TextureID?.Keys
+      ? unanimatedTrackValue(layer, 'TextureID', 0)
+      : sampleTrack(layer.TextureID, time, { interval, globalSequences: model.GlobalSequences, globalTime: time, fallback: -1 });
     const textureID = Math.round(Number(sampled)), texture = model.Textures?.[textureID] || null;
     const coordId = finiteIndex(layer.CoordId) ? layer.CoordId : 0;
     return { materialID, layerIndex, layer, textureID, texture, coordId, label: textureLabel(texture) };

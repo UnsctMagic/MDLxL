@@ -1,5 +1,5 @@
 import { portraitFragmentDeclarations, portraitFragmentLight, portraitLightDeclarations, portraitLightCalculation } from './portrait-lighting.js';
-import { sampleTrack, sampleGeosetAnimation } from '../src/animation.js';
+import { sampleTrack, sampleGeosetAnimation, unanimatedTrackValue } from '../src/animation.js';
 import { previewLighting } from '../src/preview-lighting.js';
 import { compensateRibbonWallClock } from './war3-model-patches.js';
 
@@ -77,8 +77,10 @@ function patchBoneInfluenceVertexShader(source) {
 export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false, uvWorkingGeoset = false) {
   const options = { interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences, globalTime };
   const evaluated = sampleGeosetAnimation(model, geosetIndex, frame, sequenceIndex, globalTime), rgb = hideRgb ? [1, 1, 1] : evaluated.color;
-  const layerAlpha = uvWorkingGeoset && layer?.Alpha?.Keys?.length ? 1 : sampleTrack(layer?.Alpha, frame, { ...options, fallback: 1 });
-  const alpha = Math.max(0, Math.min(1, (uvWorkingGeoset ? 1 : evaluated.alpha) * layerAlpha));
+  const layerAlpha = sequenceIndex < 0 ? unanimatedTrackValue(layer, 'Alpha', 1)
+    : sampleTrack(layer?.Alpha, frame, { ...options, fallback: 1 });
+  const visibleLayerAlpha = uvWorkingGeoset && layer?.Alpha?.Keys?.length ? 1 : layerAlpha;
+  const alpha = Math.max(0, Math.min(1, (uvWorkingGeoset ? 1 : evaluated.alpha) * visibleLayerAlpha));
   return [...Array.from(rgb, value => Math.max(0, Math.min(1, value)) * (layer?.FilterMode === 3 ? alpha : 1)), alpha];
 }
 

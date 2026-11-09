@@ -158,7 +158,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     if (!current || !preferences?.graphics?.textures) { setMaterialError(''); setMaterialPreview(null); return; }
     // Keep the previous texture and its warning until this render settles, so a
     // slow decode never blanks the map or shifts the workspace under the pointer.
-    renderUVMaterialTexture(materialModel, current.materialID, textureAssets, { teamColor }).then(value => { if (!cancelled) { setMaterialError(''); setMaterialPreview(value); } }).catch(cause => { if (!cancelled) { setMaterialPreview(null); setMaterialError(cause.message); } });
+    renderUVMaterialTexture(materialModel, current.materialID, textureAssets, { teamColor, restPose: true }).then(value => { if (!cancelled) { setMaterialError(''); setMaterialPreview(value); } }).catch(cause => { if (!cancelled) { setMaterialPreview(null); setMaterialError(cause.message); } });
     return () => { cancelled = true; };
   }, [current?.materialID, materialSignature, textureAssets, teamColor, preferences?.graphics?.textures]);
 
