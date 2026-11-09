@@ -45,8 +45,10 @@ know the versioned name, so every release from 0.38.2 also carries an identical
 workflow) and those copies keep updating in-app. The owner decided to keep this
 copy (5 Nov 2026); do not drop it. Drafts are invisible to
 the updater and do not trigger the Discord announcement, so nothing reaches
-users until you publish by hand. Before publishing, run the release gate in
-[UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach
+users until you publish by hand. Before publishing, meet the
+[release standard](QA-AND-RELEASE-KIT.md#release-standard), run the release gate in
+[UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP if the updater,
+installer or package layout changed, attach
 `MDLxL-FFmpeg-corresponding-source.zip`, and add the language links below.
 
 To build the same package locally instead, run `pnpm run fetch-ffmpeg`,

@@ -60,7 +60,7 @@ const SPECIAL = {
   // Every Settings tab and sub-page, preset files, drag keys, toolbar, one restart.
   'settings-layout': { timeout: 10 * 60 * 1000 },
   // Named runs only (never all/core). MDLXL_SWEEP_SETUPS picks the setups; each has its own time limit.
-  'click-sweep': { timeout: 8 * 60 * 60 * 1000 },
+  'click-sweep': { timeout: 24 * 60 * 60 * 1000 },
   // Mouse drag keys and keys pressed during a drag, about 7 app starts.
   'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
   // Each Rotate setting from its own seeded profile, about 30 app starts.

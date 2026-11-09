@@ -129,7 +129,7 @@ Playwright as usual. All test profiles, textures and scratch are removed on exit
 ## Click sweep
 
 `click-sweep` clicks every control in the app. Like `ai-real-use` it is excluded from
-`all` and `core` and runs only when named. See the
+`all` and `core` and runs only when named, as a required step of every release. See the
 [QA and release kit](QA-AND-RELEASE-KIT.md#the-click-sweep-script).
 
 ## Variants

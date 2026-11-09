@@ -22,7 +22,8 @@ const SETUPS = {
   'toolbar-hidden': { prefs: { toolbarMode: 'hidden' } },
   vis: { vis: true },
   small: { bounds: { x: -3000, y: 0, width: 1024, height: 700 } },
-  ...Object.fromEntries(THEMES.map(theme => ['theme-' + theme, { prefs: { theme } }])),
+  // 'light' is the default theme, so baseline already covers it.
+  ...Object.fromEntries(THEMES.filter(theme => theme !== 'light').map(theme => ['theme-' + theme, { prefs: { theme } }])),
   ...Object.fromEntries(LANGUAGES.map(language => ['lang-' + language, { prefs: { language } }])),
 };
 
