@@ -114,8 +114,11 @@ separate and are not a shared handover.
 ## Build and verification
 
 [Testing rules](docs/TESTING-RULES.md) are binding for every agent: tests do what
-the user does, fail on the broken code first, and Claude owns QA and the release
-gate. Read them before writing or changing any test.
+the user does and fail on the broken code first. Codex, Claude or another agent
+may test using the same shared rules and scripts. Before merging, build and run
+focused checks proportional to the change; reuse valid results without a
+mandatory second-agent rerun. The full regression and packaged-app suites are
+release gates. Read the rules before writing or changing any test.
 
 Use Node.js 22.12+ and pnpm; [package.json](package.json) owns script definitions
 and [README source development](README.md#source-development) explains setup.
