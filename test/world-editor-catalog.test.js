@@ -14,13 +14,13 @@ const files=new Map(Object.entries({
   'units\\abilityskin.txt':'[AHhb]\nArt=ReplaceableTextures\\CommandButtons\\BTNHolyBolt.blp\nTargetart=Abilities\\Spells\\Human\\HolyBolt\\HolyBoltSpecialArt.mdl\n[Ahea]\nArt=ReplaceableTextures\\CommandButtons\\BTNHealOn.blp\nCasterart=\nTargetart=Abilities\\Spells\\Human\\Heal\\HealTarget.mdl,Abilities\\Spells\\Human\\Heal\\HealSecond.mdl',
   'units\\itemdata.slk':slk(['itemID','class','comment'],[['ckng','Artifact','Crown']]),
   'units\\itemfunc.txt':'[ckng]\nArt=ReplaceableTextures\\CommandButtons\\BTNHelmutPurple.blp\nfile=Objects\\InventoryItems\\TreasureChest\\treasurechest.mdl',
-  'doodads\\doodads.slk':slk(['doodID','category','tilesets','Name'],[['APms','E','A','WESTRING_DOOD_APMS'],['AObd','O','*','WESTRING_DOOD_AOBD']]),
-  'doodads\\doodadskins.txt':'[APms]\nfile=Doodads\\Ashenvale\\Plants\\AshenShrooms\\AshenShrooms\nnumVar=2\n[AObd]\nfile=Doodads\\Cinematic\\Birds\\Birds',
+  'doodads\\doodads.slk':slk(['doodID','category','tilesets','Name'],[['APms','E','A','WESTRING_DOOD_APMS'],['AObd','O','*','WESTRING_DOOD_AOBD'],['BOrk','O','A,B','WESTRING_DOOD_BORK'],['XOvt','O','A,B','WESTRING_DOOD_XOVT'],['BOc1','O','B','WESTRING_DOOD_CRATE'],['BOc2','O','A','WESTRING_DOOD_CRATE'],['BOc3','O','A','WESTRING_DOOD_OTHERCRATE']]),
+  'doodads\\doodadskins.txt':'[APms]\nfile=Doodads\\Ashenvale\\Plants\\AshenShrooms\\AshenShrooms\nnumVar=2\n[AObd]\nfile=Doodads\\Cinematic\\Birds\\Birds\n[BOrk]\nfile=Doodads\\Barrens\\Rock\\Rock\n[XOvt]\nfile=Doodads\\Shared\\Vat\\Vat\n[BOc1]\nfile=Doodads\\Shared\\Crate\\Crate\n[BOc2]\nfile=Doodads\\Shared\\Crate\\Crate\n[BOc3]\nfile=Doodads\\Shared\\Crate\\Crate',
   'units\\destructabledata.slk':slk(['DestructableID','category','tilesets','Name'],[['ATtr','D','A','WESTRING_DEST_TREE']]),
   'units\\destructableskin.txt':'[ATtr]\nfile=Doodads\\Terrain\\AshenTree\\AshenTree\nnumVar=1',
-  'ui\\worldeditdata.txt':'[TileSets]\nA=WESTRING_LOCALE_ASHENVALE,TerrainArt\\Blight\\Ashen_Blight\nB=WESTRING_LOCALE_BARRENS,x\n[DoodadCategories]\nO=WESTRING_DTYPE_PROPS,ReplaceableTextures\\WorldEditUI\\Doodad-Prop\nE=WESTRING_DTYPE_ENVIRONMENT,ReplaceableTextures\\WorldEditUI\\Doodad-Environment\n[DestructibleCategories]\nD=WESTRING_DTYPE_DESTRUCTABLE,ReplaceableTextures\\WorldEditUI\\Doodad-Destructible',
+  'ui\\worldeditdata.txt':'[TileSets]\nA=WESTRING_LOCALE_ASHENVALE,TerrainArt\\Blight\\Ashen_Blight\nB=WESTRING_LOCALE_BARRENS,x\nM=WESTRING_MISCSET,x\n[DoodadCategories]\nO=WESTRING_DTYPE_PROPS,ReplaceableTextures\\WorldEditUI\\Doodad-Prop\nE=WESTRING_DTYPE_ENVIRONMENT,ReplaceableTextures\\WorldEditUI\\Doodad-Environment\n[DestructibleCategories]\nD=WESTRING_DTYPE_DESTRUCTABLE,ReplaceableTextures\\WorldEditUI\\Doodad-Destructible',
 }).map(([key,value])=>[key.toLowerCase(),value]));
-const strings=['[hfoo]\nName=Footman\n[Hpal]\nName=Paladin\n[Hart]\nName=Arthas\nEditorSuffix= (Campaign)\n[AHhb]\nName=Holy Light\n[ckng]\nName=Crown of Kings +5','WESTRING_LOCALE_ASHENVALE=Ashenvale\nWESTRING_LOCALE_BARRENS=Barrens\nWESTRING_DTYPE_PROPS=Props\nWESTRING_DTYPE_ENVIRONMENT=Environment\nWESTRING_DTYPE_DESTRUCTABLE=Trees/Destructibles\nWESTRING_DOOD_APMS=Mushrooms\nWESTRING_DOOD_AOBD=Birds\nWESTRING_DEST_TREE=Ashenvale Tree Wall'];
+const strings=['[hfoo]\nName=Footman\n[Hpal]\nName=Paladin\n[Hart]\nName=Arthas\nEditorSuffix= (Campaign)\n[AHhb]\nName=Holy Light\n[ckng]\nName=Crown of Kings +5','WESTRING_LOCALE_ASHENVALE=Ashenvale\nWESTRING_LOCALE_BARRENS=Barrens\nWESTRING_DTYPE_PROPS=Props\nWESTRING_DTYPE_ENVIRONMENT=Environment\nWESTRING_DTYPE_DESTRUCTABLE=Trees/Destructibles\nWESTRING_DOOD_APMS=Mushrooms\nWESTRING_DOOD_AOBD=Birds\nWESTRING_DEST_TREE=Ashenvale Tree Wall\nWESTRING_MISCSET=Misc\nWESTRING_DOOD_BORK=Rock\nWESTRING_DOOD_XOVT=Vat\nWESTRING_DOOD_CRATE=Crate\nWESTRING_DOOD_OTHERCRATE=Old Crate'];
 const finder=root=>(...names)=>names.reduce((node,name)=>node?.children?.find(item=>item.name===name),root);
 
 test('races hold units (normal, heroes, campaign), buildings and spells with their icons and models',()=>{
@@ -41,14 +41,25 @@ test('races hold units (normal, heroes, campaign), buildings and spells with the
   assert.equal(finder(buildWorldEditorCatalog(files,strings,{skin:'hd'}).root)('Human','Units','Heroes','Paladin').icon,'ReplaceableTextures\\CommandButtons\\BTNPaladinHD.blp','per-version skin fields');
 });
 
+test('every doodad is listed once, and only true copies are merged',()=>{
+  const {root}=buildWorldEditorCatalog(files,strings),find=finder(root),rows=[];
+  const walk=(node,trail)=>node.children?node.children.forEach(item=>walk(item,[...trail,node.name])):rows.push(trail.slice(2).join('/')+'/'+node.name);walk(find('Doodads'),['']);
+  assert.deepEqual(rows.filter(row=>row.endsWith('/Birds')),['Misc/Props/Birds'],'every-tileset doodads live in Misc only');
+  assert.deepEqual(rows.filter(row=>row.endsWith('/Rock')),['Barrens/Props/Rock'],'several tilesets: the one the id starts with');
+  assert.deepEqual(rows.filter(row=>row.endsWith('/Vat')),['Ashenvale/Props/Vat'],'otherwise the first one listed');
+  assert.equal(rows.filter(row=>row.endsWith('/Crate')).length,1,'same name and same model is one entry');
+  assert.equal(rows.filter(row=>row.endsWith('/Old Crate')).length,1,'a different name on the same model stays');
+});
+
 test('items by class and doodads by tileset and category, including every-tileset doodads',()=>{
   const find=finder(buildWorldEditorCatalog(files,strings).root);
   assert.equal(find('Items','Item abilities'),undefined,'entries without a model stay out of the Models tab');
   assert.equal(find('Items','Artifact','Crown of Kings +5').icon,'ReplaceableTextures\\CommandButtons\\BTNHelmutPurple.blp');
-  assert.deepEqual(find('Doodads').children.map(node=>node.name),['Ashenvale','Barrens']);
+  assert.deepEqual(find('Doodads').children.map(node=>node.name),['Ashenvale','Barrens','Misc']);
   assert.deepEqual(find('Doodads','Ashenvale').children.map(node=>node.name),['Environment','Props','Trees/Destructibles']);
   assert.deepEqual(find('Doodads','Ashenvale','Environment','Mushrooms').models.map(model=>model.label+':'+model.path),['Variation 1:Doodads\\Ashenvale\\Plants\\AshenShrooms\\AshenShrooms0.mdx','Variation 2:Doodads\\Ashenvale\\Plants\\AshenShrooms\\AshenShrooms1.mdx']);
-  assert.ok(find('Doodads','Barrens','Props','Birds'),'"*" doodads appear in every tileset');
+  assert.ok(find('Doodads','Misc','Props','Birds'),'"*" doodads live in Misc');
+  assert.equal(find('Doodads','Barrens','Props','Birds'),undefined,'and are not copied into each tileset');
   assert.equal(find('Doodads','Ashenvale','Props').icon,'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp');
   assert.ok(find('Doodads','Ashenvale','Trees/Destructibles','Ashenvale Tree Wall'));
 });

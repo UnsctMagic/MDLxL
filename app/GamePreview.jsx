@@ -34,7 +34,7 @@ import { holdGestureKey } from './gesture-keys.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
-import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
+import { applyRestPoseMatrices, applyUVRestAppearance, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
 import { applyWiggleMatrices } from '../src/bone-wiggle.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -152,6 +152,7 @@ export default function GamePreview(inputProps) {
     rendererSource.current.revision = revision;
   }
   const rendererModel = rendererSource.current.build;
+  const uvRestPose = props.previewEligibleByGeoset !== undefined;
   const rendererRevisionState = useRef({ seen: revision, stable: revision });
   if (rendererRevisionState.current.seen !== revision) {
     rendererRevisionState.current.seen = revision;
@@ -305,6 +306,7 @@ export default function GamePreview(inputProps) {
     };
     const invalidate = () => scheduler?.invalidate();
     const ownedModel = structuredClone(rendererModel);
+    if (uvRestPose) applyUVRestAppearance(ownedModel);
     // New Forge items have no material yet; the private clone shows them as clay.
     const clayPixels = addClayPreviewMaterials(ownedModel);
     ownedModel.Nodes = []; for (const node of allNodes(ownedModel)) ownedModel.Nodes[node.ObjectId] = node;
@@ -340,13 +342,14 @@ export default function GamePreview(inputProps) {
       }
       return { ...influenceCache, opacity: influenceLook.opacity, colors: influenceLook.colors };
     };
-    const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
+    const isUVWorkingGeoset = index => !!latest.current.previewEligibleByGeoset?.[index]?.length;
+    const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: uvRestPose ? -1 : native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }), uvRestPose ? isUVWorkingGeoset : undefined);
     try {
       native = new ModelRenderer(ownedModel);
       // Synced Before/After previews run through playbackRunning; Showcase moves at its row speed,
@@ -1155,7 +1158,7 @@ export default function GamePreview(inputProps) {
         const visibleBounds = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []);
         for (const [index, geoset] of ownedModel.Geosets.entries()) {
           const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
-          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) continue;
+          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), uvRestPose ? -1 : native.getSequence(), globalClock, false, isUVWorkingGeoset(index))[3] > .001)) continue;
           for (const id of new Set(geoset.Faces)) visibleBounds.expandByPoint(point.fromArray(geoset.Vertices, id * 3));
         }
         if (!visibleBounds.isEmpty()) frameBounds = visibleBounds;
@@ -1526,9 +1529,9 @@ export default function GamePreview(inputProps) {
       if (needsGeometry) {
         const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes && !(p.restPose && p.wiggleNodeIds?.length);
         const cacheKey = `${native.getFrame()}:${poseSequence}:${globalClock}:${!!p.restPose}:${!!overlayOptions.normals}`;
-        if (!cacheable || posedGeometryCache?.key !== cacheKey) {
-          const geosets = ownedModel.Geosets.flatMap((geo, index) => sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001 ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
-          posedGeometryCache = cacheable ? { key: cacheKey, geosets } : null;
+        if (!cacheable || posedGeometryCache?.key !== cacheKey || posedGeometryCache?.uvDomain !== p.previewEligibleByGeoset) {
+          const geosets = ownedModel.Geosets.flatMap((geo, index) => (isUVWorkingGeoset(index) || sampleGeosetAnimation(ownedModel, index, native.getFrame(), poseSequence, globalClock).alpha > .001) ? [{ index, faces: geo.Faces, vertices: skinGeoset(geo, getPoseMatrices()), normals: overlayOptions.normals && geo.Normals?.length === geo.Vertices.length ? skinGeosetNormals(geo, getPoseMatrices()) : null }] : []);
+          posedGeometryCache = cacheable ? { key: cacheKey, geosets, uvDomain: p.previewEligibleByGeoset } : null;
           posedGeosets = geosets.filter(geo => !hidden.has(geo.index));
         } else posedGeosets = posedGeometryCache.geosets.filter(geo => !hidden.has(geo.index));
       } else posedGeosets = [];
@@ -1849,7 +1852,7 @@ export default function GamePreview(inputProps) {
       canvas.removeEventListener('pointerleave', clearGizmoHover);
       disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
-  }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
+  }, [rendererModel, rendererRevision, textureAssets, uvRestPose, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
   useEffect(() => {
     const current = runtime.current;
