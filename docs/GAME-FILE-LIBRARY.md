@@ -64,7 +64,10 @@ existing hotkey behaviour.
     Neutral Hostile, Neutral Passive) › Units (Normal, Heroes, Campaign,
     Campaign heroes, Special) / Buildings (Normal, Campaign) / Spells (Normal,
     Heroes); Items by class plus item abilities; Doodads by tileset › category,
-    with destructibles, and every-tileset doodads in each tileset. Every entry
+    with destructibles. Each object is listed once: every-tileset objects in
+    the game's Misc tileset, others in the tileset their id starts with, else
+    the first one listed; the same name with the same models is one entry
+    anywhere in the tree (different names on one model stay). Every entry
     keeps its game icon (`Art`, shown only in the tree) and models; spells list their Caster/Target/
     Effect/Missile/Area/Special art, doodads their variations. Skin fields are
     read per version (`Art:sd`, `file:hd`, `file:de`). Unit labels use the installed
