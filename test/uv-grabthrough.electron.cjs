@@ -62,7 +62,7 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     assert.match(await lines.getAttribute('title'), /lines between vertices/, 'Lines explains itself on hover');
     // Lines and Grabthrough are toggle buttons right next to Live Select, like it.
     const footerOrder = await uvw.locator('.uv-preview-footer > *').evaluateAll(items => items.map(item => item.getAttribute('aria-label') || item.querySelector('input')?.getAttribute('aria-label') || item.textContent));
-    assert.deepEqual(footerOrder, ['Live Select', 'Lines', 'Grabthrough', 'Selected Only', 'Hide RGB'], 'footer order');
+    assert.deepEqual(footerOrder, ['Live Select', 'Lines', 'Grabthrough', 'Selected Only', 'Hide RGB', 'Preview RGB'], 'footer order');
     await uvw.locator('.uv-live-preview').screenshot({ path: path.join(output, 'live-select-footer.png') });
 
     // Turn the model with a real mouse drag so the far side faces away.

@@ -56,11 +56,11 @@ const click = (page, selector) => page.locator(selector).click();
     await click(uv, '.uv-tab-window [aria-label="Selected Only"]');
     const isolated = await waitFor(uv, () => uvControlsState().only && uvControlsState().hidden?.length === 47 && !uvControlsState().hidden.includes(3));
     assert.equal(isolated, true);
-    await click(uv, '.uv-tab-window .uv-preview-footer>button:last-child');
+    await click(uv, '.uv-tab-window [data-hotkey="uv-wrapper:hide-rgb"]');
     assert.equal(await waitFor(uv, () => uvControlsState().rgb === 3), true);
     await click(uv, '.uv-tab-window [aria-label="Selected Only"]');
     assert.equal(await waitFor(uv, () => !uvControlsState().only && uvControlsState().hidden === null && uvControlsState().rgb === 3), true);
-    await click(uv, '.uv-tab-window .uv-preview-footer>button:last-child');
+    await click(uv, '.uv-tab-window [data-hotkey="uv-wrapper:hide-rgb"]');
     assert.equal(await waitFor(uv, () => uvControlsState().rgb === null), true);
     // UV splitters "drag or use arrow keys · double-click to reset": drag each with the mouse, then press an
     // arrow key with focus wherever that drag left it, then double-click the splitter.
