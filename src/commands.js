@@ -54,6 +54,7 @@ export const COMMANDS = coreHotkeyDefaults([
   // The launcher and the toolbar's menu routes; handlers live in App.jsx.
   ...group('Modules', [['launcher','Search commands','Ctrl+F2'],['showcase','Showcase'],['managers','Managers'],['autoCorpse','Auto Corpse']]),
   ...group('Settings', [['toolbarCycle','Next toolbar style','Shift+F3'],['visToggle','VIS look']]),
+  ...group('View', [['vertexAnimated','Animated','Shift+Space']]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);
 
 /** A window keeps the user's Undo/Redo/Play keys, with its own history and playback. */

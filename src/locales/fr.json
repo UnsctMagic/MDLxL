@@ -3476,6 +3476,8 @@
   "Import the whole part at its original coordinates and scale, attached to DummyBone. Source rig motion is not imported.": "Importer toute la pièce à ses coordonnées et échelle d’origine, attachée à DummyBone. Le mouvement du squelette source n’est pas importé.",
   "Source animation": "Animation source",
   "Choose animation": "Choisir l’animation",
+  "Animated": "Animé",
+  "Preview the selected frame while editing the base pose. Right-click to choose a frame.": "Afficher l’image choisie pendant la modification de la pose de base. Faites un clic droit pour choisir une image.",
   "Sample frame": "Image d’échantillon",
   "Source format": "Format source",
   "Import whole part": "Importer la pièce entière",
