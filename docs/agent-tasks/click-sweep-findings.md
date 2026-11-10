@@ -18,14 +18,12 @@ Updated: 2026-11-09
 
 ## Revision and local state
 
-- Branch: local `claude/qa-release-kit`. Continue it; it is not pushed. Base your
-  worktree on it (`D:\Codex\<task>`).
-- Checked revision: `d9c43957`, built from `main` at `5310d5fb` plus the kit. Main has moved
-  three commits since.
-- Sweep results (ignored files, in the Claude worktree):
-  `D:\Claude\MDLxL\.claude\worktrees\qa-release-kit\out\click-sweep-footman\` is the
-  corrected script. `...\out\click-sweep\` is an earlier version of the script, so treat
-  its Could-not-be-closed lists as unreliable.
+- Branch: the kit is merged into `main`. Start a new `codex/` branch from `main` in your
+  own worktree (`D:\Codex\<task>`).
+- Checked revision: `d9c43957`, built from `main` at `5310d5fb` plus the kit.
+- Sweep results, kept outside Git: `D:\Claude\MDLxL-QA\2026-11-09-click-sweep\footman\`
+  is the corrected script. `...\earlier-script\` is an earlier version of the script, so
+  treat its Could-not-be-closed lists as unreliable.
 - Package: removed after the runs. Build it again as in
   [kit section 2](../QA-AND-RELEASE-KIT.md#2-setup).
 
