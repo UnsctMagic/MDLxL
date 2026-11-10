@@ -60,8 +60,11 @@ function sameOrientation(actual, expected, message) {
     const single=await page.evaluate(()=>cameraState());
     await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
     const toggle=()=>page.getByRole('button',{name:'Quad View',exact:true}).click();
-    const toolbarOrder=()=>page.locator('.classic-view-label').evaluate(el=>Array.from(el.children,item=>item.getAttribute('aria-label')||Array.from(item.childNodes).filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join('').trim()));
-    const expectedToolbar=['View direction','Render mode','Quad View','Fit','Fit selection'];
+    const toolbarOrder=()=>page.locator('.classic-view-label').evaluate(el=>Array.from(el.children,item=>{
+      const control=item.querySelector('[data-hotkey="vertexAnimated"]') || item;
+      return control.getAttribute('aria-label')||Array.from(control.childNodes).filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join('').trim();
+    }));
+    const expectedToolbar=['View direction','Render mode','Quad View','Fit','Fit selection','Animated'];
     assert.deepEqual(await toolbarOrder(),expectedToolbar);
     await page.evaluate(()=>{draws={};});await toggle();await idle();
     assert.deepEqual(await toolbarOrder(),expectedToolbar);

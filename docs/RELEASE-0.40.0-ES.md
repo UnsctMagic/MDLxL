@@ -1,6 +1,7 @@
 # MDLxL 0.40.0
 
 - **Vértices:** **Animado** (Shift+Espacio) muestra una pose fija de una animación mientras editas la pose base. Elige una secuencia con la flecha o haz clic derecho en el botón para elegir su fotograma. El cursor de reproducción de Movimiento sigue siendo independiente.
+- **Cada pieza** queda al lado de **Restricciones del plano** en Vértices y Forge. El Editor UV conserva su control **Cada pieza**.
 - **Vista:** Las guías de ejes están disponibles en Vértices, Huesos, Movimiento y Animaciones.
 - **Editor UV:** **Vista previa RGB** tiñe el geoset activo solo en la vista previa. **Ocultar Extras** deja visibles los geosets en uso y oculta otros efectos. La vista previa muestra el aspecto del modelo sin animación. Las instalaciones nuevas usan el zoom hacia la derecha o arriba. Los perfiles existentes conservan sus ajustes.
 - **EMTR:** La vista previa empieza con el emisor seleccionado. **Mostrar todos los emisores** muestra los demás. **Brillo de héroe** distingue el brillo de héroe de los pequeños efectos de los ojos. Usa **Revisar brillo detectado** para excluirlas o restaurarlas individualmente.

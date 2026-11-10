@@ -80,6 +80,6 @@ test('every window that asks before closing compares with how it opened', () => 
   assert.match(read('app/SurfaceEffects.jsx'), /unapplied=\[\.\.\.drafts\.current\]\.some\(\(\[index,draft\]\)=>JSON\.stringify\(draft\)!==baselines\.current\.get\(index\)\)/);
 });
 
-test('the UV Each piece toggle takes no default key', () => {
-  assert.match(read('app/UVWorkspace.jsx'), /data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each piece" data-hotkey-category="UV"/);
+test('the UV Each Piece toggle takes no default key', () => {
+  assert.match(read('app/UVWorkspace.jsx'), /data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each Piece" data-hotkey-category="UV"/);
 });

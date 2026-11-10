@@ -1,6 +1,7 @@
 # MDLxL 0.40.0
 
 - **Scheitelpunkte** — **Animiert** (Umschalt+Leertaste) zeigt beim Bearbeiten der Grundpose eine eingefrorene Animationspose. Mit dem Pfeil wählst du eine Sequenz. Mit einem Rechtsklick auf die Schaltfläche wählst du das Bild. Die Abspielposition im Bewegungseditor bleibt unabhängig.
+- **Jedes Teil** steht im Scheitelpunkteditor und in Forge neben **Arbeitsebenenbindung**. Der UV Wrapper behält seinen eigenen Schalter **Jedes Teil**.
 - **Ansicht** — Achsenhilfen sind in den Editoren für Vertices, Knochen, Bewegung und Animationen verfügbar.
 - **UV-Editor** — **RGB-Vorschau** färbt das aktive Geoset in der Vorschau. Mit **Extras verbergen** bleiben die bearbeiteten Geosets sichtbar und andere Effekte werden ausgeblendet. Die Vorschau zeigt das Modell ohne Animation. Neue Installationen starten mit Zoom nach rechts oder oben. Bestehende Profile behalten ihre Einstellungen.
 - **EMTR** — Die Vorschau zeigt zuerst den ausgewählten Emitter. **Alle Emitter anzeigen** blendet die übrigen ein. **Glow Up** unterscheidet Heldenglühen von kleinen Augeneffekten. Unter **Erkanntes Leuchten prüfen** lassen sich einzelne Teile ausschließen und wieder aufnehmen.
