@@ -160,6 +160,37 @@ test('runes remain on the exact selected triangles and their authored skin weigh
  const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);assert.ok(layer.Alpha.GlobalSeqId>=0);
 });
 
+test('retuning an FX layer preserves the texture, wrapping and UVs edited on its applied geoset',()=>{
+ const {doc,frame}=fixture(),stack=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='rune-blade'),frame,'rune');
+ stack.layers[0].pulse='steady';
+ const apply=(document,draft)=>document.apply('Apply FX',FX_SECTIONS,m=>compileAnimation(m,0,draft));
+ const index=apply(doc,stack).layers[1].geoset;
+ const image='Textures\\hippogryph.blp';
+ doc.apply('Customize the applied layer',['Geosets','Materials','Textures'],m=>{
+  const textureID=m.Textures.push({Image:image,Flags:0,ReplaceableId:0})-1;
+  const material=structuredClone(m.Materials[m.Geosets[0].MaterialID]);
+  material.Layers=[{...material.Layers[0],TextureID:textureID}];
+  const materialID=m.Materials.push(material)-1;
+  m.Geosets[0].MaterialID=materialID;
+  const shape=m.Geosets[index];
+  shape.MaterialID=materialID;
+  for(let i=0;i<shape.TVertices[0].length;i+=2)shape.TVertices[0][i]+=.35;
+ });
+ for(const format of ['mdx','mdl']){
+  const reopened=openDocument(doc.serialize(format),'rune.'+format),m=reopened.model;
+  const sourceLayers=()=>m.Materials[m.Geosets[0].MaterialID].Layers.map(pass=>({...pass,TextureID:m.Textures[pass.TextureID].Image}));
+  const savedUV=m.Geosets[index].TVertices[0].slice(),originalMaterial=sourceLayers();
+  const draft=readAnimationStack(m,0);
+  draft.layers[0].strength=1.47;
+  const shape=m.Geosets[apply(reopened,draft).layers[1].geoset],passes=m.Materials[shape.MaterialID].Layers;
+  assert.deepEqual(passes.map(pass=>m.Textures[pass.TextureID].Image),[image,image]);
+  assert.equal(m.Textures[passes[0].TextureID].Flags&3,0);
+  assert.deepEqual(shape.TVertices[0],savedUV);
+  assert.ok(Math.abs(passes[1].Alpha-.47)<1e-6);
+  assert.deepEqual(sourceLayers(),originalMaterial,'the material shared by the original geoset stays intact');
+ }
+});
+
 test('FX clocks do not reuse or delete an authored clock with the same duration',()=>{
  const {doc,frame,donors}=fixture(),model=doc.model;
  model.GlobalSequences.push(2800);
