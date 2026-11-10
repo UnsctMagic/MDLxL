@@ -119,9 +119,8 @@ removes the old copies.
     keeps native unit proportions without skin fitting, as the owner's own corpse
     does; its flesh is bulky.
   - A winged body with no recognized head takes the head from the skinned joint
-    its Head Ref hangs from. A long neck identified by POSE shape analysis or
-    by that Head Ref path (two or more joints between chest and head, longer
-    than a limb bone) gets a native bone per neck link, and the
+    its Head Ref hangs from. A long neck there (two or more joints between chest
+    and head, longer than a limb bone) gets a native bone per neck link, and the
     rib cage lies from chest to pelvis.
   - Any other limbed body with no recognized head but a Head Ref (wind serpent,
     albatross, vulture, serpent ward) gains only the missing skull, sized like a

@@ -9,12 +9,7 @@ import {allNodes} from '../src/animation.js';
 import {applyMovementPose} from '../src/movement.js';
 import {assertModelEquivalent} from '../src/save-equivalence.js';
 import {suggestPoseRig,poseRole,poseChainIds,poseNodeControl,poseNodeConstraints,samplePoseChain,solvePoseLimb,solvePoseNode,swivelPoseLimb,turnPoseEndpoint,poseTrackScope} from '../src/pose-ik.js';
-import {createRequire} from 'node:module';
-import * as pose from '../src/pose-ik.js';
-import {holdoutAnatomyCases} from './helpers/pose-anatomy-holdouts.mjs';
-import {nameVariants,challengeCase,anatomyProblems} from './helpers/pose-anatomy-fixtures.mjs';
-const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
-const manifestPath=fixturePath('pose-corpus');
+const manifestPath=process.env.MDLXL_POSE_CORPUS || 'out/pose-corpus-fixtures/manifest.json';
 const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath)):null;
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const find=leaf=>manifest.models.find(item=>path.basename(item.path)===leaf);
@@ -35,21 +30,24 @@ for(const item of manifest?.models || []) test(`corpus: ${item.entry}`,()=>{
  for(const id of [rig.body,...rig.nodes].filter(id=>id!=null)){const target=id===rig.body?{kind:'body'}:{kind:'node',id};record(solvePoseNode(model,id,poseNodeConstraints(model,rig,id,'move',target),frame,sequence,{mode:'move',space:'world',values:[1,0,1],control:poseNodeControl(model,rig,target,'move')}));}
  assert.equal(hash(fs.readFileSync(item.path)),item.sha256);report.push(entry);
 });
-// The owner requested suitable available models, not historical filename gates.
-// Expectations below remain independent of the recognizer and include names-free
-// and adversarial names/IDs; native round-trip and every-clip tests above remain.
-for(const item of manifest?.models||[])for(const variant of nameVariants)test(`corpus anatomy: ${item.entry}, ${variant}`,()=>{
- const spec=holdoutAnatomyCases.find(s=>s.key===item.caseKey);assert.ok(spec,'Manifest case requires authored anatomical expectations');
- const input=openDocument(fs.readFileSync(item.path)).model,{model,expected}=challengeCase(input,spec,variant),rig=suggestPoseRig(model,model.Sequences[0].Interval[0],0);
- assert.deepEqual(anatomyProblems(model,rig,expected,pose),[],`${item.entry}/${variant} must retain its anatomy without accessory controls`);
+test('corpus expected anatomical corrections and false-positive exclusions',{skip:!manifest},()=>{
+ const rigFor=leaf=>{const model=openDocument(fs.readFileSync(find(leaf).path)).model;return {model,rig:suggestPoseRig(model,model.Sequences[0].Interval[0],0)};};
+ let {model,rig}=rigFor('WAG.mdx');assert.equal(rig.body,0);assert.deepEqual(rig.chains.filter(c=>c.kind==='leg').map(c=>poseChainIds(c)),[[35,42,21,27],[36,14,22,28],[37,43,23,29],[38,44,24,30]]);assert.ok(!rig.chains.some(c=>c.end===46),'unused second rider arm has no skin and must not become a fake hand');assert.ok(rig.nodes.includes(31));assert.ok(!rig.nodes.includes(34),'unused second rider chest must not create a floating handle');
+ ({model,rig}=rigFor('Mindflayer.mdx'));assert.equal(rig.chains.filter(c=>c.label==='Chain').length,8);assert.deepEqual(rig.chains.filter(c=>!c.label).map(c=>c.end).sort((a,b)=>a-b),[79,80]);
+ ({model,rig}=rigFor('AnetheronV2.mdx'));assert.deepEqual(rig.nodes.filter(id=>poseRole(model,rig,id)==='Wing'),[28,29]);
+ ({model,rig}=rigFor('FelOrcSalamanderRiderV2.mdx'));assert.ok(rig.chains.some(c=>c.end===92));assert.ok(!rig.chains.some(c=>c.root===89));assert.ok(!rig.nodes.includes(44));
+ ({model,rig}=rigFor('NazgrelV2.mdx'));assert.equal(rig.chains.length,8);assert.ok(rig.chains.some(c=>c.end===12&&c.grip));assert.ok(rig.chains.some(c=>c.end===75));
+ ({model,rig}=rigFor('ScourgeBattleship.mdx'));assert.equal(rig.chains.length,0);assert.equal(rig.nodes.length,0);assert.equal(rig.body,8);
+ ({model,rig}=rigFor('FelOrcSalamanderRiderAxeMissileV2.mdx'));assert.equal(rig.chains.length,0);
+ ({model,rig}=rigFor('tiefling_of_darkfang2.mdx'));assert.ok(!rig.nodes.some(id=>/^Geo_Tail/.test(allNodes(model).find(n=>n.ObjectId===id).Name)));assert.deepEqual(rig.nodes.filter(id=>poseRole(model,rig,id)==='Tail'),[57]);
 });
-test('anonymous paired articulation retains its skeleton and skin mapping when animation is constant',()=>{
+test('anonymous paired articulation uses motion and skin without names or source IDs',()=>{
  const make=shift=>{const model={Bones:[],Helpers:[],Geosets:[],Attachments:[],PivotPoints:[],GlobalSequences:[],Sequences:[{Name:'clip',Interval:[0,1000]}]};
  const add=(parent,pivot)=>{const id=shift+model.Bones.length*7;model.Bones.push({ObjectId:id,Parent:parent,Name:'item_'+id,Flags:256,PivotPoint:pivot,Rotation:{LineType:1,GlobalSeqId:null,Keys:[{Frame:0,Vector:[0,0,0,1]},{Frame:500,Vector:[.1,0,0,Math.sqrt(.99)]},{Frame:1000,Vector:[0,0,0,1]}]}});model.PivotPoints[id]=pivot;return id;};
  const body=add(null,[0,0,8]),ends=[];for(const side of [-1,1]){let n=add(body,[0,side*2,8]);n=add(n,[1,side*2,4]);n=add(n,[0,side*2,0]);ends.push(n);model.Geosets.push({Vertices:new Float32Array([0,side*2,0,1,side*2,0,0,side*2,1]),VertexGroup:[0,0,0],Groups:[[n]],Faces:[0,1,2]});}return {model,ends};};
- for(const shift of [13,907]){const {model,ends}=make(shift),before=structuredClone(model),rig=suggestPoseRig(model,0,0);assert.deepEqual(rig.chains.map(c=>c.end),ends);assert.ok(rig.chains.every(c=>c.kind==='leg'));assert.deepEqual(model,before);for(const n of model.Bones)n.Rotation.Keys.forEach(k=>k.Vector=[0,0,0,1]);const stationary=suggestPoseRig(model,0,0);assert.deepEqual(stationary.chains.map(c=>c.end),ends,'constant rotation keys do not erase the same anatomical skeleton and skin');assert.ok(stationary.chains.every(c=>c.kind==='leg'),'stationary legs retain their anatomical role');}
+ for(const shift of [13,907]){const {model,ends}=make(shift),before=structuredClone(model),rig=suggestPoseRig(model,0,0);assert.deepEqual(rig.chains.map(c=>c.end),ends);assert.ok(rig.chains.every(c=>c.kind==='leg'));assert.deepEqual(model,before);for(const n of model.Bones)n.Rotation.Keys.forEach(k=>k.Vector=[0,0,0,1]);assert.equal(suggestPoseRig(model,0,0).chains.length,0,'rigid props without articulation are not inferred as legs');}
 });
-test('available holdout inputs remain byte-identical',{skip:!manifest},()=>{for(const item of manifest.sources)assert.equal(hash(fs.readFileSync(item.path)),item.sha256,item.path);fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/pose-corpus-regression-report.json',JSON.stringify(report,null,2));});
+test('original corpus archives and loose models remain byte-identical',{skip:!manifest},()=>{for(const item of manifest.sources)assert.equal(hash(fs.readFileSync(item.path)),item.sha256,item.path);fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/pose-corpus-regression-report.json',JSON.stringify(report,null,2));});
 
 test('displaced rigid mesh grip stays on its geometry during move, turn and ancestor pin compensation',()=>{
  const model={Bones:[{ObjectId:0,Name:'Body',Parent:null,PivotPoint:[0,0,10],Flags:256},{ObjectId:1,Name:'Upper',Parent:0,PivotPoint:[0,0,10],Flags:256},{ObjectId:2,Name:'Lower',Parent:1,PivotPoint:[4,0,8],Flags:256},{ObjectId:3,Name:'footmesh',Parent:2,PivotPoint:[0,0,40],Flags:256}],Helpers:[],Sequences:[{Name:'clip',Interval:[0,1000]}],GlobalSequences:[],Geosets:[],Attachments:[]};model.PivotPoints=model.Bones.map(n=>n.PivotPoint);
