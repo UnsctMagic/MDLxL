@@ -1342,14 +1342,18 @@ export default function App() {
   }
   commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():doc.hdViewOnly?save(true):setDialog({type:'saveFormat'}), new: () => install(newSession(createEmptyDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalizer) { setNormalizer(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if ((mode === 'vertices' || rigWorkspace) && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(uvEditing)return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(uvEditing, true), sanityCheck: () => setDialog({ type: 'sanityCheck' }), help: () => setDialog({ type: 'help' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
   const vertexAnimationIndex = model.Sequences[vertexAnimation.index] ? vertexAnimation.index : 0;
-  const vertexAnimationAvailable = mode === 'vertices' && !normalizer && model.Sequences.length > 0;
+  const vertexAnimationInterval = model.Sequences[vertexAnimationIndex]?.Interval;
+  const [firstVertexFrame, lastVertexFrame] = vertexAnimationInterval || [];
+  const savedVertexFrame = vertexAnimation.frame;
+  const vertexAnimationFrame = vertexAnimation.index === vertexAnimationIndex && Number.isInteger(savedVertexFrame) &&
+    savedVertexFrame >= firstVertexFrame && savedVertexFrame <= lastVertexFrame ? savedVertexFrame : firstVertexFrame;
+  const vertexAnimationAvailable = mode === 'vertices' && !normalizer && !!vertexAnimationInterval;
   const vertexPreviewSequence = vertexAnimationAvailable && vertexAnimation.enabled ? vertexAnimationIndex : null;
-  const changeVertexAnimation = index => {
+  const changeVertexAnimation = (index, frame) => {
     window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }));
-    setVertexAnimation(previous => ({
-      enabled: index === undefined ? !previous.enabled : true,
-      index: index ?? vertexAnimationIndex
-    }));
+    setVertexAnimation(previous => index === undefined
+      ? { ...previous, enabled: !previous.enabled }
+      : { enabled: true, index, frame });
   };
   Object.assign(commands.current, {
     vertexAnimated: () => changeVertexAnimation(),
@@ -1836,8 +1840,9 @@ export default function App() {
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
       }} vertexAnimation={mode === 'vertices' ? {
-        sequences: model.Sequences, index: vertexAnimationIndex, active: vertexPreviewSequence !== null,
-        disabled: !commandEnabled('vertexAnimated'), onToggle: () => runCommand('vertexAnimated'), onChoose: changeVertexAnimation
+        sequences: model.Sequences, index: vertexAnimationIndex, frame: vertexAnimationFrame, active: vertexPreviewSequence !== null,
+        disabled: !commandEnabled('vertexAnimated'), onToggle: () => runCommand('vertexAnimated'), onChoose: changeVertexAnimation,
+        onFrame: frame => changeVertexAnimation(vertexAnimationIndex, frame)
       } : null} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>}
       {mode === 'manager' && <ResourceManagerView embedded kind={managerKind} onKindChange={setManagerKind} {...{activeGeoset, doc, edit, model, openLibrary, openParticles, preferences, refresh, selectAnimationPanel, selectManagerTextureFiles, selectSequence, selectedNodeIds, sequence, session, setActiveGeoset, setDialog, setMaterialVisibility, setPlaying, setSelectable, setSelectedNodeIds, setSelection, setTime, setUvSet, setView, teamColor, time, undo, validSelection}}/>}
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
@@ -1863,7 +1868,7 @@ export default function App() {
         workplane={workplane} transformMode={tool}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor({ ...next, kind: choosingZoomAnchor }); setChoosingZoomAnchor(false); say(choosingZoomAnchor === 'align' ? 'Align vertex selected.' : 'Anchor vertex selected.'); } }}
-        rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={vertexPreviewSequence} sequenceIndex={-1} time={0} playing={false}
+        rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}/>}
       {uvWindow && <UVWindow key={`uv:${session.id}`} state={uvWindow} onChange={setUVWindow} onClose={closeUVWindow}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</UVWindow>}
       {preferencesReady && mode === 'paint' && <Suspense fallback={<div className="classic-empty-view">{paintMessage('paint.loading')}</div>}><PaintBoundary key={session.id} onSave={()=>savePaintProject()} onExit={()=>selectMode('vertices')}><PaintWorkspace key={session.id} model={session.paintWorkingModel||model} originalModel={paintOriginalModel} revision={doc.revision+session.paintWorkingRevision} modelName={doc.name} modelPath={session.path} textureAssets={session.assets} project={session.paintProject} activeGeoset={activeGeoset} onGeosetChange={setActiveGeoset} onWorkingModelChange={value=>{session.paintWorkingModel=value;session.paintWorkingRevision++;refresh();}} onInteractionChange={active=>recovery.setInteracting(session,active)} onProjectChange={value=>{if(!session.paintProject&&value){session.paintOriginalModelBytes=doc.serialize(doc.format);session.paintWorkingModel ||= structuredClone(model);}if(!value){session.paintWorkingModel=null;session.paintWorkingRevision++;delete session.paintAppliedRevision;}session.paintProject=value;refresh();}} onEnsureTarget={ensurePaintTarget} onSaveProject={savePaintProject} onOpenProject={open} onExport={exportPaintProject} onApply={applyPaintToModel} onExit={()=>selectMode('vertices')} onStatus={say} preferences={preferences} cameraMemory={paintCamera} cameraProps={{...cameraProps,onWorkMode:()=>setCameraMode('work'),onSensitivityChange:changeSensitivity,onPointerSensitivityChange:changePointerSensitivity,onCameraModeToggle:toggleMiddleCamera}} view={view} cameraMode={cameraMode} teamColor={teamColor} readOnly={doc.readOnly||saving||model.Version!==800}/></PaintBoundary></Suspense>}

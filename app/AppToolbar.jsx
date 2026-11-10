@@ -1,6 +1,7 @@
 import React, { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Tool } from './EditorControls.jsx';
 import useDismiss from './useDismiss.js';
+import { parseDraftNumber, useDraftNumber } from './Fields.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { COMMANDS } from '../src/commands.js';
@@ -132,21 +133,53 @@ export function ToolbarHiddenStatus({ adjustingInput, animationPanel, commands, 
 import { BONE_INFLUENCE_TIP } from './bone-display.js';
 export { BONE_INFLUENCE_TIP };
 
-/** The view direction / render mode row above the editor viewport. Props as for AppToolbar. */
-function VertexAnimationControl({ sequences, index, active, disabled, onToggle, onChoose }) {
+function VertexAnimationFrame({ frame, interval, onFrame, onClose }) {
+  const input = useRef(null);
+  const [start, end] = interval;
+  const parse = text => {
+    const value = Math.round(parseDraftNumber(text));
+    return value >= start && value <= end ? value : undefined;
+  };
+  const field = useDraftNumber({ value: frame, parse, onCommit: onFrame });
+  useLayoutEffect(() => { input.current.focus({ preventScroll: true }); input.current.select(); }, []);
+  return <label className="vertex-animation-frame">
+    <span>Frame</span>
+    <input ref={input} type="text" inputMode="numeric" title={`${start}–${end}`} value={field.value} onChange={field.onChange} onKeyDown={event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      if (parse(event.currentTarget.value) === undefined) return;
+      field.onKeyDown(event);
+      onClose();
+    }}/>
+  </label>;
+}
+
+function VertexAnimationControl({ sequences, index, frame, active, disabled, onToggle, onChoose, onFrame }) {
+  const control = useRef(null), button = useRef(null);
+  const [showFrame, setShowFrame] = useState(false);
+  const open = showFrame && !disabled;
+  const closeFrame = () => { setShowFrame(false); button.current?.focus({ preventScroll: true }); };
+  useDismiss(open, [control], event => {
+    if (event.type === 'keydown') closeFrame();
+    else setShowFrame(false);
+  }, { claimEscape: true, escapePriority: -20 });
   const label = translate('Choose animation');
   const name = sequences[index]?.Name;
-  return <span className="vertex-animation-control">
-    <button type="button" data-hotkey="vertexAnimated" title="Preview the first frame while editing the base pose" aria-pressed={active} disabled={disabled} onClick={onToggle}>Animated</button>
+  return <span ref={control} className="vertex-animation-control">
+    <button ref={button} type="button" data-hotkey="vertexAnimated" title="Preview the selected frame while editing the base pose. Right-click to choose a frame." aria-pressed={active} disabled={disabled}
+      onClick={() => { setShowFrame(false); onToggle(); }}
+      onContextMenu={event => { event.preventDefault(); if (open) closeFrame(); else setShowFrame(true); }}>Animated</button>
     <label className="vertex-animation-picker">
       <span aria-hidden="true">▾</span>
-      <select aria-label="Choose animation" title={name ? label + ' · ' + name : label} value={index} disabled={disabled} onChange={event => onChoose(Number(event.target.value))}>
+      <select aria-label="Choose animation" title={name ? label + ' · ' + name : label} value={index} disabled={disabled} onChange={event => { setShowFrame(false); onChoose(Number(event.target.value)); }}>
         {sequences.map((sequence, i) => <option key={i} value={i} translate="no">{sequence.Name}</option>)}
       </select>
     </label>
+    {open && <VertexAnimationFrame frame={frame} interval={sequences[index].Interval} onFrame={onFrame} onClose={closeFrame}/>}
   </span>;
 }
 
+/** The view direction / render mode row above the editor viewport. Props as for AppToolbar. */
 export function AppViewLabel({
   activeVertexPane, boneInfluenceAvailable, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
   setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, vertexAnimation, view, views

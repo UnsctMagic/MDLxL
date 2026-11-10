@@ -358,10 +358,10 @@ export default function Viewport(inputProps) {
       }
     }
     function syncAnimatedBillboards(p) {
-      const sequence = p.vertexPreviewSequence, interval = p.model?.Sequences?.[sequence]?.Interval;
-      if (quad && interval && !state.dirty && state.sampledSequence === sequence &&
+      const sequence = p.vertexPreviewSequence, frame = p.vertexPreviewFrame;
+      if (quad && sequence != null && !state.dirty && state.sampledSequence === sequence && state.sampledFrame === frame &&
           !state.sampledPoseOrientation?.equals(camera.quaternion) && state.nodes.some(node => node.Flags & 120)) {
-        applyPreviewPose(p, camera, sequence, interval[0], interval[0]);
+        applyPreviewPose(p, camera, sequence, frame, frame);
       }
     }
     function editableGeosets(p) { return p.selectableGeosets == null ? new Set([p.selectedGeoset]) : new Set(p.selectableGeosets); }
@@ -443,7 +443,7 @@ export default function Viewport(inputProps) {
       if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
       const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
-        const previewFrame = p.model?.Sequences?.[p.vertexPreviewSequence]?.Interval?.[0];
+        const previewFrame = p.vertexPreviewSequence != null ? p.vertexPreviewFrame : undefined;
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,previewFrame ?? state.frame,p.vertexPreviewSequence ?? p.sequenceIndex,camera,start.width,start.height,previewFrame ?? state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
@@ -887,7 +887,7 @@ export default function Viewport(inputProps) {
       const selectionKey = `${JSON.stringify(selectedMap, (_, value) => value instanceof Set ? [...value] : value)}|${[...active].join(',')}|${JSON.stringify(p.hiddenVertices, (_, value) => value instanceof Set ? [...value] : value)}|${p.mode}|${p.sequenceIndex}|${p.transformMode}|${JSON.stringify(visual)}`;
       const animated = p.vertexPreviewSequence != null, poseSequence = p.vertexPreviewSequence ?? p.sequenceIndex;
       const interval = p.model?.Sequences?.[poseSequence]?.Interval;
-      const frame = animated ? interval?.[0] ?? 0 : state.frame, globalTime = animated ? frame : state.globalTime;
+      const frame = animated ? p.vertexPreviewFrame : state.frame, globalTime = animated ? frame : state.globalTime;
       const rgbPreview = p.rgbPreview && !animated;
       const rgbState = vertexRgbPreviewState(p.model, { enabled: rgbPreview, sequenceIndex: rgbPreview ? p.rgbPreviewSequenceIndex : poseSequence, frame, globalTime });
       const animOptions = { interval, globalSequences: p.model?.GlobalSequences, globalTime };
@@ -1267,7 +1267,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.detailMagnet, props.constrainTransform, props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, props.vertexPreviewSequence, workplane, props.workplaneEnabled, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.detailMagnet, props.constrainTransform, props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, props.vertexPreviewSequence, props.vertexPreviewFrame, workplane, props.workplaneEnabled, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
     {!props.quadView && props.showOrientationCompass !== false && props.presentation !== 'preview' && <div className="viewport-orientation-compass" aria-label="View orientation" title="View orientation — click an axis to snap the camera" style={{ position: 'absolute', top: 31, left: 4, width: 82, height: 82, zIndex: 3, filter: 'drop-shadow(0 1px 2px #0008)' }}>

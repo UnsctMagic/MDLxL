@@ -5820,7 +5820,7 @@
   "Missing texture: {0}. Place it beside the source part or configure its Warcraft data folder.": "缺少纹理：{0}。请将其放在源部件旁边，或配置其魔兽数据文件夹。",
   "Choose animation": "选择动画",
   "Animated": "动画预览",
-  "Preview the first frame while editing the base pose": "编辑基础姿势时预览动画的第一帧",
+  "Preview the selected frame while editing the base pose. Right-click to choose a frame.": "编辑基础姿势时预览所选帧。右键单击可选择帧。",
   "Sample frame": "取样帧",
   "A Human console tile could not be decoded.": "无法解码人族控制台图块。",
   "Human UI frame unavailable. Missing {0}.": "人族界面边框不可用。缺少 {0}。",

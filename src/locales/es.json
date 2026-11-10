@@ -3477,7 +3477,7 @@
   "Source animation": "Animación de origen",
   "Choose animation": "Elegir animación",
   "Animated": "Animado",
-  "Preview the first frame while editing the base pose": "Muestra el primer fotograma mientras editas la pose base",
+  "Preview the selected frame while editing the base pose. Right-click to choose a frame.": "Muestra el fotograma elegido mientras editas la pose base. Haz clic con el botón derecho para elegir un fotograma.",
   "Sample frame": "Fotograma de muestra",
   "Source format": "Formato de origen",
   "Import whole part": "Importar pieza completa",

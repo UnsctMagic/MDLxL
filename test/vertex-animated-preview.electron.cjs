@@ -62,8 +62,7 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
       assert.equal(actual.length, expected.length, label);
       actual.forEach((value, index) => assert.ok(Math.abs(value - expected[index]) < .0002, label + ' at component ' + index));
     };
-    const expectedPose = (vertices, sequence) => {
-      const frame = doc.model.Sequences[sequence].Interval[0];
+    const expectedPose = (vertices, sequence, frame = doc.model.Sequences[sequence].Interval[0]) => {
       return skinGeoset({ ...doc.model.Geosets[0], Vertices: vertices }, sampleNodeMatrices(doc.model, frame, sequence));
     };
     await button.waitFor();
@@ -94,6 +93,29 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     await page.waitForTimeout(160);
     assert.deepEqual(await inspect(), first, 'the first frame stays frozen');
 
+    const field = page.getByRole('textbox', { name: 'Frame', exact: true });
+    await button.click({ button: 'right' });
+    assert.equal(await field.inputValue(), '100', 'the field defaults to the first timeline frame');
+    await field.fill('700');
+    await field.press('Enter');
+    assert.equal(await field.isVisible(), true, 'out-of-range frames are rejected');
+    assert.deepEqual(await inspect(), first);
+    await field.fill('250');
+    await field.press('Escape');
+    await field.waitFor({ state: 'hidden' });
+    assert.deepEqual(await inspect(), first, 'Escape cancels a frame change');
+    await button.click({ button: 'right' });
+    await field.fill('250');
+    await field.press('Enter');
+    await field.waitFor({ state: 'hidden' });
+    await painted(0, 250);
+    const custom = await inspect();
+    closeArray(custom.drawn, expectedPose(custom.vertices, 0, 250), 'the chosen frame is sampled');
+    await page.keyboard.press('Shift+Space');
+    await painted(-1, 0);
+    await page.keyboard.press('Shift+Space');
+    await painted(0, 250);
+
     const screenVertex = index => page.evaluate(index => {
       const state = vertexPreviewRuntime(), entry = state.entries[0], rect = state.controls.domElement.getBoundingClientRect();
       const at = state.controls.target.clone().fromBufferAttribute(entry.geometry.attributes.position, index).project(state.camera);
@@ -113,7 +135,7 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     assert.deepEqual(live.vertices, rest.vertices, 'live drag leaves the authored model alone until release');
     const expected = structuredClone(doc.model.Geosets[0]);
     transformVertices(expected, [0], live.drag.translation, [1, 1, 1], [0, 0, 0], live.drag.pivot);
-    closeArray(live.drawn, expectedPose(expected.Vertices, 0), 'live preview skins the edited base vertex');
+    closeArray(live.drawn, expectedPose(expected.Vertices, 0, 250), 'live preview skins the edited base vertex at the chosen frame');
     await page.mouse.up();
     await page.waitForFunction(() => !vertexPreviewRuntime().drag && vertexPreviewRuntime().entries[0].geoset.Vertices[0] !== -32);
     const committed = await inspect();
@@ -130,6 +152,9 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     const second = await inspect();
     assert.equal(second.visibility, true);
     closeArray(second.drawn, expectedPose(second.vertices, 1), 'picker shows the other sequence at its first frame');
+    await button.click({ button: 'right' });
+    assert.equal(await field.inputValue(), '700', 'a new animation starts at its own first frame');
+    await field.press('Escape');
     await page.keyboard.press('Shift+Space');
     await painted(-1, 0);
     closeArray((await inspect()).drawn, committed.vertices, 'base view shows the committed edit');
@@ -156,6 +181,6 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     assert.deepEqual(undone.vertices, rest.vertices);
     closeArray(undone.drawn, expectedPose(undone.vertices, 1), 'undo refreshes the frozen preview');
     assert.deepEqual(errors, []);
-    console.log('PASS frozen first frames, vertex picking, live base-pose edits, undo, mouse orbit and quad switching');
+    console.log('PASS frozen preview, right-click frame selection and reset, vertex picking, live base-pose edits, undo, mouse orbit and quad switching');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
