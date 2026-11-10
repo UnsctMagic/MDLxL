@@ -1,4 +1,21 @@
 import { modifierHeld } from '../src/modifier-bindings.js';
+import { unanimatedTrackValue } from '../src/animation.js';
+import { TEXTURE_SLOTS } from '../src/mdx-compatibility.js';
+
+/** Prepare the UV renderer's private model for a bind-pose view. */
+export function applyUVRestAppearance(model) {
+  model.Sequences = [];
+  for (const animation of model.GeosetAnims || []) {
+    if (animation.Color?.Keys) animation.Color = unanimatedTrackValue(animation, 'Color', [1, 1, 1]);
+    if (animation.Alpha?.Keys) animation.Alpha = unanimatedTrackValue(animation, 'Alpha', 1);
+  }
+  for (const material of model.Materials || []) for (const layer of material.Layers || []) {
+    for (const slot of TEXTURE_SLOTS) {
+      if (layer[slot]?.Keys) layer[slot] = unanimatedTrackValue(layer, slot, 0);
+    }
+    layer.TVertexAnimId = null;
+  }
+}
 
 // A UV drag changes only texture coordinates. The document may recreate its
 // Nodes index and a temporary texture may recreate resource arrays on commit.

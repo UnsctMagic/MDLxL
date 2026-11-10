@@ -80,9 +80,10 @@ separate and are not a shared handover.
   Rotate and Zoom are **owner-locked** in [UV Rotate and Zoom](docs/UV-ROTATE-ZOOM.md):
   Rotate turns only with movement around the centre (70%, steady within 24 px
   or the piece's own size, so a big piece never outruns the mouse; straight
-  moves do not turn); Zoom follows distance from the centre and stops at
-  exactly one spot without growing back. These are the defaults; users' other
-  choices live in Settings → Mouse → UV. Do not change a default unless the owner explicitly asks for
+  moves do not turn). Fresh installs start with right/up Zoom. Existing profiles
+  keep their choices and fall back to centre Zoom when no choice was saved.
+  Both styles collapse to one spot without growing back. Choices live in
+  Settings → Mouse → UV. Do not change a default unless the owner explicitly asks for
   a new rule; fix complaints inside the rule and never edit the locked test
   numbers to pass. Never share settings with 3D tools. Test feel with the
   owner's real mouse settings, not a fresh profile.
@@ -114,8 +115,11 @@ separate and are not a shared handover.
 ## Build and verification
 
 [Testing rules](docs/TESTING-RULES.md) are binding for every agent: tests do what
-the user does, fail on the broken code first, and Claude owns QA and the release
-gate. Read them before writing or changing any test.
+the user does and fail on the broken code first. Codex, Claude or another agent
+may test using the same shared rules and scripts. Before merging, build and run
+focused checks proportional to the change; reuse valid results without a
+mandatory second-agent rerun. The full regression and packaged-app suites are
+release gates. Read the rules before writing or changing any test.
 
 Use Node.js 22.12+ and pnpm; [package.json](package.json) owns script definitions
 and [README source development](README.md#source-development) explains setup.

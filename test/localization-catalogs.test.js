@@ -23,7 +23,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7768, 7778, 7673, 7904, 7904]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7779, 7789, 7684, 7915, 7915]);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
   for (const pack of [ru, es, zh, fr, de]) for (const key of [
     'Use JavaScript for this job?', 'JavaScript can speed up repeated checks.', 'Open as new model',

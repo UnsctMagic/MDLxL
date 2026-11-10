@@ -305,6 +305,12 @@ export function localSequenceAtFrame(model, frame, excludedIndex = -1) {
   return (model?.Sequences || []).findIndex((sequence, index) => index !== excludedIndex && sequence?.Interval && frame >= sequence.Interval[0] && frame <= sequence.Interval[1]);
 }
 
+/** Static model value used when no animation is being evaluated. */
+export function unanimatedTrackValue(owner, property, fallback) {
+  const value = owner?.[property];
+  return (value?.Keys ? owner._MdxDefaults?.[property] : value) ?? fallback;
+}
+
 /** Shared preview color in editor RGB order; EditorDocument normalizes MDX KGAC. */
 export function sampleGeosetAnimation(model, geosetId, frame, sequenceIndex, globalTime = frame) {
   const animation = model.GeosetAnims?.find(item => item.GeosetId === geosetId);
@@ -317,11 +323,11 @@ export function sampleGeosetAnimation(model, geosetId, frame, sequenceIndex, glo
   const unanimated = !options.interval;
   const color = animation?.Flags & 2
     ? unanimated && animation.Color?.Keys
-      ? animation._MdxDefaults?.Color ?? [1, 1, 1]
+      ? unanimatedTrackValue(animation, 'Color', [1, 1, 1])
       : sampleTrack(animation.Color, frame, { ...options, fallback: [1, 1, 1] })
     : [1, 1, 1];
   const alpha = unanimated && animation?.Alpha?.Keys
-    ? animation._MdxDefaults?.Alpha ?? 1
+    ? unanimatedTrackValue(animation, 'Alpha', 1)
     : sampleTrack(animation?.Alpha, frame, { ...options, fallback: 1 });
   return {
     color: Array.from(color, unit),

@@ -112,12 +112,16 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
   const root = { name: 'World Editor', children: [] };
   const races = new Map(RACES.map(([key, name], order) => [key, Object.assign(folder(name), { order })]));
   for (const node of races.values()) root.children.push(node);
-  const modelIcons = new Map();
+  const modelIcons = new Map(), listed = new Set();
   const leaf = (parent, id, name, icon, models) => {
     // The Models tab browses models: icons only label entries in the tree.
     if (!models.length) return;
     const node = { id, name, ...(icon ? { icon } : {}), models };
     if (icon) for (const model of models) if (!modelIcons.has(model.path.toLowerCase())) modelIcons.set(model.path.toLowerCase(), icon);
+    // The same name showing the same models is one entry, listed where it is first met.
+    const identity = [name.toLowerCase(), ...models.map(model => model.path.toLowerCase())].join('|');
+    if (listed.has(identity)) return;
+    listed.add(identity);
     parent.children.push(node);
   };
 
@@ -220,7 +224,12 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
       const folders = targets.map(key => [type, tilesetKeys.get(key.toLowerCase()) || key, category.name]);
       object(id, name, category.icon, folders.length ? folders : [[type, category.name]], grouped(models, 'Model', 'model'));
     }
-    for (const key of targets) { const tileset = tilesetNode(key); if (tileset) leaf(child(tileset, category.name, category.icon), id, name, category.icon, models); }
+    // One home in the tree: every-tileset objects live in the game's Misc tileset
+    // (m), others in the listed tileset their id starts with, else the first listed.
+    const known = keys.map(key => key.toLowerCase()).filter(key => tilesetKeys.has(key));
+    const home = keys.includes('*') ? (tilesetKeys.has('m') ? 'm' : [...tilesetKeys.keys()][0]) : known.find(key => key === id[0].toLowerCase()) ?? known[0];
+    const tileset = home && tilesetNode(home);
+    if (tileset) leaf(child(tileset, category.name, category.icon), id, name, category.icon, models);
   };
   const doodadSkins = parseProfile(text('doodads\\doodadskins.txt'));
   for (const [id, row] of parseSlk(text('doodads\\doodads.slk'))) { const skin = doodadSkins.get(id) || new Map(); place('Doodads', id, row, skin, we(field(skin, 'name') || row.Name) || row.comment || id); }

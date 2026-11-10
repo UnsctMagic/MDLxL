@@ -184,7 +184,7 @@
   {"id":"particles:preview-swing","label":"Preview swing","group":"Particle Editor","category":"Particle Editor"},
   {"id":"particles:remove-ingredient","label":"Remove ingredient","group":"Particle Editor","category":"Particle Editor"},
   {"id":"particles:save-preset","label":"Save preset","group":"Particle Editor","category":"Particle Editor"},
-  {"id":"particles:solo","label":"Solo","group":"Particle Editor","category":"Particle Editor"},
+  {"id":"particles:solo","label":"View All Emitters","group":"Particle Editor","category":"Particle Editor"},
   {"id":"particles:step","label":"Step","group":"Particle Editor","category":"Particle Editor"},
   {"id":"particles:test-view","label":"Test view","group":"Particle Editor","category":"Particle Editor"},
   {"id":"portrait:background-height","label":"Background height","group":"editor","category":"Portrait"},

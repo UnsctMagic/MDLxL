@@ -34,7 +34,7 @@
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>button,
 .classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>:not(.vis-toggle),
 .classic-app[data-vis-ui]>.classic-toolbar :is(.addon-menu,.language-switch,[data-hotkey="new"],[data-hotkey="redo"],[data-hotkey="copy"],[data-hotkey="paste"],[data-hotkey="convertVersion"]),
-.classic-app[data-vis-ui] .classic-view-label>:not(:first-child){display:none}
+.classic-app[data-vis-ui] .classic-view-label>:not(:first-child,.vertex-animation-control){display:none}
 .classic-app[data-vis-ui] .ai-assistant{display:none!important}
 /* Keep the dock mounted (including an open AI console and its draft).
    In VIS only a small text XL button is left, at the end of the top toolbar,

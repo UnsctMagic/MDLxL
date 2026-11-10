@@ -1,4 +1,7 @@
-const VIEW_MENU = require('../src/view-menu.json');
+const QUICK_DISPLAY_MENU = require('../src/view-menu.json');
+// Axis guides belong only in the dropdown, before each editor's Clear item.
+const VIEW_MENU = Object.fromEntries(Object.entries(QUICK_DISPLAY_MENU)
+  .map(([mode, rows]) => [mode, rows.toSpliced(-1, 0, ['Axis guides', 'axes'])]));
 const VIEW_MENU_IDS = [...new Set(Object.values(VIEW_MENU).flat().map(row => row[1]))];
 
 function normalizeMenuChecks(checks) {

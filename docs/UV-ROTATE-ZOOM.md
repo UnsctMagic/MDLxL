@@ -11,9 +11,10 @@ fix the code, not the test numbers.
 **Expanded by the owner on 8 Nov 2026.** Settings → Mouse → UV lets each user
 pick another feel (`preferences.uvDrag`, `src/uv-drag-settings.js`), and an
 always-visible **Each piece** toggle in the UV Wrapper turns or zooms each
-separate piece on its own spot. The rules below are the **defaults** and stay
-locked: a setting adds a choice, it never moves a default. All of it is UV
-Wrapper only; 3D tools and FX texture fitting ignore it.
+separate piece on its own spot. The MDLxL preset and the fallback for existing
+profiles keep centre Zoom. On 10 Nov 2026, the owner chose right/up Zoom for
+first launch of fresh downloads. All of it is UV Wrapper only. 3D tools and FX
+texture fitting ignore it.
 
 ## Why this is locked
 
@@ -60,7 +61,11 @@ the tool each time:
 
 ## Zoom (`scale` in `app/UVEditor.jsx`)
 
-Default since 8 Nov 2026, by the owner's request ("from towards the center"):
+A fresh download starts at 100% with size snap Off. Right or up grows, and
+left or down shrinks. When updating, the existing profile keeps its settings.
+
+The MDLxL preset and the fallback for older profiles without a saved Zoom
+choice follow the centre rule selected on 8 Nov 2026:
 
 - The mouse's distance from the selection's centre sets the size, in any
   direction: away grows, toward shrinks.
@@ -91,7 +96,7 @@ Default since 8 Nov 2026, by the owner's request ("from towards the center"):
 - [uv-drag-settings.test.js](../test/uv-drag-settings.test.js): Rotate's defaults
   and FX equal a frozen copy of the 7 Nov rule; every setting and the new Zoom.
 - [uv-drag-settings.electron.cjs](../test/uv-drag-settings.electron.cjs): real
-  mouse drags for the Zoom default, each setting, the Mouse → UV page, the Each
+  mouse drags for the MDLxL preset's Zoom, each setting, the Mouse → UV page, the Each
   piece toggle and 3D isolation.
 - [uv-zoom-collapse.electron.cjs](../test/uv-zoom-collapse.electron.cjs) (seeds the
   right/up setting): real

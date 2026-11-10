@@ -367,11 +367,13 @@ test('handle centres and labels select POSE consistently; disabled and invalid c
   m.Bones[2].Parent = 0; assert.ok(!projectPoseHandles(m, config, 500, 0, camera, 600, 600).some(h => h.key === 'a'));
 });
 
-test('rig suggestions recognize actual named limbs and isolate bad candidates without changing a model', () => {
+test('rig suggestions retain anatomy despite a misleading root label without changing a model', () => {
   const m = fixture(); m.Bones[0].Name = 'Root'; m.Bones[1].Name = 'Chest'; m.Bones[3].Name = 'Wrist.L'; m.Bones[6].Name = 'Foot_L'; m.Bones[9].Name = 'Ankle.R';
   const before = structuredClone(m), suggested = suggestPoseRig(m, 500, 0);
   assert.deepEqual(m, before); assert.deepEqual(suggested.chains.map(c => [c.end, c.kind]), [[3, 'arm'], [6, 'leg'], [9, 'leg']]); assert.equal(suggested.body, 0); assert.ok(suggested.nodes.includes(1));
-  m.Bones[0].Name = 'Hand'; const invalid = suggestPoseRig(m, 500, 0); assert.ok(invalid.unavailable.some(item => item.id === 0)); assert.equal(invalid.chains.length, 3);
+  // A misleading label must not nominate the body root as an invalid hand.
+  // The old matcher added an unavailable handle here despite unchanged anatomy.
+  m.Bones[0].Name = 'Hand'; const renamed = suggestPoseRig(m, 500, 0); assert.deepEqual(renamed.chains, suggested.chains); assert.equal(renamed.body, suggested.body); assert.deepEqual(renamed.unavailable, suggested.unavailable);
   const wrist = m.Bones.splice(3, 1)[0]; m.Attachments = [wrist]; assert.doesNotThrow(() => validatePoseChain(m, chain));
   const pose = samplePoseChain(m, chain, 500, 0), result = solvePoseLimb(m, chain, 500, 0, pose.end.clone().add(new Vector3(-1, 0, 0))); apply(m, result); vectorNear(samplePoseChain(m, chain, 500, 0).end.toArray(), result.pose.end.toArray());
 });

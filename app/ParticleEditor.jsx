@@ -59,6 +59,9 @@ async function assetsFor(recipe){
   if(names.length&&hasDesktop('resolveTextures')){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await resolveGameFiles(names);for(const record of records||[])if(record.bytes)assets.set(gamePathKey(record.name),record);}
   return assets;
 }
+// Glow Up exclusions are editor state tied to the open model's geoset objects.
+const ignoredGlowPieces=new WeakMap();
+
 export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {
   const [pictureLibrary,setPictureLibrary]=useState(false);
   const [recoveryReady,setRecoveryReady]=useState(false),[newOpen,setNewOpen]=useState(false),[examples,setExamples]=useState(false),[testView,setTestView]=useState(null),[ingredients,setIngredients]=useState(null),[muted,setMuted]=useState([]),[adding,setAdding]=useState(null);
@@ -67,7 +70,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const mode='Clueless';
   const [library,setLibrary]=useState(!Number.isInteger(selectedNodeId)),[tool,setTool]=useState('Look'),[lifeStage,setLifeStage]=useState(1),[cancelVersion,setCancelVersion]=useState(0),[scope,setScope]=useState('key');
   const [emitterId,setEmitterId]=useState(selectedNodeId??0),[sequence,setSequence]=useState(Number.isInteger(selectedNodeId)?sequenceIndex:0);
-  const [time,setTime]=useState(Number.isInteger(selectedNodeId)?previewFrame:800),[playing,setPlaying]=useState(true),[speed,setSpeed]=useState(.25),[loop,setLoop]=useState(true),[linked,setLinked]=useState(true),[fxSpeed,setFxSpeed]=useState(.25),[previewStatus,setPreviewStatus]=useState({busy:false}),[solo,setSolo]=useState(false);
+  const [time,setTime]=useState(Number.isInteger(selectedNodeId)?previewFrame:800),[playing,setPlaying]=useState(true),[speed,setSpeed]=useState(.25),[loop,setLoop]=useState(true),[linked,setLinked]=useState(true),[fxSpeed,setFxSpeed]=useState(.25),[previewStatus,setPreviewStatus]=useState({busy:false}),[solo,setSolo]=useState(true);
   const [demo,setDemo]=useState(false),[placementError,setPlacementError]=useState('');
   const [libraryChoice,setLibraryChoice]=useState(null),[openingSelection,setOpeningSelection]=useState(false),[placementStageError,setPlacementStageError]=useState('');
   const [preparedPlacement,setPreparedPlacement]=useState(null),[sizeKey,setSizeKey]=useState(null),[manual,setManual]=useState(false);
@@ -209,9 +212,41 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   };
   // Glow Up: hero glow at the origin and along the weapon (docs/GLOW_UP.md).
   const glowChoices=useMemo(()=>glow&&doc?weaponChoices(doc.model,selectedGeometry):[],[!!glow,doc,revision,selectedGeometry]);
-  // A model that already glows: Glow Up adjusts its own glow and offers to repair it.
-  const glowOwn=useMemo(()=>{if(!glow||!doc)return null;const found=findHeroGlow(doc.model);return found&&{origin:!!found.origin,weapon:!!found.weapon,faults:heroGlowFaults(doc.model)};},[!!glow,doc,revision]);
-  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
+  const excluded=glow?.excluded;
+  const glowDetected=useMemo(()=>doc&&excluded?findHeroGlow(doc.model,excluded):null,[doc,revision,excluded]);
+  const glowFaults=useMemo(()=>glowDetected?heroGlowFaults(doc.model,glowDetected):[],[doc,glowDetected]);
+  const glowOwn=glowDetected?.pieces.length?glowDetected:null;
+  const startGlowDraft = () => {
+    const excluded = new Map();
+    doc.model.Geosets.forEach((geoset, index) => {
+      const keys = ignoredGlowPieces.get(geoset);
+      if (keys) excluded.set(index, keys);
+    });
+    return { ...glowStart(doc.model, selectedGeometry, excluded), excluded };
+  };
+  const toggleGlowPiece = piece => {
+    const geoset = doc.model.Geosets[piece.geoset];
+    const keys = new Set(ignoredGlowPieces.get(geoset));
+    if (piece.excluded) keys.delete(piece.key);
+    else keys.add(piece.key);
+    if (keys.size) ignoredGlowPieces.set(geoset, keys);
+    else ignoredGlowPieces.delete(geoset);
+    const start = startGlowDraft();
+    // Reset the affected handles against the newly classified pieces. Keep the other draft controls.
+    setGlow(value => {
+      const draft = { ...value, excluded: start.excluded };
+      if (piece.ground) return {
+        ...draft, origin: start.origin, originSize: start.originSize,
+        originOffset: start.originOffset, originBrightness: start.originBrightness,
+      };
+      return {
+        ...draft, weapon: start.weapon || (value.weapon && glowChoices.length > 0),
+        weaponKey: value.weaponKey || start.weaponKey, weaponSize: start.weaponSize,
+        weaponFrom: start.weaponFrom, weaponTo: start.weaponTo, weaponBrightness: start.weaponBrightness,
+      };
+    });
+  };
+  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {excluded:value.excluded,origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
   // Drag handles in the preview, as for emitters: their bind-pose points follow the weapon bone.
   const glowLayoutNow=useMemo(()=>{if(!glow||!doc)return null;try{return glowLayout(doc.model,glowOptions(glow));}catch{return null;}},[glow,doc,revision,glowChoices]);
   const glowMarks=useMemo(()=>{
@@ -245,7 +280,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       // A model that glows starts from its own glow.
       glowFitted.current=false;
       setGlowSnapshot(null);
-      setGlow(glowStart(doc.model,selectedGeometry));
+      setGlow(startGlowDraft());
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
   };
@@ -260,9 +295,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   // Repairs are their own undo step; Glow Up then starts again from the repaired glow.
   const fixGlow=()=>{
     try{
-      const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,repairHeroGlow,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,repairHeroGlow);
+      const mutate=m=>repairHeroGlow(m,glow.excluded);
+      const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,mutate,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,mutate);
       if(accepted===false)return;
-      setGlow(glowStart(doc.model,selectedGeometry));setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
+      setGlow(startGlowDraft());setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
     }catch(error){setMessage(error.message);}
   };
   const toggleLibrary=async()=>{
@@ -354,13 +390,13 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
           {library&&<ParticleLibrary preferences={preferences} onSelectionChange={setLibraryChoice} disabled={!recoveryReady||openingSelection} onClose={()=>setLibrary(false)} onChoose={chooseRecipe} onError={setMessage}/>}
           </div>
           {glow&&<div className="pe-transport"><button data-hotkey="particles:play" data-hotkey-absolute  title="Hold the animation still so you can drag every glow handle, then play it again. Space does the same." onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button></div>}
-          {!placement&&!glow&&!library&&<><div className="pe-stage-options"><select data-hotkey="particles:effect-ingredient" data-hotkey-manual data-hotkey-label="Effect ingredient" aria-label="Effect ingredient" value={emitterId??''} onChange={e=>{cancel();setEmitterId(Number(e.target.value));if(context==='On model')onNodeChange?.(Number(e.target.value));}}>{!selectedEffect&&<option value="">Choose an effect</option>}{effectNodes(model).map(({node,family},i)=><option key={node.ObjectId} value={node.ObjectId} translate="no">{translate(family==='RibbonEmitters'?'Ribbon':'Particle')+' '+(i+1)+(node.Name?' · '+node.Name:'')}</option>)}</select><button data-hotkey="particles:add-ingredient" data-hotkey-manual data-hotkey-label="Add ingredient" disabled={activeDoc.readOnly} onClick={()=>{cancel();setAdding(context==='Lab'?'ingredient':'model');setLibrary(true);}}>Add</button><button data-hotkey="particles:remove-ingredient" data-hotkey-manual data-hotkey-label="Remove ingredient" disabled={activeDoc.readOnly||!selectedEffect} onClick={remove}>Remove</button>{effectNodes(model).length>1&&<button data-hotkey="particles:ingredients" data-hotkey-manual data-hotkey-label="Ingredients" aria-pressed={!!ingredients} onClick={()=>{cancel();setTestView(null);setExamples(false);setIngredients(value=>value?null:structuredClone(working));}}>Ingredients{muted.length?' · '+muted.length+' muted':''}</button>}<button data-hotkey="particles:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>{cancel();setSolo(v=>!v);}}>Solo</button><button data-hotkey="particles:fit-view" data-hotkey-manual data-hotkey-label="Fit view" onClick={()=>{cancel();capture.current?.fit();}}>Fit view</button><button data-hotkey="particles:background" data-hotkey-manual data-hotkey-label="Light or dark background" onClick={()=>setDark(v=>!v)}>{dark?"Light":"Dark"}</button><button data-hotkey="particles:test-view" data-hotkey-manual data-hotkey-label="Test view" disabled={!selectedEffect} onClick={()=>{cancel();setIngredients(null);setTestView({source:structuredClone(model),ids:context==='Lab'?effectNodes(model).map(item=>item.node.ObjectId):[emitterId],sequence,time:frame,frame});}}>Test view</button></div>
+          {!placement&&!glow&&!library&&<><div className="pe-stage-options"><select data-hotkey="particles:effect-ingredient" data-hotkey-manual data-hotkey-label="Effect ingredient" aria-label="Effect ingredient" value={emitterId??''} onChange={e=>{cancel();setEmitterId(Number(e.target.value));if(context==='On model')onNodeChange?.(Number(e.target.value));}}>{!selectedEffect&&<option value="">Choose an effect</option>}{effectNodes(model).map(({node,family},i)=><option key={node.ObjectId} value={node.ObjectId} translate="no">{translate(family==='RibbonEmitters'?'Ribbon':'Particle')+' '+(i+1)+(node.Name?' · '+node.Name:'')}</option>)}</select><button data-hotkey="particles:add-ingredient" data-hotkey-manual data-hotkey-label="Add ingredient" disabled={activeDoc.readOnly} onClick={()=>{cancel();setAdding(context==='Lab'?'ingredient':'model');setLibrary(true);}}>Add</button><button data-hotkey="particles:remove-ingredient" data-hotkey-manual data-hotkey-label="Remove ingredient" disabled={activeDoc.readOnly||!selectedEffect} onClick={remove}>Remove</button>{effectNodes(model).length>1&&<button data-hotkey="particles:ingredients" data-hotkey-manual data-hotkey-label="Ingredients" aria-pressed={!!ingredients} onClick={()=>{cancel();setTestView(null);setExamples(false);setIngredients(value=>value?null:structuredClone(working));}}>Ingredients{muted.length?' · '+muted.length+' muted':''}</button>}<button data-hotkey="particles:solo" data-hotkey-manual data-hotkey-label="View All Emitters" aria-pressed={!solo} onClick={()=>{cancel();setSolo(v=>!v);}}>View All Emitters</button><button data-hotkey="particles:fit-view" data-hotkey-manual data-hotkey-label="Fit view" onClick={()=>{cancel();capture.current?.fit();}}>Fit view</button><button data-hotkey="particles:background" data-hotkey-manual data-hotkey-label="Light or dark background" onClick={()=>setDark(v=>!v)}>{dark?"Light":"Dark"}</button><button data-hotkey="particles:test-view" data-hotkey-manual data-hotkey-label="Test view" disabled={!selectedEffect} onClick={()=>{cancel();setIngredients(null);setTestView({source:structuredClone(model),ids:context==='Lab'?effectNodes(model).map(item=>item.node.ObjectId):[emitterId],sequence,time:frame,frame});}}>Test view</button></div>
           <div className="pe-transport"><button data-hotkey="particles:play" data-hotkey-absolute  onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><button data-hotkey="particles:step" data-hotkey-manual data-hotkey-label="Step" aria-label="Step particle preview" onClick={()=>{setPlaying(false);setTime(v=>Math.min(end,v+10));}}>Step</button><ParticleKeyTrack model={model} emitter={emitter} timed={!!selectedEffect&&!placement} ribbon={family==='RibbonEmitters'} sequence={sequence} start={start} end={end} frame={frame} disabled={activeDoc.readOnly||!!sizeKey} onScrub={value=>{cancel();setPlaying(false);setTime(value);}} onSpans={(spans,error)=>{if(error){setMessage(error);return;}apply('Change when the ribbon shows',m=>{setEmitterSpans(m,emitterId,sequence,spans);});}} onSmoothSize={smoothSize} onRemoveSizeKey={frame=>apply('Remove ribbon size key',m=>{removeRibbonSizeKey(m,emitterId,frame,sequence);})}/><select data-hotkey="particles:playback-speed" data-hotkey-manual data-hotkey-label="Playback speed" aria-label="Playback Speed" title="Playback Speed" value={speed} onChange={e=>setSpeed(Number(e.target.value))}>{(linked?[.05,.1,.25,.5,1]:[0,.05,.1,.25,.5,1]).map(value=><option key={value} value={value}>{value}×</option>)}</select><button data-hotkey="particles:loop" data-hotkey-manual data-hotkey-label="Loop" aria-pressed={loop} onClick={()=>setLoop(v=>!v)}>Loop</button></div>
           <details className="pe-clock-options"><summary>{linked?'Clock options':'Unlinked · inspection'}</summary><label><input data-hotkey="particles:link-clocks" data-hotkey-manual data-hotkey-label="Link animation and FX clocks" aria-label="Link animation and FX clocks" type="checkbox" checked={linked} onChange={e=>{setLinked(e.target.checked);if(e.target.checked&&speed===0)setSpeed(.5);}}/>Link animation and FX</label>{!linked&&<label>FX speed<select data-hotkey="particles:fx-speed" data-hotkey-manual data-hotkey-label="FX speed" aria-label="FX speed" value={fxSpeed} onChange={e=>setFxSpeed(Number(e.target.value))}>{[0,.1,.25,.5,1].map(value=><option key={value} value={value}>{value===0?'Paused':value+'×'}</option>)}</select></label>}</details>
           <select data-hotkey="particles:animation" data-hotkey-manual data-hotkey-label="Particle preview animation" aria-label="Particle preview animation" value={sequence} onChange={e=>{cancel();const next=Number(e.target.value);setSequence(next);setTime(model.Sequences[next].Interval[0]);}}>{model.Sequences.map((clip,index)=><option key={index} value={index}>{clip.Name}</option>)}</select></>}
         </div>
         <fieldset className="pe-controls inspector-fields" disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients}>
-          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} error={glowPreview?.error} onChange={setGlow} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
+          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} detected={glowDetected} faults={glowFaults} error={glowPreview?.error} onChange={setGlow} onTogglePiece={toggleGlowPiece} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
           emitter?<>{family==='RibbonEmitters'?<div className="pe-clueless-controls pe-ribbon-fields"><RibbonFields flat model={activeDoc.model} id={emitterId} time={frame} sequenceIndex={sequence} globalSeqId={null} restPose={false} disabled={activeDoc.readOnly} onEdit={(label,sections,mutate)=>apply(label,mutate,sections,{keepPlaying:true})} onPause={cancel}><div className="ribbon-box-actions"><button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this ribbon, for experienced users. Apply is one undo step." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div></RibbonFields></div>:<><div className="pe-tool-tabs">{['Look','Motion'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>{cancel();setTool(item);}}>{item}</button>)}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" className="pe-manual" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this emitter, for experienced users. Hover a word to see what it does." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div><ParticleCluelessControls onDemo={context==='Lab'?setDemo:undefined} demo={demo} teamColor={teamColor||'#ed3333'} {...{emitter,frame,sequence,tool,scope,setScope,asset,assets,preferences,update,patch,begin,change,finish,cancel,lifeStage,setLifeStage}} onImport={importPicture} onLibrary={()=>{cancel();setPictureLibrary(true);}} onChoosePicture={choosePicture} onRemovePicture={removePicture} onTeamPicture={teamPicture} model={working} globalTime={previewStatus.global??frame} onSeek={value=>{setPlaying(false);setTime(value);}}/></>}</>:<p>{selectedEffect?<>{translate("This emitter type has no sliders yet. ")}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></>:'Choose an effect in the library.'}</p>}
         </fieldset>
       </div>

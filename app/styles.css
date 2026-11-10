@@ -39,9 +39,10 @@
 .classic-app.rig-workspace .classic-geosets{min-height:0;margin-top:3px}
 .classic-app.rig-workspace .classic-geosets [role=listbox]{display:flex;flex-wrap:wrap;align-content:flex-start;min-height:72px;max-height:112px;overflow:auto}
 .classic-app.rig-workspace .classic-geosets .geoset-row{flex:0 0 31px}
+.classic-geosets .classic-geoset-list,.classic-app.rig-workspace .classic-geosets .classic-geoset-list{display:grid;align-content:start}
 /* MDLVis geoset order: down each column, then continue in the next column. */
-.classic-geosets .classic-geoset-list,.classic-app.rig-workspace .classic-geosets .classic-geoset-list{display:grid;grid-auto-flow:column;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(var(--geoset-rows,1),20px);align-content:start}
-.classic-app.rig-workspace .classic-geosets .classic-geoset-list{grid-template-rows:repeat(var(--geoset-rows,1),18px)}
+.classic-geosets .classic-geoset-list:not(.compact-geoset-list){grid-auto-flow:column;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(var(--geoset-rows,1),20px)}
+.classic-app.rig-workspace .classic-geosets .classic-geoset-list:not(.compact-geoset-list){grid-template-rows:repeat(var(--geoset-rows,1),18px)}
 .classic-app.rig-workspace .geoset-row{height:18px;padding:0}
 .classic-app.rig-workspace .geoset-hover-target{padding:0}
 .classic-app.rig-workspace .binding-inspection-title{text-align:center;font-size:10px;line-height:13px;padding:4px 2px 2px}
@@ -62,6 +63,14 @@
 .classic-app .camera-angle-panel .field:nth-of-type(3)>span,.classic-app .classic-coordinates .field:nth-of-type(3)>span{color:var(--functional-axis-z)}
 .classic-view-label select[aria-label="Render mode"]{width:96px}
 .classic-view-label button{min-height:21px;height:21px;padding:1px 4px}
+.vertex-animation-control{position:relative;display:inline-flex;align-items:stretch;gap:1px}
+.vertex-animation-picker{position:relative;display:grid;place-items:center;width:18px;color:var(--ui-text,inherit)}
+.vertex-animation-picker:has(select:focus-visible){outline:1px dotted currentColor;outline-offset:-2px}
+.vertex-animation-picker:has(select:disabled){opacity:.5}
+.classic-view-label .vertex-animation-picker select{position:absolute;inset:0;width:100%!important;height:100%;margin:0;opacity:0;cursor:pointer}
+.classic-view-label .vertex-animation-picker select:disabled{cursor:default}
+.vertex-animation-frame{position:absolute;top:calc(100% + 4px);right:0;display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--ui-panel,#d4d0c8);color:var(--ui-text,#111);border:1px solid var(--ui-border,#888);box-shadow:2px 3px 8px #0005}
+.vertex-animation-frame input{width:9ch;min-width:0;padding:2px 4px}
 :root[data-theme=light] :is(.classic-keyframe-reel,.animation-preview-tools,.classic-sequence-picker,.uv-preview-title){background:var(--ui-panel)}
 
 /* High-definition, modern-retro replacements for the active classic icon set. */

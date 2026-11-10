@@ -1,5 +1,5 @@
 import { portraitFragmentDeclarations, portraitFragmentLight, portraitLightDeclarations, portraitLightCalculation } from './portrait-lighting.js';
-import { sampleTrack, sampleGeosetAnimation } from '../src/animation.js';
+import { sampleTrack, sampleGeosetAnimation, unanimatedTrackValue } from '../src/animation.js';
 import { previewLighting } from '../src/preview-lighting.js';
 import { compensateRibbonWallClock } from './war3-model-patches.js';
 
@@ -74,11 +74,15 @@ function patchBoneInfluenceVertexShader(source) {
     .replace(/}\s*$/, `    ${influence}\n}\n`);
 }
 
-export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false) {
+export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false, uvWorkingGeoset = false, rgbOverride = null) {
   const options = { interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences, globalTime };
   const evaluated = sampleGeosetAnimation(model, geosetIndex, frame, sequenceIndex, globalTime), rgb = hideRgb ? [1, 1, 1] : evaluated.color;
-  const alpha = Math.max(0, Math.min(1, evaluated.alpha * sampleTrack(layer?.Alpha, frame, { ...options, fallback: 1 })));
-  return [...Array.from(rgb, value => Math.max(0, Math.min(1, value)) * (layer?.FilterMode === 3 ? alpha : 1)), alpha];
+  const layerAlpha = sequenceIndex < 0 ? unanimatedTrackValue(layer, 'Alpha', 1)
+    : sampleTrack(layer?.Alpha, frame, { ...options, fallback: 1 });
+  const visibleLayerAlpha = uvWorkingGeoset && layer?.Alpha?.Keys?.length ? 1 : layerAlpha;
+  const alpha = Math.max(0, Math.min(1, (uvWorkingGeoset ? 1 : evaluated.alpha) * visibleLayerAlpha));
+  const override = hideRgb ? null : rgbOverride;
+  return [...Array.from(rgb, (value, index) => Math.max(0, Math.min(1, override?.[index] ?? value)) * (layer?.FilterMode === 3 ? alpha : 1)), alpha];
 }
 
 export function resetPreviewEffects(native) {
@@ -128,10 +132,10 @@ const BONE_INFLUENCE_PASSES = ['ghost-depth', 'ghost', 'hot-depth', 'hot'];
 const effectsPass = pass => pass === null || pass === 'blended' || pass === 'hot';
 
 /** All hooks belong to this preview's private WebGL context, not global GL. */
-export function installWarcraftPreviewAdapter(gl, model, getClock) {
+export function installWarcraftPreviewAdapter(gl, model, getClock, isUVWorkingGeoset) {
   const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, vertexAttribPointer: gl.vertexAttribPointer, useProgram: gl.useProgram, drawElements: gl.drawElements };
   gl.shaderSource = function (shader, source) { return original.shaderSource.call(this, shader, patchWarcraftMeshVertexShader(patchWarcraftMeshFragmentShader(source))); };
-  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, setRibbonBuffers, setRibbonLayer, renderParticles, render;
+  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, setRibbonBuffers, setRibbonLayer, renderParticles, render, findAlpha;
   let neutralNormalTexture, neutralOrmTexture, influenceLocations, influenceTexture, influenceKey;
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
@@ -155,6 +159,11 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
   return {
     ready(renderer) {
       native = renderer; gl.shaderSource = original.shaderSource;
+      if (isUVWorkingGeoset) {
+        // Upstream culls alpha-zero geosets before the layer draw hook runs.
+        findAlpha = native.findAlpha;
+        native.findAlpha = function (index) { return isUVWorkingGeoset(index) ? 1 : findAlpha.call(this, index); };
+      }
       location = gl.getUniformLocation(native.shaderProgram, 'uMdlvisGeosetTint');
       lightingLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlLighting');
       lightDirectionLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlLightDirection');
@@ -314,8 +323,10 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           if (surface && activeLayer !== model.Materials?.[model.Geosets[geosetIndex].MaterialID]?.Layers?.[0]) return;
           if (influence && (activeLayer?.FilterMode ?? 0) >= 3) return;
           if (surfaceLocation) this.uniform1f(surfaceLocation, surface ? 1 : 0);
-          const { frame, sequenceIndex, globalTime } = getClock();
-          const tint = previewGeosetTint(model, geosetIndex, activeLayer, frame, sequenceIndex, globalTime, getClock().hideRgbGeoset === geosetIndex);
+          const { frame, sequenceIndex, globalTime, hideRgbGeoset, rgbOverride } = getClock();
+          const override = rgbOverride?.geosetIndex === geosetIndex ? rgbOverride.channels : null;
+          const tint = previewGeosetTint(model, geosetIndex, activeLayer, frame, sequenceIndex, globalTime,
+            hideRgbGeoset === geosetIndex, isUVWorkingGeoset?.(geosetIndex), override);
           if (tint[3] <= 1e-6) return;
           const blended = !!influence || (activeLayer?.FilterMode ?? 0) >= 2 || tint[3] < .999999;
           if (meshPass && !influence && blended !== (meshPass === 'blended')) return;
@@ -363,6 +374,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
     dispose() {
       Object.assign(gl, original);
       if (native && render) native.render = render;
+      if (native && findAlpha) native.findAlpha = findAlpha;
       if (native?.particlesController && renderParticles) native.particlesController.render = renderParticles;
       if (native && setLayerProps) native.setLayerProps = setLayerProps;
       if (native && setLayerPropsHD) native.setLayerPropsHD = setLayerPropsHD;

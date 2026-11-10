@@ -35,10 +35,11 @@ test('UV opts into restoring its user view before fit, without replaying old pro
   assert.match(uv,/<GamePreview[^>]*revision=\{previewWrappingRevision\}[^>]*preserveCameraView=\{true\}/,'UV-only commits keep the renderer; texture sampling changes rebuild with the saved camera');
 });
 
-test('team label stays absent and geosets fill down columns',()=>{
+test('team label stays absent and Classic Set geosets fill down four columns',()=>{
   const sidebar=readFileSync(new URL('../app/AppSidebar.jsx',import.meta.url),'utf8');
   const css=readFileSync(new URL('../app/styles.css',import.meta.url),'utf8');
   assert.doesNotMatch(readFileSync(new URL('../app/AppToolbar.jsx',import.meta.url),'utf8'),/className="team-picker">Team color/);
   assert.match(sidebar,/'--geoset-rows': Math.max\(1, Math.ceil\(tabGeosets.size \/ 4\)\)/);
-  assert.match(css,/classic-geoset-list\{display:grid;grid-auto-flow:column/);
+  assert.match(css,/\.classic-geoset-list:not\(\.compact-geoset-list\)\{grid-auto-flow:column;grid-template-columns:repeat\(4,/);
+  assert.doesNotMatch(css,/\.classic-geoset-list\{[^}]*grid-auto-flow:column/);
 });

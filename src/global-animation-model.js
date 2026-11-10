@@ -91,6 +91,10 @@ export function strengthPasses(unitLayers,strength,glow=false,alphaFor=null){
 }
 function skinLayer(c,l){
  const {model:m,source,tag,id,ms}=c;
+ const prior=c.prior?.type===l.type?c.prior:null;
+ const previousShape=m.Geosets.find(g=>g._FxTag===tag+'/shape');
+ const previous=m.Materials[previousShape?.MaterialID]?.Layers[0];
+ const samePicture=prior&&prior.image===l.image;
  const mat=m.Materials[c.base],original=mat?.Layers.findLast(layer=>typeof layer.TextureID==='number'&&!m.Textures[layer.TextureID]?.ReplaceableId)||mat?.Layers.at(-1);
  if(!original&&!l.image)throw Error('The selected part has no texture to animate.');
  const own=!l.image, g={...source,TVertices:[...source.TVertices]};
@@ -141,14 +145,18 @@ function skinLayer(c,l){
   coords[i+1]=.5+(l.uvOffset?.[1]||0)+tiles*(v*Math.cos(angle)-u*Math.sin(angle));
  }
  if(l.uvMatrix){const [a,b,c,d,x,y]=l.uvMatrix;for(let i=0;i<coords.length;i+=2){const u=coords[i],v=coords[i+1];coords[i]=a*u+c*v+x;coords[i+1]=b*u+d*v+y;}}
- g.TVertices=[coords];
+ // A UV Wrapper edit belongs to the live shape. Refit when the target or its fitting controls change.
+ const keepUV=prior&&previous&&c.sameGroup
+  &&previousShape.Vertices.length===source.Vertices.length&&previousShape.Faces.length===source.Faces.length
+  &&source.Faces.every((vertex,i)=>vertex===previousShape.Faces[i])
+  &&['own','direction','tiling','atlasRect','uvOffset','uvMatrix'].every(key=>JSON.stringify(prior[key])===JSON.stringify(l[key]));
+ g.TVertices=keepUV?previousShape.TVertices:[coords];
  let tex=own?structuredClone(original.TextureID):texture(m,l.image,!rect,tag);
  if(l.frames){
   const tids=l.frames.map(name=>texture(m,name,true,tag)),n=tids.length* Math.max(1,Math.round(l.speed*3));
   tex=keys(id,ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
  }
- const previous=m.Materials.find(mat=>mat._FxTag===tag+'/material')?.Layers[0];
- const prior=c.prior?.type===l.type&&c.prior.image===l.image?c.prior:null;
+
  const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
  const glyphCurve=l.glyphs&&l.pulse==='flicker'?[[0,1],[.12,1],[.14,.03],[.20,.05],[.22,.92],[.49,.9],[.50,.06],[.58,.04],[.60,1],[1,1]]:l.glyphs&&l.pulse==='breathe'?[[0,.04],[.17,.08],[.49,1],[.64,.94],[1,.04]]:shape;
  let arc;
@@ -165,7 +173,7 @@ function skinLayer(c,l){
  }
  const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
  const alpha=alphaFor(1);
- const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
+ const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
  if(!l.fixed&&!l.glyphs&&l.pulse!=='steady'&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
   const turns=Math.max(1,Math.round(l.speed));
@@ -175,16 +183,16 @@ function skinLayer(c,l){
    const phase=[0,1,0,-1][i%4];
    return [i/(turns*4),[phase*extent[0]*Math.cos(angle),phase*extent[1]*Math.sin(angle),0]];
   }):[[0,[0,0,0]],[1,l.axis==='v'?[0,turns,0]:[turns,0,0]]];
-  if(prior&&previous&&c.sameClock&&prior.speed===l.speed&&prior.direction===l.direction)layer.TVertexAnimId=previous.TVertexAnimId;
+  if(samePicture&&previous&&c.sameClock&&prior.speed===l.speed&&prior.direction===l.direction)layer.TVertexAnimId=previous.TVertexAnimId;
   else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(id,ms,pairs)});
  }
- if(prior&&previous){
+ if(samePicture&&previous){
   if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
   layer.FilterMode=previous.FilterMode;layer.Shading=previous.Shading;
  }
  if(arc){layer.FilterMode=3;layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(arc.clock,arc.ms,arc.motion,0)});}
  const passes=strengthPasses([layer],l.strength,l.type==='Glow',alphaFor);
- if(prior&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
+ if(samePicture&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
  const colour=l.steel?l.tint.map(v=>.22+v*.31):l.crust?l.tint.map(v=>.18+v*.22):l.tint;
  const index=overlay(c,g,material,colour,m.GeosetAnims.find(a=>a.GeosetId===c.index));
@@ -448,6 +456,7 @@ export function compileAnimation(model,index,draft,{rune}={}){
  let surface=source;
  if(members.length){surface=structuredClone(source);delete surface._FxStack;for(const i of members)appendGeosetGeometry(surface,model.Geosets[i]);}
  const before=readAnimationStack(model,index),owner=draft.owner;
+ const sameGroup=JSON.stringify(before?.group||[])===JSON.stringify(draft.group||[]);
  const base=before&&source.MaterialID!==before.baseMaterial&&model.Materials[source.MaterialID]?._FxTag!==before.owner+'/underlay'?source.MaterialID:before?.baseMaterial??source.MaterialID;
  const strikeGeo=draft.impact?model.Geosets[draft.contact?.geoset]:null;
  if(draft.impact&&(!strikeGeo||strikeGeo._FxTag||!(draft.contact.vertex>=0&&draft.contact.vertex*3<strikeGeo.Vertices.length)))draft={...draft,...impactDefaults(model,index,draft.sequence,draft.hit)};
@@ -473,9 +482,9 @@ export function compileAnimation(model,index,draft,{rune}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
-  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameClock:before?.loop===ms};
+  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameGroup,sameClock:before?.loop===ms};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(before?.look===draft.look&&JSON.stringify(before?.group||[])===JSON.stringify(draft.group||[])&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);
