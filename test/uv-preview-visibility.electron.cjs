@@ -87,11 +87,38 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     assert.equal(full.find(draw => draw.index === 4)?.alpha, .5, 'context uses static geoset and layer alpha');
     assert.equal(full.some(draw => draw.index === 5), false, 'context with static alpha zero stays hidden');
     const wrapper = page.locator('.uv-tab-window');
+    const hideExtras = wrapper.getByRole('button', { name: 'Hide Extras', exact: true });
+    await hideExtras.waitFor({ timeout: 5000 }).catch(() => assert.fail('Hide Extras is available in the Live Model Preview footer'));
+    const beforeExtras = await camera();
+    assert.ok(full.some(draw => draw.index === 6), 'the other extra is drawn before filtering');
+    await click(hideExtras);
+    await page.waitForFunction(selector => !uvMeshDraws(selector).some(draw => draw.index === 6), preview, { timeout: 5000 });
+    assert.equal(await hideExtras.getAttribute('aria-pressed'), 'true');
+    assert.deepEqual(await draws(), full.filter(draw => draw.index !== 6),
+      'Hide Extras hides the other drawn extra and keeps the working extra and ordinary context');
+    assert.deepEqual(await camera(), beforeExtras, 'Hide Extras preserves the camera');
+    assert.ok(await geoset.isChecked(), 'the working extra stays checked in the Vertex editor');
+    await click(hideExtras);
+    await page.waitForFunction(selector => uvMeshDraws(selector).some(draw => draw.index === 6), preview, { timeout: 5000 });
+    assert.deepEqual(await draws(), full, 'turning off Hide Extras restores the other extra');
     const red = wrapper.getByRole('spinbutton', { name: 'Preview RGB R', exact: true });
     const green = wrapper.getByRole('spinbutton', { name: 'Preview RGB G', exact: true });
     const blue = wrapper.getByRole('spinbutton', { name: 'Preview RGB B', exact: true });
     const reset = wrapper.getByRole('button', { name: 'Reset preview RGB', exact: true });
     await red.waitFor({ timeout: 5000 }).catch(() => assert.fail('Preview RGB offers a red number input beside Hide RGB'));
+    const quickColors = await page.locator('.quick-display label:has([data-hotkey="rgb"]) svg path')
+      .evaluateAll(paths => paths.map(path => getComputedStyle(path).fill));
+    assert.equal(quickColors.length, 3, 'Quick display has three RGB colors');
+    const rgbColors = await wrapper.locator('.uv-preview-rgb label svg path')
+      .evaluateAll(paths => paths.map(path => getComputedStyle(path).fill));
+    assert.deepEqual(rgbColors, quickColors, 'each channel uses its filled Quick display RGB color');
+    const footerBox = await wrapper.locator('.uv-preview-footer').boundingBox();
+    const extrasBox = await hideExtras.boundingBox();
+    const redBox = await red.boundingBox();
+    assert.ok(Math.abs(extrasBox.y + extrasBox.height / 2 - redBox.y - redBox.height / 2) < 2,
+      'Hide Extras shares the RGB line');
+    assert.ok(footerBox.x + footerBox.width - extrasBox.x - extrasBox.width <= 7,
+      'Hide Extras is aligned with the right edge of the footer');
     const enter = async (input, value) => {
       await click(input);
       await page.keyboard.press('Control+a');
@@ -179,6 +206,6 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     assert.deepEqual(fs.readFileSync(fixture), Buffer.from(bytes), 'fixture bytes remain identical');
     assert.ok(fs.readFileSync(source).equals(original), 'source model bytes remain identical');
     assert.deepEqual(errors, []);
-    console.log('PASS UV visibility: unanimated RGB and opacity, working geoset drawn, Selected Only, Preview RGB and Reset, Hide RGB, mouse rotation, Live Preview polygon picking, authored model and disk bytes unchanged');
+    console.log('PASS UV visibility: unanimated RGB and opacity, working geoset drawn, Selected Only, Hide Extras with working extra preserved, RGB dots, Preview RGB and Reset, Hide RGB, mouse rotation, Live Preview polygon picking, authored model and disk bytes unchanged');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
