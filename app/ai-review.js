@@ -1,5 +1,5 @@
 import { encodeAiValue, decodeAiValue, pointer } from '../src/ai-model.js';
-import { ignoreHistoryAlias } from '../src/editor-document.js';
+import { ignoreHistoryAlias, validateModel } from '../src/editor-document.js';
 import { createChanges } from '../src/history-store.js';
 import { sweepAiRelation } from '../src/ai-relation-sweep.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
@@ -74,6 +74,7 @@ export const reviewStatus = review => ({
   sequences: review?.sequences || [],
   globalSequences: review?.globalSequences || [],
   summary: review?.summary || '',
+  ...(review?.preExistingErrors ? { preExistingErrors: true } : {}),
 });
 export async function beginAiReview(bridge, id, options) {
   const target = bridge.requireTarget(id);
@@ -103,6 +104,7 @@ export function recordAiChange(review, result, model) {
   review.phase = 'pending';
   delete review.inspectedRevision;
   delete review.summary;
+  delete review.preExistingErrors;
   delete review.motionCache;
   delete review.sweepCache;
   const changes = createChanges(review.before, model, { ignore: ignoreHistoryAlias });
@@ -356,6 +358,44 @@ async function planSweeps(review, checks, { revision, baseline, before, model },
   return value;
 }
 
+const diagnosticKey = ({ code, path, message }) => JSON.stringify([code, path, message]);
+const isError = diagnostic => diagnostic.severity === 'error';
+
+function frameRangeError(frame) {
+  return Number.isFinite(frame)
+    ? Math.max(-2147483648 - frame, frame - 2147483647, Math.abs(frame - Math.round(frame)))
+    : Infinity;
+}
+
+function inheritedFrameOrder(before, after) {
+  if (!after) return true;
+  // An unchanged bad pair can move when other keys are inserted. A changed
+  // pair at the same index is inherited only if its violations did not grow.
+  if (Object.is(before.frame, after.frame) && Object.is(before.previous, after.previous)) return true;
+  const backwards = ({ frame, previous }) => Math.max(0, previous - frame) || 0;
+  return before.index === after.index && backwards(before) >= backwards(after)
+    && frameRangeError(before.frame) >= frameRangeError(after.frame);
+}
+
+function reviewDiagnostics(diagnostics, baseline) {
+  // Match occurrences independently in each format. A second error with the
+  // same code and path must not reuse the first one's baseline allowance.
+  const remaining = new Map();
+  for (const diagnostic of baseline) {
+    const key = diagnosticKey(diagnostic);
+    if (!remaining.has(key)) remaining.set(key, []);
+    remaining.get(key).push(diagnostic);
+  }
+  return diagnostics.map(diagnostic => {
+    if (!isError(diagnostic)) return diagnostic;
+    const matches = remaining.get(diagnosticKey(diagnostic));
+    const match = matches?.findIndex(before => inheritedFrameOrder(before.frameOrder, diagnostic.frameOrder)) ?? -1;
+    if (match < 0) return diagnostic;
+    matches.splice(match, 1);
+    return { ...diagnostic, severity: 'warning', preExisting: true };
+  });
+}
+
 export async function reviewAiModel(bridge, args, options) {
   const target = bridge.requireTarget(args.target),
     review = target.review;
@@ -462,8 +502,17 @@ export async function reviewAiModel(bridge, args, options) {
     !!current.session.paintProject?.dirty ||
     Object.keys(current.session.uvPreviews || {}).length > 0 ||
     Object.keys(current.session.animationDrafts || {}).length > 0;
+  // The optional named version is for visual comparison. It cannot excuse
+  // a structural error the job introduced after its real starting snapshot.
+  for (const result of validation.results) {
+    if (result.diagnostics?.some(isError)) {
+      const originalErrors = review.originalErrors ??= validateModel(review.before).filter(isError);
+      result.diagnostics = reviewDiagnostics(result.diagnostics, originalErrors);
+    }
+  }
+  review.preExistingErrors = validation.results.some(r => r.diagnostics?.some(d => d.preExisting));
   const structural = validation.results.every(
-    r => !r.error && !r.readOnly && !r.diagnostics?.some(d => d.severity === 'error'),
+    r => !r.error && !r.readOnly && !r.diagnostics?.some(isError),
   );
   review.passed = checks.every(c => c.passed) && structural && !drafts && current.doc.revision === revision;
   review.phase = 'inspected';
