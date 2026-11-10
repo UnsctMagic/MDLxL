@@ -1,5 +1,10 @@
 # Release material after 0.38.0
 
+Every release also runs the full QA in the
+[QA and release kit](QA-AND-RELEASE-KIT.md#release-standard), which orders all the
+release steps. The updater gate in step 5 applies only if the updater, installer or
+package layout changed.
+
 This recipe starts with the next release **after 0.38.0**. Do not backfill
 released notes, old PDFs or old website release JSON. Tutorials are maintained
 in every supported tutorial language, including the existing tutorials.
