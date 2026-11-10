@@ -7,6 +7,8 @@ import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, otherUVMaterials, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
 import { Tool as EditorTool } from './EditorControls.jsx';
+import ToolIcon from './ToolIcon.jsx';
+import { geosetsHiddenByExtras } from '../src/geoset-extras.js';
 import { uvToolState } from '../src/uv-tool-state.js';
 import { hiddenUVPreviewGeosets, normalizeUVPreviewDisplay, previewMeshDomain, uvPreviewOverlay } from '../src/uv-preview-display.js';
 import { renderUVMaterialTexture } from './uv-material-preview.js';
@@ -23,6 +25,8 @@ const GamePreview = lazy(() => import('./GamePreview.jsx'));
 const unique = values => [...new Set(Array.from(values || []).filter(Number.isSafeInteger))];
 const selectedCount = value => Object.values(value || {}).reduce((sum, ids) => sum + (ids?.length || 0), 0);
 const LAYOUT_KEYS = { side: 'mdlxl.uv.side-percent', preview: 'mdlxl.uv.preview-percent' };
+const RGB_CHANNELS = [['R', 'rgbRed'], ['G', 'rgbGreen'], ['B', 'rgbBlue']];
+const EMPTY_PREVIEW_RGB = ['', '', ''];
 const STANDARD_PROJECTIONS = [['top','Top'],['bottom','Bottom'],['front','Front'],['back','Back'],['left','Side Left'],['right','Side Right']];
 const ANGLED_PROJECTIONS = [
   ['top-front-right','Top Front Right'],['top-front-left','Top Front Left'],['top-back-right','Top Back Right'],['top-back-left','Top Back Left'],
@@ -88,6 +92,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
+  const [previewRgb, setPreviewRgb] = useState(EMPTY_PREVIEW_RGB);
+  const [hideExtras, setHideExtras] = useState(false);
   const [projectionPreset, setProjectionPreset] = useState({ name: 'front', revision: 0, fit: true });
   const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
@@ -165,7 +171,18 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const display = normalizeUVPreviewDisplay(preferences?.uvPreviewDisplay), uvGrid = normalizeUVGrid(preferences?.uvGrid), liveView = display.mesh === 'selected';
   const selectedGeosets = Object.keys(eligibleSelection).filter(index => eligibleSelection[index]?.length).map(Number);
   const rgbTarget = selectedGeosets.includes(activeGeoset) ? activeGeoset : selectedGeosets[0] ?? -1;
-  const hiddenPreviewGeosets = hiddenUVPreviewGeosets(model, eligibleSelection, showOnlySelected);
+  const rgbOverride = useMemo(() => {
+    if (rgbTarget < 0) return null;
+    const channels = previewRgb.map(value => {
+      const number = Number(value);
+      return value !== '' && Number.isInteger(number) && number >= 0 && number <= 255 ? number / 255 : null;
+    });
+    return channels.some(value => value !== null) ? { geosetIndex: rgbTarget, channels } : null;
+  }, [previewRgb, rgbTarget]);
+  // As in the Vertex editor, decide which geosets are extras when toggled or when the geoset count changes.
+  const extraGeosets = useMemo(() => hideExtras ? geosetsHiddenByExtras(sourceModel) : null, [hideExtras, sourceModel.Geosets.length]);
+  const hiddenPreviewGeosets = useMemo(() => hiddenUVPreviewGeosets(model, eligibleSelection, showOnlySelected, extraGeosets),
+    [model.Geosets.length, eligibilityKey, showOnlySelected, extraGeosets]);
   // UV-grid and UV-drag preferences belong only to the 2D texture canvas. Keep
   // the 3D renderer's preference object stable while one of them is adjusted.
   const uvPreferences = { ...(preferences || {}), scrollSensitivity };
@@ -272,13 +289,34 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
         <section className="uv-live-preview" aria-label="Live model preview">
           <div className="uv-panel-title"><strong>Live Model Preview</strong></div>
           <div className="uv-preview-canvas"><Suspense fallback={<div className="classic-empty-view">Loading preview…</div>}><GamePreview {...previewProps} preferences={previewPreferences} onSensitivityChange={setScrollSensitivity} revision={previewWrappingRevision} uvRevision={revision} presentation="preview" preserveCameraView={true} interactivePreview={!densityOpen && !!current} restPose={true} model={previewModel} sequenceIndex={-1} time={0} playing={false} showParticles={false} previewOverlay={liveOverlay}
-            uvOnlySelected={showOnlySelected} hiddenGeosets={hiddenPreviewGeosets} hideRgbGeoset={hideRGB && rgbTarget >= 0 ? rgbTarget : null}
+            uvOnlySelected={showOnlySelected} uvHideExtras={hideExtras} hiddenGeosets={hiddenPreviewGeosets} hideRgbGeoset={hideRGB && rgbTarget >= 0 ? rgbTarget : null} rgbOverride={rgbOverride}
             selectionByGeoset={selectionByGeoset} selectableGeosets={Object.keys(eligibleSelection).map(Number)}
             previewSelectionMode={showVerticles ? 'vertices' : 'polygons'} previewEligibleByGeoset={allEligible}
             onSelectionChange={densityOpen ? undefined : onPreviewSelectionChange}
             view="orthographic" cameraMode="rotate" transformMode="select" cameraPresetRequest={projectionPreset} onProjectionViewChange={value => { projectionView.current = value; }} /></Suspense></div>
           <div className="uv-preview-footer">
             <button data-hotkey="uv-wrapper:live-select" data-hotkey-manual data-hotkey-label="Live Select" aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => setShowVerticles(value => !value)}>Live Select</button>{showVerticles && <><button data-hotkey="uv-wrapper:lines" data-hotkey-manual data-hotkey-label="Lines" aria-label="Lines" aria-pressed={showLines} title="Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered." onClick={() => setShowLines(value => !value)}>Lines</button><button data-hotkey="uv-wrapper:grabthrough" data-hotkey-manual data-hotkey-label="Grabthrough" aria-label="Grabthrough" aria-pressed={grabThrough} title="On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see." onClick={() => setGrabThrough(value => !value)}>Grabthrough</button></>}<button data-hotkey="uv-wrapper:selected-only" data-hotkey-manual data-hotkey-label="Selected Only" aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button data-hotkey="uv-wrapper:hide-rgb" data-hotkey-manual data-hotkey-label="Hide RGB" aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
+            <div className="uv-preview-appearance">
+              <div className="uv-preview-rgb" role="group" aria-label="Preview RGB" title="Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.">
+                <span>Preview RGB:</span>
+                {RGB_CHANNELS.map(([channel, icon], index) => (
+                  <label key={channel}>
+                    <ToolIcon name={icon} className="uv-rgb-channel-icon" size={14}/>
+                    <input aria-label={`Preview RGB ${channel}`} type="number" min="0" max="255" step="1" value={previewRgb[index]}
+                      disabled={rgbTarget < 0} onChange={event => {
+                        const value = event.target.value;
+                        setPreviewRgb(previous => previous.map((part, i) => i === index ? value : part));
+                        setHideRGB(false);
+                      }}/>
+                  </label>
+                ))}
+                <button type="button" aria-label="Reset preview RGB" disabled={!previewRgb.some(Boolean)}
+                  onClick={() => { setPreviewRgb(EMPTY_PREVIEW_RGB); setHideRGB(false); }}>Reset</button>
+              </div>
+              <button type="button" aria-pressed={hideExtras}
+                title="Hide corpses, portrait backgrounds, hero glow and part-time effects. Keep the UV working geosets visible."
+                onClick={() => setHideExtras(value => !value)}>Hide Extras</button>
+            </div>
           </div>
         </section>
         <Splitter orientation="horizontal" label="Resize live model preview" value={activePreviewPercent} minimum={UV_PREVIEW_MIN} maximum={UV_PREVIEW_MAX} defaultValue={UV_PREVIEW_DEFAULT}

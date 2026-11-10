@@ -25,11 +25,12 @@ export function previewMeshDomain(model) {
   return result;
 }
 
-/** Editor-only isolation for the geosets that supplied the current UV work. */
-export function hiddenUVPreviewGeosets(model, eligibleSelection, onlySelected) {
-  if (!onlySelected) return undefined;
+/** Keep the geosets that supplied the UV work visible in either filter. */
+export function hiddenUVPreviewGeosets(model, eligibleSelection, onlySelected, extraGeosets) {
+  if (!onlySelected && !extraGeosets?.size) return undefined;
   const selected = new Set(Object.entries(eligibleSelection || {}).filter(([, ids]) => ids?.length).map(([index]) => Number(index)));
-  return new Set((model?.Geosets || []).flatMap((_, index) => selected.has(index) ? [] : [index]));
+  return new Set((model?.Geosets || []).flatMap((_, index) =>
+    !selected.has(index) && (onlySelected || extraGeosets?.has(index)) ? [index] : []));
 }
 
 /** Return repeated texture tiles containing eligible UV faces. Exact edge

@@ -9,6 +9,7 @@ import React from 'react';
 const square = (x, y, s) => `M${x} ${y}h${s}v${s}h-${s}Z`;
 const round = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1-${r} ${r}h-${w - 2 * r}a${r} ${r} 0 0 1-${r}-${r}v-${h - 2 * r}a${r} ${r} 0 0 1 ${r}-${r}Z`;
 const circle = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0-${2 * r} 0Z`;
+const rgbDot = circle(12, 12, 9);
 const corners = square(1, 1, 4) + square(18, 1, 4) + square(1, 19, 4) + square(18, 19, 4);
 const triangleCorners = square(10, 1.5, 4) + square(1.5, 17.5, 4) + square(18.5, 17.5, 4);
 const bone = 'M5 7a2 2 0 1 1 3-2l8 8a2 2 0 1 1 2 3 2 2 0 1 1-3 2L7 10a2 2 0 1 1-2-3Z';
@@ -56,6 +57,9 @@ const ICONS = Object.freeze({
   // Display toggles
   shaded: [['f', circle(12, 12, 8.5), 'ink'], ['f', 'M12 3.5a8.5 8.5 0 0 0 0 17Z', 'blue'], ['s', 'M8 8a5 5 0 0 1 2.5-1.8', 'white', 1.6]],
   rgb: [['f', circle(12, 8, 5), 'red'], ['f', circle(8, 15, 5), 'green'], ['f', circle(16, 15, 5), 'blue']],
+  rgbRed: [['f', rgbDot, 'red']],
+  rgbGreen: [['f', rgbDot, 'green']],
+  rgbBlue: [['f', rgbDot, 'blue']],
   vertices: [['s', 'M12 4 4 19h16Z', 'dash', 1.5], ['f', square(10, 2, 4) + square(2, 17, 4) + square(18, 17, 4), 'blue']],
   normals: [['s', 'M2 20h20', 'ink', 2], ['s', 'M8 20V9M16 20V9', 'red', 2], ['f', 'M5.5 10 8 5.5l2.5 4.5ZM13.5 10 16 5.5l2.5 4.5Z', 'red']],
   wires: [['s', 'M12 3 20 7.5v9L12 21 4 16.5v-9ZM12 12l8-4.5M12 12 4 7.5M12 12v9', 'ink', 1.8], ['f', square(10.5, 10.5, 3), 'blue']],
