@@ -1,12 +1,13 @@
 const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell, nativeTheme, utilityProcess } = require('electron');
+const { existsSync } = require('node:fs');
+const path = require('node:path');
 // Check before loading editor modules: another launch must not read a changing install.
-if (app.isPackaged && require('node:fs').existsSync(require('node:path').join(require('node:path').dirname(process.execPath), '.mdlxl-installing'))) {
+if (app.isPackaged && existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) {
   app.exit(0);
   return;
 }
 const APPLICATION_THEMES = require('../src/application-themes.json');
 const fs = require('node:fs/promises');
-const path = require('node:path');
 const crypto = require('node:crypto');
 // Install folder (next to MDLxL.exe when packaged), and whether this is a person's own run rather than a test.
 const appFolder=app.isPackaged?path.dirname(process.execPath):app.getAppPath();
@@ -56,12 +57,16 @@ function getPreviewBackgroundLibrary() {
 app.setName('MDLxL');
 if (process.platform === 'win32') app.setAppUserModelId('com.mdlxl.editor');
 const profile = process.env.MDLXL_PROFILE || path.resolve(__dirname,'../profile');
+const legacySettings = path.resolve(__dirname,'../game-data.json');
+// Electron creates the profile directory. Check before assigning it so old
+// profiles without settings.json still keep the previous UV defaults.
+const freshInstall = app.isPackaged && !existsSync(profile) && !existsSync(legacySettings);
 app.setPath('userData',profile);
 const launchModelPaths=modelPathsFromArguments(process.argv.slice(1),process.cwd());
 const singleInstanceLock=app.requestSingleInstanceLock({modelPaths:launchModelPaths});
 if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
-if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
+if (app.isPackaged && existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 function sendToEditor(channel,value){if(win&&!win.isDestroyed())win.webContents.send(channel,value);}
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
 const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
@@ -621,7 +626,6 @@ ipcMain.handle('texture:folder',async(_,requested)=>{
   return loaded;
 });
 if(singleInstanceLock)app.whenReady().then(async()=>{
-  if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   const [preferences,commands,localization]=await Promise.all([import('../src/preferences.js'),import('../src/commands.js'),import('../src/localization.js')]);
   translateText=localization.translate;
   nativeLanguages=localization.LANGUAGES;
@@ -638,7 +642,11 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   preferenceApi=preferences;commandCatalog=commands.COMMANDS;
   settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences,preferences.PREFERENCE_LIMITS);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
-  settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
+  settings=await settingsStore.load(legacySettings);
+  if (freshInstall) {
+    settings = await settingsStore.configure({ preferences: { uvDrag: { ...settings.preferences.uvDrag, zoomStyle: 'rightUp' } } });
+  }
+  if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status),
     // The small window the installer shows while MDLxL is closed for the update.
     installWindow:(mode,version)=>{const t=text=>translateText(text,settings.preferences?.language);return {title:t(mode==='revert'?'Restoring MDLxL {version}':'Installing MDLxL {version}').replace('{version}',version),detail:t('MDLxL restarts by itself when it is done. Please wait.'),undoing:t('Undoing the update…'),colors:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors,icon:path.join(__dirname,'../dist/branding/MDLxL.png'),sheet:path.join(__dirname,'../dist/update/shredder-sheet.png'),wings:path.join(__dirname,'../dist/update/shredder-wings.png')};}});
