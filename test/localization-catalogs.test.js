@@ -23,7 +23,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7779, 7789, 7684, 7915, 7915]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7784, 7794, 7689, 7920, 7920]);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
   for (const pack of [ru, es, zh, fr, de]) for (const key of [
     'Use JavaScript for this job?', 'JavaScript can speed up repeated checks.', 'Open as new model',
@@ -92,5 +92,13 @@ test('Sanity Check labels, statuses and displayed Hive diagnostic templates are 
       const expected = pack[source].replace(/\{(\d+)\}/g, (_, index) => translate(values[index], locale));
       assert.equal(translate(populated, locale), expected, `${locale}: ${source}`);
     }
+  }
+});
+
+test('the UV preview and emitter visibility controls have translated labels', () => {
+  const controls = ['Preview RGB', 'Preview RGB R', 'Reset preview RGB',
+    'Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.', 'View All Emitters'];
+  for (const locale of ['ru', 'es', 'zh', 'fr', 'de']) {
+    for (const label of controls) assert.notEqual(translate(label, locale), label, `${locale}: ${label}`);
   }
 });
