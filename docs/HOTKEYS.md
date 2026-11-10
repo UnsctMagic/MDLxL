@@ -54,6 +54,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
     - Ctrl+number opens a Settings page (in tab order).
     - Alt+letter opens a manager.
     - Digits pick a view.
+    - Shift+Space toggles Animated in the Vertex editor. The viewport freezes at the chosen sequence's first frame while vertex edits still go to the base pose.
     - Alt+digits toggle the grids.
 - **On-screen controls** (anything with `data-hotkey`) get a key from their name,
   chosen within their own window ([src/hotkey-allocation.js](../src/hotkey-allocation.js),

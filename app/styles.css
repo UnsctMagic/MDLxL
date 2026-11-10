@@ -63,6 +63,12 @@
 .classic-app .camera-angle-panel .field:nth-of-type(3)>span,.classic-app .classic-coordinates .field:nth-of-type(3)>span{color:var(--functional-axis-z)}
 .classic-view-label select[aria-label="Render mode"]{width:96px}
 .classic-view-label button{min-height:21px;height:21px;padding:1px 4px}
+.vertex-animation-control{display:inline-flex;align-items:stretch;gap:1px}
+.vertex-animation-picker{position:relative;display:grid;place-items:center;width:18px;color:var(--ui-text,inherit)}
+.vertex-animation-picker:has(select:focus-visible){outline:1px dotted currentColor;outline-offset:-2px}
+.vertex-animation-picker:has(select:disabled){opacity:.5}
+.classic-view-label .vertex-animation-picker select{position:absolute;inset:0;width:100%!important;height:100%;margin:0;opacity:0;cursor:pointer}
+.classic-view-label .vertex-animation-picker select:disabled{cursor:default}
 :root[data-theme=light] :is(.classic-keyframe-reel,.animation-preview-tools,.classic-sequence-picker,.uv-preview-title){background:var(--ui-panel)}
 
 /* High-definition, modern-retro replacements for the active classic icon set. */

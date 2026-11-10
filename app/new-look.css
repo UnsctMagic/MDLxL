@@ -125,6 +125,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.quad-workspace,.forge-editor-workspace:has(.quad-pane)) .classic-view-label{left:0!important;top:0!important;border-radius:0;box-shadow:0 1px 0 var(--m-line)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label :is(select,button){min-height:26px!important;height:26px!important;border-color:transparent!important;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label select{width:auto!important;padding-right:24px!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label .vertex-animation-picker select{width:100%!important;padding:0!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .viewport-orientation-compass{top:60px!important;left:14px!important}
 
 /* Status bar */

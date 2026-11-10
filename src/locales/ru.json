@@ -3445,6 +3445,8 @@
   "Import the whole part at its original coordinates and scale, attached to DummyBone. Source rig motion is not imported.": "Импортировать деталь целиком с исходными координатами и масштабом, привязав к DummyBone. Движение исходного скелета не импортируется.",
   "Source animation": "Анимация источника",
   "Choose animation": "Выбрать анимацию",
+  "Animated": "Анимация",
+  "Preview the first frame while editing the base pose": "Показать первый кадр, продолжая редактировать исходную позу",
   "Sample frame": "Кадр для образца",
   "Source format": "Исходный формат",
   "Import whole part": "Импортировать деталь целиком",

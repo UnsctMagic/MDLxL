@@ -1,0 +1,161 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
+(async () => {
+  const { createStarterDocument } = await import('../src/starter-model.js');
+  const { createSequence } = await import('../src/sequence-editor.js');
+  const { setKey, transformVertices } = await import('../src/editor-commands.js');
+  const { sampleNodeMatrices, skinGeoset } = await import('../src/animation.js');
+  const doc = createStarterDocument();
+  doc.apply('Animated vertex fixture', ['Sequences', 'Bones', 'Geosets', 'GeosetAnims'], model => {
+    const geo = model.Geosets[0];
+    const other = structuredClone(geo);
+    for (let i = 2; i < other.Vertices.length; i += 3) other.Vertices[i] -= 80;
+    model.Geosets.push(other);
+    createSequence(model, 350, { name: 'Attack' });
+    model.Sequences[0].Interval.set([100, 450]);
+    createSequence(model, 250, { name: 'Stand', gap: 250 });
+    const bone = model.Bones[0];
+    setKey(bone, 'Rotation', 100, [0, 0, Math.SQRT1_2, Math.SQRT1_2]);
+    setKey(bone, 'Translation', 100, [12, -6, 0]);
+    setKey(bone, 'Translation', 450, [45, 19, 0]);
+    setKey(bone, 'Translation', 700, [-24, 17, 0]);
+    setKey(bone, 'Translation', 950, [11, 34, 0]);
+    const anim = { GeosetId: 1, Flags: 0, Color: new Float32Array([1, 1, 1]) };
+    setKey(anim, 'Alpha', 100, [0]);
+    setKey(anim, 'Alpha', 450, [1]);
+    setKey(anim, 'Alpha', 700, [1]);
+    model.GeosetAnims.push(anim);
+  });
+  const out = path.resolve('out/vertex-animated-preview');
+  fs.mkdirSync(out, { recursive: true });
+  const fixture = path.join(out, 'animated-preview.mdx');
+  fs.writeFileSync(fixture, doc.serialize('mdx'));
+  const { app, page, errors } = await launchApp({ fixture, out, show: 'inactive', bounds: { x: -3000, y: 0, width: 1280, height: 920 },
+    args: ['--disable-gpu-vsync', '--disable-frame-rate-limit'],
+    settings: { preferences: { language: 'en', graphics: { pauseWhenHidden: false } } } });
+  try {
+    await page.evaluate(() => {
+      window.vertexPreviewRuntime = () => findFiberState(document.querySelector('[aria-label="3D model viewport"]'), value => value?.renderer && value?.entries, { current: true });
+    });
+    const host = page.getByLabel('3D model viewport', { exact: true });
+    const button = page.getByRole('button', { name: 'Animated', exact: true });
+    const picker = page.getByLabel('Choose animation', { exact: true });
+    const inspect = () => page.evaluate(() => {
+      const state = vertexPreviewRuntime(), entry = state.entries[0];
+      return {
+        vertices: Array.from(entry.geoset.Vertices), drawn: Array.from(entry.geometry.attributes.position.array),
+        selection: Array.from(entry.selectedPoints.geometry.index?.array || []),
+        camera: state.camera.quaternion.toArray(), target: state.controls.target.toArray(), zoom: state.camera.zoom,
+        tracks: JSON.stringify(state.geometrySource.model.Bones),
+        visibility: state.entries[1].group.visible,
+        drag: state.drag?.payload || null
+      };
+    });
+    const painted = (sequence, frame) => page.waitForFunction(([sequence, frame]) => {
+      const state = vertexPreviewRuntime();
+      return state?.sampledSequence === sequence && state.sampledFrame === frame && state.entries.length === 2;
+    }, [sequence, frame], { polling: 16 });
+    const closeArray = (actual, expected, label) => {
+      assert.equal(actual.length, expected.length, label);
+      actual.forEach((value, index) => assert.ok(Math.abs(value - expected[index]) < .0002, label + ' at component ' + index));
+    };
+    const expectedPose = (vertices, sequence) => {
+      const frame = doc.model.Sequences[sequence].Interval[0];
+      return skinGeoset({ ...doc.model.Geosets[0], Vertices: vertices }, sampleNodeMatrices(doc.model, frame, sequence));
+    };
+    await button.waitFor();
+    await painted(-1, 0);
+    await page.getByLabel('View direction', { exact: true }).selectOption('top');
+    await page.getByLabel('XY workplane', { exact: true }).check();
+    await host.focus();
+    assert.equal(await button.getAttribute('aria-pressed'), 'false');
+    assert.equal(await picker.inputValue(), '0');
+    assert.ok((await picker.boundingBox()).width <= 20, 'only the arrow-sized picker receives clicks');
+    const rest = await inspect();
+    const switchTimes = [];
+    for (let i = 0; i < 10; i++) {
+      const animated = i % 2 === 0, start = Date.now();
+      await page.keyboard.press('Shift+Space');
+      await painted(animated ? 0 : -1, animated ? 100 : 0);
+      switchTimes.push(Date.now() - start);
+      assert.equal(await button.getAttribute('aria-pressed'), String(animated));
+    }
+    assert.ok(switchTimes.every(ms => ms < 1000), 'each switch responds within a second: ' + switchTimes);
+    console.log('Ten consecutive hotkey switches, worst key-to-render ' + Math.max(...switchTimes) + ' ms');
+    assert.deepEqual(await inspect(), rest, 'switches leave the model, camera, zoom and selection alone');
+    await button.click();
+    await painted(0, 100);
+    const first = await inspect();
+    assert.equal(first.visibility, false, 'sample first-frame geoset alpha');
+    closeArray(first.drawn, expectedPose(first.vertices, 0), 'first sequence is frozen at its start');
+    await page.waitForTimeout(160);
+    assert.deepEqual(await inspect(), first, 'the first frame stays frozen');
+
+    const screenVertex = index => page.evaluate(index => {
+      const state = vertexPreviewRuntime(), entry = state.entries[0], rect = state.controls.domElement.getBoundingClientRect();
+      const at = state.controls.target.clone().fromBufferAttribute(entry.geometry.attributes.position, index).project(state.camera);
+      return { x: rect.left + (at.x + 1) * rect.width / 2, y: rect.top + (1 - at.y) * rect.height / 2 };
+    }, index);
+    await page.keyboard.press('a');
+    const start = await screenVertex(0);
+    await page.mouse.click(start.x, start.y);
+    await page.waitForFunction(() => vertexPreviewRuntime().entries[0].selectedPoints.geometry.index?.count === 1);
+    assert.deepEqual((await inspect()).selection, [0], 'pick the displaced vertex by its displayed position');
+    await page.keyboard.press('m');
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 18, start.y + 5, { steps: 4 });
+    await page.waitForFunction(() => vertexPreviewRuntime().drag?.payload?.translation?.some(value => Math.abs(value) > .01));
+    const live = await inspect();
+    assert.deepEqual(live.vertices, rest.vertices, 'live drag leaves the authored model alone until release');
+    const expected = structuredClone(doc.model.Geosets[0]);
+    transformVertices(expected, [0], live.drag.translation, [1, 1, 1], [0, 0, 0], live.drag.pivot);
+    closeArray(live.drawn, expectedPose(expected.Vertices, 0), 'live preview skins the edited base vertex');
+    await page.mouse.up();
+    await page.waitForFunction(() => !vertexPreviewRuntime().drag && vertexPreviewRuntime().entries[0].geoset.Vertices[0] !== -32);
+    const committed = await inspect();
+    closeArray(committed.vertices, expected.Vertices, 'release writes only the base edit');
+    closeArray(committed.drawn, live.drawn, 'release keeps the displayed result');
+    assert.equal(committed.tracks, rest.tracks, 'bone tracks stay intact');
+    assert.deepEqual(committed.selection, [0]);
+
+    await picker.click();
+    await page.waitForFunction(() => document.querySelector('.vertex-animation-picker select').matches(':open'));
+    await page.keyboard.press('Escape');
+    await picker.press('ArrowDown');
+    await painted(1, 700);
+    const second = await inspect();
+    assert.equal(second.visibility, true);
+    closeArray(second.drawn, expectedPose(second.vertices, 1), 'picker shows the other sequence at its first frame');
+    await page.keyboard.press('Shift+Space');
+    await painted(-1, 0);
+    closeArray((await inspect()).drawn, committed.vertices, 'base view shows the committed edit');
+    await page.keyboard.press('Shift+Space');
+    await painted(1, 700);
+
+    const rect = await host.boundingBox();
+    await page.keyboard.down('Alt');
+    await page.mouse.move(rect.x + rect.width * .6, rect.y + rect.height * .5);
+    await page.mouse.down();
+    await page.mouse.move(rect.x + rect.width * .6 + 40, rect.y + rect.height * .5 + 20, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up('Alt');
+    await page.waitForFunction(old => vertexPreviewRuntime().camera.quaternion.toArray().some((value, index) => Math.abs(value - old[index]) > .00001), second.camera);
+    await page.getByRole('button', { name: 'Quad View', exact: true }).click();
+    await page.locator('[data-viewport="top"]').waitFor();
+    await page.keyboard.press('Shift+Space');
+    await painted(-1, 0);
+    await page.keyboard.press('Shift+Space');
+    await painted(1, 700);
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction(() => vertexPreviewRuntime().entries[0].geoset.Vertices[0] === -32);
+    const undone = await inspect();
+    assert.deepEqual(undone.vertices, rest.vertices);
+    closeArray(undone.drawn, expectedPose(undone.vertices, 1), 'undo refreshes the frozen preview');
+    assert.deepEqual(errors, []);
+    console.log('PASS frozen first frames, vertex picking, live base-pose edits, undo, mouse orbit and quad switching');
+  } finally { await closeApp(app); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
