@@ -742,7 +742,7 @@ function serializationStringIssues(model, format, keys) {
 
 export function validateModel(model, { numericSections = null, previousDiagnostics = [] } = {}) {
   const diagnostics = [];
-  const add = (severity, code, message, path) => diagnostics.push({ severity, code, message, path });
+  const add = (severity, code, message, path, details) => diagnostics.push({ severity, code, message, path, ...details });
   if (!model) return [{ severity: 'error', code: 'NO_MODEL', message: 'No model is loaded.' }];
   const nodes = nodeCollections(model), ids = new Map();
   for (const node of nodes) {
@@ -837,8 +837,11 @@ export function validateModel(model, { numericSections = null, previousDiagnosti
       let previous = -Infinity;
       const property = valuePath.at(-1);
       const width = property === 'Rotation' ? (valuePath.includes('Cameras') ? 1 : 4) : ['Translation', 'Scaling', 'Color', 'AmbColor', 'FresnelColor', 'TargetTranslation'].includes(property) ? 3 : 1;
-      for (const key of value.Keys) {
-        if (!Number.isInteger(key.Frame) || key.Frame < -2147483648 || key.Frame > 2147483647 || key.Frame < previous) add('error', 'KEYFRAME_ORDER', `${path} keyframes must use signed 32-bit integer frames in increasing order.`, path);
+      for (let index = 0; index < value.Keys.length; index++) {
+        const key = value.Keys[index];
+        if (!Number.isInteger(key.Frame) || key.Frame < -2147483648 || key.Frame > 2147483647 || key.Frame < previous)
+          add('error', 'KEYFRAME_ORDER', `${path} keyframes must use signed 32-bit integer frames in increasing order.`, path,
+            { frameOrder: { index, frame: key.Frame, previous } });
         previous = key.Frame;
         if (!key.Vector?.length) add('error', 'KEYFRAME_VECTOR', `${path} has a keyframe without a value.`, path);
         else if (key.Vector.length !== width) add('error', 'KEYFRAME_DIMENSIONS', `${path} keyframes need ${width} values.`, path);

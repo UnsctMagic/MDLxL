@@ -1096,6 +1096,8 @@ class AiService {
           task.status = 'complete';
           task.phase = review.changed ? 'verified' : 'complete';
           task.summary = review.summary || '';
+          if (review.preExistingErrors)
+            recorder.event({ type: 'text', text: '\n\nWarning: Pre-existing model errors remain.' });
           delete task.baseline;
           delete task.images;
           await this.persistConversation(conversation);

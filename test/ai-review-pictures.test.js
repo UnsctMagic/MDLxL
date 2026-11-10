@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations } from '../app/ai-review.js';
 import { createChanges } from '../src/history-store.js';
+import { validateModel } from '../src/editor-document.js';
 import { compareMotion } from '../src/ai-motion-compare.js';
 import { encodeAiValue } from '../src/ai-model.js';
 import { createVersionStore } from '../src/ai-versions.js';
@@ -282,4 +283,46 @@ test('explicit owner acceptance uses the same review completion path after a blo
   assert.equal(result.phase, 'verified');
   assert.match(result.summary, /Owner accepted/);
   assert.equal(target.review.acceptedByUser, true);
+});
+
+test('review warns about inherited model errors and blocks additional or worse errors', async () => {
+  const scenarios = [
+    { name: 'unchanged', before: [0, 300, 250, 400], after: [0, 300, 250, 400], warnings: 1, errors: 0 },
+    { name: 'repaired', before: [0, 300, 250, 400], after: [0, 250, 300, 400], warnings: 0, errors: 0 },
+    { name: 'improved', before: [0, 300, 250, 400], after: [0, 300, 275, 400], warnings: 1, errors: 0 },
+    { name: 'introduced', before: [0, 250, 300, 400], after: [0, 300, 250, 400], warnings: 0, errors: 1 },
+    { name: 'another on the same track', before: [0, 300, 250, 400], after: [0, 300, 250, 200], warnings: 1, errors: 1 },
+    { name: 'larger backwards step', before: [0, 300, 250, 400], after: [0, 300, 150, 400], warnings: 0, errors: 1 },
+    { name: 'new error replaces one fixed on the same track', before: [0, 300, 250, 400], after: [0, 250, 300, 275], warnings: 0, errors: 1 },
+  ];
+  for (const { name, before, after, warnings, errors } of scenarios) {
+    const { bridge, target, sessions } = editor();
+    const doc = sessions[0].doc;
+    doc.model.Bones[0].Translation.Keys = before.map(frame => key(frame, 0));
+    await beginAiReview(bridge, 't');
+    doc.model.Geosets[0].Vertices[3] = 11;
+    doc.model.Bones[0].Translation.Keys = after.map(frame => key(frame, 0));
+    doc.revision++;
+    // This test exercises the structural gate without requiring motion rendering.
+    target.review.changed = true;
+    const diagnostics = validateModel(doc.model).filter(d => d.code === 'KEYFRAME_ORDER');
+    bridge.dispatch = async () => ({ results: ['mdx', 'mdl'].map(format => ({ format, diagnostics })) });
+    bridge.versionStore.save(target.documentId, 'visual reference', unit(after.map(frame => key(frame, 0))));
+    const { review } = await inspect(bridge, { baseline: 'visual reference' });
+
+    assert.equal(review.checks[0].passed, true, name);
+    assert.equal(review.passed, errors === 0, name);
+    for (const result of review.validation.results) {
+      assert.equal(result.diagnostics.filter(d => d.preExisting && d.severity === 'warning').length, warnings, name);
+      assert.equal(result.diagnostics.filter(d => d.severity === 'error').length, errors, name);
+    }
+
+    const finish = () => reviewAiModel(bridge, { target: 't', action: 'finish', outcome: 'passed', summary: 'Checked the edit.' }, {});
+    if (errors) await assert.rejects(finish, /Inspect and pass/, name);
+    else {
+      const finished = await finish();
+      assert.equal(finished.phase, 'verified', name);
+      assert.equal(!!finished.preExistingErrors, warnings > 0, name);
+    }
+  }
 });
