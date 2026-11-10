@@ -300,7 +300,8 @@ export default function App() {
   };
   function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
-  const showAxes = !cleanView && !cleanAnimationPreview && Object.values(preferences.grid.axes).some(Boolean);
+  const axesEnabled = Object.values(preferences.grid.axes).some(Boolean);
+  const showAxes = !cleanView && !cleanAnimationPreview && axesEnabled;
   const showGrid = overlays.grid, setShowGrid = value => changeOverlay('grid', value), showVertices = overlays.vertices, setShowVertices = value => changeOverlay('vertices', value);
   const portraitOverlays = { ...panelOverlays, grid: false, cameras: false };
   const [liveUV, setLiveUV] = useState(null), [saving, setSaving] = useState(false);
@@ -1604,7 +1605,7 @@ export default function App() {
   useEffect(() => {aiBridge.editorChanged();});
 
 
-  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
+  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
   useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,surfaceEffectsEnabled:commandEnabled('surfaceEffects'),uvEnabled:commandEnabled('uv'),toolbarMode:preferences.toolbarMode,language:preferences.language,disabledCommands:['forge','bitsAndParts','optimizeModel','paint','autoCorpse','convertVersion','ai:open'].filter(id=>!commandEnabled(id))});},[doc.readOnly,saving,displayMode,mode,model.Geosets.length,model.Version,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset,preferences.toolbarMode,preferences.language,!!dialog,!!settingsTab]);
   // The first time the toolbar goes away, by any route, say how to bring it back.
   useEffect(() => {
