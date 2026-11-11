@@ -319,6 +319,7 @@ export default function Viewport({ children, ...inputProps }) {
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(); raycaster.layers.enable(MODEL_LAYER);
     let down = null, editClicks = 0, partHover = null;
     function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height, shift: !!event.shiftKey }; }
+    const partSnap = event => dragKeys(event, 'translate', latest.current.preferences).shiftKey;
     function clearHoveredGeoset() {
       if (state.hoveredGeoset === null) return;
       state.hoveredGeoset = null; latest.current.onHoverGeoset?.(null);
@@ -440,7 +441,10 @@ export default function Viewport({ children, ...inputProps }) {
       // camera navigation only, so no edit can target the wrong vertices.
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
-      if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
+      if (p.onStartPartDrag) {
+        down.action = 'parts'; start.shift = partSnap(event);
+        down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return;
+      }
       const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const previewFrame = p.vertexPreviewSequence != null ? p.vertexPreviewFrame : undefined;
@@ -563,13 +567,13 @@ export default function Viewport({ children, ...inputProps }) {
         // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
         const orbitHeld = modifierHeld(event, 'view.orbit', latest.current.preferences);
         if (sketch.tool && altHover !== orbitHeld) { altHover = orbitHeld; invalidate(); }
-        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
+        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: partSnap(event), altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
         hoverFrame.schedule(); return;
       }
       if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
-      if (down.action === 'parts') { down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
+      if (down.action === 'parts') { end.shift=partSnap(event); down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') { anchorMove = { down, rawEnd }; anchorFrame.schedule(); return; }
       if (down.action === 'zoom') {
@@ -831,12 +835,19 @@ export default function Viewport({ children, ...inputProps }) {
         const redraw = last && (['translate', 'rotate'].includes(kind) && keys.shiftKey !== last.shiftKey || (kind === 'scale' || held.rotationDrag?.snap) && keys.ctrlKey !== last.ctrlKey);
         if (redraw) { transformMove = {...last, ...keys}; transformFrame.schedule(); invalidate(); }
       }
-      if(event.key==='Shift') {
-        const shift=event.type==='keydown';
-        // A frame still waiting from the last move carries the old Shift; replace it now.
-        if(down?.action==='parts'&&down.traveled){partsFrame.cancel();partsMove=null;down.parts?.update({...down.partsEnd,shift});}
-        else if(!down&&hoverMove){hoverMove.event.shiftKey=shift;hoverFrame.flush();}
-        else if(!down&&partHover)latest.current.onHoverParts?.({...partHover,end:{...partHover.end,shift}});
+      if (isModifierKey(event.key)) {
+        const shift = partSnap(event);
+        // A frame waiting from the last move carries the previous lock key state.
+        if (down?.action === 'parts' && down.traveled && down.partsEnd.shift !== shift) {
+          partsFrame.cancel(); partsMove = null;
+          down.partsEnd = { ...down.partsEnd, shift };
+          down.parts?.update(down.partsEnd);
+        } else if (!down && hoverMove && hoverMove.event.shiftKey !== shift) {
+          hoverMove.event.shiftKey = shift; hoverFrame.flush();
+        } else if (!down && !hoverMove && partHover && partHover.end.shift !== shift) {
+          partHover = { ...partHover, end: { ...partHover.end, shift } };
+          latest.current.onHoverParts?.(partHover);
+        }
       }
       if (!quad) return;
       if (event.key === 'Escape' && event.type === 'keydown' && down) { cancelGesture(); event.preventDefault(); event.stopPropagation(); }
