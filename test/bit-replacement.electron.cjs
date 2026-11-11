@@ -101,6 +101,12 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       }
       await dialog.waitFor({ state: 'detached', timeout: 15000 });
       await replaceAction.getByRole('button', { name: 'Commit' }).waitFor();
+      const controls = await replaceAction.boundingBox();
+      const front = await page.locator('[data-viewport="front"]').boundingBox();
+      const top = await page.locator('[data-viewport="top"]').boundingBox();
+      const gap = front.y + front.height - (controls.y + controls.height);
+      assert.ok(Math.abs(controls.x + controls.width / 2 - top.x) <= 2 && gap >= 3 && gap <= 10,
+        'replacement controls are centered just above the Quad View divider');
       await editChannel('G', 128);
       await page.keyboard.press('Enter');
       await page.waitForFunction(index => {

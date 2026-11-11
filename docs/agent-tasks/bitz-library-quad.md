@@ -14,8 +14,8 @@ Base: `171b8bb9`
 - Select target vertices and open BITZ. Choose **Replace Part** and click a
   Bit, or click **Replace Part** with a Bit already selected. The vertex
   editor opens directly in Quad View with Move active and the Bit at its own
-  size on the target. The replacement bar exposes RGB for the selected
-  geosets. **Commit** installs the edited result as one model undo step.
+  size on the target. The controls are centered just above the Quad View
+  divider, with RGB for the selected geosets. **Commit** installs the edited result as one model undo step.
   **Cancel** restores the original document and view mode.
 
 The focused source tests failed on the baseline because custom RGB was
@@ -31,4 +31,6 @@ Bit left the picker open. The revised package passed both click orders, live
 RGB in Quad View, and the existing Commit and Cancel checks. All 52 focused
 source checks passed on the revision. Warcraft III gameplay and the OS
 recycle-bin integration were not exercised. The owner test copy retains its
-existing Bitz folder and profile.
+existing Bitz folder and profile. The placement assertion failed on the
+top-bar build and passed on the centered layout. All 18 focused Quad View
+and viewport checks passed for the placement change.
