@@ -494,9 +494,10 @@ onto `claude/bone-namer`. Evidence folders are in `.claude\worktrees\bone-namer-
   reading once a body/chest has its real name), HEAD-TRACKED 7 (main's pose-ik.js:164,
   fixed on the POSE branch), GAINED 298, RETYPED 4, CASE-DUPLICATE 8. 10,632 of 53,490
   bones renamed. Identity stub 0 differences; sabotage stub fails.
-- Same gate on POSE branch `8f336192` (unmerged): Lord of Change passes since round 3;
-  only zergling ×2 fails (Body on `Bone Root L/R`), owned by the POSE side, which is
-  reworking it with Bone Namer's full rename map.
+- Same gate on the POSE branch `claude/pose-renamed-fixes` at `e96ae092` (unmerged;
+  zergling fix by the POSE side on top of `88aef3e1`): 0 of 941 failing, STABILITY 0,
+  GRIP 0. Lord of Change passes since round 3. Summary kept in the QA worktree's
+  `out/bone-namer-corpus/878925eb-posee96a-summary.md`.
 - Packaged workflow `test/bone-namer.electron.cjs` (hidden desktop, real mouse/keys):
   68/68; `test/attachemator.electron.cjs` passes. Covers button, list, part/side
   corrections and renumbering, labels, preview selection, camera drag and
@@ -508,8 +509,9 @@ onto `claude/bone-namer`. Evidence folders are in `.claude\worktrees\bone-namer-
 
 ## Blockers and next action
 
-- None for Bone Namer on main's POSE. Ready for the owner's hand test.
-- When the POSE branch lands a zergling fix, rerun the gate on it
-  (temporary worktree `.claude\worktrees\bn-pose88`, detached; remove after).
+- None. Passes on main's POSE and on the POSE branch `e96ae092`. Ready for the
+  owner's hand test.
+- If the POSE branch changes again before both merge, rerun
+  `node scripts/bone-namer-corpus.mjs` with this namer on that revision.
 - On approved merge: mark completed with its revision and remove the README row;
-  delete `TestBuilds\bone-namer`, the `bone-namer-qa` and `bn-pose88` worktrees.
+  delete `TestBuilds\bone-namer` and the `bone-namer-qa` worktree.
