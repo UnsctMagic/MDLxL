@@ -23,7 +23,7 @@ import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { decodePaintBlp } from '../src/paint-blp.js';
 import { allNodes, sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
-import { modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { dragKeys, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
 import { holdGestureKey, onMousePressLost, PAINT_STROKE_ACTIONS } from './gesture-keys.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
@@ -125,7 +125,7 @@ export default function PaintViewport(inputProps) {
     const cameraChanged=()=>{latest.current.onPaintCameraChange?.();invalidate();};
     controls.addEventListener('change', cameraChanged);
     const unbindScroll = bindScrollSensitivity(renderer.domElement, scrollSensitivityCallbacks(latest, {
-      // Alt + middle pans in Paint, so the camera-mode toggle leaves it alone.
+      // The orbit modifier + middle pans, so the camera-mode toggle leaves it alone.
       altMiddleFree: true,
       onIndicator: setAdjustingSensitivity,
       // A Wisp left-button wheel gesture is a settings gesture, never a select or transform.
@@ -204,8 +204,8 @@ export default function PaintViewport(inputProps) {
     function cameraAction(event) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
-      // Alt + middle pans and Alt + right zooms, the way 3D painting tools navigate.
-      if (p.paintMode && event.altKey && (event.button === 2 || event.button === 1)) return event.button === 1 ? 'move' : 'zoom';
+      // The orbit modifier also pans and zooms with the middle and right buttons.
+      if (p.paintMode && modifierHeld(event, 'view.orbit', p.preferences) && (event.button === 2 || event.button === 1)) return event.button === 1 ? 'move' : 'zoom';
       if (event.button === 2 || event.button === 1) { const action = event.button === 2 ? binding.right : binding.middle; return action === 'pan' ? 'move' : action; }
       if (modifierHeld(event, 'view.orbit', p.preferences)) return 'rotate';
       return p.cameraMode;
@@ -245,12 +245,16 @@ export default function PaintViewport(inputProps) {
       state.refreshCursor();
       controls.enabled = true;
       applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work' });
-      if (latest.current.paintMode && event.altKey && event.button) { controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN; controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY; }
+      if (latest.current.paintMode && event.button && modifierHeld(event, 'view.orbit', latest.current.preferences)) {
+        // OrbitControls swaps pan and rotate while Shift, Ctrl or Meta is held.
+        controls.mouseButtons.MIDDLE = event.shiftKey || event.ctrlKey || event.metaKey ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY;
+      }
       if (action === 'move' || action === 'rotate') return;
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
       const p = latest.current, start = point(event);
-      down = { ...start, pointerId: event.pointerId, ...selectionKeys(event, p.preferences), lampFine: event.shiftKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
+      down = { ...start, pointerId: event.pointerId, ...selectionKeys(event, p.preferences), lampFine: dragKeys(event, 'rotate', p.preferences).shiftKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; renderer.domElement.setPointerCapture(event.pointerId);
       if (action === 'zoom') { down.zoomFactor = 1; return; }
       if(p.paintMode&&p.paintSelectOnly&&!p.paintLampPickingDisabled){
@@ -270,17 +274,29 @@ export default function PaintViewport(inputProps) {
       }
       down.action = 'select';
     }
-    // Lamp drags and face sweeps update Paint and the app once per frame. A sweep
+    // Brush and lamp drags and face sweeps update Paint once per frame. A sweep
     // still raycasts every recorded point, so a fast drag skips no face.
     const dragFrame = createFrameCoalescer(applyDrag, { request: callback => state.scheduler.frames.request(callback), cancel: id => state.scheduler?.frames.cancel(id) });
     function applyDrag() {
       if (!down) return;
+      if (down.action === 'brushAdjust' && down.pendingBrush) {
+        latest.current.onBrushAdjust?.(down.pendingBrush);
+        down.pendingBrush = null;
+        if (paintCursor.current) Object.assign(paintCursor.current.style, { display: 'block', left: down.x + 'px', top: down.y + 'px', width: latest.current.paintBrushSize + 'px', height: latest.current.paintBrushSize + 'px' });
+        return;
+      }
       if(down.action==='paintLamp'&&down.pendingLamp){const {dx,dy,width,height}=down.pendingLamp;down.pendingLamp=null;latest.current.onPaintLampChange?.(down.lamp.id,paintLampDrag(down.lamp,dx,dy,camera,width,height,down.lampMode,down.lampFine?(latest.current.preferences?.fineSensitivity??.2):1));invalidate();return;}
       if(down.action==='paintPick'&&down.pendingPicks?.length){const hits=down.pendingPicks.map(sample=>paintHit(sample)).filter(Boolean);down.pendingPicks=[];if(hits.length)latest.current.onPaintPick?.({...hits.at(-1),continueSelection:true,sweep:hits});}
     }
     /** The brush outline hides while a key says this press will not paint. */
     function paintKeyHeld(event) { const preferences = latest.current.preferences; return ['view.orbit', 'select.add', 'select.remove'].some(id => modifierHeld(event, id, preferences)); }
     function pointerMove(event) {
+      if (down?.action === 'brushAdjust') {
+        const cursor = point(event);
+        down.pendingBrush = { dx: cursor.x - down.x, dy: cursor.y - down.y };
+        dragFrame.schedule();
+        return;
+      }
       if (latest.current.paintMode && paintCursor.current) {
         const cursor = point(event), decal=latest.current.paintDecal, width=decal?.width||Math.max(1,Number(latest.current.paintBrushSize)||1),height=decal?.height||width;
         Object.assign(paintCursor.current.style, { display: latest.current.paintSelectOnly || latest.current.paintDisabled || latest.current.cameraMode!=='work' || event.buttons>1 || paintKeyHeld(event) ? 'none' : 'block', left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${width}px`, height: `${height}px`,transform:`translate(-50%,-50%) rotate(${decal?.angle||0}deg)` });
@@ -296,11 +312,6 @@ export default function PaintViewport(inputProps) {
       // needs screen coordinates only, not another full-model raycast.
       if (down.action === 'paint') {
         if (down.paintHit) { const samples = event.getCoalescedEvents?.(); for (const sample of samples?.length ? samples : [event]) { const at = point(sample); latest.current.onPaintMove?.({ screen: { x: at.x, y: at.y, pressure: penPressure(sample) } }); } }
-        return;
-      }
-      if (down.action === 'brushAdjust') {
-        latest.current.onBrushAdjust?.({ dx: rawEnd.x - down.x, dy: rawEnd.y - down.y });
-        if (paintCursor.current) Object.assign(paintCursor.current.style, { display: 'block', left: down.x + 'px', top: down.y + 'px', width: latest.current.paintBrushSize + 'px', height: latest.current.paintBrushSize + 'px' });
         return;
       }
       if(down.action==='paintLamp'){down.pendingLamp={dx,dy,width:rawEnd.width,height:rawEnd.height};dragFrame.schedule();return;}
@@ -376,6 +387,10 @@ export default function PaintViewport(inputProps) {
       dragFrame.cancel();
       if(latest.current.paintWorkspace)latest.current.onPaintInteractionChange?.(false);
       if(down?.action==='paintLamp')latest.current.onPaintLampChange?.(down.lamp.id,{position:down.lamp.position,target:down.lamp.target});
+      if (down?.action === 'brushAdjust') {
+        latest.current.onBrushAdjust?.({ cancel: true });
+        if (paintCursor.current) paintCursor.current.style.display = 'none';
+      }
       rotating = false; latest.current.onCameraGestureChange?.(false);
       if (down?.action === 'paint') latest.current.onPaintCancel?.();
       down = null; setBox(null); controls.enabled = true; state.dirty = true; invalidate();
@@ -395,7 +410,10 @@ export default function PaintViewport(inputProps) {
       invalidate();
     };
     const contextMenu = event => event.preventDefault();
-    const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_ACTIONS) });
+    const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => {
+      if (claim.detail.event.key === 'Escape' && down?.action === 'brushAdjust') { cancelGesture(); return true; }
+      return holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_ACTIONS);
+    } });
     window.addEventListener('mdlxl-window-key', claimStrokeKey);
     const stopPressLost = onMousePressLost(() => { if (down) cancelGesture(); });
     const paintDragOver=event=>{if(latest.current.paintDecal&&!latest.current.paintDisabled)event.preventDefault();};
@@ -601,6 +619,7 @@ export default function PaintViewport(inputProps) {
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
     return () => {
+      if (down?.action === 'brushAdjust') cancelGesture();
       cameraMemory.current = { view: state.appliedView, ...snapshotPreviewCamera(camera, perspective, ortho, controls), center: state.center.clone(), radius: state.radius };
       state.paintOutline?.geometry.dispose(); state.paintOutline?.material.dispose();
       state.paintRegion?.geometry.dispose();state.paintRegion?.material.dispose();state.partColors?.geometry.dispose();state.partColors?.material.dispose();
