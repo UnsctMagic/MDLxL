@@ -4,6 +4,7 @@ import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
+import {cardSpec,cardSize} from './fx-cards.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
@@ -135,6 +136,7 @@ export const LAYER_CHOICES=[
  ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
  powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,FEL_EDGE,...CLAUDE_EMITTERS,
+ cardSpec('Card',texture('GenericGlow64')),
 ];
 // The compact menu can start any ingredient independently of its original preset.
 for(const look of GLOBAL_LOOKS){
@@ -262,6 +264,12 @@ export function surfaceControls(l,canTile){
 }
 export function makeLayer(spec,frame,palette,id) {
  const basis=layerBasis(frame),{length}=basis;
+ if(spec.type==='Card'){
+  // Cards keep only their own fields; everything not given uses CARD_DEFAULTS when compiled.
+  const defaultTint=spec.tint??tintFromHex(surfacePalette({palette})[0][1]);
+  const {starts:_starts,...saved}=structuredClone(spec);
+  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:spec.offset?[...spec.offset]:[0,0,0],count:spec.count??1,size:spec.size??cardSize(basis)};
+ }
  const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
  const {starts:_starts,...saved}=structuredClone(spec);

@@ -12,6 +12,7 @@ import {ribbonQuickValues} from '../src/ribbon-quick.js';
 import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
+import {CARD_DEFAULTS,CARD_FACINGS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
@@ -22,7 +23,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const setLayer=next=>setStack({...stack,layers:stack.layers.map(v=>v.id===next.id?next:v)});
  const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}setLayer(key==='size'?withLayerSize(l,next):next);};
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
- const result=graph?.layers?.[l?.id],p=l?.type==='Particles',edge=l?.type==='Edge',fly=l?.kind==='flies';
+ const result=graph?.layers?.[l?.id],p=l?.type==='Particles',edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card';
  const real=result?.id!=null?graph.model.Nodes[result.id]:null;
  const surface=graph?.model.Geosets[result?.geoset];
  const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
@@ -42,7 +43,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const areaChanged=!!area&&(!!l.uvMatrix||(l.nativeSurface?!!l.atlasRect:!!startArea&&area.join()!==startArea.join()));
  // A saved rhythm id outside the list shows under the layer's own name; a native card without one keeps its own.
  const rhythm=l?.pulse??(l?.nativeSurface?'':l?.type==='Glow'||l?.glyphs?'breathe':'steady');
- const withRhythm=id=>{const next={...l,pulse:id};if(id==='')delete next.pulse;if(layerMoves(l)&&!layerMoves(next))next.fixed=false;return next;};
+ const withRhythm=id=>{const next={...l,pulse:id};if(id==='')delete next.pulse;if(!card&&layerMoves(l)&&!layerMoves(next))next.fixed=false;return next;};
  const runeRepeats=useMemo(()=>l?.glyphs&&surface?glyphIslands(surface)[0]?.repeats??1:1,[l?.glyphs,surface]);
  const resetArea=()=>{const next={...l};delete next.uvMatrix;if(l.nativeSurface||!startArea)delete next.atlasRect;else next.atlasRect=[...startArea];setLayer(next);};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
@@ -66,7 +67,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  // Picking an emitter only previews it; Add keeps it as a layer.
  const tryEmitter=label=>{const choice=additions.find(s=>s.label===label);setTrial(choice&&frame?{label,layer:makeLayer(choice.spec,frame,look.palette,0)}:null);};
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
- const positional=p||edge||l?.ground;
+ const positional=p||edge||l?.ground||card;
+ const cardValue=key=>l[key]??CARD_DEFAULTS[key];
  const timingOptions={frame:stack.hit,interval:graph?.model.Sequences[stack.sequence]?.Interval,globalSequences:graph?.model.GlobalSequences};
  const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined};};
  const nativeChange=value=>{if(gesture.current)gesture.current.value=value;};
@@ -92,7 +94,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   }}><option value="">Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</select>}
   {!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
   {!edge&&!l.stamp&&<ColourControl hint={translate('Changes the colour of {0}.').replace('{0}',translate(l.label).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
-  {surf&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
+  {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
@@ -120,7 +122,11 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
    {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
-  {surf&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><select aria-label="Rhythm" value={rhythm} onChange={e=>setLayer(withRhythm(e.target.value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,'Built-in']]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
+  {card&&<>
+   <label className="field" title="Which way the card faces: the camera, the ground, or fixed to the part."><span>Facing</span><select aria-label="Facing" value={cardValue('facing')} onChange={e=>update('facing',e.target.value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part'}[id]}</option>)}</select></label>
+   {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}
+  </>}
+  {(surf||card)&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><select aria-label="Rhythm" value={rhythm} onChange={e=>setLayer(withRhythm(e.target.value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,'Built-in']]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={blend??''} onChange={e=>setLayer(withBlend(l,Number(e.target.value)))}>{blend==null&&<option value=""/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<>
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
@@ -142,6 +148,16 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    <RangeField key={l.id+'inflate'} title="Distance of this layer above the surface." label="Lift" output={v=>v.toFixed(2)} min={0} max={1} step={.01} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length." title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
+   <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
+  </>}</details>}
+  {card&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+   {[['Smallest size','sizeMin',.1,2,.01,v=>Math.round(v*100)+'%','Size at the small point of the pulse, as a share of the card size.'],['Largest size','sizeMax',.1,2,.01,v=>Math.round(v*100)+'%','Size at the large point of the pulse, as a share of the card size.'],['Spin','spin',-8,8,.25,v=>v.toFixed(2),'Turns per loop. Negative turns the other way.'],['Jitter','jitter',0,180,1,v=>Math.round(v)+'°','Fast random turns, in degrees.']].map(([label,key,min,max,step,output,tip])=>
+    <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={cardValue(key)} onCommit={v=>{const next={...l,[key]:v};if(key==='sizeMin'&&v>cardValue('sizeMax'))next.sizeMax=v;if(key==='sizeMax'&&v<cardValue('sizeMin'))next.sizeMin=v;setLayer(next);}}/>)}
+   <label title="Turns faster and slower within each turn."><input type="checkbox" checked={cardValue('spinEased')!==false} onChange={e=>update('spinEased',e.target.checked)}/>Eased spin</label>
+   {[['Rows','rows',1,16,1,'Rows of cells in the picture.'],['Columns','columns',1,16,1,'Columns of cells in the picture.'],['Frame time (ms)','frameMs',0,1000,10,'Milliseconds per cell. 0 shows one cell.'],['Cell','cell',0,Math.max(0,cardValue('rows')*cardValue('columns')-1),1,'The cell shown when Frame time is 0.']].map(([label,key,min,max,step,tip])=>
+    <div key={key} title={tip}><NumberField label={label} min={min} max={max} step={step} value={cardValue(key)} onChange={n=>update(key,Math.round(Math.max(min,Math.min(max,n))))}/></div>)}
+   {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length." title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
+   <label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={l.filter??CARD_DEFAULTS.filter} onChange={e=>update('filter',Number(e.target.value))}>{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}

@@ -4,7 +4,8 @@ const preferenceCache = new WeakMap();
 
 /** Camera-facing node transforms belong to viewing, never placement/editing. */
 export function previewBillboarding(props) {
-  return props.presentation === 'preview' && !props.restPose && !props.previewSelectionMode && props.particleAnchorId == null;
+  // A placed card keeps facing the camera while its handles show.
+  return props.presentation === 'preview' && !props.restPose && !props.previewSelectionMode && (props.particleAnchorId == null || !!props.keepBillboards);
 }
 
 /** Preview presentation is readonly and independent of the editing display.

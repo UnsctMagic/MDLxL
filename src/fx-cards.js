@@ -1,0 +1,51 @@
+// Card layers: flat quads carrying one native texture, each on a bone the stack owns. DOM-free.
+// Fields, their defaults and bounds live here so the layer builder, the compiler and saved looks agree.
+
+export const CARD_FACINGS=['camera','ground','part'];
+/** Defaults of every optional Card field. size and offset are fitted to the part by makeLayer. */
+export const CARD_DEFAULTS=Object.freeze({facing:'camera',count:1,sizeMin:.83,sizeMax:1.17,spin:0,spinEased:true,jitter:0,rows:1,columns:1,frameMs:0,cell:0,strength:1,filter:3,unshaded:true,unfogged:true,twoSided:true});
+/** [min,max] of each numeric Card field. */
+export const CARD_BOUNDS=Object.freeze({count:[1,8],sizeMin:[.05,4],sizeMax:[.05,4],spin:[-16,16],jitter:[0,180],rows:[1,16],columns:[1,16],frameMs:[0,5000],cell:[0,255],strength:[0,1],loop:[100,20000],size:[.1,100000]});
+// Each card of a layer runs on its own loop: base × these, so neighbours never pulse in step (study: 1000/1133/1200/1300).
+export const CARD_CLOCK_FACTORS=[1,1.133,1.2,1.3,1.433,1.567,1.7,1.833];
+// Jitter clocks: fast, never dividing each other (study: 100/133).
+export const CARD_JITTER_MS=[100,133,117,151,109,141,123,157];
+// One eased turn: the native star flare's uneven angles at even times.
+export const EASED_TURN=[0,61.7,102.7,179.3,234.5,279.4,360];
+export const LINEAR_TURN=[0,90,180,270,360];
+
+const clamp=(v,[lo,hi])=>Math.max(lo,Math.min(hi,v));
+/** A Card layer with every field present and inside its bounds. Unknown values fall back to the defaults. */
+export function cardFields(l){
+ const out={...CARD_DEFAULTS,...l};
+ if(!CARD_FACINGS.includes(out.facing))out.facing=CARD_DEFAULTS.facing;
+ for(const [key,range] of Object.entries(CARD_BOUNDS)){
+  if(!(key in out)||out[key]==null)continue;
+  const v=Number(out[key]);out[key]=Number.isFinite(v)?clamp(v,range):CARD_DEFAULTS[key];
+ }
+ for(const key of ['count','rows','columns','cell'])if(typeof out[key]==='number')out[key]=Math.round(out[key]);
+ if(out.sizeMax<out.sizeMin)out.sizeMax=out.sizeMin;
+ out.spinEased=out.spinEased!==false;
+ for(const key of ['unshaded','unfogged','twoSided'])out[key]=out[key]!==false;
+ return out;
+}
+/** A saved Card layer with only its own fields, each moved inside its bounds (a look file may come from anywhere). */
+export function boundedCard(l){
+ const out={...l};
+ if('facing' in out&&!CARD_FACINGS.includes(out.facing))out.facing=CARD_DEFAULTS.facing;
+ for(const [key,range] of Object.entries(CARD_BOUNDS))if(key in out){
+  const v=out[key];out[key]=typeof v==='number'&&Number.isFinite(v)?clamp(v,range):CARD_DEFAULTS[key]??range[0];
+  if(['count','rows','columns','cell'].includes(key))out[key]=Math.round(out[key]);
+ }
+ if(typeof out.sizeMin==='number'&&typeof out.sizeMax==='number'&&out.sizeMax<out.sizeMin)out.sizeMax=out.sizeMin;
+ if(!CARD_FACINGS.includes(out.facing??'camera'))out.facing='camera';
+ return out;
+}
+/** Builds a Card spec for a look or the Add layer menu. Only the given fields are stored; the rest use CARD_DEFAULTS and the part's fit. */
+export function cardSpec(label,image,fields={}){
+ return {type:'Card',label,image,...fields};
+}
+/** Default half-width of a card on a part (the radius the preview's size handle shows). */
+export function cardSize(basis){
+ return Math.max(basis.unit*1.2,Math.min(basis.length*.18,basis.girth*2.2));
+}

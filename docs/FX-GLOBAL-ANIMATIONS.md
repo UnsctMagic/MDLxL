@@ -50,8 +50,19 @@ is one Undo step. Removing a layer removes only its owned resources.
 | Rune | Native rune glyphs on the surface; optional ground seals are separate, disabled layers |
 | Particles | Native PRE2 emitters and any nodes needed to carry their motion |
 | Edge | Native ribbons fitted to the part |
+| Card | Flat quads with one native texture, each on its own owned bone, in one owned geoset and one single-layer material |
 
-These remain the five layer types. No new types without asking the owner.
+No new types without asking the owner.
+
+11 November 2026: the owner asked to be able to "create anything of the models I showed
+you" in FX. That request is the permission for the sixth type, **Card**: one owned geoset
+holding the layer's quads (1–8 along the part, or stacked on the ground), one owned bone
+per card (billboarded when it faces the camera), one owned material with one layer (Add,
+Unshaded, Unfogged, two-sided by default). Size pulse, spin, jitter and the atlas flipbook
+each run on owned global sequences; several cards use different, non-dividing lengths
+(loop × 1, 1.133, 1.2, 1.3 …). Position and size are dragged with the emitter handles.
+Fields and bounds live in `src/fx-cards.js`. Removing a Card stack leaves the model as it
+was before, including its bounds.
 
 A particle layer exposes all three native segment **Color**, **Size** and
 **See-through %** values in EMTR's **Born / Halfway / End** control. Do not collapse

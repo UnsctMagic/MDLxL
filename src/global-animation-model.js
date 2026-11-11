@@ -1,5 +1,6 @@
 import {Quaternion,Vector3} from 'three';
-import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateCounts} from './editor-document.js';
+import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateCounts,geosetBounds} from './editor-document.js';
+import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN} from './fx-cards.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
@@ -437,6 +438,80 @@ function edgeLayer(c,l){
  }
  return {id:ids[0],ids,family:'RibbonEmitters'};
 }
+const turn=(axis,degrees)=>new Quaternion().setFromAxisAngle(axis,degrees*Math.PI/180).toArray();
+// A deterministic pseudo-random sequence, so recompiling the same layer writes the same keys.
+const shake=seed=>()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648;};
+/** Card layer: flat quads with one native texture, each on its own owned bone, in one owned geoset and material. */
+function cardLayer(c,l){
+ const {model:m,tag}=c,card=cardFields(l),size=Math.max(.1,l.size||1);
+ // Motion runs on the layer's own clocks; Loop length replaces the look's loop for this layer only.
+ const base=card.loop!=null?Math.max(100,Math.round(card.loop)):c.ms;
+ const id=card.loop!=null?clockFor(m,base,c.createdClocks):c.id;
+ const cells=card.rows*card.columns,flipbook=cells>1&&card.frameMs>0;
+ const regions=card.facing==='ground'?[null]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
+ let k=0;
+ for(const [r,region] of regions.entries())for(let i=0;i<card.count;i++,k++){
+  const f=region?.frame,along=!f||card.count===1?0:((i+.5)/card.count-.5)*f.length*.9;
+  const point=region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
+  const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
+  const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);
+  // Camera cards face +X on a billboarded bone; ground cards lie flat; part cards turn with the part.
+  bone.Flags=256|(card.facing==='camera'?8:0);
+  let side,up,normal;
+  if(card.facing==='camera'){side=new Vector3(0,1,0);up=new Vector3(0,0,1);}
+  else if(card.facing==='ground'){side=new Vector3(1,0,0);up=new Vector3(0,1,0);}
+  else{up=f.axis.clone().normalize();side=new Vector3().crossVectors(up,Math.abs(up.z)<.9?z:y).normalize();}
+  normal=new Vector3().crossVectors(side,up).normalize();
+  const factor=CARD_CLOCK_FACTORS[k%CARD_CLOCK_FACTORS.length]*(1+Math.floor(k/CARD_CLOCK_FACTORS.length)*.071);
+  // Size pulse: bone scale between the smallest and largest size; odd cards start large.
+  if(card.sizeMin!==1||card.sizeMax!==1){
+   const ms=Math.round(base*factor),[a,b]=k%2?[card.sizeMax,card.sizeMin]:[card.sizeMin,card.sizeMax];
+   bone.Scaling=keys(clockFor(m,ms,c.createdClocks),ms,[[0,[a,a,a]],[.5,[b,b,b]],[1,[a,a,a]]],3);
+  }else delete bone.Scaling;
+  // Spin: one turn per clock, so a fraction of a turn per loop is a longer clock. Eased keeps the native flare's uneven speed.
+  if(card.spin){
+   const ms=Math.max(100,Math.round(base*factor/Math.abs(card.spin))),angles=card.spinEased?EASED_TURN:LINEAR_TURN,sign=Math.sign(card.spin);
+   bone.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,angles.map((a,j)=>[j/(angles.length-1),turn(normal,j===angles.length-1?0:a*sign)]));
+  }else delete bone.Rotation;
+  delete bone.Translation;
+  let holder=bone;
+  if(card.jitter>0){
+   // Jitter: fast uneven turns on a child bone, on a clock that never lines up with its neighbours.
+   holder=nodeFor(c,'Bones','Bone','jitter'+r+'-'+i,l.label+' '+(k+1)+' jitter',point,bone.ObjectId);holder.Flags=256;
+   const ms=CARD_JITTER_MS[k%CARD_JITTER_MS.length],next=shake(k+7),times=[0,.23,.51,.74,1];
+   holder.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,times.map((t,j)=>[t,turn(normal,j===0||j===times.length-1?0:(next()*2-1)*card.jitter)]));
+  }
+  // The quad, bound to its bone; its picture is one atlas cell (neighbours start on different cells).
+  const cell=((flipbook?card.cell+k*3:card.cell)%cells+cells)%cells,u0=(cell%card.columns)/card.columns,v0=Math.floor(cell/card.columns)/card.rows,du=1/card.columns,dv=1/card.rows;
+  const first=vertices.length/3;
+  for(const [s,t] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+   vertices.push(...point.clone().addScaledVector(side,s*size).addScaledVector(up,t*size).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);
+  }
+  uvs.push(u0,v0+dv,u0+du,v0+dv,u0+du,v0,u0,v0);
+  faces.push(first,first+1,first+2,first,first+2,first+3);
+  groups.push([holder.ObjectId]);centres.push(point);
+ }
+ const tex=texture(m,l.image,flipbook,tag);
+ const shape=l.pulse==null||l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||null,curveType=l.pulse==='soft'?3:1;
+ const alphaFor=value=>shape?keys(id,base,shape.map(([t,a])=>[t,a*value]),curveType):value;
+ const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:card.filter,Shading:(card.unshaded?1:0)|(card.twoSided?16:0)|(card.unfogged?32:0),Alpha:alphaFor(1)};
+ if(flipbook){
+  // Flipbook: step through the atlas cells, one cell per frame time, holding each (no blending between cells).
+  const ms=cells*Math.max(10,Math.round(card.frameMs));
+  layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flipbook',{Translation:keys(clockFor(m,ms,c.createdClocks),ms,[...Array.from({length:cells},(_,j)=>[j/cells,[(j%card.columns)/card.columns,Math.floor(j/card.columns)/card.rows,0]]),[1,[0,0,0]]],0)});
+ }
+ const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:strengthPasses([layer],card.strength,false,alphaFor)});
+ const reach=size*Math.SQRT2*Math.max(1,card.sizeMax);
+ const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
+ if(m.Version>=900)g.LevelOfDetail=0;
+ // Bounds hold a card at its largest size facing any way, and the part's own animated bounds.
+ const reachOf=list=>{const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const p of list)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],p[a]-reach);hi[a]=Math.max(hi[a],p[a]+reach);}return [lo,hi];};
+ const [lo,hi]=reachOf(centres.map(p=>p.toArray()));
+ Object.assign(g,geosetBounds(Float32Array.from([...lo,...hi])));
+ g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];if(!own?.MinimumExtent)return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
+ return {geoset:overlay(c,g,material,rhythmColour({...c,id,ms:base},l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
+}
 function runeLayer(c,l){
  return skinLayer({...c,prior:c.prior?{...c.prior,type:'Glow',pulse:c.prior.pulse||'breathe'}:null},{...l,type:'Glow',pulse:l.pulse||'breathe',axis:'v',band:.8,bodyUV:false});
 }
@@ -457,10 +532,14 @@ function sweep(m,owner,used){
   for(const id of remove){freed.add(id);delete m.Nodes[id];m.PivotPoints[id]=vec([0,0,0]);}
   m[key]=m[key].filter(n=>!remove.has(n.ObjectId));
  }
- while(freed.has(m.PivotPoints.length-1)){
+ // Also an id an earlier apply freed (an empty slot in the node index), once nothing after it is left.
+ const nodeSlots=m.Nodes.length,emptySlot=i=>i<nodeSlots&&!(i in m.Nodes);
+ while(m.PivotPoints.length&&(freed.has(m.PivotPoints.length-1)||freed.size&&emptySlot(m.PivotPoints.length-1))){
   const last=m.PivotPoints.length-1;m.PivotPoints.pop();
   for(const b of m.BindPoses||[])if(b.Matrices.length===last+1+(m.Cameras?.length||0))b.Matrices.splice(last,1);
  }
+ // Freed ids at the end leave no empty slots behind in the node index.
+ if(freed.size)while(m.Nodes.length&&!(m.Nodes.length-1 in m.Nodes))m.Nodes.pop();
  const owned=r=>!!r._FxTag;
  m.Materials=compact(m.Materials,owned,visit=>{for(const x of [...m.Geosets,...m.RibbonEmitters])visit(x.MaterialID,i=>x.MaterialID=i);for(const g of m.Geosets)if(g._FxStack)visit(g._FxStack.baseMaterial,i=>g._FxStack.baseMaterial=i);});
  m.TextureAnims=compact(m.TextureAnims,owned,visit=>{for(const mat of m.Materials)for(const l of mat.Layers)if(l.TVertexAnimId!=null)visit(l.TVertexAnimId,i=>l.TVertexAnimId=i);});
@@ -571,21 +650,30 @@ export function compileAnimation(model,index,draft,{rune}={}){
   else if(l.type==='Particles')particles(context,l);
   else if(l.type==='Edge')edgeLayer(context,l);
   else if(l.type==='Rune')runeLayer(context,l);
+  else if(l.type==='Card')cardLayer(context,l);
   else skinLayer(context,l);
  }
  for(let i=originalClockCount;i<model.GlobalSequences.length;i++)if(!created.includes(i))created.push(i);
  if(!draft.layers.length)delete source._FxStack;
  sweep(model,owner,used);
  const clocks=new Set();visitTracks(model,t=>clocks.add(t.GlobalSeqId),{skip:['Nodes','_FxStack'],event:n=>clocks.add(n.GlobalSeqId)});
+ // Removing an owned clock must not rewrite the model's authored bounds (the sequence editor recalculates them).
+ const BOUNDS=['MinimumExtent','MaximumExtent','BoundsRadius'],keepBounds=item=>item&&Object.fromEntries(BOUNDS.filter(key=>key in item).map(key=>[key,item[key]]));
+ const authoredBounds=[keepBounds(model.Info),...model.Geosets.map(keepBounds)];
+ const restoreBounds=()=>{for(const [item,saved] of [[model.Info,authoredBounds[0]],...model.Geosets.map((g,i)=>[g,authoredBounds[i+1]])])if(item&&saved){for(const key of BOUNDS)if(key in saved)item[key]=saved[key];else delete item[key];}};
+ let clockRemoved=false;
  for(const i of [...new Set(created)].sort((a,b)=>b-a))if(model.GlobalSequences[i]!=null&&!clocks.has(i)){
+  clockRemoved=true;
   deleteGlobalSequence(model,i);
   for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClockIds=g._FxStack.createdClockIds.filter(id=>id!==i).map(id=>id>i?id-1:id);
   for(const k of [...clocks])if(k>i){clocks.delete(k);clocks.add(k-1);}
  }
+ // Limited to stacks with a Card so stacks saved before Cards compile exactly as they did.
+ if(clockRemoved&&[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'))restoreBounds();
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
-  results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
+  results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

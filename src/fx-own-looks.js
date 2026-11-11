@@ -1,6 +1,7 @@
 // The user's own FX looks: a stack kept under a name, refitted to any part, shared as a file. DOM-free.
 import {sanitizePresetName} from './settings-presets.js';
 import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
+import {boundedCard,cardSize} from './fx-cards.js';
 
 export const MAX_OWN_LOOKS=200,MAX_OWN_LAYERS=32,MAX_OWN_LOOK_BYTES=256*1024;
 export const OWN_LOOK_SCHEMA='mdlxl-fx-look',OWN_LOOK_ID=/^own-[a-z0-9-]{1,64}$/;
@@ -26,7 +27,7 @@ export function normalizeOwnLook(item){
   if(!Array.isArray(item.layers)||item.layers.length>MAX_OWN_LAYERS||!plain(item.frame))return null;
   const frame={};for(const key of ['length','girth','radius']){const v=item.frame[key];if(typeof v!=='number'||!Number.isFinite(v)||v<0)return null;frame[key]=v;}
   if(!(frame.length>0))return null;
-  const layers=item.layers.map(layer=>{if(!plain(layer)||!Number.isInteger(layer.id)||typeof layer.type!=='string')throw BAD;return clean(layer);});
+  const layers=item.layers.map(layer=>{if(!plain(layer)||!Number.isInteger(layer.id)||typeof layer.type!=='string')throw BAD;const kept=clean(layer);return kept.type==='Card'?boundedCard(kept):kept;});
   const look={id:item.id,name,loop:Math.round(item.loop),...(typeof item.asOverlay==='boolean'?{asOverlay:item.asOverlay}:{}),...(typeof item.variation==='string'&&item.variation.length<=64?{variation:item.variation}:{}),frame,layers};
   return JSON.stringify(look).length>MAX_OWN_LOOK_BYTES?null:look;
  }catch(error){if(error===BAD)return null;throw error;}
@@ -67,7 +68,7 @@ function scaleValue(v,k){
 /** A stack for another part. Model-unit sizes follow the part: offsets, speeds and gravity by the unit ratio, the emitter sizes by the same formulas makeLayer uses, the strip ends by the length ratio. Angles, colours, counts, times and picture fields stay. */
 export function stackFromOwnLook(record,frame,owner){
  const was=layerBasis(record.frame),now=layerBasis(frame),k=ratio(was.unit,now.unit),r=ratio(was.length,now.length);
- const sizeOf=(basis,l)=>l.type==='Rune'?basis.runeSize:l.kind==='flies'?basis.flySize:(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
+ const sizeOf=(basis,l)=>l.type==='Card'?cardSize(basis):l.type==='Rune'?basis.runeSize:l.kind==='flies'?basis.flySize:(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
  const spriteOf=(basis,l)=>(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
  const layers=structuredClone(record.layers).map(l=>{
   const size=ratio(sizeOf(was,l),sizeOf(now,l)),sprite=ratio(spriteOf(was,l),spriteOf(now,l)),moving=l.type==='Particles'||l.type==='Edge';
