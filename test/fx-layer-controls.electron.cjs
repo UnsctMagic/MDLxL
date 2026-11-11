@@ -37,7 +37,8 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await fx.getByRole('button',{name:'Reset',exact:true}).click();await ready();assert.equal((await layer('Poison surface')).atlasRect,undefined,'Reset returns to the card area');
   // Moving the area past the picture's edge stops it at the edge with its size kept.
   const card=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.layers.find(l=>l.label==='Poison surface').nativeSurface.atlas);
-  await drag(canvas,[.5,.5],[.02,.02]);const edge=(await layer('Poison surface')).atlasRect;
+  // The picture fills the view, so the drag leaves the view to push the area past the corner.
+  await drag(canvas,[.5,.5],[-.7,-.7]);const edge=(await layer('Poison surface')).atlasRect;
   assert.ok(edge,'a move past the edge still moves the area');assert.deepEqual([edge[0],edge[1]],[0,0],'the area stops at the corner: '+edge);
   assert.ok(Math.abs(edge[2]-card[2])<1e-3&&Math.abs(edge[3]-card[3])<1e-3,'the area keeps its size: '+edge+' vs '+card);
   await fx.getByRole('button',{name:'Reset',exact:true}).click();await ready();
