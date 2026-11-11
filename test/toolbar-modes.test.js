@@ -280,7 +280,9 @@ test('Tab skips the Hidden toolbar, keeps controls findable and gives back what 
   setToolbarTabStops(root, false);
   assert.equal(plain.attrs.has('tabindex'), false, 'back to no tabindex');
   assert.equal(own.attrs.get('tabindex'), '-1', 'a control that set its own is left alone');
-  assert.doesNotMatch(bar, /inert/, 'inert would hide the controls from their own keys');
+  const replacementDock = ' inert={!!bitReplacement || undefined}';
+  assert.ok(bar.includes(replacementDock), 'the Bitz replacement draft alone suspends the module dock');
+  assert.doesNotMatch(bar.replace(replacementDock, ''), /inert/, 'Hidden mode keeps the controls available to their own keys');
   assert.match(bar, /toolbarHidden = preferences\.toolbarMode === 'hidden' && !visUI/);
 });
 

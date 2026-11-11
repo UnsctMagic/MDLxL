@@ -76,7 +76,7 @@ test('VIS keeps bottom model tabs, restores classic editors and hides AI while r
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
   assert.doesNotMatch(display, /const visibleOverlays = visUI/);
-  assert.match(app, /<div className="classic-status"><ModelTabs /);
+  assert.match(app, /<div className="classic-status">\{!bitReplacement && <ModelTabs /);
   assert.doesNotMatch(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);
