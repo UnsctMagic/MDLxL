@@ -70,6 +70,35 @@ test('library shows only MDL/MDX content in its original folders, filters asset-
   await assert.rejects(library.read('../outside.mdl'), /inside/); await assert.rejects(library.read('notes.txt'), /MDL or MDX/);
   assert.equal((await library.list()).children.length, 3);
 });
+test('manages nested Bitz entries without overwriting files or leaving the library', async t => {
+  const directory = tempDir('mdlxl-parts-manage-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
+  const bytes = Buffer.from('MDLX Test Bit');
+  await library.save({ name: 'Sword', bytes });
+  await library.change({ action: 'mkdir', folder: '', name: 'Weapons' });
+  assert.deepEqual((await library.list()).children.map(entry => entry.name), ['Sword.mdx']);
+  assert.deepEqual((await library.list(true)).children.map(entry => entry.name), ['Weapons', 'Sword.mdx']);
+  await library.change({ action: 'rename', id: 'Sword.mdx', name: 'sword.mdx' });
+  await library.change({ action: 'move', id: 'sword.mdx', folder: 'Weapons' });
+  assert.deepEqual((await library.read('Weapons/sword.mdx')).bytes, bytes);
+  await library.save({ name: 'sword', bytes: Buffer.from('MDLX Other Bit') });
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons/sword.mdx', folder: '' }), /already exists/);
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons/sword.mdx', folder: '..' }), /inside/);
+  await fs.mkdir(path.join(library.directory, 'Weapons', 'Nested'));
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons', folder: 'Weapons/Nested' }), /itself/);
+  const outside = path.join(directory, 'outside');
+  await fs.mkdir(outside);
+  const linked = path.join(library.directory, 'Linked');
+  await fs.symlink(outside, linked, 'junction');
+  try { await assert.rejects(library.change({ action: 'move', id: 'sword.mdx', folder: 'Linked' }), /Linked/); }
+  finally { await fs.unlink(linked); }
+  const trash = file => fs.rename(file, path.join(directory, 'trashed'));
+  await library.change({ action: 'delete', id: 'Weapons/sword.mdx' }, trash);
+  assert.deepEqual(await fs.readFile(path.join(directory, 'trashed')), bytes);
+  assert.deepEqual((await library.list()).children.map(entry => entry.name), ['sword.mdx']);
+});
+
 test('original part textures participate in existing save and recovery retention without changing names or bytes', async t => {
   const directory = tempDir('mdlxl-parts-save-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const asset = { name: 'Textures/My Bit/Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]), source: 'parts' }, model = { Textures: [{ Image: asset.name }] };

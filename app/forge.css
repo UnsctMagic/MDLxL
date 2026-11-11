@@ -130,7 +130,7 @@
 :root .forge-overlay .forge-control-points .classic-tool.active { background:#f5dfaa!important;border-color:#8c784a;box-shadow:inset 0 0 0 1px #dba334; }
 .forge-shape-operations { display:contents; }
 .forge-mesh-tools:empty { display:none; }
-.forge-shape-workspace>.forge-add-menu { position:fixed;left:auto;right:174px;top:145px;margin:0;max-height:calc(100vh - 210px); }
+.forge-shape-workspace>.forge-add-menu { position:fixed;left:auto;right:174px;top:calc(145px + var(--desktop-menu-height, 0px));margin:0;max-height:calc(100vh - 210px - var(--desktop-menu-height, 0px)); }
 .forge-editor-sidebar .classic-tool { overflow:visible; }
 .shaping-simple button[data-hotkey^="forge:"],.forge-effect-controls button[data-hotkey] { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px; }
 .shaping-simple button[data-hotkey^="forge:"]>.hotkey-badge,.forge-effect-controls button[data-hotkey]>.hotkey-badge { visibility:visible;position:static;display:block;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }

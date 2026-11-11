@@ -93,6 +93,11 @@ contextBridge.exposeInMainWorld('desktop', {
   onUpdateStatus: callback => {const stop=subscribe('updates:status',callback);ipcRenderer.send('updates:startup');return stop;},
   close: () => ipcRenderer.send('app:close'),
   setMenuState: value => ipcRenderer.send('menu:state', value),
+  ...(process.platform === 'win32' ? {
+    onMenuItems: callback => subscribe('menu:items', callback, { ready: 'menu:ready' }),
+    clickMenuItem: id => ipcRenderer.send('menu:click', id),
+    setCaptureRegions: edges => ipcRenderer.send('capture:regions', edges),
+  } : {}),
   // Acknowledging first tells main the page is responsive and still saving, so a
   // long final recovery write is not cut off by the unresponsive-page timeout.
   onBeforeClose: callback => answer('app:beforeClose', 'app:closeReady', async request => { ipcRenderer.send('app:closeBusy', request?.requestId); await callback({ discarded: request?.discarded === true }); }),
@@ -134,7 +139,8 @@ contextBridge.exposeInMainWorld('desktop', {
   open: () => call('model:open'),
   droppedPath: file => webUtils.getPathForFile(file),
   openDropped: (paths,showcase=false) => call('model:openDropped',paths,showcase),
-  listParts: () => call('parts:list'),
+  listParts: manage => call('parts:list', manage),
+  changePartEntry: data => call('parts:change', data),
   readPart: id => call('parts:read', id),
   savePart: data => call('parts:save', data),
   openPartsFolder: () => call('parts:folder'),
