@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { planBoneNames, nameBones, applyBoneNames, BONE_PARTS } from '../src/bone-namer.js';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
+import { suggestPoseRig, poseChainIds } from '../src/pose-ik.js';
+import { standSequenceIndex } from '../src/sequence-editor.js';
 import { nameTokens } from '../src/rig-names.js';
 import { emptyModel, addBiped, addQuadruped, addNode, startGeoset, allBones, idOf, standardName, messyName } from './helpers/bone-namer-rigs.js';
 
@@ -634,4 +636,17 @@ test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm 
   for (const node of model.Attachments) assert.equal(rowsById(plan).get(node.ObjectId), undefined, node.Name);
   assertNames(model, plan, { 'Bone CLAW L': 'Bone_Hand_L', 'Bone CLAW R': 'Bone_Hand_R', 'Bone Arm L': 'Bone_Arm1_L', 'Bone Arm R': 'Bone_Arm1_R' }, 'archnathid');
   assertKept(model, plan, ['Bone_Box23'], 'archnathid (hub above the right arm)');
+});
+
+test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE still grips that end after commit', () => {
+  const model = loadMdx(fixturePath('sd-bandit')), end = idOf(model, 'HandRight');
+  const gripped = m => { const s = standSequenceIndex(m), rig = suggestPoseRig(m, m.Sequences[s].Interval[0], s); return rig.chains.filter(chain => chain.grip).map(chain => chain.end); };
+  assert.deepEqual(gripped(model), [end], 'setup: POSE grips HandRight (a mesh node) and nothing else');
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan, 'bandit');
+  assert.equal(nameIn(plan, end), 'Mesh_Hand_L', 'the gripped end sits on +Y and keeps the Mesh_ word, not Bone_');
+  assertNames(model, plan, { Bone_Arm1_R: 'Bone_Arm1_L', Bone_Arm2_R: 'Bone_Arm2_L', Bone_Arm1_L: 'Bone_Arm1_R', Bone_Arm2_L: 'Bone_Arm2_R', Bone_Hand_R: 'Bone_Hand_R', Bone_Leg1_L: 'Bone_Leg1_L', Bone_Foot_R: 'Bone_Foot_R' }, 'bandit');
+  applyBoneNames(model, plan.rows, new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id)));
+  assert.equal(model.Nodes[end].Name, 'Mesh_Hand_L');
+  assert.deepEqual(gripped(model), [end], 'after the rename POSE still grips the same end by its skin');
 });

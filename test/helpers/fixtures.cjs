@@ -26,6 +26,7 @@ const FIXTURES = {
   'slaanesh-champion': ['MDLXL_SLAANESH_CHAMPION', testModel('WH_WOC_KnightSlaaneshChampion01.mdx')], // rider under a Death root, horse beside it
   'sd800-sheep': ['MDLXL_SD800_SHEEP', testModel('corpus-sd800/critters__sheep.mdx')], // a second Bone Namer run used to rename Bone_Foot_L
   'sd800-archnathid': ['MDLXL_SD800_ARCHNATHID', testModel('corpus-sd800/creeps__archnathid.mdx')], // right arm ends at the attachment Hand Right Ref
+  'sd-bandit': ['MDLXL_SD_BANDIT', testModel('corpus-sd/creeps__bandit.mdx')], // HandRight (a mesh node) is gripped by its skin on +Y
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
 };
 
