@@ -66,6 +66,18 @@ Updated: 2026-11-11
   146 of 852 models (88 gain a pelvis handle, 62 a neck handle); no handle lost,
   moved or re-typed. Bone names blanked: pelvis recovery 0% to 68%, neck 0% to 65%.
   Targeted tests: 177 pass, 0 fail, 4 skip.
+- Step 5, wings and hand rows (owner's Lord of Change, 11 Nov): a weapon word
+  excludes only what hangs below a hand (`w` reads as weapon; the wings are
+  `B_W_#`); a branch may pair with a twin on the mirrored sibling joint; such a
+  new branch is labelled Wing when its skin is a sheet (flatness under .3;
+  measured: wing chains .04 to .07, arms median .59) and is skipped when its
+  joints already have a part role; in a row of same-named hand or foot joints
+  that all move, the one carrying the attachment is the end, only when the first
+  of the row sits at the trunk. Library (969 models after 116 unusual community
+  rigs were added as `pose-odd`): 3 models change (Lord of Change, zergling in
+  both corpora). Targeted tests: 185 pass, 0 fail, 4 skip.
+- Rejected on the way, keep rejected: the hand/foot row rule without the trunk
+  condition moved leg ends from foot to toe on five Blizzard models.
 - Not run: packaged-app tests, real mouse drags. Owner hand test pending.
 
 ## Blockers and next action

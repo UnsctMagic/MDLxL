@@ -215,7 +215,7 @@ export function suggestPoseRig(model, frame, sequence) {
     } catch (cause) { unavailable.push({ id: node.ObjectId, reason: cause.message }); }
   }
   const occupied = new Set(chains.flatMap(poseChainIds));
-  for (const branch of inferPoseBranches(evidence, roleOf, occupied)) {
+  for (const branch of inferPoseBranches(evidence, roleOf, occupied, model)) {
     if (branch.ids.some(id => occupied.has(id))) continue;
     const horseLimb = branch.kind === 'leg' && /horse|equine/i.test(byId.get(rootOf(byId.get(branch.ids[0])))?.Name || '');
     const chain = { root: branch.ids[0], middle: branch.ids[1], end: branch.ids.at(-1), joints: branch.ids, kind: branch.kind, key: `limb:${branch.ids.at(-1)}`, ...(branch.label || horseLimb ? { label: branch.label || 'Hoof' } : {}) };
