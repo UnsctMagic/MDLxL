@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {once} from 'node:events';
+import {Worker} from 'node:worker_threads';
 import {existsSync,readFileSync} from 'node:fs';
 import {createStarterDocument} from '../src/starter-model.js';
 import {EditorDocument,createNode} from '../src/editor-document.js';
@@ -513,4 +515,52 @@ test('an effect switched by a global loop no longer blocks Create and is silence
     for(const [effect,visibility] of looped){const n=m.ParticleEmitters2.find(e=>e.Name===effect);assert.deepEqual(n.Visibility,visibility,'the global loop itself is unchanged');
       if(n.EmissionRate?.GlobalSeqId==null)for(const seq of [c.flesh,c.bone])assert.equal(sampleTrack(n.EmissionRate,m.Sequences[seq].Interval[0]+500,{interval:m.Sequences[seq].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:0}),0,'no particles in decay');}
   }
+});
+
+async function boundedCorpseBuild(model, bodyIds, deathIndex) {
+  const source = new URL('../src/corpse-geometry.js', import.meta.url).href;
+  const worker = new Worker(`
+    const { workerData, parentPort } = require('node:worker_threads');
+    import(workerData.source).then(({ buildCorpseGeometry }) => {
+      const { model, bodyIds, deathIndex } = workerData;
+      const result = buildCorpseGeometry(model, bodyIds, deathIndex);
+      parentPort.postMessage(result.pieces.length);
+    });
+  `, { eval: true, workerData: { source, model, bodyIds, deathIndex } });
+  try {
+    const [pieces] = await once(worker, 'message', { signal: AbortSignal.timeout(5000) });
+    assert.ok(pieces > 0, 'a malformed joint leaves the rest of the corpse available');
+  } finally {
+    await worker.terminate();
+  }
+}
+
+for (const cycle of ['self', 'pair']) test(`a Tail ${cycle} parent cycle cannot stall corpse generation`, async () => {
+  const doc = fixture();
+  const model = structuredClone(doc.model), geo = model.Geosets[0];
+  const tail = createNode(model, 'Bone');
+  tail.Name = 'Bone Tail';
+  const group = geo.Groups.push([tail.ObjectId]) - 1;
+  geo.VertexGroup[0] = geo.VertexGroup[1] = geo.VertexGroup[2] = group;
+  if (cycle === 'pair') {
+    const other = createNode(model, 'Bone');
+    other.Name = 'Joint';
+    tail.Parent = other.ObjectId;
+    other.Parent = tail.ObjectId;
+  } else tail.Parent = tail.ObjectId;
+  await boundedCorpseBuild(model, [0], 1);
+});
+
+test('a self-parented wing root leaves the other wing available', async () => {
+  const {openDocument} = await import('../src/editor-document.js');
+  const {suggestPoseRig} = await import('../src/pose-ik.js');
+  const file = testModel('corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx');
+  const {model} = openDocument(readFileSync(file), file);
+  const death = model.Sequences.findIndex(sequence => sequence.Name === 'Death');
+  const rig = suggestPoseRig(model, model.Sequences[death].Interval[1], death);
+  const wings = rig.chains.filter(chain => chain.label === 'Wing');
+  assert.equal(wings.length, 2);
+  const root = model.Nodes[wings[0].root];
+  root.Parent = root.ObjectId;
+  await boundedCorpseBuild(model, model.Geosets.map((_, index) => index), death);
 });

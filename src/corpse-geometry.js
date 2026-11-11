@@ -396,8 +396,13 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   const bodyBranch=n=>hasSkin(n.ObjectId)&&!accessory(n.Name)&&!held(n.ObjectId)&&!garment(n.ObjectId)&&!inHead(n.ObjectId)&&!vanished(n.ObjectId);
   for(const chain of chains.filter(c=>c.kind==='arm'&&c.label==='Wing')) {
+    const visited=new Set();
     for(const stack=[chain.root];stack.length;) {
-      const id=stack.pop(),next=nodes.filter(n=>n.Parent===id&&bodyBranch(n));linked.add(id);wingJoints.add(id);
+      const id=stack.pop();
+      if(visited.has(id))continue;
+      visited.add(id);
+      const next=(tree.children.get(id)||[]).filter(n=>!visited.has(n.ObjectId)&&bodyBranch(n));
+      linked.add(id);wingJoints.add(id);
       for(const n of next){linkBone(id,n.ObjectId,NATIVE.wingReach,true);stack.push(n.ObjectId);}
       if(!next.length)tipBone(id,true);
     }
@@ -408,7 +413,10 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const trunkish=id=>['Body','Pelvis','Chest','Spine'].includes(role(id));
   for(const tail of nodes.filter(n=>role(n.ObjectId)==='Tail'&&bodyBranch(n)&&onBody(n.ObjectId)&&!nodes.some(c=>c.ObjectId!==n.ObjectId&&role(c.ObjectId)==='Tail'&&ancestors(c.ObjectId).includes(n.ObjectId)))) {
     const ids=[tail.ObjectId];
-    for(let up=byId.get(tail.Parent);up&&byId.has(up.Parent)&&!trunkish(up.ObjectId)&&!limbJoints.has(up.ObjectId)&&!linked.has(up.ObjectId)&&bodyBranch(up);up=byId.get(up.Parent))ids.unshift(up.ObjectId);
+    for(const id of tree.ancestors(tail.ObjectId)) {
+      if(tree.parentOf(id)==null||trunkish(id)||limbJoints.has(id)||linked.has(id)||!bodyBranch(byId.get(id)))break;
+      ids.unshift(id);
+    }
     // Named tails keep their existing pieces; only an unnamed tail chain
     // (Object01...), which the name-based rules never drew, is added here.
     // Mesh/Box/Geo joints hold skin (a dangling pouch or cloth), not a tail.
