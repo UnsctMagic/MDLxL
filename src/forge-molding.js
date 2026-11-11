@@ -130,13 +130,17 @@ function polygonFace(shape,ids,face,source) {
 }
 
 export function bevelForgeShape(source,selected,mode,amount,round=false) {
+  amount=Math.abs(amount);
   if(amount<=1e-8)return source;
   const edges=new Map(),normals=new Map(source.faces.map(f=>[f.id,forgeFaceNormal(source,f)]));
   for(const f of source.faces)f.vertices.forEach((a,i)=>{const b=f.vertices[(i+1)%f.vertices.length],key=forgeEdgeKey(a,b);if(!edges.has(key))edges.set(key,{a,b,faces:[]});edges.get(key).faces.push(f);});
   const chosenVertices=new Set(forgeSelectionVertices(source,selected,mode)),chosenFaces=new Set(selected),chosenEdges=new Set(selected);
   const picked=new Set([...edges].filter(([key,e])=>e.faces.length===2&&dot(normals.get(e.faces[0].id),normals.get(e.faces[1].id))<.9999&&(mode==='Shape'||mode==='Edges'&&chosenEdges.has(key)||mode==='Faces'&&e.faces.some(f=>chosenFaces.has(f.id))||mode==='Vertices'&&chosenVertices.has(e.a)&&chosenVertices.has(e.b))).map(([key])=>key));
   if(!picked.size)throw Error('Select a solid corner or an edge between two surfaces to bevel.');
-  const shortest=Math.min(...[...edges.values()].map(e=>Math.hypot(...sub(source.vertices[e.a],source.vertices[e.b]))).filter(n=>n>1e-6));
+  const pickedCorners=new Set([...picked].flatMap(edgeKey=>{const e=edges.get(edgeKey);return [e.a,e.b];}));
+  // Only edges meeting the beveled corners constrain their width. A tiny edge
+  // elsewhere in an authored geoset must not limit the selected shield or part.
+  const shortest=Math.min(...[...edges.values()].filter(e=>pickedCorners.has(e.a)||pickedCorners.has(e.b)).map(e=>Math.hypot(...sub(source.vertices[e.a],source.vertices[e.b]))).filter(n=>n>1e-6));
   const distance=Math.min(amount,shortest*.24),corner=new Map(),key=(f,v)=>f+':'+v;
   for(const f of source.faces)f.vertices.forEach((v,i)=>{
     const before=f.vertices[(i+f.vertices.length-1)%f.vertices.length],after=f.vertices[(i+1)%f.vertices.length],normal=normals.get(f.id);

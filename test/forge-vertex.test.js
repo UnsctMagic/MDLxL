@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { detachFaces } from '../src/mesh-tools.js';
 import { openDocument } from '../src/editor-document.js';
 import { buildForgePrimitive } from '../src/forge-primitives.js';
 import { forgeMoldState, prepareForgeMold, previewForgeMold } from '../src/forge-molding.js';
@@ -19,6 +20,22 @@ const cube = () => {
     Anims: [{ MinimumExtent: new Float32Array([-40,-40,-40]), MaximumExtent: new Float32Array([40,40,40]), BoundsRadius: 80 }] };
 };
 const all = g => Array.from({ length: g.Vertices.length / 3 }, (_, i) => i);
+// The owner's recorded Footman shield selection: 31 vertices, 16 triangles,
+// centre (-3.2208, -26.5781, 46.5484), including its strap and central boss.
+const shield = [...Array.from({length:7},(_,i)=>225+i),...Array.from({length:14},(_,i)=>253+i),...Array.from({length:10},(_,i)=>425+i)];
+const shieldDocument = () => openDocument(fs.readFileSync(fixturePath('citadel-footman')), 'Footman.mdx');
+test('Footman shield bevel works on either side of the drag origin', () => {
+  const model=shieldDocument().model,draft=vertexForgeDraft(model,{0:shield});
+  const preview=amount=>{const state={...forgeMoldState(draft,'Bevel'),amount};return vertexForgeResult(model,draft,previewForgeMold(draft,draft,state));};
+  const inward=preview(-1),outward=preview(1);
+  assert.notDeepEqual(inward.Geosets[0].Vertices,model.Geosets[0].Vertices,'inward drag bevels the shield');
+  assert.deepEqual(inward.Geosets,outward.Geosets,'both drag directions produce the same bevel width');
+});
+test('shield bevel width is independent of tiny edges in the rest of the Footman', () => {
+  const model=shieldDocument().model,detached=structuredClone(model);detachFaces(detached,0,shield);
+  const edited=(m,gi,ids)=>{const draft=vertexForgeDraft(m,{[gi]:ids}),state={...forgeMoldState(draft,'Bevel'),amount:1};const result=vertexForgeResult(m,draft,previewForgeMold(draft,draft,state));return result.forgeSelection[gi].map(id=>Array.from(result.Geosets[gi].Vertices.slice(id*3,id*3+3))).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));};
+  assert.deepEqual(edited(model,0,shield),edited(detached,5,all(detached.Geosets[5])),'same shield and width before and after detaching');
+});
 test('opening Forge and zero previews preserve existing streams exactly', () => {
   const g = cube(), model = { Geosets: [g] }, draft = vertexForgeDraft(model, { 0: all(g) });
   assert.deepEqual(vertexForgeResult(model, draft, draft).Geosets, model.Geosets);

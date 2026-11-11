@@ -243,7 +243,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
         if (handle.id === 'center') setMold({ ...before, center: clamp(before.center+delta,before.bounds.min[before.axis],before.bounds.max[before.axis]) });
         else if (handle.id.startsWith('range')) setMold({ ...before, width: clamp(before.width+delta*(handle.id==='rangeStart'?-2:2),length*.05,length*2) });
         else {
-          const amount = before.tool==='Bend'||before.tool==='Twist' ? clamp(before.amount+delta/size*180,-180,180) : before.tool==='Bevel' ? Math.max(0,before.amount+delta) : clamp(before.amount+delta/Math.max(before.bounds.span[before.direction]/2,size*.12),-.9,3);
+          const amount = before.tool==='Bend'||before.tool==='Twist' ? clamp(before.amount+delta/size*180,-180,180) : before.tool==='Bevel' ? before.amount+delta : clamp(before.amount+delta/Math.max(before.bounds.span[before.direction]/2,size*.12),-.9,3);
           setMold({ ...before, amount });
         }
       },

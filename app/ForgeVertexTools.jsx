@@ -90,7 +90,7 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
       let next={...state};
       if(handle.id==='center')next.center=clamp(state.center+delta,state.bounds.min[state.axis],state.bounds.max[state.axis]);
       else if(handle.id.startsWith('range'))next.width=clamp(state.width+delta*(handle.id==='rangeStart'?-2:2),length*.05,length*2);
-      else next.amount=active.kind==='Inset'?state.amount+delta:state.tool==='Bend'||state.tool==='Twist'?clamp(state.amount+delta/size*180,-180,180):state.tool==='Bevel'?Math.max(0,state.amount+delta):clamp(state.amount+delta/Math.max(state.bounds.span[state.direction]/2,size*.12),-.9,3);
+      else next.amount=active.kind==='Inset'?state.amount+delta:state.tool==='Bend'||state.tool==='Twist'?clamp(state.amount+delta/size*180,-180,180):state.tool==='Bevel'?state.amount+delta:clamp(state.amount+delta/Math.max(state.bounds.span[state.direction]/2,size*.12),-.9,3);
       setOperation({...active,...(active.mold?{mold:next}:{handle:next,amount:next.amount})});
     },finish:()=>{drag.current=null;},cancel};
   };
