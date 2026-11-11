@@ -167,6 +167,6 @@ contextBridge.exposeInMainWorld('desktop', {
   recent: () => call('model:recent'),
   clearRecent: () => call('model:clearRecent'),
   openRecent: (path,showcase=false) => call('model:openRecent', path,showcase),
-  setDirty: (value) => ipcRenderer.send('model:dirty', value && typeof value === 'object' ? { dirty: value.dirty === true, saved: value.saved === true, name: value.name } : !!value),
+  setDirty: (value) => ipcRenderer.send('model:dirty', value && typeof value === 'object' ? { dirty: value.dirty === true, saved: value.saved === true, replacement: value.replacement === true, name: value.name } : !!value),
   onMenu: (callback) => subscribe('menu',callback),
 });

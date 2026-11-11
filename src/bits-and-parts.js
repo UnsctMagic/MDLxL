@@ -13,7 +13,7 @@ import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
 import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
 import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
-import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from './geoset-animation-defaults.js';
+import { createVisibilityGeosetAnimation, ensureGeosetAnimation, hasGeosetColorTrack } from './geoset-animation-defaults.js';
 import { standardVisibility } from './auto-corpse.js';
 
 import { gamePathKey } from './game-path.js';
@@ -407,9 +407,11 @@ function setPartTint(animation, rgb) {
 
 export function setPartRgbChannel(model, geosetIds, axis, value) {
   for (const id of geosetIds) {
+    const animation = ensureGeosetAnimation(model, id);
+    if (hasGeosetColorTrack(animation)) continue;
     const color = Array.from(sampleGeosetAnimation(model, id, 0, -1).color);
     color[axis] = value / 255;
-    setPartTint(ensureGeosetAnimation(model, id), color);
+    setPartTint(animation, color);
   }
 }
 

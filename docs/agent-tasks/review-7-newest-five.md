@@ -1,6 +1,6 @@
 # Contract 7: fixes for the five PRs merged on 11 November (#622 to #626)
 
-Status: ready for Codex
+Status: reworked and ready for Claude re-check.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -141,3 +141,92 @@ Run those plus `test/bit-replacement.test.js`, `test/toolbar-modes.test.js`,
 
 - None. On completion: status, revision and checks here; plain summary for
   the owner; hand back.
+
+
+## Codex handoff
+
+Code and tests at 6dec5dc5 on local branch codex/main-review-20261111-7, from 4340c5f8.
+Contract 2 shares App.jsx and AppDialogs.jsx in its save paths. Review the two
+patches together when integrating them.
+
+- H1. The original model tab stays reachable during replacement. Its close prompt
+  asks whether to discard the draft or keep editing. Window close warns about
+  the replacement, and choosing Save keeps the draft open and asks for Commit or
+  Discard first. The underlying model continues to receive its existing recovery
+  checkpoint, including when a draft starts on a clean model. Commit puts the
+  replacement into that model's history and recovery.
+- H2 and H7. A Bit with multiple looks exposes its RGB list before staging in
+  either click order. A one-look Bit keeps the direct path. Quad View RGB is
+  scoped to selected incoming Bit geosets and preserves animated color tracks.
+- H8. Moving an individual Bit is refused with a message if the destination
+  would lose or change any nearby texture it uses. Move its containing folder
+  in that case. The existing TextureResolver handles both relative texture
+  paths and its basename lookup.
+- H3, H5, H6 and O11. Windows menu height applies to movable titles and the
+  three fixed panels. Node Manager starts with hierarchy and Bone when opened
+  from Emitter Manager. VIS uses the shared classic menu surface and Tahoma.
+- H4. Audited the added UI strings and dynamic labels in #622, #625 and #626,
+  including native sound categories, prompts and errors. Added 54 entries to
+  each of Russian, Spanish, Simplified Chinese, French and German, including
+  the wording introduced by this contract. The catalog source scan covers the
+  owning UI and desktop files and the composed labels.
+- H9 and O8. Vite writes helper compiler output under the worktree's out folder
+  and warns when csc.exe is unavailable. Packaging still requires the helper.
+  ShareX regions is off by default and starts and stops from Settings > Capture.
+
+### Checks actually run
+
+- At 4340c5f8, new BITZ/RGB/move/capture/model-close source checks gave 11 pass,
+  5 fail, 0 skip in bits-and-parts.test.js, model-close.test.js and
+  capture-regions.test.js. The animated Color became a static value, Move lost
+  the sibling texture, the preference was undefined, the missing compiler
+  aborted the build plugin, and a clean tab with a replacement did not require
+  a close decision. The localization scan gave 2 pass, 1 fail, 0 skip before
+  catalog additions.
+- The two new hidden packaged harnesses reproduced ten failures at 4340c5f8:
+  the original BITZ tab could not be closed, Exit lost the moved draft without
+  a warning, the multi-look chooser was skipped, the Node Manager title went
+  under the menu, Node Manager did not open from Emitter Manager, Add-ons opened
+  at 64 instead of 89 px, POSE setup and Curve Properties each opened at 118
+  instead of 143 px, the ShareX process started by default, and VIS retained a
+  10 px popup radius.
+- At 6dec5dc5, node --test on test/{bits-and-parts,model-close,capture-regions,localization-ui-gaps,localization-catalogs,bit-replacement,toolbar-modes,vis-mdlvis-mode,compact-toolbar,desktop-bridge,game-file-library,particle-reentry}.test.js
+  gave 100 pass, 0 fail, 0 skip. Includes a loose texture refusal and a permitted
+  move when the destination provides identical texture bytes.
+- At 6dec5dc5, node --test --test-concurrency=1 test/review-bitz.electron.cjs
+  test/review-desktop.electron.cjs on the hidden Windows desktop gave 10 pass,
+  0 fail, 0 skip. This exercised the original model's disk checkpoint during
+  a draft, the save guard with unchanged input bytes, both RGB click orders,
+  repeat dragging in both looks, manager reset, all three fixed panels,
+  the ShareX child lifecycle including restart, and the classic VIS popup.
+  Reused 3 pass, 0 fail, 0 skip from the existing bit-replacement,
+  emtr-quick-options and manager-menu-hotkeys packaged harnesses, run against
+  the same renderer before the final preload-only close-state correction.
+- Vite build and local packaging passed. Package verification covered 1,510
+  runtime and asset files and 55 locale files. A separate Vite build with
+  WINDIR set to an empty path on D: passed with the csc.exe warning and
+  produced no capture-regions.exe. git diff --check passed.
+- Remaining verification: forced process termination and recovery restart,
+  remembered window position after reopening, ShareX's own region picker,
+  a live installation with the helper binary missing, and Warcraft III
+  playback. The full packaged VIS matrix was outside the focused checks.
+
+### Owner summary
+
+BITZ warns before closing with an unfinished replacement, keeps your model's
+recovery copy running, and applies the selected Bit color in either click order.
+It keeps the original model's colors and stops a move that would leave a texture
+behind. The Windows menu no longer covers tool titles, and VIS has the classic
+menu again. Node Manager opens in its normal state, the reviewed controls have
+translations, and ShareX sharing starts only when you turn it on in Capture.
+
+Saved on your PC, not online. Ready for Claude review.
+
+## Rework after Claude’s review
+
+- Implementation revision 9e348665. Only the replacement’s own tab offers Commit, Discard replacement, and Cancel with the existing close-prompt hotkeys. Commit continues through the normal save prompt for the edited tab. Discard resumes the ordinary close flow. Another tab can close while the draft stays open.
+- ShareX uses the shared Settings Toggle and keeps the same helper on editor switches. UV sends empty region coordinates. Disabling the switch ends the helper. The capture defaults test now includes the off setting.
+- The localization test extracts JSX text, title, aria-label and placeholder strings from BITZ, Part RGB, Library Save Copy and the EMTR menu. It checks future literals with a small name allowlist. All five catalogs include the missing dialog titles and the older labels exposed by the new scan.
+- pnpm run test:source: 3,279 passed, 0 failed, 10 skipped. CI reporter: 3,289 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. Focused capture and localization checks: 20 passed. The baseline file is unchanged.
+- Hidden node --test --test-concurrency=1 test/review-bitz.electron.cjs test/review-desktop.electron.cjs: 11 passed; the initial ShareX locator expected the old checkbox label. After switching to the shared Toggle and selecting vertices before opening UV, node --test --test-name-pattern=ShareX test/review-desktop.electron.cjs passed its one scenario. It observed empty regions in UV and the same helper PID after returning to Vertices. BITZ tests closed an unrelated tab, saved a committed replacement before closing, and verified a discarded replacement left the file bytes intact.
+- Owner summary: the BITZ draft only interrupts closing the tab it belongs to. ShareX keeps running as you switch editors and stops when you turn it off.

@@ -74,3 +74,26 @@
   border: 0;
   border-top: 1px solid var(--ui-border);
 }
+
+/* The Windows menu keeps its measured position and reuses classic-menu surfaces in VIS. */
+.desktop-menu.classic-menu {
+  height: var(--desktop-menu-height);
+  min-height: var(--desktop-menu-height);
+  align-items: stretch;
+  z-index: 10100;
+  background: #d4d0c8;
+  color: #000;
+  font: 11px Tahoma, 'MS Sans Serif', Arial, sans-serif;
+}
+.desktop-menu.classic-menu .desktop-menu-popup {
+  position: fixed;
+  border-radius: 0;
+}
+#root .desktop-menu.classic-menu .desktop-menu-popup > button {
+  border-radius: 0;
+  min-height: 22px;
+}
+#root .desktop-menu.classic-menu button:is(:hover, :focus-visible, [aria-expanded="true"]):not(:disabled) {
+  background: #000080;
+  color: #fff;
+}
