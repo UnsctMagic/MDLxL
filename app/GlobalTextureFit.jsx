@@ -73,5 +73,5 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
  };
  const tools=[['move','sb_move','Move'],['rotate','sb_rot','Rotate'],['scale','sb_zoom','Scale']].filter(([action])=>!(rect&&action==='rotate'));
  return <div className="fx-uv-fit" ref={fit}><div className="classic-toolbar-group">{tools.map(([action,icon,title])=><Tool key={action} action={action==='move'?'translate':action} look icon={icon} title={title+(rect?' area':' UVs')} active={mode===action} onClick={()=>setMode(mode===action&&!layer.glyphs?null:action)}/>)}</div>
- {mode&&<div className="fx-uv-canvas"><UVEditor geoset={shown} selectedVertices={vertices} textureUrl={texture} textureWrapping={!rect} fitUVs={!!layer.glyphs} showVertices={!layer.glyphs} showSelectedVertices={!layer.glyphs} transformMode={mode} preferences={preferences} onChange={commit}/>{error&&<span role="status">Texture unavailable.</span>}</div>}</div>;
+ {mode&&<div className="fx-uv-canvas"><UVEditor geoset={shown} selectedVertices={vertices} textureUrl={texture} textureWrapping={!rect} fitUVs={!!layer.glyphs} fitTexture={!!rect} faintWires={!!layer.glyphs} showVertices={!layer.glyphs} showSelectedVertices={!layer.glyphs} transformMode={mode} preferences={preferences} onChange={commit}/>{error&&<span role="status">Texture unavailable.</span>}</div>}</div>;
 }

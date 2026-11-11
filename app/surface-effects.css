@@ -34,6 +34,8 @@
 .surface-effects .sfx-card{padding-left:22px!important}.surface-effects .sfx-card .gf-name{display:block;overflow:hidden;text-overflow:ellipsis}
 .sfx-own-row{display:flex;align-items:center}.sfx-own-row>.sfx-card{flex:1;min-width:0}.sfx-own-row>.preset-bar-delete{flex:none;height:24px;margin-left:2px}
 .fx-layer-row{display:flex;gap:3px;align-items:center}.fx-layer-row>button{flex:1;min-width:0}.sfx-controls .pe-life-table{width:100%;table-layout:fixed}.sfx-controls .pe-life-table input{max-width:100%;min-width:0;box-sizing:border-box}.sfx-controls .pe-life-table th{font-size:10px}.sfx-controls .pe-life-table input[type=color]{width:38px;height:22px}
+/* The narrow controls column: three stage columns fit their header word and three-digit values. */
+.sfx-controls .pe-life-table col.pe-life-label{width:64px}.sfx-controls .pe-life-table th,.sfx-controls .pe-life-table td{padding:2px 1px}.sfx-controls .pe-life-table thead button{padding:2px 1px;font-size:10px;white-space:nowrap;overflow:hidden}.sfx-controls .pe-life-table input[type=number]{padding:1px 2px;font-size:11px;text-align:center;-moz-appearance:textfield;appearance:textfield}.sfx-controls .pe-life-table input[type=number]::-webkit-inner-spin-button,.sfx-controls .pe-life-table input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.sfx-controls .pe-life-table input[type=color]{width:100%;max-width:38px}
 
 .surface-effects .sfx-cards svg{display:block}
 
