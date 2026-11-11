@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: fix round 3 implemented; ready for Claude QA (owner acceptance pending)
+Status: ready to test (Claude QA passed on main's POSE; owner hand test pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -480,15 +480,36 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
   No task-started background process remains. Source and this handoff are saved
   together on the local branch; no push, PR, merge or release.
 
+## Claude QA result (11 Nov, revision `43635990`)
+
+Feature `878925eb` (Codex, fix rounds 1–3) plus Claude's QA files, fast-forwarded
+onto `claude/bone-namer`. Evidence folders are in `.claude\worktrees\bone-namer-qa\out\`.
+
+- Source acceptance tests `test/bone-namer.test.js`: 57/57 pass. Written from this
+  contract before the feature existed (failed at import), each rule shown failing
+  on code with that rule broken (12 deliberate breaks; per-round new tests failed on
+  the previous namer).
+- Library gate `scripts/bone-namer-corpus.mjs` on main's POSE, 941 models: 0 failing
+  (0 LOST, MOVED, GRIP, STABILITY, naming). Review only: RE-ROOTED 14 (POSE's intended
+  reading once a body/chest has its real name), HEAD-TRACKED 7 (main's pose-ik.js:164,
+  fixed on the POSE branch), GAINED 298, RETYPED 4, CASE-DUPLICATE 8. 10,632 of 53,490
+  bones renamed. Identity stub 0 differences; sabotage stub fails.
+- Same gate on POSE branch `8f336192` (unmerged): Lord of Change passes since round 3;
+  only zergling ×2 fails (Body on `Bone Root L/R`), owned by the POSE side, which is
+  reworking it with Bone Namer's full rename map.
+- Packaged workflow `test/bone-namer.electron.cjs` (hidden desktop, real mouse/keys):
+  68/68; `test/attachemator.electron.cjs` passes. Covers button, list, part/side
+  corrections and renumbering, labels, preview selection, camera drag and
+  preservation, Commit, one Undo, Escape second press, Close/× like Attachemator,
+  read-only, Part column width.
+- Not covered: multi-actor header swap in the packaged app (covered in source tests),
+  Warcraft III itself, visual taste, the owner's own settings.
+- Hand-test build: `D:\Claude\MDLxL\TestBuilds\bone-namer\MDLxL.exe` (from `43635990`).
+
 ## Blockers and next action
 
-- No new implementation blocker. The three-round naming feedback is implemented
-  as specified; its stability across the library is unverified until Claude QA.
-- **Next for Claude:** review the round-3 diff against `d2702fb4`, rerun the source,
-  corpus and applicable packaged QA for the Wing preservation rule, then prepare the owner's
-  hand-test build when the gates pass. Direct Close/× now close immediately;
-  only the close key has the shared second-press guard for unapplied changes.
-- The Head Ref/neck issue remains with the POSE session, as described above.
-  No POSE branch was integrated here. Owner acceptance remains pending.
-- On eventual approved merge, mark completed with its revision and remove the
-  README task row.
+- None for Bone Namer on main's POSE. Ready for the owner's hand test.
+- When the POSE branch lands a zergling fix, rerun the gate on it
+  (temporary worktree `.claude\worktrees\bn-pose88`, detached; remove after).
+- On approved merge: mark completed with its revision and remove the README row;
+  delete `TestBuilds\bone-namer`, the `bone-namer-qa` and `bn-pose88` worktrees.
