@@ -62,6 +62,16 @@ from an earlier build does not count.
 | 8 | Saved models are safe | Save and reopen `.mdx` and `.mdl`; unedited parts stay identical |
 | 9 | Release text is correct | Six languages of notes, every new PDF looked at, every body link exists as an asset |
 | 10 | What the public downloads is what was tested | CI ZIP tested before publishing; public ZIP SHA-256 matched by hand afterwards |
+| 11 | OptimizeXL reproduces the frozen flail results | Run [the flail regression](../test/manual/optimizexl-flail-regression.mjs) on both accepted inputs with the historical mounted-spheres reference. |
+
+For line 11, run the flail regression from the release checkout with both inputs:
+
+- Flail01: `D:\Claude\MDLxL-TestModels\optimizexl\WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx`
+- Flail03: `D:\Claude\MDLxL-TestModels\optimizexl-expression\WH_WOC_KnightKhorneFlail03.mdx`
+- Flail03's mounted-spheres case needs the historical MDX and that file is missing
+  from this PC. When available, store it as `D:\Claude\MDLxL-TestModels\optimizexl-expression\Flail03-mounted-spheres-historical.mdx` and set `MDLXL_FLAIL_MOUNTED_REFERENCE` to its path.
+  The checker verifies the reference against the frozen SHA-256 before comparing
+  the current serialization.
 
 **A hotfix** needs 1, 2, 6, 9 and 10, plus targeted tests for what changed and a
 `baseline` sweep of the affected window.

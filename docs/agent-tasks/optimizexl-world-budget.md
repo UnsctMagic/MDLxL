@@ -1,5 +1,5 @@
 # OptimizeXL world-space animation reduction
-Status: ready for review; awaiting owner inspection and merge approval
+Status: completed, merged in #456 at 7dc13293
 Owner / consolidator: Codex
 Updated: 2026-10-30
 
