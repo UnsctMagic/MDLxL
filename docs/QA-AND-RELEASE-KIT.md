@@ -71,7 +71,9 @@ For line 11, run the flail regression from the release checkout with both inputs
 - Flail03's mounted-spheres case needs the historical MDX and that file is missing
   from this PC. When available, store it as `D:\Claude\MDLxL-TestModels\optimizexl-expression\Flail03-mounted-spheres-historical.mdx` and set `MDLXL_FLAIL_MOUNTED_REFERENCE` to its path.
   The checker verifies the reference against the frozen SHA-256 before comparing
-  the current serialization.
+  the current serialization. Until that reference is available, line 11 passes
+  when Flail01 passes and Flail03 differs only in `mounted-spheres`
+  (owner decision, 11 Nov 2026).
 
 **A hotfix** needs 1, 2, 6, 9 and 10, plus targeted tests for what changed and a
 `baseline` sweep of the affected window.

@@ -9,7 +9,7 @@ Add a selectable world-space animation reducer in the existing stage; retain the
 ## Revision and local state
 - Branch: codex/optimizexl-world-budget; D:/Codex/mdlxl-optimizexl-world-budget.
 - Original base: aa6689820ca49fd9c48a029b71959d8bcb097ca0. Integrated main de36134b1c9653dd5500533b5c6b88a956baa3e7, then release main 4681688ec4d01ba98c5aa9acf63f31d7f39d44eb. Conflicts were limited to the task index and exact translation counts; all concurrent release controls/translations are preserved. The PR does not change the version relative to current main.
-- Original implementation: 4c9e14b4fdedafe8e7584e4662ba2b1d6e225b3c. Reviewer follow-up is at the current PR head. PR: https://github.com/UnsctMagic/MDLxL/pull/437 (open, unmerged).
+- Original implementation: 4c9e14b4fdedafe8e7584e4662ba2b1d6e225b3c. Reviewer follow-up is at the current PR head. PR: https://github.com/UnsctMagic/MDLxL/pull/437 (landed through #456 at `7dc13293`).
 - Private input/reference: owner's D:/Claude/research/fx-optimization-2026-10-30 folder; never commit or execute its scripts.
 - Results: D:/Codex/mdlxl-optimizexl-world-budget-results.
 
