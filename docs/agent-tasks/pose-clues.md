@@ -210,9 +210,15 @@ Bone Namer library gate faults on 88aef3e1 (renames applied in memory,
 - Fixed, zergling (`corpus-sd` and `corpus-sd800`): naming the scythe ends
   `Mesh12`/`Object15` as `Bone_Hand_L`/`_R` made the mirrored-trunk-pair rule
   demote `Bone Root L`/`R` (two Body handles lost) and move Body to the still
-  mesh holder `Object01`. Now the pair keeps its names when the joint it hangs
-  from has no name of its own and does not move (`poseNameConflicts`). The
-  arms keep their ends; with named hands they are the usual three-joint chain.
+  mesh holder `Object01`. The full default rename also names that holder
+  `Bone_Chest`, so the first fix (unnamed, still holder; 8f336192) was not
+  enough. Now the pair keeps its names when the holder never moves, whatever
+  its name, and the shared hand or foot lies more than two joints below the
+  pair (`poseNameConflicts`). "Never moves" alone was rejected: it broke
+  `corpse-fixtures/Lahmian_SD_14.mdx`, whose still `Hips` holder carries a Hip
+  pair that is the top of each leg (feet two joints below; legs lost, body
+  moved). The arms keep their ends; with named hands they are the usual
+  three-joint chain.
 - Not fixed, Lord of Change (`B_W_1..6` -> `Bone_Wing1..3_R/L`): a POSE fix
   (let Wing names through the mirrored-sibling rule) breaks two accepted
   tests, `pose-wings` "wing joints named by name get no extra chains" and
@@ -225,5 +231,7 @@ Bone Namer library gate faults on 88aef3e1 (renames applied in memory,
   library `scripts/pose-corpus-diff.mjs` 1,021 models, 0 different; classic
   (`clues: false`) 1,021, 0 different; Auto Corpse and Attachemator output
   hashes 1,019 models, 0 different (scripts in this worktree's
-  `out/pose-compare/`). `test/pose-*.test.js` 122: 119 pass, 0 fail, 3 skipped
+  `out/pose-compare/`). `test/pose-*.test.js` 124: 121 pass, 0 fail, 3 skipped
   (corpus manifest and the dense twin-head fixture are not in this worktree).
+  The renamed test covers the hands-only and the full default rename of both
+  zergling copies; the full rename fails on 8f336192 (51 and 52 lose Body).

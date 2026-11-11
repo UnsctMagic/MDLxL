@@ -195,7 +195,7 @@ export function poseNameConflicts(model, evidence, nameRole, roles = {}) {
       const next = []; depth++;
       for (const item of level) for (const child of below.get(item.ObjectId) || []) {
         if (seen.has(child.ObjectId)) continue; seen.add(child.ObjectId); next.push(child);
-        if (depth >= 2) { const role = roleOf(child); if (role === 'Hand') kinds.add('arm'); else if (role === 'Foot' || role === 'Hoof') kinds.add('leg'); }
+        if (depth >= 2) { const role = roleOf(child), kind = role === 'Hand' ? 'arm' : role === 'Foot' || role === 'Hoof' ? 'leg' : null; if (kind && !kinds.has(kind)) { kinds.add(kind); (kinds.depths ||= {})[kind] = depth; } }
       }
       level = next;
     }
@@ -211,13 +211,14 @@ export function poseNameConflicts(model, evidence, nameRole, roles = {}) {
       const span = Math.max(pivot(a).distanceTo(pivot(parent)), pivot(b).distanceTo(pivot(parent)));
       if (!(mirrorError(pivot(a), pivot(b), pivot(parent), span) < .25)) continue;
       const ka = limbKinds(a), kb = limbKinds(b);
-      if (![...ka].some(kind => kb.has(kind))) continue;
-      // The pair's name moves up only to a joint that can carry it: a still,
-      // unnamed holder (a mesh pivot) leaves the pair as named.
-      const takesName = !keep.includes(nameRole(parent)) && roles[parentId] === undefined;
-      if (takesName && !evidence.moving(parent)) continue;
+      const shared = [...ka].filter(kind => kb.has(kind));
+      if (!shared.length) continue;
+      // Below a holder that never moves (a mesh pivot), whatever its name, a pair
+      // that is not the limb's own top joint (its hand or foot lies more than two
+      // joints below) is the moving trunk and keeps its names.
+      if (!evidence.moving(parent) && shared.every(kind => Math.min(ka.depths[kind], kb.depths[kind]) > 2)) continue;
       for (const node of [a, b]) out[node.ObjectId] = node.Name || 'Object';
-      if (takesName) out[parentId] = role;
+      if (!keep.includes(nameRole(parent)) && roles[parentId] === undefined) out[parentId] = role;
     }
   }
   for (const node of nodes) {
