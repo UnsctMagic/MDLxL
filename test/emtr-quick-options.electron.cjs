@@ -36,8 +36,27 @@ async function main() {
       await editor.waitFor({ state: 'hidden' });
     };
 
+    const learn = page.getByRole('button', { name: 'Learn', exact: true });
+    const learnMenu = page.getByRole('menu', { name: 'Learn', exact: true });
+    const menuStyle = element => {
+      const menu = getComputedStyle(element);
+      const item = getComputedStyle(element.querySelector('button'));
+      return [menu.backgroundImage, menu.backgroundColor, menu.borderRadius, menu.boxShadow, item.font, item.minHeight];
+    };
+    await click(page, learn, 'right');
+    await learnMenu.waitFor();
+    const learnStyle = await learnMenu.evaluate(menuStyle);
     await click(page, emtr, 'right');
     await quick.waitFor({ timeout: 3000 });
+    assert.deepEqual(await quick.evaluate(menuStyle), learnStyle, 'EMTR uses the Learn icon-menu styling');
+    await learnMenu.waitFor({ state: 'hidden' });
+    const [trigger, popup] = await Promise.all([emtr.boundingBox(), quick.boundingBox()]);
+    assert.ok(Math.abs(popup.x + popup.width - trigger.x - trigger.width) < 2, 'menu aligns with the right edge of EMTR');
+    assert.ok(Math.abs(popup.y - trigger.y - trigger.height - 6) < 2, 'menu opens directly below EMTR');
+    await click(page, emtr, 'right');
+    await quick.waitFor({ state: 'hidden' });
+    await click(page, emtr, 'right');
+    await quick.waitFor();
     assert.deepEqual(await quick.getByRole('menuitem').allTextContents(), ['Glow Up', 'EMTR Library', 'Manager']);
     assert.equal(await editor.count(), 0);
     await page.keyboard.press('Escape');
@@ -98,7 +117,7 @@ async function main() {
     await page.locator('[data-node-type="Bones"]').first().waitFor();
     assert.ok(await page.getByLabel('Show hierarchy').isVisible());
     assert.deepEqual(errors, []);
-    console.log('EMTR quick menu, normal opening, Glow Up with mouse rotation, Library, emitter-only Manager and full Node Manager passed.');
+    console.log('Shared Learn and EMTR menu styling, placement and dismissal, normal opening, Glow Up with mouse rotation, Library, emitter-only Manager and full Node Manager passed.');
   } finally {
     await closeApp(app);
   }
