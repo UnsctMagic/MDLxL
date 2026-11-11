@@ -52,3 +52,5 @@
 
 .fx-more>summary{cursor:pointer}.fx-more[open]{display:grid;gap:3px}.fx-layer-loop,.fx-area-actions{display:flex;gap:3px;align-items:flex-end}.fx-layer-loop>.field{flex:1;min-width:0}
 .sfx-controls .fx-add-emitter{grid-template-columns:minmax(0,1fr)}.sfx-controls .fx-add-emitter select{width:100%;min-width:0}.sfx-controls .field>span{min-width:0;overflow-wrap:anywhere}.sfx-controls button{white-space:normal;overflow-wrap:anywhere}
+.sfx-controls .fx-more[open]{grid-template-columns:minmax(0,1fr)}.sfx-controls .fx-more>*{min-width:0;max-width:100%}.sfx-controls .fx-more>label{display:flex;align-items:center;gap:6px;margin:5px 0}.sfx-controls .fx-more>label>select{flex:1;min-width:0}.sfx-controls .fx-more>button{display:block;margin:5px 0}.sfx-controls .fx-more>.pe-slider{margin:3px 0}
+.sfx-controls .pe-life-table col.pe-life-label{width:70px}.sfx-controls .pe-life-table tbody th{white-space:normal;line-height:1.15;overflow-wrap:anywhere}

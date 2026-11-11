@@ -11,7 +11,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {CARD_DEFAULTS,CARD_FACINGS} from '../src/fx-cards.js';
@@ -51,7 +51,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
  function particle(field,key,min,max,step,title){
-  return <div title={title}><ParticleSlider field={field} value={live?.key===key?live.value:l[key]} min={min} max={max} step={step}
+  return <div title={title}><ParticleSlider decimals={2} field={field} value={live?.key===key?live.value:l[key]} min={min} max={max} step={step}
    begin={()=>{gesture.current={key};}} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
    finish={()=>{const g=gesture.current;gesture.current=null;setLive(null);if(g?.value!=null)update(key,Math.max(min,Math.min(max,g.value)));}} cancel={()=>{gesture.current=null;setLive(null);}}/></div>;
  }
@@ -125,15 +125,15 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   </>}
   {p&&l.kind==='native'&&real&&<>
    {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
-   {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
+   {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
   {p&&real&&!stack.impact&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {/* EMTR's own fields; each value is kept in layer.native. */}
-   {(l.burstGap==null?['Latitude','Variation']:['Variation']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
+   {(l.burstGap==null?['Latitude','Variation']:['Variation']).map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
    <BlendLookField emitter={real} update={depth}/>
    <CarryButton emitter={real} update={depth}/>
    <DrawAsField emitter={real} update={depth}/>
-   {(real.FrameFlags&2)?<ParticleSlider field="TailLength" value={particleValue(real,'TailLength',timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>:null}
+   {(real.FrameFlags&2)?<ParticleSlider decimals={2} field="TailLength" value={particleValue(real,'TailLength',timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>:null}
    <ParticleFrameStrip emitter={real} asset={assets?.get(gamePathKey(graph.model.Textures[real.TextureID]?.Image||''))} pictureName={graph.model.Textures[real.TextureID]?.Image} replaceableId={real.ReplaceableId||graph.model.Textures[real.TextureID]?.ReplaceableId||0} patch={values=>values&&setLayer({...l,native:{...l.native,...plainValues(values)}})}/>
    <EmitModeButtons emitter={real} update={depth}/>
   </>}</details>}
@@ -168,8 +168,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {edge&&real&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    <label title="Draws the ribbon around the part on turning helpers."><input type="checkbox" checked={!!l.orbit} onChange={e=>{
     if(!e.target.checked){const next={...l};delete next.orbit;setLayer(next);return;}
-    const part=frame?.regions?.[0]?.frame||frame,radius=l.orbitRadius??Math.max(1,(part?.girth||4)*1.5),height=Math.max(1,radius*.25);
-    setLayer({...l,orbit:true,orbitRadius:radius,orbitTurns:l.orbitTurns??1,strength:.5,lasts:Math.max(l.lasts,.5),upper:height,lower:height});
+    setLayer(withOrbit(l,frame,stack.loop));
    }}/>Orbit</label>
    {l.orbit&&<>
     <RangeField key={l.id+'radius'} title="Distance of the ribbon from the part." label="Radius" output={v=>v.toFixed(1)} min={0} max={Math.max(2,(frame?.length||40)*.5)} step={.1} value={l.orbitRadius} onCommit={v=>update('orbitRadius',v)}/>

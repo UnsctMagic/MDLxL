@@ -6,9 +6,10 @@ import React,{useEffect,useRef,useState} from 'react';
 import {particleBindings,particleSliderDomain,particleValue,primaryParticleFields} from '../src/particle-bindings.js';
 const stageNames=['Born','Halfway','End'];
 const colorHex=rgb=>'#'+Array.from(rgb||[1,1,1],v=>Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0')).join('');
-export function ParticleSlider({label,field,value,begin,change,finish,cancel,stage,disabled=false,min,max,step='any'}) {
+// decimals: optional rounding of the value box (FX's narrow column); EMTR leaves it unset.
+export function ParticleSlider({label,field,value,begin,change,finish,cancel,stage,disabled=false,min,max,step='any',decimals}) {
   const down=useRef(false),editing=useRef(false),domain=particleSliderDomain(field,value),name=label||particleBindings[field]?.label||field;
-  const shown=Number.isFinite(value)?String(Number(value.toPrecision(7))):'0', [number,setNumber]=useState(shown);
+  const shown=Number.isFinite(value)?String(decimals!=null?Number(value.toFixed(decimals)):Number(value.toPrecision(7))):'0', [number,setNumber]=useState(shown);
   useEffect(()=>{if(!editing.current)setNumber(shown);},[shown]);
   const start=()=>{if(!down.current){down.current=true;begin(field,stage);}};
   const end=()=>{if(down.current){down.current=false;finish();}};

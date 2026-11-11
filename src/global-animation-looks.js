@@ -154,6 +154,12 @@ export function emitterChoices(look) {
  const other=LAYER_CHOICES.filter(spec=>spec.type==='Particles'&&!own.some(layer=>layer.label===spec.label&&layer.image===spec.image&&layer.kind===spec.kind&&layer.stamp===spec.stamp&&layer.nativeSurface?.id===spec.nativeSurface?.id));
  return [...own.map((spec,i)=>({spec,label:spec.label+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:spec.menuLabel||spec.label}))];
 }
+/** An Edge switched to Orbit: a loop wide and bright enough to see at once (study: Additive, alpha .6-.7, life about half a turn, rate 35-40). */
+export function withOrbit(l,frame,loop){
+ const part=frame?.regions?.[0]?.frame||frame,girth=part?.girth||4,length=part?.length||40;
+ const radius=l.orbitRadius??Math.max(1,girth*2.5,length*.14),turns=l.orbitTurns??2,turn=Math.max(100,(loop||3000)/turns),height=Math.max(1,radius*.55);
+ return {...l,orbit:true,orbitRadius:radius,orbitTurns:turns,strength:.7,lasts:Math.min(1.2,Math.max(.45,turn*.5/1000)),upper:height,lower:height,smoothness:Math.max(l.smoothness??32,40)};
+}
 export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
 export function withLayerSize(layer,next){
  if(next.size===layer.size||layer.kind==='flies'||!layer.native?.ParticleScaling)return next;

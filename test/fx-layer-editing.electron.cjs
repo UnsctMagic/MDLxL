@@ -47,12 +47,18 @@ const {testModel}=require('./helpers/fixtures.cjs');
    const selected=es.filter(e=>e.Name.startsWith('FX Rising embers'));return selected.length>0&&selected.every(e=>e.Alpha.every(v=>v===0))&&es.some(e=>e.Name.startsWith('FX Pollen')&&e.Alpha.some(v=>v>0));};
   await page.waitForFunction(isolated,null,{timeout:5000});await page.mouse.up();await ready();assert.ok(await page.evaluate(isolated));
   // Emitter depth under More, with EMTR's own controls: Draw as and Carry reach every emitter of the layer.
-  await fx.locator('details.fx-more>summary').click();
+  await fx.locator('details.fx-more>summary').click();await ready();await page.waitForTimeout(600);
   await selectOption(page,fx.getByLabel('Draw as',{exact:true}),'Both');await ready();
   const embers=()=>page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),s=p.props.model.Geosets.find(g=>g._FxStack)._FxStack;return {native:s.layers.find(l=>l.label==='Rising embers').native||{},nodes:p.runtime.native.particlesController.emitters.map(e=>e.props).filter(e=>e.Name.startsWith('FX Rising embers')).map(e=>[e.FrameFlags,e.Flags&524288])};});
   let depth=await embers();assert.equal(depth.native.FrameFlags,3,'Draw as is kept on the layer');assert.ok(depth.nodes.length&&depth.nodes.every(([frames])=>frames===3),'every emitter draws sprites and streaks: '+JSON.stringify(depth.nodes));
   const carry=fx.getByRole('button',{name:/^(Carry particles|Leave behind)$/});const carried=depth.nodes[0][1];await carry.click();await ready();
-  depth=await embers();assert.ok(depth.nodes.every(([,bit])=>bit!==carried),'Carry toggles every emitter: '+JSON.stringify(depth.nodes));  await choose('Lightning');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
+  depth=await embers();assert.ok(depth.nodes.every(([,bit])=>bit!==carried),'Carry toggles every emitter: '+JSON.stringify(depth.nodes));
+  await choose('Fire');await select('Blade flames');await ready();
+  if(await fx.locator('details.fx-more').getAttribute('open')===null)await fx.locator('details.fx-more>summary').click();await ready();await page.waitForTimeout(600);
+  // The narrow controls column fits EMTR's rows: it never scrolls sideways.
+  const column=await fx.locator('.sfx-controls').evaluate(e=>({scroll:e.scrollWidth,client:e.clientWidth,wide:[...e.querySelectorAll('*')].filter(n=>n.getBoundingClientRect().right>e.getBoundingClientRect().left+e.clientWidth+.5).slice(0,6).map(n=>n.tagName+'.'+n.className+' '+Math.round(n.getBoundingClientRect().width))}));
+  assert.equal(column.scroll,column.client,'controls column scrolls sideways with an emitter\'s More open: '+JSON.stringify(column));
+  await choose('Lightning');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
   assert.deepEqual(errors,[]);console.log('PASS live layer isolation, native texture library, emitter substitution and independent lightning controls');
  }catch(error){console.error((await page.locator('body').innerText()).slice(-2100));await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

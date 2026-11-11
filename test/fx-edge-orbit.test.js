@@ -65,3 +65,19 @@ test('an orbiting Edge saves, reopens and its look fits another part',()=>{
  const kept=normalizeOwnLook({id:'own-orbit',name:'Orbit',loop:3000,frame:{length:100,girth:5,radius:5},layers:[{id:1,type:'Edge',tint:[1,1,1],offset:[0,0,0],orbit:true,orbitTurns:40,orbitRadius:-3}]}).layers[0];
  assert.deepEqual([kept.orbitTurns,kept.orbitRadius],[8,0],'saved orbit fields stay in bounds');
 });
+
+test('switching Orbit on gives a loop that is clearly visible around the part',()=>{
+ assert.ok(looks.withOrbit,'withOrbit exists');
+ const {model}=knight(),frame=partFrame(model.Geosets[0]),part=frame.regions?.[0]?.frame||frame,spec=LAYER_CHOICES.find(s=>s.type==='Edge'&&s.label==='Light edge');
+ const before=makeLayer(spec,frame,'native',1),l=looks.withOrbit(before,frame,3000);
+ assert.ok(l.orbit&&l.orbitRadius>=part.girth*2.5,'the loop clears the part: '+l.orbitRadius+' vs girth '+part.girth);
+ assert.ok(l.upper>=l.orbitRadius*.5&&l.lower>=l.orbitRadius*.5,'the ribbon is tall enough to read');
+ assert.ok(l.strength>=.6&&l.strength<=.75,'static alpha as the study (.6-.7)');
+ const turn=3000/l.orbitTurns/1000;assert.ok(l.lasts>=turn*.4&&l.lasts<=1.2,'the trail covers about half a turn: '+l.lasts);
+ compileAnimation(model,0,{owner:'orbit',look:'empty',loop:3000,impact:false,layers:[l]});
+ const ribbon=ribbons(model)[0];assert.equal(model.Materials[ribbon.MaterialID].Layers[0].FilterMode,3,'Additive');
+ assert.equal(ribbon.Alpha,l.strength,'static alpha, no flicker');
+ assert.ok(ribbon.EmissionRate>=35,'rate 35-40 as the study');
+ // A radius or turns the user set stays.
+ assert.deepEqual([looks.withOrbit({...before,orbitRadius:5,orbitTurns:3},frame,3000).orbitRadius,looks.withOrbit({...before,orbitRadius:5,orbitTurns:3},frame,3000).orbitTurns],[5,3]);
+});
