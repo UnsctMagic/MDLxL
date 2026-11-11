@@ -1,6 +1,6 @@
 # Contract 6: housekeeping after the review
 
-Status: completed for Claude review. Flail03 historical mounted-spheres reference missing, as confirmed by the owner.
+Status: reworked and ready for Claude re-check. The documented Flail03 reference is missing.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -100,7 +100,7 @@ Local implementation revision 143236bc on codex/main-review-20261111-6, based on
 - G1 verification: node test/manual/optimizexl-flail-regression.mjs ran once
   per accepted model on 143236bc. Flail01 matched all 31 accepted results and
   verified the extents repair. Flail03 stopped only at mounted-spheres.
-  Actual SHA-256 c0a0955d8f92cb3d1ab1d13914845cc134060a31d84cd2ced5795c0836ca9
+  Actual SHA-256 c0a0955d8f92cb3d1ab1d13914845cc134060a31d84cd2ced2645795c0836ca9
   is the same as the main-review run with only bounds allowed. Frozen SHA-256
   084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a
   is unchanged. The owner confirmed the 237,022-byte reference is absent and
@@ -135,3 +135,8 @@ Local implementation revision 143236bc on codex/main-review-20261111-6, based on
 
 Claude can review 143236bc and this note locally. The historical case can be
 rerun if the exact reference becomes available.
+## Rework after Claude’s review
+
+- Implementation revision 63020155. The discard cue computes its layer directly from the workspace dialog layer. The three existing theme layer tokens are intact. The approved temporary Flail03 release rule, complete actual hash above, and #437 integration wording are recorded.
+- pnpm run test:source: 3,272 passed, 0 failed, 10 skipped. CI reporter: 3,282 passing events including skips, 0 failures, 0 new failures against .github/known-test-failures.txt. pnpm test: 57 passed, 0 failed, 0 skipped. node --test test/ui-primitives.test.js: 16 passed, 0 failed, 0 skipped. The baseline file is unchanged.
+- Owner summary: the discard notice stays above workspace dialogs. Flail01 must pass and Flail03 may differ only in the known mounted-spheres case while the original reference is missing.
