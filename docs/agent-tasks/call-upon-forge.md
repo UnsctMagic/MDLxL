@@ -1,6 +1,6 @@
 # Call Upon Forge — review contract
 
-Status: contract corrections verified and saved locally; ready for owner review.
+Status: Claude reviewed 7d83b462 with no blocking findings; permanent probe tests pass. Owner hand-test acceptance remains open. Local only.
 Owner: Codex / Call Upon Forge chat. Updated: 2026-11-11.
 Worktree: `D:\Codex\mdlxl-call-upon-forge-20261111`, branch `codex/call-upon-forge`.
 Durable behavior: [Forge guide](../FORGE.md). Historical implementation/test details remain in Git history.
@@ -23,6 +23,15 @@ Durable behavior: [Forge guide](../FORGE.md). Historical implementation/test det
 8. Commit merges changed-geoset selection into the existing selection. UI regression failed first with `Commit lost the untouched body selection`; final check passes.
 9. Enter belongs to focused buttons/menus/dialogs; viewport Enter still commits. UI regression failed first with `Enter on Turn cuts committed instead of activating the button`. Final real click/Tab/Enter checks cover Turn cuts, Cancel, menu opening, dialog Close and viewport Commit. No programmatic focus or app-state mutation is used by these new checks.
 10. Ran **one** full `pnpm run test:source`: **3,296 passed / 3 failed / 10 skipped**. All three failures were locale counts/order/line endings introduced by item 4; corrected them and reran only `localization-catalogs.test.js`: **7 passed / 0 failed / 0 skipped**, including new Forge coverage. Baseline remains unchanged (zero allowed failures). TAP completion/failures were compared using `.github/check-test-baseline.mjs`. The full suite was not repeated.
+
+## Permanent probe tests — review follow-up
+
+- Promoted `out/claude-review-probes/seam-probe.mjs` into [forge-vertex-seams.test.js](../../test/forge-vertex-seams.test.js): Move and Taper keep referenced same-position/different-UV copies together at their original indices, preserve every seam UV set, and retain vertex/triangle counts. Each tool exercises 12 SD and 128 native HD seam neighborhoods through the permanent fixture helper. HD remains source-only and view-only in the application.
+- Failing-first proof on **0378188d**, in a disposable detached worktree: `node --test --test-name-pattern=citadel-footman test/forge-vertex-seams.test.js` gives **0 passed / 2 failed / 0 skipped**, both failing `UV seams must remain joined with their authored UVs`. Each tool reports **29 position/UV violations** (10 split seam groups and 19 changed seam UV records), plus 12 vertex-count violations.
+- Promoted `local-vs-whole.mjs` into [forge-vertex-local.test.js](../../test/forge-vertex-local.test.js). The whole-geoset reference calls `createForgeShape` directly; it does not use local extraction or remainder bookkeeping. Move, Bevel, Taper, Bend, Twist, Inset, Extrude and Cut each exercise the probe's 20 Footman regions. Compare triangle multiplicity, winding and every corner stream regardless of face order/new vertex numbering.
+- Results: **155 matching outputs**, including **9 empty-face-selection no-ops**, and **5 known matching rejections** (3 Bevel, 2 Inset). Unexpected rejections fail even if both paths throw. Float32 differences are rounded to four decimals before comparison, avoiding false failures when neighboring values straddle a decimal boundary; maximum observed difference is **0.00000762939453125**. No open-edge-count assertions: cuts and border edits legitimately change the mesh border.
+- Negative control: deliberately omit one untouched remainder triangle in the disposable **7d83b462** copy. All **8 local/whole tests fail** on triangle count; the production worktree is unchanged. Final focused command: `node --test test/forge-vertex-seams.test.js test/forge-vertex-local.test.js` — **12 passed / 0 failed / 0 skipped**. Logs: `out/probe-regressions/{seams-0378188d,local-missing-triangle,final-source}.log`.
+- This follow-up changes tests and documentation only. Claude's reported **162/162** existing focused source passes are reused, not rerun or counted as new evidence. No build, full source suite, packaged suite, UI interaction or online action. Owner review windows, packages, models and profiles remain untouched; owner hand-test acceptance is still pending.
 
 ## Evidence and reproduction
 
