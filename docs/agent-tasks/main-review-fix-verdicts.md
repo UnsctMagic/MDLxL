@@ -1,8 +1,39 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: review done; rework needed on branches 2 to 7 before merging
+Status: rework re-checked and accepted on all seven branches; one combined branch still needed before merging
 Owner / consolidator: Claude Code (review), Codex (rework)
-Updated: 2026-11-11
+Updated: 2026-11-11 (evening)
+
+## Re-check of the rework (11 Nov, evening)
+
+Tips re-checked: 1 `d13fbf6f` (unchanged), 2 `426fdabe`, 3 `47337d05`, 4 `684b568e`,
+5 `7961856b`, 6 `68cb09b5`, 7 `053ad9d0`. All are plain follow-up commits on the reviewed
+tips; every worktree is clean. Online `main` is still `a8a4ca86`.
+
+**Every reworked point below is done and reads correctly.** Claude read each follow-up
+diff and re-ran the eleven tests that failed before plus the reworked ones on each of
+branches 2 to 7: 146 to 151 tests per branch, 0 failures. Claude did not re-run all
+seven whole suites or any packaged test; those rest on Codex's runs (0 failures, 10
+skips per branch) until the combined branch is checked.
+
+- **O12 (owner, relayed through the continuation session on 11 Nov: "Keep").** Done on
+  branch 2: when the safety copy cannot be made the old file is left untouched, a
+  translated notice says so and offers Save as; the tab stays unsaved. A repeated
+  unreadable save reuses the first backup instead of copying the broken file.
+- Accepted small points, no change wanted:
+  - Branch 2: if the user deleted the first backup, a repeated unreadable save is
+    refused with the same notice (it errs on the safe side).
+  - Branch 3: two catalog entries for texts the app no longer shows were kept.
+  - Branch 7: capture regions are also cleared while the UV window has focus.
+
+**What is left before merging:** since the rework, branches 3, 4, 5 and 7 each add
+translations, so they now conflict with one another in the five locale catalogs and the
+catalog-size line of `test/localization-catalogs.test.js` (only there; branches 2 and 6
+merge cleanly). Seven separate PRs would each need that conflict resolved again. Codex
+builds one combined branch (`codex/main-review-20261111-all`), Claude checks it, and
+that single branch is what gets merged when the owner says "merge".
+
+The sections below are the first review, kept as the record of what was asked.
 
 Reviewed: local `codex/main-review-20261111-1` to `-7` at the tips Codex handed over
 (`d13fbf6f`, `5c18a201`, `49327893`, `97cbbb58`, `fa90a3cb`, `4b48365e`, `5a600416`), each
