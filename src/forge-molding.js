@@ -121,7 +121,7 @@ function polygonFace(shape,ids,face,source) {
     }
     return best?.uv||[0,0];
   };
-  return {id:face?.id??shape.nextFaceId++,vertices:ids,triangles:triangles.map(corners=>{
+  return {id:face?.id??shape.nextFaceId++,...(face?.sourceTriangles ? {sourceTriangles:face.sourceTriangles} : {}),vertices:ids,triangles:triangles.map(corners=>{
     let vertices=corners.map(i=>ids[i]);
     const area = points.reduce((sum,p,i)=>sum+p.x*points[(i+1)%points.length].y-p.y*points[(i+1)%points.length].x,0), [a,b,c] = corners.map(i=>points[i]);
     if(((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x))*area<0)vertices.reverse();
@@ -152,10 +152,19 @@ export function bevelForgeShape(source,selected,mode,amount,round=false) {
     ends.set(edgeKey+'/'+v,add(p,mul(line,t)));
     for(const f of e.faces)if(Math.hypot(...sub(corner.get(key(f.id,v)),p))>1e-8)corner.set(key(f.id,v),add(p,mul(line,t)));
   }
-  const shape={...source,vertices:[],faces:[],committed:false},welded=new Map(),origins=[];
-  const vertex=(p,origin)=>{const k=origin+':'+p.map(n=>Math.round(n*1e7)).join(':');if(!welded.has(k)){welded.set(k,shape.vertices.length);shape.vertices.push(p);origins.push(origin);}return welded.get(k);};
+  const shape={...source,vertices:[],faces:[],...(source.vertexSources?{vertexSources:[]}:{}),committed:false},welded=new Map(),origins=[];
+  const vertex=(p,origin)=>{const k=origin+':'+p.map(n=>Math.round(n*1e7)).join(':');if(!welded.has(k)){welded.set(k,shape.vertices.length);shape.vertices.push(p);if(shape.vertexSources)shape.vertexSources.push(source.vertexSources[origin]);origins.push(origin);}return welded.get(k);};
   const faceCorners=new Map();
   for(const f of source.faces){
+    const unchanged=f.vertices.every((v,i)=>{
+      const p=source.vertices[v],before=f.vertices[(i+f.vertices.length-1)%f.vertices.length],after=f.vertices[(i+1)%f.vertices.length];
+      return [corner.get(key(f.id,v)),ends.get(forgeEdgeKey(before,v)+'/'+v)||p,ends.get(forgeEdgeKey(v,after)+'/'+v)||p].every(q=>Math.hypot(...sub(q,p))<1e-10);
+    });
+    if(unchanged){
+      const remap=id=>vertex(source.vertices[id],id);
+      shape.faces.push({...f,vertices:f.vertices.map(remap),triangles:f.triangles.map(t=>({...t,vertices:t.vertices.map(remap)}))});
+      continue;
+    }
     const ids=f.vertices.flatMap((v,i)=>{
       const before=f.vertices[(i+f.vertices.length-1)%f.vertices.length],after=f.vertices[(i+1)%f.vertices.length],inKey=forgeEdgeKey(before,v),outKey=forgeEdgeKey(v,after);
       if(picked.has(inKey)||picked.has(outKey)){const id=vertex(corner.get(key(f.id,v)),v);faceCorners.set(key(f.id,v),id);return [id];}

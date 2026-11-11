@@ -18,22 +18,24 @@ function boundaryEdges(faces) {
 // Keep corner UVs separate from position topology. Warcraft primitives use
 // separate vertices at UV/normal seams; editing a side must still move its
 // connected neighbors without welding or replacing those texture coordinates.
-export function createForgeShape(mesh, { id = 1, name = 'Shape', texturePath } = {}) {
+export function createForgeShape(mesh, { id = 1, name = 'Shape', texturePath, trackSources = false, vertexKey } = {}) {
   const vertices = [], faces = [], welded = new Map();
+  const vertexSources = [], sourceVertices = [];
   const bounds = [[Infinity, -Infinity], [Infinity, -Infinity], [Infinity, -Infinity]];
   for (const g of mesh.geosets) for (let i = 0; i < g.Vertices.length; i++) { const b = bounds[i % 3]; b[0] = Math.min(b[0], g.Vertices[i]); b[1] = Math.max(b[1], g.Vertices[i]); }
   const epsilon = Math.max(1, ...bounds.map(b => b[1] - b[0])) * 1e-7;
   let nextFaceId = 1;
   for (const g of mesh.geosets) {
     const ids = Array.from({ length: g.Vertices.length / 3 }, (_, i) => {
-      const p = Array.from(g.Vertices.slice(i * 3, i * 3 + 3)), key = p.map(v => Math.round(v / epsilon)).join(':');
-      if (!welded.has(key)) { welded.set(key, vertices.length); vertices.push(p); }
+      const p = Array.from(g.Vertices.slice(i * 3, i * 3 + 3)), key = p.map(v => Math.round(v / epsilon)).join(':') + (vertexKey ? '|' + vertexKey(g, i) : '');
+      if (!welded.has(key)) { welded.set(key, vertices.length); vertices.push(p); if (trackSources) vertexSources.push([[i, 1]]); }
+      if (trackSources) sourceVertices[i] = welded.get(key);
       return welded.get(key);
     });
     for (let i = 0; i < g.Faces.length; i += 3) {
       const source = Array.from(g.Faces.slice(i, i + 3)), corners = source.map(v => ids[v]);
       if (new Set(corners).size < 3) continue;
-      faces.push({ id: nextFaceId++, vertices: corners, triangles: [{ vertices: corners, uv: source.flatMap(v => Array.from(g.TVertices[0].slice(v * 2, v * 2 + 2))), normals: source.flatMap(v => Array.from(g.Normals.slice(v * 3, v * 3 + 3))) }] });
+      faces.push({ id: nextFaceId++, vertices: corners, triangles: [{ vertices: corners, ...(trackSources ? { sourceCorners: source } : {}), uv: source.flatMap(v => Array.from(g.TVertices[0].slice(v * 2, v * 2 + 2))), normals: source.flatMap(v => Array.from(g.Normals.slice(v * 3, v * 3 + 3))) }] });
     }
   }
   const shape = { id, name, texturePath, vertices, faces, nextFaceId };
@@ -81,7 +83,24 @@ export function createForgeShape(mesh, { id = 1, name = 'Shape', texturePath } =
     loop.pop(); component.forEach(f => merged.add(f.id)); fans.set(seed.id, { ...seed, vertices: loop, triangles: component.flatMap(f => f.triangles) });
   }
   shape.faces = shape.faces.flatMap(f => fans.has(f.id) ? [fans.get(f.id)] : merged.has(f.id) ? [] : [f]);
+  if (trackSources) {
+    shape.vertexSources = vertexSources; shape.sourceVertices = sourceVertices;
+    for (const face of shape.faces) face.sourceTriangles = face.triangles.map(t => t.sourceCorners);
+  }
   return shape;
+}
+
+// Optional ancestry for editing authored meshes. Primitive-only Forge keeps its
+// existing shape format; the Vertex editor uses ancestry to retain every stream.
+export function appendForgeVertex(shape, point, sources) {
+  const id = shape.vertices.length;
+  shape.vertices.push(point);
+  if (shape.vertexSources) {
+    const weights = new Map();
+    for (const [vertex, factor] of sources) for (const [source, weight] of shape.vertexSources[vertex]) weights.set(source, (weights.get(source) || 0) + weight * factor);
+    shape.vertexSources.push([...weights].filter(([, weight]) => weight > 1e-10));
+  }
+  return id;
 }
 
 export function forgeShapeEdges(shape) {
@@ -160,7 +179,7 @@ function flatLayout(vertices, face) {
   if (!(size > 0) || Math.hypot(...normal) < .5 || face.vertices.some(id => Math.abs(dot(sub(vertices[id], origin), normal)) > size * 1e-6)) return null;
   const u = unit(sub(vertices[face.vertices[distances.indexOf(size)]], origin)), v = cross(normal, u);
   const flat = id => { const d = sub(vertices[id], origin); return [dot(d, u), dot(d, v)]; };
-  const icon = face.triangles.every(t => t.uv.length === 6 && t.uv.every((n, i) => Math.abs(n - TRIANGLE_ICON_UV[i]) < 1e-6));
+  const icon = !face.sourceTriangles && face.triangles.every(t => t.uv.length === 6 && t.uv.every((n, i) => Math.abs(n - TRIANGLE_ICON_UV[i]) < 1e-6));
   let texture = null;
   if (!icon) {
     const twice = ([a, b, c]) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
@@ -226,7 +245,7 @@ function detachedCap(source, selected) {
   if (!faces.length) throw Error('Select faces to extend.');
   if (!edges.length) throw Error('Select an open region of faces to extend.');
   const runs = straightRuns(shape, edges, faces);
-  for (const id of new Set(faces.flatMap(f => f.triangles.flatMap(t => t.vertices)))) { copies.set(id, shape.vertices.length); shape.vertices.push([...shape.vertices[id]]); }
+  for (const id of new Set(faces.flatMap(f => f.triangles.flatMap(t => t.vertices)))) copies.set(id, appendForgeVertex(shape, [...shape.vertices[id]], [[id, 1]]));
   for (const face of faces) {
     face.vertices = face.vertices.map(id => copies.get(id));
     face.triangles = face.triangles.map(t => ({ ...t, normals: undefined, vertices: t.vertices.map(id => copies.get(id)) }));
@@ -291,7 +310,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
   const span = frame.max - frame.min, epsilon = Math.max(1, span) * 1e-8;
   const cuts = [...new Set(fractions.filter(n => Number.isFinite(n) && n > 1e-6 && n < 1 - 1e-6).map(n => Math.round(n * 1e8) / 1e8))].sort((a, b) => a - b).map(n => frame.min + span * n);
   if (!cuts.length || span < epsilon) return source;
-  const shape = { ...source, vertices: source.vertices.map(p => [...p]), faces: [] }, intersections = new Map(), onEdge = new Map(), edgeSplits = new Map();
+  const shape = { ...source, vertices: source.vertices.map(p => [...p]), ...(source.vertexSources ? { vertexSources: source.vertexSources.slice() } : {}), faces: [] }, intersections = new Map(), onEdge = new Map(), edgeSplits = new Map();
   const targets = selected && new Set(selected);
   let changed = false;
   const replacements = new Map();
@@ -300,7 +319,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
   // that edge (and every later piece of it) reuses the same point.
   const crossing = (a, b, da, db, cutIndex) => {
     const t = da / (da - db), edge = onEdge.get(a) || onEdge.get(b) || [a, b], key = cutIndex + ':' + forgeEdgeKey(...edge);
-    if (!intersections.has(key)) { intersections.set(key, shape.vertices.length); shape.vertices.push(add(shape.vertices[a], mul(sub(shape.vertices[b], shape.vertices[a]), t))); }
+    if (!intersections.has(key)) intersections.set(key, appendForgeVertex(shape, add(shape.vertices[a], mul(sub(shape.vertices[b], shape.vertices[a]), t)), [[a, 1-t], [b, t]]));
     const id = intersections.get(key);
     onEdge.set(id, edge);
     if (targets) { const key = forgeEdgeKey(...edge); if (!edgeSplits.has(key)) edgeSplits.set(key, new Set()); edgeSplits.get(key).add(id); }
