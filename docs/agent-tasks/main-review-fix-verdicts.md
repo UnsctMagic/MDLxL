@@ -62,6 +62,24 @@ Because the three stops hide the assertions that follow them, the combined branc
 not called ready until the three tests are corrected (test files only) and those three
 harnesses pass on the combined package.
 
+**Follow-up at `d029ece9` (test files only).** The hotkey audit now passes twice. The
+animated-vertex check passes its corrected Move part and then stops in the Rotate/Resize
+loop at line 245, "release keeps the posed edit". Verdict: the same fault in the test,
+not a regression.
+
+- That loop records the preview after a wait that is satisfied by the first degree of
+  rotation (or 1% of scale) out of eight mouse steps, then compares the display after
+  release with that early sample at a tolerance of 0.0002.
+- Releasing the mouse first applies the last pending pointer position
+  (`transformFrame.flush()` in `app/Viewport.jsx`), by design, so the display after
+  release is at step eight while the sample can be from an earlier step.
+- In the same run the Move part, which now waits for the final position before it
+  samples, passed the identical check ("release keeps the displayed result") through
+  the same release code. That shows the release path reproduces the live preview.
+- Not proven by a run of the Rotate part: the log holds no numbers. The corrected test
+  must print them if it fails again.
+- The BITZ check has not been run since its correction.
+
 The sections below are the first review, kept as the record of what was asked.
 
 Reviewed: local `codex/main-review-20261111-1` to `-7` at the tips Codex handed over
