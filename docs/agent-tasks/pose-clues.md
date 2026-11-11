@@ -118,3 +118,30 @@ Updated: 2026-11-11
   handle's symbol; no new catalog strings if avoidable. New packaged test
   `test/pose-hide.electron.cjs` with a real right-click, fail first.
 - Then: package test build 4, delete builds 2 and 3.
+
+## State, 11 Nov evening
+
+- Saved since the handover above: `c929c709` (unanimated units) and the
+  hide / reveal commit that follows it. Handover items 1 and 2 are done.
+- Unanimated units, narrowed on review: relaxed motion for everything that
+  rests on a name, an attachment or the pelvis / neck / hand-row rules; the
+  unnamed-limb search (`inferPoseBranches`) keeps strict motion, because the
+  existing test "rigid props without articulation are not inferred as legs"
+  must hold. Stripped-animation run: named parts 96-100% found (tails 71%),
+  limbs 91%; unnamed limbs still need motion (owner's call to loosen).
+- Hide / reveal: `config.hidden` in `session.pose`; identities from
+  `poseHandleKey` in `app/pose-overlay.js`; menu is a third branch of the
+  `.classic-context` renderer in `app/AppDialogs.jsx`; reveal strip is a DOM
+  overlay in `app/GamePreview.jsx`, positioned from `[data-hotkey="pose:mode"]`.
+  A hidden limb's Focused Skeleton lines are still drawn.
+- Whole branch against main (`pose-base`), 1018 library models: 825 identical,
+  193 differ: Pelvis handle added on 94, Neck on 76, body changed on 16 (15
+  unanimated props gain a body, Lahmian SD 14), thigh "Pelvis" handles removed
+  on 10, limbs added on 6, Chest added on 2.
+- Packaged tests on build 3 (`8d291541`): 13 POSE / AnimXL / Auto Corpse /
+  Attachemator tests pass. `pose-ik` failed once in 3 runs there ("commit-throw
+  discards every preview track") and passed 2 of 2 on main: treated as flaky,
+  not reproduced. `pose-hide` passes on the hide / reveal package and fails
+  first on build 3. Owner, 11 Nov: no repeat runs, the release suite covers
+  the rest.
+- Not verified: the owner's hand test of wings, hands and hide / reveal.

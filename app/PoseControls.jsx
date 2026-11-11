@@ -18,6 +18,8 @@ function SetupWindow({ onClose, title, children }) {
   </div>;
 }
 const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
+/** Hidden handles that still have a mapping; a removed or replaced handle takes its hidden state with it. */
+const stillMapped = (config, hidden) => hidden.filter(id => id === 'body' ? config.body != null : id.startsWith('node:') ? (config.nodes || []).includes(Number(id.slice(5))) : config.chains.some(chain => chain.key === id));
 const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
 
 export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled }) {
@@ -93,6 +95,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
       next.chains = value.chains.filter(chain => chain.key !== target.key); next.pins = value.pins.filter(key => key !== target.key);
       for (const key of ['targets','bends']) { next[key] = { ...value[key] }; delete next[key][target.key]; }
     }
+    if (value.hidden?.length) next.hidden = stillMapped(next, value.hidden);
     return next;
   };
   const save = () => {
@@ -107,6 +110,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
       next = without(next, { kind: 'endpoint', key: chain.key }); next.chains = [...next.chains, chain]; if (config.pins.includes(chain.key)) next.pins = [...next.pins,chain.key]; target = { kind: 'endpoint', key: chain.key };
     } else if (part === 'Body') { next.body = draft.id; target = { kind: 'body' }; }
     else { next.nodes = [...new Set([...(next.nodes || []), draft.id])]; next.roles = { ...next.roles, [draft.id]: part }; target = { kind: 'node', id: draft.id }; }
+    if (config.hidden?.length) next.hidden = stillMapped(next, config.hidden);
     onChange({ ...next, target }); onSelect?.(target); setEditor(null); setError('');
   };
   const repairSharedStart = () => {

@@ -47,6 +47,10 @@ rigs, including joints named through their native attachment references.
    It sits on the character's outside flank, beyond the transform arrows.
    Explicit pins can limit ancestor motion at **Reach limit**. Scale retains
    ordinary Movement behavior, with explicit pins compensated.
+6. Right-click a handle (without dragging) and choose **Hide** to take it out of
+   sight. A hidden handle keeps working: its limb still follows the body, keeps its
+   pin and stays in Setup and Copy Pose. It waits as a small button left of **POSE**;
+   click that button to show it again.
 
 Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on themed
 backings so they remain identifiable over bone markers. Whole-body control uses

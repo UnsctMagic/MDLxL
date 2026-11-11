@@ -32,7 +32,8 @@ import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { dragKeys, isModifierKey, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
 import { holdGestureKey } from './gesture-keys.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
+import { getLanguage, translate } from '../src/localization.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleKey, poseHandleTarget, posePinPath, poseSymbolName, poseSymbols, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, applyUVRestAppearance, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
 import { applyWiggleMatrices } from '../src/bone-wiggle.js';
@@ -276,7 +277,7 @@ export default function GamePreview(inputProps) {
     hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], projectedNodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, poseRight = null, revealStrip = null, revealSignature = '', revealLayout = '', pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], projectedNodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -464,7 +465,7 @@ export default function GamePreview(inputProps) {
       if (gesture.rotationDrag.axisName) gesture.handle.axis = gesture.rotationDrag.axisName;
       return amount;
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.hidden, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
@@ -579,6 +580,53 @@ export default function GamePreview(inputProps) {
         setGestureLabel(cause.message);
       }
     };
+    // A right click that stays put on a mapped handle offers Hide; a right drag stays the camera's.
+    const poseMenuHit = (p, event) => {
+      if (!p.poseConfig?.enabled || p.poseConfig.picking || p.restPose || p.suspended || !p.onPoseMenu) return null;
+      const rect = canvas.getBoundingClientRect(), hit = pickPoseHandle(poseHandles.filter(handle => poseHandleKey(handle)), event.clientX - rect.left, event.clientY - rect.top, p.poseConfig.target, null, true);
+      return hit && poseHandleKey(hit) ? hit : null;
+    };
+    const poseRightMove = event => { if (poseRight && event.pointerId === poseRight.id && Math.hypot(event.clientX - poseRight.x, event.clientY - poseRight.y) > 4) poseRight.moved = true; };
+    const finishPoseRight = event => {
+      const press = poseRight; if (!press || event.pointerId !== press.id) return;
+      poseRight = null;
+      if (event.type === 'pointerup' && event.button === 2 && !press.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= 4) latest.current.onPoseMenu?.(press.key, event.clientX, event.clientY);
+    };
+    // One small button per hidden handle, right-aligned on the POSE button's row; each shows its own symbol.
+    const updateRevealStrip = (items, width) => {
+      if (!items.length) { if (revealStrip) { revealStrip.remove(); revealStrip = null; revealSignature = ''; revealLayout = ''; } return; }
+      const signature = getLanguage() + '|' + items.map(item => item.id + ':' + item.label).join('|');
+      if (!revealStrip) {
+        revealStrip = ownerDocument.createElement('div'); revealStrip.dataset.poseReveals = ''; revealStrip.className = 'pose-reveals';
+        revealStrip.addEventListener('pointerdown', event => event.stopPropagation());
+        revealStrip.addEventListener('click', event => { const id = event.target.closest?.('[data-pose-reveal]')?.dataset.poseReveal; if (id != null) { event.stopPropagation(); latest.current.onPoseReveal?.(id); } });
+        hostElement.appendChild(revealStrip);
+      }
+      if (signature !== revealSignature) {
+        revealSignature = signature; revealLayout = '';
+        revealStrip.replaceChildren(...items.map(item => {
+          const button = ownerDocument.createElement('button'), name = translate('Show') + ' ' + translate(item.label);
+          button.type = 'button'; button.dataset.poseReveal = item.id; button.title = name; button.setAttribute('aria-label', name);
+          if (item.label === 'Pelvis') { const image = ownerDocument.createElement('img'); image.alt = ''; image.src = new URL('./pose-trollface.png', import.meta.url).href; button.appendChild(image); }
+          else {
+            const paths = poseSymbols[poseSymbolName(item.label)], svg = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg'), shape = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path'), detail = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); shape.setAttribute('d', paths[0]); shape.setAttribute('fill', 'currentColor'); detail.setAttribute('d', paths[1]); detail.setAttribute('fill', 'none'); detail.setAttribute('stroke', 'var(--controller-background)'); detail.setAttribute('stroke-width', '1.8'); detail.setAttribute('stroke-linecap', 'round'); detail.setAttribute('stroke-linejoin', 'round');
+            svg.append(shape, detail); button.appendChild(svg);
+          }
+          return button;
+        }));
+      }
+      const poseButton = ownerDocument.querySelector('[data-hotkey="pose:mode"]'), host = hostElement.getBoundingClientRect(), anchor = poseButton?.getBoundingClientRect();
+      const size = Math.max(20, Math.round(anchor?.height || 24)), gap = 3, edge = 4, perRow = Math.max(1, Math.floor((width * .45 + gap) / (size + gap))), rows = Math.ceil(items.length / perRow), block = rows * size + (rows - 1) * gap;
+      const top = Math.round(Math.max(0, Math.min(Math.max(0, host.height - block), anchor ? anchor.top - host.top : 0)));
+      const layout = [width, top, size, items.length].join(':');
+      if (layout === revealLayout) return;
+      revealLayout = layout;
+      [...revealStrip.children].forEach((button, index) => {
+        button.style.width = button.style.height = size + 'px';
+        button.style.left = (width - edge - size - (index % perRow) * (size + gap)) + 'px'; button.style.top = (top + Math.floor(index / perRow) * (size + gap)) + 'px';
+      });
+    };
     const pointerDown = event => {
       nodeHoverFrame.flush();
       canvas.focus();
@@ -589,7 +637,12 @@ export default function GamePreview(inputProps) {
       const work = (p.cameraMode ?? 'work') === 'work' && !modifierHeld(event, 'view.orbit', p.preferences), select = selectionKeys(event, p.preferences);
       const portraitCameraDrag = portraitBlankDragRotatesCamera(p, event);
       const pickable = nodePoints;
-      if (!p.vanilla && event.button === 2) {
+      if (event.button === 2) {
+        poseRight = null;
+        const hit = poseMenuHit(p, event);
+        if (hit) poseRight = { id: event.pointerId, x: event.clientX, y: event.clientY, key: poseHandleKey(hit), moved: false };
+      }
+      if (!p.vanilla && event.button === 2 && !poseRight) {
         const rect = canvas.getBoundingClientRect(), picked = pickMovementNode(pickable,event.clientX-rect.left,event.clientY-rect.top);
         if (picked && ['particles','ribbons','sounds','events'].includes(picked.overlayKind)) {
           const id = picked.node.ObjectId;
@@ -884,6 +937,7 @@ export default function GamePreview(inputProps) {
     canvas.addEventListener('pointermove', nodePointerMove, true); canvas.addEventListener('pointerup', finishNodeGesture, true); canvas.addEventListener('pointercancel', finishNodeGesture, true); canvas.addEventListener('keydown', cancelNodeGesture, true);
     canvas.addEventListener('lostpointercapture', endShowcaseCursor);
     canvas.addEventListener('lostpointercapture', cancelGestureCapture);
+    canvas.addEventListener('pointermove', poseRightMove, true); canvas.addEventListener('pointerup', finishPoseRight, true); canvas.addEventListener('pointercancel', finishPoseRight, true);
     canvas.addEventListener('pointerdown', pointerDown, true); canvas.addEventListener('pointermove', suppressAdjustedMove, true); canvas.addEventListener('pointerup', finishLeftGesture, true); canvas.addEventListener('pointercancel', finishLeftGesture, true);
     // A drag key pressed or let go redraws at once; the snap key only matters with a snap step set.
     const dragKeyChanged = event => {
@@ -1576,7 +1630,7 @@ export default function GamePreview(inputProps) {
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         const controllerAppearance = viewportAppearanceOptions(p.preferences).controllers;
         poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId)), controllerAppearance, p.transformMode) : [];
-        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.key === p.poseConfig?.target?.key && handle.kind === 'endpoint' && handle.x >= 0 && handle.x <= width && handle.y >= 0 && handle.y <= height);
+        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && !handle.hidden && handle.key === p.poseConfig?.target?.key && handle.kind === 'endpoint' && handle.x >= 0 && handle.x <= width && handle.y >= 0 && handle.y <= height);
         if (limb && p.onPosePin && !p.suspended) {
           if (!pinButton) {
             pinButton = ownerDocument.createElement('button'); pinButton.type = 'button'; pinButton.dataset.posePin = ''; pinButton.className = 'pose-pin';
@@ -1604,6 +1658,7 @@ export default function GamePreview(inputProps) {
           pinButton.hidden = !!nodeGesture;
         } else if (pinButton) { pinButton.remove(); pinButton = null; pinPlacement = null; pinOffset = null; }
 
+        updateRevealStrip(poseVisible && !p.poseConfig.picking ? (p.poseConfig.hidden || []).flatMap(id => { const handle = poseHandles.find(item => item.hidden && poseHandleKey(item) === id); return handle ? [{ id, label: handle.label }] : []; }) : [], width);
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
@@ -1658,7 +1713,7 @@ export default function GamePreview(inputProps) {
           for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, 9, 0, Math.PI * 2); context.stroke(); } context.restore();
         }
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);
-      } else { if (pinButton) { pinButton.remove(); pinButton = null; } nodePoints = []; nodeHandles = []; if (gizmoHoverAxis !== null) clearGizmoHover(); poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
+      } else { if (pinButton) { pinButton.remove(); pinButton = null; } updateRevealStrip([], 0); nodePoints = []; nodeHandles = []; if (gizmoHoverAxis !== null) clearGizmoHover(); poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
       }
       // Motion arcs (AnimXL): model-space polylines over the view, through the live camera.
       if (p.overlayPaths?.length) {
@@ -1850,7 +1905,7 @@ export default function GamePreview(inputProps) {
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);
-      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); revealStrip?.remove(); canvas.removeEventListener('pointermove', poseRightMove, true); canvas.removeEventListener('pointerup', finishPoseRight, true); canvas.removeEventListener('pointercancel', finishPoseRight, true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, uvRestPose, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
