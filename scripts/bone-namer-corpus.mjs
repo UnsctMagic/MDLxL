@@ -112,10 +112,7 @@ function compare(before, after, namesBefore, namesAfter, copyModel) {
   for (const [end, l] of bEnds) {
     const other = aEnds.get(end);
     if (other) {
-      if (l.grip && !other.grip) {
-        if (/^bone[ _]|^helper/i.test(namesAfter.get(end)?.Name || '')) tracked.push({ kind: 'GRIP-TRACKED', text: `limb ${nb(end)}: grip lost, end now named bone_/helper (pose-ik.js:207)` });
-        else grips.push(`limb ${nb(end)}: grip disappeared`);
-      }
+      if (l.grip && !other.grip) grips.push(`limb ${nb(end)}: grip disappeared`);
       else if (l.grip && other.grip && Math.hypot(l.grip[0] - other.grip[0], l.grip[1] - other.grip[1], l.grip[2] - other.grip[2]) > 0.01 * l.length) grips.push(`limb ${nb(end)}: grip moved ${Math.hypot(l.grip[0] - other.grip[0], l.grip[1] - other.grip[1], l.grip[2] - other.grip[2]).toFixed(2)} of limb length ${l.length.toFixed(2)}`);
       if (other.kind !== l.kind || other.label !== l.label) retyped.push(`limb ${nb(end)}: ${l.label || l.kind} -> ${other.label || other.kind}`);
       else if (other.joints.join() !== l.joints.join()) retyped.push(`limb joints ${nb(end)}: [${l.joints.join(',')}] -> [${other.joints.join(',')}]`);
@@ -285,8 +282,8 @@ md.push('# Bone Namer library gate', '', `Namer: ${namerPath}`, `Models: ${model
 md.push(`## Failures (${failed.length} models)`, '');
 if (!failed.length) md.push('None.', '');
 for (const r of failed) { md.push(`### ${r.file}`); for (const f of r.failures) md.push(`- ${f.kind}: ${f.text}`); if (r.stack) md.push(`  - ${r.stack}`); md.push(''); }
-md.push('## Review lists', '', `GRIP-TRACKED and HEAD-TRACKED are caused by main's POSE rules, tracked (pose-ik.js:207 and :164): GRIP-TRACKED ${reviewTally['GRIP-TRACKED'] || 0} limbs in ${report.filter(r => r.review.some(f => f.kind === 'GRIP-TRACKED')).length} models, HEAD-TRACKED ${reviewTally['HEAD-TRACKED'] || 0} in ${report.filter(r => r.review.some(f => f.kind === 'HEAD-TRACKED')).length} models.`, '');
-for (const kind of ['RETYPED', 'GAINED', 'FOLLOWERS', 'CARRIERS', 'CASE-DUPLICATE', 'SIDE-NEAR-ZERO', 'RE-ROOTED', 'GRIP-TRACKED', 'HEAD-TRACKED']) {
+md.push('## Review lists', '', `HEAD-TRACKED is caused by main's POSE rules, tracked (pose-ik.js:164): HEAD-TRACKED ${reviewTally['HEAD-TRACKED'] || 0} in ${report.filter(r => r.review.some(f => f.kind === 'HEAD-TRACKED')).length} models.`, '');
+for (const kind of ['RETYPED', 'GAINED', 'FOLLOWERS', 'CARRIERS', 'CASE-DUPLICATE', 'SIDE-NEAR-ZERO', 'RE-ROOTED', 'HEAD-TRACKED']) {
   const withKind = report.filter(r => r.review.some(f => f.kind === kind));
   md.push(`### ${kind} (${reviewTally[kind] || 0} items in ${withKind.length} models)`, '');
   for (const r of withKind) md.push(`- ${r.file}: ${r.review.filter(f => f.kind === kind).map(f => f.text).join(' | ')}`);
