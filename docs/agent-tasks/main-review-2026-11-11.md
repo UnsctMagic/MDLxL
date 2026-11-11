@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: local handoff for Claude’s final review. The harness recheck stopped at an animated-vertex release assertion.
+Status: combined local branch ready for Claude’s final review. All four follow-up hidden runs passed.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-11
 
@@ -359,3 +359,32 @@ package of `4340c5f8`. Each exited 1 on the original behavior.
 Logs are in `out/test-faults`. Claude’s handoff is review only. The
 hotkey setup now passes twice, and the animated release failure is the
 point to inspect next.
+
+## Rotate and Resize harness recheck
+
+Test revision `419a147b` on `codex/main-review-20261111-all`, from
+`d029ece9`. The Rotate/Resize loop keeps its initial drag wait, then polls
+for up to five seconds for two reads 50 ms apart with identical drawn
+positions and drag payload. The second read supplies the comparison
+before mouse-up. Failures identify the tool and first differing component
+with both values, using the same 0.0002 tolerance.
+
+`node --check test/vertex-animated-preview.electron.cjs` passed. The
+previous disposable package had been removed, so the unchanged combined
+app was packaged once offline from the same inputs. All four runs reused
+that package and used `node test/<name>.electron.cjs` through
+`scripts/hidden-run.ps1`.
+
+| Hidden harness | Run 1 | Run 2 |
+| --- | --- | --- |
+| `vertex-animated-preview` | Passed, exit 0 | Passed, exit 0 |
+| `review-bitz` | 5 passed, 0 failed, 0 skipped, exit 0 | 5 passed, 0 failed, 0 skipped, exit 0 |
+
+Both vertex runs verified that Rotate and Resize keep the posed edit
+on release and restore the frozen pose on Undo. Both BITZ runs verified
+the original Footman’s disk checkpoint while the replacement draft was
+open. The two earlier hotkey audit passes at `8b9130e5` still apply.
+
+Only the vertex harness and this note changed. Logs are in
+`out/vertex-recheck`. The combined branch is back with Claude for a local,
+review-only final check.
