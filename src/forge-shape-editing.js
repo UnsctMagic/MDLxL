@@ -1,4 +1,4 @@
-import { Vector2, ShapeUtils } from 'three';
+import { Vector2, Vector3, Triangle, ShapeUtils } from 'three';
 import { TRIANGLE_ICON_UV } from './forge-primitives.js';
 
 import { add, sub, scale as mul, dot, cross, unit } from './vec.js';
@@ -96,11 +96,29 @@ export function appendForgeVertex(shape, point, sources) {
   const id = shape.vertices.length;
   shape.vertices.push(point);
   if (shape.vertexSources) {
-    const weights = new Map();
-    for (const [vertex, factor] of sources) for (const [source, weight] of shape.vertexSources[vertex]) weights.set(source, (weights.get(source) || 0) + weight * factor);
-    shape.vertexSources.push([...weights].filter(([, weight]) => weight > 1e-10));
+    shape.vertexSources.push(forgeVertexSources(shape, sources));
   }
   return id;
+}
+
+function forgeVertexSources(shape, sources) {
+  const weights = new Map();
+  for (const [vertex, factor] of sources) for (const [source, weight] of shape.vertexSources[vertex]) weights.set(source, (weights.get(source) || 0) + weight * factor);
+  return [...weights].filter(([, weight]) => weight > 1e-10);
+}
+
+// Inset and Bevel both retain the curved surface and its authored attributes.
+export function sampleForgeSurface(source, triangles, point) {
+  let best;
+  const p = new Vector3(...point);
+  for (const t of triangles) {
+    const positions = t.vertices.map(i => new Vector3(...source.vertices[i])), triangle = new Triangle(...positions), closest = triangle.closestPointToPoint(p, new Vector3()), distance = closest.distanceToSquared(p);
+    if (!best || distance < best.distance) {
+      const weights = Triangle.getBarycoord(closest, ...positions, new Vector3()).toArray();
+      best = { distance, point: closest.toArray(), weights: t.vertices.map((id, i) => [id, weights[i]]), uv: [0,1].map(a => weights.reduce((n, w, i) => n + w * t.uv[i*2+a], 0)) };
+    }
+  }
+  return best;
 }
 
 export function forgeShapeEdges(shape) {
@@ -274,8 +292,8 @@ export function insetForgeFaces(source, selected, distance) {
   if (Math.abs(distance) < 1e-8) return source;
   const faces = source.faces.filter(f => selected.includes(f.id)), normal = forgeSelectionNormal([source], { [source.id]: selected });
   if (!faces.length || Math.hypot(...normal) < .5) throw Error('Select a flat region of faces to inset.');
-  const origin = source.vertices[faces[0].vertices[0]], extent = Math.max(1, ...source.vertices.map(p => Math.hypot(...sub(p, origin))));
-  if (faces.some(f => f.vertices.some(id => Math.abs(dot(sub(source.vertices[id], origin), normal)) > extent * 1e-5) || dot(forgeFaceNormal(source, f), normal) < .99999)) throw Error('Inset needs faces on the same plane.');
+  const origin = source.vertices[faces[0].vertices[0]];
+  if (faces.some(f => dot(forgeFaceNormal(source, f), normal) <= .5)) throw Error('Select faces that follow the same surface to inset.');
   const { shape, copies, edges } = detachedCap(source, selected), incoming = new Map(), outgoing = new Map();
   for (const [a, b] of edges) {
     if (outgoing.has(a) || incoming.has(b)) throw Error('Select a face region with a continuous border.');
@@ -292,6 +310,26 @@ export function insetForgeFaces(source, selected, distance) {
   const projected = ids => ids.map(id => { const p = sub(shape.vertices[id], origin); return new Vector2(dot(p, horizontal), dot(p, vertical)); });
   for (const [a, b] of edges) if (dot(sub(shape.vertices[copies.get(b)], shape.vertices[copies.get(a)]), sub(source.vertices[b], source.vertices[a])) <= 1e-8) throw Error('Inset is too wide for the selected faces.');
   for (const face of shape.faces.filter(f => selected.includes(f.id))) if (!ShapeUtils.triangulateShape(projected(face.vertices), []).length) throw Error('Inset is too wide for the selected faces.');
+  const triangles = faces.flatMap(f => f.triangles);
+  // Validate the cap before sampling: projecting a folded cap back onto the
+  // source would otherwise hide an excessive inset behind clamped positions.
+  for (const face of faces) for (const t of face.triangles) {
+    const ids = t.vertices.map(id => copies.get(id));
+    if (dot(triangleNormal(shape, ids), triangleNormal(source, t.vertices)) <= 1e-8) throw Error('Inset is too wide for the selected faces.');
+  }
+  if (distance > 0) for (const id of copies.values()) {
+    const sample = sampleForgeSurface(source, triangles, shape.vertices[id]);
+    shape.vertices[id] = sample.point;
+    if (shape.vertexSources) shape.vertexSources[id] = forgeVertexSources(source, sample.weights);
+  }
+  if (source.vertexSources) for (const face of shape.faces.filter(f => selected.includes(f.id) || f.id >= source.nextFaceId)) {
+    const original = faces.find(f => f.id === face.id) || faces.find(f => f.vertices.includes(face.vertices[0]) && f.vertices.includes(face.vertices[1]));
+    if (original?.sourceTriangles) face.sourceTriangles = original.sourceTriangles;
+    for (const t of face.triangles) {
+      t.uv = t.vertices.flatMap(id => sampleForgeSurface(source, original?.triangles || triangles, shape.vertices[id]).uv);
+      t.sourceUV = true;
+    }
+  }
   return shape;
 }
 

@@ -59,7 +59,7 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
     try {
       let draft=operation.draft;
       if(operation.mold){if(support.error)throw Error(support.error);draft=previewForgeMold(draft,support.draft,operation.mold);}
-      else if(operation.kind==='Inset')draft={...draft,shapes:draft.shapes.map(shape=>draft.selection[shape.id].length?insetForgeFaces(shape,draft.selection[shape.id],operation.amount):shape)};
+      else if(operation.kind==='Inset')draft={...draft,shapes:draft.shapes.map(shape=>draft.selection[shape.id].length?insetForgeFaces(shape,draft.selection[shape.id],Math.abs(operation.amount)):shape)};
       else if(operation.kind==='Cut'){
         const sections=Number(operation.sections);
         if(!Number.isInteger(sections)||sections<2||sections>64)throw Error('Choose between 2 and 64 sections.');

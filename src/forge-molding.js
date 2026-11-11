@@ -1,5 +1,5 @@
 import { Vector2, Vector3, ShapeUtils, Triangle } from 'three';
-import { appendForgeVertex, cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices } from './forge-shape-editing.js';
+import { appendForgeVertex, cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices, sampleForgeSurface } from './forge-shape-editing.js';
 import { TRIANGLE_ICON_UV } from './forge-primitives.js';
 import { clamp } from './math.js';
 
@@ -258,15 +258,7 @@ function bevelSurfaceRim(shape,selected,amount,round){
     for(const root of roots)if(root>1e-8)limit=Math.min(limit,root);
   }
   const width=Math.min(amount,limit*.9),depth=mul(normal,-width),copies=new Map(),surfacePoints=new Map();
-  const sample=(point,candidates=triangles)=>{
-    let best;
-    const p=new Vector3(...point);
-    for(const t of candidates){
-      const positions=t.vertices.map(i=>new Vector3(...source.vertices[i])),triangle=new Triangle(...positions),closest=triangle.closestPointToPoint(p,new Vector3()),distance=closest.distanceToSquared(p);
-      if(!best||distance<best.distance){const weights=Triangle.getBarycoord(closest,...positions,new Vector3()).toArray();best={distance,point:closest.toArray(),weights:t.vertices.map((id,i)=>[id,weights[i]]),uv:[0,1].map(a=>weights.reduce((n,w,i)=>n+w*t.uv[i*2+a],0))};}
-    }
-    return best;
-  };
+  const sample=(point,candidates=triangles)=>sampleForgeSurface(source,candidates,point);
   for(const id of new Set(triangles.flatMap(t=>t.vertices))){
     const point=add(source.vertices[id],mul(offsets.get(id)||[0,0,0],width)),surface=sample(point);
     const copy=appendForgeVertex(shape,add(surface.point,depth),surface.weights);copies.set(id,copy);surfacePoints.set(copy,surface.point);surfacePoints.set(id,source.vertices[id]);
