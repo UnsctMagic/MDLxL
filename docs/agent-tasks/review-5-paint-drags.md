@@ -1,6 +1,6 @@
 # Contract 5: Paint brush-size drag and the live-drag guard list
 
-Status: completed locally, ready for Claude review
+Status: reworked and ready for Claude re-check.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 Branch: `codex/main-review-20261111-5`
@@ -99,3 +99,12 @@ Checks on fix `c51c7fcb`
 ## Blockers and next action
 
 - Ready for Claude to review the local branch. Saved on your PC, not online.
+
+
+## Rework after Claude’s review
+
+- Implementation revision 584268c3. The image navigation hook binds to its owning window in an effect only when brush adjustment is available. Middle-button pan compensates for OrbitControls only when the orbit binding itself is Shift or Ctrl. Default Alt+Shift+middle rotates as before. One existing Escape handler cancels the active gesture, including brush adjustment. Slow texture-view drag uses Alt again.
+- The Paint hint and help rows have all five translations and the feature source fixture lists them. The original image-navigation, modifier-bindings, window-key and localization tests passed unchanged. The newer live-drag pin now checks the restored physical Alt texture-view behavior while guarding rebound 3D camera and lamp keys.
+- pnpm run test:source: 3,276 passed, 0 failed, 10 skipped. CI reporter: 3,286 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. The baseline file is unchanged.
+- Hidden package: node --test --test-concurrency=1 test/citadel-pro.electron.cjs test/paint-tab-camera.electron.cjs test/paint-image-navigation.electron.cjs and a disposable default-orbit proof, 4 passed, 0 failed, 0 skipped. Verified actual Alt+Shift+middle rotation, rebound Shift pan and zoom, and Escape restoring the brush in both views.
+- Owner summary: Paint preserves the original camera gestures and translates the new shortcut hints. Escape restores the brush settings in either view.
