@@ -255,6 +255,17 @@ Engine:
    71 models, e.g. sheep `Bone_Foot_L` → `Bone_Leg2_L`). The rows still report
    the original model's current names; user corrections apply on top as before.
 
+12. **Mesh-piece ends get `Mesh_`, not `Bone_`.** When POSE grips a limb end by
+    its skin (the chain from `suggestPoseRig` has a `grip` array), that end is a
+    mesh node with an arbitrary pivot, not an authored joint. Its name is the
+    scheme name with `Mesh_` in place of the leading `Bone_`: `Mesh_Hand_L`,
+    `Mesh_Foot_Front_R`, `Mesh_Mount_Hoof_Rear_L`, plus any copy suffix. POSE never
+    grips a name starting `bone`/`helper` (pose-ik.js:207); the POSE team measured
+    that rule on 1,019 models and keeps it, because the prefix means "authored
+    joint". Blizzard's own SD rigs keep mesh nodes out of `Bone_` names too. This
+    keeps the hand/foot handle on the mesh (166 ends in 100 models jumped to the
+    pivot, median 54 units).
+
 Window:
 8. Remove the Discard `Dialog`; Close/× behave as Attachemator's (Footer rule
    above). The packaged test found the question hidden behind the window.
@@ -267,8 +278,8 @@ Window:
     includes `doc.revision`, so choices are lost if the document changes).
 
 Not ours (sent to the POSE session, no change here): Head moving to the neck when
-`Head Ref` hangs on the neck (pose-ik.js:164, 7 models); a hand/foot named
-`Bone_…` loses its skin grip (pose-ik.js:207, 166 limb ends). The limb re-rooting
+`Head Ref` hangs on the neck (pose-ik.js:164, 7 models; the POSE team is fixing it
+in its clues mode). The skin-grip loss is solved on our side by item 12. The limb re-rooting
 after a body or chest gets its real name (20 models) is POSE's intended reading;
 the gate reports it for review.
 
