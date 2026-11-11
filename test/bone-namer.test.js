@@ -645,7 +645,9 @@ test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE sti
   const plan = planBoneNames(model);
   assertGoodPlan(model, plan, 'bandit');
   assert.equal(nameIn(plan, end), 'Mesh_Hand_L', 'the gripped end sits on +Y and keeps the Mesh_ word, not Bone_');
-  assertNames(model, plan, { Bone_Arm1_R: 'Bone_Arm1_L', Bone_Arm2_R: 'Bone_Arm2_L', Bone_Arm1_L: 'Bone_Arm1_R', Bone_Arm2_L: 'Bone_Arm2_R', Bone_Hand_R: 'Bone_Hand_R', Bone_Leg1_L: 'Bone_Leg1_L', Bone_Foot_R: 'Bone_Foot_R' }, 'bandit');
+  assertNames(model, plan, { Bone_Arm1_R: 'Bone_Arm1_L', Bone_Arm2_R: 'Bone_Arm2_L', Bone_Arm1_L: 'Bone_Arm1_R', Bone_Arm2_L: 'Bone_Arm2_R', Bone_Hand_R: 'Bone_Hand_R', Bone_Leg1_R: 'Bone_Leg1_L', Bone_Foot_R: 'Bone_Foot_L', Bone_Leg1_L: 'Bone_Leg1_R', Bone_Foot_L: 'Bone_Foot_R' }, 'bandit');
+  // Blizzard's Bandit names its legs from the viewer's side as well as its arms: in Stand
+  // Bone_Leg1_R/Bone_Foot_R sit on +Y (y 7.7 / 15.6) and Bone_Leg1_L/Bone_Foot_L on -Y (-3.0 / -14.5).
   applyBoneNames(model, plan.rows, new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id)));
   assert.equal(model.Nodes[end].Name, 'Mesh_Hand_L');
   assert.deepEqual(gripped(model), [end], 'after the rename POSE still grips the same end by its skin');
