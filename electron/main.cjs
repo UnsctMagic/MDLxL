@@ -223,7 +223,8 @@ ipcMain.handle('preview:openModel',async event=>{
   const result=await dialog.showOpenDialog(win,{title:'Load Showcase model',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
   return result.canceled?null:readModel(result.filePaths[0],false);
 });
-ipcMain.handle('parts:list',()=>getBitsAndPartsLibrary().list());
+ipcMain.handle('parts:list',(_,manage)=>getBitsAndPartsLibrary().list(manage === true));
+ipcMain.handle('parts:change',(_,data)=>getBitsAndPartsLibrary().change(data,file=>shell.trashItem(file)));
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));
 ipcMain.handle('parts:save',(_,data)=>getBitsAndPartsLibrary().save(data));
 ipcMain.handle('parts:folder',async()=>openFolder((await getBitsAndPartsLibrary().list()).directory));

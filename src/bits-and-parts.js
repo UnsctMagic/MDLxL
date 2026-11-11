@@ -399,14 +399,21 @@ function freezeTracks(owner, pick, frame, interval, globalSequences, frozen = []
 /** What a Bit import brings: one RGB look from partRgbOptions (null is No RGB),
  * appearance frozen at that look's animation, and its global loops only when
  * the user applies them. Visibility is left to commitPart. */
-export function partLook(source, { colors = null, sequenceIndex = -1, globals = false } = {}) {
+export function partLook(source, { colors = null, sequenceIndex = -1, globals = false, channels = null } = {}) {
   const sequence = source.Sequences?.[sequenceIndex];
   if (sequenceIndex !== -1 && !sequence) throw Error('Choose an available RGB animation.');
   const model = structuredClone(source), frame = sequence?.Interval[0] || 0;
   const kept = value => globals && isGlobalTrack(value, source);
+  const custom = channels?.some(value => value != null);
+  if (custom) {
+    const animations = model.GeosetAnims ||= [];
+    const animated = new Set(animations.map(animation => animation.GeosetId));
+    model.Geosets.forEach((_, id) => { if (!animated.has(id)) animations.push(createVisibilityGeosetAnimation(id)); });
+  }
   for (const animation of model.GeosetAnims || []) {
-    const rgb = colors?.[animation.GeosetId];
-    if (!kept(animation.Color)) {
+    let rgb = colors?.[animation.GeosetId];
+    if (custom) rgb = channels.map((value, axis) => value ?? rgb?.[axis] ?? 1);
+    if (custom || !kept(animation.Color)) {
       animation.Color = new Float32Array(rgb || [1, 1, 1]);
       animation.Flags = rgb ? animation.Flags | 2 : animation.Flags & ~2;
       if (animation._MdxDefaults) delete animation._MdxDefaults.Color;

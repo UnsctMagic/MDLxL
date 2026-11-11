@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Bitz library management and Quad replacement | Local branch for owner review | [Bitz workflow](bitz-library-quad.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
 | Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
