@@ -113,8 +113,11 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     const partBox = await row('Bone_Hand_R').getByRole('combobox', { name: 'Part' }).boundingBox(), sideBox = await row('Bone_Hand_R').getByRole('combobox', { name: 'Side' }).boundingBox();
     const grid = await row('Bone_Hand_R').evaluate(element => getComputedStyle(element).gridTemplateColumns);
     console.log(`note stylesheet order: ${await page.evaluate(() => [...document.styleSheets].map(sheet => (sheet.href || 'inline').split('/').pop()).filter(name => /attachemator|BoneNamer/.test(name)).join(' then '))}`);
-    check(partBox.width >= 70 && Math.abs(middle(partBox) - middle(nameBox)) <= 8 && Math.abs(middle(sideBox) - middle(nameBox)) <= 8,
-      `each row is one line with a readable Part dropdown (Part ${Math.round(partBox.width)}px wide at y ${Math.round(middle(partBox))}, Side at y ${Math.round(middle(sideBox))}, name at y ${Math.round(middle(nameBox))}; row columns "${grid}")`);
+    // This session is fresh and Attachemator has not been opened, so attachemator.css loads after Bone Namer's:
+    // the case where the Part column shrank to 20 px (fix round 1, item 9).
+    check(partBox.width >= 60, `opened first in a fresh session, the Part column is at least 60 px wide (${Math.round(partBox.width)} px; row columns "${grid}")`);
+    check(Math.abs(middle(partBox) - middle(nameBox)) <= 8 && Math.abs(middle(sideBox) - middle(nameBox)) <= 8,
+      `each row is one line (Part at y ${Math.round(middle(partBox))}, Side at y ${Math.round(middle(sideBox))}, name at y ${Math.round(middle(nameBox))})`);
     await shot('2-window.png');
 
     // 5. Camera: drag empty preview space with the left button.
@@ -224,38 +227,27 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     await twoFrames();
     check(JSON.stringify((await previewProps()).pivots) === pivotsBefore && await mainShape() === originalShape, 'dragging from a bone moves nothing');
 
-    // 7. Unapplied work: Close asks first; Cancel keeps the window and the change.
-    const confirm = page.getByRole('dialog', { name: 'Discard Bone Namer changes?', exact: true });
-    // A button the user can click: the topmost element at its centre is the button itself.
-    const onTop = locator => locator.evaluate(element => { const r = element.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!hit && (hit === element || element.contains(hit)); });
-    // Answers the question with a mouse click when the user can reach the button; otherwise records that and
-    // dismisses the covered question with Escape (the only way a user could get out of it).
-    const answer = async (label, what) => {
-      const target = confirm.getByRole('button', { name: label, exact: true }), reachable = await onTop(target);
-      check(reachable, `${what}: the Discard question is in front, where the user can click ${label}`);
-      if (reachable) await target.click(); else await page.keyboard.press('Escape');
-      check(await confirm.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false), `${what}: the question goes away`);
-      return reachable;
+    // 7. Unapplied work (fix round 1, item 8): Close and × close at once like Attachemator's, with no
+    // question, and rename nothing; Escape still asks for a second press.
+    const discardQuestion = () => page.getByRole('dialog', { name: /^Discard Bone Namer/ }).count();
+    const closesAtOnce = async (control, what) => {
+      check(await newName('Bone_Arm2_L') === 'Bone_Arm1_L_2', `${what}: the window holds an unapplied change`);
+      await control.click();
+      check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await discardQuestion() === 0, `${what} with an unapplied change closes at once, no question`);
+      check(JSON.stringify(await mainNames()) === JSON.stringify(originalNames), `${what} renames nothing`);
+      if (await dialog.count()) { await shot(`6-${what.replace(/\W+/g, '-')}-stayed-open.png`); await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {}); }
     };
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-    const asked = await confirm.waitFor({ timeout: 3000 }).then(() => true, () => false);
-    check(asked, 'Close with an unapplied change asks first');
-    await shot('6-close-asks.png');
-    if (asked) {
-      await answer('Cancel', 'footer Close');
-      check(await dialog.count() === 1 && await newName('Bone_Arm2_L') === 'Bone_Arm1_L_2', 'Cancel keeps the window and the change');
-    }
-    // The × in the title bar asks the same way; Discard closes and drops the change.
-    await dialog.getByRole('button', { name: 'Close Bone Namer', exact: true }).click();
-    const askedX = await confirm.waitFor({ timeout: 3000 }).then(() => true, () => false);
-    check(askedX, 'the title bar × with an unapplied change asks first');
-    if (askedX && await answer('Discard', 'title bar ×')) check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false), 'Discard closes the window');
-    if (await dialog.count() === 0) {
+    // Reopens the window and makes the same unapplied change again (the upper arm kept, the forearm renumbered).
+    const reopenWithChange = async () => {
       await button.click(); await dialog.waitFor();
-      check(await newName('Bone_Arm2_L') === 'Bone_Arm2_L', 'after Discard the window reopens with the fresh proposal');
+      check(await newName('Bone_Arm2_L') === 'Bone_Arm2_L', 'reopening after closing without Commit starts from the fresh proposal');
       await row('Bone_Arm1_L').getByRole('combobox', { name: 'Part' }).selectOption({ label: 'Keep name' });
       await waitNewName('Bone_Arm2_L', 'Bone_Arm1_L_2');
-    }
+    };
+    await closesAtOnce(dialog.getByRole('button', { name: 'Close', exact: true }), 'footer Close');
+    await reopenWithChange();
+    await closesAtOnce(dialog.getByRole('button', { name: 'Close Bone Namer', exact: true }), 'title bar ×');
+    await reopenWithChange();
     // Escape: the first press only warns, the second discards.
     await row('Bone_Head').locator('span[role=cell]').nth(1).click();
     await page.keyboard.press('Escape');
@@ -271,11 +263,11 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     await button.click(); await dialog.waitFor();
     check(await newName('Bone_Arm2_L') === 'Bone_Arm2_L' && await newName('Bone_Hand_R') === 'Bone_Hand_L', 'reopening starts from the fresh proposal');
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-    check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await confirm.count() === 0, 'with no change, Close closes at once');
+    check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await discardQuestion() === 0, 'with no change, Close closes at once');
     await button.click(); await dialog.waitFor();
     await row('Bone_Head').locator('span[role=cell]').nth(1).click();
     await page.keyboard.press('Escape');
-    check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await confirm.count() === 0, 'with no change, one Escape closes at once');
+    check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await discardQuestion() === 0, 'with no change, one Escape closes at once');
 
     // 6. Commit: the default hand fix, a part the user assigns (Box02 → Neck), and an assigned-but-unticked row.
     await button.click(); await dialog.waitFor();
@@ -290,7 +282,8 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     const cursor = await infoMessageCursor(page);
     await commit.click();
     check(await dialog.waitFor({ state: 'hidden', timeout: 5000 }).then(() => true, () => false), 'Commit closes the window');
-    const message = await waitForInfo(page, /^Bone Namer renamed \d+ bones\.$/, { after: cursor, timeout: 5000 }).catch(() => null);
+    // Fix round 1, item 10: "Bone Namer renamed {0} bone{1}." (plural like Attachemator's message).
+    const message = await waitForInfo(page, /^Bone Namer renamed \d+ bones?\.$/, { after: cursor, timeout: 5000 }).catch(() => null);
     check(message === `Bone Namer renamed ${expectedChanged} bones.`, `the status says how many: "${message}"`);
     const committed = await mainNames();
     const expected = { ...originalNames, [handId]: 'Bone_Hand_L', [idOf('Box02')]: 'Bone_Neck' };
