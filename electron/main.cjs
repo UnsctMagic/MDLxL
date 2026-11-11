@@ -131,6 +131,10 @@ const captureOperations=new Set();
 const previewRecordings=new PreviewRecordingStore({destination:showcaseRecordings});
 function captureOperation(operation){captureOperations.add(operation);operation.finally(()=>captureOperations.delete(operation)).catch(()=>{});return operation;}
 // Requests from other windows are refused: with a message, an error; without one, false.
+const captureRegions = new WeakMap();
+ipcMain.on('capture:regions', (event, edges) => {
+  if (editorOnly(event)) captureRegions.get(win)?.(edges);
+});
 function editorOnly(event,message){if(event.sender===win?.webContents)return true;if(message)throw Error(message);return false;}
 // Native save dialog. The chosen path always ends in `extension` (without the
 // dot) when one is given; null when the user cancels.
@@ -672,6 +676,7 @@ async function createWindow(bounds={}){
   const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
   if(!headless)current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
+  if (process.platform === 'win32') captureRegions.set(current, require('./capture-regions.cjs').captureRegionsFor(current));
   current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && frameName==='MDLxL-OptimizeXL' ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:1280,height:800,minWidth:950,minHeight:500,show:!headless,title:'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(!headless)child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
@@ -681,6 +686,7 @@ async function createWindow(bounds={}){
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
+    captureRegions.get(current)?.(Array(8).fill(0));
     textureDecoder=null;texturePreviews.cancel();rejectThumbnailRequests('Editor renderer closed.');
     await Promise.allSettled([...captureOperations]);
     await previewRecordings.closeOwner(current.webContents.id);
