@@ -374,6 +374,13 @@ async function textureLibraryContext(payload){
 }
 ipcMain.handle('texture:library',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>context.catalog)));
 ipcMain.handle('texture:libraryPreview',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>previewCatalog(context.catalog,payload?.format==='blp'?'blp':'all'))));
+ipcMain.handle('texture:libraryExport',async(_,payload)=>{
+  const {catalog,readAsset}=await trackTextureOperation(textureLibraryContext(payload));
+  const item=catalog.items.find(item=>item.cacheKey===payload?.key);
+  if(!item)throw Error('The texture sources changed. Select the texture again.');
+  const name=path.basename(item.lookupName.split(':').at(-1));
+  return saveLibraryCopy(name,()=>trackTextureOperation(readAsset(item)).then(({bytes})=>bytes));
+});
 // The Library's game-file browser reads one installation: the folder chosen in
 // Settings first, then added CASC sources, then discovered installations.
 async function gameFileIndex(){
@@ -383,7 +390,7 @@ async function gameFileIndex(){
   const index=await library.load(folder?[folder]:[]);
   return {library,index,folder:folder||null};
 }
-const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
+const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',worldEditor:payload?.worldEditor===true,offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
 ipcMain.handle('gameFiles:summary',()=>trackTextureOperation(gameFileIndex().then(({library,index,folder})=>({...library.summary(index),folder}))));
 ipcMain.handle('gameFiles:browse',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
 ipcMain.handle('gameFiles:read',(_,payload)=>trackTextureOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
@@ -404,12 +411,18 @@ ipcMain.handle('gameFiles:findPath',(_,payload)=>trackTextureOperation(gameFileI
   const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
   return entry?{...library.publicEntry(entry),signature:index.signature}:null;
 })));
+async function saveLibraryCopy(name,readBytes){
+  const extension=path.extname(name).slice(1).toLowerCase();
+  const destination=await chooseSavePath({title:'Save a copy of '+name,defaultPath:name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
+  if(!destination)return null;
+  const bytes=await readBytes();
+  if(!bytes?.length)throw Error(name+' could not be read.');
+  await fs.writeFile(destination,bytes);
+  return destination;
+}
 ipcMain.handle('gameFiles:export',async(_,payload)=>{
   const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
-  const extension=path.extname(entry.name).slice(1).toLowerCase();
-  const destination=await chooseSavePath({title:'Save a copy of '+entry.name,defaultPath:entry.name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
-  if(!destination)return null;
-  await fs.writeFile(destination,await library.read(index,entry));return destination;
+  return saveLibraryCopy(entry.name,()=>trackTextureOperation(library.read(index,entry)));
 });
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');

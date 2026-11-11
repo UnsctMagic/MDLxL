@@ -4,15 +4,16 @@
 
 - **Library button** (toolbar `LIBR`, Modules › Material and Texture Library):
   the full *Warcraft III Library* with tabs **Textures · Models · Sounds · All files**.
-  The last tab is remembered.
+  Left-click opens the last tab. Right-click the toolbar button for **Textures · Models · Sounds · All**.
 - **Pickers** (UV Wrapper *Replace Texture…*, Material Manager import, EMTR
   *Use picture*, Forge, Citadel Paint): the *Material & Texture
   Library*, textures only, no tabs. `openLibrary(preview, full)` in
   [App.jsx](../app/App.jsx) passes `full` only from the Library button/command.
 
 - **Textures, two layouts** (full Library and every picker): the Models tab's
-  **Standard · World Editor Style** buttons. World Editor Style is the default;
-  `mdlvis.texture-library.style` remembers its choice independently of Models.
+  **Standard · World Editor Style** buttons. Standard is the default and includes
+  both name/path search and the Vibe search toggle. The Library remembers the
+  chosen layout independently for Textures, Models, Sounds and All files.
   Choose Human › Units › Normal › Footman to see its textures, then its icon,
   as the existing texture tiles. Standard keeps folders, vibe/art search, kinds,
   Model folder and Show more. In World Editor Style, search matches editor names,
@@ -20,7 +21,9 @@
 
 The full Library declares `data-hotkey-scope="library"` so global shortcuts such
 as Escape → *Clear vertex selection* do not swallow its keys; pickers keep their
-existing hotkey behaviour.
+existing hotkey behaviour. **Save a copy…** is beside the selected file's path
+in every tab and texture picker. It preserves the original bytes and extension,
+including when a listed file has no preview.
 
 ## Game-file browser
 
@@ -45,7 +48,7 @@ existing hotkey behaviour.
   buffers with the original indices and byte-scale weights. Shader type 0
   continues through the existing Classic-material adapter in mixed HD models.
   The DDS decoder supports the installed ATI2/BC5 normal maps and reconstructs
-  their third normal component. No HD editing tools or save support are added.
+  their third normal component. Save a copy exports the original archived model.
 - [GameFileBrowser.jsx](../app/GameFileBrowser.jsx): icon tree on the left
   (virtualized; clicking a folder only opens or closes it), one central view,
   slim info panel on the right (name, path, version, animation, Open in editor,
@@ -77,6 +80,15 @@ existing hotkey behaviour.
     by case-sensitive unit rawcode. Entries hidden from the
     editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
+- **Sounds tab, World Editor Style** (default): categories follow the archive's
+  logical sound paths. Units and buildings are grouped by race and object,
+  with separate collapsed folders for spells, combat, music, ambient sounds,
+  campaign dialogue, cinematics and interface sounds. Unit folders use the
+  model catalogue's game icons when available. Standard keeps the archive folders.
+- **All files tab, World Editor Style**: collapsed file-type folders keep all
+  listed files reachable. Sounds uses the same categories as the Sounds tab,
+  and the other types keep their logical game paths inside their type folder.
+  Search matches both paths. Standard remains the default for All files.
 - GameFileBrowser keeps the shared BrowserToolbar / BrowserTree / BrowserFrame shell and accepts EMTR's `browser` prop. BrowserTree delegates rows and navigation to WorldEditorTree's LibraryTree; EMTR forwards its visible-row thumbnail callback and keeps preview details below the stage.
 - [WorldEditorTree.jsx](../app/WorldEditorTree.jsx) owns both tabs' layout
   buttons, virtualized rows, mouse/keyboard navigation, game icons and the one
@@ -166,7 +178,8 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
   keys, text view, Escape, screenshots.
 
 - `test/library-textures-contract.cjs`, called by the packaged Library workflow:
-  T1–T8 and T10 compare entry tiles against independently opened game models,
+  T1 checks the Standard default before switching to World Editor Style. T2–T8
+  and T10 compare entry tiles against independently opened game models,
   multi-art spells and doodad variations, HD sources, Add equivalence, fast keys,
   BLP filtering and separate remembered layouts. The workflow continues through
   UV Replace Texture in World Editor Style (T9) and the existing Models flow

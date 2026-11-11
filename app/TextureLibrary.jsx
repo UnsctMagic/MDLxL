@@ -85,10 +85,11 @@ function FolderBranch({node,selected,onSelect,depth=0}){
     <button type="button" className="tl-folder" translate="no" onClick={()=>onSelect(node.path)} title={node.path}><span translate={node.path && node.name !== 'Model folder' ? 'no' : undefined}>{node.name}</span><small>{node.count}</small></button>
   </div>{open&&node.children.map(child=><FolderBranch key={child.path} node={child} selected={selected} onSelect={onSelect} depth={depth+1}/>)}</div>;
 }
-export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onPreviewTexture,previewEnabled=false,previewReason='',selectedGeosets,onOpenMaterials,onSelectTexture,selectLabel='Use in Forge',fullLibrary=false,onOpenGameModel,onImportGameGeosets,importTargetName,preferences}){
+export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onPreviewTexture,previewEnabled=false,previewReason='',selectedGeosets,onOpenMaterials,onSelectTexture,selectLabel='Use in Forge',fullLibrary=false,initialTab,onOpenGameModel,onImportGameGeosets,importTargetName,preferences}){
   // Only the Library button opens every game file; texture pickers stay texture-only.
-  const [tab,setTab]=useState(()=>fullLibrary?preferredTab():'textures'),chooseTab=value=>{setTab(value);writeStoredText('mdlvis.library.tab',value);};
-  const [style,setStyle]=useState(()=>readStoredText('mdlvis.texture-library.style','worldeditor',value=>value==='standard'?'standard':'worldeditor'));
+  const [tab,setTab]=useState(()=>fullLibrary?(initialTab||preferredTab()):'textures');
+  useEffect(()=>{if(fullLibrary)writeStoredText('mdlvis.library.tab',tab);},[fullLibrary,tab]);
+  const [style,setStyle]=useState(()=>readStoredText('mdlvis.texture-library.style','standard',value=>value==='worldeditor'?'worldeditor':'standard'));
   const worldEditor=style==='worldeditor';
   const [entry,setEntry]=useState(null),[entryRecords,setEntryRecords]=useState([]),[entryLoading,setEntryLoading]=useState(false),[entryError,setEntryError]=useState('');
   const entryRequest=useRef(0),standardVariant=useRef(null);
@@ -101,6 +102,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     const previous=document.activeElement;input.current?.focus();return()=>previous?.focus?.();
   },[]);
   useEffect(()=>{
+    if(tab!=='textures')return;
     let active=true,fullCatalogTimer;expectedCatalog.current=null;setCatalogFresh(false);setLoading(!librarySessions.peek(modelPath));setReady(false);setError('');
     if(!window.desktop?.textureLibraryCatalog){setLoading(false);setError('The native texture library is available in the desktop app.');return;}
     libraryConsumers++;
@@ -119,10 +121,10 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     }else refreshCatalog();
     const unsubscribe=window.desktop.onTextureLibraryPreloadProgress?.(status=>{if(['complete','cancelled'].includes(status.state)){setCacheEpoch(value=>value+1);refreshCatalog();}});
     return()=>{active=false;clearTimeout(fullCatalogTimer);libraryConsumers--;unsubscribe?.();};
-  },[modelPath]);
+  },[modelPath,tab]);
   // Only Standard uses phrase search; World Editor does not start its worker.
   useEffect(()=>{
-    if(worldEditor||!catalog||expectedCatalog.current!==catalog.signature)return;
+    if(tab!=='textures'||worldEditor||!catalog||expectedCatalog.current!==catalog.signature)return;
     let active=true,initTimer;const w=libraryWorker();worker.current=w;
     const onMessage=({data})=>{if(!active)return;if(data.type==='ready'&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current){setReady(true);setLoading(false);}else if(data.type==='result'&&data.id===requestId.current){librarySessions.remember(modelPath,expectedCatalog.current,requestOptions.current,data.result);setResult(data.result);setSearching(false);}else if(data.type==='error'&&(data.id===requestId.current||data.id==null&&expectedCatalog.current!==null&&data.signature===expectedCatalog.current)){setError(data.message);setLoading(false);setSearching(false);}};
     const onError=event=>{if(sharedWorker===w){w.terminate();sharedWorker=null;}if(active){setError(event.message||'Texture search could not start.');setLoading(false);}};
@@ -130,10 +132,10 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     if(catalog.signature&&w.warmSignature===catalog.signature){setReady(true);setLoading(false);}
     else{setReady(false);initTimer=setTimeout(()=>w.postMessage({type:'init',items:catalog.items,signature:catalog.signature}),50);}
     return()=>{active=false;clearTimeout(initTimer);w.removeEventListener('message',onMessage);w.removeEventListener('error',onError);worker.current=null;};
-  },[worldEditor,catalog,modelPath]);
+  },[tab,worldEditor,catalog,modelPath]);
   useEffect(()=>{setLimit(120);},[query,vibe,folder,variant,kind,format]);
   useEffect(()=>{
-    if(worldEditor){requestId.current=++searchSerial;setSearching(false);return;}
+    if(tab!=='textures'||worldEditor){requestId.current=++searchSerial;setSearching(false);return;}
     const options={query,vibe,folder,variant,kind,format,limit};
     const first=catalog?initialTextureLibraryResults(catalog.items,options):null;
     if(first){setResult(first);setLoading(false);}
@@ -142,7 +144,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     const id=++searchSerial;requestId.current=id;requestOptions.current=options;
     const cached=librarySessions.result(modelPath,catalog?.signature,options);if(cached){setResult(cached);setSearching(false);return;}
     setSearching(true);const timer=setTimeout(()=>worker.current?.postMessage({type:'search',id,signature:catalog?.signature,options}),35);return()=>clearTimeout(timer);
-  },[ready,catalog?.signature,modelPath,query,vibe,folder,variant,kind,format,limit,worldEditor]);
+  },[tab,ready,catalog?.signature,modelPath,query,vibe,folder,variant,kind,format,limit,worldEditor]);
   useEffect(()=>{
     let active=true;setSelectedAsset(null);setSelectedImage(null);setSelectionError('');setMessage('');setChoice(null);if(!selected)return;
     loadAsset(selected,modelPath).then(asset=>{if(active)setSelectedAsset(asset);}).catch(error=>{if(active)setSelectionError(error.message);});
@@ -175,6 +177,14 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const requestTexture=(action,callback,success)=>{if(existingTexture<0)return act(callback,success);if(!materialUsers.length)return act(callback,action==='preview'?success:'Added a new material.',action==='preview'?undefined:{material:'new'});setMessage('');setChoice({callback,success:action==='preview'?success:''});};
   const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
+  const saveCopy=async()=>{
+    setBusy(true);setMessage('');setSelectionError('');
+    try{
+      const saved=await window.desktop.textureLibraryExport({key:selected.cacheKey,modelPath});
+      if(saved)setMessage('Saved '+saved);
+    }catch(error){setSelectionError(error.message);}
+    finally{setBusy(false);}
+  };
   const changeVariant=value=>{setVariant(value);setFolder('');standardVariant.current=null;};
   const changeStyle=value=>{
     setStyle(value);setQuery('');
@@ -191,7 +201,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   };
   return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} data-hotkey-prefix="texture-library" className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
     <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>{translate("Material & Texture Library")}</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button data-hotkey="texture-library:material-manager" data-hotkey-manual data-hotkey-label="Material Manager" type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" data-hotkey="close" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
-    {fullLibrary&&<div className="tl-tabs" role="tablist" aria-label="Library sections">{LIBRARY_TABS.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>chooseTab(value)}>{label}</button>)}</div>}
+    {fullLibrary&&<div className="tl-tabs" role="tablist" aria-label="Library sections">{LIBRARY_TABS.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{label}</button>)}</div>}
     {tab!=='textures'?<Suspense fallback={<p className="tl-empty">Loading game files…</p>}><GameFileBrowser key={tab} preset={tab} onOpenGameModel={onOpenGameModel} onImportGameGeosets={onImportGameGeosets} importTargetName={importTargetName} onClose={onClose}/></Suspense>:<>
     <div className="tl-toolbar"><input data-hotkey="texture-library:search" data-hotkey-manual data-hotkey-label="Search textures" ref={input} type="search" value={query} placeholder={worldEditor?WORLD_EDITOR_PLACEHOLDER:vibe?'Try rusty chain mail, painting, high resolution, or 512':'Search names, paths, high resolution, or 256'} onChange={event=>setQuery(event.target.value)} aria-label="Search textures"/>
       {!worldEditor&&<label title="Search surfaces, colours and kitbash associations"><input data-hotkey="texture-library:vibe-search" data-hotkey-manual data-hotkey-label="Vibe search" type="checkbox" checked={vibe} onChange={event=>{setVibe(event.target.checked);writeStoredText('mdlvis.texture-library.vibe',event.target.checked);}}/>Vibe search</label>}
@@ -212,7 +222,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
         {worldEditor&&catalog&&entryResult.missing.length>0&&<details className="gf-missing"><summary>{translate('{0} textures not found').replace('{0}',entryResult.missing.length)}</summary>{entryResult.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
         {!worldEditor&&result.hasMore&&<button data-hotkey="texture-library:show-more-textures" data-hotkey-manual data-hotkey-label="Show more textures" type="button" className="tl-more" onClick={()=>setLimit(n=>n+120)} disabled={searching}>Show more textures</button>}
       </main>
-      <aside className="tl-details">{selected?<><div className="tl-preview">{selectedImage?<img src={selectedImage} alt={selected.name} translate="no"/>:<span>{selectionError?'Preview unavailable':'Loading preview…'}</span>}</div><h3 translate="no">{selected.name}</h3><p className="tl-version">Game version: <strong>{textureVersionLabel[selected.variant]||textureVersionLabel.unknown}</strong></p><code translate="no">{selected.path}</code><button data-hotkey="texture-library:copy-texture-path" data-hotkey-manual data-hotkey-label="Copy texture path" type="button" className="tl-copy-path" onClick={copyPath}>Copy texture path</button>{selected.sourcePath!==selected.path&&<details><summary>Native source path</summary><code translate="no">{selected.sourcePath}</code></details>}
+      <aside className="tl-details">{selected?<><div className="tl-preview">{selectedImage?<img src={selectedImage} alt={selected.name} translate="no"/>:<span>{selectionError?'Preview unavailable':'Loading preview…'}</span>}</div><h3 translate="no">{selected.name}</h3><p className="tl-version">Game version: <strong>{textureVersionLabel[selected.variant]||textureVersionLabel.unknown}</strong></p><code translate="no">{selected.path}</code><div className="gf-file-actions"><button data-hotkey="texture-library:copy-texture-path" data-hotkey-manual data-hotkey-label="Copy texture path" type="button" className="tl-copy-path" onClick={copyPath}>Copy texture path</button><button data-hotkey="texture-library:save-a-copy" data-hotkey-manual data-hotkey-label="Save a copy…" type="button" className="tl-copy-path" disabled={!catalogFresh||busy} onClick={saveCopy}>Save a copy…</button></div>{selected.sourcePath!==selected.path&&<details><summary>Native source path</summary><code translate="no">{selected.sourcePath}</code></details>}
         {selected.width>0&&<p className="tl-dimensions">{selected.width} × {selected.height}</p>}{selected._match?.type==='inspiration'&&<p className="tl-note">{selected._match.inspiration} kitbash suggestion<br/>{selected._match.reason.split(' · ').map(value=>translate(value)).join(' · ')}</p>}
         {selected.notes&&<p>{selected.notes}</p>}{selected._match?.missing?.length>0&&<p className="tl-note">Related result. Unconfirmed: {selected._match.missing.map(value=>translate(value)).join(', ')}.</p>}
         {selected.tags?.length>0&&<div className="tl-tags">{selected.tags.slice(0,12).map(tag=><button type="button" key={tag} onClick={()=>{setQuery(tag==='chain'?'chainmail':tag.replaceAll('-',' '));setVibe(true);}}>{tag==='chain'?'chainmail':tag.replaceAll('-',' ')}</button>)}</div>}
