@@ -35,6 +35,33 @@ merge cleanly). Seven separate PRs would each need that conflict resolved again.
 builds one combined branch (`codex/main-review-20261111-all`), Claude checks it, and
 that single branch is what gets merged when the owner says "merge".
 
+## Final check of the combined branch (11 Nov, night)
+
+`codex/main-review-20261111-all` at `7bb44d28` (worktree
+`D:\Codex\mdlxl-main-review-20261111-all`, clean). Online `main` is still `a8a4ca86`.
+
+- It contains all seven reviewed tips, Claude's notes at `1de45e9b` and `main`, as plain
+  merges in the agreed order.
+- Claude repeated the merges independently: the result is identical to Codex's last
+  merge commit outside the files that conflicted (the five catalogs, the catalog-size
+  line, the task index). Codex's one commit after the merges changes only the handoff note.
+- Catalogs: every key of every branch is present with the same text, nothing extra;
+  sizes match the test line (`[7858, 7868, 7763, 7991, 7991]`).
+- Whole source suite, Claude's run: 3,397 tests, 0 new failures (the same 9 as the base
+  in Claude's environment). Baseline, flail fixtures and locked UV numbers untouched.
+- Hidden app checks, Codex's run on the combined package: 21 pass, 3 fail. Claude read
+  the three harnesses and Codex's raw logs; none points at a fault in the fixes:
+
+| Harness | Verdict | Why |
+| --- | --- | --- |
+| `hotkey-defaults-audit` | Already failing on `main`; a fault in the test | It hard-codes Ctrl+F9 as a free key for its Fit rebind. After the audit opens every window, Forge's Tube thickness holds Ctrl+F9, so Settings offers "Replace existing assignment" and the test waits for "Assign shortcut". Codex saw the identical stop on the base `4340c5f8`. The fixes changed none of the key-allocation code, and the stop (line 95) comes before the lines contract 3 edited. Not run on the base by Claude. |
+| `vertex-animated-preview` | Fault in the test (timing) | After a four-step mouse move it waits only for "any movement", then reads the vertex while the button is still down. Live drags do their work once per frame, so the read caught step three of four: +13.5 / +3.75 px instead of +18 / +5 px, exactly three quarters. |
+| `review-bitz`, Exit case | Fault in the test (timing) | Its wait passes an async function to `waitForFunction`; the returned Promise counts as "true", so it reads once instead of polling. The app writes the original model's checkpoint 350 ms after the draft opens (`app/App.jsx`, checkpoint effect), later than that single read. |
+
+Because the three stops hide the assertions that follow them, the combined branch is
+not called ready until the three tests are corrected (test files only) and those three
+harnesses pass on the combined package.
+
 The sections below are the first review, kept as the record of what was asked.
 
 Reviewed: local `codex/main-review-20261111-1` to `-7` at the tips Codex handed over
