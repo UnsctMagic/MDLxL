@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches, poseNameConflicts } from './pose-recognition.js';
+import { poseRecognitionEvidence, inferPoseBranches, poseNameConflicts, posePartGaps, poseExcludedBranchName } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -125,9 +125,12 @@ export function separatePoseChains(model, draft, existing) {
   } catch { return null; }
 }
 
+const poseNameKey = node => String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
+/** Names the reader rules out as anatomy (chains, reins, guards, cameras, cloth...). */
+export const poseNonAnatomyName = node => /chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(poseNameKey(node));
 export function poseNodeRole(node) {
-  const name = String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
-  if (/chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(name)) return node?.Name || 'Object';
+  const name = poseNameKey(node);
+  if (poseNonAnatomyName(node)) return node?.Name || 'Object';
   if (/(?:^|[\s_.-])(?:hand|wrist)(?=$|[\s_0-9.\-])|(?:^|[\s_.-])[lr]ah$/.test(name)) return 'Hand';
   if (/hoof/.test(name)) return 'Hoof';
   if (/(?:^|[\s_.-])(?:foot|ankle|toe)(?=$|[\s_0-9.\-])/.test(name)) return 'Foot';
@@ -347,6 +350,7 @@ export function suggestPoseRig(model, frame, sequence) {
       .sort((a,b) => a.error - b.error)[0];
     if (peer?.error < .25) roles[peer.node.ObjectId] = 'Wing';
   }
+  for (const [id, role] of Object.entries(posePartGaps({ evidence, tree, chains, roles, roleOf, body, chainIds: poseChainIds, excluded: node => poseNonAnatomyName(node) || poseExcludedBranchName(node.Name) }))) if (roles[id] === undefined) roles[id] = role;
   const controls = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail','Wing'].includes(roleOf(node)) && !/death|portrait/i.test(node.Name))
     // One anatomical head can own separately named meshes, flaps or eyelids
     // at any depth. Expose the controlling joint, not a second head handle.

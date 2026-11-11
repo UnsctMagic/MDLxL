@@ -41,13 +41,16 @@ export function poseRecognitionEvidence(model) {
   return { nodes, byId, children, tree, profiles, descendants, moving, supported, articulated, links, pivot, mirrorError };
 }
 
+const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
+/** Names that never start or continue an inferred limb branch. */
+export const poseExcludedBranchName = name => isWeaponName(name) || excludedExtra.test(name);
+
 /** Unknown branches need both real articulation and a skinned, symmetric peer.
  * Long repeated branches remain generic chains; they are not called feet merely
  * because they point down. This also leaves tiny fingers and rigid props alone. */
 export function inferPoseBranches(evidence, roleOf, occupied) {
   const { nodes, children, profiles, moving, supported, links, pivot, mirrorError } = evidence, result = [];
-  const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
-  const excluded = name => isWeaponName(name) || excludedExtra.test(name);
+  const excluded = poseExcludedBranchName;
   for (const parent of nodes) {
     if (excluded(parent.Name) || ['Hand','Foot','Hoof','Head','Tail'].includes(roleOf(parent)) || roleOf(parent) === 'Chest' && (children.get(parent.ObjectId) || []).some(node => occupied.has(node.ObjectId))) continue;
     const paths = [];
@@ -132,6 +135,47 @@ export function poseNameConflicts(model, evidence, nameRole, roles = {}) {
     if (out[node.ObjectId] !== undefined || !['Body', 'Pelvis', 'Chest', 'Spine'].includes(nameRole(node))) continue;
     let up = byId.get(node.Parent);
     for (let guard = 0; up && guard < 64; guard++, up = byId.get(up.Parent)) if (roleOf(up) === 'Head') { out[node.ObjectId] = 'Object'; break; }
+  }
+  return out;
+}
+
+/** Clues add, none removes: part handles the names did not give but the skeleton
+ * shows. Only joints without any role are named, so nothing found earlier changes.
+ * Pelvis: the joint two or more legs hang from, unless a pelvis already sits
+ * next to it or it is a front junction (a head lies beyond it and either no arm
+ * hangs from it or a leg-only junction sits beside or above it). Neck: a moving
+ * joint strictly between an outermost head and the first trunk part, body or
+ * limb-carrying joint above it. Returns `{ ObjectId: 'Pelvis' | 'Neck' }`. */
+export function posePartGaps({ evidence, tree, chains, roles, roleOf, body, chainIds, excluded = () => false }) {
+  const { nodes, byId, children, descendants, moving } = evidence, out = {};
+  const named = ['Head', 'Neck', 'Chest', 'Spine', 'Pelvis', 'Body', 'Tail', 'Wing', 'Hand', 'Foot', 'Hoof', 'Object'];
+  const roleNow = id => out[id] || roleOf(byId.get(id));
+  const hasRole = id => excluded(byId.get(id)) || roles[id] !== undefined || out[id] !== undefined || named.includes(roleOf(byId.get(id)));
+  const limbJoints = new Set(chains.flatMap(chainIds));
+  const legRoots = chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Chain').map(chain => chainIds(chain)[0]);
+  const armRoots = chains.filter(chain => chain.kind === 'arm' && !chain.label).map(chain => chainIds(chain)[0]);
+  const hasHead = id => descendants(id).some(node => roleNow(node.ObjectId) === 'Head');
+  const junctions = nodes.filter(joint => legRoots.filter(root => byId.get(root)?.Parent === joint.ObjectId).length >= 2);
+  for (const joint of junctions) {
+    const id = joint.ObjectId;
+    if (id === body || limbJoints.has(id) || hasRole(id)) continue;
+    if (tree.ancestors(id).some(up => roleNow(up) === 'Pelvis') || (children.get(id) || []).some(child => roleNow(child.ObjectId) === 'Pelvis')) continue;
+    const below = descendants(id).map(node => node.ObjectId);
+    if (hasHead(id) && (!armRoots.some(root => below.includes(root)) || junctions.some(other => other.ObjectId !== id && !hasHead(other.ObjectId) && (other.Parent === joint.Parent || tree.ancestors(id).includes(other.ObjectId))))) continue;
+    out[id] = 'Pelvis';
+  }
+  const stops = ['Chest', 'Spine', 'Pelvis', 'Body'], limbRoots = new Set(chains.map(chain => chainIds(chain)[0]));
+  const carriesLimb = id => descendants(id).some(node => limbRoots.has(node.ObjectId));
+  for (const head of nodes) {
+    if (roleNow(head.ObjectId) !== 'Head' || tree.ancestors(head.ObjectId).some(up => roleNow(up) === 'Head')) continue;
+    const between = [];
+    let trunk = false;
+    for (const up of tree.ancestors(head.ObjectId)) {
+      if (up === body || stops.includes(roleNow(up)) || carriesLimb(up)) { trunk = true; break; }
+      between.push(up);
+    }
+    if (!trunk) continue;
+    for (const id of between) if (!hasRole(id) && !limbJoints.has(id) && moving(byId.get(id))) out[id] = 'Neck';
   }
   return out;
 }

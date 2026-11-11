@@ -54,11 +54,27 @@ Updated: 2026-11-11
 
 ## Changes and verification
 
-- Step 1, names may not veto: in progress.
-- Step 2, permanent library comparison script: in progress.
-- Step 3, blank-name measurement: in progress.
-- Step 4, fill gaps from the other clues: contract waits for step 3's numbers.
+- Step 1, names may not veto (`poseNameConflicts`, commit `c432ffc3`): 10 of 852
+  models change, all by the two rules; targeted tests unchanged (165 pass, 4 skip).
+- Step 2, library comparison: `pnpm run pose:corpus-diff -- --base <clean checkout>`
+  (commit `db5e47dd`). Use it for every change to handle detection.
+- Step 3, blank-name measurement (scratch, `out/pose-compare/blank/`): with bone
+  names blanked and attachments kept, 85% of limbs and 86% of heads are still
+  found, but 0% of pelvis and neck handles. With every name blanked, 58% of limbs
+  and 0% of heads.
+- Step 4, pelvis and neck from the skeleton (`posePartGaps`): only additions, on
+  146 of 852 models (88 gain a pelvis handle, 62 a neck handle); no handle lost,
+  moved or re-typed. Bone names blanked: pelvis recovery 0% to 68%, neck 0% to 65%.
+  Targeted tests: 177 pass, 0 fail, 4 skip.
+- Not run: packaged-app tests, real mouse drags. Owner hand test pending.
 
 ## Blockers and next action
 
-- None. Next: review the three agents' results, then write step 4's contract.
+- Known limits, measured: a head with no name and no head attachment is not
+  found (the "highest joint above the chest" rule was right only 19% of the time
+  on two-armed rigs, so it was not used). With every name blank and no head, a
+  four-legged rig's front leg junction can be labelled pelvis. Limbs are lost
+  without names mainly because `inferPoseBranches` stops at a branching joint;
+  273 lost limbs are not yet explained.
+- Next: owner tests the build; then heads without names, then limbs through
+  branching joints, each measured first and gated by the library comparison.

@@ -217,6 +217,13 @@ thigh or upper-arm joints even when their name reads as pelvis, body or chest,
 and the joint they hang from takes that name when it has none of its own. A
 body, pelvis, chest or spine bone below a head becomes `Object`. A single
 central pelvis or body is untouched.
+Clues only add: a joint with no role that is the parent of two or more leg
+chains becomes a pelvis, unless a pelvis already sits above or beside it or it
+is a front junction (a head lies beyond it and either no arm hangs from it or a
+leg-only junction sits beside or above it). A moving role-less joint strictly
+between an outermost head and the first chest, spine, pelvis, body or
+limb-carrying joint above it becomes a neck. A name the reader already rules out
+as anatomy never receives either role.
 
 Bodies come first, names second. The bodies are found from their limbs; a bone
 named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
