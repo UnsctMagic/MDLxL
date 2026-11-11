@@ -1,6 +1,8 @@
 import React,{useMemo,useRef,useState} from 'react';
 import {translate} from '../src/localization.js';
-import ParticleTimingTool from './ParticleTimingTool.jsx';
+import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
+import {BlendLookField,DrawAsField} from './ParticlePictureTool.jsx';
+import ParticleFrameStrip from './ParticleFrameStrip.jsx';
 import {particleValue} from '../src/particle-bindings.js';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
 import FxLookBar from './FxLookBar.jsx';
@@ -69,6 +71,9 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
  const positional=p||edge||l?.ground||card;
  const cardValue=key=>l[key]??CARD_DEFAULTS[key];
+ // An emitter field set under More (EMTR's own controls) is kept in layer.native.
+ const plainValues=values=>Object.fromEntries(Object.entries(values).map(([key,value])=>[key,ArrayBuffer.isView(value)?Array.from(value):value]));
+ const depth=(field,value)=>setLayer({...l,native:{...l.native,...plainValues({[field]:value})}});
  const timingOptions={frame:stack.hit,interval:graph?.model.Sequences[stack.sequence]?.Interval,globalSequences:graph?.model.GlobalSequences};
  const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined};};
  const nativeChange=value=>{if(gesture.current)gesture.current.value=value;};
@@ -122,6 +127,16 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
    {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
+  {p&&real&&!stack.impact&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+   {/* EMTR's own fields; each value is kept in layer.native. */}
+   {(l.burstGap==null?['Latitude','Variation']:['Variation']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
+   <BlendLookField emitter={real} update={depth}/>
+   <CarryButton emitter={real} update={depth}/>
+   <DrawAsField emitter={real} update={depth}/>
+   {(real.FrameFlags&2)?<ParticleSlider field="TailLength" value={particleValue(real,'TailLength',timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>:null}
+   <ParticleFrameStrip emitter={real} asset={assets?.get(gamePathKey(graph.model.Textures[real.TextureID]?.Image||''))} pictureName={graph.model.Textures[real.TextureID]?.Image} replaceableId={real.ReplaceableId||graph.model.Textures[real.TextureID]?.ReplaceableId||0} patch={values=>values&&setLayer({...l,native:{...l.native,...plainValues(values)}})}/>
+   <EmitModeButtons emitter={real} update={depth}/>
+  </>}</details>}
   {card&&<>
    <label className="field" title="Which way the card faces: the camera, the ground, or fixed to the part."><span>Facing</span><select aria-label="Facing" value={cardValue('facing')} onChange={e=>update('facing',e.target.value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part'}[id]}</option>)}</select></label>
    {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}

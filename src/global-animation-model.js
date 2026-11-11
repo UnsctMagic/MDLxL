@@ -325,7 +325,7 @@ function nativeParticles(c,l){
   if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.add(new Vector3(...l.offset));pos.z+=radius*(spec.height||0);}
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):structuredClone(value);
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
   if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
   ids.push(p.ObjectId);
  }
@@ -352,6 +352,38 @@ function regionParent(c,region,point,key){
   for(const [Frame,v] of [...result].sort(([a],[b])=>a-b))keys.push({Frame,Vector:vec(v.toArray())});
  }
  bone.Translation={LineType:1,GlobalSeqId:null,Keys:keys};return bone.ObjectId;
+}
+// Emitter fields FX edits under More. A key absent from layer.native keeps the value the layer compiles to.
+export const EMITTER_DEPTH=['Latitude','Variation','FilterMode','Flags','FrameFlags','TailLength','Rows','Columns','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim','Squirt'];
+const UV_RANGES=new Set(['LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim']);
+/** A layer.native value as the emitter field it sets. */
+function nativeValue(key,value){
+ return key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):UV_RANGES.has(key)?Uint32Array.from(value):structuredClone(value);
+}
+/** The values a fresh compile writes for EMITTER_DEPTH, so an edit made in EMTR can be told apart from them. */
+export function emitterDepthDefaults(model,l){
+ if(l.kind==='native'){
+  const p=addParticles(emptyParticleModel(model.Version),model,{...l.nativeSpec},{duration:1000},{speed:l.speed||1,opacity:1,density:1,tint:[1,1,1]},10);
+  return Object.fromEntries(EMITTER_DEPTH.map(key=>[key,ArrayBuffer.isView(p[key])?Array.from(p[key]):p[key]]));
+ }
+ const fly=l.kind==='flies',mote=l.kind==='motes',flame=l.kind==='flame',mist=l.kind==='mist',crackle=l.kind==='crackle',atlas=l.atlas||1;
+ const first=fly&&!l.pictureOverride?9*16+7:0,end=fly?first:mist&&!l.pictureOverride?25:atlas*atlas-1,mid=fly?first:mist&&!l.pictureOverride?12:Math.floor(end*.4);
+ return {Latitude:crackle?l.spread??55:flame?24:mist?48:34,Variation:crackle?(l.burstGap!=null?.55:.18):fly?0:.35,FilterMode:fly||l.kind==='drops'?0:1,Flags:4096|32768|(fly||mote||crackle?524288:0),FrameFlags:1,TailLength:0,
+  Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,LifeSpanUVAnim:[first,mid,1],DecayUVAnim:[Math.min(end,mid+1),end,1],TailUVAnim:[0,0,1],TailDecayUVAnim:[0,0,1],Squirt:false};
+}
+const sameDepth=(a,b)=>{
+ if(typeof a==='boolean'||typeof b==='boolean')return !!a===!!b;
+ const x=ArrayBuffer.isView(a)?Array.from(a):a,y=ArrayBuffer.isView(b)?Array.from(b):b;
+ if(typeof x==='number'&&typeof y==='number')return Math.abs(x-y)<=1e-5*Math.max(1,Math.abs(y));
+ if(Array.isArray(x)&&Array.isArray(y))return x.length===y.length&&x.every((v,i)=>sameDepth(v,y[i]));
+ return JSON.stringify(x)===JSON.stringify(y);
+};
+/** EMTR edits of EMITTER_DEPTH on the layer's emitter, as layer.native keys (a key FX already stores is read by the caller). */
+function emitterDepthEdits(model,l,node){
+ if(l.impact)return {};
+ const defaults=emitterDepthDefaults(model,l),edits={};
+ for(const key of EMITTER_DEPTH)if(!(l.native&&key in l.native)&&node[key]!==undefined&&!sameDepth(node[key],defaults[key]))edits[key]=ArrayBuffer.isView(node[key])?Array.from(node[key]):structuredClone(node[key]);
+ return edits;
 }
 function particles(c,l){
  const {model:m,id,ms,tag}=c,fly=l.kind==='flies',mote=l.kind==='motes';
@@ -416,7 +448,7 @@ function particles(c,l){
    }
    if(l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
   }
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):structuredClone(value);
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
   ids.push(p.ObjectId);
  }
  }
@@ -588,7 +620,8 @@ export function readAnimationStack(model,index){
     // A subsequent EMTR edit defines the new three-stage opacity.
     delete l.opacityBase;delete l.particleStrength;
    }
-   if(l.kind==='native'){if(l.native)for(const key of Object.keys(l.native)){const value=node[key];l.native[key]=key==='SegmentColor'?value.map(v=>Array.from(v)):ArrayBuffer.isView(value)?Array.from(value):structuredClone(value);}continue;}
+   if(l.kind==='native'){if(l.native)for(const key of Object.keys(l.native)){const value=node[key];l.native[key]=key==='SegmentColor'?value.map(v=>Array.from(v)):ArrayBuffer.isView(value)?Array.from(value):structuredClone(value);}
+    const edits=emitterDepthEdits(model,l,node);if(Object.keys(edits).length)l.native={...l.native,...edits};continue;}
    read('lasts',node.LifeSpan);read('gravity',typeof node.Gravity==='number'?node.Gravity:null);read('velocity',typeof node.Speed==='number'?node.Speed:null);
    read(l.kind==='flies'?'spriteSize':'size',node.ParticleScaling?.[1]);
    if(l.kind!=='flies'&&l.kind!=='native'&&l.burstGap==null){
@@ -597,6 +630,8 @@ export function readAnimationStack(model,index){
     if(Number.isFinite(rate))read('amount',rate*emitters.length/weight);
    }
    if(l.native)for(const key of Object.keys(l.native)){const v=node[key];l.native[key]=key==='SegmentColor'?v.map(a=>Array.from(a)):ArrayBuffer.isView(v)?Array.from(v):structuredClone(v);}
+   // Spread, blend, frames and the other fields under More: an edit made in EMTR comes back as a layer value.
+   const edits=emitterDepthEdits(model,l,node);if(Object.keys(edits).length)l.native={...l.native,...edits};
    const rgb=Array.from(node.SegmentColor?.[1]||[]);
    if(rgb.length===3&&rgb.some((v,i)=>Math.abs(v-l.tint[i])>.001))l.tint=rgb;
   }

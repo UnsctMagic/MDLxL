@@ -167,6 +167,8 @@ export function withLayerTexture(layer,image){
  const next={...layer,image,own:false,pictureOverride:true};
  if(image===layer.image)return layer;
  delete next.frames;delete next.atlasRect;delete next.atlas;
+ // A new picture has its own grid: its frames follow it, not the old picture's.
+ if(next.native&&['Rows','Columns','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim'].some(key=>key in next.native)){next.native={...next.native};for(const key of ['Rows','Columns','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim'])delete next.native[key];}
  if(next.nativeSpec){next.nativeSpec={...next.nativeSpec,texture:image};delete next.nativeSpec.atlas;delete next.nativeSpec.team;}
  if(next.nativeSurface){
   next.nativeSurface={...next.nativeSurface,texture:image,picture:image};
