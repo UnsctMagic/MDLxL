@@ -174,6 +174,7 @@ ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.g
 const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
+const unreadableSaves = new Map();
 const filters=[{name:'Models and Paint Projects',extensions:MODEL_EXTENSIONS},{name:'Warcraft III models',extensions:WARCRAFT_MODEL_EXTENSIONS},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
 const recentQueue=serialQueue();
 async function persistRecents(file){
@@ -292,22 +293,46 @@ async function saveModel(payload){
   if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
   let backupPath;
+  const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
   const write = async () => {
+    const resolved = path.resolve(destination);
+    let overwrite = payload.unreadable !== true;
     backupPath = null;
-    if (payload.unreadable === true) {
-      try { backupPath = await backupModelFile(destination); }
-      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (!overwrite) {
+      try {
+        const previous = unreadableSaves.get(resolved);
+        const stillBroken = previous && await fs.readFile(destination)
+          .then(data => digest(data) === previous.hash, error => {
+            if (error.code !== 'ENOENT') throw error;
+            return false;
+          });
+        if (stillBroken) {
+          if (previous.backupPath) await fs.access(previous.backupPath);
+          backupPath = previous.backupPath;
+          overwrite = true;
+        } else {
+          try { backupPath = await backupModelFile(destination); }
+          catch (error) { if (error.code !== 'ENOENT') throw error; }
+          overwrite = !!backupPath;
+        }
+      } catch { return false; }
     }
-    await writeModelFile(destination, bytes, payload.forgeAssets || [], { overwrite: payload.unreadable !== true || !!backupPath });
+    await writeModelFile(destination, bytes, payload.forgeAssets || [], { overwrite });
+    if (payload.unreadable === true) unreadableSaves.set(resolved, { hash: digest(bytes), backupPath });
+    else unreadableSaves.delete(resolved);
+    return true;
   };
-  try{await write();}catch(error){
+  try{if(!await write())return {backupFailed:true};}catch(error){
     // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
     if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
     if(!(destination=await choose('This file is read-only. Save model as')))return null;
-    await write();
+    if(!await write())return {backupFailed:true};
   }
-  openedPaths.add(path.resolve(destination));await persistRecents(destination);
-  if (payload.unreadable !== true) initialModel={name:path.basename(destination),path:destination,bytes};
+  openedPaths.add(path.resolve(destination));
+  if (payload.unreadable !== true) {
+    await persistRecents(destination);
+    initialModel={name:path.basename(destination),path:destination,bytes};
+  }
   return {name:path.basename(destination),path:destination,backupPath};
 }
 // Writes through a verified temporary file. Without overwrite, an existing

@@ -61,14 +61,44 @@ test('an unreadable Save As overwrites only after making a backup and leaves the
     assert.equal(await page.evaluate(() => window.__mdlxl.session().path), file);
     await click(notice.getByRole('button', { name: 'OK', exact: true }));
     await notice.waitFor({ state: 'hidden' });
+    // Retry the same destination and verify the notice still names the first backup.
+    await page.keyboard.press('F12');
+    const saveButton = page.getByRole('button', { name: 'Save MDX…', exact: true });
+    await saveButton.waitFor();
+    await click(saveButton);
+    await notice.waitFor();
+    assert.match(await notice.textContent(), /Existing model_backup\.mdx/);
+    assert.equal(fs.existsSync(path.join(out, 'Existing model_backup_2.mdx')), false);
+    assert.equal(sha256(fs.readFileSync(backup)), sha256(previous));
+    await click(notice.getByRole('button', { name: 'OK', exact: true }));
+    await notice.waitFor({ state: 'hidden' });
+
+    const blocked = path.join(out, 'Protected model.mdx');
+    fs.writeFileSync(blocked, previous);
+    await app.evaluate((_, blocked) => {
+      const fs = process.getBuiltinModule('node:fs/promises'), copyFile = fs.copyFile;
+      fs.copyFile = (source, ...args) => {
+        if (source === blocked) throw Object.assign(new Error('Simulated copy permission failure'), { code: 'EACCES' });
+        return copyFile(source, ...args);
+      };
+    }, blocked);
+    await stubDialogs(app, { save: blocked });
+    await page.keyboard.press('F12');
+    await saveButton.waitFor();
+    await click(saveButton);
+    const blockedNotice = page.getByRole('dialog').filter({ hasText: /safety copy could not be made/i });
+    await blockedNotice.waitFor();
+    assert.match(await blockedNotice.textContent(), /previous file is intact/i);
+    assert.deepEqual(fs.readFileSync(blocked), previous);
+
     const fresh = path.join(out, 'New model.mdx');
     await stubDialogs(app, { save: fresh });
-    await page.keyboard.press('F12');
-    await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor();
-    await click(page.getByRole('button', { name: 'Save MDX…', exact: true }));
+    await click(blockedNotice.getByRole('button', { name: 'Save as', exact: true }));
     await notice.waitFor();
     assert.equal(fs.readFileSync(fresh).readUInt32LE(12), 9999);
     assert.equal(fs.existsSync(path.join(out, 'New model_backup.mdx')), false);
+    const recent = await page.evaluate(() => window.desktop.recent());
+    assert.ok(!recent.some(entry => [destination, blocked, fresh].includes(entry.path ?? entry)), 'unreadable output is absent from Recent files');
     assert.equal(await page.locator('.model-tab.active .model-tab-dirty').textContent(), '●');
   } finally {
     if (app) await closeApp(app);

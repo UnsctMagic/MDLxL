@@ -44,10 +44,8 @@ export default function AppDialogs({
   // Save as can rename the model itself (its Info name), not only the file.
   const saveAsFormat = async format => {
     const name = dialog.modelName?.trim();
-
     try {
       if (name && name !== model.Info.Name) edit('Rename model', ['Info'], m => { m.Info.Name = name; }, { rethrow: true });
-
     } catch { return; }
     if (await save(true, format, session, preferences.saveCalculateExtents && !doc.readOnly)) setDialog(null);
   };
@@ -113,7 +111,7 @@ export default function AppDialogs({
       edit('OptimizeXL',['Info'],m=>adoptOptimizeXLResult(m,bytes),{rethrow:true});
     }} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
     {settingsTab && <Suspense fallback={null}><Settings visUI={visUI} onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
-    {notice && <Dialog title={notice.title || "HD models"} onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
+    {notice && <Dialog title={notice.title || "HD models"} onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : notice.saveAs ? <><button onClick={() => { setNotice(null); notice.saveAs(); }}>Save as</button><button onClick={() => setNotice(null)}>Cancel</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
     {updates.open && <UpdatePrompt helmetEffects={updates.effects} status={updates.status} onInstall={updates.install} onClose={updates.close} disableSounds={preferences.disableSounds} onDisableSounds={disableSounds => changePreferences(previous => ({ ...previous, disableSounds }))}/> }
   </>;
 }

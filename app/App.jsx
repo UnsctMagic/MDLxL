@@ -976,7 +976,7 @@ export default function App() {
             const sections = model => Object.fromEntries(extentSections.map(key => [key, model[key]]));
             extentChanges = createChanges(sections(target.doc.model), sections(staged.model));
           }
-        } catch (error) { extentWarning = 'Extents were left as they were. ' + error.message; }
+        } catch (error) { extentWarning = translate('Extents were left as they were. {0}').replace('{0}', () => error.message); }
       }
       if (hasPreviews) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       const unfinished = forgeSaveBlock(staged.model);
@@ -1000,6 +1000,11 @@ export default function App() {
       if (window.desktop) {
         const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs: saveAs || format !== target.doc.format, forgeAssets: retainedForgeAssets(target.assets, staged.model), unreadable: prepared.unreadable });
         if (!result) return false;
+        if (result.backupFailed) {
+          if (saveAs) setDialog(previous => previous?.type === 'saveFormat' ? null : previous);
+          setNotice({ title: 'Save', message: translate('The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.'), saveAs: () => save(true, requestedFormat, target, calculateSaveExtents) });
+          return false;
+        }
         if (!prepared.unreadable) target.path = result.path;
         savedName = result.name; backupPath = result.backupPath;
         say(`Saved ${result.name}`);
@@ -1010,8 +1015,9 @@ export default function App() {
       if (prepared.unreadable) {
         target.doc.unreadableSave = true;
         if (saveAs) setDialog(previous => previous?.type === 'saveFormat' ? null : previous);
-        setNotice({ title: 'Save', message: 'The saved file could not be read back.' +
-          (backupPath ? ' The previous file was copied to ' + backupPath + '.' : '') });
+        setNotice({ title: 'Save', message: backupPath
+          ? translate('The saved file could not be read back. The previous file was copied to {0}.').replace('{0}', () => backupPath)
+          : translate('The saved file could not be read back.') });
         if (latest.current.session.id === target.id) refresh();
         return false;
       }

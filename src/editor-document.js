@@ -604,7 +604,8 @@ export class EditorDocument {
       // a user's own save never does.
       if (strict && this.lastSaveWarnings.length) throw new Error(this.lastSaveWarnings.join(' '));
       const original = Buffer.from(data);
-      let compatible = format === 'mdx' && !this.readOnly && !this.lastSaveUnreadable ? omitEmptyMdxNodeTracks(original) : original;
+      if (this.lastSaveUnreadable) return new Uint8Array(original);
+      let compatible = format === 'mdx' && !this.readOnly ? omitEmptyMdxNodeTracks(original) : original;
       if (!compatible.equals(original)) {
         // Exact-copy and sibling-preservation paths can retain legacy empty
         // tracks. Verify their removal against the same export snapshot; if

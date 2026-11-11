@@ -7785,5 +7785,9 @@
   "Folder *": "Carpeta *",
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
-  "Bones *": "Huesos *"
+  "Bones *": "Huesos *",
+  "Extents were left as they were. {0}": "Los límites se han dejado como estaban. {0}",
+  "The saved file could not be read back.": "No se pudo volver a leer el archivo guardado.",
+  "The saved file could not be read back. The previous file was copied to {0}.": "No se pudo volver a leer el archivo guardado. El archivo anterior se copió en {0}.",
+  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "No se pudo volver a leer el modelo guardado ni crear la copia de seguridad. El archivo anterior está intacto. Usa Guardar como para elegir otra ubicación."
 }

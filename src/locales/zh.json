@@ -7680,5 +7680,9 @@
   "Folder *": "文件夹 *",
   "Controller *": "控制器 *",
   "Citadel *": "城堡 *",
-  "Bones *": "骨骼 *"
+  "Bones *": "骨骼 *",
+  "Extents were left as they were. {0}": "范围保持不变。{0}",
+  "The saved file could not be read back.": "无法重新读取已保存的文件。",
+  "The saved file could not be read back. The previous file was copied to {0}.": "无法重新读取已保存的文件。原文件已复制到 {0}。",
+  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "无法重新读取已保存的模型，也无法创建备份。原文件完好无损。请使用“另存为”选择其他位置。"
 }

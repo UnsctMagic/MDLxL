@@ -39,12 +39,22 @@ async function saveAs(page) {
 
 test('Save As writes with Calculate extents whether the boxes change or already match', async () => {
   await withModel('extents-original', null, async (app, page, _bytes, out) => {
+    const { openDocument } = await import('../src/editor-document.js');
+    const { calculateExtents } = await import('../src/model-extents.js');
+    const expected = openDocument(_bytes, 'before.mdx').model;
+    const before = Array.from(expected.Info.MaximumExtent);
+    calculateExtents(expected);
+    const bounds = Array.from(expected.Info.MaximumExtent);
+    assert.notDeepEqual(bounds, before, 'the fixture needs its extents recalculated');
     for (const suffix of ['first', 'second']) {
       const destination = path.join(out, 'extents-' + suffix + '.mdx');
       await stubDialogs(app, { save: destination });
       const button = await saveAs(page);
       await button.waitFor({ state: 'hidden' });
       assert.ok(fs.existsSync(destination), 'Save As wrote the requested file');
+      const reopened = openDocument(fs.readFileSync(destination), destination);
+      assert.deepEqual(Array.from(reopened.model.Info.MaximumExtent), bounds, 'the file stores the calculated extents');
+      assert.equal(await page.evaluate(() => window.__mdlxl.document().historyStats.undoSteps), 1, 'one extents undo step');
     }
   });
 });

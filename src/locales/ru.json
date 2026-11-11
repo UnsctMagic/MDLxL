@@ -7775,5 +7775,9 @@
   "Folder *": "Папка *",
   "Controller *": "Контроллер *",
   "Citadel *": "Цитадель *",
-  "Bones *": "Кости *"
+  "Bones *": "Кости *",
+  "Extents were left as they were. {0}": "Габариты оставлены без изменений. {0}",
+  "The saved file could not be read back.": "Не удалось прочитать сохранённый файл.",
+  "The saved file could not be read back. The previous file was copied to {0}.": "Не удалось прочитать сохранённый файл. Копия предыдущего файла находится по адресу {0}.",
+  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "Не удалось прочитать сохранённую модель и создать резервную копию. Предыдущий файл не изменён. Выберите другое место через «Сохранить как»."
 }
