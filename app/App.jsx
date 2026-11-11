@@ -75,6 +75,8 @@ import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
+import { applyChanges, createChanges } from '../src/history-store.js';
+import { calculateExtents } from '../src/model-extents.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
@@ -956,17 +958,27 @@ export default function App() {
     setDialog(null);
     say('Fixed duplicate geoset animations. Undo reverses it.');
   }
-  async function save(saveAs = false, requestedFormat = session.doc.format, target = session) {
+  async function save(saveAs = false, requestedFormat = session.doc.format, target = session, calculateSaveExtents = false) {
     if (savingRef.current) return false;
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.', true); return false; }
-    if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat } }); return false; }
+    if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat, calculateSaveExtents } }); return false; }
     savingRef.current = true; setSaving(true);
     const previousPath = target.path;
     try {
-      const pending = target.uvPreviews;
-      const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
-      if (staged !== target.doc) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
+      const pending = target.uvPreviews, hasPreviews = Object.keys(pending).length > 0;
+      const staged = hasPreviews || calculateSaveExtents ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
+      const extentSections = ['Info', 'Sequences', 'Geosets'];
+      let extentChanges = [], extentWarning;
+      if (calculateSaveExtents) {
+        try {
+          if (staged.apply('Calculate extents', extentSections, model => { calculateExtents(model); })) {
+            const sections = model => Object.fromEntries(extentSections.map(key => [key, model[key]]));
+            extentChanges = createChanges(sections(target.doc.model), sections(staged.model));
+          }
+        } catch (error) { extentWarning = 'Extents were left as they were. ' + error.message; }
+      }
+      if (hasPreviews) staged.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       const unfinished = forgeSaveBlock(staged.model);
       if (unfinished) { say(unfinished, true); setNotice({ title: 'Save', message: unfinished }); return false; }
       // Save As must bring reopened Forge textures along, even before preview
@@ -984,11 +996,26 @@ export default function App() {
         if (removeData === null) return false;
       }
       const { format, name } = prepared, bytes = removeData ? prepared.withoutEditorData : prepared.bytes;
-      let savedName = name;
-      if (window.desktop) { const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs:saveAs||format!==target.doc.format, forgeAssets:retainedForgeAssets(target.assets,staged.model) }); if (!result) return false; target.path = result.path; savedName = result.name; say(`Saved ${result.name}`); }
+      let savedName = name, backupPath;
+      if (window.desktop) {
+        const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs: saveAs || format !== target.doc.format, forgeAssets: retainedForgeAssets(target.assets, staged.model), unreadable: prepared.unreadable });
+        if (!result) return false;
+        if (!prepared.unreadable) target.path = result.path;
+        savedName = result.name; backupPath = result.backupPath;
+        say(`Saved ${result.name}`);
+      }
       else { const forgeAssets=retainedForgeAssets(target.assets,staged.model), blob=forgeAssets.length?forgeExportArchive(name,bytes,forgeAssets):new Blob([bytes]); const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = forgeAssets.length?name.replace(/\.(mdl|mdx)$/i,'')+'.zip':name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); say(`Downloaded ${name}`); }
-      if (prepared.notes?.length) say(prepared.notes.join(' '), true);
-      if (staged !== target.doc) target.doc.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
+      if (prepared.notes?.length || extentWarning) say([...(prepared.notes || []), ...(extentWarning ? [extentWarning] : [])].join(' '), true);
+      if (extentChanges.length) target.doc.apply('Calculate extents', extentSections, model => applyChanges(model, extentChanges));
+      if (prepared.unreadable) {
+        target.doc.unreadableSave = true;
+        if (saveAs) setDialog(previous => previous?.type === 'saveFormat' ? null : previous);
+        setNotice({ title: 'Save', message: 'The saved file could not be read back.' +
+          (backupPath ? ' The previous file was copied to ' + backupPath + '.' : '') });
+        if (latest.current.session.id === target.id) refresh();
+        return false;
+      }
+      if (hasPreviews) target.doc.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
       if (removeData && !target.doc.readOnly) target.doc.apply('Remove MDLxL editor data', EDITOR_DATA_SECTIONS, clearEditorData);
       // Keep the target document's semantic serialization snapshot. Re-parsing
       // a staged document's bytes can differ in harmless object key order and

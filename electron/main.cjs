@@ -291,15 +291,24 @@ async function saveModel(payload){
   let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
   if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
-  try{await writeModelFile(destination,bytes,payload.forgeAssets||[]);}catch(error){
+  let backupPath;
+  const write = async () => {
+    backupPath = null;
+    if (payload.unreadable === true) {
+      try { backupPath = await backupModelFile(destination); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    await writeModelFile(destination, bytes, payload.forgeAssets || [], { overwrite: payload.unreadable !== true || !!backupPath });
+  };
+  try{await write();}catch(error){
     // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
     if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
     if(!(destination=await choose('This file is read-only. Save model as')))return null;
-    await writeModelFile(destination,bytes,payload.forgeAssets||[]);
+    await write();
   }
   openedPaths.add(path.resolve(destination));await persistRecents(destination);
-  initialModel={name:path.basename(destination),path:destination,bytes};
-  return {name:path.basename(destination),path:destination};
+  if (payload.unreadable !== true) initialModel={name:path.basename(destination),path:destination,bytes};
+  return {name:path.basename(destination),path:destination,backupPath};
 }
 // Writes through a verified temporary file. Without overwrite, an existing
 // destination is refused before any texture or temporary file is written.

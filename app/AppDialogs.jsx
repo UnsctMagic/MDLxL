@@ -11,7 +11,7 @@ import { allGeosets } from '../src/classic-selection.js';
 import { translate } from '../src/localization.js';
 import { fixPlainTrackValues, plainTrackValues } from '../src/plain-track-values.js';
 import { version } from '../package.json';
-import { calculateExtents, EXTENTS_TIP } from '../src/model-extents.js';
+import { EXTENTS_TIP } from '../src/model-extents.js';
 const SanityCheck = lazy(() => import('./SanityCheck.jsx'));
 const BitsAndParts = lazy(() => import('./BitsAndParts.jsx'));
 const ParticleEditor = lazy(() => import('./ParticleEditor.jsx'));
@@ -44,13 +44,12 @@ export default function AppDialogs({
   // Save as can rename the model itself (its Info name), not only the file.
   const saveAsFormat = async format => {
     const name = dialog.modelName?.trim();
-    // edit() also returns false when nothing changed (extents already right),
-    // so only a thrown error stops the save; edit() shows that error itself.
+
     try {
       if (name && name !== model.Info.Name) edit('Rename model', ['Info'], m => { m.Info.Name = name; }, { rethrow: true });
-      if (preferences.saveCalculateExtents && !doc.readOnly) edit('Calculate extents', ['Info', 'Sequences', 'Geosets'], m => { calculateExtents(m); }, { rethrow: true });
+
     } catch { return; }
-    if (await save(true, format)) setDialog(null);
+    if (await save(true, format, session, preferences.saveCalculateExtents && !doc.readOnly)) setDialog(null);
   };
   return <>
     {dialog?.type === 'sanityCheck' && <Suspense fallback={<Dialog title="Sanity Check" onClose={() => setDialog(null)}>Loading checker…</Dialog>}><SanityCheck model={model} doc={doc} revision={doc.revision} onClose={() => setDialog(null)}/></Suspense>}
@@ -96,7 +95,7 @@ export default function AppDialogs({
     {dialog?.type === 'trackFix' && <Dialog title="Fix model" onClose={() => setDialog(null)} footer={<><button onClick={() => {
       if (edit('Fix keyframe values', ['Nodes', 'TextureAnims'], fixPlainTrackValues) === false) return;
       setDialog(null);
-      if (dialog.save) save(dialog.save.saveAs, dialog.save.format); else selectMode(dialog.next);
+      if (dialog.save) save(dialog.save.saveAs, dialog.save.format, session, dialog.save.calculateSaveExtents); else selectMode(dialog.next);
     }}>{dialog.save ? 'Fix and save' : 'Fix'}</button><button onClick={() => setDialog(null)}>Cancel</button></>}><p>Warcraft III needs keyframes for these values:</p><ul>{plainTrackValues(model).map(item => <li key={item.path}><span translate="no">{item.ownerLabel}</span>{' · '}{translate(item.property)}</li>)}</ul><p>Until they are fixed, the model cannot be saved and the Warcraft preview cannot show it. The fix keeps how the model looks, and Undo reverses it.</p></Dialog>}
     {dialog?.type === 'normalRotate' && <Dialog onHotkeys={openHotkeySettings} title="Rotate normals" onClose={() => setDialog(null)} footer={<><button data-hotkey="app:action:11" onClick={() => { if (Number.isFinite(normalAngle)) { meshAction('Rotate normals'); setDialog(null); } }}>Apply</button><button data-hotkey="app:action:12" onClick={() => setDialog(null)}>Close</button></>}><label>Angle around workplane normal (degrees) <input data-hotkey="app:field:4" type="number" step="any" value={normalAngle} onChange={event => setNormalAngle(Number(event.target.value))}/></label></Dialog>}
     {dialog?.type === 'help' && <Dialog onHotkeys={openHotkeySettings} title="MDLxL help" onClose={() => setDialog(null)}><p>Default Hotkeys (customize in Settings): F1 vertices · F2 selected UV maps · F3 Movement. Bones edits the unanimated rig. Animations edits visibility and RGB; BAKE applies current visibility and RGB across the selected animation; ALL applies them across every animation. Bake Text applies edited text tracks. A select · M/Q move · R rotate · Z scale. W switches between work and camera rotation. F toggles Textured View on and off; S selects Surface. Wireframe remains available beside the view direction. Use View / Fit to frame the model.</p><p>Geoset checkboxes control which meshes can be selected. Only checkboxes change selection; Shift checks a range. All and Clear act on the geoset list; Hide extras hides corpse, background, hero glow and effect geosets until clicked again. Hide/Show affects editor visibility only.</p><p>T creates a triangle from three selected points. U uncouples, C collapses and B welds points. Welding retains the last selected vertex's UVs and binding. Copy remains available after opening another model.</p><p>Windows opens the material, texture and node managers. Changes can be undone. Untouched saves preserve original bytes; edited sections regenerate through the codec.</p><OfficialWebsite/></Dialog>}

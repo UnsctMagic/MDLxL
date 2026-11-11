@@ -143,7 +143,7 @@ export function partRgbOptions(model) {
 export function serializeCollectedPart(model) {
   const document = openDocument(`Version { FormatVersion ${model.Version}, }\nModel "Collected Bit" { BlendTime 150, }`, 'Collected Bit.mdl');
   document.apply('Collect Bit', [], target => Object.assign(target, structuredClone(model)));
-  return document.serialize('mdx');
+  return document.serialize('mdx', { strict: true });
 }
 
 export function partTextureIndices(model) {

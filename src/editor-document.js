@@ -381,7 +381,7 @@ export class EditorDocument {
   }
   get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
   get _commentsChanged() { return (this.model[MODEL_COMMENTS_KEY] || '') !== (this._savedModel[MODEL_COMMENTS_KEY] || ''); }
-  get dirty() { return this._changedKeys().length > 0 || this._fxChanged || this._tabsChanged || this._commentsChanged; }
+  get dirty() { return !!this.unreadableSave || this._changedKeys().length > 0 || this._fxChanged || this._tabsChanged || this._commentsChanged; }
   get canUndo() { return this._historyStore.stats.undoSteps > 0; }
   get canRedo() { return this._historyStore.stats.redoSteps > 0; }
   get historyStats() { return this._historyStore.stats; }
@@ -591,6 +591,7 @@ export class EditorDocument {
   serialize(format = this.format, { timings = {}, strict = false } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
     this.lastSaveWarnings = [];
+    this.lastSaveUnreadable = false;
     let stage = 'serializationMs', start = performance.now();
     const nextStage = next => { const now = performance.now(); timings[stage] += now - start; stage = next; start = now; };
     try {
@@ -603,7 +604,7 @@ export class EditorDocument {
       // a user's own save never does.
       if (strict && this.lastSaveWarnings.length) throw new Error(this.lastSaveWarnings.join(' '));
       const original = Buffer.from(data);
-      let compatible = format === 'mdx' && !this.readOnly ? omitEmptyMdxNodeTracks(original) : original;
+      let compatible = format === 'mdx' && !this.readOnly && !this.lastSaveUnreadable ? omitEmptyMdxNodeTracks(original) : original;
       if (!compatible.equals(original)) {
         // Exact-copy and sibling-preservation paths can retain legacy empty
         // tracks. Verify their removal against the same export snapshot; if
@@ -624,6 +625,7 @@ export class EditorDocument {
       nextStage('reparsingMs');
       const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
       nextStage('verificationMs');
+      this.lastSaveUnreadable = reopened.readOnly;
       if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) this.lastSaveWarnings.push('Save verification failed: geoset tab metadata did not reopen.');
       if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (this.model[MODEL_COMMENTS_KEY] || '')) this.lastSaveWarnings.push('Model comments did not reopen.');
       return remember(output);
@@ -676,6 +678,7 @@ export class EditorDocument {
     // the reopen check finds is reported in lastSaveWarnings instead.
     const warn = message => this.lastSaveWarnings.push(message);
     if (reopened.readOnly) {
+      this.lastSaveUnreadable = true;
       nextStage('errorFormattingMs');
       warn(formatSaveIssues('Save verification failed', reopened.diagnostics.filter(d => d.severity === 'error').map(d => d.message)));
       return remember(output, saveModel);
@@ -710,6 +713,7 @@ export class EditorDocument {
     const savedModel = savedState ? savedState.model : openDocument(savedBytes, name).model;
     this.name = name;
     this._loadSource(savedBytes);
+    this.unreadableSave = false;
     this.version = this.model.Version;
     this._savedModel = clone(savedModel);
     this._recoverySavedChanges = createChanges(openDocument(savedBytes, name).model, savedModel, { ignore: ignoreHistoryAlias });
