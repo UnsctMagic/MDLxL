@@ -1,5 +1,5 @@
 import { Vector2, Vector3, ShapeUtils, Triangle } from 'three';
-import { cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices } from './forge-shape-editing.js';
+import { appendForgeVertex, cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices } from './forge-shape-editing.js';
 import { TRIANGLE_ICON_UV } from './forge-primitives.js';
 import { clamp } from './math.js';
 
@@ -130,13 +130,39 @@ function polygonFace(shape,ids,face,source) {
 }
 
 export function bevelForgeShape(source,selected,mode,amount,round=false) {
+  if(!Number.isFinite(amount))throw Error('Use a finite bevel width.');
   amount=Math.abs(amount);
   if(amount<=1e-8)return source;
   const edges=new Map(),normals=new Map(source.faces.map(f=>[f.id,forgeFaceNormal(source,f)]));
   for(const f of source.faces)f.vertices.forEach((a,i)=>{const b=f.vertices[(i+1)%f.vertices.length],key=forgeEdgeKey(a,b);if(!edges.has(key))edges.set(key,{a,b,faces:[]});edges.get(key).faces.push(f);});
   const chosenVertices=new Set(forgeSelectionVertices(source,selected,mode)),chosenFaces=new Set(selected),chosenEdges=new Set(selected);
   const picked=new Set([...edges].filter(([key,e])=>e.faces.length===2&&dot(normals.get(e.faces[0].id),normals.get(e.faces[1].id))<.9999&&(mode==='Shape'||mode==='Edges'&&chosenEdges.has(key)||mode==='Faces'&&e.faces.some(f=>chosenFaces.has(f.id))||mode==='Vertices'&&chosenVertices.has(e.a)&&chosenVertices.has(e.b))).map(([key])=>key));
-  if(!picked.size)throw Error('Select a solid corner or an edge between two surfaces to bevel.');
+  // A sheet has no second side to chamfer. Its selected perimeter needs a
+  // continuous inset band, not bevels along the triangulation inside the sheet.
+  // Keep solid/open-box components on the established solid-edge path.
+  const remaining=new Set(source.faces),surfaces=[],surfaceFaces=new Set();
+  while(remaining.size){
+    const queue=[remaining.values().next().value],faces=[],componentEdges=new Set();
+    while(queue.length){
+      const face=queue.pop();if(!remaining.delete(face))continue;faces.push(face);
+      face.vertices.forEach((a,i)=>{const key=forgeEdgeKey(a,face.vertices[(i+1)%face.vertices.length]);componentEdges.add(key);queue.push(...edges.get(key).faces.filter(f=>remaining.has(f)));});
+    }
+    const border=[...componentEdges].filter(key=>edges.get(key).faces.length===1);
+    if(!border.length||[...componentEdges].some(key=>edges.get(key).faces.length>2))continue;
+    const normal=unit(faces.reduce((n,f)=>add(n,normals.get(f.id)),[0,0,0]));
+    if(faces.some(f=>dot(normals.get(f.id),normal)<=.5))continue;
+    const complete=mode==='Shape'||mode==='Faces'&&faces.every(f=>chosenFaces.has(f.id))||mode==='Edges'&&border.every(key=>chosenEdges.has(key))||mode==='Vertices'&&border.every(key=>{const e=edges.get(key);return chosenVertices.has(e.a)&&chosenVertices.has(e.b);});
+    if(!complete)continue;
+    surfaces.push(faces.map(f=>f.id));faces.forEach(f=>surfaceFaces.add(f.id));
+  }
+  for(const key of picked)if(edges.get(key).faces.some(f=>surfaceFaces.has(f.id)))picked.delete(key);
+  if(!picked.size&&!surfaces.length)throw Error('Select solid edges or the complete border of a thin surface to bevel.');
+  const shape=picked.size?bevelSolidEdges(source,edges,normals,picked,amount,round):structuredClone(source);
+  for(const faces of surfaces)bevelSurfaceRim(shape,faces,amount,round);
+  return shape;
+}
+
+function bevelSolidEdges(source,edges,normals,picked,amount,round){
   const pickedCorners=new Set([...picked].flatMap(edgeKey=>{const e=edges.get(edgeKey);return [e.a,e.b];}));
   // Only edges meeting the beveled corners constrain their width. A tiny edge
   // elsewhere in an authored geoset must not limit the selected shield or part.
@@ -203,6 +229,70 @@ export function bevelForgeShape(source,selected,mode,amount,round=false) {
     loop.pop();const face=polygonFace(shape,loop);if(face)shape.faces.push(face);
   }
   return shape;
+}
+
+function bevelSurfaceRim(shape,selected,amount,round){
+  const faces=shape.faces.filter(f=>selected.includes(f.id)),source={...shape,vertices:shape.vertices.slice(),faces},edges=new Map();
+  for(const f of faces)f.vertices.forEach((a,i)=>{const b=f.vertices[(i+1)%f.vertices.length],key=forgeEdgeKey(a,b);if(edges.has(key))edges.delete(key);else edges.set(key,{a,b,face:f});});
+  const triangles=faces.flatMap(f=>f.triangles),normal=unit(triangles.reduce((n,t)=>{const [a,b,c]=t.vertices.map(i=>source.vertices[i]);return add(n,cross(sub(b,a),sub(c,a)));},[0,0,0]));
+  const incoming=new Map(),outgoing=new Map(),offsets=new Map();
+  for(const {a,b} of edges.values()){
+    if(outgoing.has(a)||incoming.has(b))throw Error('Select a surface with a continuous border to bevel.');
+    outgoing.set(a,b);incoming.set(b,a);
+  }
+  // Same constant-distance miter as Inset, in the surface's average plane.
+  // The authored height is sampled back onto the surface below, not flattened.
+  for(const {a,b} of edges.values()){
+    const before=incoming.get(a);if(before===undefined)throw Error('Select a surface with a closed border to bevel.');
+    const n1=unit(cross(normal,sub(source.vertices[a],source.vertices[before]))),n2=unit(cross(normal,sub(source.vertices[b],source.vertices[a]))),den=1+dot(n1,n2);
+    if(den<1e-7)throw Error('This border cannot be beveled.');
+    offsets.set(a,mul(add(n1,n2),1/den));
+  }
+  // Limit width at the first triangle collapse. This uses only this surface,
+  // and keeps narrow/concave regions from folding or reversing at large drags.
+  let limit=Infinity;
+  for(const t of triangles){
+    const [a,b,c]=t.vertices.map(i=>source.vertices[i]),[u,v,w]=t.vertices.map(i=>offsets.get(i)||[0,0,0]);
+    const ab=sub(b,a),ac=sub(c,a),du=sub(v,u),dv=sub(w,u),A=dot(cross(du,dv),normal),B=dot(add(cross(du,ac),cross(ab,dv)),normal),C=dot(cross(ab,ac),normal);
+    const roots=Math.abs(A)<1e-12?(B<0?[-C/B]:[]):B*B-4*A*C>=0?[(-B-Math.sqrt(B*B-4*A*C))/(2*A),(-B+Math.sqrt(B*B-4*A*C))/(2*A)]:[];
+    for(const root of roots)if(root>1e-8)limit=Math.min(limit,root);
+  }
+  const width=Math.min(amount,limit*.9),depth=mul(normal,-width),copies=new Map(),surfacePoints=new Map();
+  const sample=(point,candidates=triangles)=>{
+    let best;
+    const p=new Vector3(...point);
+    for(const t of candidates){
+      const positions=t.vertices.map(i=>new Vector3(...source.vertices[i])),triangle=new Triangle(...positions),closest=triangle.closestPointToPoint(p,new Vector3()),distance=closest.distanceToSquared(p);
+      if(!best||distance<best.distance){const weights=Triangle.getBarycoord(closest,...positions,new Vector3()).toArray();best={distance,point:closest.toArray(),weights:t.vertices.map((id,i)=>[id,weights[i]]),uv:[0,1].map(a=>weights.reduce((n,w,i)=>n+w*t.uv[i*2+a],0))};}
+    }
+    return best;
+  };
+  for(const id of new Set(triangles.flatMap(t=>t.vertices))){
+    const point=add(source.vertices[id],mul(offsets.get(id)||[0,0,0],width)),surface=sample(point);
+    const copy=appendForgeVertex(shape,add(surface.point,depth),surface.weights);copies.set(id,copy);surfacePoints.set(copy,surface.point);surfacePoints.set(id,source.vertices[id]);
+  }
+  const texture=(face,ids)=>ids.flatMap(id=>sample(surfacePoints.get(id)||source.vertices[id],face.triangles).uv);
+  shape.faces=shape.faces.map(f=>selected.includes(f.id)?{...f,vertices:f.vertices.map(id=>copies.get(id)),triangles:f.triangles.map(t=>{
+    const vertices=t.vertices.map(id=>copies.get(id));return {...t,vertices,normals:undefined,uv:texture(f,vertices),sourceUV:true};
+  })}:f);
+  const rings=[new Map([...copies.keys()].map(id=>[id,id]))],segments=round?4:1;
+  for(let step=1;step<=segments;step++){
+    if(step===segments){rings.push(copies);continue;}
+    const ring=new Map(),t=step/segments;
+    for(const id of outgoing.keys()){
+      const start=source.vertices[id],delta=sub(surfacePoints.get(copies.get(id)),start),point=add(start,mul(delta,t*t)),surface=sample(point);
+      const next=appendForgeVertex(shape,add(point,mul(depth,2*t-t*t)),surface.weights);ring.set(id,next);surfacePoints.set(next,surface.point);
+    }
+    rings.push(ring);
+  }
+  for(const {a,b,face} of edges.values())for(let step=1;step<=segments;step++){
+    const ids=[rings[step-1].get(a),rings[step-1].get(b),rings[step].get(b),rings[step].get(a)];
+    const rim=polygonFace(shape,ids,{...face,id:shape.nextFaceId++},source);
+    if(!rim)throw Error('This border cannot be beveled cleanly.');
+    for(const t of rim.triangles){t.uv=texture(face,t.vertices);t.sourceUV=true;}
+    shape.faces.push(rim);
+  }
+  shape.committed=false;
 }
 
 export function previewForgeMold(draft,prepared,state) {

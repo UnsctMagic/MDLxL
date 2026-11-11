@@ -1,11 +1,12 @@
 const assert=require('node:assert/strict'),path=require('node:path');
 const {launchApp,closeApp}=require('./helpers/app.cjs');
 const {fixturePath}=require('./helpers/fixtures.cjs');
+const {assertShieldRim}=require('./helpers/forge-rim.cjs');
 const shield=[...Array.from({length:7},(_,i)=>225+i),...Array.from({length:14},(_,i)=>253+i),...Array.from({length:10},(_,i)=>425+i)];
 function read(){
   const selector='[aria-label="3D model viewport"]',s=findFiberState(selector,s=>s?.renderer&&s?.entries),p=findFiberProps(selector,p=>p?.model&&p?.onTransform),r=s.renderer.domElement.getBoundingClientRect();
   const project=point=>{const v=s.camera.position.clone().fromArray(point).project(s.camera);return {x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};};
-  return {vertices:p.model.Geosets.map(g=>Array.from(g.Vertices)),selection:p.selectionByGeoset,handles:(p.editHandles?.points||[]).map(h=>({...h,...project(h.position)}))};
+  return {vertices:p.model.Geosets.map(g=>Array.from(g.Vertices)),faces:p.model.Geosets.map(g=>Array.from(g.Faces)),selection:p.selectionByGeoset,handles:(p.editHandles?.points||[]).map(h=>({...h,...project(h.position)}))};
 }
 (async()=>{
   const {app,page}=await launchApp({fixture:fixturePath('citadel-footman'),out:path.resolve('out/shield-polish/interaction'),pageTimeout:5000});
@@ -57,16 +58,19 @@ function read(){
     assert.equal(await drawer.getByRole('alert').count(),0);
     assert.ok(await page.evaluate(()=>findFiberState('.forge-vertex-tools',s=>s?.kind==='Bevel'&&s?.mold,{current:true}).mold.amount<0),'the tested drag moved inward');
     const angled=await page.evaluate(read);assert.deepEqual(angled.vertices.slice(1),before.vertices.slice(1));
+    const checkRim=result=>assertShieldRim({vertices:before.vertices[0],faces:before.faces[0]},{vertices:result.vertices[0],faces:result.faces[0]},Array.from({length:14},(_,i)=>253+i));
+    checkRim(angled);
     await drawer.getByRole('button',{name:'Angled',exact:true}).click();
     await page.waitForFunction(n=>findFiberProps('[aria-label="3D model viewport"]',p=>p?.model&&p?.onTransform).model.Geosets[0].Vertices.length>n,angled.vertices[0].length);
     const preview=await page.evaluate(read);assert.deepEqual(preview.vertices.slice(1),before.vertices.slice(1));
+    checkRim(preview);
     await page.screenshot({path:path.resolve('out/shield-polish/footman-shield-bevel.png')});
     await drawer.getByRole('button',{name:'Keep shaping',exact:true}).click();
     await page.waitForFunction(()=>!findFiberProps('[aria-label="3D model viewport"]',p=>p?.model&&p?.onTransform)?.editHandles);
     assert.deepEqual((await page.evaluate(read)).vertices,preview.vertices);
     await page.keyboard.press('Control+z');
     await page.waitForFunction(v=>JSON.stringify(findFiberProps('[aria-label="3D model viewport"]',p=>p?.model&&p?.onTransform).model.Geosets.map(g=>Array.from(g.Vertices)))===JSON.stringify(v),before.vertices);
-    console.log('PASS inward drag bevels the recorded Footman shield, angled and rounded, inside the full model; Commit and Undo preserve the rest.');
+    console.log('PASS every shield border edge has a continuous sloped rim, angled and rounded, with boss and strap selected inside the full Footman; Commit and Undo preserve the rest.');
   }catch(error){console.error(await page.evaluate(()=>({selection:findFiberProps('[aria-label="3D model viewport"]',p=>p?.model&&p?.onTransform)?.selectionByGeoset,error:document.querySelector('.forge-vertex-tools [role="alert"]')?.textContent})));throw error;}
   finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -53,7 +53,10 @@ function cornerRecord(g, source, shape, face, triangle, corner, groups) {
   const record = samples.length === 1 ? sourceRecord(g, samples[0][0]) : interpolatedRecord(g, samples.map(s => s[0]), samples.map(s => s[1]), groups);
   const normal = triangle.normals?.slice(corner*3, corner*3+3) || Triangle.getNormal(...triangle.vertices.map(i => new Vector3(...shape.vertices[i])), new Vector3()).toArray();
   if(record.tangent)record.tangentChanged=record.position.some((n,a)=>n!==shape.vertices[id][a])||record.normal.some((n,a)=>n!==normal[a])||record.uvs[0].some((n,a)=>n!==uv[a]);
-  record.position = shape.vertices[id]; record.uvs[0] = uv;
+  record.position = shape.vertices[id];
+  // Surface rims sample the authored surface once for every UV set. Their
+  // primitive preview UVs must not replace the first authored stream alone.
+  if(!triangle.sourceUV)record.uvs[0] = uv;
   record.normal = normal;
   return record;
 }
