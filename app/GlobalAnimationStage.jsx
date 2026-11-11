@@ -7,9 +7,12 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  // A card's size is its half width: the same round size handle emitters use.
  const card=layer?.type==='Card',flat=layer?.ground||card&&layer.facing==='ground';
  const radius=flat||layer?.kind==='flies'||layer?.kind==='native'||card;
- const real=graph?.model.Nodes[result?.id],parentNode=real?.Parent,frame=graph?.frame.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
+ const real=graph?.model.Nodes[result?.id];
+ // An orbiting Edge rides three helpers; its handles stay with the part the helpers hang from.
+ let parentNode=real?.Parent,anchorId=result?.id;if(layer?.orbit&&layer.type==='Edge')for(let i=0;i<3&&parentNode!=null;i++){anchorId=parentNode;parentNode=graph.model.Nodes[parentNode]?.Parent;}
+ const frame=graph?.frame.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
  const active=placing&&frame&&value&&(result?.id!=null);
- const parent=active?real?.Parent??null:null;
+ const parent=active?parentNode??null:null;
  const marks=useMemo(()=>{
   if(!active)return undefined;
   const base=(layer.impact||flat)&&real?{x:real.PivotPoint[0]-layer.offset[0],y:real.PivotPoint[1]-layer.offset[1],z:real.PivotPoint[2]-layer.offset[2]}:null;
@@ -27,7 +30,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  }
  const fieldKeys={Translation:'offset',ParticleScaling:'size',HeightAbove:'upper',HeightBelow:'lower'};
  const emitter=value&&{ObjectId:result?.id,Translation:value.offset,ParticleScaling:[value.size,value.size,value.size],HeightAbove:value.upper,HeightBelow:value.lower};
- return <><Preview {...props} particleAnchorId={active?result.id:undefined} keepBillboards={card} particleSelectedId={active?result.id:undefined} particleStageMarks={marks} onParticleStage={active?setSnap:undefined}/>
+ return <><Preview {...props} particleAnchorId={active?anchorId:undefined} keepBillboards={card} particleSelectedId={active?result.id:undefined} particleStageMarks={marks} onParticleStage={active?setSnap:undefined}/>
  {active&&<ParticleStageTools snapshot={snapshot} tool={layer.stamp?"Placement":"Look"} emitter={emitter} options={{family:radius?'ParticleEmitters2':'RibbonEmitters',stage:1}}
   begin={field=>{gesture.current={key:fieldKeys[field],initial:layer};}}
   change={v=>{const g=gesture.current;if(!g)return;g.next={...g.initial,[g.key]:v};setDraft(g.next);}}

@@ -27,7 +27,7 @@ export function normalizeOwnLook(item){
   if(!Array.isArray(item.layers)||item.layers.length>MAX_OWN_LAYERS||!plain(item.frame))return null;
   const frame={};for(const key of ['length','girth','radius']){const v=item.frame[key];if(typeof v!=='number'||!Number.isFinite(v)||v<0)return null;frame[key]=v;}
   if(!(frame.length>0))return null;
-  const layers=item.layers.map(layer=>{if(!plain(layer)||!Number.isInteger(layer.id)||typeof layer.type!=='string')throw BAD;const kept=clean(layer);return kept.type==='Card'?boundedCard(kept):kept;});
+  const layers=item.layers.map(layer=>{if(!plain(layer)||!Number.isInteger(layer.id)||typeof layer.type!=='string')throw BAD;const kept=clean(layer);if(kept.orbit!=null){kept.orbit=kept.orbit===true;if('orbitTurns' in kept)kept.orbitTurns=typeof kept.orbitTurns==='number'?Math.max(1,Math.min(8,Math.round(kept.orbitTurns))):1;if('orbitRadius' in kept)kept.orbitRadius=typeof kept.orbitRadius==='number'?Math.max(0,Math.min(100000,kept.orbitRadius)):0;}return kept.type==='Card'?boundedCard(kept):kept;});
   const look={id:item.id,name,loop:Math.round(item.loop),...(typeof item.asOverlay==='boolean'?{asOverlay:item.asOverlay}:{}),...(typeof item.variation==='string'&&item.variation.length<=64?{variation:item.variation}:{}),frame,layers};
   return JSON.stringify(look).length>MAX_OWN_LOOK_BYTES?null:look;
  }catch(error){if(error===BAD)return null;throw error;}
@@ -74,6 +74,7 @@ export function stackFromOwnLook(record,frame,owner){
   const size=ratio(sizeOf(was,l),sizeOf(now,l)),sprite=ratio(spriteOf(was,l),spriteOf(now,l)),moving=l.type==='Particles'||l.type==='Edge';
   const next={...l};
   if(Array.isArray(l.offset))next.offset=scaleNumbers(l.offset,k);
+  if(typeof l.orbitRadius==='number')next.orbitRadius=l.orbitRadius*k;
   for(const key of ['upper','lower'])if(typeof l[key]==='number')next[key]=l[key]*r;
   if(moving)for(const key of ['velocity','gravity'])if(typeof l[key]==='number')next[key]=l[key]*k;
   if(typeof l.size==='number')next.size=l.size*size;

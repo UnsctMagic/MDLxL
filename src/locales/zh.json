@@ -7757,5 +7757,9 @@
   "Frame time (ms)": "每帧时间（毫秒）",
   "Milliseconds per cell. 0 shows one cell.": "每格毫秒数。0 只显示一格。",
   "Cell": "格子",
-  "The cell shown when Frame time is 0.": "每帧时间为 0 时显示的格子。"
+  "The cell shown when Frame time is 0.": "每帧时间为 0 时显示的格子。",
+  "Draws the ribbon around the part on turning helpers.": "用旋转的辅助点让飘带绕部件绘制。",
+  "Distance of the ribbon from the part.": "飘带与部件的距离。",
+  "Turns": "圈数",
+  "Turns around the part per loop.": "每个循环绕部件的圈数。"
 }

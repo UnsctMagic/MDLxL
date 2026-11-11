@@ -454,18 +454,37 @@ function particles(c,l){
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
 }
+/** Orbit helpers for an Edge: a turn about the part, a tilt and a bob, on three clocks that never line up. */
+function orbitChain(c,l,frame,point,parent,r){
+ const m=c.model,axis=frame.axis.clone().normalize(),side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize(),normal=new Vector3().crossVectors(side,axis).normalize();
+ const radius=Math.max(0,l.orbitRadius??frame.girth*1.5),turns=Math.max(1,Math.round(l.orbitTurns??1));
+ const t1=Math.max(100,Math.round(c.ms/turns)),t2=Math.max(100,Math.round(t1*.739)),t3=Math.max(100,Math.round(t1*.479));
+ const h1=nodeFor(c,'Bones','Bone','orbit'+r+'-1',l.label+' orbit 1',point,parent);h1.Flags=256;
+ h1.Rotation=keys(clockFor(m,t1,c.createdClocks),t1,LINEAR_TURN.map((a,j)=>[j/(LINEAR_TURN.length-1),turn(axis,j===LINEAR_TURN.length-1?0:a)]));
+ const p2=point.clone().addScaledVector(side,radius);
+ const h2=nodeFor(c,'Bones','Bone','orbit'+r+'-2',l.label+' orbit 2',p2,h1.ObjectId);h2.Flags=256;
+ h2.Rotation=keys(clockFor(m,t2,c.createdClocks),t2,[[0,0],[.25,35],[.5,0],[.75,-35],[1,0]].map(([t,a])=>[t,turn(side,a)]));
+ const p3=p2.clone().addScaledVector(axis,radius*.4);
+ const h3=nodeFor(c,'Bones','Bone','orbit'+r+'-3',l.label+' orbit 3',p3,h2.ObjectId);h3.Flags=256;
+ h3.Translation=keys(clockFor(m,t3,c.createdClocks),t3,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(radius*.3*a).toArray()]));
+ return {parent:h3.ObjectId,at:p3};
+}
 function edgeLayer(c,l){
  const {model:m,id,ms,tag}=c;
  const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
  for(const [regionIndex,region] of regions.entries()){const frame=region.frame;
  const point=frame.center.clone().add(new Vector3(...l.offset));
- const p=nodeFor(c,'RibbonEmitters','RibbonEmitter','edge'+regionIndex,l.label,point,regionParent(c,region,point,'edge-'+regionIndex));
+ let parent=regionParent(c,region,point,'edge-'+regionIndex),at=point;
+ // Orbit: the ribbon rides the end of a helper chain, each helper on its own clock, so it draws a wandering loop.
+ if(l.orbit)({parent,at}=orbitChain(c,l,frame,point,parent,regionIndex));
+ const p=nodeFor(c,'RibbonEmitters','RibbonEmitter','edge'+regionIndex,l.label,at,parent);
  // A small closed sway gives a stationary edge a width as the ribbon sheds its last vertices.
  const normal=new Vector3().crossVectors(frame.axis,Math.abs(frame.axis.z)<.9?z:y).normalize();
- p.Translation=keys(id,ms,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(frame.girth*.18*a).toArray()]));
- const layer={FilterMode:4,Shading:17,TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
+ if(l.orbit)delete p.Translation;
+ else p.Translation=keys(id,ms,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(frame.girth*.18*a).toArray()]));
+ const layer={FilterMode:l.orbit?3:4,Shading:17,TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
  Object.assign(p,{MaterialID:resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:[layer]}),Rotation:keys(id,ms,[[0,new Quaternion().setFromUnitVectors(y,frame.axis).toArray()]],0),
-  HeightAbove:l.upper,HeightBelow:l.lower,Alpha:keys(id,ms,curves.flicker.map(([t,a])=>[t,a*l.strength])),Color:vec(l.tint),LifeSpan:l.lasts,EmissionRate:l.smoothness,Gravity:l.gravity,Visibility:keys(id,ms,[[0,1],[1,1]])});
+  HeightAbove:l.upper,HeightBelow:l.lower,Alpha:l.orbit?l.strength:keys(id,ms,curves.flicker.map(([t,a])=>[t,a*l.strength])),Color:vec(l.tint),LifeSpan:l.lasts,EmissionRate:l.smoothness,Gravity:l.gravity,Visibility:keys(id,ms,[[0,1],[1,1]])});
  ids.push(p.ObjectId);
  }
  return {id:ids[0],ids,family:'RibbonEmitters'};
@@ -703,8 +722,8 @@ export function compileAnimation(model,index,draft,{rune}={}){
   for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClockIds=g._FxStack.createdClockIds.filter(id=>id!==i).map(id=>id>i?id-1:id);
   for(const k of [...clocks])if(k>i){clocks.delete(k);clocks.add(k-1);}
  }
- // Limited to stacks with a Card so stacks saved before Cards compile exactly as they did.
- if(clockRemoved&&[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'))restoreBounds();
+ // Limited to stacks with a Card or an orbit so stacks saved before Cards compile exactly as they did.
+ if(clockRemoved&&[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'||l.orbit))restoreBounds();
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));

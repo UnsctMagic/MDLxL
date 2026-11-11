@@ -7861,5 +7861,9 @@
   "Frame time (ms)": "Tiempo por fotograma (ms)",
   "Milliseconds per cell. 0 shows one cell.": "Milisegundos por celda. 0 muestra una celda.",
   "Cell": "Celda",
-  "The cell shown when Frame time is 0.": "La celda que se muestra cuando el tiempo por fotograma es 0."
+  "The cell shown when Frame time is 0.": "La celda que se muestra cuando el tiempo por fotograma es 0.",
+  "Draws the ribbon around the part on turning helpers.": "Dibuja la cinta alrededor de la parte con ayudantes que giran.",
+  "Distance of the ribbon from the part.": "Distancia de la cinta a la parte.",
+  "Turns": "Vueltas",
+  "Turns around the part per loop.": "Vueltas alrededor de la parte por ciclo."
 }

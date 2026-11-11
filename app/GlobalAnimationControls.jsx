@@ -165,6 +165,17 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length." title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
+  {edge&&real&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+   <label title="Draws the ribbon around the part on turning helpers."><input type="checkbox" checked={!!l.orbit} onChange={e=>{
+    if(!e.target.checked){const next={...l};delete next.orbit;setLayer(next);return;}
+    const part=frame?.regions?.[0]?.frame||frame,radius=l.orbitRadius??Math.max(1,(part?.girth||4)*1.5),height=Math.max(1,radius*.25);
+    setLayer({...l,orbit:true,orbitRadius:radius,orbitTurns:l.orbitTurns??1,strength:.5,lasts:Math.max(l.lasts,.5),upper:height,lower:height});
+   }}/>Orbit</label>
+   {l.orbit&&<>
+    <RangeField key={l.id+'radius'} title="Distance of the ribbon from the part." label="Radius" output={v=>v.toFixed(1)} min={0} max={Math.max(2,(frame?.length||40)*.5)} step={.1} value={l.orbitRadius} onCommit={v=>update('orbitRadius',v)}/>
+    <RangeField key={l.id+'turns'} title="Turns around the part per loop." label="Turns" output={v=>String(Math.round(v))} min={1} max={8} step={1} value={l.orbitTurns??1} onCommit={v=>update('orbitTurns',Math.round(v))}/>
+   </>}
+  </>}</details>}
   {card&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {[['Smallest size','sizeMin',.1,2,.01,v=>Math.round(v*100)+'%','Size at the small point of the pulse, as a share of the card size.'],['Largest size','sizeMax',.1,2,.01,v=>Math.round(v*100)+'%','Size at the large point of the pulse, as a share of the card size.'],['Spin','spin',-8,8,.25,v=>v.toFixed(2),'Turns per loop. Negative turns the other way.'],['Jitter','jitter',0,180,1,v=>Math.round(v)+'°','Fast random turns, in degrees.']].map(([label,key,min,max,step,output,tip])=>
     <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={cardValue(key)} onCommit={v=>{const next={...l,[key]:v};if(key==='sizeMin'&&v>cardValue('sizeMax'))next.sizeMax=v;if(key==='sizeMax'&&v<cardValue('sizeMin'))next.sizeMin=v;setLayer(next);}}/>)}
