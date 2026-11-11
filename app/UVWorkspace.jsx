@@ -317,7 +317,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
                 <PreviewRgbField channel="G" icon="rgbGreen" value={previewRgb[1]} disabled={rgbTarget < 0}
                   data-hotkey="uv-wrapper:preview-rgb-green" data-hotkey-manual data-hotkey-label="Preview RGB G" onCommit={value => commitPreviewRgb(1, value)}/>
                 <PreviewRgbField channel="B" icon="rgbBlue" value={previewRgb[2]} disabled={rgbTarget < 0}
-                  data-hotkey="uv-wrapper:preview-rgb-blue" data-hotkey-manual data-hotkey-label="Preview RGB B" onCommit={value => commitPreviewRgb(2, value)}/>}
+                  data-hotkey="uv-wrapper:preview-rgb-blue" data-hotkey-manual data-hotkey-label="Preview RGB B" onCommit={value => commitPreviewRgb(2, value)}/>
                 <button type="button" aria-label="Reset preview RGB" disabled={!previewRgb.some(Boolean)}
                   onClick={() => { setPreviewRgb(EMPTY_PREVIEW_RGB); setHideRGB(false); }}>Reset</button>
               </div>
