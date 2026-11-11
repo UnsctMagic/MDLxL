@@ -48,14 +48,14 @@ export function useDraftNumber({value,format=draftText,parse=parseDraftNumber,on
     },
   };
 }
-export function TextField({label,value,onChange,type='text',min,max,step='any',disabled=false}){
+export function TextField({label,value,onChange,type='text',min,max,step='any',disabled=false,placeholder}){
   const number=type==='number';
   const field=useDraftNumber({value,disabled,onCommit:onChange,parse:(text,final)=>{
     if(!number)return text;
     const next=parseDraftNumber(text);
     return next===undefined||(Number(step)===1&&!Number.isInteger(next))||(min!==undefined&&next<min)||(max!==undefined&&next>max)?undefined:next;
   }});
-  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} {...field}/></label>;
+  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} placeholder={placeholder} {...field}/></label>;
 }
 export function NumberField(props){return <TextField type="number" {...props}/>;}
 /**

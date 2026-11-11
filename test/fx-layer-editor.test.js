@@ -38,3 +38,16 @@ test('Blend and lighting also reach a native surface card',()=>{
  const {material}=compile(model,withLayer(stack,{filter:4,unshaded:true,unfogged:true}));
  assert.ok(material.Layers.every(l=>l.FilterMode===4&&(l.Shading&33)===33));
 });
+test('a layer Loop length runs that layer on its own owned clock, shared by equal lengths and removed with the stack',()=>{
+ const {model,stack,frame}=setup('arcane-blade','Flowing energy'),before=[...model.GlobalSequences];
+ const second={...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',2),loop:1133};
+ const timed={...stack,layers:[{...stack.layers[0],loop:1133},second,{...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',3)}]};
+ const graph=compileAnimation(model,0,timed),track=id=>{const m=model.Materials[model.Geosets[graph.layers[id].geoset].MaterialID].Layers[0];return {motion:model.TextureAnims[m.TVertexAnimId].Translation.GlobalSeqId,alpha:m.Alpha.GlobalSeqId};};
+ const own=track(1),shared=track(2),plain=track(3);
+ assert.equal(model.GlobalSequences[own.motion],1133);assert.equal(model.GlobalSequences[own.alpha],1133);
+ assert.equal(shared.motion,own.motion,'equal lengths reuse one clock');
+ assert.equal(model.GlobalSequences[plain.motion],timed.loop,'a layer without its own length keeps the look clock');
+ assert.ok(model.Geosets[0]._FxStack.createdClockIds.includes(own.motion),'the clock is owned by the stack');
+ compileAnimation(model,0,{...timed,layers:[]});
+ assert.deepEqual(model.GlobalSequences,before,'removing the layers removes their clocks');
+});

@@ -492,7 +492,9 @@ export function compileAnimation(model,index,draft,{rune}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
-  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id,ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameGroup,sameClock:before?.loop===ms};
+  // A surface layer with its own Loop length runs on its own owned clock.
+  const own=l.loop!=null&&!draft.impact&&surfaceIngredient(l)?Math.max(100,Math.round(l.loop)):null;
+  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
   if(before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
