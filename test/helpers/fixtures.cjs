@@ -23,6 +23,8 @@ const FIXTURES = {
   archer: ['MDLXL_SUITE_ARCHER', testModel('material-fixture/Mecha-CL.mdx')], // geoset 4 uses Materials[4] (3 layers), 11+ textures
   effect: ['MDLXL_EFFECT_MODEL', testModel('effect-fixture/WH_WOC_KnightKhorneFlail03.mdx')],
   hoofprint: ['MDLXL_SUITE_HOOFPRINT', testModel('corpus-sd/human__knight.mdx')],
+  'slaanesh-champion': ['MDLXL_SLAANESH_CHAMPION', testModel('WH_WOC_KnightSlaaneshChampion01.mdx')], // rider under a Death root, horse beside it
+  lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.
