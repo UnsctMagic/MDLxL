@@ -1355,13 +1355,22 @@ export default function App() {
       activeGeoset: result.geosetIndices[0], selectedNodeIds: result.boneIds, renderMode: 'textured', rgbPreview: true, showAllGeosets: true,
     });
     rememberSessionView(session);
-    setBitReplacement({ original: session, revision: doc.revision, quadView, tool, cameraMode, history: selectionHistory, before: selectionState });
+    const survivingGeosets = new Map();
+    let draftIndex = 0;
+    doc.model.Geosets.forEach((geoset, index) => {
+      if (replacement[index]?.length !== geoset.Vertices.length / 3) survivingGeosets.set(index, draftDoc.model.Geosets[draftIndex++]);
+    });
+    setBitReplacement({
+      original: session, revision: doc.revision, history: selectionHistory, before: selectionState, survivingGeosets,
+      editorView: { view, quadView, tool, cameraMode, storedWorkplane, storedWorkplaneEnabled, overlayModes, cleanViews, hideExtras,
+        viewport: viewportCaptureAPI.current?.snapshotView() },
+    });
     sketchStore.clearTool(); clearZoomAnchor(); setSession(draft); restoreSessionView(draft);
     setQuadView(true); setTool('translate'); setCameraMode('work');
   }
 
   function finishBitReplacement(commit) {
-    const { original, revision, history, before } = bitReplacement;
+    const { original, revision, history, before, survivingGeosets, editorView } = bitReplacement;
     if (commit) {
       try {
         if (original.doc.revision !== revision || Object.keys(original.uvPreviews).length) throw Error('The original model changed while editing the replacement.');
@@ -1371,10 +1380,16 @@ export default function App() {
           for (const key of Object.keys(target)) if (!Object.hasOwn(stagedModel, key)) delete target[key];
           Object.assign(target, stagedModel);
         });
-        history.recordEdit(ticket, selectionState);
-        history.settle(selectionState);
-        rememberSessionView(session);
-        original.viewState = session.viewState;
+        const remap = indices => [...indices].map(index => doc.model.Geosets.indexOf(survivingGeosets.get(index))).filter(index => index >= 0);
+        const restoredSelection = {
+          selectable: new Set([...remap(original.viewState.selectable), ...checkedGeosets]),
+          visibleOnly: new Set(remap(original.viewState.visibleOnly)),
+          hiddenByUser: new Set(remap(original.viewState.hiddenByUser)),
+          selection: validSelection, activeGeoset, uvSet, selectedNodeIds,
+        };
+        Object.assign(original.viewState, restoredSelection);
+        history.recordEdit(ticket, restoredSelection);
+        history.settle(restoredSelection);
         // Carry the assets the finished model references, including any textures
         // introduced by normal vertex-editor tools such as Paste.
         const assets = new Map(original.assets);
@@ -1387,10 +1402,13 @@ export default function App() {
         original.assets = assets;
         say('Replace Part');
       } catch (error) { say(error.message, true); return; }
-    } else {
-      setQuadView(bitReplacement.quadView); setTool(bitReplacement.tool); setCameraMode(bitReplacement.cameraMode);
     }
+    viewportCaptureAPI.current?.restoreView(editorView.viewport);
     setBitReplacement(null); setSession(original); restoreSessionView(original);
+    setStoredView(editorView.view); setQuadView(editorView.quadView); setVertexViewRequest(null); setCameraAnglesRequest(null);
+    setTool(editorView.tool); setCameraMode(editorView.cameraMode);
+    setStoredWorkplane(editorView.storedWorkplane); setStoredWorkplaneEnabled(editorView.storedWorkplaneEnabled);
+    setOverlayModes(editorView.overlayModes); setCleanViews(editorView.cleanViews); setHideExtras(editorView.hideExtras);
   }
 
   // keepOpen: the Library stays open so more geosets can be imported in a row.

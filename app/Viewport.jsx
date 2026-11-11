@@ -1117,20 +1117,54 @@ export default function Viewport({ children, ...inputProps }) {
     });
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
-    state.captureApi = {captureView() {
-      if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
-      return composeViewportLayers(viewportHost, renderer.domElement);
-    }};
+    const rememberPane = pane => ({
+      id: pane.id, view: pane.view, ...snapshotPreviewCamera(pane.camera, pane.perspective, pane.ortho, pane.controls),
+      center: pane.center.clone(), radius: pane.radius, floor: pane.floor, constraintPlane: pane.constraintPlane, constraints: pane.constraints,
+    });
+    state.captureApi = {
+      captureView() {
+        if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+        return composeViewportLayers(viewportHost, renderer.domElement);
+      },
+      snapshotView() {
+        savePane();
+        return { quad, activePane: activePane.id, panes: panes.map(rememberPane) };
+      },
+      restoreView(saved) {
+        if (!saved || state.disposed) return;
+        cancelGesture();
+        state.setQuad(saved.quad);
+        for (const snapshot of saved.panes) {
+          const pane = panes.find(item => item.id === snapshot.id);
+          if (!pane) continue;
+          bindPane(pane);
+          rememberView(snapshot.view);
+          state.restoreCamera(snapshot);
+          state.center.copy(snapshot.center);
+          state.radius = snapshot.radius;
+          state.floor = snapshot.floor;
+          if (pane.constraintToolbar) {
+            pane.constraintPlane = snapshot.constraintPlane;
+            pane.constraints = snapshot.constraints;
+            pane.constraintToggle.checked = pane.constraints;
+            [...pane.constraintToolbar.querySelectorAll('button')].forEach((button, index) => {
+              button.setAttribute('aria-pressed', String(['xy', 'xz', 'yz'][index] === pane.constraintPlane));
+            });
+          }
+        }
+        activatePane(panes.find(pane => pane.id === saved.activePane) || singlePane);
+        resize();
+      },
+    };
     latest.current.onCaptureReady?.(state.captureApi);
     return () => {
       latest.current.onCaptureReady?.(null);
       if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
-      const remember = pane => ({ id: pane.id, view: pane.view, ...snapshotPreviewCamera(pane.camera, pane.perspective, pane.ortho, pane.controls), center: pane.center.clone(), radius: pane.radius });
-      cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
+      cameraMemory.current = { ...rememberPane(singlePane), panes: panes.slice(1).map(rememberPane) };
       if (latest.current.cameraHandoff) {
         // Quad panes own their cameras. Other editors inherit the single view.
-        latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
+        latest.current.cameraHandoff.current = rememberPane(singlePane);
       }
       state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();

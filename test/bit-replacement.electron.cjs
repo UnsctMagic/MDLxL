@@ -122,10 +122,23 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     const vertices = () => page.evaluate(index => Array.from(__mdlxl.model().Geosets[index].Vertices), incomingIndex);
     const viewportRuntime = () => page.evaluate(() => {
       const state = findFiberState(document.querySelector('.classic-view [aria-label="3D model viewport"]'), r => r?.renderer && r?.entries);
-      return state?.camera.position.toArray();
+      return state && {
+        pane: state.controls.domElement.dataset.viewport,
+        position: state.camera.position.toArray(), rotation: state.camera.quaternion.toArray(),
+        target: state.controls.target.toArray(), zoom: state.camera.zoom,
+      };
     });
+    const assertCamera = async saved => {
+      const current = await viewportRuntime();
+      assert.equal(current.pane, saved.pane);
+      for (const key of ['position', 'rotation', 'target']) {
+        assert.ok(current[key].every((value, i) => Math.abs(value - saved[key][i]) < .000001), 'Commit restores the previous camera ' + key);
+      }
+      assert.equal(current.zoom, saved.zoom);
+    };
+    const quadButton = page.getByRole('button', { name: 'Quad View', exact: true });
     const drag = async (id, dx, dy) => {
-      const pane = page.locator('[data-viewport="' + id + '"]'), box = await pane.boundingBox();
+      const pane = id === 'single' ? viewport : page.locator('[data-viewport="' + id + '"]'), box = await pane.boundingBox();
       const x = Math.round(box.x + box.width * .18), y = Math.round(box.y + box.height * .25);
       await page.mouse.move(x, y); await page.mouse.down();
       await page.mouse.move(x + dx, y + dy, { steps: 6 });
@@ -141,7 +154,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.deepEqual(await vertices(), centered);
     sameColor(await page.evaluate(index => Array.from(__mdlxl.model().GeosetAnims.find(anim => anim.GeosetId === index).Color), incomingIndex), [1, 128 / 255, 0]);
     await page.locator('[data-viewport="perspective"]').click({ position: { x: 24, y: 45 } });
-    const cameraBefore = await viewportRuntime();
+    const cameraBefore = (await viewportRuntime()).position;
     await page.keyboard.down('Alt');
     await drag('perspective', 65, 20);
     await page.keyboard.up('Alt');
@@ -155,7 +168,20 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.waitForFunction(([index, before]) => __mdlxl.model().Geosets[index].Vertices.some((value, i) => Math.abs(value - before[i]) > .001), [incomingIndex, centered]);
     await replaceAction.getByRole('button', { name: 'Cancel' }).click();
     assert.deepEqual(await serialized(), before);
-    assert.equal(await page.getByRole('button', { name: 'Quad View', exact: true }).getAttribute('aria-pressed'), 'false');
+    assert.equal(await quadButton.getAttribute('aria-pressed'), 'false');
+
+    await viewport.click();
+    await page.keyboard.press('Control+a');
+    await page.waitForFunction(count => __mdlxl.selection().selection[0]?.length === count, selected.length);
+    await page.keyboard.press('5');
+    await page.keyboard.press('s');
+    await page.keyboard.press('r');
+    await page.keyboard.down('Alt');
+    await drag('single', 45, 18);
+    await page.keyboard.up('Alt');
+    const beforeSingle = await viewportRuntime();
+    assert.equal(await page.getByLabel('View direction').inputValue(), 'perspective');
+    assert.equal(await page.getByLabel('Render mode').inputValue(), 'solid');
 
     await begin(true);
     await drag('front', 40, 14);
@@ -167,6 +193,11 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.deepEqual(await vertices(), moved);
     await replaceAction.getByRole('button', { name: 'Commit' }).click();
     await replaceAction.waitFor({ state: 'detached' });
+    assert.equal(await quadButton.getAttribute('aria-pressed'), 'false', 'Commit returns to the previous single view');
+    assert.equal(await page.getByLabel('View direction').inputValue(), 'perspective');
+    assert.equal(await page.getByLabel('Render mode').inputValue(), 'solid');
+    assert.equal(await page.locator('[data-hotkey="rotate"]').getAttribute('aria-pressed'), 'true');
+    await assertCamera(beforeSingle);
     const committed = await serialized(), reopened = openDocument(Uint8Array.from(committed));
     assert.deepEqual(Array.from(reopened.model.Geosets[incomingIndex].Vertices), moved);
     assert.equal(reopened.model.Geosets.length, original.model.Geosets.length);
@@ -177,6 +208,22 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.deepEqual(await serialized(), before);
     await page.keyboard.press('Control+y');
     assert.deepEqual(await serialized(), committed);
+
+    await quadButton.click();
+    await page.locator('[data-viewport="perspective"]').click({ position: { x: 24, y: 45 } });
+    await page.keyboard.down('Alt');
+    await drag('perspective', 37, 12);
+    await page.keyboard.up('Alt');
+    const beforeQuad = await viewportRuntime();
+    await begin();
+    await page.keyboard.down('Alt');
+    await drag('perspective', 55, 20);
+    await page.keyboard.up('Alt');
+    await page.locator('[data-viewport="top"]').click({ position: { x: 24, y: 45 } });
+    await replaceAction.getByRole('button', { name: 'Commit' }).click();
+    await replaceAction.waitFor({ state: 'detached' });
+    assert.equal(await quadButton.getAttribute('aria-pressed'), 'true');
+    await assertCamera(beforeQuad);
 
     await page.locator('[data-hotkey="bitsAndParts"]').click();
     await button('Renamed Bit.mdx').click();

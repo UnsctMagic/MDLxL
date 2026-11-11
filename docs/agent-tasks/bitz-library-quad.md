@@ -15,8 +15,9 @@ Base: `171b8bb9`
   Bit, or click **Replace Part** with a Bit already selected. The vertex
   editor opens directly in Quad View with Move active and the Bit at its own
   size on the target. The controls are centered just above the Quad View
-  divider, with RGB for the selected geosets. **Commit** installs the edited result as one model undo step.
-  **Cancel** restores the original document and view mode.
+  divider, with RGB for the selected geosets. **Commit** installs the edited
+  result as one model undo step and returns to the previous editor view.
+  **Cancel** returns to the same view with the original model.
 
 The focused source tests failed on the baseline because custom RGB was
 ignored and the library had no change API. The packaged test failed on the
@@ -33,4 +34,8 @@ source checks passed on the revision. Warcraft III gameplay and the OS
 recycle-bin integration were not exercised. The owner test copy retains its
 existing Bitz folder and profile. The placement assertion failed on the
 top-bar build and passed on the centered layout. All 18 focused Quad View
-and viewport checks passed for the placement change.
+and viewport checks passed for the placement change. The restore check
+failed on the previous package because Commit left Quad View on. The revised
+package returned to the prior single view and the prior Quad pane with their
+camera framing, and preserved the single view's render mode and tool.
+All 42 focused Bitz and viewport checks passed.
