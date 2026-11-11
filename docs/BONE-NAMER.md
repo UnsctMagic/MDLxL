@@ -73,6 +73,9 @@ Bones POSE does not identify start as **Keep name**, in **Not recognised** at th
 end of the list. Assign a part to include one. The preview uses a renamed copy
 in the rest pose, hiding geosets that Stand hides. Edits preserve your camera.
 
+Wing limbs recognised only from shape keep every joint's name. Wing chains
+with joints already read as Wing by name keep the standard naming above.
+
 Shared hub joints keep their names. If a limb ends at an attachment, the last
 bone uses Hand, Foot or Hoof only when POSE resolves that role; otherwise it
 keeps the next Arm/Leg number. The attachment itself is never renamed. A lone

@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: fix round 2 implemented; ready for Claude QA (owner acceptance pending)
+Status: fix round 3 implemented; ready for Claude QA (owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -316,6 +316,24 @@ Hand names (`pose-recognition.js:192-216` reads limb kinds from names); Lord of
 Change's wings `B_W_1..6` read as Wing limbs only while anonymous
 (`pose-recognition.js:153` skips a pair whose joints have a Wing part role).
 
+## Fix round 3 (11 Nov, from Claude's QA of `2202209e`)
+
+QA of `2202209e` on main's POSE: source tests 55/55; library gate 0 failing
+models of 941 (0 LOST/MOVED/GRIP/STABILITY). On the POSE side's fix branch
+`8f336192` (not merged): 3 models LOST; one is ours:
+
+1. **Wing limbs found from shape keep their names.** A chain labelled `Wing` whose
+   joints do not already read Wing by name (`poseNodeRole`) is part `keep`, every
+   joint. POSE finds such wings from their shape only while the joints are
+   anonymous; once named Wing they become separate Wing part handles, a reading the
+   owner's accepted POSE tests protect (Lord of Change: `B_W_1..6` →
+   `Bone_Wing1..3_L/R` loses both Wing limbs on the POSE branch). Same principle as
+   item 12 of round 1: never give a name that flips POSE's reading of that bone.
+   Wing chains whose joints already read Wing keep today's naming.
+
+Not ours: zergling (sent to the POSE side) — its fix keeps `Bone Root L/R` only
+while the holder `Object01` is unnamed, and Bone Namer names it `Bone_Chest`.
+
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
@@ -391,7 +409,24 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 ## Changes and verification
 
-### Fix round 2
+### Fix round 3
+
+- Resumed from clean `d2702fb4bdfac8ffb2ab8c05acea3c562efcc65d` on
+  `claude/bone-namer` in the named D: worktree.
+- Implemented only item 1: for a chain labelled Wing with no joint whose name
+  resolves to Wing via `poseNodeRole`, every joint is assigned Keep name. The
+  assignment guard also prevents later body/path recognition from renaming those
+  joints. Wing chains already containing a name-read Wing retain existing naming.
+- Added the corresponding exception to the guide. No UI, locale or test changes;
+  the Engine API and protected files are unchanged. No POSE rebase or merge.
+- `pnpm run build` passed (Vite 7.3.1, 56.18 s); existing JSON import-attribute
+  and large-chunk warnings remain. `git diff --check` passed. No tests written or
+  run, no fixture/corpus probes and no application QA. Claude owns behavioral QA.
+- Removed this round's generated build, log and temporary directory; dependencies
+  were reused unchanged. No task-started background process remains. Saved locally
+  with this note; no push, PR, merge or release.
+
+### Fix round 2 (historical)
 
 - Resumed from clean `06100731a926e9b354ee7a9903265fad8001d17c` on
   `claude/bone-namer` in the same named D: worktree.
@@ -449,8 +484,8 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 - No new implementation blocker. The three-round naming feedback is implemented
   as specified; its stability across the library is unverified until Claude QA.
-- **Next for Claude:** review the round-2 diff against `06100731`, rerun the source,
-  corpus and applicable packaged QA against the three items, then prepare the owner's
+- **Next for Claude:** review the round-3 diff against `d2702fb4`, rerun the source,
+  corpus and applicable packaged QA for the Wing preservation rule, then prepare the owner's
   hand-test build when the gates pass. Direct Close/× now close immediately;
   only the close key has the shared second-press guard for unapplied changes.
 - The Head Ref/neck issue remains with the POSE session, as described above.
