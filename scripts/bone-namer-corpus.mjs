@@ -88,7 +88,12 @@ function runPose(model, nodes, sequence, frame) {
   };
   return {
     body: rig.body ?? null,
-    limbs: (rig.chains || []).map(chain => ({ end: chain.end, kind: chain.kind, label: chain.label || null, joints: pose.poseChainIds(chain).filter(id => id != null) })),
+    limbs: (rig.chains || []).map(chain => {
+      const joints = pose.poseChainIds(chain).filter(id => id != null), grip = chain.grip ? [...chain.grip] : null;
+      const pts = joints.map(id => (id === chain.end && grip) || anim.nodePivot(model, nodes.get(id), id));
+      let length = 0; for (let i = 1; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]);
+      return { end: chain.end, kind: chain.kind, label: chain.label || null, joints, grip, length };
+    }),
     parts: (rig.nodes || []).map(id => ({ id, role: roleOf(id) })),
     followers: Object.fromEntries(Object.entries(rig.followers || {}).map(([k, v]) => [k, [...v].sort((a, b) => a - b)])),
     carriers: { ...(rig.carriers || {}) },
@@ -98,8 +103,8 @@ function runPose(model, nodes, sequence, frame) {
 const limbText = (l, nodes) => `${l.label || l.kind}[${l.joints.map(id => sig(nodes, id)).join(' > ')}]`;
 const keyed = o => JSON.stringify(Object.entries(o).sort((a, b) => Number(a[0]) - Number(b[0])));
 
-function compare(before, after, namesBefore, namesAfter) {
-  const lost = [], moved = [], retyped = [], gained = [], extra = [];
+function compare(before, after, namesBefore, namesAfter, copyModel) {
+  const lost = [], moved = [], retyped = [], gained = [], extra = [], grips = [], rerooted = [], tracked = [];
   const nb = id => `${sig(namesBefore, id)} -> ${sig(namesAfter, id)}`;
   // limbs
   const bEnds = new Map(before.limbs.map(l => [l.end, l])), aEnds = new Map(after.limbs.map(l => [l.end, l]));
@@ -107,10 +112,17 @@ function compare(before, after, namesBefore, namesAfter) {
   for (const [end, l] of bEnds) {
     const other = aEnds.get(end);
     if (other) {
+      if (l.grip && !other.grip) {
+        if (/^bone[ _]|^helper/i.test(namesAfter.get(end)?.Name || '')) tracked.push({ kind: 'GRIP-TRACKED', text: `limb ${nb(end)}: grip lost, end now named bone_/helper (pose-ik.js:207)` });
+        else grips.push(`limb ${nb(end)}: grip disappeared`);
+      }
+      else if (l.grip && other.grip && Math.hypot(l.grip[0] - other.grip[0], l.grip[1] - other.grip[1], l.grip[2] - other.grip[2]) > 0.01 * l.length) grips.push(`limb ${nb(end)}: grip moved ${Math.hypot(l.grip[0] - other.grip[0], l.grip[1] - other.grip[1], l.grip[2] - other.grip[2]).toFixed(2)} of limb length ${l.length.toFixed(2)}`);
       if (other.kind !== l.kind || other.label !== l.label) retyped.push(`limb ${nb(end)}: ${l.label || l.kind} -> ${other.label || other.kind}`);
       else if (other.joints.join() !== l.joints.join()) retyped.push(`limb joints ${nb(end)}: [${l.joints.join(',')}] -> [${other.joints.join(',')}]`);
       continue;
     }
+    const rr = freshLimbs.find(f => f.joints.length === l.joints.length && f.joints.slice(0, -1).join() === l.joints.slice(1).join() && namesBefore.get(f.joints.at(-1))?.Parent === end);
+    if (rr) { freshLimbs.splice(freshLimbs.indexOf(rr), 1); rerooted.push(`limb ${limbText(l, namesBefore)} -> ${limbText(rr, namesAfter)}`); continue; }
     const twin = freshLimbs.find(f => f.kind === l.kind && f.label === l.label && f.joints.some(id => l.joints.includes(id)));
     if (twin) { freshLimbs.splice(freshLimbs.indexOf(twin), 1); moved.push(`limb ${limbText(l, namesBefore)} end ${sig(namesBefore, end)} -> end ${sig(namesAfter, twin.end)}`); }
     else lost.push(`limb ${limbText(l, namesBefore)}`);
@@ -129,14 +141,17 @@ function compare(before, after, namesBefore, namesAfter) {
     const other = aParts.get(id);
     if (other) { if (other.role !== p.role) retyped.push(`part ${nb(id)}: ${p.role} -> ${other.role}`); continue; }
     const twin = freshParts.find(f => f.role === p.role);
-    if (twin) { freshParts.splice(freshParts.indexOf(twin), 1); moved.push(`part ${p.role} ${sig(namesBefore, id)} -> ${sig(namesAfter, twin.id)}`); }
+    const headTracked = twin && p.role === 'Head' && (copyModel.Attachments || []).some(a => a.Parent === twin.id && pose.poseNodeRole(a) === 'Head')
+      && pose.poseNodeRole(namesAfter.get(namesAfter.get(twin.id)?.Parent)) === 'Chest' && pose.poseNodeRole(namesBefore.get(namesBefore.get(twin.id)?.Parent)) !== 'Chest';
+    if (headTracked) { freshParts.splice(freshParts.indexOf(twin), 1); tracked.push({ kind: 'HEAD-TRACKED', text: `Head ${sig(namesBefore, id)} -> ${sig(namesAfter, twin.id)} (pose-ik.js:164)` }); }
+    else if (twin) { freshParts.splice(freshParts.indexOf(twin), 1); moved.push(`part ${p.role} ${sig(namesBefore, id)} -> ${sig(namesAfter, twin.id)}`); }
     else lost.push(`part ${p.role} ${sig(namesBefore, id)}`);
   }
   for (const p of freshParts) gained.push(`part ${p.role} ${sig(namesAfter, p.id)}`);
   // followers / carriers
   if (keyed(before.followers) !== keyed(after.followers)) extra.push({ kind: 'FOLLOWERS', text: `${keyed(before.followers)} -> ${keyed(after.followers)}` });
   if (keyed(before.carriers) !== keyed(after.carriers)) extra.push({ kind: 'CARRIERS', text: `${keyed(before.carriers)} -> ${keyed(after.carriers)}` });
-  return { lost, moved, retyped, gained, extra };
+  return { lost, moved, retyped, gained, extra, grips, rerooted, tracked };
 }
 
 const SIDE = /_(L|R)(?:_(?:Copy|Death|Portrait)\d*)?$/;
@@ -213,6 +228,11 @@ for (const { file, bytes } of files) {
     const wrong = rows.filter(r => chosen.has(r.id) && nodes.get(r.id) && anim.allNodes(copy).find(n => n.ObjectId === r.id)?.Name !== r.name);
     if (wrong.length) rec.failures.push({ kind: 'APPLY', text: `${wrong.length} bones did not get their proposed name, e.g. ${wrong[0].id} "${wrong[0].name}"` });
 
+    // stability: a second default run on the renamed copy must change nothing
+    {
+      const second = structuredClone(copy), plan2 = namer.planBoneNames(second), ch2 = new Set((plan2?.rows || []).filter(r => r.name !== r.current).map(r => r.id));
+      if (ch2.size) rec.failures.push({ kind: 'STABILITY', text: `${ch2.size} bones renamed on a second run: ${plan2.rows.filter(r => ch2.has(r.id)).slice(0, 6).map(r => `${r.current} -> ${r.name}`).join('; ')}` });
+    }
     const copyNodes = new Map(anim.allNodes(copy).map(n => [n.ObjectId, n]));
     const names = checkNames(copy, chosen, copyNodes, sequence, frame);
     for (const text of names.problems) rec.failures.push({ kind: 'NAME', text });
@@ -222,9 +242,12 @@ for (const { file, bytes } of files) {
       let after = null;
       try { after = runPose(copy, copyNodes, sequence, frame); } catch (error) { rec.failures.push({ kind: 'POSE-CRASH', text: `POSE threw on the renamed copy: ${error.message}` }); }
       if (after) {
-        const d = compare(before, after, nodes, copyNodes);
+        const d = compare(before, after, nodes, copyNodes, copy);
         for (const text of d.lost) rec.failures.push({ kind: 'LOST', text });
         for (const text of d.moved) rec.failures.push({ kind: 'MOVED', text });
+        for (const text of d.grips) rec.failures.push({ kind: 'GRIP', text });
+        rec.review.push(...d.tracked);
+        for (const text of d.rerooted) rec.review.push({ kind: 'RE-ROOTED', text });
         for (const text of d.retyped) rec.review.push({ kind: 'RETYPED', text });
         for (const text of d.gained) rec.review.push({ kind: 'GAINED', text });
         rec.review.push(...d.extra);
@@ -262,8 +285,8 @@ md.push('# Bone Namer library gate', '', `Namer: ${namerPath}`, `Models: ${model
 md.push(`## Failures (${failed.length} models)`, '');
 if (!failed.length) md.push('None.', '');
 for (const r of failed) { md.push(`### ${r.file}`); for (const f of r.failures) md.push(`- ${f.kind}: ${f.text}`); if (r.stack) md.push(`  - ${r.stack}`); md.push(''); }
-md.push('## Review lists', '');
-for (const kind of ['RETYPED', 'GAINED', 'FOLLOWERS', 'CARRIERS', 'CASE-DUPLICATE', 'SIDE-NEAR-ZERO']) {
+md.push('## Review lists', '', `GRIP-TRACKED and HEAD-TRACKED are caused by main's POSE rules, tracked (pose-ik.js:207 and :164): GRIP-TRACKED ${reviewTally['GRIP-TRACKED'] || 0} limbs in ${report.filter(r => r.review.some(f => f.kind === 'GRIP-TRACKED')).length} models, HEAD-TRACKED ${reviewTally['HEAD-TRACKED'] || 0} in ${report.filter(r => r.review.some(f => f.kind === 'HEAD-TRACKED')).length} models.`, '');
+for (const kind of ['RETYPED', 'GAINED', 'FOLLOWERS', 'CARRIERS', 'CASE-DUPLICATE', 'SIDE-NEAR-ZERO', 'RE-ROOTED', 'GRIP-TRACKED', 'HEAD-TRACKED']) {
   const withKind = report.filter(r => r.review.some(f => f.kind === kind));
   md.push(`### ${kind} (${reviewTally[kind] || 0} items in ${withKind.length} models)`, '');
   for (const r of withKind) md.push(`- ${r.file}: ${r.review.filter(f => f.kind === kind).map(f => f.text).join(' | ')}`);
@@ -277,5 +300,7 @@ fs.writeFileSync(path.join(outDir, 'summary.md'), md.join('\n'));
 
 console.log(`scanned ${report.length} models (${parseFail.length} parse failures, ${duplicates.length} duplicates skipped) in ${elapsed} s`);
 console.log(`failing models: ${failed.length}; failures: ${JSON.stringify(failTally)}; review: ${JSON.stringify(reviewTally)}`);
+const gripOnly = report.filter(r => r.failures.length && r.failures.every(f => f.kind === 'GRIP')).length;
+console.log(`GRIP: ${failTally.GRIP || 0} limbs in ${report.filter(r => r.failures.some(f => f.kind === 'GRIP')).length} models (${gripOnly} models fail on GRIP only); STABILITY: ${failTally.STABILITY || 0} models`);
 console.log(`renamed ${totRenamed} of ${totBones} bones/helpers; report in ${outDir}`);
 process.exit(failed.length ? 1 : 0);
