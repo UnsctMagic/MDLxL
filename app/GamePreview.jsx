@@ -34,7 +34,8 @@ import { holdGestureKey } from './gesture-keys.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { getLanguage, translate } from '../src/localization.js';
 import { drawPoseOverlay, pickPoseHandle, poseHandleKey, poseHandleTarget, posePinPath, poseSymbolName, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
-import { poseSymbolLayers } from '../src/pose-symbol-sets.js';
+import { isPoseMaskSet, poseSymbolLayers } from '../src/pose-symbol-sets.js';
+import { poseMaskUrl } from './pose-masks.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, applyUVRestAppearance, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
 import { applyWiggleMatrices } from '../src/bone-wiggle.js';
@@ -608,7 +609,15 @@ export default function GamePreview(inputProps) {
           button.type = 'button'; button.dataset.poseReveal = item.id; button.title = name; button.setAttribute('aria-label', name);
           const svg = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
           svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
-          for (const { kind, d, width: strokeWidth } of poseSymbolLayers(symbolSet, poseSymbolName(item.label))) {
+          if (isPoseMaskSet(symbolSet)) {
+            // The Modern set: the PNG mask filled with the Symbol Color (the button's svg takes it from --controller-symbolColor).
+            const maskId = 'pose-reveal-mask-' + item.id.replace(/[^a-z0-9]/gi, ''), mask = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'mask'), image = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'image'), fillRect = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            mask.setAttribute('id', maskId); mask.setAttribute('maskUnits', 'userSpaceOnUse'); mask.setAttribute('width', '24'); mask.setAttribute('height', '24'); mask.style.maskType = 'alpha';
+            image.setAttribute('href', poseMaskUrl(poseSymbolName(item.label), true)); image.setAttribute('width', '24'); image.setAttribute('height', '24'); mask.appendChild(image);
+            fillRect.setAttribute('width', '24'); fillRect.setAttribute('height', '24'); fillRect.setAttribute('fill', 'currentColor'); fillRect.setAttribute('mask', `url(#${maskId})`);
+            svg.append(mask, fillRect);
+          }
+          else for (const { kind, d, width: strokeWidth } of poseSymbolLayers(symbolSet, poseSymbolName(item.label))) {
             const path = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', d); path.setAttribute('fill', kind === 'fill' ? 'currentColor' : 'none');
             if (kind !== 'fill') { path.setAttribute('stroke', kind === 'cut' ? 'var(--controller-background)' : 'currentColor'); path.setAttribute('stroke-width', String(strokeWidth)); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); }

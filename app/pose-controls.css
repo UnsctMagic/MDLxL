@@ -21,7 +21,7 @@
 .game-preview-root .pose-reveals button { position: absolute; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 2px; min-height: 0; border: 1px solid var(--controller-color)!important; border-radius: 3px; background: var(--controller-background)!important; color: var(--controller-color)!important; box-shadow: 0 1px 3px #0004; cursor: pointer; pointer-events: auto; }
 .game-preview-root .pose-reveals button:hover { box-shadow: 0 0 0 2px var(--controller-color); }
 .game-preview-root .pose-reveals button:focus-visible { outline: 2px solid var(--controller-selected)!important; outline-offset: 2px; }
-.game-preview-root .pose-reveals svg, .game-preview-root .pose-reveals img { width: 100%; height: 100%; object-fit: contain; }
+.game-preview-root .pose-reveals svg, .game-preview-root .pose-reveals img { width: 100%; height: 100%; object-fit: contain; } .game-preview-root .pose-reveals svg { color: var(--controller-symbolColor); }
 .pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 260px; max-height: 70vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
 .pose-setup header { display: flex; align-items: center; justify-content: space-between; }
 .pose-setup p { margin: 7px 0; line-height: 1.35; }

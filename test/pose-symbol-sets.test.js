@@ -1,10 +1,12 @@
 import test from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_NAMES, POSE_SYMBOL_SETS, POSE_SYMBOL_SET_IDS, poseSymbolLayers, poseSymbolSetId } from '../src/pose-symbol-sets.js';
+import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_NAMES, POSE_SYMBOL_SETS, POSE_SYMBOL_SET_IDS, isPoseMaskSet, poseMaskFile, poseSymbolLayers, poseSymbolSetId } from '../src/pose-symbol-sets.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerAppearanceForTheme, normalizeControllerAppearance } from '../src/controller-appearance.js';
 import { normalizePreferences } from '../src/preferences.js';
 import { BUILT_IN_VIEWPORT_PRESETS } from '../src/viewport-appearance.js';
 import { poseSymbolName } from '../app/pose-overlay.js';
+import { poseMaskUrl } from '../app/pose-masks.js';
 
 const REQUIRED = ['Hand', 'Foot', 'Hoof', 'Head', 'Neck', 'Chest', 'Spine', 'Pelvis', 'Body', 'Wing', 'Tail', 'Object', 'Magnet'];
 const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
@@ -27,8 +29,8 @@ function pathProblem(d) {
 
 test('every set defines every required symbol with valid path data', () => {
   assert.deepEqual([...POSE_SYMBOL_NAMES].sort(), [...REQUIRED].sort());
-  assert.equal(POSE_SYMBOL_SET_IDS.length, 4);
-  for (const id of POSE_SYMBOL_SET_IDS) {
+  assert.equal(POSE_SYMBOL_SET_IDS.length, 5);
+  for (const id of POSE_SYMBOL_SET_IDS.filter(id => !isPoseMaskSet(id))) {
     const set = POSE_SYMBOL_SETS[id];
     assert.ok(set.label && set.line > 0 && set.cut > 0, id);
     assert.deepEqual(Object.keys(set.symbols).sort(), [...REQUIRED].sort(), `${id} symbols`);
@@ -50,12 +52,12 @@ test('the path checker rejects broken data', () => {
 test('the default is one named constant that names an existing set', () => {
   assert.ok(POSE_SYMBOL_SET_IDS.includes(DEFAULT_POSE_SYMBOL_SET));
   assert.equal(DEFAULT_CONTROLLER_APPEARANCE.symbolSet, DEFAULT_POSE_SYMBOL_SET);
-  assert.deepEqual(POSE_SYMBOL_SET_IDS.map(id => POSE_SYMBOL_SETS[id].label), ['Figure', 'Skeleton', 'Rig', 'Outline']);
+  assert.deepEqual(POSE_SYMBOL_SET_IDS.map(id => POSE_SYMBOL_SETS[id].label), ['Modern', 'Figure', 'Skeleton', 'Rig', 'Outline']);
 });
 
 test('no two sets share a path string', () => {
   const owner = new Map();
-  for (const id of POSE_SYMBOL_SET_IDS) for (const name of REQUIRED) for (const d of POSE_SYMBOL_SETS[id].symbols[name]) {
+  for (const id of POSE_SYMBOL_SET_IDS.filter(id => !isPoseMaskSet(id))) for (const name of REQUIRED) for (const d of POSE_SYMBOL_SETS[id].symbols[name]) {
     if (!d) continue;
     const key = `${id}/${name}`;
     assert.ok(!owner.has(d) || owner.get(d).split('/')[0] === id, `${key} repeats ${owner.get(d)}`);
@@ -68,6 +70,7 @@ test('an unknown stored set id falls back to the default or to the value already
   assert.equal(poseSymbolSetId(undefined), DEFAULT_POSE_SYMBOL_SET);
   assert.equal(poseSymbolSetId('__proto__'), DEFAULT_POSE_SYMBOL_SET);
   assert.deepEqual(poseSymbolLayers('missing', 'Hand'), poseSymbolLayers(DEFAULT_POSE_SYMBOL_SET, 'Hand'));
+  assert.deepEqual(poseSymbolLayers('figure', 'Nothing'), poseSymbolLayers('figure', 'Object'));
   assert.deepEqual(poseSymbolLayers('rig', 'Nothing'), poseSymbolLayers('rig', 'Object'));
   assert.equal(normalizeControllerAppearance({ symbolSet: 'missing' }).symbolSet, DEFAULT_POSE_SYMBOL_SET);
   assert.equal(normalizeControllerAppearance({ symbolSet: 'missing' }, { symbolSet: 'outline' }).symbolSet, 'outline');
@@ -88,4 +91,41 @@ test('handle labels map to symbol names, with Neck and Pelvis as ordinary symbol
   for (const name of REQUIRED) assert.equal(poseSymbolName(name), name);
   assert.equal(poseSymbolName('Chain'), 'Object');
   assert.equal(poseSymbolName('Some bone'), 'Object');
+});
+
+test('Modern is the default set and ships all 13 masks, full size and 64 px', () => {
+  assert.equal(DEFAULT_POSE_SYMBOL_SET, 'modern');
+  assert.equal(DEFAULT_CONTROLLER_APPEARANCE.symbolSet, 'modern');
+  assert.equal(normalizeControllerAppearance({}).symbolSet, 'modern');
+  assert.ok(isPoseMaskSet('modern') && !isPoseMaskSet('figure'));
+  assert.deepEqual(poseSymbolLayers('modern', 'Hand'), []);
+  for (const name of REQUIRED) for (const small of [false, true]) {
+    const file = poseMaskFile(name, small), path = new URL(`../app/assets/pose-symbols/${file}`, import.meta.url);
+    assert.equal(file, name.toLowerCase() + (small ? '-64' : '') + '.png');
+    const bytes = fs.readFileSync(path);
+    assert.deepEqual([...bytes.subarray(1, 4)], [0x50, 0x4e, 0x47], `${file} is a PNG`);
+    assert.equal(bytes.readUInt32BE(16), small ? 64 : 256, `${file} width`);
+    assert.ok(poseMaskUrl(name, small).endsWith(file), `${name} url`);
+  }
+  assert.equal(poseMaskFile('Nothing'), 'object.png');
+  for (const id of ['figure', 'skeleton', 'rig', 'outline']) assert.equal(normalizeControllerAppearance({ symbolSet: id }).symbolSet, id, 'older sets stay selectable');
+});
+
+test('Symbol Color is its own appearance colour next to the Ring Color', () => {
+  for (const theme of ['light', 'dark', 'nord']) {
+    const look = controllerAppearanceForTheme(theme);
+    assert.match(look.symbolColor, /^#[0-9a-f]{6}$/);
+    assert.equal(look.symbolColor, look.color, `${theme} starts with the symbol in the ring colour`);
+  }
+  const chosen = normalizeControllerAppearance({ color: '#112233', symbolColor: '#AABBCC' });
+  assert.deepEqual([chosen.color, chosen.symbolColor], ['#112233', '#aabbcc'], 'each colour is kept apart');
+  assert.equal(normalizeControllerAppearance({ symbolColor: 'red' }).symbolColor, DEFAULT_CONTROLLER_APPEARANCE.symbolColor);
+  assert.equal(normalizeControllerAppearance({ symbolColor: 'red' }, { symbolColor: '#010203' }).symbolColor, '#010203');
+  // A profile saved before the Symbol Color existed keeps drawing the symbol in its Handle colour.
+  assert.equal(normalizeControllerAppearance({ color: '#445566', symbolSet: 'rig' }).symbolColor, '#445566');
+  const saved = normalizePreferences({ viewportAppearance: { controllers: { color: '#445566', symbolColor: '#778899' } } }).viewportAppearance.controllers;
+  assert.deepEqual([saved.color, saved.symbolColor], ['#445566', '#778899']);
+  const again = normalizePreferences(JSON.parse(JSON.stringify(normalizePreferences({ viewportAppearance: { controllers: saved } })))).viewportAppearance.controllers;
+  assert.equal(again.symbolColor, '#778899');
+  assert.equal(normalizePreferences({}).viewportAppearance.controllers.symbolColor, DEFAULT_CONTROLLER_APPEARANCE.symbolColor);
 });

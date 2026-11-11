@@ -9,11 +9,13 @@
  */
 
 /** The set a fresh profile starts with. This is the one place to change the default. */
-export const DEFAULT_POSE_SYMBOL_SET = 'figure';
+export const DEFAULT_POSE_SYMBOL_SET = 'modern';
 
 export const POSE_SYMBOL_NAMES = Object.freeze(['Hand', 'Foot', 'Hoof', 'Head', 'Neck', 'Chest', 'Spine', 'Pelvis', 'Body', 'Wing', 'Tail', 'Object', 'Magnet']);
 
 export const POSE_SYMBOL_SETS = {
+  // Transparent PNG masks (app/assets/pose-symbols), tinted with the Symbol Color; no path data.
+  modern: { label: 'Modern', masks: true, line: 0, cut: 0, symbols: {} },
   figure: {
     label: 'Figure', line: 1.6, cut: 1.3,
     symbols: {
@@ -97,9 +99,16 @@ export const poseSymbolSetId = id => Object.hasOwn(POSE_SYMBOL_SETS, id) ? id : 
 
 /** The layers of one symbol for SVG: [{ kind: 'fill' | 'cut' | 'line', d, width }]. Unknown names draw as Object. */
 export function poseSymbolLayers(setId, name) {
-  const set = POSE_SYMBOL_SETS[poseSymbolSetId(setId)], paths = set.symbols[name] || set.symbols.Object;
+  const set = POSE_SYMBOL_SETS[poseSymbolSetId(setId)];
+  if (set.masks) return [];
+  const paths = set.symbols[name] || set.symbols.Object;
   return ['fill', 'cut', 'line'].flatMap((kind, index) => paths[index] ? [{ kind, d: paths[index], width: kind === 'fill' ? 0 : set[kind] }] : []);
 }
+
+/** True for a set drawn from PNG masks instead of paths. */
+export const isPoseMaskSet = id => !!POSE_SYMBOL_SETS[poseSymbolSetId(id)].masks;
+/** The mask file of one symbol: 'hand.png' (256 px) or 'hand-64.png'. */
+export const poseMaskFile = (name, small = false) => `${(POSE_SYMBOL_NAMES.includes(name) ? name : 'Object').toLowerCase()}${small ? '-64' : ''}.png`;
 
 const pathCache = new Map();
 /**
@@ -109,6 +118,7 @@ const pathCache = new Map();
  */
 export function drawPoseSymbol(context, setId, name, x, y, color, background, erase = false) {
   const id = poseSymbolSetId(setId), key = id + ':' + name;
+  if (isPoseMaskSet(id)) return; // drawn by app/pose-masks.js
   if (!pathCache.has(key)) pathCache.set(key, poseSymbolLayers(id, name).map(layer => ({ ...layer, path: new Path2D(layer.d) })));
   context.save(); context.translate(x - 12, y - 12); context.lineJoin = 'round'; context.lineCap = 'round';
   for (const layer of pathCache.get(key)) {

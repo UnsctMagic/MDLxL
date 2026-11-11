@@ -282,9 +282,14 @@ a separate set, for example Blackrock controls with a Lordaeron interface.
 Lordaeron remains the default. Handle, body and bend shapes offer circles,
 squares, diamonds and triangles; symbols, size, state colors, XYZ colors
 and the handle background (which can be switched off) are adjustable. The symbols
-come in four sets chosen under Controllers: Figure (solid body-part pictograms),
+come in five sets chosen under Controllers: Modern (the default: 13 transparent PNG
+masks in `app/assets/pose-symbols`, a 256 px and a `-64` file each, drawn by
+`app/pose-masks.js` and tinted with **Symbol Color**), Figure (solid body-part pictograms),
 Skeleton (bones), Rig (abstract control glyphs) and Outline (thin line drawings
-with their own metaphors). Each symbol is a fill, a cut and a line path in a
+with their own metaphors). **Symbol Color** (`symbolColor`) tints the symbol in every set
+and **Ring Color** (the existing `color`, with Selected and Pinned for those states)
+colors the ring and label; each changes only its own layer. A profile saved before
+`symbolColor` existed starts with its Handle colour. The other sets are a fill, a cut and a line path in a
 24 x 24 box in `src/pose-symbol-sets.js`, where `DEFAULT_POSE_SYMBOL_SET` names
 the default set, and the choice is stored like the other controller values
 (profile, appearance sets, Configuration export). The old symbols and the

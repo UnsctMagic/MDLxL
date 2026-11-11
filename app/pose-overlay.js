@@ -4,7 +4,8 @@ import { createPoseSample, poseChainIds, poseDuplicatesBody, poseNodeControl, po
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
-import { POSE_SYMBOL_NAMES, drawPoseSymbol } from '../src/pose-symbol-sets.js';
+import { POSE_SYMBOL_NAMES, drawPoseSymbol, isPoseMaskSet } from '../src/pose-symbol-sets.js';
+import { drawPoseMask } from './pose-masks.js';
 
 export const posePinPath = 'M5 2H11L10 6L13 9V10H3V9L6 6ZM8 10V15';
 let pinPath;
@@ -135,7 +136,8 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'triangle' ? .65 : handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y + (handle.shape === 'triangle' ? size * .2 : 0)); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (!appearance.symbols) { /* Outline-only rig controls. */ }
-    else drawPoseSymbol(context, appearance.symbolSet, poseSymbolName(handle.label), handle.x, handle.y, color, appearance.background, appearance.filled === false);
+    else if (isPoseMaskSet(appearance.symbolSet)) drawPoseMask(context, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color);
+    else drawPoseSymbol(context, appearance.symbolSet, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color, appearance.background, appearance.filled === false);
     context.restore();
     if (handle.pinned) {
       // A pin remains legible after selection moves to the body or another limb.
