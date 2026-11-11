@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: ready for Claude QA (Codex implementation built; owner acceptance pending)
+Status: fix round 1 implemented; ready for Claude QA (owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -182,7 +182,7 @@ control styles.
     `Main`, `Mount`, `Extra` or `Copy` and a dropdown with those four, only when the
     model has more than one actor. Choosing `Main` for another actor swaps the two.
     Tooltip: "Which body this group of bones belongs to. Main has no prefix;
-    a mount's bones start with Mount_."
+    a mount's bones start with Bone_Mount_."
   - Inside a group: Root, Pelvis, Spine, Chest, Neck, Head, left arm, right arm,
     legs front to back (left, right), Tail, left wing, right wing. Rows that keep
     their names come last in one group, `Not recognised`, in hierarchy order.
@@ -353,49 +353,48 @@ broken ([testing rules](../TESTING-RULES.md)).
 
 ## Changes and verification
 
-- Codex resumed from clean `4d6e10a6571c8c929cbf44494861de34ff53b0bf` on
-  `claude/bone-namer`, in the owner's named D: worktree. Existing dependencies
-  were used without installing, copying or junctioning them.
-- Built `src/bone-namer.js` with the fixed four exports and argument/return
-  contracts: POSE-only recognition through `suggestPoseRig` / `poseRole`, Stand
-  world-space sides, parent-path parts, leg-pair positions, depth numbering,
-  actor ordering/classification and overrides, copy suffixes, and unique names.
-  `applyBoneNames` preflights the selected rows using `renameRigNode`, then changes
-  only existing Bones/Helpers' `Name` fields. A selected name collision is rejected
-  before mutation; the window resolves collisions with unticked names in advance.
-- Built the Attachemator-style `ToolWindow`, reused its controls/CSS and
-  `GamePreview`, and added only the Bone Namer button and App/Sidebar wiring.
-  Rows support part/side/actor corrections, Main swapping and ticks; names and
-  numbering update live. The renamed-copy preview shows bones/helpers, selection
-  and limb labels, hides Stand-hidden geosets, and preserves the camera. It has
-  no transform callback. Commit uses one `edit('Bone Namer', ['Nodes'], ...)`.
-- Added all new English UI strings to RU/ES/ZH/FR/DE catalogs, preserving existing
-  translations. Added `docs/BONE-NAMER.md` and updated the map and HOTKEYS table.
-- Close uses the shared second-Escape unapplied guard. To satisfy the explicit
-  Close-asks-first requirement, direct Close/× clicks also open the existing
-  Dialog confirmation (Attachemator itself closes directly on these clicks).
-  Read-only documents may open the review window; Commit is disabled there.
-  These are the two deliberate adaptations to the Attachemator reference.
-- Final `pnpm run build` passed: Vite 7.3.1, 2,887 modules, 14.03 s. The earlier
-  14.23 s build also passed; the final rebuild included read-only button access.
-  Existing `view-menu.json` import-attribute warnings and large-chunk warnings
-  remain. `git diff --check` passed; all four protected files have no diff.
-- No tests written or run, no corpus/fixture probes, no packaged app or desktop
-  launched. Mouse rotation, visual layout, naming accuracy, POSE compatibility,
-  localisation presentation and undo/close workflows are **not verified**;
-  Claude owns all QA below. The feature is ready to test, not owner-accepted.
-- Removed only this task's generated `dist/`, build log and temporary directory
-  after verification. No task background process remains. The source and note
-  are committed together locally; nothing pushed, no PR, merge or release.
+- Initial implementation: `6d52a020`; Claude's QA findings are recorded in
+  **Fix round 1** above. Codex resumed on clean `82600d8f8659dfb563ea1262a2bf6bb831eab78d`
+  in `D:\Claude\MDLxL\.claude\worktrees\bone-namer`, branch `claude/bone-namer`.
+- Round 1 engine items 1–7 and 12 implemented in `src/bone-namer.js`:
+  shared hub joints keep their names; Mount/Extra follow `Bone_` (or `Mesh_`);
+  follower-bearing mounts cannot become Main; nested Body actors require two
+  non-Chain limbs; attachment-ended chains use the last bone's resolved endpoint
+  role when available; Arm/Leg/Wing numbering groups include the individual
+  chain; default planning applies to a scratch model and replans for up to three
+  rounds; skin-gripped mesh ends use `Mesh_`. The returned `current` names remain
+  the original names, and kept rows reserve their original names across rounds.
+  Corrections resolve on top of the final default proposal. The four exported
+  functions/constants and their argument/return contracts are unchanged.
+- Window items 8–11 implemented: removed the extra Discard dialog and trusted-
+  event close branch, retaining the shared unapplied Escape guard; increased
+  body/row CSS specificity including the narrow layout; changed the status to
+  `Bone Namer renamed {0} bone{1}.` with Attachemator's singular/plural pattern;
+  restored `key={session.id}`. Actor-name display reads the new Bone_/Mesh_ forms.
+- Updated all five locale catalogs, the actor tooltip, `docs/BONE-NAMER.md`, and
+  the HOTKEYS unapplied row for direct Close/× behavior. Removed the three
+  Bone Namer-specific strings belonging to the discarded confirmation dialog.
+- `pnpm run build` passed (Vite 7.3.1, 2,887 modules, 21.62 s). Existing JSON
+  import-attribute warnings for `view-menu.json` and large-chunk warnings remain.
+  `git diff --check` passed. No tests written, modified or run; no corpus probes,
+  packaged app, desktop interaction or model acceptance verification performed.
+- No protected files changed: `src/pose-ik.js`, `src/pose-recognition.js`,
+  `src/rig-names.js`, `src/attachemator.js`. No POSE branch rebased or merged.
+  Model mutations remain names only. Dependencies were reused without installation
+  or junctioning. No requested fix-round item was intentionally omitted.
+- Removed this round's generated `dist/`, build log and temporary directory.
+  No task-started background process remains. Source and this handoff are saved
+  together on the local branch; no push, PR, merge or release.
 
 ## Blockers and next action
 
-- No current implementation blocker. The earlier sparse-role blocker was
-  resolved by the contract at `4d6e10a6`, permitting the existing `poseRole()`.
-  No POSE or protected-file changes were needed.
-- **Next for Claude:** review the implementation against the contract, run the
-  source/corpus/packaged QA plan above, and prepare the owner's hand-test build.
-  Include non-default actor/side/part corrections, partial tick collisions,
-  read-only access, direct Close confirmation and the shared Escape guard.
-- Owner acceptance and all QA remain pending. On eventual approved merge, mark
-  completed with the merge revision and remove the README task row.
+- No new implementation blocker. The three-round naming feedback is implemented
+  as specified; its stability across the library is unverified until Claude QA.
+- **Next for Claude:** review the round-1 diff against `82600d8f`, rerun the source,
+  corpus and packaged QA against the twelve items, then prepare the owner's
+  hand-test build when the gates pass. Direct Close/× now close immediately;
+  only the close key has the shared second-press guard for unapplied changes.
+- The Head Ref/neck issue remains with the POSE session, as described above.
+  No POSE branch was integrated here. Owner acceptance remains pending.
+- On eventual approved merge, mark completed with its revision and remove the
+  README task row.

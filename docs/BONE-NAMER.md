@@ -24,7 +24,7 @@ data stay unchanged.
 
 The window starts from a proposal without changing your model. Changing a part,
 side, actor or tick counts as unapplied work: Escape asks for a second press,
-and clicking Close or × asks before discarding those corrections.
+while Close and × close immediately, exactly as in Attachemator.
 
 ## Fixed naming scheme
 
@@ -48,7 +48,8 @@ and clicking Close or × asks before discarding those corrections.
 
 Numbers follow hierarchy depth within one actor, part, position and side. Spine
 and Neck get numbers only when there is more than one; Arm, Leg, Tail and Wing
-always get numbers. Root through Head and Tail never receive a side suffix.
+always get numbers. Arm, Leg and Wing numbering restarts for each limb chain,
+even when two limbs are on the same side. Root through Head and Tail never receive a side suffix.
 
 Positions and sides are measured at the first frame of Stand, not guessed from
 old names. Leg pairs are ordered by foot position along X, front first. One pair
@@ -59,10 +60,28 @@ Actors with visible Stand skin come first, then actors with two hands, then the
 larger span of limb joints. Main has no prefix. Another actor with the same set
 of proposed names is a Copy, with `_Death`, `_Portrait` or `_Copy` according to
 its current bone/body names. Further copies add a number, such as `_Copy2`.
-Other actors larger than Main use `Mount_`, `Mount2_`, etc.; smaller actors use
-`Extra_`, `Extra2_`, etc. Names already used by another node receive a unique
+Other actors larger than Main use `Bone_Mount_…`, `Bone_Mount2_…`, etc.;
+smaller actors use `Bone_Extra_…`, `Bone_Extra2_…`, etc. The actor word follows
+`Bone_`, so a mount leg is `Bone_Mount_Leg1_Front_R`. An actor that POSE marks
+as a mount with followers is never Main. A nested Body is a separate actor
+only when at least two non-Chain limbs have it as their nearest body; otherwise
+it stays with the enclosing actor and keeps its name. Names already used by another node receive a unique
 numeric suffix. Kept names reserve their original names too.
 
 Bones POSE does not identify start as **Keep name**, in **Not recognised** at the
 end of the list. Assign a part to include one. The preview uses a renamed copy
 in the rest pose, hiding geosets that Stand hides. Edits preserve your camera.
+
+Shared hub joints keep their names. If a limb ends at an attachment, the last
+bone uses Hand, Foot or Hoof only when POSE resolves that role; otherwise it
+keeps the next Arm/Leg number. The attachment itself is never renamed.
+
+A mesh-piece end that POSE grips by its skin uses `Mesh_` instead of `Bone_`:
+`Mesh_Hand_L`, `Mesh_Foot_Front_R`, or `Mesh_Mount_Hoof_Rear_L`, with any copy
+suffix retained. This preserves POSE's skin grip rather than treating the
+mesh's arbitrary pivot as an authored joint.
+
+Before showing the default proposal, Bone Namer plans and applies names to a
+scratch copy, then asks POSE again, for up to three rounds. The list still shows
+your original current names. Part, side and actor corrections apply on top of
+that proposal; no model names change until Commit.
