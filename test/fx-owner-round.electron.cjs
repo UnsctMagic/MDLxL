@@ -19,7 +19,8 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs');const {testModel}=r
    await fx.getByLabel(name+' color',{exact:true}).click();await page.keyboard.press('Escape');await fx.getByLabel(name+' color',{exact:true}).fill(colour);await fx.getByLabel('Loop length',{exact:true}).click();await ready();
    await edit(name+' size',i+2);await edit(name+' see-through',i*25);
   }
-  const m=await model(),flames=m.ParticleEmitters2.filter(n=>n._FxTag?.includes('/2/'));
+  // Fire starts with its own Blade flames (owner, 11 Nov), so the added copy is the last emitter layer.
+  const m=await model(),added=m.Geosets[28]._FxStack.layers.filter(l=>l.type==='Particles').at(-1).id,flames=m.ParticleEmitters2.filter(n=>n._FxTag?.includes('/'+added+'/'));
   assert.ok(flames.length);for(const p of flames){assert.deepEqual(p.SegmentColor.map(c=>Object.values(c)),[[1,0,0],[0,1,0],[0,0,1]]);assert.deepEqual(Object.values(p.ParticleScaling),[2,3,4]);assert.deepEqual(Object.values(p.Alpha),[255,191,128]);}
   await button('Pause').click();const stage=fx.locator('.sfx-stage'),before=await stage.screenshot();await fx.getByLabel('Highlight geoset',{exact:true}).check();
   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.hoveredGeoset===28);const lit=await stage.screenshot();assert.notDeepEqual(lit,before,'Highlight changes rendered preview');await fx.getByLabel('Highlight geoset',{exact:true}).uncheck();

@@ -59,7 +59,10 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const energy=await clock('Flowing energy'),moving=await difference(await later(energy,0),await later(energy,.3));assert.ok(moving>200,'Speed 1 travels: '+moving);
   const speed=fx.getByLabel('Speed',{exact:true});await speed.click();await speed.fill('0');await speed.press('Enter');await ready();
   assert.equal((await layer('Flowing energy')).speed,0);
-  const still=await difference(await later(energy,0),await later(energy,.3));assert.ok(still<20,'Speed 0 holds still: '+still);
+  // The rebuild renumbers or drops unused clocks, so read the layer's clock again; with none, nothing can move the texture.
+  const after=await clock('Flowing energy');let still=0;
+  if(after>=0){still=await difference(await later(after,0),await later(after,.3));assert.ok(still<20,'Speed 0 holds still: '+still);}
+  else assert.ok(await page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack,id=s.layers.find(l=>l.label==='Flowing energy').id,mats=m.Materials.filter(x=>x._FxTag?.endsWith('/'+id+'/material'));return mats.length>0&&mats.every(x=>x.Layers.every(y=>y.TVertexAnimId==null&&!(y.TextureID?.Keys)));}),'Speed 0 leaves no texture motion');
   assert.deepEqual(errors,[]);console.log('PASS texture area, rune layout, colour beat and Speed 0 by real input',{poisonChange,runeChange,beat,moving,still});
  }catch(error){console.error((await page.locator('body').innerText()).slice(-2100));await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

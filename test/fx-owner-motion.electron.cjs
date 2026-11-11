@@ -15,7 +15,8 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await stubDialogs(app,{message:1});
   for(const [model,file,weapon,body,runePart=weapon] of targets.filter(t=>selected.includes(t[0]))){
    await stubDialogs(app,{open:file});await page.keyboard.press('Control+o');await page.waitForFunction(n=>mdlxlProbe().session?.path?.endsWith(n),path.basename(file));
-   for(const look of GLOBAL_LOOKS.filter(l=>!lookIds||lookIds.includes(l.id))){
+   // Empty (12eac16a) starts with no layers, so it has no motion to review.
+   for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length&&(!lookIds||lookIds.includes(l.id)))){
     await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
     const part=Number(process.env.FX_PART??(look.id==='rune-blade'?runePart:BLADES.has(look.id)||look.impact?weapon:body));
     await fx.getByLabel('Geoset',{exact:true}).selectOption(String(part));await fx.getByLabel('Find a surface effect').fill(look.name);await button(look.name+(look.impact?' impact':' global animation')).click();await ready();

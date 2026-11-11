@@ -44,7 +44,7 @@ const {addEmitter}=require('./helpers/fx-input.cjs');
   assert.equal(await fx.getByRole('button',{name:'My fire global animation',exact:true}).getAttribute('aria-pressed'),'true','the library selects the saved look');
 
   // Another geoset: clicking My fire brings its layers with the edited values.
-  await geoset(27);await choose('Ice');
+  await geoset(27);await choose('Glow');await find('');await page.keyboard.press('Backspace');
   await fx.getByRole('button',{name:'My fire global animation',exact:true}).click();await ready();
   const again=await stack();
   assert.equal(again.look,'own-my-fire');
