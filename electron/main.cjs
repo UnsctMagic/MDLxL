@@ -16,7 +16,7 @@ const headless=process.env.MDLVIS_HEADLESS==='1';
 const userRun=app.isPackaged&&!process.env.MDLXL_PROFILE&&!headless;
 const {RecoveryStore}=require('./recovery.cjs');
 const {SettingsStore}=require('./settings.cjs');
-const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
+const {buildMenuTemplate,normalizeMenuChecks,normalizeMenuKeys,presentMenu}=require('./menu.cjs');
 const {GameDataDiscovery,selectedGameDataSources,orderedCascFolders}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
 const {CascTextures,CascReader}=require('./casc.cjs');
@@ -76,6 +76,8 @@ let settingsStore,preferenceApi,commandCatalog;
 const fileTypes=userRun&&process.platform==='win32'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
 function registerFileTypes(claim=false){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
+const drawMenuInEditor = process.platform === 'win32';
+let editorMenu;
 let translateText=value=>value;
 let nativeLanguages=[];
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -266,10 +268,16 @@ ipcMain.handle('model:openRecent',async(_,p,showcase=false)=>{
   }
 });
 ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(value,modelCloseState);win?.setDocumentEdited(modelCloseState.dirty);sessionJournal.setDirty(modelCloseState.dirty).catch(error=>console.warn('Session journal: '+error.message));});
+ipcMain.on('menu:ready', (event, ready) => {
+  if (drawMenuInEditor && ready && editorOnly(event) && editorMenu) sendToEditor('menu:items', editorMenu.items);
+});
+ipcMain.on('menu:click', (event, id) => {
+  if (drawMenuInEditor && editorOnly(event)) editorMenu?.commands.get(id)?.click();
+});
 ipcMain.on('menu:state',(event,value)=>{
   if(!editorOnly(event)||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
-  const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
+  const checks=normalizeMenuChecks(value.checks),menuKeys=normalizeMenuKeys(value.menuKeys,preferenceApi.normalizeChord);
+  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,menuKeys,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
@@ -542,8 +550,14 @@ async function updateSettings(value){
 }
 function refreshMenu(){
   if(!win||win.isDestroyed())return;
-  const bindings=preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys);
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages})));
+  const bindings={...nativeEditorState.menuKeys,...preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys)};
+  const menu=Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages}));
+  Menu.setApplicationMenu(menu);
+  if (drawMenuInEditor) {
+    win.removeMenu();
+    editorMenu = presentMenu(menu, preferenceApi.formatChord);
+    sendToEditor('menu:items', editorMenu.items);
+  }
 }
 // Headless test runs keep the scriptable native message box; people get the
 // themed prompt whose Cancel and Close are colored and set apart.
@@ -673,7 +687,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
 });
 async function createWindow(bounds={}){
   externalModelsReady=false;
-  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
+  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,autoHideMenuBar:drawMenuInEditor,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
   if(!headless)current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
   if (process.platform === 'win32') captureRegions.set(current, require('./capture-regions.cjs').captureRegionsFor(current));

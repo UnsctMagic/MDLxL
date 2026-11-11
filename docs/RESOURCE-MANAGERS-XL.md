@@ -1,9 +1,8 @@
 # Resource managers
 
-The editor-row Managers button opens Materials in the full editor workspace.
-The eight existing managers and Model share the same tabs. Top-menu manager
-commands still open movable popups. Existing controls and normal preview camera
-interaction are retained. See the [manager task](agent-tasks/manager-polish.md).
+The Managers menu opens the resource managers and Surface Effects in movable
+windows. Each menu entry shows its current hotkey. The resource windows share
+tabs for the eight managers and Model.
 
 Model edits the internal name and native collision spheres/boxes. New shapes fit
 the bind-pose mesh. Drag the center to move, edge handles to resize, or use size

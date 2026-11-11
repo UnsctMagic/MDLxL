@@ -1,0 +1,76 @@
+.classic-app:has(> .desktop-menu) {
+  --desktop-menu-height: 25px;
+}
+/* Full-window tools start below the menu, like the editor workspace. */
+.classic-app:has(> .desktop-menu) :is(.forge-overlay, .mdlxl-overlay, .classic-modal, .modal-backdrop, .parts-overlay, .tl-overlay, .paint-modal-shade, .ai-cleanup-shade, .update-shredder-layer) {
+  inset-block-start: var(--desktop-menu-height);
+}
+.desktop-menu {
+  position: relative;
+  z-index: 10100;
+  display: flex;
+  align-items: stretch;
+  height: var(--desktop-menu-height);
+  flex: 0 0 var(--desktop-menu-height);
+  background: var(--ui-field);
+  color: var(--ui-text);
+  font: 12px/1.25 'Segoe UI', Tahoma, sans-serif;
+}
+#root .desktop-menu button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  box-shadow: none;
+}
+.desktop-menu > button {
+  padding: 0 7px;
+}
+#root .desktop-menu button:is(:hover, :focus-visible, [aria-expanded="true"]):not(:disabled) {
+  background: var(--ui-hover);
+  outline: none;
+}
+.desktop-menu-popup {
+  position: fixed;
+  width: max-content;
+  min-width: 160px;
+  max-width: min(500px, calc(100vw - 8px));
+  max-height: calc(100vh - 29px);
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 18%, transparent);
+  border-radius: 10px;
+  background: var(--ui-field);
+  box-shadow: 0 8px 20px #0003;
+}
+#root .desktop-menu-popup button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 27px;
+  padding: 0 9px 0 5px;
+  text-align: left;
+  white-space: nowrap;
+  border-radius: 5px;
+}
+#root .desktop-menu-popup button:disabled {
+  color: var(--ui-muted);
+  cursor: default;
+}
+.desktop-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desktop-menu-mark {
+  flex: 0 0 13px;
+}
+.desktop-menu-arrow {
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+}
+.desktop-menu-popup hr {
+  margin: 4px 3px;
+  border: 0;
+  border-top: 1px solid var(--ui-border);
+}
