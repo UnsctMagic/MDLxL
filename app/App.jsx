@@ -30,7 +30,7 @@ import { hasDesktop, resolveGameFiles } from './desktop.js';
 import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
 import Learn from './Learn.jsx';
-import AppDialogs, { ResourceManagerView } from './AppDialogs.jsx';
+import AppDialogs from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
 import usePreferences from './usePreferences.js';
 import usePortraitState from './usePortraitState.js';
@@ -190,7 +190,6 @@ export default function App() {
   const [tick, setTick] = useState(0), [warnings, setWarnings] = useState([]), warningId = useRef(0);
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
-  const [managerKind, setManagerKind] = useState('Materials');
   const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
   const [adjustingInput, setAdjustingInput] = useState(null);
   // VIS switches display controls while retaining editing and portrait state.
@@ -609,7 +608,7 @@ export default function App() {
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
     // Views drawn by the Warcraft preview need keyframe tracks: offer the fix first.
-    if (['bones', 'animation', 'manager', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
+    if (['bones', 'animation', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
     sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
@@ -629,7 +628,6 @@ export default function App() {
     if (next !== 'vertices') clearZoomAnchor();
     if (next !== 'bones') { setAttachSourceIds([]); setBoneCreateOpen(false); }
     if (next !== 'animation') returnParkedNodes();
-    if (next === 'manager') setManagerKind('Materials');
     setMode(next === 'uv' ? 'vertices' : next); setPlaying(false); setLiveUV(null);
     if (next === 'uv') { setUVWindow({ minimized: false, expanded: true, position: null }); setGlobalSeqId(null); setSequence(-1); setTime(0); }
     if (next === 'animation' && mode !== next && sequence < 0 && globalSeqId === null && model.Sequences.length) { setSequence(0); setTime(model.Sequences[0].Interval[0]); }
@@ -1359,7 +1357,7 @@ export default function App() {
   Object.assign(commands.current, {
     vertexAnimated: () => changeVertexAnimation(),
     launcher: () => setLauncherQuery(''), toolbarCycle: () => changePreferences(previous => ({ ...previous, toolbarMode: nextToolbarMode(previous.toolbarMode) })),
-    showcase: () => selectMode('showcase'), managers: () => selectMode('manager'), autoCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }, visToggle: () => setVisUI(value => !value),
+    showcase: () => selectMode('showcase'), autoCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }, visToggle: () => setVisUI(value => !value),
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), surfaceEffects:()=>setDialog({type:'surfaceEffects'}), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
@@ -1417,8 +1415,6 @@ export default function App() {
     if (id === 'vertexAnimated') return vertexAnimationAvailable && !uvEditing && !saving;
     if (id === 'toolbarCycle' || id === 'ai:open' || id.startsWith('toolbar:')) return !visUI;
     if (id === 'autoCorpse') return !doc.readOnly && !saving && !dialog && !settingsTab && mode !== 'paint' && mode !== 'showcase';
-    // With the toolbar hidden, keys and menus are the only way back from the Managers workspace.
-    if (mode === 'manager' && !(toolbarHidden && ['vertices', 'bones', 'uv', 'animation'].includes(id)) && (['Shape', 'Transform', 'Selection', 'Geometry', 'UV', 'Animation', 'Frames', 'View'].includes(COMMANDS.find(command => command.id === id)?.category) || ['copy', 'paste', 'pasteSpecial', 'select', 'translate', 'rotate', 'scale', 'normalRotate', 'Delete vertices', 'Create triangle', 'Delete triangles', 'Uncouple', 'Collapse', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id))) return false;
     if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='surfaceEffects')return !doc.readOnly&&!saving&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0;
     if(id==='particles')return !saving;
@@ -1469,7 +1465,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)||mode==='manager'&&['File','Modules','Resources','Help'].includes(command.category)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) (uiCommands[id] || commands.current[id])?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
@@ -1606,7 +1602,6 @@ export default function App() {
 
 
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
-  useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,surfaceEffectsEnabled:commandEnabled('surfaceEffects'),uvEnabled:commandEnabled('uv'),toolbarMode:preferences.toolbarMode,language:preferences.language,disabledCommands:['forge','bitsAndParts','optimizeModel','paint','autoCorpse','convertVersion','ai:open'].filter(id=>!commandEnabled(id))});},[doc.readOnly,saving,displayMode,mode,model.Geosets.length,model.Version,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset,preferences.toolbarMode,preferences.language,!!dialog,!!settingsTab]);
   // The first time the toolbar goes away, by any route, say how to bring it back.
   useEffect(() => {
     if (!preferencesReady || !toolbarHidden || preferences.toolbarHiddenNoted) return;
@@ -1815,7 +1810,7 @@ export default function App() {
   });
   // changePreferences only touches refs and state setters, so an earlier render's copy stays valid.
   const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings, changePreferences }), [preferences, openHotkeySettings]);
-  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-toolbar={preferences.toolbarMode === 'graphic' ? undefined : preferences.toolbarMode} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
+  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-toolbar={preferences.toolbarMode === 'graphic' ? undefined : preferences.toolbarMode} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
@@ -1835,19 +1830,18 @@ export default function App() {
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
-    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
+    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       <WarningToasts messages={warnings} onDismiss={id => setWarnings(previous => previous.filter(item => item.id !== id))} actionWarning={duplicateAnimations.length ? { id: session.id, message: 'Duplicate geoset animations', title: 'Some geosets have more than one animation record. The model works; click to choose which record to keep.', onAction: () => setDialog({ type: 'geosetRepair' }) } : null}/>
-      {mode !== 'manager' && <AppViewLabel {...{
+      <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
       }} vertexAnimation={mode === 'vertices' ? {
         sequences: model.Sequences, index: vertexAnimationIndex, frame: vertexAnimationFrame, active: vertexPreviewSequence !== null,
         disabled: !commandEnabled('vertexAnimated'), onToggle: () => runCommand('vertexAnimated'), onChoose: changeVertexAnimation,
         onFrame: frame => changeVertexAnimation(vertexAnimationIndex, frame)
-      } : null} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>}
-      {mode === 'manager' && <ResourceManagerView embedded kind={managerKind} onKindChange={setManagerKind} {...{activeGeoset, doc, edit, model, openLibrary, openParticles, preferences, refresh, selectAnimationPanel, selectManagerTextureFiles, selectSequence, selectedNodeIds, sequence, session, setActiveGeoset, setDialog, setMaterialVisibility, setPlaying, setSelectable, setSelectedNodeIds, setSelection, setTime, setUvSet, setView, teamColor, time, undo, validSelection}}/>}
+      } : null} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
-      {normalizer && mode !== 'manager' && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
+      {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport rotateEachPiece moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
@@ -1899,7 +1893,7 @@ export default function App() {
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
-    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <aside className="classic-sidebar">
+    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className="classic-sidebar">
       <SidebarResizer/>
       {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{

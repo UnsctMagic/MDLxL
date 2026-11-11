@@ -67,6 +67,7 @@ const SPECIAL = {
   // Each Rotate setting from its own seeded profile, about 30 app starts.
   'rotate-settings': { needs: [footman], timeout: 25 * 60 * 1000 },
   'toolbar-modes': { needs: [citadelFootman] },
+  'manager-menu-hotkeys': { needs: [citadelFootman] },
   // Opens every window on a demo model to read the keys the running app hands out.
   'hotkey-defaults-audit': { timeout: 20 * 60 * 1000 },
   // About 18 minutes of real mouse drags across every editing Rotate tool.

@@ -16,7 +16,7 @@ const headless=process.env.MDLVIS_HEADLESS==='1';
 const userRun=app.isPackaged&&!process.env.MDLXL_PROFILE&&!headless;
 const {RecoveryStore}=require('./recovery.cjs');
 const {SettingsStore}=require('./settings.cjs');
-const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
+const {buildMenuTemplate,normalizeMenuChecks,normalizeMenuKeys}=require('./menu.cjs');
 const {GameDataDiscovery,selectedGameDataSources,orderedCascFolders}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
 const {CascTextures,CascReader}=require('./casc.cjs');
@@ -264,8 +264,8 @@ ipcMain.handle('model:openRecent',async(_,p,showcase=false)=>{
 ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(value,modelCloseState);win?.setDocumentEdited(modelCloseState.dirty);sessionJournal.setDirty(modelCloseState.dirty).catch(error=>console.warn('Session journal: '+error.message));});
 ipcMain.on('menu:state',(event,value)=>{
   if(!editorOnly(event)||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
-  const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
+  const checks=normalizeMenuChecks(value.checks),menuKeys=normalizeMenuKeys(value.menuKeys,preferenceApi.normalizeChord);
+  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,menuKeys,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
@@ -538,7 +538,7 @@ async function updateSettings(value){
 }
 function refreshMenu(){
   if(!win||win.isDestroyed())return;
-  const bindings=preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys);
+  const bindings={...nativeEditorState.menuKeys,...preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys)};
   Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages})));
 }
 // Headless test runs keep the scriptable native message box; people get the
