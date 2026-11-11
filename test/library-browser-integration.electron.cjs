@@ -8,7 +8,7 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
  const record=message=>{checks.push(message);console.log('PASS '+message);};
  let app;
  try{
-  const launched=await launchApp({out,fixture:fixturePath('footman'),show:'hide',bounds:{x:0,y:0,width:1500,height:1000},settings:{gameData:folder,preferences:{checkUpdatesOnStartup:false}},env:{MDLVIS_GAME_DATA:folder},pageTimeout:45000});app=launched.app;const page=launched.page;
+  const launched=await launchApp({out,fixture:fixturePath('footman'),show:'hide',bounds:{x:0,y:0,width:1920,height:1032},settings:{gameData:folder,preferences:{checkUpdatesOnStartup:false}},env:{MDLVIS_GAME_DATA:folder},pageTimeout:45000});app=launched.app;const page=launched.page;
   await page.getByRole('tab',{name:'Footman.mdx',exact:true}).waitFor();
   const button=name=>page.getByRole('button',{name,exact:true}),lib=page.getByRole('dialog',{name:'Warcraft III Library',exact:true});
   const row=name=>lib.getByRole('treeitem',{name,exact:true});
@@ -28,6 +28,18 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
   };
   const saveCopy=async(stem,name,expected)=>assert.deepEqual(await saveFile(stem,name),Buffer.from(expected),'Save a copy writes the exact source bytes');
   const format=lib.getByRole('combobox',{name:'Texture save format',exact:true});
+  const assertFormatFits=async()=>{
+   const {available,required}=await format.evaluate(select=>{
+    const style=getComputedStyle(select),canvas=document.createElement('canvas').getContext('2d');
+    canvas.font=[style.fontWeight,style.fontSize,style.fontFamily].join(' ');
+    const metrics=canvas.measureText(select.selectedOptions[0].textContent);
+    return {
+     available:select.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom),
+     required:Math.max(parseFloat(style.lineHeight)||0,metrics.fontBoundingBoxAscent+metrics.fontBoundingBoxDescent)
+    };
+   });
+   assert.ok(available>=required,'The save format label fits its content box ('+available+'px available, '+required+'px required)');
+  };
   const selectFormat=async extension=>{
    const options=await format.locator('option').evaluateAll(items=>items.map(item=>item.value));
    const index=options.indexOf(extension);
@@ -85,6 +97,7 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
   await texture.waitFor();await click(page,texture);
   const texturePath=(await texture.getAttribute('title')).split(':').at(-1);
   assert.deepEqual(await format.locator('option').allInnerTexts(),['DDS','BLP','PNG'],'A native DDS texture offers all three export formats');
+  await assertFormatFits();
   const source=Buffer.from(await readGameFile(texturePath));
   const {decodeDds}=await import('../src/dds.js');
   const {decodePaintBlp}=await import('../src/paint-blp.js');
@@ -92,6 +105,7 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
   const original=decodeDds(source);
   await saveCopy('texture',path.win32.basename(texturePath),source);
   await selectFormat('png');
+  await assertFormatFits();
   const png=await decodePaintPng(await saveFile('texture-png','Footman.png'));
   assert.deepEqual([png.width,png.height,png.data],[original.width,original.height,original.data],'PNG preserves full-size decoded pixels and alpha');
   await selectFormat('blp');
@@ -145,6 +159,7 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
   await type(page,search,'webui/abilityicons/hd/aabr.png');
   await click(page,lib.getByRole('treeitem',{name:/^Aabr[.]png$/i}).first());
   assert.equal(await format.inputValue(),'png','A newly selected texture starts with its original format');
+  await assertFormatFits();
   await selectFormat('dds');
   const sourcePng=Buffer.from(await readGameFile('Webui/Abilityicons/Hd/Aabr.png'));
   const ddsBytes=await saveFile('icon-dds','Aabr.dds');

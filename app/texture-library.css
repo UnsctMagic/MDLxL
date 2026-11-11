@@ -65,6 +65,7 @@
 .gf-missing code{display:block}
 .gf-file-actions{display:flex;gap:6px;flex-wrap:wrap}
 .gf-save-copy{display:inline-flex;gap:6px;align-items:center}
+.tl-dialog .gf-save-copy>select{height:auto;min-height:32px;line-height:1.35;box-sizing:border-box}
 .gf-audio{width:min(420px,90%)}
 .gf-text{margin:0;padding:8px;background:#131c22;border:1px solid #3d4a52;color:#cfdbe3;font:11px/1.45 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:1000px){.gf-side{width:240px}.gf-info{width:200px}}
