@@ -1,6 +1,6 @@
 # Call Upon Forge
 
-Status: ready for owner review; local branch only
+Status: in progress — second hand-test rejected; geometry audit and visual comparison, local branch only
 Owner: Codex, Call Upon Forge chat
 Updated: 2026-11-11
 
@@ -64,3 +64,14 @@ Updated: 2026-11-11
 - One harness invocation pointed at the removed default package and failed before launching any app; corrected the runner's `MDLXL_SUITE_PKG` setting. It is not counted as product verification.
 - Revised user test: `out/manual-forge-polish/Forge-shield-review.mdx`, with the recorded shield detached as Geoset 6 through the existing mesh owner (31 vertices / 16 triangles). Separate profile: `out/manual-forge-polish/profile`. The prior `manual-forge-test` review instance may contain unsaved work and is preserved.
 - Automated test package/profiles and analysis captures removed after verification; final logs and `out/shield-polish/footman-shield-bevel.png` retained. Source changes saved locally, not online. Warcraft III and owner's acceptance remain untested.
+
+## Second hand-test: usefulness gap, not another drag correction
+
+- Owner still cannot bevel the shield. Current screenshot shows **Inset**, all 31 shield vertices selected, with `Inset needs faces on the same plane.` The error also reproduces on the plate alone and strap alone; they are slightly curved. The central boss is a separate closed component. Do not dismiss this as clicking the wrong icon.
+- Earlier tests proved changed vertices and Undo, not a useful shield rim. The plate is an open sheet; current bevel ignores open edges and instead bevels internal facet edges and the boss. The existing numeric width checks do not establish the requested visible result.
+- Close-up rendering of current whole-shield bevel also exposed notches where beveled internal plate edges meet its open border. The existing cap logic explicitly excludes original open corners. This is an observed product defect to correct, not an accepted bevel result. A new regression must measure the rim/outline and continuity, not just triangle count.
+- Asked whether the owner wanted a beveled outer rim or rounded existing corners/boss. Owner requested **show both**, saying they do not yet know and simply want to bevel things. Prepared a bounded geometry comparison before any further product revision.
+- `out/shield-options/shield-bevel-comparison.png` and `comparison.html` show the actual shield at identical scale, camera and lighting: original; **A**, a 3.5-unit inset band with 2.5-unit depth toward the front; **B**, the existing rounded bevel applied only to the boss (width request 3, existing limit applies). B deliberately leaves the plate unchanged; it is not the defective whole-selection output. `shield-bevel-topology.png` exposes the actual triangles. Counts: original 16, rim 30, rounded boss 164.
+- Rim proof reuses `insetForgeFaces` on a projected copy of the seven plate vertices (faces 4–7 in the detached geoset), then restores original surface heights and offsets the inner cap. This is a **prototype**, not a general curved-region algorithm or shipped tool mode. Source model and all unrelated geosets remain unchanged.
+- All three previews passed finite/nondegenerate triangle, edge incidence/winding, adapter conversion and source preservation assertions. Rim additionally preserves boss/strap. A headless browser rendered the self-contained HTML; actual mouse drag rotated all three linked views, Reset restored the camera within measured floating-point rounding (1e-16), and no page errors occurred. The screenshots were visually inspected. This is geometry/preview proof, **not** a packaged-app acceptance test, texture mapping validation or Warcraft III test.
+- No product code changed during this comparison. The Inset restriction, open-border bevel defect and useful whole-shield workflow remain outstanding. Keep the owner's running review apps/models/profiles intact. Next product work must address these evidenced mechanisms and test the actual rim before another owner hand-test.
