@@ -78,17 +78,21 @@ was run; **read** = traced in the code, not run; **app** = needs the running app
 | E4 | The stage Rotate drag is not in the live-drag guard test. | #575 | `test/live-drag-frames.test.js` | 5 |
 | G3 | Second copies of shared rules: extents (sequence, global-track, visibility, additive), emitter visibility, Wiggle parent walk, Paint head detail name test; preset IPC names; a raw z-index. | #581, #576, #583, #600, #602 | see contract | 6 |
 
-### Owner decisions (do not fix until the owner answers)
+### Owner decisions
 
-| ID | Question in plain words | PR |
-| --- | --- | --- |
-| O1 | AnimXL, Selected bones: dragging on empty space now turns the camera. Box-select and click-empty-to-deselect are gone. Keep, or bring them back on Shift/Ctrl + drag? | #584 |
-| O2 | POSE: Rotate on an elbow or knee now turns the joint like any bone. The old swivel (turn the limb while the hand stays put) cannot be reached. Bring it back somewhere, or remove the leftover code? | #585 |
-| O3 | After tapping Alt (key hints), the next plain key is swallowed instead of doing its normal job. Wanted? | #602 |
-| O4 | New installs start with right/up UV Zoom, but the UV preset reads "Custom" and Restore switches to centre Zoom. Should Restore keep right/up for them? | #602, #615 |
-| O5 | German and French keyboards: letter keys the user rebound before 0.39 may now sit on another key. No automatic fix is possible; add one line to the release notes? | #602 |
-| O6 | Approve the new extents finding as an allowed addition in the flail check (G1)? All accepted outputs still match. | #581 |
-| O7 | Still open from 0.39.0: Esc needs two presses when a tool holds unapplied work; hotkeys no longer fire buttons scrolled out of view; dropdown letter type-ahead is gone. | #602 |
+Claude listed a suggested answer for each question. Owner, 11 Nov 2026: "Yes, your
+picks". The Decision column is that suggested answer, now the owner's decision. O2 and
+O7 had no suggested answer and stay open.
+
+| ID | Question in plain words | PR | Decision |
+| --- | --- | --- | --- |
+| O1 | AnimXL, Selected bones: dragging on empty space now turns the camera. Box-select and click-empty-to-deselect are gone. Keep, or bring them back on Shift/Ctrl + drag? | #584 | Keep as it is. No work. Reopen only if the owner misses box-select. |
+| O2 | POSE: Rotate on an elbow or knee now turns the joint like any bone. The old swivel (turn the limb while the hand stays put) cannot be reached. Bring it back somewhere, or remove the leftover code? | #585 | **Open.** The owner has not said whether they used the swivel. Change nothing. |
+| O3 | After tapping Alt (key hints), the next plain key is swallowed instead of doing its normal job. Wanted? | #602 | Put the old behaviour back: [contract 3](review-3-settings-keys.md) item 5. |
+| O4 | New installs start with right/up UV Zoom, but the UV preset reads "Custom" and Restore switches to centre Zoom. Should Restore keep right/up for them? | #602, #615 | Restore keeps right/up on new installs: contract 3 item 6. |
+| O5 | German and French keyboards: letter keys the user rebound before 0.39 may now sit on another key. No automatic fix is possible; add one line to the release notes? | #602 | One line in the 0.40.0 release notes: contract 3 item 7. |
+| O6 | Approve the new extents finding as an allowed addition in the flail check (G1)? All accepted outputs still match. | #581 | Approved: [contract 6](review-6-housekeeping.md) item 2. |
+| O7 | Still open from 0.39.0: Esc needs two presses when a tool holds unapplied work; hotkeys no longer fire buttons scrolled out of view; dropdown letter type-ahead is gone. | #602 | **Open.** Not asked in this round. Change nothing. |
 
 ### Process
 
@@ -114,14 +118,14 @@ was run; **read** = traced in the code, not run; **app** = needs the running app
 | H8 | Low | BITZ Manage > Move leaves a Bit's own texture files behind; the Bit then shows "Unavailable textures". | #625 | `electron/bits-and-parts.cjs` | read |
 | H9 | Low | Every build now needs the .NET compiler and writes a temporary program to the C: temp folder. | #624 | `vite.config.js` | read |
 
-Owner decisions from these five:
+Owner decisions from these five (same "Yes, your picks" on 11 Nov 2026):
 
-| ID | Question in plain words | PR |
-| --- | --- | --- |
-| O8 | MDLxL now starts a small helper program (`capture-regions.exe`) for every Windows user as soon as an editor is visible, so ShareX can find the viewport and toolbox. No setting, also without ShareX. It writes nothing and reads nothing else. Keep it on for everyone, or make it a setting that is off by default? | #624 |
-| O9 | Texture pickers in Forge, EMTR, FX, Paint and UV now open in Standard layout too, not only the Library, for users who never chose a layout. Wanted? | #626 |
-| O10 | Surface Effects got the default key Alt+K. An earlier test said "no default key, by decision". Keep the key? | #623 |
-| O11 | With VIS on, the top menu on Windows is now the new look's drawn menu (rounded, Segoe UI) instead of the classic one. Restyle it classic in VIS? | #623 |
+| ID | Question in plain words | PR | Decision |
+| --- | --- | --- | --- |
+| O8 | MDLxL now starts a small helper program (`capture-regions.exe`) for every Windows user as soon as an editor is visible, so ShareX can find the viewport and toolbox. No setting, also without ShareX. It writes nothing and reads nothing else. Keep it on for everyone, or make it a setting that is off by default? | #624 | A setting, off by default: [contract 7](review-7-newest-five.md) item 10. |
+| O9 | Texture pickers in Forge, EMTR, FX, Paint and UV now open in Standard layout too, not only the Library, for users who never chose a layout. Wanted? | #626 | Keep. No work. |
+| O10 | Surface Effects got the default key Alt+K. An earlier test said "no default key, by decision". Keep the key? | #623 | Keep the key, once it cannot take over a key the user bound themselves: contract 3 item 4. |
+| O11 | With VIS on, the top menu on Windows is now the new look's drawn menu (rounded, Segoe UI) instead of the classic one. Restyle it classic in VIS? | #623 | Classic in VIS: contract 7 item 11. |
 
 ## Checked and found fine
 
@@ -151,14 +155,16 @@ Owner decisions from these five:
    listed. Old results must not change for cases that already worked.
 3. No new features, panels, settings or wording beyond what the item says. No version bump.
 4. Focused tests only; never the full packaged suite. Report exactly what was run.
-5. An item marked **owner decision** is skipped until the owner answers. Do not choose.
+5. The owner's decisions are in the two "Owner decisions" tables above. An item still
+   marked **Open** there (O2, O7) is not touched. Do not choose for the owner.
 6. Nothing online until the owner says "merge". Report `saved on your PC, not online`.
 7. On finishing: update the contract note (status, revision, checks, what is left), add a
    short plain-language summary for the owner, and hand back to Claude for review.
 
 ## Blockers and next action
 
-- Owner: answer O1 to O6 and O8 to O11, and say which contracts go into 0.40.0.
+- Owner: O1, O3 to O6 and O8 to O11 are decided (11 Nov). Still open: O2, O7, and
+  which contracts go into 0.40.0.
 - Codex: contracts 1 and 2 first (both touch `src/editor-document.js` in different
   functions; merge 1 before 2). Contracts 3, 4, 5 and 7 can run at the same time
   (7 shares `app/App.jsx` and `app/AppDialogs.jsx` with 2, in other functions).

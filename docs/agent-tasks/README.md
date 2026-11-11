@@ -15,7 +15,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Review fix 3: settings and keys cannot be wiped by accident | Ready for Codex | [Contract 3](review-3-settings-keys.md) / Codex |
 | Review fix 4: editor and preview fixes | Ready for Codex | [Contract 4](review-4-editors-previews.md) / Codex |
 | Review fix 5: Paint brush-size drag and live-drag guard list | Ready for Codex | [Contract 5](review-5-paint-drags.md) / Codex |
-| Review fix 6: housekeeping (stale rows below, flail check, duplicate helpers) | Ready for Codex, last; flail part waits for the owner | [Contract 6](review-6-housekeeping.md) / Codex |
+| Review fix 6: housekeeping (stale rows below, flail check, duplicate helpers) | Ready for Codex, last | [Contract 6](review-6-housekeeping.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
 | Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |

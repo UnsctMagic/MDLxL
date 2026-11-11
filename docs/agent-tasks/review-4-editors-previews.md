@@ -54,7 +54,8 @@ dropped without the others. Map rows: "Viewport, rendering, cameras and preview"
    its hotkey tag. All new text is in the five catalogs (already added on
    `codex/release-0.40.0`: check, do not duplicate).
 
-Owner decisions, **do not implement**: O1 (AnimXL box-select), O2 (POSE swivel).
+Not part of this contract: O1 (AnimXL box-select; the owner keeps today's behaviour)
+and O2 (POSE swivel; still open with the owner). Change neither.
 
 ## Revision and local state
 

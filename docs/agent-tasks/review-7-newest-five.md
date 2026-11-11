@@ -4,7 +4,8 @@ Status: ready for Codex
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
-Findings H1 to H9 of the [main review](main-review-2026-11-11.md). Read its "Rules for
+Findings H1 to H9 and owner decisions O8 and O11 of the
+[main review](main-review-2026-11-11.md). Read its "Rules for
 every contract" first. Map rows: "Forge, Collect Bit, BitsAndParts", "Main window look",
 "Localisation, labels and tooltips", "Packaging and updates".
 
@@ -60,9 +61,26 @@ every contract" first. Map rows: "Forge, Collect Bit, BitsAndParts", "Main windo
    when `csc.exe` is missing skip it with a warning so `pnpm run build` still works;
    packaging keeps its hard check.
 
-Owner decisions, **do not implement until answered**: O8 (ShareX helper on for
-everyone), O9 (texture pickers default to Standard), O10 (Alt+K default for Surface
-Effects), O11 (VIS look and the drawn menu).
+10. **O8, decided by the owner on 11 Nov: the ShareX helper is a setting, off by
+    default** (PR #624). One switch in Settings > Capture, stored with the other capture
+    settings (`src/capture-settings.js`; a new field, no renamed key). Suggested label
+    "ShareX regions" with a tooltip saying, in plain words, that it lets ShareX find the
+    viewport and toolbox as capture regions and runs a small helper program while an
+    editor is open. Label and tooltip in all five catalogs. While it is off,
+    `capture-regions.exe` is never started and no edges are sent; switching it off
+    while it runs stops the helper; switching it on starts it without a restart. A
+    missing helper file only greys nothing and logs a warning, as today. #624 is not
+    released, so no user's behaviour changes except the owner's own PC, where the
+    switch has to be turned on once.
+11. **O11, decided by the owner on 11 Nov: classic menu in VIS** (PR #623). With VIS on
+    (`[data-vis-ui]`), the drawn Windows menu looks like the classic menu: reuse the
+    existing `.classic-menu` look from `app/styles.css` (square, classic colours and
+    font, no rounded popups or soft shadows). The new look is unchanged. Read the
+    [VIS contract](vis-mdlvis-mode.md) first and confirm the current look in the
+    packaged app before changing CSS.
+
+Decided with no work here: O9 (texture pickers keep opening in Standard) and O10 (Alt+K
+stays on Surface Effects; its condition is [contract 3](review-3-settings-keys.md) item 4).
 
 Out of scope: BITZ layout, the Library layout, the menu contents, new settings.
 
@@ -84,7 +102,8 @@ Out of scope: BITZ layout, the Library layout, the menu contents, new settings.
   25 px at `z-index: 10100`, above every overlay; the VIS title bar is 23 px.
 - H4: script `D:\Claude\MDLxL-QA\2026-11-11-main-review\desktop-library\locale-check.mjs`
   and a grep of the EMTR strings in all five catalogs.
-- H6 and O11 were not seen in the app; confirm there before changing CSS.
+- H6 and the VIS menu look (item 11) were not seen in the app; confirm there before
+  changing CSS.
 - Checked and fine in these PRs: the ShareX helper writes no files, opens no network
   connection and reads no other program's data; it exits with MDLxL; Library "Save a
   copy" writes only where the user's Save dialog points; BITZ Manage cannot escape the
@@ -107,11 +126,18 @@ Tests to add first (each must fail on the base):
   Managers > Node Manager; "Show hierarchy" is ticked.
 - H7: `test/bits-and-parts.test.js`: a geoset with animated Color keeps its track.
 - H8: a bits-and-parts test that moves a Bit with a sibling BLP and resolves its textures.
+- Item 10: a source test that `useCaptureRegions` is not enabled under default
+  preferences; a packaged test that no `capture-regions.exe` child process exists with
+  the switch off, one exists after a real click on the switch with an editor visible,
+  and none after switching it off again.
+- Item 11: extend `test/vis-mdlvis-mode.electron.cjs`: in VIS the drawn menu popup's
+  computed border radius, shadow and font match the classic menu; in the new look they
+  are unchanged.
 
 Run those plus `test/bit-replacement.test.js`, `test/toolbar-modes.test.js`,
 `test/vis-mdlvis-mode.test.js`, `test/desktop-bridge.test.js`.
 
 ## Blockers and next action
 
-- None for H1 to H9. On completion: status, revision and checks here; plain summary for
+- None. On completion: status, revision and checks here; plain summary for
   the owner; hand back.

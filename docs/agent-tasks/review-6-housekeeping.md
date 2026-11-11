@@ -1,6 +1,6 @@
 # Contract 6: housekeeping after the review
 
-Status: ready for Codex (do last; part 2 waits for the owner)
+Status: ready for Codex (do last)
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -19,15 +19,15 @@ every contract" first.
    Remove Offload birds (#501), Rotate ring drag (#409), EMTR Add like ribbons (#491),
    FX global animation maker (#492). Check each again; do not trust this list blindly.
    Leave rows whose work is really open. Documentation only.
-2. **G1. Flail check, owner decision O6 first.** `test/manual/optimizexl-flail-regression.mjs`
-   fails on main with "Only explicitly added repair capabilities may extend this
-   baseline" because the extents finding added by #581 (`kind: 'bounds'`) is not on its
-   allowed list. **Only if the owner approves O6:** add `bounds` to that list, exactly as
-   #548 did for `exactCleanup`. Change nothing else in that file, its fixtures or its
-   hashes. Then run it on both accepted models with the historical
+2. **G1. Flail check (O6, approved by the owner on 11 Nov).**
+   `test/manual/optimizexl-flail-regression.mjs` fails on main with "Only explicitly
+   added repair capabilities may extend this baseline" because the extents finding
+   added by #581 (`kind: 'bounds'`) is not on its allowed list. Add `bounds` to that
+   list, exactly as #548 did for `exactCleanup`. Change nothing else in that file, its
+   fixtures or its hashes. Then run it on both accepted models with the historical
    `MDLXL_FLAIL_MOUNTED_REFERENCE` file (see
    [OptimizeXL verification](../OPTIMIZEXL_VERIFICATION.md)) and record the result.
-   If the owner declines, hide the extents finding for these runs instead and say how.
+   The approval covers this one finding kind only.
 3. **G1, second half.** Name the flail check in the
    [QA and release kit](../QA-AND-RELEASE-KIT.md) release standard, with the two model
    paths under `D:\Claude\MDLxL-TestModels` and where the reference file lives, so a
@@ -81,5 +81,6 @@ Out of scope: any new check, any change to OptimizeXL results, renaming stored k
 
 ## Blockers and next action
 
-- Part 2 waits for the owner's answer to O6.
+- No blocker; O6 is approved. If the `mounted-spheres` reference file cannot be found,
+  say so here and ask the owner; do not regenerate or replace the accepted hash.
 - On completion: status, revision and checks here; plain summary for the owner; hand back.

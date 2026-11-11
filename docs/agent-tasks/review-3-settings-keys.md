@@ -4,7 +4,8 @@ Status: ready for Codex
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
-Findings C1 to C4 of the [main review](main-review-2026-11-11.md), all from PR #602.
+Findings C1 to C4 and owner decisions O3, O4, O5 and O10 of the
+[main review](main-review-2026-11-11.md), all from PR #602 (O10: #623).
 Read its "Rules for every contract" first. Map rows: "Keyboard shortcuts (hotkeys)",
 "Mouse settings and editing Rotate behavior". Read [Keyboard shortcuts](../HOTKEYS.md).
 
@@ -31,12 +32,32 @@ Read its "Rules for every contract" first. Map rows: "Keyboard shortcuts (hotkey
 4. **C4.** A default key newly given to a command is not applied when the user's own
    `preferences.hotkeys` already gives that key to another command in the same scope
    (the rule `contextualHotkeyDefaults` already follows for controls). Covers
-   Ctrl+F2 and Shift+F3 from #602, Alt+K from #623, and every later default.
+   Ctrl+F2 and Shift+F3 from #602, Alt+K from #623 (O10: the owner keeps Alt+K for
+   Surface Effects on this condition), and every later default.
    The user's own binding keeps working; the new command stays reachable from the menu
    and can be bound by hand.
 
-Owner decisions, **do not implement**: O3 (key after a tapped Alt), O4 (Restore on a
-fresh install's UV page), O5 (release-note line for German/French keyboards), O7.
+5. **O3, decided by the owner on 11 Nov.** After a tapped Alt, a key that has no Alt+
+   shortcut does its normal job again, as before #602 (`app/Hotkeys.jsx`, the
+   `altArmed` branch: a failed `Alt+key` lookup hides the hints and lets the key
+   continue as the plain key instead of being consumed). A key that does have an Alt+
+   shortcut still runs it. Escape still only hides the hints.
+6. **O4, decided by the owner on 11 Nov.** On a profile that started as a fresh install
+   (the first-launch seed in `electron/main.cjs` from #615 gave it right/up Zoom):
+   Restore on Mouse > UV and "Restore mouse defaults" give right/up Zoom, and the UV
+   preset reads as the built-in preset, not "Custom", while nothing else was changed.
+   Profiles that existed before keep today's behaviour (Restore gives centre). The seed
+   must leave something lasting to tell the two apart; no released version has seeded
+   yet, so this can be added now. A new stored key is fine; rename none. Record the
+   rule and its date in [UV Rotate and Zoom](../UV-ROTATE-ZOOM.md) (owner-locked:
+   change no other default, and do not edit its locked test numbers).
+7. **O5, decided by the owner on 11 Nov.** One line in the 0.40.0 release notes, in all
+   six languages per [the release recipe](../RELEASING.md): on German and French
+   keyboards, letter keys rebound before 0.39 may now sit on another key; check them in
+   Settings > Hotkeys. The notes live on local `codex/release-0.40.0`; add the line
+   there, or record here that the release session still has to.
+
+Still open, **do not implement**: O7 (the three 0.39.0 behaviours).
 
 Out of scope: preset file format, the Settings layout, any stored key name.
 
@@ -81,7 +102,12 @@ Tests to add first (each must fail on the base):
   Move drag in the main window with Alt held, badge appears.
 - `test/hotkey-default-overlaps.test.js`: with a user override binding Ctrl+F2 to
   another command, the launcher's effective keys do not contain Ctrl+F2 and the user's
-  command runs.
+  command runs. Same for Alt+K and Surface Effects.
+- Item 5: a packaged hotkeys test: real Alt press and release, then a plain R; the
+  Rotate tool becomes active. Alt tap, then a key with an Alt+ shortcut, still runs it.
+- Item 6: `test/uv-drag-settings.test.js`: for a profile marked as seeded, the UV
+  preset id is the built-in one and Restore returns right/up; for a profile without
+  the mark, Restore returns centre as today. `test/uv-tools.test.js` stays untouched.
 
 Run the files above plus `test/hotkey-defaults.test.js`, `test/hotkey-migration.test.js`,
 `test/hotkey-window-source.test.js`, `test/localization-catalogs.test.js` (new text
