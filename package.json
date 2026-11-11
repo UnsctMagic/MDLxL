@@ -11,6 +11,7 @@
     "test:source": "node --test test/*.test.js",
     "test:compatibility": "node --test tests/*.test.js",
     "test:packaged": "node scripts/run-packaged-tests.mjs",
+    "pose:corpus-diff": "node scripts/pose-corpus-diff.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
