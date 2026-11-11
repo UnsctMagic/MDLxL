@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: active (contract ready for Codex; QA by Claude)
+Status: ready for Claude QA (Codex implementation built; owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -94,7 +94,8 @@ Rules:
   before the side: `Bone_Leg2_Front_L`.
 - **Numbers** are never chosen by the user. Within one actor, bones with the same
   part, position and side are numbered by hierarchy depth, nearest the body = 1.
-- **Actors.** Every POSE body (the rig's `body` and every node whose role is `Body`;
+- **Actors.** Every POSE body (the rig's `body` and every identified bone whose
+  resolved role is `Body`, see Recognition;
   a chain with no body above it uses its top ancestor) is an actor; each bone
   belongs to the actor of its nearest body ancestor (or itself). Order: actors whose
   skin is visible in Stand first, then actors with two hands, then larger (span of
@@ -130,9 +131,19 @@ Call `suggestPoseRig(model, frame, sequence)` with the Stand frame and sequence 
 the default (`clues: true`) is exactly what the POSE screen shows, which is what
 "based on how Pose identifies things" asks for (decided with the POSE brain).
 
-Read only `chains`, `body`, `nodes` and `roles`. A role counts only when it is one
-of `Body, Pelvis, Spine, Chest, Neck, Head, Hand, Foot, Hoof, Tail, Wing`; anything
-else in `roles` (`Object`, or a joint's own name) means "no role".
+Read `chains`, `body`, `nodes` and `roles` from the result. `roles` holds only
+POSE's overrides; a bone's role is resolved with POSE's own `poseRole(model, rig, id)`
+(exported from `src/pose-ik.js`, used by the POSE preview in `app/pose-overlay.js`):
+the override when there is one, else the role POSE reads from the name. A role
+counts only when it is one of `Body, Pelvis, Spine, Chest, Neck, Head, Hand, Foot,
+Hoof, Tail, Wing`; anything else (`Object`, or a joint's own name) means "no role".
+
+POSE has identified a bone when it is `rig.body`, in `rig.nodes`, a joint of a
+chain, or has an override in `rig.roles`; only those bones take their part from
+their resolved role. Bones on the parent paths in the last three table rows also
+use `poseRole`: a role word gives that part, no role gives Tail/Spine/Neck as listed.
+(Decided 11 Nov after Codex's blocker; `poseRole` is read-only use of an existing
+POSE export, no POSE change.)
 
 | POSE says | Part |
 | --- | --- |
@@ -212,7 +223,7 @@ control styles.
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
-(`pose-ik.js` `suggestPoseRig`/`poseChainIds`, `sequence-editor.js`
+(`pose-ik.js` `suggestPoseRig`/`poseChainIds`/`poseRole`, `sequence-editor.js`
 `standSequenceIndex`, `animation.js` node maths and `sampleGeosetAnimation`,
 `node-hierarchy.js` `nodeIndex`/`uniqueName`, `bone-tools.js` `renameRigNode`).
 
@@ -284,13 +295,49 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 ## Changes and verification
 
-- Done: scheme census (corpus-sd), POSE probes (Knight: rider under the horse body
-  plus two rig copies; Slaanesh Champion knight: rider death copy; Footman: left
-  hand named `Bone_Hand_R`); POSE brain confirmed the API and the name rules.
-- Remaining: everything in Work split and QA plan.
+- Codex resumed from clean `4d6e10a6571c8c929cbf44494861de34ff53b0bf` on
+  `claude/bone-namer`, in the owner's named D: worktree. Existing dependencies
+  were used without installing, copying or junctioning them.
+- Built `src/bone-namer.js` with the fixed four exports and argument/return
+  contracts: POSE-only recognition through `suggestPoseRig` / `poseRole`, Stand
+  world-space sides, parent-path parts, leg-pair positions, depth numbering,
+  actor ordering/classification and overrides, copy suffixes, and unique names.
+  `applyBoneNames` preflights the selected rows using `renameRigNode`, then changes
+  only existing Bones/Helpers' `Name` fields. A selected name collision is rejected
+  before mutation; the window resolves collisions with unticked names in advance.
+- Built the Attachemator-style `ToolWindow`, reused its controls/CSS and
+  `GamePreview`, and added only the Bone Namer button and App/Sidebar wiring.
+  Rows support part/side/actor corrections, Main swapping and ticks; names and
+  numbering update live. The renamed-copy preview shows bones/helpers, selection
+  and limb labels, hides Stand-hidden geosets, and preserves the camera. It has
+  no transform callback. Commit uses one `edit('Bone Namer', ['Nodes'], ...)`.
+- Added all new English UI strings to RU/ES/ZH/FR/DE catalogs, preserving existing
+  translations. Added `docs/BONE-NAMER.md` and updated the map and HOTKEYS table.
+- Close uses the shared second-Escape unapplied guard. To satisfy the explicit
+  Close-asks-first requirement, direct Close/× clicks also open the existing
+  Dialog confirmation (Attachemator itself closes directly on these clicks).
+  Read-only documents may open the review window; Commit is disabled there.
+  These are the two deliberate adaptations to the Attachemator reference.
+- Final `pnpm run build` passed: Vite 7.3.1, 2,887 modules, 14.03 s. The earlier
+  14.23 s build also passed; the final rebuild included read-only button access.
+  Existing `view-menu.json` import-attribute warnings and large-chunk warnings
+  remain. `git diff --check` passed; all four protected files have no diff.
+- No tests written or run, no corpus/fixture probes, no packaged app or desktop
+  launched. Mouse rotation, visual layout, naming accuracy, POSE compatibility,
+  localisation presentation and undo/close workflows are **not verified**;
+  Claude owns all QA below. The feature is ready to test, not owner-accepted.
+- Removed only this task's generated `dist/`, build log and temporary directory
+  after verification. No task background process remains. The source and note
+  are committed together locally; nothing pushed, no PR, merge or release.
 
 ## Blockers and next action
 
-- Next: owner confirms the scheme; Codex builds per this contract on
-  `claude/bone-namer`; Claude QA workers 1–2 start in parallel.
-- On completion: mark completed with the merge revision; remove the README row.
+- No current implementation blocker. The earlier sparse-role blocker was
+  resolved by the contract at `4d6e10a6`, permitting the existing `poseRole()`.
+  No POSE or protected-file changes were needed.
+- **Next for Claude:** review the implementation against the contract, run the
+  source/corpus/packaged QA plan above, and prepare the owner's hand-test build.
+  Include non-default actor/side/part corrections, partial tick collisions,
+  read-only access, direct Close confirmation and the shared Escape guard.
+- Owner acceptance and all QA remain pending. On eventual approved merge, mark
+  completed with the merge revision and remove the README task row.
