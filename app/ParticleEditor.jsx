@@ -62,13 +62,13 @@ async function assetsFor(recipe){
 // Glow Up exclusions are editor state tied to the open model's geoset objects.
 const ignoredGlowPieces=new WeakMap();
 
-export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {
+export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,initialView,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {
   const [pictureLibrary,setPictureLibrary]=useState(false);
   const [recoveryReady,setRecoveryReady]=useState(false),[newOpen,setNewOpen]=useState(false),[examples,setExamples]=useState(false),[testView,setTestView]=useState(null),[ingredients,setIngredients]=useState(null),[muted,setMuted]=useState([]),[adding,setAdding]=useState(null);
   const [lab,setLab]=useState(starterLab),[context,setContext]=useState(Number.isInteger(selectedNodeId)?'On model':'Lab');
   // One streamlined mode; raw editing is Adjust Manually.
   const mode='Clueless';
-  const [library,setLibrary]=useState(!Number.isInteger(selectedNodeId)),[tool,setTool]=useState('Look'),[lifeStage,setLifeStage]=useState(1),[cancelVersion,setCancelVersion]=useState(0),[scope,setScope]=useState('key');
+  const [library,setLibrary]=useState(initialView==='library'||(initialView!=='glow'&&!Number.isInteger(selectedNodeId))),[tool,setTool]=useState('Look'),[lifeStage,setLifeStage]=useState(1),[cancelVersion,setCancelVersion]=useState(0),[scope,setScope]=useState('key');
   const [emitterId,setEmitterId]=useState(selectedNodeId??0),[sequence,setSequence]=useState(Number.isInteger(selectedNodeId)?sequenceIndex:0);
   const [time,setTime]=useState(Number.isInteger(selectedNodeId)?previewFrame:800),[playing,setPlaying]=useState(true),[speed,setSpeed]=useState(.25),[loop,setLoop]=useState(true),[linked,setLinked]=useState(true),[fxSpeed,setFxSpeed]=useState(.25),[previewStatus,setPreviewStatus]=useState({busy:false}),[solo,setSolo]=useState(true);
   const [demo,setDemo]=useState(false),[placementError,setPlacementError]=useState('');
@@ -284,6 +284,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
   };
+  useEffect(()=>{if(initialView==='glow')beginGlow();},[]);
   const createGlow=()=>{
     try{
       const options=glowOptions(glow),own=!!glowOwn,mutate=m=>glowUp(m,options);
