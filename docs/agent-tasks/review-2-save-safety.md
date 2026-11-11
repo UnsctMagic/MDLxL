@@ -1,6 +1,6 @@
 # Contract 2: saves stay unblocked, but never destroy the file quietly
 
-Status: implemented and verified for Claude review.
+Status: reworked and ready for Claude re-check. O12 implemented as decided by the owner.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -135,3 +135,11 @@ Local code revision 4ff8a51d on codex/main-review-20261111-2, based on contract 
 - The automatic approval reviewer rejected the broad pnpm test invocation under the focused-only instruction. The two relevant compatibility files ran above. The real Save As animation-draft and keyframe-fix branches were checked in source. Warcraft III was not run.
 
 Owner summary: A save MDLxL cannot read back makes a copy of the file it replaces and leaves the tab unsaved. Save As can still write when extents fail and leaves extents alone if you cancel. Paint, Collect Bit, OptimizeXL, Library and AI now surface write verification failures, and AI asks before combining edits after indexed items are added or removed.
+
+## Rework after Claude’s review
+
+- Implementation revision 97796338. The desktop save queue reuses the first backup only when the bytes currently at that path still match its last unreadable write. A newly replaced file gets a fresh backup. Unreadable saves skip Recent files.
+- O12, decided by the owner on 11 Nov 2026: keep the last good file if the safety copy fails. The notice explains that the previous file is intact and offers Save As to another location. The unreadable-save and extents notices are translated in all five catalogs. Unreadable output bypasses optional MDX track cleanup.
+- pnpm run test:source: 3,307 passed, 0 failed, 10 skipped. CI reporter: 3,317 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. Focused save preflight and catalog checks: 17 passed. The baseline file is unchanged.
+- Hidden node --test --test-concurrency=1 test/save-unreadable.electron.cjs test/save-extents.electron.cjs: 4 passed, 0 failed, 0 skipped. Two saves to the same destination kept one good backup. A forced copy permission error preserved the destination and the notice’s Save As button wrote elsewhere. The recents assertion passed. Reopening the successful extents save found the calculated bounds and history recorded one undo step.
+- Owner summary: retrying a broken save keeps the first good copy. If the copy cannot be made, the file stays intact and you can choose another place to save.
