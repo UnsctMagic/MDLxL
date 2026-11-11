@@ -9,7 +9,7 @@ const {findLook,makeLayer,newStack,partFrame}=looks;
 function setup(lookId,label){
  const doc=createDemoDocument(),frame=partFrame(doc.model.Geosets[0]),look=findLook(lookId);
  const spec=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).find(s=>!label||s.label===label);
- const stack={...newStack(look,frame,'edit'),layers:[makeLayer(spec,frame,look.palette,1)]};
+ const stack={...newStack(look,frame,'edit'),layers:[{...makeLayer(spec,frame,look.palette,1),enabled:true}]};
  return {doc,model:doc.model,frame,stack,layer:stack.layers[0]};
 }
 function compile(model,stack){
@@ -40,8 +40,8 @@ test('Blend and lighting also reach a native surface card',()=>{
 });
 test('a layer Loop length runs that layer on its own owned clock, shared by equal lengths and removed with the stack',()=>{
  const {model,stack,frame}=setup('arcane-blade','Flowing energy'),before=[...model.GlobalSequences];
- const second={...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',2),loop:1133};
- const timed={...stack,layers:[{...stack.layers[0],loop:1133},second,{...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',3)}]};
+ const second={...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',2),loop:1133,pulse:'breathe'};
+ const timed={...stack,layers:[{...stack.layers[0],loop:1133,pulse:'breathe'},second,{...makeLayer(findLook('arcane-blade').layers[1],frame,'lilac',3),loop:undefined,pulse:'breathe'}]};
  const graph=compileAnimation(model,0,timed),track=id=>{const m=model.Materials[model.Geosets[graph.layers[id].geoset].MaterialID].Layers[0];return {motion:model.TextureAnims[m.TVertexAnimId].Translation.GlobalSeqId,alpha:m.Alpha.GlobalSeqId};};
  const own=track(1),shared=track(2),plain=track(3);
  assert.equal(model.GlobalSequences[own.motion],1133);assert.equal(model.GlobalSequences[own.alpha],1133);
@@ -127,7 +127,7 @@ test('rune Repeat, Size, Turn, Slide and Across lay out the glyphs, and a fit-vi
 test('colour rhythms animate the overlay colour on the layer clock with constant alpha; Soft pulse stays bright',async()=>{
  const {strengthPasses}=await import('../src/global-animation-model.js');
  const rune=setup('rune-blade','Runes'),before={anims:rune.model.GeosetAnims.length,clocks:[...rune.model.GlobalSequences]};
- let {anim,material,model}={...compile(rune.model,withLayer(rune.stack,{pulse:'beat',loop:2000})),model:rune.model};
+ let {anim,material,model}={...compile(rune.model,withLayer(rune.stack,{pulse:'beat',loop:2000,tint2:undefined})),model:rune.model};
  assert.equal(anim.Color.LineType,3,'Colour beat eases between its colours');
  const tint=rune.layer.tint,second=looks.secondTint(tint),near=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-6);
  assert.equal(model.GlobalSequences[anim.Color.GlobalSeqId],2000,'the colour runs on the layer clock');

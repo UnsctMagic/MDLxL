@@ -60,6 +60,11 @@ function texture(m,name,wrap,tag){
  const existing=m.Textures.findIndex(t=>!t.ReplaceableId&&gamePathKey(t.Image||'')===gamePathKey(name)&&(!wrap||(t.Flags&3)===3));
  return existing<0?m.Textures.push({Image:name,Flags:wrap?3:0,ReplaceableId:0,_FxTag:tag})-1:existing;
 }
+// team: 1 team colour, 2 team glow; the player's colour, as native team cards use it.
+function teamTexture(m,team,tag){
+ const existing=m.Textures.findIndex(t=>t.ReplaceableId===team);
+ return existing<0?m.Textures.push({Image:'',Flags:0,ReplaceableId:team,_FxTag:tag})-1:existing;
+}
 function resource(list,tag,value){
  const index=list.findIndex(r=>r._FxTag===tag);
  value._FxTag=tag;
@@ -84,12 +89,15 @@ function overlay(c,geometry,material,colour,ownAnimation,inflate){
   copy.Vertices[i]+=x/d*inflate;copy.Vertices[i+1]+=y/d*inflate;copy.Vertices[i+2]+=z/d*inflate;
  }
  const index=resource(m.Geosets,tag,copy);c.used.add(tag);
- if(inflate>0)recalculateExtents(m,[index]);
+ // The lifted shell gets its own bounds; the model's authored bounds stay, so removing the look restores them.
+ if(inflate>0)Object.assign(m.Geosets[index],geosetBounds(m.Geosets[index].Vertices));
  const old=m.GeosetAnims.find(a=>a.GeosetId===index);
  const anim={...(ownAnimation?structuredClone(ownAnimation):{}),GeosetId:index,Alpha:ownAnimation?.Alpha??1,Flags:(ownAnimation?.Flags||0)|2,Color:colour.Keys?colour:vec(colour)};
  if(old)Object.assign(old,anim);else m.GeosetAnims.push(anim);
  return index;
 }
+// Layer fields that only stacks made with per-layer editing carry.
+const EDITOR_FIELDS=['unshaded','unfogged','twoSided','loop','inflate','tint2','team','repeats','glyphScale','glyphTurn','glyphSlide','glyphAcross'];
 const LIGHTING=[['unshaded',1],['twoSided',16],['unfogged',32]];
 const hasLighting=l=>LIGHTING.some(([key])=>l[key]!=null);
 // Explicit layer lighting replaces only the bits it names.
@@ -216,7 +224,7 @@ function skinLayer(c,l){
   &&source.Faces.every((vertex,i)=>vertex===previousShape.Faces[i])
   &&['own','direction','tiling','atlasRect','uvOffset','uvMatrix','repeats',...GLYPH_LAYOUT].every(key=>JSON.stringify(prior[key])===JSON.stringify(l[key]));
  g.TVertices=keepUV?previousShape.TVertices:[coords];
- let tex=own?structuredClone(original.TextureID):texture(m,l.image,!rect,tag);
+ let tex=own?structuredClone(original.TextureID):l.team?teamTexture(m,l.team,tag):texture(m,l.image,!rect,tag);
  if(l.frames){
   const tids=l.frames.map(name=>texture(m,name,true,tag)),n=tids.length* Math.max(1,Math.round(l.speed*3));
   // Speed 0 holds the first frame.
@@ -482,9 +490,9 @@ function edgeLayer(c,l){
  const normal=new Vector3().crossVectors(frame.axis,Math.abs(frame.axis.z)<.9?z:y).normalize();
  if(l.orbit)delete p.Translation;
  else p.Translation=keys(id,ms,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(frame.girth*.18*a).toArray()]));
- const layer={FilterMode:l.orbit?3:4,Shading:17,TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
+ const layer={FilterMode:l.filter??(l.orbit?3:4),Shading:17,TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
  Object.assign(p,{MaterialID:resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:[layer]}),Rotation:keys(id,ms,[[0,new Quaternion().setFromUnitVectors(y,frame.axis).toArray()]],0),
-  HeightAbove:l.upper,HeightBelow:l.lower,Alpha:l.orbit?l.strength:keys(id,ms,curves.flicker.map(([t,a])=>[t,a*l.strength])),Color:vec(l.tint),LifeSpan:l.lasts,EmissionRate:l.smoothness,Gravity:l.gravity,Visibility:keys(id,ms,[[0,1],[1,1]])});
+  HeightAbove:l.upper,HeightBelow:l.lower,Alpha:l.orbit||l.pulse==='steady'?l.strength:keys(id,ms,curves.flicker.map(([t,a])=>[t,a*l.strength])),Color:vec(l.tint),LifeSpan:l.lasts,EmissionRate:l.smoothness,Gravity:l.gravity,Visibility:keys(id,ms,[[0,1],[1,1]])});
  ids.push(p.ObjectId);
  }
  return {id:ids[0],ids,family:'RibbonEmitters'};
@@ -543,7 +551,7 @@ function cardLayer(c,l){
   faces.push(first,first+1,first+2,first,first+2,first+3);
   groups.push([holder.ObjectId]);centres.push(point);
  }
- const tex=texture(m,l.image,flipbook,tag);
+ const tex=l.team?teamTexture(m,l.team,tag):texture(m,l.image,flipbook,tag);
  const shape=l.pulse==null||l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||null,curveType=l.pulse==='soft'?3:1;
  const alphaFor=value=>shape?keys(id,base,shape.map(([t,a])=>[t,a*value]),curveType):value;
  const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:card.filter,Shading:(card.unshaded?1:0)|(card.twoSided?16:0)|(card.unfogged?32:0),Alpha:alphaFor(1)};
@@ -692,8 +700,8 @@ export function compileAnimation(model,index,draft,{rune}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
-  // A surface layer with its own Loop length runs on its own owned clock.
-  const own=l.loop!=null&&!draft.impact&&surfaceIngredient(l)?Math.max(100,Math.round(l.loop)):null;
+  // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
+  const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
   const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
   if(before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
@@ -722,8 +730,9 @@ export function compileAnimation(model,index,draft,{rune}={}){
   for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClockIds=g._FxStack.createdClockIds.filter(id=>id!==i).map(id=>id>i?id-1:id);
   for(const k of [...clocks])if(k>i){clocks.delete(k);clocks.add(k-1);}
  }
- // Limited to stacks with a Card or an orbit so stacks saved before Cards compile exactly as they did.
- if(clockRemoved&&[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'||l.orbit))restoreBounds();
+ // Limited to stacks made with per-layer editing (a Card, an orbit, or any field it added) so stacks saved
+ // before it compile exactly as they did; and to removing the whole stack, which leaves the bounds as they were.
+ if(clockRemoved&&(!draft.layers.length||[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'||l.orbit||EDITOR_FIELDS.some(key=>key in l))))restoreBounds();
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));

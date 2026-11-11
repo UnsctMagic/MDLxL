@@ -45,6 +45,10 @@ export function boundedCard(l){
 export function cardSpec(label,image,fields={}){
  return {type:'Card',label,image,...fields};
 }
+/** Half-width of a ground card: wide enough to show around the feet of the part's unit. */
+export function groundCardSize(basis){
+ return Math.max(cardSize(basis),basis.length*.45,basis.radius*1.6);
+}
 /** Default half-width of a card on a part (the radius the preview's size handle shows). */
 export function cardSize(basis){
  return Math.max(basis.unit*1.2,Math.min(basis.length*.18,basis.girth*2.2));

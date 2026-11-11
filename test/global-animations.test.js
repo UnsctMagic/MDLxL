@@ -22,7 +22,8 @@ for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' uses 
  if(look.id==='fly-swarm')assert.ok(model.ParticleEmitters2.every(p=>p.FilterMode===0),'native alpha blend must preserve dark wings and transparent atlas corners');
  assert.deepEqual(model.Sequences,old);
  let total=0;
- for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag)){
+ const fxColours=model.GeosetAnims.filter(a=>model.Geosets[a.GeosetId]?._FxTag);
+ for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag).concat(fxColours)){
   visitTracks(record,t=>{
    if(look.impact)assert.equal(t.GlobalSeqId,null,'impacts use the selected local Attack');
    else if(record.EmissionRate===t&&draft.layers.some(l=>l.burstGap!=null&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
@@ -30,11 +31,12 @@ for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' uses 
     assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(burst.burstGap+burst.burstWindow))*sites);
    }else if(draft.layers.some(l=>l.powerArcs&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
     const arcs=draft.layers.find(l=>l.powerArcs);assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(arcs.burstGap+arcs.burstWindow)));
-   }else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);
+   }else if(record.GeosetId==null||t.GlobalSeqId!=null)assert.ok(t.GlobalSeqId===model.GlobalSequences.indexOf(draft.loop)||model.Geosets[0]._FxStack.createdClockIds.includes(t.GlobalSeqId),'a global clock the stack owns: '+model.GlobalSequences[t.GlobalSeqId]);
    total++;
   });
  }
- assert.ok(total);
+ // A still look (a tint) has no tracks to keep.
+ assert.ok(total||draft.layers.every(l=>l.fixed&&l.pulse==null&&l.type==='Moving skin'));
  for(const format of ['mdx','mdl']){
   const file=openDocument(doc.serialize(format),'unit.'+format);
   assert.equal(file.readOnly,false);
@@ -157,7 +159,9 @@ test('runes remain on the exact selected triangles and their authored skin weigh
  assert.deepEqual(shape.Vertices,source.Vertices);assert.deepEqual(shape.Faces,source.Faces);
  assert.deepEqual(shape.Groups,source.Groups);assert.deepEqual(shape.VertexGroup,source.VertexGroup);
  assert.equal(m.Bones.filter(n=>n._FxTag?.startsWith('rune/')).length,0,'no aura pivot or ring geometry');
- const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);assert.ok(layer.Alpha.GlobalSeqId>=0);
+ const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);
+ // Runes pulse by alpha or, with a colour rhythm, by their colour.
+ assert.ok(layer.Alpha.GlobalSeqId>=0||m.GeosetAnims.find(a=>a.GeosetId===m.Geosets.indexOf(shape)).Color.GlobalSeqId>=0);
 });
 
 test('retuning an FX layer preserves the texture, wrapping and UVs edited on its applied geoset',()=>{

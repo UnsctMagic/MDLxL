@@ -83,7 +83,7 @@ test('stacks saved with the retired skins reopen, edit and compile as before',()
 });
 
 test('one table files every library look once, in the owner order',()=>{
- assert.deepEqual(GLOBAL_LOOKS.map(l=>l.group).filter((g,i,all)=>all.indexOf(g)===i),['Fire','Ice','Water','Lightning','Arcane','Poison & nature','Stone','Death & spirit','Build your own']);
+ assert.deepEqual(GLOBAL_LOOKS.map(l=>l.group).filter((g,i,all)=>all.indexOf(g)===i),['Fire','Ice','Water','Lightning','Arcane','Light','Poison & nature','Stone','Death & spirit','Build your own']);
  const ids=GLOBAL_LOOKS.map(l=>l.id),listed=LIBRARY.flatMap(([,rows])=>rows.map(([id])=>id));
  assert.deepEqual(ids,listed,'every library look is filed exactly once, in table order');
  assert.equal(new Set(ids).size,ids.length);

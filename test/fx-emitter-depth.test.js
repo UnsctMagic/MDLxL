@@ -33,7 +33,8 @@ test('a fresh apply reads back without emitter fields: no look gains a layer.nat
   compileAnimation(doc.model,0,stack);
   for(const format of [null,'mdx','mdl']){
    const model=format?openDocument(doc.serialize(format),'depth.'+format).model:doc.model;
-   for(const layer of readAnimationStack(model,0).layers)assert.deepEqual(depthKeys(layer),[],name+' '+look.id+' '+layer.label+' '+(format||'live'));
+   // A look may set emitter fields itself (flames: frames and flags); any other key is a stray.
+   for(const layer of readAnimationStack(model,0).layers)assert.deepEqual(depthKeys(layer).filter(key=>!(key in (specs[layer.id-1].native||{}))),[],name+' '+look.id+' '+layer.label+' '+(format||'live'));
   }
  }
 });
