@@ -89,3 +89,49 @@ export function inferPoseBranches(evidence, roleOf, occupied) {
   }
   return result;
 }
+
+/** A name is a strong clue, never a veto over the skeleton. Returns role overrides
+ * `{ ObjectId: role }` for names the skeleton contradicts:
+ * a mirrored pair of siblings that each carry a limb is no central trunk part
+ * (they become ordinary joints and the shared parent takes the pair's name), and
+ * a body, pelvis, chest or spine hanging below a head is no trunk part. */
+export function poseNameConflicts(model, evidence, nameRole, roles = {}) {
+  const { nodes, byId, children, pivot, mirrorError } = evidence, out = {};
+  const roleOf = node => roles[node.ObjectId] || nameRole(node);
+  const below = new Map();
+  for (const node of [...nodes, ...(model.Attachments || [])]) { if (node.Parent == null) continue; const list = below.get(node.Parent) || []; list.push(node); below.set(node.Parent, list); }
+  // Limb ends at least two levels below a node, with a joint in between.
+  const limbKinds = node => {
+    const kinds = new Set(), seen = new Set([node.ObjectId]); let level = [node], depth = 0;
+    while (level.length && depth < 16) {
+      const next = []; depth++;
+      for (const item of level) for (const child of below.get(item.ObjectId) || []) {
+        if (seen.has(child.ObjectId)) continue; seen.add(child.ObjectId); next.push(child);
+        if (depth >= 2) { const role = roleOf(child); if (role === 'Hand') kinds.add('arm'); else if (role === 'Foot' || role === 'Hoof') kinds.add('leg'); }
+      }
+      level = next;
+    }
+    return kinds;
+  };
+  const trunk = ['Pelvis', 'Body', 'Chest'], keep = ['Head', 'Neck', 'Chest', 'Spine', 'Pelvis', 'Body', 'Tail', 'Wing', 'Hand', 'Foot', 'Hoof'];
+  for (const [parentId, siblings] of children) {
+    const parent = byId.get(parentId); if (!parent) continue;
+    const group = siblings.filter(node => trunk.includes(nameRole(node)));
+    for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
+      const a = group[i], b = group[j], role = nameRole(a);
+      if (nameRole(b) !== role) continue;
+      const span = Math.max(pivot(a).distanceTo(pivot(parent)), pivot(b).distanceTo(pivot(parent)));
+      if (!(mirrorError(pivot(a), pivot(b), pivot(parent), span) < .25)) continue;
+      const ka = limbKinds(a), kb = limbKinds(b);
+      if (![...ka].some(kind => kb.has(kind))) continue;
+      for (const node of [a, b]) out[node.ObjectId] = node.Name || 'Object';
+      if (!keep.includes(nameRole(parent)) && roles[parentId] === undefined) out[parentId] = role;
+    }
+  }
+  for (const node of nodes) {
+    if (out[node.ObjectId] !== undefined || !['Body', 'Pelvis', 'Chest', 'Spine'].includes(nameRole(node))) continue;
+    let up = byId.get(node.Parent);
+    for (let guard = 0; up && guard < 64; guard++, up = byId.get(up.Parent)) if (roleOf(up) === 'Head') { out[node.ObjectId] = 'Object'; break; }
+  }
+  return out;
+}

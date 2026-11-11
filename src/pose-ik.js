@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
+import { poseRecognitionEvidence, inferPoseBranches, poseNameConflicts } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -173,6 +173,7 @@ export function suggestPoseRig(model, frame, sequence) {
     const end = next && distance(next) < distance(parent) * .98 ? next : parent;
     roles[end.ObjectId] = role;
   }
+  for (const [id, role] of Object.entries(poseNameConflicts(model, evidence, poseNodeRole, roles))) if (roles[id] === undefined) roles[id] = role;
   const roleOf = node => roles[node?.ObjectId] || poseNodeRole(node);
   // Process real ancestors before their mesh children. A pairwise ancestor
   // comparator is not transitive when unrelated limbs sit between the two.

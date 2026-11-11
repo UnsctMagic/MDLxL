@@ -211,6 +211,13 @@ Real anatomical joints precede same-named mesh children; unused branches, cloth
 and rigid props do not become inferred limbs. Ships keep their local body driver
 without turning imported hand/foot attachment names into human anatomy.
 
+A name never vetoes what the skeleton clearly shows. Two mirrored siblings that
+both carry a limb (a hand or foot at least two joints below) are ordinary
+thigh or upper-arm joints even when their name reads as pelvis, body or chest,
+and the joint they hang from takes that name when it has none of its own. A
+body, pelvis, chest or spine bone below a head becomes `Object`. A single
+central pelvis or body is untouched.
+
 Bodies come first, names second. The bodies are found from their limbs; a bone
 named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
 only when it hangs from a found body, or from a joint that body rides on and
