@@ -3,6 +3,7 @@ import React,{Suspense,lazy,useEffect,useMemo,useRef,useState} from 'react';
 import {backgroundThumbnail} from './asset-preload-client.js';
 import {createTextureAssetCache,createTextureLibrarySessions,createThumbnailQueue,createThumbnailLookup,warmTextureLibrarySession} from '../src/texture-library-session.js';
 import {initialTextureLibraryResults,textureFolderTree,textureFormatMatches} from '../src/texture-library-search.js';
+import LibrarySaveCopy,{saveConvertedLibraryTexture} from './LibrarySaveCopy.jsx';
 import {cachedThumbnail,saveThumbnail,peekThumbnail} from '../src/texture-library-cache.js';
 import {getUVPreviewSelection,existingTextureIndex,materialsUsingTexture} from '../src/uv-preview.js';
 import './texture-library.css';
@@ -177,10 +178,13 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const requestTexture=(action,callback,success)=>{if(existingTexture<0)return act(callback,success);if(!materialUsers.length)return act(callback,action==='preview'?success:'Added a new material.',action==='preview'?undefined:{material:'new'});setMessage('');setChoice({callback,success:action==='preview'?success:''});};
   const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
-  const saveCopy=async()=>{
+  const saveCopy=async format=>{
     setBusy(true);setMessage('');setSelectionError('');
     try{
-      const saved=await window.desktop.textureLibraryExport({key:selected.cacheKey,modelPath});
+      const request={key:selected.cacheKey,modelPath};
+      const saved=format
+        ?await saveConvertedLibraryTexture(await window.desktop.textureLibraryRead(request),format)
+        :await window.desktop.textureLibraryExport(request);
       if(saved)setMessage('Saved '+saved);
     }catch(error){setSelectionError(error.message);}
     finally{setBusy(false);}
@@ -222,7 +226,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
         {worldEditor&&catalog&&entryResult.missing.length>0&&<details className="gf-missing"><summary>{translate('{0} textures not found').replace('{0}',entryResult.missing.length)}</summary>{entryResult.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
         {!worldEditor&&result.hasMore&&<button data-hotkey="texture-library:show-more-textures" data-hotkey-manual data-hotkey-label="Show more textures" type="button" className="tl-more" onClick={()=>setLimit(n=>n+120)} disabled={searching}>Show more textures</button>}
       </main>
-      <aside className="tl-details">{selected?<><div className="tl-preview">{selectedImage?<img src={selectedImage} alt={selected.name} translate="no"/>:<span>{selectionError?'Preview unavailable':'Loading preview…'}</span>}</div><h3 translate="no">{selected.name}</h3><p className="tl-version">Game version: <strong>{textureVersionLabel[selected.variant]||textureVersionLabel.unknown}</strong></p><code translate="no">{selected.path}</code><div className="gf-file-actions"><button data-hotkey="texture-library:copy-texture-path" data-hotkey-manual data-hotkey-label="Copy texture path" type="button" className="tl-copy-path" onClick={copyPath}>Copy texture path</button><button data-hotkey="texture-library:save-a-copy" data-hotkey-manual data-hotkey-label="Save a copy…" type="button" className="tl-copy-path" disabled={!catalogFresh||busy} onClick={saveCopy}>Save a copy…</button></div>{selected.sourcePath!==selected.path&&<details><summary>Native source path</summary><code translate="no">{selected.sourcePath}</code></details>}
+      <aside className="tl-details">{selected?<><div className="tl-preview">{selectedImage?<img src={selectedImage} alt={selected.name} translate="no"/>:<span>{selectionError?'Preview unavailable':'Loading preview…'}</span>}</div><h3 translate="no">{selected.name}</h3><p className="tl-version">Game version: <strong>{textureVersionLabel[selected.variant]||textureVersionLabel.unknown}</strong></p><code translate="no">{selected.path}</code><div className="gf-file-actions"><button data-hotkey="texture-library:copy-texture-path" data-hotkey-manual data-hotkey-label="Copy texture path" type="button" className="tl-copy-path" onClick={copyPath}>Copy texture path</button><LibrarySaveCopy key={selected.cacheKey} textureName={selected.lookupName} hotkey="texture-library:save-a-copy" buttonClassName="tl-copy-path" disabled={!catalogFresh||busy} onSave={saveCopy}/></div>{selected.sourcePath!==selected.path&&<details><summary>Native source path</summary><code translate="no">{selected.sourcePath}</code></details>}
         {selected.width>0&&<p className="tl-dimensions">{selected.width} × {selected.height}</p>}{selected._match?.type==='inspiration'&&<p className="tl-note">{selected._match.inspiration} kitbash suggestion<br/>{selected._match.reason.split(' · ').map(value=>translate(value)).join(' · ')}</p>}
         {selected.notes&&<p>{selected.notes}</p>}{selected._match?.missing?.length>0&&<p className="tl-note">Related result. Unconfirmed: {selected._match.missing.map(value=>translate(value)).join(', ')}.</p>}
         {selected.tags?.length>0&&<div className="tl-tags">{selected.tags.slice(0,12).map(tag=><button type="button" key={tag} onClick={()=>{setQuery(tag==='chain'?'chainmail':tag.replaceAll('-',' '));setVibe(true);}}>{tag==='chain'?'chainmail':tag.replaceAll('-',' ')}</button>)}</div>}

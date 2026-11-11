@@ -45,7 +45,9 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-librar
     await preview.click();
     // The choice is a small popup: one button per material that shows the texture, one click decides.
     const choice=page.getByRole('dialog',{name:'Texture already in the model'});await choice.waitFor();
-    assert.equal(await page.locator('.tl-details select').count(),0,'no material dropdown in the details column');
+    const format=picker.getByRole('combobox',{name:'Texture save format',exact:true});
+    assert.deepEqual(await format.locator('option').allInnerTexts(),['DDS','BLP','PNG']);
+    assert.equal(await picker.locator('.tl-details select').count(),1,'the save format is the only dropdown in the details column');
     const existingMaterial=choice.getByRole('button',{name:/^Material \d+ · geoset 1$/});
     assert.equal(await existingMaterial.count(),1);
     await shot(page,'uv-picker-material-choice');

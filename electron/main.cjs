@@ -374,12 +374,16 @@ async function textureLibraryContext(payload){
 }
 ipcMain.handle('texture:library',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>context.catalog)));
 ipcMain.handle('texture:libraryPreview',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>previewCatalog(context.catalog,payload?.format==='blp'?'blp':'all'))));
-ipcMain.handle('texture:libraryExport',async(_,payload)=>{
-  const {catalog,readAsset}=await trackTextureOperation(textureLibraryContext(payload));
+async function libraryTextureSelection(payload){
+  const {catalog,readAsset}=await textureLibraryContext(payload);
   const item=catalog.items.find(item=>item.cacheKey===payload?.key);
   if(!item)throw Error('The texture sources changed. Select the texture again.');
-  const name=path.basename(item.lookupName.split(':').at(-1));
-  return saveLibraryCopy(name,()=>trackTextureOperation(readAsset(item)).then(({bytes})=>bytes));
+  return {name:path.basename(item.lookupName.split(':').at(-1)),read:()=>readAsset(item)};
+}
+ipcMain.handle('texture:libraryRead',(_,payload)=>trackTextureOperation(libraryTextureSelection(payload).then(({read})=>read())));
+ipcMain.handle('texture:libraryExport',async(_,payload)=>{
+  const {name,read}=await trackTextureOperation(libraryTextureSelection(payload));
+  return saveLibraryCopy(name,()=>trackTextureOperation(read()).then(({bytes})=>bytes));
 });
 // The Library's game-file browser reads one installation: the folder chosen in
 // Settings first, then added CASC sources, then discovered installations.

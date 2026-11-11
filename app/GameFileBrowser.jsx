@@ -6,6 +6,7 @@ import {separateGeosetsByLoosePart,nuclearSeparateGeosets} from '../src/geoset-o
 import {collectPart} from '../src/bits-and-parts.js';
 import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
+import LibrarySaveCopy,{saveConvertedLibraryTexture} from './LibrarySaveCopy.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import {FOLDER_ICONS,FolderStyle,GameIcon,LibraryTree,SKIN,worldEditorTree,worldEditorRows,worldEditorResults,worldEditorRowIcon,WORLD_EDITOR_PLACEHOLDER,WORLD_EDITOR_NO_GAME,WORLD_EDITOR_NO_MATCHES} from './WorldEditorTree.jsx';
@@ -211,11 +212,14 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
       if(request===modelRequest.current)setFileMessage({text:'Path copied.'});
     }catch(caught){if(request===modelRequest.current)setFileMessage({text:caught.message,error:true});}
   };
-  const saveCopy=async()=>{
+  const saveCopy=async format=>{
     const request=modelRequest.current;
     setFileMessage(null);setSaving(true);
     try{
-      const saved=await window.desktop.gameFilesExport({id:selectedEntry.id,signature});
+      const payload={id:selectedEntry.id,signature};
+      const saved=format
+        ?await saveConvertedLibraryTexture(await window.desktop.gameFilesRead(payload),format)
+        :await window.desktop.gameFilesExport(payload);
       if(saved&&request===modelRequest.current)setFileMessage({text:'Saved '+saved});
     }catch(caught){if(request===modelRequest.current)setFileMessage({text:caught.message,error:true});}
     finally{setSaving(false);}
@@ -297,7 +301,7 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
           <code translate="no">{selectedEntry.path}</code>
           <div className="gf-file-actions">
             <button data-hotkey="game-files:copy-path" data-hotkey-manual data-hotkey-label="Copy path" type="button" onClick={copyFilePath}>Copy path</button>
-            <button data-hotkey="game-files:save-a-copy" data-hotkey-manual data-hotkey-label="Save a copy…" type="button" onClick={saveCopy} disabled={saving}>Save a copy…</button>
+            <LibrarySaveCopy key={selectedEntry.id} textureName={selectedEntry.type==='textures'?selectedEntry.name:undefined} hotkey="game-files:save-a-copy" onSave={saveCopy} disabled={saving}/>
           </div>
           {fileMessage&&<p className={fileMessage.error?'tl-error':'tl-success'} role="status">{fileMessage.text}</p>}
         </>}

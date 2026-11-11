@@ -103,6 +103,7 @@ contextBridge.exposeInMainWorld('desktop', {
   textureLibraryCatalog: payload => call('texture:library',payload),
   textureLibraryPreview: payload => call('texture:libraryPreview',payload),
   textureLibraryExport: payload => call('texture:libraryExport',payload),
+  textureLibraryRead: payload => call('texture:libraryRead',payload),
   copyTexturePath: value => call('texture:copyPath',value),
   gameFilesSummary: () => call('gameFiles:summary'),
   gameFilesBrowse: payload => call('gameFiles:browse',payload),

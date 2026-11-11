@@ -22,8 +22,10 @@
 The full Library declares `data-hotkey-scope="library"` so global shortcuts such
 as Escape → *Clear vertex selection* do not swallow its keys; pickers keep their
 existing hotkey behaviour. **Save a copy…** is beside the selected file's path
-in every tab and texture picker. It preserves the original bytes and extension,
-including when a listed file has no preview.
+in every tab and texture picker, including when a listed file has no preview.
+For textures, choose DDS, BLP or PNG beside the button. The original format is
+the default and saves byte-for-byte. Conversion uses the full-resolution texture
+and the existing DDS/BLP/PNG encoders.
 
 ## Game-file browser
 
