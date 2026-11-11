@@ -1,4 +1,4 @@
-import { suggestPoseRig, poseChainIds, poseRole } from './pose-ik.js';
+import { suggestPoseRig, poseChainIds, poseRole, poseNodeRole } from './pose-ik.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { sampleNodeMatrices, worldPivot, sampleGeosetAnimation } from './animation.js';
 import { nodeIndex, uniqueName } from './node-hierarchy.js';
@@ -58,7 +58,9 @@ function planOnce(model, originals) {
   const identified = new Set([rig.body, ...(rig.nodes || []), ...(rig.chains || []).flatMap(poseChainIds), ...Object.keys(rig.roles || {}).map(Number)].filter(id => id != null));
   const role = id => { const value = poseRole(model, rig, id); return ROLES.has(value) ? value : null; };
   const parts = new Map(), blocked = new Set();
-  const assign = (id, part) => { if (allowed.has(id)) parts.set(id, part); };
+  // Shape-only Wing limbs must stay anonymous to retain POSE's limb reading.
+  const shapeWingIds = new Set((rig.chains || []).filter(chain => chain.label === 'Wing' && !poseChainIds(chain).some(id => poseNodeRole(tree.byId.get(id)) === 'Wing')).flatMap(poseChainIds));
+  const assign = (id, part) => { if (allowed.has(id)) parts.set(id, shapeWingIds.has(id) ? 'keep' : part); };
   for (const id of identified) { const value = role(id); if (value && !['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value === 'Body' ? 'root' : value.toLowerCase()); }
   for (const chain of rig.chains || []) {
     const ids = poseChainIds(chain);
