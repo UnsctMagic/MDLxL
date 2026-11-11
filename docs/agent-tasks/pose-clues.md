@@ -201,3 +201,29 @@ Bone_Head01, in both SD corpus folders. DeadwoodV2.05 also moved from
 Bone_Neck to Bone_Head01 and lost its Leaf Neck handle. That removal falls
 outside the allowed library changes. The patch was kept as specified for
 review. Full results are in out/pose-corpus-diff-head/changes.md.
+
+## Renamed bones keep their handles (2026-11-11, `claude/pose-renamed-fixes`)
+
+Bone Namer library gate faults on 88aef3e1 (renames applied in memory,
+`test/pose-renamed-names.test.js`):
+
+- Fixed, zergling (`corpus-sd` and `corpus-sd800`): naming the scythe ends
+  `Mesh12`/`Object15` as `Bone_Hand_L`/`_R` made the mirrored-trunk-pair rule
+  demote `Bone Root L`/`R` (two Body handles lost) and move Body to the still
+  mesh holder `Object01`. Now the pair keeps its names when the joint it hangs
+  from has no name of its own and does not move (`poseNameConflicts`). The
+  arms keep their ends; with named hands they are the usual three-joint chain.
+- Not fixed, Lord of Change (`B_W_1..6` -> `Bone_Wing1..3_R/L`): a POSE fix
+  (let Wing names through the mirrored-sibling rule) breaks two accepted
+  tests, `pose-wings` "wing joints named by name get no extra chains" and
+  `pose-unanimated` "named wing joints keep their Wing part handles without
+  animation". Renamed Lord has the same shape as that fixture, so under the
+  current rule Wing-named joints are Wing part handles. Owner decision needed:
+  either Bone Namer avoids Wing names on joints of a POSE Wing limb, or the
+  named-wing rule changes.
+- Gates against 88aef3e1 (`D:\Codex\pose-renamed-rigs-20261111\repo`):
+  library `scripts/pose-corpus-diff.mjs` 1,021 models, 0 different; classic
+  (`clues: false`) 1,021, 0 different; Auto Corpse and Attachemator output
+  hashes 1,019 models, 0 different (scripts in this worktree's
+  `out/pose-compare/`). `test/pose-*.test.js` 122: 119 pass, 0 fail, 3 skipped
+  (corpus manifest and the dense twin-head fixture are not in this worktree).

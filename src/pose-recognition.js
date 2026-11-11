@@ -212,8 +212,12 @@ export function poseNameConflicts(model, evidence, nameRole, roles = {}) {
       if (!(mirrorError(pivot(a), pivot(b), pivot(parent), span) < .25)) continue;
       const ka = limbKinds(a), kb = limbKinds(b);
       if (![...ka].some(kind => kb.has(kind))) continue;
+      // The pair's name moves up only to a joint that can carry it: a still,
+      // unnamed holder (a mesh pivot) leaves the pair as named.
+      const takesName = !keep.includes(nameRole(parent)) && roles[parentId] === undefined;
+      if (takesName && !evidence.moving(parent)) continue;
       for (const node of [a, b]) out[node.ObjectId] = node.Name || 'Object';
-      if (!keep.includes(nameRole(parent)) && roles[parentId] === undefined) out[parentId] = role;
+      if (takesName) out[parentId] = role;
     }
   }
   for (const node of nodes) {

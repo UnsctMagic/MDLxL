@@ -227,8 +227,9 @@ results are unchanged; the added clues apply to the POSE handles shown in Moveme
 A name never vetoes what the skeleton clearly shows. Two mirrored siblings that
 both carry a limb (a hand or foot at least two joints below) are ordinary
 thigh or upper-arm joints even when their name reads as pelvis, body or chest,
-and the joint they hang from takes that name when it has none of its own. A
-body, pelvis, chest or spine bone below a head becomes `Object`. A single
+and the joint they hang from takes that name when it has none of its own. If
+that joint has no name of its own and does not move (a still mesh holder), the
+pair keeps its names. A body, pelvis, chest or spine bone below a head becomes `Object`. A single
 central pelvis or body is untouched.
 A weapon word excludes only what is held, a joint below a hand; elsewhere a moving, skinned, three-joint branch may be a limb, and a mirrored partner may hang from the mirrored sibling of its parent joint (two shoulders), but only where no joint of it already has a body-part role by name. A branch found only by these two rules whose skin is a sheet (`sqrt(l3 / l2)` of the skin vertices below 0.3) is labelled Wing. In a single file of same-kind hand (or foot) joints where every joint moves and the top one sits next to the trunk (its grandparent is absent or a chest, pelvis, body, spine, neck or head), the one that carries the matching attachment is the end and the joints above it are ordinary limb joints. Any other file, such as a foot with legs above it, is untouched.
 Clues only add: a joint with no role that is the parent of two or more leg
