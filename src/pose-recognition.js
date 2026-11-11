@@ -7,7 +7,7 @@ import { vertexBones } from './part-bones.js';
 
 // Recognition evidence is computed from the authored model, once per setup.
 // No filenames, node IDs, training assets, or edited preview poses are consulted.
-export function poseRecognitionEvidence(model) {
+export function poseRecognitionEvidence(model, { clues = true } = {}) {
   const nodes = [...(model.Bones || []), ...(model.Helpers || [])], tree = nodeIndex(model, nodes), { byId, children } = tree;
   const profiles = new Map();
   const rigidSkinModel = { ...model, Geosets: (model.Geosets || []).filter(geo => !geo.SkinWeights?.length).map(geo => ({ ...geo, Groups: (geo.Groups || []).map(ids => ids.length === 1 ? ids : []) })) };
@@ -38,6 +38,7 @@ export function poseRecognitionEvidence(model) {
   const realMoving = node => profiles.get(node.ObjectId)?.swing > .01;
   const realArticulated = node => realMoving(node) || descendants(node.ObjectId).some(realMoving);
   const strict = { moving: realMoving, articulated: realArticulated, links: id => (children.get(id) || []).filter(realArticulated) };
+  // Without the added clues, motion is read strictly (as the classic rig does).
   const pivot = node => new Vector3().fromArray(nodePivot(model, node));
   // Compare mirror geometry about the common branch point. Facing may be X or Y.
   const mirrorError = (a, b, origin, span) => Math.min(...[0, 1].map(axis => {
@@ -45,7 +46,7 @@ export function poseRecognitionEvidence(model) {
     if (av.getComponent(axis) * bv.getComponent(axis) >= 0) return Infinity;
     av.setComponent(axis, -av.getComponent(axis)); return av.distanceTo(bv) / Math.max(span, 1e-6);
   }));
-  return { nodes, byId, children, tree, profiles, descendants, animated, moving, supported, articulated, links, strict, pivot, mirrorError };
+  return { nodes, byId, children, tree, profiles, descendants, animated, moving: clues ? moving : realMoving, supported, articulated: clues ? articulated : realArticulated, links: clues ? links : strict.links, strict, pivot, mirrorError };
 }
 
 const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
@@ -90,12 +91,12 @@ export function poseSkinFlatness(model, evidence, ids) {
 /** Unknown branches need both real articulation and a skinned, symmetric peer.
  * Long repeated branches remain generic chains; they are not called feet merely
  * because they point down. This also leaves tiny fingers and rigid props alone. */
-export function inferPoseBranches(evidence, roleOf, occupied, model = null) {
+export function inferPoseBranches(evidence, roleOf, occupied, model = null, clues = true) {
   const { nodes, byId, children, profiles, supported, pivot, mirrorError } = evidence, { moving, links } = evidence.strict, result = [];
   // A weapon word excludes only what is held: a joint below a hand. Other names
   // (cloth, hair, fingers...) still exclude as before.
   const held = node => evidence.tree.ancestors(node.ObjectId).some(id => roleOf(byId.get(id)) === 'Hand');
-  const excluded = node => (isWeaponName(node.Name) && held(node)) || excludedExtra.test(node.Name);
+  const excluded = node => clues ? (isWeaponName(node.Name) && held(node)) || excludedExtra.test(node.Name) : poseExcludedBranchName(node.Name);
   const oldExcluded = node => poseExcludedBranchName(node.Name);
   const unpaired = new Map(), emitted = new Set(), isNew = new Set();
   // A branch found only by the weapon-word or mirrored-sibling rules adds where
@@ -138,7 +139,7 @@ export function inferPoseBranches(evidence, roleOf, occupied, model = null) {
   }
   // A mirrored partner may hang from the mirrored sibling joint (wings grow from
   // two shoulders, not from one parent).
-  for (const parent of nodes) {
+  for (const parent of clues ? nodes : []) {
     const group = byId.get(parent.Parent);
     if (!group) continue;
     for (const first of unpaired.get(parent.ObjectId) || []) {

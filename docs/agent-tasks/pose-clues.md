@@ -145,3 +145,29 @@ Updated: 2026-11-11
   first on build 3. Owner, 11 Nov: no repeat runs, the release suite covers
   the rest.
 - Not verified: the owner's hand test of wings, hands and hide / reveal.
+
+## Mount heads and the classic mode, 11 Nov late
+
+- Owner's zombie dragon (`pose-heads/WH_VC_ZombieDragonVCarsteinHero01.mdx`):
+  the mount's head has only a `Head Ref`; main ignores a head attachment when
+  any joint in the hierarchy root has a head name (here the rider's). New
+  rule: a head attachment marks the head unless a head-named joint is on its
+  own line (ancestor, the parent's parent, or below the parent's parent) or
+  shares its trunk anchor (nearest ancestor with a name role Chest, Spine,
+  Pelvis, Body or Neck; "none" counts as shared). Library: 13 models gain a
+  head and neck (3 owner dragons, wyvern rider, Malfurion, three death-knight
+  horses, each Blizzard one twice). Rejected on the way: without the anchor
+  test the Vampire Dragon rider's collar, the wind serpent and the dragonhawk
+  got second heads.
+- Measured for the first time: tools that read `suggestPoseRig` changed
+  silently. Against main, Auto Corpse output differed on 96 library models and
+  Attachemator on 118 (scratch: `out/pose-compare/consumers.mjs`), and the
+  dragon corpse test failed once the dragon head was found.
+- Decision: `suggestPoseRig(model, frame, sequence, { clues })`. Default
+  (`clues: true`) is the POSE screen. `clues: false` returns main's rig
+  exactly and is what `src/corpse-geometry.js`, `src/attachemator.js`,
+  `src/anim-xl.js` and `app/AnimXL.jsx` pass. Proof on 1019 models: classic rig
+  identical to main's on all (`out/pose-compare/classic.mjs`); Auto Corpse and
+  Attachemator outputs identical to main's on all. Letting one of those tools
+  use the new clues is a separate change with its own library comparison.
+- `rig.inferred` lists the roles `posePartGaps` added.

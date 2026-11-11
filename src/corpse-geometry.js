@@ -96,7 +96,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   const hasSkin=id=>[...clouds.keys()].some(key=>ancestors(key).includes(id));
   const at=id=>new Vector3().fromArray(nodePivot(model,byId.get(id),id)).applyMatrix4(matrices.get(id)).toArray();
-  const rig=suggestPoseRig(model,frame,deathIndex),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
+  const rig=suggestPoseRig(model,frame,deathIndex,{clues:false}),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
   // Whatever hangs below a hand is held (a weapon, its head or chain, a
   // carried object), never anatomy, whatever its bones are called.
   // A wing's fingers spread from its "hand" joint; they are wing, not held.

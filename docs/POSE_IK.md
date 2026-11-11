@@ -217,6 +217,10 @@ without turning imported hand/foot attachment names into human anatomy.
 An unanimated unit is recognised from names, attachment points and skeleton. Limbs
 with no usable name are only found once an animation moves them (they can be
 added by hand with Add).
+A head attachment point marks the head of its own neck even when another body in
+the same model (a rider, a second creature) has a named head.
+Auto Corpse, Attachemator and AnimXL read the rig without these added clues, so their
+results are unchanged; the added clues apply to the POSE handles shown in Movement.
 
 A name never vetoes what the skeleton clearly shows. Two mirrored siblings that
 both carry a limb (a hand or foot at least two joints below) are ordinary

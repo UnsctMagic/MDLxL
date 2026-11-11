@@ -91,7 +91,7 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
   let body = null, feet = [], legLength = 0, legs = [], arms = [];
   const roles = new Map();
   try {
-    const seq = model.Sequences?.[sequenceIndex], rig = suggestPoseRig(model, seq ? seq.Interval[0] : 0, sequenceIndex);
+    const seq = model.Sequences?.[sequenceIndex], rig = suggestPoseRig(model, seq ? seq.Interval[0] : 0, sequenceIndex, { clues: false });
     for (const [id, role] of asMap(rig.roles)) roles.set(Number(id), role);
     body = rig.body ?? null;
     // A limb owns its upper and middle bones. Two "legs" sharing a hip bone

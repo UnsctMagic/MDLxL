@@ -178,7 +178,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   const shaping = useMemo(() => target !== 'selected' ? settings : { ...settings, only: selection, heavyIds: settings.heavy > 0 ? selection : [], looseIds: settings.heavy > 0 ? [] : selection }, [settings, target, selection]);
   // POSE handles in the preview: your POSE setup if you made one, otherwise AnimXL's own reading of the rig.
   // Clicking a handle selects its limb (or the body); clicking it again deselects it.
-  const poseBase = useMemo(() => { if (poseRig) return poseRig; try { return suggestPoseRig(model, interval[0], seq); } catch { return null; } }, [poseRig, model, doc.revision, seq]);
+  const poseBase = useMemo(() => { if (poseRig) return poseRig; try { return suggestPoseRig(model, interval[0], seq, { clues: false }); } catch { return null; } }, [poseRig, model, doc.revision, seq]);
   const [poseTarget, setPoseTarget] = useState(null);
   const poseConfig = target === 'selected' && poseBase ? { ...poseBase, enabled: true, picking: null, pins: poseBase.pins || [], target: poseTarget } : null;
   const handleBones = t => {

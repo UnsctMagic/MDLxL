@@ -155,3 +155,11 @@ test('a name the reader rules out as non-anatomy gets no neck; its neighbour doe
 test('legs hanging from the body joint add nothing', () => {
   assert.deepEqual(summary(legsOnBody()), BASE_ON_BODY);
 });
+
+test('rig.inferred lists exactly the roles the gap rules added', () => {
+  for (const [model, expected] of [[unnamedWaist(), { Joint07: 'Pelvis' }], [unnamedNeck(true), { Joint09: 'Neck' }], [legsOnBody(), {}]]) {
+    const rig = suggestPoseRig(model, 0, 0), nodes = allNodes(model), name = id => nodes.find(n => n.ObjectId === Number(id)).Name;
+    assert.deepEqual(Object.fromEntries(Object.entries(rig.inferred).map(([id, role]) => [name(id), role])), expected);
+    for (const id of Object.keys(rig.inferred)) assert.equal(rig.roles[id], rig.inferred[id]);
+  }
+});
