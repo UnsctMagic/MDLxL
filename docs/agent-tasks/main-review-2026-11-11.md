@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: combined local branch ready for Claude’s final review. Three packaged checks failed; see the combined results below.
+Status: local handoff for Claude’s final review. The harness recheck stopped at an animated-vertex release assertion.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-11
 
@@ -315,3 +315,47 @@ update of the separate release branch.
 
 Claude’s next step is review only, using this note and the
 [fix verdicts](main-review-fix-verdicts.md). The branch is local.
+
+## Follow-up on the three packaged test faults
+
+Test revision `8b9130e5` on `codex/main-review-20261111-all`, from
+`7bb44d28`. Fit’s audit chooses an unused shortcut from the live Hotkeys
+table. The animated Move check waits up to five seconds for the requested
+screen position. The BITZ recovery check polls from Node for up to ten
+seconds for the fixture path. Only the three harnesses changed.
+
+`node --check` passed for all three files. The prior disposable package
+had been removed, so the unchanged combined app was rebuilt once offline
+and the same package was used for every combined run. Each harness was
+launched with `node test/<name>.electron.cjs` through `scripts/hidden-run.ps1`.
+
+| Combined harness | Run 1 | Run 2 |
+| --- | --- | --- |
+| `hotkey-defaults-audit` | Passed, 33 windows/states and 748 catalog rows | Passed, 33 windows/states and 748 catalog rows |
+| `vertex-animated-preview` | Failed at line 245, “release keeps the posed edit at component 0” | Unrun |
+| `review-bitz` | Unrun | Unrun |
+
+The vertex run passed the corrected Move check. It stopped in the
+Rotate/Resize loop after mouse-up, when the displayed vertices were
+compared with the last sampled preview. The log does not identify which
+tool was active. The sequence stopped at that failure. No further test
+or application changes were made.
+
+### Old-code proof
+
+The corrected harnesses were also run hidden against a separate offline
+package of `4340c5f8`. Each exited 1 on the original behavior.
+
+- Hotkeys passed the Fit rebind, then timed out waiting for **Restore all
+  defaults** after choosing Default. The old app did not offer that
+  confirmation.
+- Animated Move still failed the original pointer assertion after the
+  five-second wait. An 18 px right and 5 px down drag moved the vertex
+  5 px right and 18 px up.
+- The BITZ Exit scenario reported “Exit did not keep the replacement
+  open for the Save warning.” It failed before reaching the checkpoint
+  poll. The combined-package checkpoint remains unverified.
+
+Logs are in `out/test-faults`. Claude’s handoff is review only. The
+hotkey setup now passes twice, and the animated release failure is the
+point to inspect next.
