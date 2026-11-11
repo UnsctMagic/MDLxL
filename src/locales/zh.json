@@ -7694,6 +7694,8 @@
   "Mount": "坐骑",
   "Extra": "额外主体",
   "Not recognised": "未识别",
+  "Mesh piece": "网格部件",
+  "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.": "网格部件沿用其所附着骨骼的名称，并在前面加上 Mesh_。",
   "Keep name": "保留名称",
   "Root": "根部",
   "Spine": "脊柱",

@@ -446,6 +446,25 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 ## Changes and verification
 
+### Fix round 4
+
+- Started on clean `claude/bone-namer` at `33c47615` in the named D: worktree.
+- Implemented items 1-2. Default Mesh piece proposals apply the listed guards
+  and use the parent's resolved name with `Mesh_` in place of a leading `Bone_`.
+  The parent supplies the part, side, actor wording and numbering in the name.
+  The existing uniqueness rule handles collisions. A manual Mesh piece choice
+  on a bone without a parent retains its current name.
+- Gripped ends use `movementBoneVertexCenter` with Stand matrices for their side.
+  Default mesh eligibility uses the same helper for each candidate's skin centre.
+- Added the Part label and tooltip in all five locale catalogs. Mesh piece uses
+  the existing disabled Side control. Updated the user guide.
+- `pnpm run build` passed (Vite 7.3.1, 2,887 modules, 17.21 s), with existing JSON
+  import-attribute and large-chunk warnings. `git diff --check` passed.
+- No tests written or run. Claude owns the source, corpus and app QA for this
+  revision. Earlier QA results below apply to the earlier revision.
+- Build output and temporary files were removed. The Engine API and protected
+  files were preserved. No POSE rebase or merge. Saved locally for Claude.
+
 ### Fix round 3
 
 - Resumed from clean `d2702fb4bdfac8ffb2ab8c05acea3c562efcc65d` on
@@ -546,8 +565,9 @@ onto `claude/bone-namer`. Evidence folders are in `.claude\worktrees\bone-namer-
 
 ## Blockers and next action
 
-- None. Passes on main's POSE and on the POSE branch `e96ae092`. Ready for the
-  owner's hand test.
+- Round 4 is ready for Claude QA from the local `claude/bone-namer` commit.
+  Verify the guards and corrections, Raider mesh pieces, and gripped ends with
+  opposing pivot and Stand skin sides before the next hand-test build.
 - If the POSE branch changes again before both merge, rerun
   `node scripts/bone-namer-corpus.mjs` with this namer on that revision.
 - On approved merge: mark completed with its revision and remove the README row;

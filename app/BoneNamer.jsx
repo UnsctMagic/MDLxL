@@ -9,12 +9,13 @@ import './attachemator.css';
 import './bone-namer.css';
 
 const OVERLAYS = { attachments: false, bones: true, helpers: true, nodes: false, particles: false, sounds: false, events: false, skeleton: true, focusedSkeleton: true };
-const PART_LABELS = ['Root', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Arm', 'Hand', 'Leg', 'Foot', 'Hoof', 'Tail', 'Wing', 'Keep name'];
+const PART_LABELS = ['Root', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Arm', 'Hand', 'Leg', 'Foot', 'Hoof', 'Tail', 'Wing', 'Mesh piece', 'Keep name'];
 const KINDS = { main: 'Main', mount: 'Mount', extra: 'Extra', copy: 'Copy' };
 const SIDED = new Set(['arm', 'hand', 'leg', 'foot', 'hoof', 'wing']);
 const LEGS = new Set(['leg', 'foot', 'hoof']);
 const family = part => ['root', 'pelvis', 'spine', 'chest', 'neck', 'head'].includes(part) ? 'trunk' : ['arm', 'hand'].includes(part) ? 'arm' : LEGS.has(part) ? 'leg' : part;
 const PART_TIP = 'The body part this bone is. Arm and leg bones are numbered from the body outward (Arm1 upper arm, Arm2 forearm, then Hand); numbers update by themselves.';
+const MESH_TIP = 'A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.';
 const SIDE_TIP = 'Left and right as the unit sees it: it faces +X, its left is +Y.';
 const ACTOR_TIP = "Which body this group of bones belongs to. Main has no prefix; a mount's bones start with Bone_Mount_.";
 const EMPTY = 'No body parts recognised. Choose a part for each bone you want renamed.';
@@ -109,7 +110,7 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
     return <div key={row.id} ref={element => { if (element) rowElements.current.set(row.id, element); else rowElements.current.delete(row.id); }} role="row" className={`atm-row bnm-row${selected === row.id ? ' is-selected' : ''}${chosen.has(row.id) ? '' : ' is-vetoed'}`} onClick={() => select(row.id)}>
       <span role="cell" onClick={event => event.stopPropagation()}><input type="checkbox" aria-label="Rename bone" title="Ticked bones are renamed. Untick one to keep its current name." disabled={row.part === 'keep'} checked={chosen.has(row.id)} onChange={() => tick(row.id, !chosen.has(row.id))}/></span>
       <span role="cell" translate="no">{row.current}</span><span role="cell" translate="no">{row.name}</span>
-      <span role="cell" className="atm-bone"><select aria-label="Part" title={PART_TIP} value={row.part} onChange={event => partChange(row, event.target.value)}>{BONE_PARTS.map((part, index) => <option key={part} value={part}>{PART_LABELS[index]}</option>)}</select></span>
+      <span role="cell" className="atm-bone"><select aria-label="Part" title={row.part === 'mesh' ? MESH_TIP : PART_TIP} value={row.part} onChange={event => partChange(row, event.target.value)}>{BONE_PARTS.map((part, index) => <option key={part} value={part} title={part === 'mesh' ? MESH_TIP : undefined}>{PART_LABELS[index]}</option>)}</select></span>
       <span role="cell" className="atm-bone"><select aria-label="Side" title={SIDE_TIP} disabled={!SIDED.has(row.part)} value={row.side ? `${row.side}:${row.position || ''}` : ''} onChange={event => sideChange(row, event.target.value)}>{!row.side && <option value="">—</option>}{sideOptions.map(option => <option key={`${option.side}:${option.position || ''}`} value={`${option.side}:${option.position || ''}`}>{option.label}</option>)}</select></span>
     </div>;
   };

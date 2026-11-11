@@ -3,12 +3,16 @@ import { standSequenceIndex } from './sequence-editor.js';
 import { sampleNodeMatrices, worldPivot, sampleGeosetAnimation } from './animation.js';
 import { nodeIndex, uniqueName } from './node-hierarchy.js';
 import { renameRigNode } from './bone-tools.js';
+import { movementBoneVertexCenter } from './movement-selection.js';
+import { isWeaponName } from './rig-names.js';
 
-export const BONE_PARTS = Object.freeze(['root', 'pelvis', 'spine', 'chest', 'neck', 'head', 'arm', 'hand', 'leg', 'foot', 'hoof', 'tail', 'wing', 'keep']);
+export const BONE_PARTS = Object.freeze(['root', 'pelvis', 'spine', 'chest', 'neck', 'head', 'arm', 'hand', 'leg', 'foot', 'hoof', 'tail', 'wing', 'mesh', 'keep']);
 const ROLES = new Set(['Body', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Hand', 'Foot', 'Hoof', 'Tail', 'Wing']);
 const SIDED = new Set(['arm', 'hand', 'leg', 'foot', 'hoof', 'wing']);
 const LEGS = new Set(['leg', 'foot', 'hoof']);
 const NUMBERED = new Set(['arm', 'leg', 'tail', 'wing']);
+const MESH_PARENT_EXCLUSIONS = new Set(['root', 'hand', 'chest', 'mesh', 'keep']);
+const PROTECTED_MESH_NAME = /chain|rein|guard|camera|over[\s_.-]*head|cloth|cape|banner|hair|beard|finger|thumb|decoration|jaw|lip|eye|brow|death|portrait|gutz|glow|ref/i;
 const title = word => word[0].toUpperCase() + word.slice(1);
 const rigNodes = model => [...(model.Bones || []), ...(model.Helpers || [])];
 
@@ -16,7 +20,11 @@ function measure(model) {
   const tree = nodeIndex(model), sequence = standSequenceIndex(model), frame = model.Sequences?.[sequence]?.Interval?.[0] ?? 0;
   const matrices = sampleNodeMatrices(model, frame, sequence, frame), points = new Map();
   for (const [id, node] of tree.byId) points.set(id, worldPivot(model, id, matrices, node));
-  return { tree, sequence, frame, points };
+  const rig = suggestPoseRig(model, frame, sequence), meshEndYs = new Map();
+  for (const chain of rig.chains || []) if (Array.isArray(chain.grip)) {
+    meshEndYs.set(chain.end, movementBoneVertexCenter(model, chain.end, matrices).center.y);
+  }
+  return { tree, sequence, frame, points, matrices, rig, meshEndYs };
 }
 
 // Preorder keeps unnamed siblings together, with the shared cycle/parent rules.
@@ -51,10 +59,8 @@ export function planBoneNames(model) {
 }
 
 function planOnce(model, originals) {
-  const unit = measure(model), { tree, sequence, frame } = unit;
+  const unit = measure(model), { tree, points, matrices, rig, meshEndYs } = unit;
   const bones = rigNodes(model), allowed = new Set(bones.map(node => node.ObjectId));
-  const rig = suggestPoseRig(model, frame, sequence);
-  unit.rig = rig;
   const identified = new Set([rig.body, ...(rig.nodes || []), ...(rig.chains || []).flatMap(poseChainIds), ...Object.keys(rig.roles || {}).map(Number)].filter(id => id != null));
   const role = id => { const value = poseRole(model, rig, id); return ROLES.has(value) ? value : null; };
   const parts = new Map(), blocked = new Set();
@@ -116,6 +122,19 @@ function planOnce(model, originals) {
   for (const chain of chains) for (const id of poseChainIds(chain)) {
     if (id !== chain.end && chains.some(other => other !== chain && (poseChainIds(other).includes(id) || tree.isAncestor(other.end, id)))) assign(id, 'keep');
   }
+  for (const node of model.Bones || []) {
+    const id = node.ObjectId, parent = tree.parentOf(id), parentPart = parts.get(parent);
+    if (identified.has(id) || parts.has(id) || !parentPart || MESH_PARENT_EXCLUSIONS.has(parentPart)) continue;
+    if (tree.children.get(id)?.some(child => allowed.has(child.ObjectId))) continue;
+    const current = originals.get(id);
+    if (isWeaponName(current) || PROTECTED_MESH_NAME.test(current)) continue;
+    const keys = node.Rotation?.Keys || [], first = keys[0]?.Vector;
+    if (first && keys.some(({ Vector }) => Vector.some((value, index) => value !== first[index])
+      && Vector.some((value, index) => value !== -first[index]))) continue;
+    const skin = movementBoneVertexCenter(model, id, matrices);
+    const parentY = meshEndYs.get(parent) ?? points.get(parent).y;
+    if (skin && (Math.abs(skin.center.y) <= 1e-4 || Math.sign(skin.center.y) === Math.sign(parentY))) assign(id, 'mesh');
+  }
   const rows = bones.map(node => ({ id: node.ObjectId, current: (parts.get(node.ObjectId) || 'keep') === 'keep' ? originals.get(node.ObjectId) : node.Name, part: parts.get(node.ObjectId) || 'keep', side: null, position: null,
     actor: tree.ancestors(node.ObjectId, true).find(id => bodies.has(id)) ?? null, name: node.Name }));
   const plan = { actors: [...bodies].map(body => ({ body })), rows, error: null };
@@ -161,10 +180,8 @@ function actorMeasures(model, rows, actors, unit) {
 }
 
 function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} } = {}, unit = measure(model)) {
-  const { tree, points } = unit, order = hierarchyOrder(tree);
-  const rig = unit.rig || suggestPoseRig(model, unit.frame, unit.sequence);
+  const { tree, points, rig, meshEndYs } = unit, order = hierarchyOrder(tree);
   const chains = rig.chains || [], mounts = new Set(Object.keys(rig.followers || {}).map(Number));
-  const meshEnds = new Set(chains.filter(chain => Array.isArray(chain.grip)).map(chain => chain.end));
   const limbOf = row => {
     if (!['arm', 'leg', 'wing'].includes(row.part)) return null;
     const direct = chains.findIndex(chain => poseChainIds(chain).includes(row.id));
@@ -177,7 +194,8 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
   const rows = plan.rows.map(row => {
     const part = parts[row.id] ?? row.part;
     if (!BONE_PARTS.includes(part)) throw new Error('Choose a valid bone part.');
-    return { ...row, part, side: SIDED.has(part) ? sides[row.id]?.side ?? (points.get(row.id).y >= 0 ? 'L' : 'R') : null, position: null, name: row.current };
+    const side = SIDED.has(part) ? sides[row.id]?.side ?? ((meshEndYs.get(row.id) ?? points.get(row.id).y) >= 0 ? 'L' : 'R') : null;
+    return { ...row, part, side, position: null, name: row.current };
   });
   legPositions(rows, unit);
   for (const row of rows) {
@@ -186,7 +204,7 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
     if (row.position != null && !/^(Front|Rear|Middle[1-9][0-9]*|Middle)$/.test(row.position)) throw new Error('Choose a valid leg position.');
   }
   const groups = new Map();
-  for (const row of rows.filter(row => row.part !== 'keep')) {
+  for (const row of rows.filter(row => row.part !== 'keep' && row.part !== 'mesh')) {
     const key = JSON.stringify([row.actor, row.part, row.side, row.position, limbOf(row)]);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -196,12 +214,12 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
     group.sort((a, b) => tree.depth(a.id) - tree.depth(b.id) || order.get(a.id) - order.get(b.id));
     group.forEach((row, index) => {
       const numbered = NUMBERED.has(row.part) || ['spine', 'neck'].includes(row.part) && group.length > 1;
-      base.set(row.id, `${meshEnds.has(row.id) ? 'Mesh' : 'Bone'}_${title(row.part)}${numbered ? index + 1 : ''}${row.position ? '_' + row.position : ''}${row.side ? '_' + row.side : ''}`);
+      base.set(row.id, `${meshEndYs.has(row.id) ? 'Mesh' : 'Bone'}_${title(row.part)}${numbered ? index + 1 : ''}${row.position ? '_' + row.position : ''}${row.side ? '_' + row.side : ''}`);
     });
   }
   let actors = actorMeasures(model, rows, plan.actors, unit);
   // Manually classified bones in an unrecognised rig share the unprefixed group.
-  if (rows.some(row => row.actor === null && row.part !== 'keep')) actors.push({ body: null, span: 0 });
+  if (rows.some(row => row.actor === null && base.has(row.id))) actors.push({ body: null, span: 0 });
   const signatures = new Map(actors.map(actor => [actor.body, JSON.stringify([...new Set(rows.filter(row => row.actor === actor.body && base.has(row.id)).map(row => base.get(row.id)))].sort())]));
   const requestedMain = actors.find(actor => !mounts.has(actor.body) && overrides[actor.body] === 'main');
   const originalMain = actors.find(actor => !mounts.has(actor.body));
@@ -239,23 +257,31 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
     for (const row of rows.filter(row => row.actor === actor.body && base.has(row.id))) names.set(row.id, base.get(row.id).replace(/^(Bone_|Mesh_)/, '$1' + prefix) + suffixFor(row.current));
     completed.push({ body: actor.body, kind, copyOf, prefix, suffix: kind === 'copy' ? suffixFor(bodyName) : '' });
   }
+  const meshRows = rows.filter(row => row.part === 'mesh' && tree.parentOf(row.id) != null);
   // Kept nodes of EVERY type reserve their names before any renamed node.
-  const changing = new Set(rows.filter(row => row.part !== 'keep').map(row => row.id));
-  const kept = new Map(rows.filter(row => row.part === 'keep').map(row => [row.id, row.current]));
+  const changing = new Set([...base.keys(), ...meshRows.map(row => row.id)]);
+  const kept = new Map(rows.filter(row => !changing.has(row.id)).map(row => [row.id, row.current]));
   const used = new Set([...tree.byId.values()].filter(node => !changing.has(node.ObjectId)).map(node => kept.get(node.ObjectId) ?? node.Name));
   const actorOrder = new Map(completed.map((actor, index) => [actor.body, index]));
   const positionOrder = position => position === 'Front' ? 0 : position === 'Rear' ? 1e6 : position?.startsWith('Middle') ? Number(position.slice(6) || 1) : 0;
   const rank = row => {
     if (row.part === 'keep') return [1e9, 0, 0, 0];
     const trunk = BONE_PARTS.indexOf(row.part);
-    return [actorOrder.get(row.actor) ?? 0, trunk <= 5 ? trunk : ['arm', 'hand'].includes(row.part) ? 6 : LEGS.has(row.part) ? 7 : row.part === 'tail' ? 8 : 9,
+    return [actorOrder.get(row.actor) ?? 0, trunk <= 5 ? trunk : ['arm', 'hand'].includes(row.part) ? 6 : LEGS.has(row.part) ? 7 : row.part === 'tail' ? 8 : row.part === 'mesh' ? 10 : 9,
       LEGS.has(row.part) ? positionOrder(row.position) : 0, row.side === 'R' ? 1 : 0];
   };
   rows.sort((a, b) => { const ar = rank(a), br = rank(b); for (let i = 0; i < ar.length; i++) if (ar[i] !== br[i]) return ar[i] - br[i]; return order.get(a.id) - order.get(b.id); });
-  for (const row of rows) if (row.part !== 'keep') {
-    const proposed = names.get(row.id) || base.get(row.id);
+  const assignName = (row, proposed) => {
     row.name = uniqueName(proposed, used, n => `${proposed}_${n}`);
     used.add(row.name);
+  };
+  for (const row of rows) if (base.has(row.id)) assignName(row, names.get(row.id) || base.get(row.id));
+  // Use the parent's final name, including actor words and uniqueness suffixes.
+  const rowsById = new Map(rows.map(row => [row.id, row]));
+  meshRows.sort((a, b) => tree.depth(a.id) - tree.depth(b.id) || order.get(a.id) - order.get(b.id));
+  for (const row of meshRows) {
+    const parent = tree.parentOf(row.id), parentName = rowsById.get(parent)?.name ?? tree.byId.get(parent).Name;
+    assignName(row, `Mesh_${String(parentName ?? '').replace(/^Bone_/, '')}`);
   }
   return { actors: completed.filter(actor => actor.body !== null), rows };
 }

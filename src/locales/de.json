@@ -7925,6 +7925,8 @@
   "Mount": "Reittier",
   "Extra": "Zusatzkörper",
   "Not recognised": "Nicht erkannt",
+  "Mesh piece": "Mesh-Teil",
+  "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.": "Ein Mesh-Teil übernimmt den Namen des Knochens, an dem es hängt, mit Mesh_ am Anfang.",
   "Keep name": "Namen behalten",
   "Root": "Wurzel",
   "Spine": "Wirbelsäule",

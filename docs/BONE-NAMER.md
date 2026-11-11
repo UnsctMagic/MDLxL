@@ -69,8 +69,11 @@ only when at least two leg chains (without the Chain label) have it as their nea
 it stays with the enclosing actor and keeps its name. Names already used by another node receive a unique
 numeric suffix. Kept names reserve their original names too.
 
-Bones POSE does not identify start as **Keep name**, in **Not recognised** at the
-end of the list. Assign a part to include one. The preview uses a renamed copy
+An eligible skinned bone that POSE leaves unidentified starts as **Mesh piece**.
+It follows its parent’s part, side and actor (`Bone_Leg1_Rear_L` → `Mesh_Leg1_Rear_L`).
+Choose **Mesh piece** or **Keep name** in the Part list. Mesh pieces have no Side control of their own.
+Other bones POSE leaves unidentified start as **Keep name** under **Not recognised**.
+The preview uses a renamed copy
 in the rest pose, hiding geosets that Stand hides. Edits preserve your camera.
 
 Wing limbs recognised only from shape keep every joint's name. Wing chains
@@ -84,8 +87,7 @@ from chain endpoints.
 
 A mesh-piece end that POSE grips by its skin uses `Mesh_` instead of `Bone_`:
 `Mesh_Hand_L`, `Mesh_Foot_Front_R`, or `Mesh_Mount_Hoof_Rear_L`, with any copy
-suffix retained. This preserves POSE's skin grip rather than treating the
-mesh's arbitrary pivot as an authored joint.
+suffix retained. Its side comes from the skin centre at the first frame of Stand.
 
 Before showing the default proposal, Bone Namer plans and applies names to a
 scratch copy, then asks POSE again, for up to three rounds. The list still shows

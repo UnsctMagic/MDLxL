@@ -7925,6 +7925,8 @@
   "Mount": "Monture",
   "Extra": "Supplémentaire",
   "Not recognised": "Non reconnu",
+  "Mesh piece": "Pièce de maillage",
+  "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.": "Une pièce de maillage reprend le nom de l’os auquel elle est rattachée, précédé de Mesh_.",
   "Keep name": "Garder le nom",
   "Root": "Racine",
   "Spine": "Colonne",

@@ -7799,6 +7799,8 @@
   "Mount": "Montura",
   "Extra": "Adicional",
   "Not recognised": "Sin reconocer",
+  "Mesh piece": "Pieza de malla",
+  "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.": "Una pieza de malla toma el nombre del hueso del que cuelga, con Mesh_ delante.",
   "Keep name": "Conservar nombre",
   "Root": "Raíz",
   "Spine": "Columna",

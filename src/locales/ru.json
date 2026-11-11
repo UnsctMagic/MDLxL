@@ -7789,6 +7789,8 @@
   "Mount": "Ездовое",
   "Extra": "Дополнительное",
   "Not recognised": "Не распознано",
+  "Mesh piece": "Часть меша",
+  "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front.": "Часть меша получает имя кости, к которой прикреплена, с префиксом Mesh_.",
   "Keep name": "Сохранить имя",
   "Root": "Корень",
   "Spine": "Позвоночник",
