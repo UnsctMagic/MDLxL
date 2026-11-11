@@ -1,5 +1,5 @@
 import { DEFAULT_ROTATION } from '../src/rotation-drag.js';
-import { DEFAULT_UV_DRAG, normalizeUVDrag } from '../src/uv-drag-settings.js';
+import { defaultUVDrag, normalizeUVDrag } from '../src/uv-drag-settings.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
@@ -309,7 +309,21 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
     const url=URL.createObjectURL(new Blob([JSON.stringify(exportConfiguration(prefs),null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='MDLxL-configuration.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
-  const loadConfiguration=async file=>{try{if(!file)return;const next=importConfiguration(await file.text());const conflict=configurationHotkeyConflict(catalog,next.hotkeys);if(conflict)throw new Error('Conflicting shortcut '+conflict+'.');onChange(next);setMessage('Configuration imported. Portable settings replaced.');}catch(error){setMessage(error.message);}};
+  const loadConfiguration = async file => {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      onChange(previous => {
+        const next = importConfiguration(data, previous);
+        if (Object.hasOwn(data.preferences, 'hotkeys')) {
+          const conflict = configurationHotkeyConflict(catalog, next.hotkeys);
+          if (conflict) throw new Error('Conflicting shortcut ' + conflict + '.');
+        }
+        return next;
+      });
+      setMessage('Configuration imported. Kept saved Hotkeys and Mouse presets and settings missing from the file.');
+    } catch (error) { setMessage(error.message); }
+  };
   const loadPlatformTexture=async file=>{try{if(!file)return;if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2000000)throw new Error('Choose a PNG, JPEG or WebP under 2 MB.');const reader=new FileReader();reader.onload=()=>commit({platform:{...prefs.platform,textureUrl:reader.result}});reader.readAsDataURL(file);}catch(error){setMessage(error.message);}};
   const loadViewportBackground = async (file, quad = false) => {
     try {
@@ -368,7 +382,7 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
         <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/></section>}
           {mousePage === 'UV' && <section className="settings-card"><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged.</p>{uvStartFine && <p className="settings-hint">{`For fine control, hold ${uvStartFine} when starting a UV drag or Shift while navigating the 3D camera.`}</p>}</section>}
           {mousePage === 'UV' && <UVDragSettings value={normalizeUVDrag(prefs.uvDrag)} preferences={prefs} onChange={change => commit({ uvDrag: { ...normalizeUVDrag(prefs.uvDrag), ...change } })}/>}
-          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: { ...DEFAULT_ROTATION, ...(prefs.rotation.eachPiece && { eachPiece: true }) }, uvDrag: DEFAULT_UV_DRAG })}>Restore mouse defaults</button>
+          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: { ...DEFAULT_ROTATION, ...(prefs.rotation.eachPiece && { eachPiece: true }) }, uvDrag: defaultUVDrag(prefs) })}>Restore mouse defaults</button>
         </SettingsSplit></div>
       </div>}
       {tab === 'hotkeys' && <div className="settings-page hotkeys-page">
@@ -559,7 +573,7 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
         {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
         </section>
         <section className="settings-card"><FileIconSettings prefs={prefs} commit={commit}/></section>
-<section className="settings-card"><h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><div className="settings-inline-actions"><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button></div></section><section className="settings-card"><h3>New model</h3><label className="settings-select"><span>Starter format</span><select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></section></div>}
+<section className="settings-card"><h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import updates settings in the file and keeps the rest. Saved Hotkeys and Mouse presets, machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><div className="settings-inline-actions"><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button></div></section><section className="settings-card"><h3>New model</h3><label className="settings-select"><span>Starter format</span><select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></section></div>}
       {tab === 'gameData' && <div className="settings-page game-data-page">
         <section className="settings-card"><h3>Warcraft III installation</h3>
         <p>Choose the main Warcraft III installation folder once. MdlVis saves the location in its app profile, then uses it automatically when a model refers to native Warcraft textures.</p>

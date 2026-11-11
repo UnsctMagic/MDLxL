@@ -37,6 +37,7 @@ import usePreferences from './usePreferences.js';
 import usePortraitState from './usePortraitState.js';
 import useEditorDisplay from '../src/useEditorDisplay.js';
 import { PreferencesContext } from './PreferencesContext.jsx';
+import ShiftLockBadge from './ShiftLockBadge.jsx';
 import { Coordinate } from './EditorControls.jsx';
 import { LANGUAGES, setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
@@ -2036,5 +2037,5 @@ export default function App() {
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Learn settings={preferences.learn}/>
     <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
-  </div>{launcherQuery !== null && <CommandLauncher initialQuery={launcherQuery} extras={launcherExtraRows({ toolbarMode: preferences.toolbarMode, visUI, language: preferences.language, antialias: preferences.graphics.antialias, showHotkeys: preferences.showHotkeys, teamColor, modelVersion: model.Version, displayMode, checks: menuChecks, translate })} isEnabled={commandEnabled} onRun={id => runLatest.current(id)} onClose={() => setLauncherQuery(null)}/>}</HotkeysProvider></PreferencesContext.Provider>;
+  </div>{launcherQuery !== null && <CommandLauncher initialQuery={launcherQuery} extras={launcherExtraRows({ toolbarMode: preferences.toolbarMode, visUI, language: preferences.language, antialias: preferences.graphics.antialias, showHotkeys: preferences.showHotkeys, teamColor, modelVersion: model.Version, displayMode, checks: menuChecks, translate })} isEnabled={commandEnabled} onRun={id => runLatest.current(id)} onClose={() => setLauncherQuery(null)}/>}</HotkeysProvider><ShiftLockBadge/></PreferencesContext.Provider>;
 }
