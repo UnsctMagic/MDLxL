@@ -25,7 +25,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  const surface=graph?.model.Geosets[result?.geoset];
  const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
  const uvAsset=assets?.get(gamePathKey(nativeImage||l?.image||''));
- const ingredient=l&&(look.layers.find(s=>s.label===l.label)||LAYER_CHOICES.find(s=>s.label===l.label));
+ const ingredient=l&&((look.variations?look.variations.flatMap(v=>v.layers):look.layers).find(s=>s.label===l.label)||LAYER_CHOICES.find(s=>s.label===l.label));
  const defaultTint=l?.defaultTint||ingredient?.tint||tintFromHex(surfacePalette(look)[0][1]);
  const baseGlyph=ingredient?.glyphs?ingredient.image:l?.image;
  const runeImages=baseGlyph&&!RUNE_IMAGES.some(([,path])=>path===baseGlyph)?[[l.label,baseGlyph],...RUNE_IMAGES]:RUNE_IMAGES;
@@ -35,6 +35,10 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  const compiled=graph?.model.Materials[surface?.MaterialID]?.Layers[0];
  const canTile=l?.nativeSurface?typeof compiled?.TextureID!=='number'||textureRepeats(graph.model,compiled.TextureID):!l?.own||(surface&&textureRepeats(graph.model,graph.model.Materials[surface.MaterialID].Layers[0].TextureID));
  const controls=surf?surfaceControls(l,!!canTile):{};
+ // The area of the picture an atlas layer shows; Reset returns to the area it started with.
+ const area=controls.area?l.atlasRect||l.nativeSurface.atlas:null,startArea=l?.nativeSurface?l.nativeSurface.atlas:ingredient?.image===l?.image?ingredient?.atlasRect:undefined;
+ const areaChanged=!!area&&(!!l.uvMatrix||(l.nativeSurface?!!l.atlasRect:!!startArea&&area.join()!==startArea.join()));
+ const resetArea=()=>{const next={...l};delete next.uvMatrix;if(l.nativeSurface||!startArea)delete next.atlasRect;else next.atlasRect=[...startArea];setLayer(next);};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
  function particle(field,key,min,max,step,title){
@@ -120,6 +124,10 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    {controls.direction&&row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}
    {controls.tiling&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}
    {!l.glyphs&&!controls.area&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}
+   {controls.area&&<>
+    <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} layer={l} preferences={preferences} change={update} area={area} onArea={rect=>update('atlasRect',rect)}/>
+    <div className="fx-area-actions"><button title="Use the whole picture." disabled={area.join()==='0,0,1,1'} onClick={()=>update('atlasRect',[0,0,1,1])}>Whole picture</button><button title="Restore this layer's starting area." disabled={!areaChanged} onClick={resetArea}>Reset</button></div>
+   </>}
   </>}
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length" title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}

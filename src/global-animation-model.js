@@ -209,11 +209,13 @@ function skinLayer(c,l){
  return {geoset:index};
 }
 function nativeSurface(c,l){
- const m=c.model,temp=emptyParticleModel(m.Version),e={...l.nativeSurface,texture:l.nativeSurface.texture||l.nativeSurface.picture,flow:l.nativeSurface.flow||(l.nativeSurface.id==='revenant'?[0,1,0]:undefined)};
+ // atlasRect picks another area of the card's picture; the native fit and drift follow it.
+ const m=c.model,temp=emptyParticleModel(m.Version),e={...l.nativeSurface,texture:l.nativeSurface.texture||l.nativeSurface.picture,flow:l.nativeSurface.flow||(l.nativeSurface.id==='revenant'?[0,1,0]:undefined),...(l.atlasRect?{atlas:l.atlasRect}:{})};
  temp.Geosets=[structuredClone(c.source)];temp.Materials=structuredClone(m.Materials);temp.Textures=structuredClone(m.Textures);temp.TextureAnims=structuredClone(m.TextureAnims);temp.GlobalSequences=[...m.GlobalSequences];
  temp.Geosets[0].MaterialID=c.base;
  const options={...defaultEffectOptions(e),mode:'replace',geoset:0,speed:(e.duration||2000)/c.ms*(l.speed||1),opacity:1,tint:l.tint,direction:l.direction,tiling:l.tiling};
  applySurfaceEffect(temp,null,e,options);
+ if(l.uvMatrix){const [a,b,cc,d,x,y]=l.uvMatrix;for(const uv of temp.Geosets[0].TVertices)for(let i=0;i<uv.length;i+=2){const u=uv[i],v=uv[i+1];uv[i]=a*u+cc*v+x;uv[i+1]=b*u+d*v+y;}}
  const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true,reuseTextureAnims:true});
  const texCount=m.Textures.length,animCount=m.TextureAnims.length;
  const native=importer.remapMaterial(temp.Materials[temp.Geosets[0].MaterialID]);

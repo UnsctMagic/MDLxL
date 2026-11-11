@@ -1,4 +1,4 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Matrix3} from 'three';
 import {useHotkeys,useWindowKeyClaim} from './Hotkeys.jsx';
 import {chordFromEvent,isTypingTarget} from '../src/preferences.js';
@@ -6,15 +6,20 @@ import {Tool} from './EditorControls.jsx';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import UVEditor from './UVEditor.jsx';
 
+// The texture area of an atlas layer, drawn as one rectangle over the whole picture.
+function areaGeoset([x,y,w,h]){
+ return {Vertices:new Float32Array(12),Faces:Uint16Array.from([0,1,2,0,2,3]),TVertices:[Float32Array.from([x,y,x+w,y,x+w,y+h,x,y+h])]};
+}
 // The mesh is the fitted layer's real UV map. Only the layer settings change on release.
-export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change}){
+// With area, Move and Scale edit that rectangle of the picture instead.
+export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change,area,onArea}){
  const [mode,setMode]=useState(layer.glyphs?'move':null),[texture,setTexture]=useState(null),[error,setError]=useState(false);
  const fit=useRef(null);
  const {shortcuts}=useHotkeys();
  useWindowKeyClaim(({event,localWindow})=>{
   if(localWindow!==fit.current?.closest('[role="dialog"]')||isTypingTarget(event.target))return false;
   // Move, Rotate and Resize on the user's own keys.
-  const chord=chordFromEvent(event),tool=[['translate','move'],['rotate','rotate'],['scale','scale']].find(([id])=>shortcuts[id]?.includes(chord));
+  const chord=chordFromEvent(event),tool=[['translate','move'],['rotate','rotate'],['scale','scale']].find(([id])=>shortcuts[id]?.includes(chord)&&!(area&&id==='rotate'));
   if(!tool)return false;
   setMode(tool[1]);window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used',{detail:{id:tool[0],chord,event}}));return true;
  },5);
@@ -24,10 +29,18 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
   if(visible&&asset)decodeTextureThumbnail(asset,512).then(url=>{if(active)setTexture(url);},()=>{if(active)setError(true);});
   return ()=>{active=false;};
  },[asset,visible]);
- const uv=geoset?.TVertices[0];
+ const rect=useMemo(()=>area?areaGeoset(area):null,[area?.join(',')]);
+ const shown=rect||geoset,uv=shown?.TVertices[0];
  if(!uv?.length)return null;
  const vertices=Array.from({length:uv.length/2},(_,i)=>i);
  const commit=next=>{
+  if(rect){
+   let minU=Infinity,minV=Infinity,maxU=-Infinity,maxV=-Infinity;
+   for(let i=0;i<next.length;i+=2){minU=Math.min(minU,next[i]);maxU=Math.max(maxU,next[i]);minV=Math.min(minV,next[i+1]);maxV=Math.max(maxV,next[i+1]);}
+   const x=Math.max(0,minU),y=Math.max(0,minV),w=Math.min(1,maxU)-x,h=Math.min(1,maxV)-y;
+   if(w>.002&&h>.002)onArea([x,y,w,h].map(v=>Math.round(v*1e4)/1e4));
+   return;
+  }
   let far=0,distance=0;
   for(let i=2;i<uv.length;i+=2){
    const d=Math.hypot(uv[i]-uv[0],uv[i+1]-uv[1]);
@@ -54,7 +67,7 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
    change('direction',((Math.round(layer.direction-turn*180/Math.PI)%360)+360)%360);
   }
  };
- const tools=[['move','sb_move','Move'],['rotate','sb_rot','Rotate'],['scale','sb_zoom','Scale']];
- return <div className="fx-uv-fit" ref={fit}><div className="classic-toolbar-group">{tools.map(([action,icon,title])=><Tool key={action} action={action==='move'?'translate':action} look icon={icon} title={title+' UVs'} active={mode===action} onClick={()=>setMode(mode===action&&!layer.glyphs?null:action)}/>)}</div>
- {mode&&<div className="fx-uv-canvas"><UVEditor geoset={geoset} selectedVertices={vertices} textureUrl={texture} fitUVs={!!layer.glyphs} showVertices={!layer.glyphs} showSelectedVertices={!layer.glyphs} transformMode={mode} preferences={preferences} onChange={commit}/>{error&&<span role="status">Texture unavailable.</span>}</div>}</div>;
+ const tools=[['move','sb_move','Move'],['rotate','sb_rot','Rotate'],['scale','sb_zoom','Scale']].filter(([action])=>!(rect&&action==='rotate'));
+ return <div className="fx-uv-fit" ref={fit}><div className="classic-toolbar-group">{tools.map(([action,icon,title])=><Tool key={action} action={action==='move'?'translate':action} look icon={icon} title={title+(rect?' area':' UVs')} active={mode===action} onClick={()=>setMode(mode===action&&!layer.glyphs?null:action)}/>)}</div>
+ {mode&&<div className="fx-uv-canvas"><UVEditor geoset={shown} selectedVertices={vertices} textureUrl={texture} textureWrapping={!rect} fitUVs={!!layer.glyphs} showVertices={!layer.glyphs} showSelectedVertices={!layer.glyphs} transformMode={mode} preferences={preferences} onChange={commit}/>{error&&<span role="status">Texture unavailable.</span>}</div>}</div>;
 }

@@ -86,3 +86,22 @@ test('every shown Speed, Direction and Tiling control changes every surface laye
  }
  assert.deepEqual(silent,[]);
 });
+const span=uv=>{let a=[Infinity,Infinity,-Infinity,-Infinity];for(let i=0;i<uv.length;i+=2)a=[Math.min(a[0],uv[i]),Math.min(a[1],uv[i+1]),Math.max(a[2],uv[i]),Math.max(a[3],uv[i+1])];return a;};
+const inside=(uv,[x,y,w,h])=>{const [a,b,c,d]=span(uv);return a>=x-1e-5&&b>=y-1e-5&&c<=x+w+1e-5&&d<=y+h+1e-5;};
+test('the texture area of a native card and of an atlas skin moves and resizes inside FX, also after Change texture',()=>{
+ const poison=setup('poison-skin','Poison surface');
+ let {shape}=compile(poison.model,poison.stack);
+ assert.ok(inside(shape.TVertices[0],poison.layer.nativeSurface.atlas),'starts on its tileset cell');
+ let result=compile(structuredClone(poison.model),withLayer(poison.stack,{atlasRect:[0,0,.5,.5]}));
+ assert.ok(inside(result.shape.TVertices[0],[0,0,.5,.5]),'a moved and larger area reaches the TVertices');
+ assert.ok(span(result.shape.TVertices[0])[2]>.3,'the larger area is used, not only its corner');
+ const changed=looks.withLayerTexture(poison.layer,'TerrainArt\\Felwood\\Felwood_Dirt.blp');
+ result=compile(structuredClone(poison.model),{...poison.stack,layers:[{...changed,atlasRect:[.5,.5,.5,.5]}]});
+ assert.ok(inside(result.shape.TVertices[0],[.5,.5,.5,.5]),'the area applies to the new picture');
+ const curse=setup('felwood-curse','Poison surface');
+ result=compile(curse.model,withLayer(curse.stack,{atlasRect:[.1,.2,.3,.4]}));
+ assert.ok(inside(result.shape.TVertices[0],[.1,.2,.3,.4]));
+ const waves=setup('revenant'),plain=compile(structuredClone(waves.model),waves.stack).shape.TVertices[0];
+ const moved=compile(waves.model,withLayer(waves.stack,{uvMatrix:[1,0,0,1,.25,0]})).shape.TVertices[0];
+ assert.ok(Math.abs(moved[0]-plain[0]-.25)<1e-5&&Math.abs(moved[1]-plain[1])<1e-5,'a moved UV map reaches a native card without an atlas');
+});
