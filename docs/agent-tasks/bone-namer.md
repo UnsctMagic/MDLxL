@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: fix round 1 implemented; ready for Claude QA (owner acceptance pending)
+Status: fix round 2 implemented; ready for Claude QA (owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -283,6 +283,39 @@ in its clues mode). The skin-grip loss is solved on our side by item 12. The lim
 after a body or chest gets its real name (20 models) is POSE's intended reading;
 the gate reports it for review.
 
+## Fix round 2 (11 Nov, from Claude's QA of `5c25ff10`)
+
+Bug fixes only. QA of `5c25ff10`: packaged workflow 68/68 and Attachemator pass;
+source tests 53/55; library gate on main's POSE: 0 LOST/MOVED/GRIP, 7 STABILITY;
+on POSE `88aef3e1` also 3 models LOST that belong to that POSE branch (below).
+
+1. **Mount order.** Item 3 means only "never Main". Do not move follower-carrying
+   bodies to the end of the actor order: Main is the first actor in the normal order
+   (visible in Stand, two hands, larger) that is not a key of `rig.followers`; every
+   other actor keeps its normal place. Today the native Knight's hidden horse copy
+   (`ABDOMEN01`) becomes the Mount and the visible horse (`ABDOMEN`) its `_Copy`
+   (`bone-namer.js:203`).
+2. **Nested bodies need their own legs.** Item 4 counted any two limb chains, so a
+   spine bone named `Abdomen` with the arms below it became its own actor. A nested
+   Body is its own actor only when at least two **leg** chains (kind `leg`, no
+   `Chain` label) have it as their nearest body. A rider has legs; a spine piece
+   does not.
+3. **Hand/Foot/Hoof only from chains.** As the Recognition table says, Hand, Foot
+   and Hoof come only from chain ends; a bone that POSE gives a Hand/Foot/Hoof role
+   but that is not in a chain is part `keep` (`bone-namer.js:62` assigns them from
+   any lone role). Those bones carry only a `Foot Left/Right Ref` attachment; once
+   named Foot, POSE writes no role for them, so names flip between two states on
+   every run (easterchicken `WingL` → `Bone_Foot_Front_L`, kelthuzad/necromancer
+   `RobeBackL` → `Bone_Mount_Foot_Rear_L`; 7 models). Measured: this alone makes
+   STABILITY 0 on both POSE versions; 90 lone hand/foot mesh pieces in 56 models
+   now keep their names.
+
+Not ours (sent to the POSE side; POSE branch `88aef3e1` only, main unaffected):
+zergling's mirrored `Bone Root L/R` lose their Body handles once the hands carry
+Hand names (`pose-recognition.js:192-216` reads limb kinds from names); Lord of
+Change's wings `B_W_1..6` read as Wing limbs only while anonymous
+(`pose-recognition.js:153` skips a pair whose joints have a Wing part role).
+
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
@@ -358,6 +391,27 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 ## Changes and verification
 
+### Fix round 2
+
+- Resumed from clean `06100731a926e9b354ee7a9903265fad8001d17c` on
+  `claude/bone-namer` in the same named D: worktree.
+- Implemented only items 1–3 in `src/bone-namer.js`: select the first eligible
+  Main and promote only it, preserving all other actors' normal relative order;
+  count only `kind: 'leg'` chains without the `Chain` label for nested Body actors;
+  exclude Hand/Foot/Hoof from standalone and parent-path role assignments, leaving
+  endpoint assignment to the existing chain rules.
+- Updated the guide's affected actor/endpoint wording. No UI, locale, test or
+  protected-file changes. The Engine API, name-only mutations and round-1 rules
+  outside these three fixes remain intact. No POSE rebase or merge.
+- `pnpm run build` passed (Vite 7.3.1, 40.53 s). Existing JSON import-attribute
+  and large-chunk warnings remain. `git diff --check` passed. No tests written or
+  run; no fixture, corpus or packaged-app checks. Claude owns QA of these changes.
+- Removed this round's generated build, log and temporary directory; dependencies
+  were reused unchanged. No task-started background process remains. Saved locally
+  with this note; no push, PR, merge or release.
+
+### Fix round 1 (historical)
+
 - Initial implementation: `6d52a020`; Claude's QA findings are recorded in
   **Fix round 1** above. Codex resumed on clean `82600d8f8659dfb563ea1262a2bf6bb831eab78d`
   in `D:\Claude\MDLxL\.claude\worktrees\bone-namer`, branch `claude/bone-namer`.
@@ -395,8 +449,8 @@ QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
 
 - No new implementation blocker. The three-round naming feedback is implemented
   as specified; its stability across the library is unverified until Claude QA.
-- **Next for Claude:** review the round-1 diff against `82600d8f`, rerun the source,
-  corpus and packaged QA against the twelve items, then prepare the owner's
+- **Next for Claude:** review the round-2 diff against `06100731`, rerun the source,
+  corpus and applicable packaged QA against the three items, then prepare the owner's
   hand-test build when the gates pass. Direct Close/× now close immediately;
   only the close key has the shared second-press guard for unapplied changes.
 - The Head Ref/neck issue remains with the POSE session, as described above.

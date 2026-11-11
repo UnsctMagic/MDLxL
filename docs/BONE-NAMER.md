@@ -63,8 +63,9 @@ its current bone/body names. Further copies add a number, such as `_Copy2`.
 Other actors larger than Main use `Bone_Mount_…`, `Bone_Mount2_…`, etc.;
 smaller actors use `Bone_Extra_…`, `Bone_Extra2_…`, etc. The actor word follows
 `Bone_`, so a mount leg is `Bone_Mount_Leg1_Front_R`. An actor that POSE marks
-as a mount with followers is never Main. A nested Body is a separate actor
-only when at least two non-Chain limbs have it as their nearest body; otherwise
+as a mount with followers is never Main; the first eligible actor becomes Main,
+and every other actor retains its normal relative order. A nested Body is a separate actor
+only when at least two leg chains (without the Chain label) have it as their nearest body; otherwise
 it stays with the enclosing actor and keeps its name. Names already used by another node receive a unique
 numeric suffix. Kept names reserve their original names too.
 
@@ -74,7 +75,9 @@ in the rest pose, hiding geosets that Stand hides. Edits preserve your camera.
 
 Shared hub joints keep their names. If a limb ends at an attachment, the last
 bone uses Hand, Foot or Hoof only when POSE resolves that role; otherwise it
-keeps the next Arm/Leg number. The attachment itself is never renamed.
+keeps the next Arm/Leg number. The attachment itself is never renamed. A lone
+Hand, Foot or Hoof role outside a chain keeps its name; these parts come only
+from chain endpoints.
 
 A mesh-piece end that POSE grips by its skin uses `Mesh_` instead of `Bone_`:
 `Mesh_Hand_L`, `Mesh_Foot_Front_R`, or `Mesh_Mount_Hoof_Rear_L`, with any copy
