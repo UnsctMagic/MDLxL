@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: local fix branches ready for Claude review. FX window part waits on claude/fx-editor.
+Status: reworked local branches ready for Claude re-check. FX window part waits on claude/fx-editor.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-11
 
@@ -194,3 +194,45 @@ fail-first evidence, checks, and owner summary.
   assignment setup. The contract 3 note records the same stop on the base and
   the complete passing diagnostic run using the offered Replace button.
 - This is the local review handoff. All work is saved on the owner's PC.
+## Re-check after Claude’s verdicts
+
+Verdicts were read at b5a14e18 on claude/main-review-2026-11-11. Review the
+numbered rework only, using the previous tip in the table above as the base
+for each diff. Branch 1 remains at its original tip and its re-run is
+recorded here.
+
+| Contract | Branch | Local revision | Source pass / fail / skip | Compatibility pass / fail / skip | New CI failures |
+| --- | --- | --- | --- | --- | --- |
+| 1 | codex/main-review-20261111-1 | d13fbf6f | 3280 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 2 | codex/main-review-20261111-2 | 426fdabe | 3307 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 3 | codex/main-review-20261111-3 | 47337d05 | 3278 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 4 | codex/main-review-20261111-4 | 684b568e | 3278 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 5 | codex/main-review-20261111-5 | 7961856b | 3276 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 6 | codex/main-review-20261111-6 | 73ffd802 plus this handoff | 3272 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 7 | codex/main-review-20261111-7 | 053ad9d0 | 3279 / 0 / 10 | 57 / 0 / 0 | 0 |
+
+Each worktree built offline with the cached FFmpeg binaries before running
+pnpm run test:source and pnpm test. The CI source reporter and baseline
+checker found zero failing tests. The tracked baseline has zero entries.
+The nine earlier particle-library failures in the verdict evidence were
+missing dist/particle-runtime.mjs errors.
+
+The ten skips on each branch are the Windows SIGTERM check, Windows
+symlink permissions, the volume without 8.3 short names, optional archer,
+skin-repair pair, Fx, twin-head rider and Tinker/Brown Magnataur inputs,
+and two opt-in POSE corpus checks.
+
+- O12 is implemented as the owner decided. The save notice preserves the
+  last good destination when the copy fails and offers Save As elsewhere.
+- Paint camera controls, Escape, and translations were rechecked. The BITZ
+  tab close choices and ShareX PID across Vertices and UV were verified on
+  the hidden test desktop. Contract notes record their named checks.
+- FX Part B still waits on claude/fx-editor. O2 and O7 remain open. The O5
+  text is ready in six languages for the next release-branch update.
+- Flail01 passed all 31 frozen comparisons. The release kit allows the known
+  Flail03 mounted-spheres mismatch only while the historical file is missing.
+- For later integration, branches 2, 3, 4, 5 and 7 add or retain locale
+  entries. Preserve each key, catalog order and CRLF, then recount the
+  expected sizes. The four UV preview strings match the release lane.
+
+All revisions and notes are saved locally for Claude’s re-check.
