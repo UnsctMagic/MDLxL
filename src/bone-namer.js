@@ -37,9 +37,24 @@ function hierarchyOrder(tree) {
 }
 
 export function planBoneNames(model) {
+  const scratch = structuredClone(model), originals = new Map(rigNodes(model).map(node => [node.ObjectId, node.Name]));
+  let plan;
+  // POSE reads a named rig differently. Bound that feedback to three planning
+  // rounds on a private copy; the caller's names and other data are untouched.
+  for (let round = 0; round < 3; round++) {
+    plan = planOnce(scratch, originals);
+    const chosen = new Set(plan.rows.filter(row => row.name !== scratch.Nodes?.[row.id]?.Name).map(row => row.id));
+    if (!chosen.size) break;
+    applyBoneNames(scratch, plan.rows, chosen);
+  }
+  return { ...plan, rows: plan.rows.map(row => ({ ...row, current: originals.get(row.id) })) };
+}
+
+function planOnce(model, originals) {
   const unit = measure(model), { tree, sequence, frame } = unit;
   const bones = rigNodes(model), allowed = new Set(bones.map(node => node.ObjectId));
   const rig = suggestPoseRig(model, frame, sequence);
+  unit.rig = rig;
   const identified = new Set([rig.body, ...(rig.nodes || []), ...(rig.chains || []).flatMap(poseChainIds), ...Object.keys(rig.roles || {}).map(Number)].filter(id => id != null));
   const role = id => { const value = poseRole(model, rig, id); return ROLES.has(value) ? value : null; };
   const parts = new Map(), blocked = new Set();
@@ -48,11 +63,14 @@ export function planBoneNames(model) {
   for (const chain of rig.chains || []) {
     const ids = poseChainIds(chain);
     if (chain.label === 'Chain') { for (const id of ids) { blocked.add(id); assign(id, 'keep'); } continue; }
+    const lastBone = ids.filter(id => allowed.has(id)).at(-1);
+    const attachmentEnd = (model.Attachments || []).some(node => node.ObjectId === chain.end);
     const wing = chain.label === 'Wing' || ids.some(id => role(id) === 'Wing');
     for (const id of ids) {
       const value = role(id);
       if (wing) assign(id, 'wing');
       else if (value && !['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value === 'Body' ? 'root' : value.toLowerCase());
+      else if (attachmentEnd && id === lastBone && ['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value.toLowerCase());
       else if (chain.kind === 'leg') assign(id, id === chain.end ? (chain.label === 'Hoof' || role(chain.end) === 'Hoof' ? 'hoof' : 'foot') : 'leg');
       else if (chain.kind === 'arm' && !chain.label) assign(id, id === chain.end ? 'hand' : 'arm');
     }
@@ -80,7 +98,22 @@ export function planBoneNames(model) {
     const first = poseChainIds(chain).find(id => tree.byId.has(id));
     if (first != null && !tree.ancestors(first, true).some(id => bodies.has(id))) bodies.add(tree.root(first));
   }
-  const rows = bones.map(node => ({ id: node.ObjectId, current: node.Name, part: parts.get(node.ObjectId) || 'keep', side: null, position: null,
+  // A named internal body is not a second actor unless two real limbs use it.
+  const nearestBody = id => tree.ancestors(id, true).find(parent => bodies.has(parent));
+  const limbCounts = new Map();
+  for (const chain of rig.chains || []) if (chain.label !== 'Chain') {
+    const body = nearestBody(chain.end);
+    if (body != null) limbCounts.set(body, (limbCounts.get(body) || 0) + 1);
+  }
+  const nested = [...bodies].filter(id => role(id) === 'Body' && tree.ancestors(id).some(parent => bodies.has(parent)) && (limbCounts.get(id) || 0) < 2);
+  for (const id of nested) { bodies.delete(id); assign(id, 'keep'); }
+  // Hubs are shared structure, not an arm/leg segment, even when POSE also
+  // resolves a body role there. Retain their actor identity, but not a rename.
+  const chains = rig.chains || [];
+  for (const chain of chains) for (const id of poseChainIds(chain)) {
+    if (id !== chain.end && chains.some(other => other !== chain && (poseChainIds(other).includes(id) || tree.isAncestor(other.end, id)))) assign(id, 'keep');
+  }
+  const rows = bones.map(node => ({ id: node.ObjectId, current: (parts.get(node.ObjectId) || 'keep') === 'keep' ? originals.get(node.ObjectId) : node.Name, part: parts.get(node.ObjectId) || 'keep', side: null, position: null,
     actor: tree.ancestors(node.ObjectId, true).find(id => bodies.has(id)) ?? null, name: node.Name }));
   const plan = { actors: [...bodies].map(body => ({ body })), rows, error: null };
   return { ...resolve(model, plan, {}, unit), error: null };
@@ -126,6 +159,18 @@ function actorMeasures(model, rows, actors, unit) {
 
 function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} } = {}, unit = measure(model)) {
   const { tree, points } = unit, order = hierarchyOrder(tree);
+  const rig = unit.rig || suggestPoseRig(model, unit.frame, unit.sequence);
+  const chains = rig.chains || [], mounts = new Set(Object.keys(rig.followers || {}).map(Number));
+  const meshEnds = new Set(chains.filter(chain => Array.isArray(chain.grip)).map(chain => chain.end));
+  const limbOf = row => {
+    if (!['arm', 'leg', 'wing'].includes(row.part)) return null;
+    const direct = chains.findIndex(chain => poseChainIds(chain).includes(row.id));
+    if (direct >= 0) return direct;
+    // A manually assigned joint between the body and an existing endpoint joins
+    // that limb, so correcting a missed shin still renumbers its own chain.
+    const descendant = chains.findIndex(chain => tree.isAncestor(chain.end, row.id));
+    return descendant >= 0 ? descendant : null;
+  };
   const rows = plan.rows.map(row => {
     const part = parts[row.id] ?? row.part;
     if (!BONE_PARTS.includes(part)) throw new Error('Choose a valid bone part.');
@@ -139,7 +184,7 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
   }
   const groups = new Map();
   for (const row of rows.filter(row => row.part !== 'keep')) {
-    const key = JSON.stringify([row.actor, row.part, row.side, row.position]);
+    const key = JSON.stringify([row.actor, row.part, row.side, row.position, limbOf(row)]);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
@@ -148,20 +193,21 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
     group.sort((a, b) => tree.depth(a.id) - tree.depth(b.id) || order.get(a.id) - order.get(b.id));
     group.forEach((row, index) => {
       const numbered = NUMBERED.has(row.part) || ['spine', 'neck'].includes(row.part) && group.length > 1;
-      base.set(row.id, `Bone_${title(row.part)}${numbered ? index + 1 : ''}${row.position ? '_' + row.position : ''}${row.side ? '_' + row.side : ''}`);
+      base.set(row.id, `${meshEnds.has(row.id) ? 'Mesh' : 'Bone'}_${title(row.part)}${numbered ? index + 1 : ''}${row.position ? '_' + row.position : ''}${row.side ? '_' + row.side : ''}`);
     });
   }
   let actors = actorMeasures(model, rows, plan.actors, unit);
   // Manually classified bones in an unrecognised rig share the unprefixed group.
   if (rows.some(row => row.actor === null && row.part !== 'keep')) actors.push({ body: null, span: 0 });
   const signatures = new Map(actors.map(actor => [actor.body, JSON.stringify([...new Set(rows.filter(row => row.actor === actor.body && base.has(row.id)).map(row => base.get(row.id)))].sort())]));
-  const requestedMain = actors.find(actor => overrides[actor.body] === 'main');
-  const originalMain = actors[0];
+  actors.sort((a, b) => Number(mounts.has(a.body)) - Number(mounts.has(b.body)));
+  const requestedMain = actors.find(actor => !mounts.has(actor.body) && overrides[actor.body] === 'main');
+  const originalMain = actors.find(actor => !mounts.has(actor.body));
   // Determine the original kinds before a Main swap, so the former Main takes
   // the newly selected actor's kind rather than becoming a second Main.
   actors.forEach((actor, index) => {
     const prior = actors.slice(0, index).find(other => signatures.get(actor.body) !== '[]' && signatures.get(other.body) === signatures.get(actor.body));
-    actor.kind = index === 0 ? 'main' : prior ? 'copy' : actor.span > actors[0].span ? 'mount' : 'extra';
+    actor.kind = actor === originalMain ? 'main' : prior ? 'copy' : mounts.has(actor.body) || actor.span > (originalMain?.span ?? 0) ? 'mount' : 'extra';
   });
   const swappedKind = requestedMain?.kind;
   if (requestedMain && requestedMain !== originalMain) actors = [requestedMain, ...actors.filter(actor => actor !== requestedMain)];
@@ -169,11 +215,12 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
   const next = key => { const n = (counters.get(key) || 0) + 1; counters.set(key, n); return n === 1 ? '' : String(n); };
   for (const [index, actor] of actors.entries()) {
     const prior = completed.find(other => signatures.get(actor.body) !== '[]' && signatures.get(other.body) === signatures.get(actor.body));
-    let kind = overrides[actor.body] ?? (index === 0 ? 'main' : prior ? 'copy' : actor.span > actors[0].span ? 'mount' : 'extra');
+    let kind = overrides[actor.body] ?? (index === 0 && !mounts.has(actor.body) ? 'main' : prior ? 'copy' : mounts.has(actor.body) || actor.span > (actors[0]?.span ?? 0) ? 'mount' : 'extra');
     if (requestedMain && actor === originalMain && actor !== requestedMain && overrides[actor.body] == null) kind = swappedKind;
     if (!['main', 'mount', 'extra', 'copy'].includes(kind)) throw new Error('Choose a valid actor kind.');
-    // A lone group is always Main; explicit Main selection owns the swap above.
-    if (index === 0) kind = 'main';
+    // Only eligible actors can become Main, including an explicit Main swap.
+    if (index === 0 && !mounts.has(actor.body)) kind = 'main';
+    if (mounts.has(actor.body) && kind === 'main') kind = 'mount';
     const copyOf = kind === 'copy' ? (prior || completed[0])?.body ?? null : null;
     const source = kind === 'copy' ? completed.find(other => other.body === copyOf) : null;
     const prefix = kind === 'main' ? '' : kind === 'copy' ? source?.prefix || '' : `${title(kind)}${next(kind)}_`;
@@ -185,12 +232,13 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
       if (!copySuffixes.has(word)) copySuffixes.set(word, `_${word}${next(`copy:${copyOf}:${word}`)}`);
       return copySuffixes.get(word);
     };
-    for (const row of rows.filter(row => row.actor === actor.body && base.has(row.id))) names.set(row.id, prefix + base.get(row.id) + suffixFor(row.current));
+    for (const row of rows.filter(row => row.actor === actor.body && base.has(row.id))) names.set(row.id, base.get(row.id).replace(/^(Bone_|Mesh_)/, '$1' + prefix) + suffixFor(row.current));
     completed.push({ body: actor.body, kind, copyOf, prefix, suffix: kind === 'copy' ? suffixFor(bodyName) : '' });
   }
   // Kept nodes of EVERY type reserve their names before any renamed node.
   const changing = new Set(rows.filter(row => row.part !== 'keep').map(row => row.id));
-  const used = new Set([...tree.byId.values()].filter(node => !changing.has(node.ObjectId)).map(node => node.Name));
+  const kept = new Map(rows.filter(row => row.part === 'keep').map(row => [row.id, row.current]));
+  const used = new Set([...tree.byId.values()].filter(node => !changing.has(node.ObjectId)).map(node => kept.get(node.ObjectId) ?? node.Name));
   const actorOrder = new Map(completed.map((actor, index) => [actor.body, index]));
   const positionOrder = position => position === 'Front' ? 0 : position === 'Rear' ? 1e6 : position?.startsWith('Middle') ? Number(position.slice(6) || 1) : 0;
   const rank = row => {
@@ -209,7 +257,11 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
 }
 
 export function nameBones(model, plan, { parts = {}, sides = {}, actors = {} } = {}) {
-  return resolve(model, plan, { parts, sides, actors }).rows;
+  if (![parts, sides, actors].some(values => Object.keys(values).length)) return plan.rows.map(row => ({ ...row }));
+  // Corrections start from the last default proposal, not the unnamed rig.
+  const scratch = structuredClone(model);
+  applyBoneNames(scratch, plan.rows, new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id)));
+  return resolve(scratch, plan, { parts, sides, actors }).rows;
 }
 
 export function applyBoneNames(model, rows, chosen) {

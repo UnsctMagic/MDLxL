@@ -103,7 +103,7 @@ A window holding work that closing would discard sets `data-hotkey-unapplied` (`
 | AnimXL | the settings produce shaped tracks that are not committed, and the model is not read-only |
 | Auto Corpse | Size, Height, colour, pieces or blood were changed (`changed`) |
 | Attachemator | a point was dragged, given another bone, or a tick differs from the proposal |
-| Bone Namer | a part, side, actor or tick differs from the proposal; direct Close/× clicks also ask before discarding |
+| Bone Namer | a part, side, actor or tick differs from the proposal |
 | Surface Effects | a part's effect stack differs from how that part was first shown |
 | Sort My Mess | any group has a chosen change (`selected`) |
 | Forge | the mask has edits, or Shape has at least one shape |

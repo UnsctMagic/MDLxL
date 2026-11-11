@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
 import ToolWindow from './ToolWindow.jsx';
-import Dialog from './Dialog.jsx';
 import { BONE_PARTS, planBoneNames, nameBones, applyBoneNames } from '../src/bone-namer.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { sampleGeosetAnimation } from '../src/animation.js';
@@ -17,7 +16,7 @@ const LEGS = new Set(['leg', 'foot', 'hoof']);
 const family = part => ['root', 'pelvis', 'spine', 'chest', 'neck', 'head'].includes(part) ? 'trunk' : ['arm', 'hand'].includes(part) ? 'arm' : LEGS.has(part) ? 'leg' : part;
 const PART_TIP = 'The body part this bone is. Arm and leg bones are numbered from the body outward (Arm1 upper arm, Arm2 forearm, then Hand); numbers update by themselves.';
 const SIDE_TIP = 'Left and right as the unit sees it: it faces +X, its left is +Y.';
-const ACTOR_TIP = "Which body this group of bones belongs to. Main has no prefix; a mount's bones start with Mount_.";
+const ACTOR_TIP = "Which body this group of bones belongs to. Main has no prefix; a mount's bones start with Bone_Mount_.";
 const EMPTY = 'No body parts recognised. Choose a part for each bone you want renamed.';
 
 export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, onCommit, onClose }) {
@@ -27,7 +26,7 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
     catch (cause) { return { actors: [], rows: [], error: cause.message }; }
   }, [current]);
   const [parts, setParts] = useState({}), [sides, setSides] = useState({}), [actors, setActors] = useState({}), [ticks, setTicks] = useState({});
-  const [selected, setSelected] = useState(null), [error, setError] = useState(''), [confirmClose, setConfirmClose] = useState(false);
+  const [selected, setSelected] = useState(null), [error, setError] = useState('');
   const root = useRef(null), rowElements = useRef(new Map()), camera = useRef({ saved: null, listeners: new Set() });
   const proposal = useMemo(() => {
     try { return { rows: nameBones(current, plan, { parts, sides, actors }) }; }
@@ -76,12 +75,11 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
     setSides(previous => ({ ...previous, [row.id]: { side, position: position || null } })); tick(row.id, true); select(row.id);
   };
   const kindOf = body => {
-    if (actors[body]) return actors[body];
     const named = proposal.rows.find(row => row.actor === body && row.part !== 'keep');
     if (named) {
       if (/_(Death|Portrait|Copy)[0-9]*(?:_[0-9]+)?$/.test(named.name)) return 'copy';
-      if (/^Mount[0-9]*_/.test(named.name)) return 'mount';
-      if (/^Extra[0-9]*_/.test(named.name)) return 'extra';
+      if (/^(?:Bone|Mesh)_Mount[0-9]*_/.test(named.name)) return 'mount';
+      if (/^(?:Bone|Mesh)_Extra[0-9]*_/.test(named.name)) return 'extra';
       return 'main';
     }
     return plan.actors.find(actor => actor.body === body)?.kind || 'main';
@@ -91,11 +89,6 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
     if (kind === 'main' && main && main.body !== body) next[main.body] = oldKind;
     else if (oldKind === 'main' && kind !== 'main') { const other = plan.actors.find(actor => actor.body !== body); if (other) next[other.body] = 'main'; }
     setActors(next); setError('');
-  };
-  const close = event => {
-    // Hotkeys already asks for the second Escape before dispatching .click().
-    // Direct Close/× clicks also ask, using the editor's existing dialog shell.
-    if (unapplied && event?.nativeEvent?.isTrusted) setConfirmClose(true); else onClose();
   };
   const commit = () => {
     setError('');
@@ -120,9 +113,8 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
       <span role="cell" className="atm-bone"><select aria-label="Side" title={SIDE_TIP} disabled={!SIDED.has(row.part)} value={row.side ? `${row.side}:${row.position || ''}` : ''} onChange={event => sideChange(row, event.target.value)}>{!row.side && <option value="">—</option>}{sideOptions.map(option => <option key={`${option.side}:${option.position || ''}`} value={`${option.side}:${option.position || ''}`}>{option.label}</option>)}</select></span>
     </div>;
   };
-  return <ToolWindow title="Bone Namer" overlayClass="atm-overlay" className="atm-window bnm-window" windowRef={root} onClose={close} unapplied={unapplied} sectionProps={{ 'data-hotkey-scope': 'boneNamer' }}
-    caption={<><strong>Bone Namer</strong><span className="atm-spacer"/></>}
-    after={confirmClose && <Dialog title="Discard Bone Namer changes?" onClose={() => setConfirmClose(false)} footer={<><button autoFocus onClick={() => setConfirmClose(false)}>Cancel</button><button onClick={onClose}>Discard</button></>}>Discard the changes to this naming proposal?</Dialog>}>
+  return <ToolWindow title="Bone Namer" overlayClass="atm-overlay" className="atm-window bnm-window" windowRef={root} onClose={onClose} unapplied={unapplied} sectionProps={{ 'data-hotkey-scope': 'boneNamer' }}
+    caption={<><strong>Bone Namer</strong><span className="atm-spacer"/></>}>
     <div className="atm-body bnm-body">
       <div className="atm-list" role="table" aria-label="Bone names">
         <div className="atm-row atm-head bnm-row" role="row"><span/><span role="columnheader">Current name</span><span role="columnheader">New name</span><span role="columnheader">Part</span><span role="columnheader">Side</span></div>
@@ -140,7 +132,7 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
     </div>
     <footer><span role="status" className={issue ? 'atm-error' : 'atm-muted'}>{issue || (!plan.rows.some(row => row.part !== 'keep') ? EMPTY : 'Click a row or a bone to see its name. Drag empty space to turn the camera.')}</span>
       <button className={`atm-commit${toChange.length ? ' active' : ''}`} disabled={!toChange.length || !!issue || doc.readOnly} title="Rename the ticked bones as one undoable edit" onClick={commit}>Commit</button>
-      <button onClick={close}>Close</button>
+      <button onClick={onClose}>Close</button>
     </footer>
   </ToolWindow>;
 }
