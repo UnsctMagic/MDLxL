@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: fix round 1 implemented; ready for Claude QA (owner acceptance pending)
+Status: fix round 2 implemented; ready for Claude QA (owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -386,6 +386,27 @@ broken ([testing rules](../TESTING-RULES.md)).
 
 ## Changes and verification
 
+### Fix round 2
+
+- Resumed from clean `06100731a926e9b354ee7a9903265fad8001d17c` on
+  `claude/bone-namer` in the same named D: worktree.
+- Implemented only items 1–3 in `src/bone-namer.js`: select the first eligible
+  Main and promote only it, preserving all other actors' normal relative order;
+  count only `kind: 'leg'` chains without the `Chain` label for nested Body actors;
+  exclude Hand/Foot/Hoof from standalone and parent-path role assignments, leaving
+  endpoint assignment to the existing chain rules.
+- Updated the guide's affected actor/endpoint wording. No UI, locale, test or
+  protected-file changes. The Engine API, name-only mutations and round-1 rules
+  outside these three fixes remain intact. No POSE rebase or merge.
+- `pnpm run build` passed (Vite 7.3.1, 40.53 s). Existing JSON import-attribute
+  and large-chunk warnings remain. `git diff --check` passed. No tests written or
+  run; no fixture, corpus or packaged-app checks. Claude owns QA of these changes.
+- Removed this round's generated build, log and temporary directory; dependencies
+  were reused unchanged. No task-started background process remains. Saved locally
+  with this note; no push, PR, merge or release.
+
+### Fix round 1 (historical)
+
 - Initial implementation: `6d52a020`; Claude's QA findings are recorded in
   **Fix round 1** above. Codex resumed on clean `82600d8f8659dfb563ea1262a2bf6bb831eab78d`
   in `D:\Claude\MDLxL\.claude\worktrees\bone-namer`, branch `claude/bone-namer`.
@@ -423,8 +444,8 @@ broken ([testing rules](../TESTING-RULES.md)).
 
 - No new implementation blocker. The three-round naming feedback is implemented
   as specified; its stability across the library is unverified until Claude QA.
-- **Next for Claude:** review the round-1 diff against `82600d8f`, rerun the source,
-  corpus and packaged QA against the twelve items, then prepare the owner's
+- **Next for Claude:** review the round-2 diff against `06100731`, rerun the source,
+  corpus and applicable packaged QA against the three items, then prepare the owner's
   hand-test build when the gates pass. Direct Close/× now close immediately;
   only the close key has the shared second-press guard for unapplied changes.
 - The Head Ref/neck issue remains with the POSE session, as described above.

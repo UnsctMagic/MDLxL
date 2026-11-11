@@ -59,7 +59,7 @@ function planOnce(model, originals) {
   const role = id => { const value = poseRole(model, rig, id); return ROLES.has(value) ? value : null; };
   const parts = new Map(), blocked = new Set();
   const assign = (id, part) => { if (allowed.has(id)) parts.set(id, part); };
-  for (const id of identified) { const value = role(id); if (value) assign(id, value === 'Body' ? 'root' : value.toLowerCase()); }
+  for (const id of identified) { const value = role(id); if (value && !['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value === 'Body' ? 'root' : value.toLowerCase()); }
   for (const chain of rig.chains || []) {
     const ids = poseChainIds(chain);
     if (chain.label === 'Chain') { for (const id of ids) { blocked.add(id); assign(id, 'keep'); } continue; }
@@ -88,6 +88,7 @@ function planOnce(model, originals) {
     for (const parent of path.slice(0, stop + 1)) {
       if (blocked.has(parent)) continue;
       const value = role(parent);
+      if (['Hand', 'Foot', 'Hoof'].includes(value)) continue;
       if (value) assign(parent, value === 'Body' ? 'root' : value.toLowerCase());
       else if (parent !== path[stop] && !parts.has(parent)) assign(parent, fill);
     }
@@ -98,10 +99,10 @@ function planOnce(model, originals) {
     const first = poseChainIds(chain).find(id => tree.byId.has(id));
     if (first != null && !tree.ancestors(first, true).some(id => bodies.has(id))) bodies.add(tree.root(first));
   }
-  // A named internal body is not a second actor unless two real limbs use it.
+  // A named internal body is not a second actor unless two leg chains use it.
   const nearestBody = id => tree.ancestors(id, true).find(parent => bodies.has(parent));
   const limbCounts = new Map();
-  for (const chain of rig.chains || []) if (chain.label !== 'Chain') {
+  for (const chain of rig.chains || []) if (chain.kind === 'leg' && chain.label !== 'Chain') {
     const body = nearestBody(chain.end);
     if (body != null) limbCounts.set(body, (limbCounts.get(body) || 0) + 1);
   }
@@ -200,27 +201,28 @@ function resolve(model, plan, { parts = {}, sides = {}, actors: overrides = {} }
   // Manually classified bones in an unrecognised rig share the unprefixed group.
   if (rows.some(row => row.actor === null && row.part !== 'keep')) actors.push({ body: null, span: 0 });
   const signatures = new Map(actors.map(actor => [actor.body, JSON.stringify([...new Set(rows.filter(row => row.actor === actor.body && base.has(row.id)).map(row => base.get(row.id)))].sort())]));
-  actors.sort((a, b) => Number(mounts.has(a.body)) - Number(mounts.has(b.body)));
   const requestedMain = actors.find(actor => !mounts.has(actor.body) && overrides[actor.body] === 'main');
   const originalMain = actors.find(actor => !mounts.has(actor.body));
   // Determine the original kinds before a Main swap, so the former Main takes
   // the newly selected actor's kind rather than becoming a second Main.
   actors.forEach((actor, index) => {
     const prior = actors.slice(0, index).find(other => signatures.get(actor.body) !== '[]' && signatures.get(other.body) === signatures.get(actor.body));
-    actor.kind = actor === originalMain ? 'main' : prior ? 'copy' : mounts.has(actor.body) || actor.span > (originalMain?.span ?? 0) ? 'mount' : 'extra';
+    actor.kind = actor === originalMain ? 'main' : prior ? 'copy' : actor.span > (originalMain?.span ?? 0) ? 'mount' : 'extra';
   });
   const swappedKind = requestedMain?.kind;
-  if (requestedMain && requestedMain !== originalMain) actors = [requestedMain, ...actors.filter(actor => actor !== requestedMain)];
+  // Promote only Main; all remaining actors retain their normal relative order.
+  const main = requestedMain || originalMain;
+  if (main) actors = [main, ...actors.filter(actor => actor !== main)];
   const counters = new Map(), completed = [], names = new Map();
   const next = key => { const n = (counters.get(key) || 0) + 1; counters.set(key, n); return n === 1 ? '' : String(n); };
   for (const [index, actor] of actors.entries()) {
     const prior = completed.find(other => signatures.get(actor.body) !== '[]' && signatures.get(other.body) === signatures.get(actor.body));
-    let kind = overrides[actor.body] ?? (index === 0 && !mounts.has(actor.body) ? 'main' : prior ? 'copy' : mounts.has(actor.body) || actor.span > (actors[0]?.span ?? 0) ? 'mount' : 'extra');
+    let kind = overrides[actor.body] ?? (index === 0 && !mounts.has(actor.body) ? 'main' : prior ? 'copy' : actor.span > (actors[0]?.span ?? 0) ? 'mount' : 'extra');
     if (requestedMain && actor === originalMain && actor !== requestedMain && overrides[actor.body] == null) kind = swappedKind;
     if (!['main', 'mount', 'extra', 'copy'].includes(kind)) throw new Error('Choose a valid actor kind.');
     // Only eligible actors can become Main, including an explicit Main swap.
     if (index === 0 && !mounts.has(actor.body)) kind = 'main';
-    if (mounts.has(actor.body) && kind === 'main') kind = 'mount';
+    if (mounts.has(actor.body) && kind === 'main') kind = actor.kind;
     const copyOf = kind === 'copy' ? (prior || completed[0])?.body ?? null : null;
     const source = kind === 'copy' ? completed.find(other => other.body === copyOf) : null;
     const prefix = kind === 'main' ? '' : kind === 'copy' ? source?.prefix || '' : `${title(kind)}${next(kind)}_`;
