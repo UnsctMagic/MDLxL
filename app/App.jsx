@@ -679,12 +679,12 @@ export default function App() {
   const previewSuspended = saving || (!!settingsTab && settingsTab !== 'visuals') || (!!dialog && dialog.type !== 'resource');
   // full: the Library button shows every game file; texture pickers (UV, managers) stay texture-only.
   const openLibrary = (preview = uvEditing, full = false) => setDialog({ type: 'library', preview, full, host: preview && uvWindow ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
-  const openParticles = id => {
+  const openParticles = (id, initialView) => {
     setPlaying(false);
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
     const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
       ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
-    setDialog({type:'particles',nodeId,attachmentId:singleRigNode&&[...model.Bones,...model.Helpers,...model.Attachments].some(node=>node.ObjectId===singleRigNode.ObjectId)?singleRigNode.ObjectId:undefined,selection:validSelection});
+    setDialog({type:'particles',nodeId,initialView,attachmentId:singleRigNode&&[...model.Bones,...model.Helpers,...model.Attachments].some(node=>node.ObjectId===singleRigNode.ObjectId)?singleRigNode.ObjectId:undefined,selection:validSelection});
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });
