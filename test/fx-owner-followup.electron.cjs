@@ -32,7 +32,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const choices=await rune.locator('option').evaluateAll(a=>a.map(o=>o.value));assert.ok(choices.length>=3);
   const stage=fx.locator('.sfx-stage');await fx.getByRole('button',{name:'Fit selection',exact:true}).click();
   for(const [i,value] of choices.entries()){await rune.selectOption(value);await ready();assert.equal((await frame()).image,value);await motion(stage,'rune-'+i);}
-  const glow=fx.getByLabel('Rune glow',{exact:true});await glow.selectOption('steady');await ready();assert.equal(typeof (await frame()).alpha,'number');
+  const glow=fx.getByLabel('Rhythm',{exact:true});await glow.selectOption('steady');await ready();assert.equal(typeof (await frame()).alpha,'number');
   await glow.selectOption('flicker');await ready();assert.ok(new Set((await frame()).alpha).size>2);await motion(stage,'flicker');
   await fx.getByRole('button',{name:'Move UVs',exact:true}).click();const uv=fx.locator('.sfx-controls canvas').last();await uv.scrollIntoViewIfNeeded();const b=await uv.boundingBox(),before=(await frame()).uv;
   await page.mouse.move(b.x+b.width*.4,b.y+b.height*.4);await page.mouse.down();await page.mouse.move(b.x+b.width*.7,b.y+b.height*.53,{steps:8});await page.mouse.up();await ready();assert.notDeepEqual((await frame()).uv,before,'drag changes glyph position on the surface');await motion(stage,'moved-rune');

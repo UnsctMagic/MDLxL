@@ -236,6 +236,12 @@ export function withBlend(l,filter){
  for(const key of ['unshaded','unfogged'])if(l[key]===before[key]){if(after[key]==null)delete next[key];else next[key]=after[key];}
  return next;
 }
+/** Default second colour of a colour rhythm: the same hue family, its weaker channels at a third (orange 1,.3,0 → deep red 1,.1,0). */
+export function secondTint(tint){
+ const top=Math.max(...tint),next=tint.map(v=>v>=top-1e-6?v:v/3);
+ return next.every((v,i)=>v===tint[i])?tint.map(v=>v/3):next;
+}
+export const COLOUR_RHYTHM_IDS=['beat','embers','shift'];
 // Rhythm ids that shape a layer's alpha or colour. Saved ids keep working; new ones follow the study.
 export const RHYTHM_IDS=['steady','soft','breathe','beat','embers','shift','flicker','glint','double','crystal','steel','fade','lightning'];
 /** Whether a surface layer's texture travels on its clock (Speed 0 still compiles it still). An explicit fixed:false always moves. */

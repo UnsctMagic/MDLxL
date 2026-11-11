@@ -8,11 +8,12 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
+const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
@@ -38,6 +39,9 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  // The area of the picture an atlas layer shows; Reset returns to the area it started with.
  const area=controls.area?l.atlasRect||l.nativeSurface.atlas:null,startArea=l?.nativeSurface?l.nativeSurface.atlas:ingredient?.image===l?.image?ingredient?.atlasRect:undefined;
  const areaChanged=!!area&&(!!l.uvMatrix||(l.nativeSurface?!!l.atlasRect:!!startArea&&area.join()!==startArea.join()));
+ // A saved rhythm id outside the list shows under the layer's own name; a native card without one keeps its own.
+ const rhythm=l?.pulse??(l?.nativeSurface?'':l?.type==='Glow'||l?.glyphs?'breathe':'steady');
+ const withRhythm=id=>{const next={...l,pulse:id};if(id==='')delete next.pulse;if(layerMoves(l)&&!layerMoves(next))next.fixed=false;return next;};
  const runeRepeats=useMemo(()=>l?.glyphs&&surface?glyphIslands(surface)[0]?.repeats??1:1,[l?.glyphs,surface]);
  const resetArea=()=>{const next={...l};delete next.uvMatrix;if(l.nativeSurface||!startArea)delete next.atlasRect;else next.atlasRect=[...startArea];setLayer(next);};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
@@ -86,6 +90,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
   }}><option value="">Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</select>}
   {!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
   {!edge&&!l.stamp&&<ColourControl hint={translate('Changes the colour of {0}.').replace('{0}',translate(l.label).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
+  {surf&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
@@ -113,7 +118,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
    {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
-  {(l.glyphs||l.type==='Glow')&&<label className="field"><span>Glow</span><select aria-label={l.glyphs?'Rune glow':'Glow style'} value={l.pulse||'breathe'} onChange={e=>update('pulse',e.target.value)}>{[['steady','Steady'],['breathe','Pulse'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse'],...(['crystal','steel'].includes(l.pulse)?[[l.pulse,l.label]]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
+  {surf&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><select aria-label="Rhythm" value={rhythm} onChange={e=>setLayer(withRhythm(e.target.value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,l.label]]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={blend??''} onChange={e=>setLayer(withBlend(l,Number(e.target.value)))}>{blend==null&&<option value=""/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<>
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}

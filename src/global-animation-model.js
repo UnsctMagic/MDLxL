@@ -3,7 +3,7 @@ import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateC
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
-import {findLook,partFrame,createsOverlay,surfaceIngredient,layerMoves} from './global-animation-looks.js';
+import {findLook,partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint} from './global-animation-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
 import {visitTracks,sampleNodeMatrices,geosetSkinMatrix} from './animation.js';
@@ -29,9 +29,24 @@ const curves={
  glint:[[0,.08],[.25,.12],[.29,1],[.37,.08],[.79,.12],[.82,.65],[.89,.08],[1,.08]],
  lightning:[[0,.34],[.08,.45],[.10,1],[.15,.59],[.19,.94],[.25,.34],[.48,.43],[.53,.96],[.59,.32],[.77,.4],[.82,.91],[.88,.38],[1,.34]],
  flicker:[[0,.72],[.12,.96],[.25,.67],[.35,.89],[.48,.73],[.64,1],[.82,.65],[1,.72]],
+ // Looping glows keep alpha high (study): a shallow smooth swell.
+ soft:[[0,.78],[.5,1],[1,.78]],
+};
+// Colour rhythms keep alpha constant and move the geoset colour between colour A and B.
+const COLOUR_RHYTHMS={
+ beat:{type:3,keys:(a,b)=>[[0,a],[.5,b],[1,a]]},
+ embers:{type:1,keys:(a,b)=>[[0,a],[.11,b],[.27,a],[.45,b.map(v=>v*.41)],[.58,a],[.79,b.map(v=>v*.76)],[1,a]]},
+ shift:{type:1,keys:(a,b)=>[[0,a],[.2,a],[.5,b],[.7,b],[1,a]]},
 };
 function keys(clock,ms,pairs,type=1,ArrayType=Float32Array){
- return {GlobalSeqId:clock,LineType:type,Keys:pairs.map(([t,value])=>({Frame:Math.round(t*ms),Vector:ArrayType.from(Array.isArray(value)?value:[value])}))};
+ // Smooth (Bezier) keys ease in and out of each value.
+ return {GlobalSeqId:clock,LineType:type,Keys:pairs.map(([t,value])=>{const Vector=ArrayType.from(Array.isArray(value)?value:[value]);return type>=2?{Frame:Math.round(t*ms),Vector,InTan:Vector.slice(),OutTan:Vector.slice()}:{Frame:Math.round(t*ms),Vector};})};
+}
+/** The layer's geoset colour: a colour rhythm animates it from A to B on the layer clock. */
+function rhythmColour(c,l,colour){
+ const rhythm=COLOUR_RHYTHMS[l.pulse];if(!rhythm)return colour;
+ const map=l.steel?v=>.22+v*.31:l.crust?v=>.18+v*.22:v=>v,second=(l.tint2||secondTint(l.tint)).map(map);
+ return keys(c.id,c.ms,rhythm.keys(Array.from(colour),second),rhythm.type);
 }
 function clockFor(m,ms,created){
  const owned=[...created,...m.Geosets.flatMap(g=>g._FxStack?.createdClockIds||[])];
@@ -64,7 +79,7 @@ function overlay(c,geometry,material,colour,ownAnimation){
  copy.MaterialID=material;
  const index=resource(m.Geosets,tag,copy);c.used.add(tag);
  const old=m.GeosetAnims.find(a=>a.GeosetId===index);
- const anim={...(ownAnimation?structuredClone(ownAnimation):{}),GeosetId:index,Alpha:ownAnimation?.Alpha??1,Flags:(ownAnimation?.Flags||0)|2,Color:vec(colour)};
+ const anim={...(ownAnimation?structuredClone(ownAnimation):{}),GeosetId:index,Alpha:ownAnimation?.Alpha??1,Flags:(ownAnimation?.Flags||0)|2,Color:colour.Keys?colour:vec(colour)};
  if(old)Object.assign(old,anim);else m.GeosetAnims.push(anim);
  return index;
 }
@@ -201,7 +216,7 @@ function skinLayer(c,l){
   tex=l.speed===0?tids[0]:keys(id,ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
  }
 
- const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
+ const shape=l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null),curveType=l.pulse==='soft'?3:1;
  const glyphCurve=l.glyphs&&l.pulse==='flicker'?[[0,1],[.12,1],[.14,.03],[.20,.05],[.22,.92],[.49,.9],[.50,.06],[.58,.04],[.60,1],[1,1]]:l.glyphs&&l.pulse==='breathe'?[[0,.04],[.17,.08],[.49,1],[.64,.94],[1,.04]]:shape;
  let arc;
  if(l.powerArcs){
@@ -215,7 +230,7 @@ function skinLayer(c,l){
   }
   alpha.push([1,0]);motion.push([1,[0,0,0]]);arc={ms,clock,alpha,motion};
  }
- const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
+ const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value]),curveType):value;
  const alpha=alphaFor(1);
  const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:shading(l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,l),Alpha:alpha};
  if(layerMoves(l)&&l.speed!==0){
@@ -241,7 +256,7 @@ function skinLayer(c,l){
  if(samePicture&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
  const colour=l.steel?l.tint.map(v=>.22+v*.31):l.crust?l.tint.map(v=>.18+v*.22):l.tint;
- const index=overlay(c,g,material,colour,m.GeosetAnims.find(a=>a.GeosetId===c.index));
+ const index=overlay(c,g,material,rhythmColour(c,l,colour),m.GeosetAnims.find(a=>a.GeosetId===c.index));
  return {geoset:index};
 }
 function nativeSurface(c,l){
@@ -255,6 +270,12 @@ function nativeSurface(c,l){
  const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true,reuseTextureAnims:true});
  const texCount=m.Textures.length,animCount=m.TextureAnims.length;
  const native=importer.remapMaterial(temp.Materials[temp.Geosets[0].MaterialID]);
+ // An explicit Rhythm replaces the card's own alpha: a curve at each layer's peak, or a constant one.
+ if(l.pulse!=null)for(const layer of native.Layers){
+  const peak=typeof layer.Alpha==='number'?layer.Alpha:layer.Alpha?.Keys?Math.max(...layer.Alpha.Keys.map(k=>k.Vector[0])):1;
+  const curve=l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||curves.breathe;
+  layer.Alpha=curve?keys(c.id,c.ms,curve.map(([t,a])=>[t,a*peak]),l.pulse==='soft'?3:1):peak;
+ }
  const first=native.Layers[0].Alpha;
  const peak=typeof first==='number'?first:Math.max(...first.Keys.map(k=>k.Vector[0]));
  c.state.layers.find(v=>v.id===l.id).unitAlphaPeak=peak;
@@ -264,7 +285,7 @@ function nativeSurface(c,l){
  const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;
  for(let i=animCount;i<m.TextureAnims.length;i++){m.TextureAnims[i]._FxTag=c.tag+'/native-motion'+i;visitTracks(m.TextureAnims[i],t=>{if(t.GlobalSeqId==null||t.GlobalSeqId<0){t.GlobalSeqId=c.id;t.Keys=[{...t.Keys[0],Frame:0}];}});}
- return {geoset:overlay(c,temp.Geosets[0],material,l.tint,m.GeosetAnims.find(a=>a.GeosetId===c.index))};
+ return {geoset:overlay(c,temp.Geosets[0],material,rhythmColour(c,l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index))};
 }
 export function impactDefaults(model,_index,sequence,hit){
  const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));

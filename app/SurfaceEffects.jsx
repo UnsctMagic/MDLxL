@@ -24,7 +24,7 @@ const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const overlays={bones:false,nodes:false,particles:false,attachments:false};
 const idleSelection=[];
-function TintPicker({value,onCommit}) {
+function TintPicker({value,onCommit,label='RGB tint'}) {
  const input=useRef(null);
  useEffect(()=>{input.current.value=value;},[value]);
  useEffect(()=>{
@@ -33,11 +33,11 @@ function TintPicker({value,onCommit}) {
   element.addEventListener('change',commit);
   return()=>element.removeEventListener('change',commit);
  },[onCommit]);
- return <input ref={input} type="color" aria-label="RGB tint" title="Choose a custom RGB colour" defaultValue={value}/>;
+ return <input ref={input} type="color" aria-label={label} title="Choose a custom RGB colour" defaultValue={value}/>;
 }
-function ColourControl({tint,defaultTint,update,hint}) {
+function ColourControl({tint,defaultTint,update,hint,label='Colour',pickerLabel,resetLabel='Reset colour'}) {
  const hex=hexFromTint(tint);
- return <div className="sfx-custom-colour" title={hint}><label>Colour <TintPicker value={hex} onCommit={update}/></label><button aria-label="Reset colour" title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
+ return <div className="sfx-custom-colour" title={hint}><label>{label} <TintPicker value={hex} onCommit={update} label={pickerLabel}/></label><button aria-label={resetLabel} title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
 }
 export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],textureAssets,modelPath,preferences,teamColor,sequenceIndex,onPlaced,onOpenEmitter,onClose}){
  // Two or more geosets checked in the editor are offered as one surface, chosen by default.
