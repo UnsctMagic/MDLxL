@@ -8,6 +8,14 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Review done; fixes not started | [Main review](main-review-2026-11-11.md) / Claude Code |
+| Review fix 7: BITZ Replace Part, Windows menu bar, translations (PRs #622 to #626) | Ready for Codex | [Contract 7](review-7-newest-five.md) / Codex |
+| Review fix 1: FX keeps the right geosets and clocks (serious) | Ready for Codex | [Contract 1](review-1-fx-references.md) / Codex |
+| Review fix 2: saves unblocked but never destroy the file quietly (serious) | Ready for Codex, after fix 1 | [Contract 2](review-2-save-safety.md) / Codex |
+| Review fix 3: settings and keys cannot be wiped by accident | Ready for Codex | [Contract 3](review-3-settings-keys.md) / Codex |
+| Review fix 4: editor and preview fixes | Ready for Codex | [Contract 4](review-4-editors-previews.md) / Codex |
+| Review fix 5: Paint brush-size drag and live-drag guard list | Ready for Codex | [Contract 5](review-5-paint-drags.md) / Codex |
+| Review fix 6: housekeeping (stale rows below, flail check, duplicate helpers) | Ready for Codex, last; flail part waits for the owner | [Contract 6](review-6-housekeeping.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
 | Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
