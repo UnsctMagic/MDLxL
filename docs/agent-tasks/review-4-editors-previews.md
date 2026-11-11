@@ -1,6 +1,6 @@
 # Contract 4: editor and preview fixes
 
-Status: ready for Codex
+Status: completed locally, ready for Claude Code review
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -82,31 +82,51 @@ and O2 (POSE swivel; still open with the owner). Change neither.
 
 ## Changes and verification
 
-Tests to add first (each must fail on the base):
+Implementation tip: `0ffa02d4` on `codex/main-review-20261111-4`. The eight fixes
+are separate commits for Claude's review.
 
-- D1: extend `test/vertex-animated-preview.electron.cjs` with a frame that turns a bone
-  about 90 degrees; real mouse drag of one bound vertex to the right; its position on
-  screen moves right by about the drag distance; undo restores the base pose exactly.
-  Repeat once for Rotate.
-- D2: `test/uv-tools.test.js`: a layer with keyed `TextureID` and no `_MdxDefaults`
-  resolves to the first key's texture through `uvMaterialLayers(model, id)`; an MDX
-  model with a stored base still resolves to that base.
-- D3: `test/auto-corpse.test.js`: Tail bone and one Wing joint with `Parent === ObjectId`;
-  `buildCorpseGeometry` returns. Then `node scripts/verify-auto-corpse.mjs` to show no
-  corpse changed across the library.
-- D4: `test/glow-up.test.js`: additive team-glow geoset that is not a flat square;
-  `glowStart(model).origin === false` and a default `glowUp` adds no geoset.
-- D5: `test/vis-mdlvis-mode.test.js`: desktop and in-app View rows match per mode.
-- D6: source or packaged test driving `GlobalTextureFit` with press, 1-pixel move,
-  release in Move: no change is committed. `test/uv-wrapper-isolation.electron.cjs`
-  and the locked `test/uv-tools.test.js` numbers stay untouched and green.
-- D7: packaged: rebind `drag.move.axisLock` to Alt; Forge part drag with Alt held is locked.
-- D8: packaged: type in a Preview RGB box; the preview changes on Enter, not per key.
+| Finding | Revision | Reproduced on the old code and checked after the fix |
+| --- | --- | --- |
+| D1 | `2e97b1f4` | On `4340c5f8`, the real 18 px right, 5 px down drag moved the frozen vertex 5 px right and 18 px up. `vertex-animated-preview.electron.cjs` passes Move, Rotate, Resize, base-pose commit, exact undo, and mouse orbit. `billboard-vertex-drag.electron.cjs` passes normal and quad drags. Animated edits use the existing skin inverse and base-position payload. Singular poses keep the prior fallback. |
+| D2 | `4b260d01` | The old MDL-style layer showed Team Color instead of Body.blp. `uv-tools.test.js` now checks the first authored key, a preserved MDX base of zero, and the renderer clone. The UV backdrop already calls `uvMaterialLayers`, so it shares the same fallback. |
+| D3 | `536a9a5f` | Both the self-parented and two-node Tail cycles timed out after 5 seconds on `4340c5f8`. Both now finish. The real malformed dragon retains the other wing. `auto-corpse.test.js` passed all 40 cases. |
+| D4 | `b1cc22de` | Origin glow was selected on the native Thunder Lizard even though its non-square glow was already authored. `glow-up.test.js` and `glow-non-square.electron.cjs` pass with both additions off. `glow-detection.electron.cjs` passes both existing eye-effect workflows. Tiny square eye effects still leave the weapon picker available. |
+| D5 | `40304fc4` | The desktop list injected an Axis guides row missing from the browser list, and its Animations row did nothing. The initial shared-list fix still offered a live toggle in Movement's portrait camera, which also hides axes. `vis-mdlvis-mode.test.js`, `herrdave-shell.test.js`, and `axis-guides-menu.electron.cjs` pass View parity, the Vertex toggle, clean Animations, and the disabled portrait-camera row. |
+| D6 | `d70747e8` | One pixel changed the Footman FX texture fit on `4340c5f8`. `fx-uv-click-threshold.electron.cjs` proves one pixel leaves it alone and a deliberate drag still commits. `uv-wrapper-isolation.electron.cjs` and the existing locked UV numbers pass. |
+| D7 | `0ffa02d4` | A real rebound Alt press left the Forge cut hover unsnapped on `4340c5f8`. `forge-detail-editing.electron.cjs` passed with default Shift and again with `MDLXL_TEST_FORGE_REBOUND=1`. It checks Alt before placement, mid-drag, and on release while the mouse stays still. |
+| D8 | `319e9194` | The sampled tint changed before Enter on `4340c5f8`. `uv-preview-visibility.electron.cjs` checks unchanged tint while typing, commit on Enter and blur, actual saved shortcuts for red and Hide extras, reset, authored data, and mouse orbit. Reused the four preview text entries from `07accd24` in all five catalogs. |
 
-Run each fix's own test file plus `test/live-drag-frames.test.js`,
-`test/viewport-correctness.test.js`, `test/localization-catalogs.test.js`.
+- Source command passed 166 tests, with zero failures or skips:
+  `node --test test/uv-tools.test.js test/uv-preview-display.test.js test/auto-corpse.test.js test/glow-up.test.js test/vis-mdlvis-mode.test.js test/herrdave-shell.test.js test/live-drag-frames.test.js test/viewport-correctness.test.js test/localization-catalogs.test.js test/hotkey-default-overlaps.test.js`.
+- Ran `node scripts/audit-corpse-decay.mjs "D:\Warcraft III" out/corpse-corpus`.
+  Ran `node scripts/verify-auto-corpse.mjs out/corpse-corpus <report>` with base
+  and fixed sources. Both reported 96 passes, zero failures, and four exclusions.
+  Frost Wyrm, Red Dragon and Red Dragon Whelp shrink away at the terminal Death
+  frame. Wisp is a documented effect death. Both reports match field for field
+  after removing elapsed time.
+- Built with `node node_modules/vite/bin/vite.js build --configLoader runner`.
+  Packaged with `node scripts/package.mjs --out out/<package> --electron-zip-dir <local cache>`.
+  Ran the named Electron scripts directly with `MDLXL_TEST_EXE` and
+  `scripts/hidden-run.ps1`. Ten focused runs passed, with zero skips. Reused
+  earlier package results for Animated, billboard drag, FX, Forge, and UV RGB
+  because the later renderer change affected only View availability and Glow Up.
+  Warcraft III gameplay was not exercised.
+- Prepared two real fixtures in the permanent test-model collection. The Khorne
+  Knight came from an existing local copy with the expected looped effect. The
+  Thunder Lizard came from the local Warcraft III CASC audit.
+- Removed disposable packages, profiles, extracted models and builds. The
+  source and interaction logs and the two corpse reports remain in `out`.
 
-## Blockers and next action
+## Owner summary
 
-- None. On completion: status, revision and checks per item here; plain summary for the
-  owner; hand back.
+Animated vertices now follow the pointer while edits still save in the base pose.
+UV shows the authored rest texture and applies preview RGB on Enter or when the
+field loses focus. FX ignores a one-pixel wobble, Forge uses the rebound drag
+key, and Axis guides can be toggled only where the view can display them. Auto
+Corpse finishes with cyclic bone links, and Glow Up leaves an existing non-square
+glow alone by default.
+
+## Next action
+
+Claude Code can review the eight local commits on this branch. Saved on your PC,
+not online.
