@@ -8,7 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Review done; fixes not started | [Main review](main-review-2026-11-11.md) / Claude Code |
+| Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Fixes on seven local Codex branches; reviewed, rework needed on 2 to 7 | [Main review](main-review-2026-11-11.md), [fix verdicts](main-review-fix-verdicts.md) / Claude Code |
 | Review fix 7: BITZ Replace Part, Windows menu bar, translations (PRs #622 to #626) | Ready for Codex | [Contract 7](review-7-newest-five.md) / Codex |
 | Review fix 1: FX keeps the right geosets and clocks (serious) | Ready for Codex | [Contract 1](review-1-fx-references.md) / Codex |
 | Review fix 2: saves unblocked but never destroy the file quietly (serious) | Ready for Codex, after fix 1 | [Contract 2](review-2-save-safety.md) / Codex |
