@@ -35,7 +35,7 @@ export function createForgeShape(mesh, { id = 1, name = 'Shape', texturePath, tr
     for (let i = 0; i < g.Faces.length; i += 3) {
       const source = Array.from(g.Faces.slice(i, i + 3)), corners = source.map(v => ids[v]);
       if (new Set(corners).size < 3) continue;
-      faces.push({ id: nextFaceId++, vertices: corners, triangles: [{ vertices: corners, ...(trackSources ? { sourceCorners: source } : {}), uv: source.flatMap(v => Array.from(g.TVertices[0].slice(v * 2, v * 2 + 2))), normals: source.flatMap(v => Array.from(g.Normals.slice(v * 3, v * 3 + 3))) }] });
+      faces.push({ id: nextFaceId++, vertices: corners, triangles: [{ vertices: corners, ...(trackSources ? { sourceCorners: source, sourceOffset: i } : {}), uv: source.flatMap(v => Array.from(g.TVertices[0].slice(v * 2, v * 2 + 2))), normals: source.flatMap(v => Array.from(g.Normals.slice(v * 3, v * 3 + 3))) }] });
     }
   }
   const shape = { id, name, texturePath, vertices, faces, nextFaceId };
@@ -292,8 +292,9 @@ export function insetForgeFaces(source, selected, distance) {
   if (Math.abs(distance) < 1e-8) return source;
   const faces = source.faces.filter(f => selected.includes(f.id)), normal = forgeSelectionNormal([source], { [source.id]: selected });
   if (!faces.length || Math.hypot(...normal) < .5) throw Error('Select a flat region of faces to inset.');
-  const origin = source.vertices[faces[0].vertices[0]];
-  if (faces.some(f => dot(forgeFaceNormal(source, f), normal) <= .5)) throw Error('Select faces that follow the same surface to inset.');
+  const origin = source.vertices[faces[0].vertices[0]], extent = Math.max(1, ...source.vertices.map(p => Math.hypot(...sub(p, origin))));
+  const curved = faces.some(f => f.vertices.some(id => Math.abs(dot(sub(source.vertices[id], origin), normal)) > extent * 1e-5) || dot(forgeFaceNormal(source, f), normal) < .99999);
+  if (curved && faces.some(f => dot(forgeFaceNormal(source, f), normal) <= .5)) throw Error(source.vertexSources ? 'Select faces that follow the same surface to inset.' : 'Inset needs faces on the same plane.');
   const { shape, copies, edges } = detachedCap(source, selected), incoming = new Map(), outgoing = new Map();
   for (const [a, b] of edges) {
     if (outgoing.has(a) || incoming.has(b)) throw Error('Select a face region with a continuous border.');
@@ -313,11 +314,11 @@ export function insetForgeFaces(source, selected, distance) {
   const triangles = faces.flatMap(f => f.triangles);
   // Validate the cap before sampling: projecting a folded cap back onto the
   // source would otherwise hide an excessive inset behind clamped positions.
-  for (const face of faces) for (const t of face.triangles) {
+  if (curved || source.vertexSources) for (const face of faces) for (const t of face.triangles) {
     const ids = t.vertices.map(id => copies.get(id));
     if (dot(triangleNormal(shape, ids), triangleNormal(source, t.vertices)) <= 1e-8) throw Error('Inset is too wide for the selected faces.');
   }
-  if (distance > 0) for (const id of copies.values()) {
+  if (distance > 0 && (curved || source.vertexSources)) for (const id of copies.values()) {
     const sample = sampleForgeSurface(source, triangles, shape.vertices[id]);
     shape.vertices[id] = sample.point;
     if (shape.vertexSources) shape.vertexSources[id] = forgeVertexSources(source, sample.weights);

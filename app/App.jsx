@@ -1934,7 +1934,7 @@ export default function App() {
       {mode==='vertices'&&forgeToolsOpen&&<Suspense fallback={null}><ForgeVertexTools key={session.id} model={model} revision={doc.revision} selection={validSelection} selectable={selectable} activeGeoset={activeGeoset} readOnly={doc.readOnly||saving} onPreview={setForgePreview} onPick={setForgePicking} onSelection={setSelection} onWorkTool={setWorkTool} onClose={()=>setForgeToolsOpen(false)} onCommit={(label,result,revision)=>{
         if(doc.revision!==revision)return false;
         const changed=edit(`Forge ${label}`,['Geosets'],m=>{for(let i=0;i<result.Geosets.length;i++)if(result.Geosets[i]!==model.Geosets[i])m.Geosets[i]=result.Geosets[i];});
-        if(changed!==false)setSelection(result.forgeSelection);return changed;
+        if(changed!==false)setSelection(previous=>({...previous,...result.forgeSelection}));return changed;
       }} onAdd={settings=>{
         const added=edit('Forge add '+settings.shape,['Geosets'],m=>appendVertexForgeShape(m,activeGeoset,validSelection[activeGeoset]||[],buildForgePrimitive(settings),selectionCount?centroid:[0,0,0]),{rethrow:true});
         if(added){setSelection(added.selection);setSelectable(previous=>new Set([...previous,activeGeoset]));setTool('translate');}return added;

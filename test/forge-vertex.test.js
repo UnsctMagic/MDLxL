@@ -82,11 +82,10 @@ test('beveling a new object preserves untouched authored normals in the same geo
   const draft=vertexForgeDraft(model,added.selection),state={...forgeMoldState(draft,'Bevel'),amount:1};
   const preview=vertexForgeResult(model,draft,previewForgeMold(draft,draft,state)),result=preview.Geosets[0];
   assert.ok(preview.forgeSelection[0].every(id=>result.Vertices[id*3]>50),'bevel keeps only the edited object selected');
-  for(let i=0;i<result.Vertices.length/3;i++)if(result.Vertices[i*3]<50){
-    const source=oldPositions.findIndex((n,k)=>k%3===0&&oldPositions.slice(k,k+3).every((v,a)=>v===result.Vertices[i*3+a]));
-    assert.ok(source>=0,'untouched position retained');
-    assert.deepEqual(Array.from(result.Normals.slice(i*3,i*3+3)),oldNormals.slice(source,source+3));
-    assert.deepEqual(Array.from(result.Tangents.slice(i*4,i*4+4)),oldTangents.slice(source/3*4,source/3*4+4));
+  for(let i=0;i<count;i++){
+    assert.deepEqual(Array.from(result.Vertices.slice(i*3,i*3+3)),oldPositions.slice(i*3,i*3+3),'untouched position keeps its index');
+    assert.deepEqual(Array.from(result.Normals.slice(i*3,i*3+3)),oldNormals.slice(i*3,i*3+3));
+    assert.deepEqual(Array.from(result.Tangents.slice(i*4,i*4+4)),oldTangents.slice(i*4,i*4+4));
   }
 });
 test('cuts interpolate mixed HD skin weights and every UV set without resetting bindings', () => {

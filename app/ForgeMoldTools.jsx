@@ -6,7 +6,7 @@ export const MOLD_TOOLS=[
   ['Bend','Bend a piece or selected region. Drag Center and Range to choose where it bends.'],
   ['Bulge','Bulge / Pinch: widen or squeeze the middle while the ends stay put.'],
   ['Taper','Taper: gradually narrow or widen a piece toward one end.'],
-  ['Bevel','Bevel solid edges or the complete border of a thin surface. Drag the gold handle either way to adjust the width.'],
+  ['Bevel','Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.'],
   ['Twist','Twist a piece along its length while its starting end stays still.'],
 ];
 export function ForgeMoldTools({active,disabled,onChoose}){

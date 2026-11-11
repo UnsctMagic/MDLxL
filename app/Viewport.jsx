@@ -1224,7 +1224,9 @@ export default function Viewport({ children, ...inputProps }) {
           attribute(mesh.geometry,'uv',uv,2);mesh.userData.baseUV=new Float32Array(uv);
         }
         for(const marker of markers)marker.geometry.setAttribute('position',positions);
-        entry.geoset=g;entry.edgeIndices=uniqueEdges(g.Faces);entry.wireGeometry.dispose();
+        const sameFaces=entry.geoset.Faces.length===g.Faces.length&&g.Faces.every((v,i)=>v===entry.geoset.Faces[i]);
+        entry.geoset=g;
+        if(!sameFaces){entry.edgeIndices=uniqueEdges(g.Faces);entry.wireGeometry.dispose();}
         entry.geometry.computeBoundingSphere();updateWideWireGeometry(entry);
       }
       state.selectionKey='';state.dirty=true;state.scheduler.invalidate();return;

@@ -131,7 +131,7 @@ function polygonFace(shape,ids,face,source) {
 
 export function bevelForgeShape(source,selected,mode,amount,round=false) {
   if(!Number.isFinite(amount))throw Error('Use a finite bevel width.');
-  amount=Math.abs(amount);
+  if(source.vertexSources)amount=Math.abs(amount);
   if(amount<=1e-8)return source;
   const edges=new Map(),normals=new Map(source.faces.map(f=>[f.id,forgeFaceNormal(source,f)]));
   for(const f of source.faces)f.vertices.forEach((a,i)=>{const b=f.vertices[(i+1)%f.vertices.length],key=forgeEdgeKey(a,b);if(!edges.has(key))edges.set(key,{a,b,faces:[]});edges.get(key).faces.push(f);});
@@ -156,7 +156,7 @@ export function bevelForgeShape(source,selected,mode,amount,round=false) {
     surfaces.push(faces.map(f=>f.id));faces.forEach(f=>surfaceFaces.add(f.id));
   }
   for(const key of picked)if(edges.get(key).faces.some(f=>surfaceFaces.has(f.id)))picked.delete(key);
-  if(!picked.size&&!surfaces.length)throw Error('Select solid edges or the complete border of a thin surface to bevel.');
+  if(!picked.size&&!surfaces.length)throw Error(source.vertexSources?'Select solid edges or the complete border of a thin surface to bevel.':'Select a solid corner or an edge between two surfaces to bevel.');
   const shape=picked.size?bevelSolidEdges(source,edges,normals,picked,amount,round):structuredClone(source);
   for(const faces of surfaces)bevelSurfaceRim(shape,faces,amount,round);
   return shape;
@@ -166,7 +166,7 @@ function bevelSolidEdges(source,edges,normals,picked,amount,round){
   const pickedCorners=new Set([...picked].flatMap(edgeKey=>{const e=edges.get(edgeKey);return [e.a,e.b];}));
   // Only edges meeting the beveled corners constrain their width. A tiny edge
   // elsewhere in an authored geoset must not limit the selected shield or part.
-  const shortest=Math.min(...[...edges.values()].filter(e=>pickedCorners.has(e.a)||pickedCorners.has(e.b)).map(e=>Math.hypot(...sub(source.vertices[e.a],source.vertices[e.b]))).filter(n=>n>1e-6));
+  const shortest=Math.min(...[...edges.values()].filter(e=>!source.vertexSources||pickedCorners.has(e.a)||pickedCorners.has(e.b)).map(e=>Math.hypot(...sub(source.vertices[e.a],source.vertices[e.b]))).filter(n=>n>1e-6));
   const distance=Math.min(amount,shortest*.24),corner=new Map(),key=(f,v)=>f+':'+v;
   for(const f of source.faces)f.vertices.forEach((v,i)=>{
     const before=f.vertices[(i+f.vertices.length-1)%f.vertices.length],after=f.vertices[(i+1)%f.vertices.length],normal=normals.get(f.id);
@@ -190,7 +190,7 @@ function bevelSolidEdges(source,edges,normals,picked,amount,round){
       const p=source.vertices[v],before=f.vertices[(i+f.vertices.length-1)%f.vertices.length],after=f.vertices[(i+1)%f.vertices.length];
       return [corner.get(key(f.id,v)),ends.get(forgeEdgeKey(before,v)+'/'+v)||p,ends.get(forgeEdgeKey(v,after)+'/'+v)||p].every(q=>Math.hypot(...sub(q,p))<1e-10);
     });
-    if(unchanged){
+    if(source.vertexSources&&unchanged){
       const remap=id=>vertex(source.vertices[id],id);
       shape.faces.push({...f,vertices:f.vertices.map(remap),triangles:f.triangles.map(t=>({...t,vertices:t.vertices.map(remap)}))});
       continue;

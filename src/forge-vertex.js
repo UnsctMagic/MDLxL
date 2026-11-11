@@ -1,12 +1,30 @@
 import { Triangle, Vector3 } from 'three';
-import { createForgeShape, forgeSelectionVertices } from './forge-shape-editing.js';
+import { createForgeShape, forgeSelectionVertices, forgeShapeMesh } from './forge-shape-editing.js';
 import { checkedVertexSelection, updateBounds } from './mesh-tools.js';
 import { interpolatedRecord, sourceRecord } from './mesh-density.js';
 import { forgeTangents } from './geoset-tangents.js';
 import { appendGeosetGeometry } from './editor-document.js';
 
 const point = (g, id) => Array.from(g.Vertices.slice(id*3, id*3+3));
-const binding = (g, i) => [g.VertexGroup[i], ...Array.from(g.SkinWeights?.slice(i*8, i*8+8) || [])].join(',');
+const binding = (g, i) => [g.VertexGroup?.[i], ...Array.from(g.SkinWeights?.slice(i*8, i*8+8) || [])].join(',');
+const remainders=new WeakMap();
+
+function localDraft(shape,g,ids){
+  // Two rings retain the complete neighborhoods of changed corners. Distant
+  // triangles never enter the per-frame shaping or attribute-sampling work.
+  let region=new Set(ids.map(i=>shape.sourceVertices[i])),faces=[];
+  for(let ring=0;ring<2;ring++){
+    faces=shape.faces.filter(f=>f.triangles.some(t=>t.vertices.some(id=>region.has(id))));
+    region=new Set([...region,...faces.flatMap(f=>f.triangles.flatMap(t=>t.vertices))]);
+  }
+  const vertices=[...region].sort((a,b)=>a-b),remap=new Map(vertices.map((id,i)=>[id,i]));
+  const offsets=new Set(faces.flatMap(f=>f.triangles.map(t=>t.sourceOffset))),rest=[];
+  for(let i=0;i<g.Faces.length;i+=3)if(!offsets.has(i))rest.push(g.Faces[i],g.Faces[i+1],g.Faces[i+2]);
+  const local={...shape,vertices:vertices.map(i=>shape.vertices[i]),vertexSources:vertices.map(i=>shape.vertexSources[i]),
+    sourceVertices:shape.sourceVertices.map(id=>remap.get(id)??-1),
+    faces:faces.map(f=>({...f,vertices:f.vertices.map(id=>remap.get(id)),triangles:f.triangles.map(t=>({...t,vertices:t.vertices.map(id=>remap.get(id))}))}))};
+  remainders.set(local,{faces:rest,reserved:new Set(rest)});return local;
+}
 
 /** Capture only the current selection when an operation starts, never on opening
  * the tool drawer. The document and its geoset ownership remain authoritative. */
@@ -14,8 +32,8 @@ export function vertexForgeDraft(model, selection) {
   const shapes = [], picked = {};
   for (const [key, ids] of Object.entries(selection)) {
     if (!ids.length) continue;
-    const g = model.Geosets[key]; checkedVertexSelection(g, ids, { requireFaces: true });
-    const shape = createForgeShape({ geosets: [g] }, { id: Number(key), name: `Geoset ${Number(key)+1}`, trackSources: true, vertexKey: binding });
+    const g = model.Geosets[key]; checkedVertexSelection(g, ids, { requireFaces: true, allowSkinOnly: true });
+    const shape = localDraft(createForgeShape({ geosets: [g] }, { id: Number(key), name: `Geoset ${Number(key)+1}`, trackSources: true, vertexKey: binding }),g,ids);
     shapes.push(shape); picked[shape.id] = [...new Set(ids.map(i => shape.sourceVertices[i]))];
   }
   if (!shapes.length) throw Error('Select vertices to work on.');
@@ -29,14 +47,34 @@ export function vertexForgeFaces(draft) {
   })) };
 }
 
-function cornerRecord(g, source, shape, face, triangle, corner, groups) {
+/** Revision checks compare only selection geometry. Reuse unaffected geosets
+ * even when editor commands mutate a stream in place. */
+export function vertexForgePickEntries(model, selectable, cache) {
+  const result=[];
+  for(const i of selectable){
+    const g=model.Geosets[i];if(!g?.Faces.length)continue;
+    const streams=[g.Vertices,g.Faces,g.Normals,g.TVertices[0],g.VertexGroup,g.SkinWeights].map(s=>s?.length?new Uint8Array(s.buffer,s.byteOffset,s.byteLength):new Uint8Array());
+    let entry=cache.get(i);
+    if(!entry||!streams.every((s,k)=>same(s,entry.streams[k]))){
+      checkedVertexSelection(g,[],{requireFaces:true,allowEmpty:true,allowSkinOnly:true});
+      const shape=createForgeShape({geosets:[g]},{id:i,name:`Geoset ${i+1}`,trackSources:true,vertexKey:binding});
+      entry={shape,mesh:forgeShapeMesh(shape),streams:streams.map(s=>s.slice())};cache.set(i,entry);
+    }
+    result.push(entry);
+  }
+  for(const i of cache.keys())if(!selectable.has(i))cache.delete(i);
+  return result;
+}
+
+function cornerRecord(g, source, shape, face, triangle, corner, groups, original) {
   const id = triangle.vertices[corner], origins = shape.vertexSources[id];
   const sourcePoint = [0,1,2].map(axis => origins.reduce((n, [index, weight]) => n + g.Vertices[index*3+axis]*weight, 0));
   const uv = triangle.uv.slice(corner*2, corner*2+2);
-  let samples = origins, best = Infinity;
+  const direct=original!==undefined&&uv.every((n,a)=>Math.abs(n-g.TVertices[0][original*2+a])<1e-7);
+  let samples = direct ? [[original,1]] : origins, best = Infinity;
   // Pick the original side of a UV seam, then interpolate every UV set and rig
   // stream using the mesh-density owner's established SD/HD rules.
-  for (const indices of face.sourceTriangles || []) {
+  for (const indices of direct ? [] : face.sourceTriangles || []) {
     const positions = indices.map(index => new Vector3(...point(g, index)));
     const bary = Triangle.getBarycoord(new Vector3(...sourcePoint), ...positions, new Vector3());
     if (!bary) continue;
@@ -65,13 +103,37 @@ function writeRecords(g, records, faces, groups) {
   const stream = (prior, width, read) => new prior.constructor(records.flatMap(read));
   const out = { ...g, Vertices: stream(g.Vertices, 3, r => r.position), Normals: stream(g.Normals, 3, r => r.normal),
     TVertices: g.TVertices.map((uv, i) => stream(uv, 2, r => r.uvs[i])),
-    VertexGroup: stream(g.VertexGroup, 1, r => [r.vertexGroup]), Groups: groups,
+    VertexGroup: g.VertexGroup?.length ? stream(g.VertexGroup, 1, r => [r.vertexGroup]) : g.VertexGroup, Groups: groups,
     TotalGroupsCount: groups.reduce((n, group) => n + group.length, 0), Faces: new g.Faces.constructor(faces) };
   if (records.length > 65536) throw Error('This operation exceeds the 65536-vertex geoset limit.');
   if (g.SkinWeights?.length) out.SkinWeights = stream(g.SkinWeights, 8, r => r.skin);
   if (g.Tangents?.length) out.Tangents = stream(g.Tangents, 4, r => r.tangent);
   if (g.PrimitiveTypes?.length) out.PrimitiveTypes = new g.PrimitiveTypes.constructor([4]);
   if (g.PrimitiveCounts?.length) out.PrimitiveCounts = new g.PrimitiveCounts.constructor([faces.length]);
+  updateBounds(out);
+  return out;
+}
+
+const same = (a,b) => a === b || !!a && !!b && a.length === b.length && a.every((n,i)=>n===b[i]);
+const sameRecord = (a,b) => same(a.position,b.position) && same(a.normal,b.normal) && a.vertexGroup===b.vertexGroup && same(a.skin,b.skin) && same(a.tangent,b.tangent) && a.uvs.every((uv,i)=>same(uv,b.uvs[i]));
+
+// Copy streams once, then patch only changed slots. Authored duplicates and free
+// vertices remain distinct; new corners append after the original vertex count.
+function writeVertexChanges(g, changes, count, faces, groups) {
+  if(count>65536)throw Error('This operation exceeds the 65536-vertex geoset limit.');
+  const stream=(prior,width,read)=>{
+    if(!prior?.length)return prior;
+    const out=new prior.constructor(count*width);out.set(prior);
+    for(const [index,record] of changes)out.set(read(record),index*width);
+    return out;
+  };
+  const out={...g,Vertices:stream(g.Vertices,3,r=>r.position),Normals:stream(g.Normals,3,r=>r.normal),
+    TVertices:g.TVertices.map((uv,i)=>stream(uv,2,r=>r.uvs[i])),VertexGroup:stream(g.VertexGroup,1,r=>[r.vertexGroup]),
+    Groups:groups,TotalGroupsCount:groups.reduce((n,group)=>n+group.length,0),Faces:new g.Faces.constructor(faces)};
+  if(g.SkinWeights?.length)out.SkinWeights=stream(g.SkinWeights,8,r=>r.skin);
+  if(g.Tangents?.length)out.Tangents=stream(g.Tangents,4,r=>r.tangent);
+  if(g.PrimitiveTypes?.length)out.PrimitiveTypes=new g.PrimitiveTypes.constructor([4]);
+  if(g.PrimitiveCounts?.length)out.PrimitiveCounts=new g.PrimitiveCounts.constructor([faces.length]);
   updateBounds(out);
   return out;
 }
@@ -90,22 +152,46 @@ export function vertexForgeResult(model, before, after) {
     const picked = new Set(after.mode === 'Shape' && before.mode !== 'Shape'
       ? shape.vertexSources.flatMap((origins, id) => origins.some(([index]) => sourcePicked.has(source.sourceVertices[index])) ? [id] : [])
       : forgeSelectionVertices(shape, after.selection[shape.id], after.mode));
-    const records = [], faces = [], cache = new Map(), selected = new Set();
+    const remainder=remainders.get(source);
+    const changes=new Map(), faces=remainder?.faces.slice()||[], cache=new Map(), selected=new Set(), reserved=new Set(remainder?.reserved), corners=[], movedNormals=new Map();
+    let count=g.Vertices.length/3;
+    // Reserve original corners before allocating any changed ones, regardless
+    // of face order. An adjacent new face cannot overwrite an untouched corner.
     for (const face of shape.faces) for (const triangle of face.triangles) for (let k=0;k<3;k++) {
-      const record = cornerRecord(g, source, shape, face, triangle, k, groups);
-      // Keep UV/normal/rig seams separate even when position topology is shared.
-      const key = JSON.stringify([triangle.vertices[k], record]);
-      let index = cache.get(key);
-      if (index === undefined) { index = records.length; records.push(record); cache.set(key,index); }
-      faces.push(index); if (picked.has(triangle.vertices[k])) selected.add(index);
+      const id=triangle.vertices[k], origins=shape.vertexSources[id], authored=triangle.sourceCorners?.[k];
+      const origin=origins.length===1&&origins[0][1]===1?source.sourceVertices[origins[0][0]]:undefined;
+      const original=authored!==undefined&&source.sourceVertices[authored]===origin?authored:
+        origin===undefined?undefined:(face.sourceTriangles?.flat().find(i=>source.sourceVertices[i]===origin)??origins[0][0]);
+      const unchanged=original!==undefined&&same(shape.vertices[id],source.vertices[origin])&&
+        (!sourcePicked.has(origin)||same(triangle.normals?.slice(k*3,k*3+3),Array.from(g.Normals.subarray(original*3,original*3+3))))&&
+        same(triangle.uv.slice(k*2,k*2+2),Array.from(g.TVertices[0].subarray(original*2,original*2+2)));
+      if(!unchanged&&authored===original&&!triangle.normals){
+        const [a,b,c]=triangle.vertices.map(i=>new Vector3(...shape.vertices[i])),n=b.sub(a).cross(c.sub(a));
+        if(!movedNormals.has(original))movedNormals.set(original,new Vector3());movedNormals.get(original).add(n);
+      }
+      if(unchanged)reserved.add(original);
+      corners.push({face,triangle,k,id,original,unchanged});
     }
-    // Authored free vertices are unrelated to surface edits.
-    const used = new Set(g.Faces);
-    for (let i=0;i<g.Vertices.length/3;i++) if (!used.has(i)) records.push(sourceRecord(g,i));
-    const result = writeRecords(g, records, faces, groups);
+    for(const {face,triangle,k,id,original,unchanged} of corners){
+      let index=original;
+      if(!unchanged){
+        const record=cornerRecord(g,source,shape,face,triangle,k,groups,original);
+        if(triangle.sourceCorners?.[k]===original&&!triangle.normals&&movedNormals.has(original))record.normal=movedNormals.get(original).clone().normalize().toArray();
+        const key=original===undefined?'new:'+id:'old:'+original, entries=cache.get(key)||[];
+        index=entries.find(entry=>sameRecord(entry.record,record))?.index;
+        if(index===undefined){
+          if(original!==undefined&&!reserved.has(original)&&!changes.has(original))index=original;
+          else if(original!==undefined&&sameRecord(sourceRecord(g,original),record))index=original;
+          else index=count++;
+          changes.set(index,record);entries.push({index,record});cache.set(key,entries);
+        }
+      }
+      faces.push(index);if(picked.has(id))selected.add(index);
+    }
+    const result = writeVertexChanges(g,changes,count,faces,groups);
     if (g.Tangents?.length) {
-      const tangents=forgeTangents(result);
-      records.forEach((record,i)=>{if(record.tangentChanged)result.Tangents.set(tangents.subarray(i*4,i*4+4),i*4);});
+      const tangents=forgeTangents(result,new Set([...changes].filter(([,record])=>record.tangentChanged).map(([i])=>i)));
+      for(const [i,record] of changes)if(record.tangentChanged)result.Tangents.set(tangents.subarray(i*4,i*4+4),i*4);
     }
     Geosets[shape.id] = result; selection[shape.id] = [...selected];
   }
@@ -117,7 +203,7 @@ export function vertexForgeResult(model, before, after) {
 export function appendVertexForgeShape(model, geosetIndex, selected, mesh, center) {
   const g = model.Geosets[geosetIndex];
   if (!g) throw Error('Select a geoset to add the object to.');
-  checkedVertexSelection(g, selected, { allowEmpty: true });
+  checkedVertexSelection(g, selected, { allowEmpty: true, allowSkinOnly: true });
   const count = g.Vertices.length/3, candidates = selected.length ? selected : Array.from({length:count},(_,i)=>i);
   const records = [], faces = [];
   for (const part of mesh.geosets) {

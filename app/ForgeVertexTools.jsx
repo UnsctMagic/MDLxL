@@ -9,8 +9,8 @@ import { forgeMoldHandles } from './forge-mold-handles.js';
 import { pickEditHandle } from './viewport-edit-handles.js';
 import { normalDragTranslation } from './viewport-math.js';
 import { pickForgeParts, forgePartsFromVertices } from './forge-viewport-selection.js';
-import { forgeShapeMesh, forgeSelectionVertices, forgeSelectionNormal, forgeSelectionCenter, extrudeForgeFaces, insetForgeFaces, forgeCutFrame, cutForgeShape } from '../src/forge-shape-editing.js';
-import { vertexForgeDraft, vertexForgeFaces, vertexForgeResult } from '../src/forge-vertex.js';
+import { forgeSelectionVertices, forgeSelectionNormal, forgeSelectionCenter, extrudeForgeFaces, insetForgeFaces, forgeCutFrame, cutForgeShape } from '../src/forge-shape-editing.js';
+import { vertexForgeDraft, vertexForgeFaces, vertexForgeResult, vertexForgePickEntries } from '../src/forge-vertex.js';
 import { FORGE_SHAPES, PRIMITIVE_DEFAULTS } from '../src/forge-primitives.js';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { isTypingTarget } from '../src/preferences.js';
@@ -21,7 +21,7 @@ import './forge.css';
 export default function ForgeVertexTools({ model, revision, selection, selectable, activeGeoset, readOnly, onPreview, onPick, onSelection, onCommit, onAdd, onClose, onWorkTool }) {
   const [operation,setOperation]=useState(null), [palette,setPalette]=useState(false), [settings,setSettings]=useState(PRIMITIVE_DEFAULTS), [error,setError]=useState('');
   const [scope,setScope]=useState('Vertices');
-  const drag=useRef(null), current=useRef(null);
+  const drag=useRef(null), current=useRef(null), pickCache=useRef(new Map());
   const selectionKey=JSON.stringify(selection);
   const cancel=()=>{drag.current=null;setOperation(null);setError('');onPreview(null);return true;};
   useLayoutEffect(()=>{cancel();},[revision,model,selectionKey]);
@@ -30,15 +30,14 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
   const pickEntries=useMemo(()=>{
     if(scope==='Vertices')return null;
     try{
-      const chosen=Object.fromEntries([...selectable].filter(i=>model.Geosets[i]?.Faces.length).map(i=>[i,Array.from({length:model.Geosets[i].Vertices.length/3},(_,v)=>v)]));
-      return Object.keys(chosen).length?vertexForgeDraft(model,chosen).shapes.map(shape=>({shape,mesh:forgeShapeMesh(shape)})):[];
+      return vertexForgePickEntries(model,selectable,pickCache.current);
     }catch(e){return {error:e.message};}
   },[scope,model,revision,selectableKey]);
   useLayoutEffect(()=>{
     if(!Array.isArray(pickEntries)||operation){onPick(null);return;}
-    const previous=Object.fromEntries(pickEntries.map(({shape})=>{
+    const previous=Object.fromEntries(pickEntries.map(({shape,mesh})=>{
       const vertices=new Set((selection[shape.id]||[]).map(i=>shape.sourceVertices[i]));
-      const exploded=forgeShapeMesh(shape).vertexIds.flatMap((id,i)=>vertices.has(id)?[i]:[]);
+      const exploded=mesh.vertexIds.flatMap((id,i)=>vertices.has(id)?[i]:[]);
       return [shape.id,exploded];
     }));
     const parts=forgePartsFromVertices(pickEntries,Object.fromEntries(pickEntries.map(({shape},i)=>[i,previous[shape.id]])),scope);
@@ -96,7 +95,9 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
   };
   const startExtrude=event=>{
     const active=current.current.operation, draft=active.draft;
-    const entries=draft.shapes.map(shape=>({shape,mesh:forgeShapeMesh(shape)})),hit=pickForgeParts(entries,{},'Faces',event);
+    // Keep the full selected geosets in hit testing: distant surfaces can still
+    // occlude the local edit region. Only shaping uses the reduced draft.
+    const entries=vertexForgePickEntries(model,selectable,pickCache.current).filter(({shape})=>draft.shapes.some(s=>s.id===shape.id)),hit=pickForgeParts(entries,{},'Faces',event);
     const shape=draft.shapes.find(s=>hit[s.id]?.some(id=>draft.selection[s.id].includes(id)));if(!shape)return null;
     const normal=new Vector3(...forgeSelectionNormal([shape],draft.selection)),pivot=new Vector3(...forgeSelectionCenter([shape],draft.selection,'Faces')),session={distance:0};drag.current=session;
     return {update:end=>{
@@ -116,10 +117,13 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
     if(!operation){onPreview(null);return;}
     onPreview({model:result?.model||model,editHandles:handles,onStartPartDrag:operation.kind==='Extrude'?startExtrude:handles?startMold:()=>({update(){},finish(){},cancel}),cancel});
   },[operation,result,handles,onPreview]);
-  useWindowKeyClaim(({event})=>{
-    if(!operation||isTypingTarget(event.target))return false;
+  useWindowKeyClaim(({event,localWindow})=>{
+    if(!operation||localWindow||isTypingTarget(event.target))return false;
     if(event.key==='Escape'||(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){cancel();return true;}
-    if(event.key==='Enter'){apply();return true;}
+    if(event.key==='Enter'){
+      if(event.target?.closest?.('button,input,select,textarea,a,[role="button"],[role="menu"],[role="menuitem"]'))return false;
+      apply();return true;
+    }
     return false;
   },0);
   const begin=kind=>{
@@ -138,7 +142,7 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
   const add=shape=>{try{cancel();if(onAdd({...settings,shape,zUp:true})!==false)setPalette(false);}catch(e){setError(e.message);}};
   return <aside className="forge-vertex-tools" aria-label="Forge tools" data-hotkey-scope="forge-vertex" data-hotkey-category="Forge in Vertex editor">
     <header><strong>FORGE</strong><button aria-label="Close Forge tools" title="Close the toolset. Committed edits stay in the model." onClick={()=>{cancel();onClose();}}>×</button></header>
-    <div className="forge-selection-scope" role="group" aria-label="Forge selection">{['Vertices','Edges','Faces'].map(name=><button key={name} aria-pressed={scope===name} onClick={()=>{cancel();setScope(name);onWorkTool('select');}}>{name}</button>)}</div>
+    <div className="forge-selection-scope" role="group" aria-label="Forge selection">{['Vertices','Edges','Faces'].map((name,i)=><button key={name} title={['Select individual vertices.','Select complete edges.','Select complete faces.'][i]} aria-pressed={scope===name} onClick={()=>{cancel();setScope(name);onWorkTool('select');}}>{name}</button>)}</div>
     <div className="classic-tools forge-shape-tools">
       <Tool title="Add shape" action="forge:vertex:add" disabled={readOnly||!model.Geosets[activeGeoset]} active={palette} onClick={()=>{cancel();setPalette(!palette);}}><ToolIcon name="addShape" className="modern-retro-icon"/></Tool>
       {['Extrude','Inset','Cut'].map(name=><Tool key={name} title={name} action={'forge:vertex:'+name.toLowerCase()} active={operation?.kind===name} disabled={disabled} onClick={()=>begin(name)}><ToolIcon name={name.toLowerCase()} className="modern-retro-icon"/></Tool>)}
@@ -147,13 +151,13 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
     {palette&&<div className="forge-vertex-palette" role="group" aria-label="Add shape">
       <div className="forge-shape-gallery">{FORGE_SHAPES.map(shape=><button key={shape} aria-label={shape} title={'Add '+shape+' to Geoset '+(activeGeoset+1)} onClick={()=>add(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div>
       <div className="forge-dimensions">{['width','height','depth'].map(key=><label key={key}>{key[0].toUpperCase()+key.slice(1)}<input aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e=>setSettings({...settings,[key]:+e.target.value})}/></label>)}</div>
-      <label>Detail<input aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e=>setSettings({...settings,complexity:+e.target.value})}/></label>
+      <label title="Set the number of faces in the new shape.">Detail<input aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e=>setSettings({...settings,complexity:+e.target.value})}/></label>
     </div>}
     <ForgeMoldControls state={operation?.mold} error={result?.error} onChange={mold=>setOperation({...operation,mold})} onApply={apply} onCancel={cancel}/>
     {operation&&!operation.mold&&<div className="forge-vertex-operation" role="group" aria-label={operation.kind+' controls'}>
       <strong>{operation.kind}</strong>
-      {operation.kind==='Cut'&&<><label>Sections<input aria-label="Cut sections" type="number" min="2" max="64" value={operation.sections} onChange={e=>setOperation({...operation,sections:e.target.value})}/></label><button onClick={()=>setOperation({...operation,turned:!operation.turned})}>Turn cuts</button></>}
-      {operation.kind==='Extrude'?<span>Drag a selected face to extrude.</span>:<><button aria-label={'Commit '+operation.kind.toLowerCase()} disabled={!!result?.error||operation.kind==='Inset'&&!operation.amount} onClick={apply}>Commit</button><button aria-label={'Cancel '+operation.kind.toLowerCase()} onClick={cancel}>Cancel</button></>}
+      {operation.kind==='Cut'&&<><label title="Number of sections made by the cuts.">Sections<input aria-label="Cut sections" type="number" min="2" max="64" value={operation.sections} onChange={e=>setOperation({...operation,sections:e.target.value})}/></label><button title="Turn the cut direction." onClick={()=>setOperation({...operation,turned:!operation.turned})}>Turn cuts</button></>}
+      {operation.kind==='Extrude'?<span>Drag a selected face to extrude.</span>:<><button title="Keep this operation as one Undo step." aria-label={'Commit '+operation.kind.toLowerCase()} disabled={!!result?.error||operation.kind==='Inset'&&!operation.amount} onClick={apply}>Commit</button><button title="Discard this preview." aria-label={'Cancel '+operation.kind.toLowerCase()} onClick={cancel}>Cancel</button></>}
     </div>}
     {(error||result?.error||pickEntries?.error)&&<div role="alert" className="forge-error">{error||result?.error||pickEntries?.error}</div>}
   </aside>;

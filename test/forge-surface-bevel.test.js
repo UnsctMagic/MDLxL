@@ -78,8 +78,7 @@ test('sheet bevel preserves authored UV streams, bindings, unrelated faces and s
  for(let i=0;i<out.Vertices.length/3;i++)for(let a=0;a<2;a++)assert.ok(Math.abs(out.TVertices[1][i*2+a]-(out.TVertices[0][i*2+a]*.4+.17))<1e-6,'all UV sets use the same surface samples');
  for(const id of result.forgeSelection[0])assert.deepEqual(out.Groups[out.VertexGroup[id]],[15],'rim retains the shield bone');
  for(let i=0;i<g.Vertices.length/3;i++)if(!plate.includes(i)){
-  const candidates=Array.from({length:out.Vertices.length/3},(_,j)=>j).filter(j=>position(Array.from(out.Vertices.slice(j*3,j*3+3)))===position(Array.from(g.Vertices.slice(i*3,i*3+3))));
-  assert.ok(candidates.some(j=>Array.from(out.Normals.slice(j*3,j*3+3)).every((n,a)=>n===g.Normals[i*3+a])&&Array.from(out.TVertices[0].slice(j*2,j*2+2)).every((n,a)=>n===g.TVertices[0][i*2+a])),'unselected authored vertex streams retained');
+  for(const [before,after,width] of [[g.Vertices,out.Vertices,3],[g.Normals,out.Normals,3],[g.VertexGroup,out.VertexGroup,1],...g.TVertices.map((uv,k)=>[uv,out.TVertices[k],2])])assert.deepEqual(after.slice(i*width,i*width+width),before.slice(i*width,i*width+width),'unselected authored streams keep the same index');
  }
  // Use the normal document boundary with the original format's single UV set.
  g.TVertices.pop();out.TVertices.pop();before.Geosets[0].TVertices.pop();
