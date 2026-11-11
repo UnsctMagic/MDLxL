@@ -210,6 +210,9 @@ Nested tails and mirrored wings are included when the native rig supports them.
 Real anatomical joints precede same-named mesh children; unused branches, cloth
 and rigid props do not become inferred limbs. Ships keep their local body driver
 without turning imported hand/foot attachment names into human anatomy.
+An unanimated unit is recognised from names, attachment points and skeleton. Limbs
+with no usable name are only found once an animation moves them (they can be
+added by hand with Add).
 
 A name never vetoes what the skeleton clearly shows. Two mirrored siblings that
 both carry a limb (a hand or foot at least two joints below) are ordinary

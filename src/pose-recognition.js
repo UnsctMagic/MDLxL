@@ -28,10 +28,16 @@ export function poseRecognitionEvidence(model) {
     while (pending.length) { const node = pending.pop(); if (seen.has(node.ObjectId)) continue; seen.add(node.ObjectId); result.push(node); pending.push(...(children.get(node.ObjectId) || [])); }
     return result;
   };
-  const moving = node => profiles.get(node.ObjectId)?.swing > .01;
+  // Motion is a clue only when the unit has any; an unanimated unit is read without it.
+  const animated = nodes.some(node => profiles.get(node.ObjectId)?.swing > .01);
+  const moving = node => !animated || profiles.get(node.ObjectId)?.swing > .01;
   const supported = node => !!profiles.get(node.ObjectId)?.skin || descendants(node.ObjectId).some(child => profiles.get(child.ObjectId)?.skin);
   const articulated = node => moving(node) || descendants(node.ObjectId).some(moving);
   const links = id => (children.get(id) || []).filter(articulated);
+  // The real-motion versions: searching for unnamed limbs always needs actual motion.
+  const realMoving = node => profiles.get(node.ObjectId)?.swing > .01;
+  const realArticulated = node => realMoving(node) || descendants(node.ObjectId).some(realMoving);
+  const strict = { moving: realMoving, articulated: realArticulated, links: id => (children.get(id) || []).filter(realArticulated) };
   const pivot = node => new Vector3().fromArray(nodePivot(model, node));
   // Compare mirror geometry about the common branch point. Facing may be X or Y.
   const mirrorError = (a, b, origin, span) => Math.min(...[0, 1].map(axis => {
@@ -39,7 +45,7 @@ export function poseRecognitionEvidence(model) {
     if (av.getComponent(axis) * bv.getComponent(axis) >= 0) return Infinity;
     av.setComponent(axis, -av.getComponent(axis)); return av.distanceTo(bv) / Math.max(span, 1e-6);
   }));
-  return { nodes, byId, children, tree, profiles, descendants, moving, supported, articulated, links, pivot, mirrorError };
+  return { nodes, byId, children, tree, profiles, descendants, animated, moving, supported, articulated, links, strict, pivot, mirrorError };
 }
 
 const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
@@ -85,7 +91,7 @@ export function poseSkinFlatness(model, evidence, ids) {
  * Long repeated branches remain generic chains; they are not called feet merely
  * because they point down. This also leaves tiny fingers and rigid props alone. */
 export function inferPoseBranches(evidence, roleOf, occupied, model = null) {
-  const { nodes, byId, children, profiles, moving, supported, links, pivot, mirrorError } = evidence, result = [];
+  const { nodes, byId, children, profiles, supported, pivot, mirrorError } = evidence, { moving, links } = evidence.strict, result = [];
   // A weapon word excludes only what is held: a joint below a hand. Other names
   // (cloth, hair, fingers...) still exclude as before.
   const held = node => evidence.tree.ancestors(node.ObjectId).some(id => roleOf(byId.get(id)) === 'Hand');
