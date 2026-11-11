@@ -138,6 +138,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    </>}
   </>}
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+   <RangeField key={l.id+'inflate'} title="Distance of this layer above the surface." label="Lift" output={v=>v.toFixed(2)} min={0} max={1} step={.01} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length" title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}

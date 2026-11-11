@@ -74,10 +74,16 @@ function nodeFor(c,family,type,key,title,point,parent){
  c.model.PivotPoints[node.ObjectId]=node.PivotPoint;
  return node;
 }
-function overlay(c,geometry,material,colour,ownAnimation){
+function overlay(c,geometry,material,colour,ownAnimation,inflate){
  const m=c.model,tag=c.tag+'/shape',copy=structuredClone(geometry);delete copy._FxStack;
  copy.MaterialID=material;
+ // Lift: a shell pushed out along the vertex normals, like native glow shells.
+ if(inflate>0&&copy.Normals?.length===copy.Vertices.length)for(let i=0;i<copy.Vertices.length;i+=3){
+  const x=copy.Normals[i],y=copy.Normals[i+1],z=copy.Normals[i+2],d=Math.hypot(x,y,z)||1;
+  copy.Vertices[i]+=x/d*inflate;copy.Vertices[i+1]+=y/d*inflate;copy.Vertices[i+2]+=z/d*inflate;
+ }
  const index=resource(m.Geosets,tag,copy);c.used.add(tag);
+ if(inflate>0)recalculateExtents(m,[index]);
  const old=m.GeosetAnims.find(a=>a.GeosetId===index);
  const anim={...(ownAnimation?structuredClone(ownAnimation):{}),GeosetId:index,Alpha:ownAnimation?.Alpha??1,Flags:(ownAnimation?.Flags||0)|2,Color:colour.Keys?colour:vec(colour)};
  if(old)Object.assign(old,anim);else m.GeosetAnims.push(anim);
@@ -256,7 +262,7 @@ function skinLayer(c,l){
  if(samePicture&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
  const colour=l.steel?l.tint.map(v=>.22+v*.31):l.crust?l.tint.map(v=>.18+v*.22):l.tint;
- const index=overlay(c,g,material,rhythmColour(c,l,colour),m.GeosetAnims.find(a=>a.GeosetId===c.index));
+ const index=overlay(c,g,material,rhythmColour(c,l,colour),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate);
  return {geoset:index};
 }
 function nativeSurface(c,l){
@@ -285,7 +291,7 @@ function nativeSurface(c,l){
  const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;
  for(let i=animCount;i<m.TextureAnims.length;i++){m.TextureAnims[i]._FxTag=c.tag+'/native-motion'+i;visitTracks(m.TextureAnims[i],t=>{if(t.GlobalSeqId==null||t.GlobalSeqId<0){t.GlobalSeqId=c.id;t.Keys=[{...t.Keys[0],Frame:0}];}});}
- return {geoset:overlay(c,temp.Geosets[0],material,rhythmColour(c,l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index))};
+ return {geoset:overlay(c,temp.Geosets[0],material,rhythmColour(c,l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate)};
 }
 export function impactDefaults(model,_index,sequence,hit){
  const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));

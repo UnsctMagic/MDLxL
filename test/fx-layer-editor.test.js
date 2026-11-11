@@ -155,3 +155,41 @@ test('colour rhythms animate the overlay colour on the layer clock with constant
  ({anim}=compile(poison.model,withLayer(poison.stack,{pulse:'beat'})));
  assert.equal(anim.Color.Keys.length,3,'a native card takes a colour rhythm too');
 });
+test('Lift pushes the overlay out along the vertex normals',()=>{
+ const {model,stack}=setup('arcane-blade','Flowing energy'),source=structuredClone(model.Geosets[0]);
+ const flat=compile(structuredClone(model),stack).shape;assert.deepEqual(Array.from(flat.Vertices),Array.from(source.Vertices),'no Lift keeps the copy on the skin');
+ const {shape}=compile(model,withLayer(stack,{inflate:.5}));
+ for(let i=0;i<source.Vertices.length;i+=3){
+  const n=[0,1,2].map(k=>source.Normals[i+k]),d=Math.hypot(...n)||1;
+  for(let k=0;k<3;k++)assert.ok(Math.abs(shape.Vertices[i+k]-source.Vertices[i+k]-n[k]/d*.5)<1e-4);
+ }
+ assert.deepEqual(Array.from(model.Geosets[0].Vertices),Array.from(source.Vertices),'the authored part stays where it was');
+});
+test('a stack using every new layer field saves and reopens as MDX and MDL, retunes and removes cleanly',()=>{
+ const doc=createDemoDocument(),model=doc.model,frame=partFrame(model.Geosets[0]),before={geos:model.Geosets.length,anims:model.GeosetAnims.length,clocks:[...model.GlobalSequences],mats:model.Materials.length};
+ const rune=findLook('rune-blade'),poison=findLook('poison-skin'),arcane=findLook('arcane-blade');
+ const layers=[
+  {...makeLayer(rune.layers[0],frame,rune.palette,1),filter:4,unshaded:false,unfogged:true,twoSided:true,loop:1133,repeats:3,glyphScale:1.5,glyphTurn:90,glyphSlide:.2,glyphAcross:.1,pulse:'beat',tint2:[.2,.4,1],inflate:.3},
+  {...makeLayer(poison.layers[0],frame,poison.palette,2),atlasRect:[0,0,.5,.5],uvMatrix:[1,0,0,1,.05,0],speed:0,filter:3,pulse:'embers',loop:1300},
+  {...makeLayer(arcane.layers[2],frame,arcane.palette,3),fixed:false,speed:6,pulse:'shift',inflate:.1},
+ ];
+ const stack={...newStack(rune,frame,'every'),layers};
+ doc.apply('Every field',FX_SECTIONS,m=>compileAnimation(m,0,stack));
+ const glyph=model.GeosetAnims.find(a=>a.GeosetId===model.Geosets.findIndex(g=>g._FxTag==='every/1/shape'));
+ assert.equal(model.GlobalSequences[glyph.Color.GlobalSeqId],1133);
+ for(const format of ['mdx','mdl']){
+  const file=openDocument(doc.serialize(format),'every.'+format),m=file.model;
+  assert.deepEqual(fxData(m),fxData(model));
+  const saved=readAnimationStack(m,0);
+  for(const [i,l] of layers.entries())for(const key of ['filter','unshaded','unfogged','twoSided','loop','repeats','glyphScale','glyphTurn','glyphSlide','glyphAcross','pulse','tint2','inflate','atlasRect','uvMatrix','speed','fixed'])if(key in l)assert.deepEqual(saved.layers[i][key],l[key],format+' keeps '+key);
+  const shape=g=>m.Geosets.findIndex(x=>x._FxTag===g),anim=m.GeosetAnims.find(a=>a.GeosetId===shape('every/1/shape'));
+  assert.deepEqual(anim.Color.Keys.map(k=>Array.from(k.Vector).map(v=>Math.round(v*1e4))),glyph.Color.Keys.map(k=>Array.from(k.Vector).map(v=>Math.round(v*1e4))),format+' keeps the colour beat');
+  assert.equal(m.GlobalSequences[anim.Color.GlobalSeqId],1133);
+  assert.deepEqual(Array.from(m.Geosets[shape('every/1/shape')].Vertices).map(v=>Math.round(v*1e3)),Array.from(model.Geosets[shape('every/1/shape')].Vertices).map(v=>Math.round(v*1e3)));
+  const counts=[m.Geosets.length,m.Materials.length,m.TextureAnims.length,m.GlobalSequences.length,m.GeosetAnims.length];
+  file.apply('Retune',FX_SECTIONS,x=>compileAnimation(x,0,{...saved,layers:saved.layers.map(l=>({...l,strength:l.strength*.9}))}));
+  assert.deepEqual([m.Geosets.length,m.Materials.length,m.TextureAnims.length,m.GlobalSequences.length,m.GeosetAnims.length],counts,format+' retunes in place');
+  file.apply('Remove',FX_SECTIONS,x=>compileAnimation(x,0,{...saved,layers:[]}));
+  assert.deepEqual([m.Geosets.length,m.GeosetAnims.length,m.Materials.length,m.GlobalSequences],[before.geos,before.anims,before.mats,before.clocks],format+' removes every owned clock, colour track and shell');
+ }
+});
