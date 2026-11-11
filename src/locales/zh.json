@@ -7680,5 +7680,17 @@
   "Folder *": "文件夹 *",
   "Controller *": "控制器 *",
   "Citadel *": "城堡 *",
-  "Bones *": "骨骼 *"
+  "Bones *": "骨骼 *",
+  "Pan model": "平移模型",
+  "Zoom model": "缩放模型",
+  "Zoom texture views": "缩放纹理视图",
+  "Pan texture views": "平移纹理视图",
+  "Right drag": "右键拖动",
+  "{0} + left drag": "{0} + 左键拖动",
+  "{0} + middle drag": "{0} + 中键拖动",
+  "{0} + right drag": "{0} + 右键拖动",
+  "{0} + left: rotate / middle: pan": "{0} + 左键：旋转 / 中键：平移",
+  "{0} + left: rotate / middle: pan / right: zoom": "{0} + 左键：旋转 / 中键：平移 / 右键：缩放",
+  "{0} add": "{0} 添加",
+  "{0} subtract": "{0} 减去"
 }

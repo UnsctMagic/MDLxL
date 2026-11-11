@@ -23,7 +23,7 @@ import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { decodePaintBlp } from '../src/paint-blp.js';
 import { allNodes, sampleGeosetAnimation, sampleTrack } from '../src/animation.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
-import { dragKeys, modifierHeld, selectionKeys } from '../src/modifier-bindings.js';
+import { dragKeys, modifierHeld, modifierValue, selectionKeys } from '../src/modifier-bindings.js';
 import { holdGestureKey, onMousePressLost, PAINT_STROKE_ACTIONS } from './gesture-keys.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
@@ -247,7 +247,8 @@ export default function PaintViewport(inputProps) {
       applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work' });
       if (latest.current.paintMode && event.button && modifierHeld(event, 'view.orbit', latest.current.preferences)) {
         // OrbitControls swaps pan and rotate while Shift, Ctrl or Meta is held.
-        controls.mouseButtons.MIDDLE = event.shiftKey || event.ctrlKey || event.metaKey ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+        const orbitKey = modifierValue('view.orbit', latest.current.preferences);
+        controls.mouseButtons.MIDDLE = orbitKey === 'Shift' || orbitKey === 'Ctrl' ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
         controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY;
       }
       if (action === 'move' || action === 'rotate') return;
@@ -398,7 +399,7 @@ export default function PaintViewport(inputProps) {
     const frameModel = event => { cancelGesture(); state.fit(event.detail?.selection === true); };
     const viewCamera = event => { cancelGesture(); if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.camera = camera; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
-    const cancelKey = event => { if (event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
+    const cancelKey = event => { if (event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); return true; } return false; };
     const lampKey = event => {
       const p=latest.current;
       if(!p.paintMode||!p.paintSelectOnly||!p.paintSelectedLamp||down||event.ctrlKey||event.metaKey||event.altKey)return;
@@ -411,7 +412,7 @@ export default function PaintViewport(inputProps) {
     };
     const contextMenu = event => event.preventDefault();
     const claimStrokeKey = claim => claim.detail.claims.push({ priority: 0, run: () => {
-      if (claim.detail.event.key === 'Escape' && down?.action === 'brushAdjust') { cancelGesture(); return true; }
+      if (cancelKey(claim.detail.event)) return true;
       return holdGestureKey(claim.detail, renderer.domElement, () => !!down && down.action !== 'zoom', PAINT_STROKE_ACTIONS);
     } });
     window.addEventListener('mdlxl-window-key', claimStrokeKey);

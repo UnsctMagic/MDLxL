@@ -144,6 +144,6 @@ test('Paint navigation and lamp drags read the rebound mouse keys', () => {
   assert.doesNotMatch(cameraAction, /event\.altKey/, 'cameraAction must not depend on the physical Alt key');
   assert.doesNotMatch(viewport, /paintMode\s*&&\s*event\.altKey/, 'OrbitControls must also use the rebound camera key');
   assert.match(viewport, /lampFine:\s*dragKeys\(event, 'rotate', p\.preferences\)\.shiftKey/);
-  assert.doesNotMatch(image, /e\.altKey/, 'image navigation must not depend on the physical Alt key');
+  assert.match(image, /pointerSensitivityValue\(preferences\?\.pointerSensitivity\)\*\(e\.altKey\?/, 'the slow texture-view drag keeps Alt');
   assert.match(source('viewport-performance.js'), /altMiddleFree\s*&&\s*modifierHeld\(event, 'view\.orbit', getPreferences\(\)\)/);
 });

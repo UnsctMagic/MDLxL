@@ -4,6 +4,7 @@ import {normalizePaintAppearance} from '../src/paint-appearance.js';
 import {APPLICATION_THEMES,cameraBindings} from '../src/preferences.js';
 import {modifierLabel} from '../src/modifier-bindings.js';
 import {createPaintDirtyRows,createPaintPreview,updatePaintPreview,paintRowsBounds,mergePaintRows} from '../src/paint-preview.js';
+import { translate } from '../src/localization.js';
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import PaintViewport from './PaintViewport.jsx';
 import PaintTextureShelf from './PaintTextureShelf.jsx';
@@ -81,7 +82,12 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   const viewportPreferences=useMemo(()=>({...preferences,graphics:{...preferences?.graphics,...(lowPower?{pixelRatio:1,antialias:false}:{})}}),[preferences,lowPower]);
   const orbitKey=modifierLabel('view.orbit',preferences),addKey=modifierLabel('select.add',preferences),removeKey=modifierLabel('select.remove',preferences);
   const navigation=cameraBindings(preferences),orbitZoomKey=orbitKey==='Ctrl'?'':orbitKey;
-  const navigationHint=[orbitKey&&`${orbitKey} + left: rotate / middle: pan${orbitZoomKey ? ' / right: zoom' : ''}`,`Right-drag: ${navigation.right}`,'Wheel: zoom',[addKey&&`${addKey} add`,removeKey&&`${removeKey} subtract`].filter(Boolean).join(' / ')].filter(Boolean).join(' · ');
+  const navigationHint=[
+    orbitKey&&translate(orbitZoomKey ? '{0} + left: rotate / middle: pan / right: zoom' : '{0} + left: rotate / middle: pan').replace('{0}',()=>orbitKey),
+    translate('Right-drag: {0}').replace('{0}',()=>translate(navigation.right)),
+    translate('Wheel: zoom'),
+    [addKey&&translate('{0} add').replace('{0}',()=>addKey),removeKey&&translate('{0} subtract').replace('{0}',()=>removeKey)].filter(Boolean).join(' / '),
+  ].filter(Boolean).join(' · ');
   const selectionHint=(add,subtract)=>[addKey&&`${addKey} ${add}`,removeKey&&`${removeKey} ${subtract}`].filter(Boolean).join('; ');
   const withSelectionHint=(lead,add,subtract,tail='')=>{const hint=selectionHint(add,subtract);return lead+(hint?' '+hint+'.':'')+tail;};
   const paintAppearance=useMemo(()=>normalizePaintAppearance(preferences?.citadelPaint),[preferences?.citadelPaint]);

@@ -7785,5 +7785,17 @@
   "Folder *": "Carpeta *",
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
-  "Bones *": "Huesos *"
+  "Bones *": "Huesos *",
+  "Pan model": "Desplazar modelo",
+  "Zoom model": "Acercar o alejar el modelo",
+  "Zoom texture views": "Acercar o alejar las vistas de texturas",
+  "Pan texture views": "Desplazar las vistas de texturas",
+  "Right drag": "Arrastrar con botón derecho",
+  "{0} + left drag": "{0} + arrastrar con botón izquierdo",
+  "{0} + middle drag": "{0} + arrastrar con botón central",
+  "{0} + right drag": "{0} + arrastrar con botón derecho",
+  "{0} + left: rotate / middle: pan": "{0} + izquierdo: girar / central: desplazar",
+  "{0} + left: rotate / middle: pan / right: zoom": "{0} + izquierdo: girar / central: desplazar / derecho: zoom",
+  "{0} add": "{0} añade",
+  "{0} subtract": "{0} resta"
 }

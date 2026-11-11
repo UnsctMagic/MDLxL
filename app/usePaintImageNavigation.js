@@ -1,7 +1,6 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {bindScrollSensitivity,createFrameCoalescer,pointerSensitivityValue,wheelZoomFactor} from './viewport-performance.js';
 import {cameraBindings} from '../src/preferences.js';
-import {modifierHeld} from '../src/modifier-bindings.js';
 import {onMousePressLost} from './gesture-keys.js';
 
 /** Wheel zoom stays under the pointer; Mouse bindings choose image navigation. */
@@ -24,13 +23,15 @@ export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate,opt
     pan.current=null;
   }
   useEffect(()=>{
+    if (!current.current.onBrushAdjust) return cancelNavigation;
+    const view=scroll.current?.ownerDocument.defaultView;
     const claimBrushEscape=claim=>claim.detail.claims.push({priority:0,run:()=>{
       if(claim.detail.event.key!=='Escape'||pan.current?.type!=='brush')return false;
       cancelNavigation();return true;
     }});
-    window.addEventListener('mdlxl-window-key',claimBrushEscape);
+    view?.addEventListener('mdlxl-window-key',claimBrushEscape);
     const stopPressLost=onMousePressLost(cancelNavigation);
-    return ()=>{stopPressLost();window.removeEventListener('mdlxl-window-key',claimBrushEscape);cancelNavigation();};
+    return ()=>{stopPressLost();view?.removeEventListener('mdlxl-window-key',claimBrushEscape);cancelNavigation();};
   },[]);
   useEffect(()=>{
     const element=scroll.current;
@@ -60,7 +61,7 @@ export function usePaintImageNavigation(scroll,image,zoom,setZoom,onNavigate,opt
       const preferences=current.current.preferences,bindings=cameraBindings(preferences),binding=e.button===2?bindings.right:e.button===1?bindings.middle:null;
       if(!binding||binding==='none'||binding==='toggle')return;
       e.preventDefault();e.stopPropagation();current.current.onNavigate?.();
-      pan.current={type:binding==='zoom'?'zoom':'pan',x:e.clientX,y:e.clientY,left:scroll.current.scrollLeft,top:scroll.current.scrollTop,zoom:current.current.zoom,sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)*(modifierHeld(e,'view.orbit',preferences)?(preferences?.fineSensitivity??.2):1)};
+      pan.current={type:binding==='zoom'?'zoom':'pan',x:e.clientX,y:e.clientY,left:scroll.current.scrollLeft,top:scroll.current.scrollTop,zoom:current.current.zoom,sensitivity:pointerSensitivityValue(preferences?.pointerSensitivity)*(e.altKey?(preferences?.fineSensitivity??.2):1)};
       scroll.current.setPointerCapture(e.pointerId);
     },
     onPointerMoveCapture:e=>{
