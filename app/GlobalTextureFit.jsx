@@ -37,7 +37,8 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
   if(rect){
    let minU=Infinity,minV=Infinity,maxU=-Infinity,maxV=-Infinity;
    for(let i=0;i<next.length;i+=2){minU=Math.min(minU,next[i]);maxU=Math.max(maxU,next[i]);minV=Math.min(minV,next[i+1]);maxV=Math.max(maxV,next[i+1]);}
-   const x=Math.max(0,minU),y=Math.max(0,minV),w=Math.min(1,maxU)-x,h=Math.min(1,maxV)-y;
+   // Move keeps the area's size and stops at the picture's edge; Scale trims what leaves the picture.
+   const moved=mode==='move',x=moved?Math.min(Math.max(0,minU),1-area[2]):Math.max(0,minU),y=moved?Math.min(Math.max(0,minV),1-area[3]):Math.max(0,minV),w=moved?area[2]:Math.min(1,maxU)-x,h=moved?area[3]:Math.min(1,maxV)-y;
    if(w>.002&&h>.002)onArea([x,y,w,h].map(v=>Math.round(v*1e4)/1e4));
    return;
   }
