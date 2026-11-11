@@ -277,6 +277,11 @@ broken ([testing rules](../TESTING-RULES.md)).
 4. Brain review of the diff, then a hand-test build in
    `D:\Claude\MDLxL\TestBuilds\bone-namer` for the owner.
 
+QA state (11 Nov): owner said yes to the scheme. Workers 1 and 2 write in
+`.claude\worktrees\bone-namer-qa` on local branch `claude/bone-namer-qa`
+(from `189879e3`), separate from Codex's folder; the brain merges it into
+`claude/bone-namer` after Codex hands back. Worker 3 starts then.
+
 ## Changes and verification
 
 - Done: scheme census (corpus-sd), POSE probes (Knight: rider under the horse body
