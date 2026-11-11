@@ -273,6 +273,7 @@
   {"id":"texture-library:material-manager","label":"Material Manager","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:new-material","label":"New material","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:preview-texture-in-editor","label":"Preview Texture in Editor","group":"texture-library","category":"Texture Library"},
+  {"id":"texture-library:save-a-copy","label":"Save a copy…","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:search","label":"Search textures","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:show-more-textures","label":"Show more textures","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:texture-kind","label":"Texture kind","group":"texture-library","category":"Texture Library"},

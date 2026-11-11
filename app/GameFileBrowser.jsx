@@ -301,7 +301,9 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
           <code translate="no">{selectedEntry.path}</code>
           <div className="gf-file-actions">
             <button data-hotkey="game-files:copy-path" data-hotkey-manual data-hotkey-label="Copy path" type="button" onClick={copyFilePath}>Copy path</button>
-            <LibrarySaveCopy key={selectedEntry.id} textureName={selectedEntry.type==='textures'?selectedEntry.name:undefined} hotkey="game-files:save-a-copy" onSave={saveCopy} disabled={saving}/>
+            <LibrarySaveCopy key={selectedEntry.id} textureName={selectedEntry.type==='textures'?selectedEntry.name:undefined} disabled={saving}>
+              {format=><button data-hotkey="game-files:save-a-copy" data-hotkey-manual data-hotkey-label="Save a copy…" type="button" disabled={saving} onClick={()=>saveCopy(format)}>Save a copy…</button>}
+            </LibrarySaveCopy>
           </div>
           {fileMessage&&<p className={fileMessage.error?'tl-error':'tl-success'} role="status">{fileMessage.text}</p>}
         </>}

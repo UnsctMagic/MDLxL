@@ -18,13 +18,13 @@ export async function saveConvertedLibraryTexture(asset,format) {
   return (await window.desktop.exportPaintTexture({name,bytes}))?.path;
 }
 
-export default function LibrarySaveCopy({textureName,onSave,disabled,hotkey,buttonClassName}) {
+export default function LibrarySaveCopy({textureName,disabled,selectClassName,children}) {
   const original=textureName?fileName(textureName).split('.').at(-1).toLowerCase():'';
   const [format,setFormat]=useState(original);
-  const save=<button data-hotkey={hotkey} data-hotkey-manual data-hotkey-label="Save a copy…" type="button" className={buttonClassName} disabled={disabled} onClick={()=>onSave(textureName&&format!==original?format:undefined)}>Save a copy…</button>;
+  const save=children(textureName&&format!==original?format:undefined);
   if(!textureName)return save;
   return <span className="gf-save-copy">
-    <select className={buttonClassName} aria-label="Texture save format" title="Texture save format" value={format} disabled={disabled} onChange={event=>setFormat(event.target.value)}>
+    <select className={selectClassName} aria-label="Texture save format" title="Texture save format" value={format} disabled={disabled} onChange={event=>setFormat(event.target.value)}>
       {!FORMATS.includes(original)&&<option value={original}>Original ({original.toUpperCase()})</option>}
       {FORMATS.map(value=><option key={value} value={value}>{value.toUpperCase()}</option>)}
     </select>{save}
