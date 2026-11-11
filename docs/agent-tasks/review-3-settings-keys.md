@@ -139,6 +139,21 @@ or skips. The preceding build also passed the named `hotkey-badges` and
 Sphereomancer, and Alt+R and Escape behavior. The final changes after those
 two runs were confined to configuration import and preset confirmation.
 
+The existing packaged hotkey audit now uses Tab and ArrowDown to choose
+Default, checks that the current preset remains selected, and clicks Restore
+all defaults before its existing Fit and Learn assertions. `node --check
+test/hotkey-defaults-audit.electron.cjs` and `git diff --check` passed.
+
+The named `node scripts/run-packaged-tests.mjs default hotkey-defaults-audit`
+run stopped before the Default step on both `4340c5f8` and the contract 3
+package. It opened all 33 windows without skips, then waited for Assign
+shortcut while recording Ctrl+F9 for Fit. Both runs recorded Ctrl+F9 for
+Forge's Tube thickness, which makes Settings offer Replace existing assignment.
+A temporary copy that clicked that button passed the full audit on the
+contract 3 package. It checked all 743 catalog rows, confirmed Default via
+real input, restored Fit's Home tooltip, and reset the same Learn entry.
+The committed audit keeps the pre-existing Fit setup.
+
 ## Summary for the owner
 
 Picking Default in Hotkeys now asks before clearing keys. Importing an old
