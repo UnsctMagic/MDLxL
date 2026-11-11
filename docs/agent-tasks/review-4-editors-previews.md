@@ -1,6 +1,6 @@
 # Contract 4: editor and preview fixes
 
-Status: completed locally, ready for Claude Code review
+Status: reworked and ready for Claude re-check.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -130,3 +130,10 @@ glow alone by default.
 
 Claude Code can review the eight local commits on this branch. Saved on your PC,
 not online.
+
+## Rework after Claude’s review
+
+- Implementation revision a56174a5. Removed the stray brace between Preview RGB’s blue input and Reset. The packaged check asserts the complete visible RGB group text. The gesture pin checks that the Wrapper uses uvDragChanged and other UVEditor callers retain the one-pixel threshold.
+- pnpm run test:source: 3,278 passed, 0 failed, 10 skipped. CI reporter: 3,288 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. node --test test/gesture-keys.test.js: 19 passed. Hidden node test/uv-preview-visibility.electron.cjs: passed, including the new footer assertion and mouse rotation. The baseline file is unchanged.
+- The four UV preview translations match the release lane word for word. Keep one copy of each key and recount the catalog size on integration.
+- Owner summary: the extra character is gone and both UV drag rules have regression coverage.
