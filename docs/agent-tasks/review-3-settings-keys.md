@@ -1,6 +1,6 @@
 # Contract 3: settings and keys cannot be wiped by accident
 
-Status: application fixes verified locally and ready for Claude review. O5 release-note handoff pending.
+Status: reworked and ready for Claude re-check. O5 wording is ready for the next release-branch update.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -169,3 +169,22 @@ Fresh installations restore right/up UV Zoom and older profiles restore centre.
   languages on local `codex/release-0.40.0`. English: “On German and French
   keyboards, letter keys rebound before 0.39 may now be on a different key.
   Check them in Settings > Hotkeys.”
+
+
+## Rework after Claude’s review
+
+- Implementation revision dd02737e. The settings test still checks that Classic and Orbit use the preset bar’s Custom snapshot route. The UV guide qualifies centre Zoom by profile age. The full source run found two protected Chinese catalog entries had been replaced. Those keys and values were restored alongside the new import text in the five catalogs. The community catalog check now passes with its original hash.
+- C4 consequence: importing a configuration with a custom key on another command’s default now keeps the imported key instead of raising Conflicting shortcut. The check in test/release-fixes.test.js records this. Preset files still reject the clash.
+- pnpm run test:source: 3,278 passed, 0 failed, 10 skipped. CI reporter: 3,288 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. Focused settings, catalog and community localization checks: 22 passed. The baseline file is unchanged.
+- Owner summary: the preset test protects the intended behavior, the guide explains which UV default applies, and the Chinese community wording remains available.
+
+### O5 release handoff
+
+Add the following line to the matching draft notes on codex/release-0.40.0 when that branch next moves.
+
+- EN — On German and French keyboards, letter keys rebound before 0.39 may now be on a different key. Check them in Settings > Hotkeys.
+- ES — En teclados alemanes y franceses, las teclas de letras reasignadas antes de la versión 0.39 pueden estar ahora en otra tecla. Revísalas en Ajustes > Atajos de teclado.
+- RU — На немецких и французских клавиатурах буквенные клавиши, переназначенные до версии 0.39, теперь могут оказаться на других клавишах. Проверьте их в разделе «Настройки → Горячие клавиши».
+- ZH-CN — 使用德语或法语键盘时，在 0.39 版之前重新绑定的字母快捷键现在可能对应其他按键。请在“设置 → 快捷键”中检查。
+- FR — Sur les claviers allemands et français, les raccourcis de lettres réattribués avant la version 0.39 peuvent désormais se trouver sur une autre touche. Vérifiez-les dans Paramètres > Raccourcis clavier.
+- DE — Auf deutschen und französischen Tastaturen können vor Version 0.39 neu belegte Buchstabenkürzel jetzt auf einer anderen Taste liegen. Prüfen Sie sie unter Einstellungen > Tastenkürzel.
