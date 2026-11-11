@@ -1,15 +1,28 @@
 // Unified FX smoke: normal camera, layer handles, solo, preserved view and exact Undo.
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');const {testModel}=require('./helpers/fixtures.cjs');
+const {click}=require('./helpers/library-browser.cjs');
 (async()=>{
- const out=path.join(root,'out/surface-effects');fs.mkdirSync(out,{recursive:true});const {app,page,errors}=await launchApp({fixture:testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx'),out,bounds:{x:0,y:0,width:1450,height:960}});
+ const out=path.join(root,'out/surface-effects');fs.mkdirSync(out,{recursive:true});const {app,page,errors}=await launchApp({fixture:testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx'),out,show:'hide',bounds:{x:0,y:0,width:1450,height:960}});
  const fx=page.getByRole('dialog',{name:'Surface Effects',exact:true}),button=n=>fx.getByRole('button',{name:n,exact:true});const ready=()=>page.waitForFunction(()=>{const e=document.querySelector('.sfx-stage .game-preview-root');if(!e)return false;const p=mdlxlProbe(e);return p.runtime?.captureApi.isReady&&p.runtime.particleSourceModel===p.props.model&&!document.querySelector('.sfx-apply')?.disabled;});
  try{
   await page.waitForFunction(()=>mdlxlProbe().session?.doc?.model?.Geosets?.length>26);
-  const original=await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model));await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('26');await fx.getByLabel('Find a surface effect').fill('Lightning blade');await button('Lightning blade global animation').click();await ready();await button('Solo').click();await button('Fit selection').click();await button('Pause').click();await ready();
+  const original=await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model));await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('26');await fx.getByLabel('Find a surface effect').fill('Lightning blade');await button('Lightning blade global animation').click();await ready();await button('Solo').click();await button('Fit selection').click();await page.waitForFunction(()=>{
+    const {native}=mdlxlProbe('.sfx-stage .game-preview-root').runtime;
+    return native.getFrame()-native.model.Sequences[native.getSequence()].Interval[0]>150;
+  });
+  await click(page,button('Pause'));await ready();
+  const paused=await page.evaluate(async()=>{
+    const {native}=mdlxlProbe('.sfx-stage .game-preview-root').runtime;
+    const start=native.model.Sequences[native.getSequence()].Interval[0],frames=[];
+    for(let i=0;i<5;i++){await new Promise(requestAnimationFrame);frames.push(native.getFrame());}
+    return {start,frames};
+  });
+  assert.ok(paused.frames[0]>paused.start,'Surface Effects must pause at the current pose instead of returning to the clip start');
+  assert.ok(paused.frames.every(frame=>frame===paused.frames[0]),'The Surface Effects pose stays still across frames');
   const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox(),camera=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray()),before=await camera();await page.mouse.move(box.x+box.width*.75,box.y+box.height*.4);await page.mouse.down();await page.mouse.move(box.x+box.width*.75+60,box.y+box.height*.4+20,{steps:8});await page.mouse.up();assert.notDeepEqual(await camera(),before);const rotated=await camera();
   const clip=fx.getByLabel('Preview animation'),next=await clip.locator('option').evaluateAll(a=>a.find(o=>!o.selected).value);await clip.selectOption(next);await ready();assert.ok((await camera()).every((v,i)=>Math.abs(v-rotated[i])<1e-9),'changing clip retains the manually rotated solo view');
   await fx.getByLabel('Add emitter',{exact:true}).selectOption('Blade crackle');await ready();await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();const layers=fx.getByRole('group',{name:'Layers'});await layers.getByRole('button',{name:/Blade crackle/}).click();await button('Position & size').click();const handle=fx.getByRole('slider',{name:'Move emitter',exact:true}).locator('circle'),h=await handle.boundingBox(),offset=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets[26]._FxStack.layers.find(l=>l.kind==='crackle').offset),prior=await offset();await page.mouse.move(h.x+h.width/2,h.y+h.height/2);await page.mouse.down();await page.mouse.move(h.x+h.width/2+22,h.y+h.height/2-12,{steps:8});await page.mouse.up();await ready();assert.notDeepEqual(await offset(),prior,'existing move handle changes the layer');
   await button('Apply effect').click();await fx.waitFor({state:'hidden'});await page.keyboard.press('Control+z');await page.waitForFunction(()=>!mdlxlProbe().session.doc.model.Geosets[26]._FxStack);assert.equal(await page.evaluate(()=>JSON.stringify(mdlxlProbe().session.doc.model)),original);assert.deepEqual(errors,[]);console.log('PASS mouse orbit, Solo, retained view, emitter drag and exact Undo on Tzeentch shield');
- }catch(e){await page.screenshot({path:path.join(out,'failure.png')});throw e;}finally{await closeApp(app);}
+ }catch(e){await page.screenshot({path:path.join(out,'failure.png'),timeout:3000}).catch(()=>{});throw e;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});
