@@ -87,16 +87,20 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     const notebook = () => page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{"keys":{}}').keys, NOTEBOOK_KEY);
     const seed = () => page.evaluate(key => localStorage.setItem(key, JSON.stringify({ version: 1, keys: { fit: { uses: 3, quietUntil: Date.now() + 1e7, silenced: true }, frame: { uses: 2, quietUntil: Date.now() + 1e7, silenced: false } } })), NOTEBOOK_KEY);
     const expectForgot = async how => { await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).keys.fit.quietUntil === 0, NOTEBOOK_KEY); const keys = await notebook(); assert.deepEqual([keys.fit.uses, keys.fit.silenced], [0, true], how); assert.ok(keys.frame.quietUntil > 0, `${how}: other keys stay`); };
+    const assignedKeys = await page.locator('.hotkeys-table .hotkeys-chip kbd').allTextContents();
+    const fitKey = Array.from({ length: 12 }, (_, i) => 'Ctrl+F' + (i + 1)).find(key => !assignedKeys.includes(key));
+    assert.ok(fitKey, 'the live catalog has an unused Ctrl+function key for Fit');
+    const fitKeyPattern = new RegExp(fitKey.replace('+', '\\+'));
     await seed();
     await page.getByLabel('Search Hotkeys', { exact: true }).fill('Fit model');
     const settingsWindow = page.getByRole('dialog', { name: 'Settings', exact: true });
     await click(settingsWindow.getByRole('button', { name: /^Assign shortcut to Fit model/ }));
     await settingsWindow.getByLabel('Press a key combination', { exact: true }).waitFor();
-    await page.keyboard.press('Control+F9'); await click(settingsWindow.getByRole('button', { name: 'Assign shortcut', exact: true }));
+    await page.keyboard.press(fitKey.replace('Ctrl+', 'Control+')); await click(settingsWindow.getByRole('button', { name: 'Assign shortcut', exact: true }));
     await expectForgot('manual rebind');
     await click(page.getByRole('button', { name: 'Close Settings', exact: true }));
-    await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts')?.includes('Ctrl+F9'));
-    assert.match(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F9/);
+    await page.waitForFunction(key => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts')?.includes(key), fitKey);
+    assert.match(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), fitKeyPattern);
     checks.push('A rebind reaches the tooltip at once and forgets only that key in Learn, keeping its mute');
 
     // Choosing Default asks before it puts Fit back.
@@ -114,7 +118,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await expectForgot('preset load');
     await click(page.getByRole('button', { name: 'Close Settings', exact: true }));
     await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts') === 'Home');
-    assert.doesNotMatch(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F9/);
+    assert.doesNotMatch(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), fitKeyPattern);
     checks.push('A hotkeys preset reaches the tooltip at once and forgets the rebound key in Learn');
 
     // Esc on unapplied work asks first; nothing unapplied closes at once.

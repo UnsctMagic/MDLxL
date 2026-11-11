@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 (async () => {
@@ -133,7 +134,11 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     await page.mouse.move(start.x + 18, start.y + 5, { steps: 4 });
-    await page.waitForFunction(() => vertexPreviewRuntime().drag?.payload?.translation?.some(value => Math.abs(value) > .01));
+    for (const deadline = performance.now() + 5000; performance.now() < deadline;) {
+      const position = await screenVertex(0);
+      if (Math.abs(position.x - start.x - 18) < 1 && Math.abs(position.y - start.y - 5) < 1) break;
+      await delay(25);
+    }
     const moved = await screenVertex(0);
     assert.ok(Math.abs(moved.x - start.x - 18) < 1 && Math.abs(moved.y - start.y - 5) < 1,
       'the frozen vertex follows the pointer: ' + JSON.stringify({ start, moved }));

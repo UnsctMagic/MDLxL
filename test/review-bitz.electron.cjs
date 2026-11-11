@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const { setTimeout: delay } = require('node:timers/promises');
 const { appTarget, launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 
@@ -150,11 +151,14 @@ test('Exit after moving a draft warns before Save and leaves the source file int
     await click(page, menu.getByRole('menuitem', { name: 'Exit', exact: true }));
     const notice = page.getByRole('dialog').filter({ hasText: /commit or discard the replacement before saving/i });
     await notice.waitFor().catch(error => { throw Error('Exit did not keep the replacement open for the Save warning', { cause: error }); });
-    const originalCheckpoint = await page.waitForFunction(async file => {
-      const drafts = await window.desktop.listRecovery();
-      return drafts.find(entry => entry.path === file)?.id ?? false;
-    }, fixture);
-    assert.ok(await originalCheckpoint.jsonValue(), 'the underlying Footman kept a disk checkpoint while the draft was open');
+    let originalCheckpoint;
+    for (const deadline = performance.now() + 10000; performance.now() < deadline;) {
+      const drafts = await page.evaluate(() => window.desktop.listRecovery());
+      originalCheckpoint = drafts.find(entry => entry.path === fixture);
+      if (originalCheckpoint) break;
+      await delay(50);
+    }
+    assert.ok(originalCheckpoint?.id, 'the underlying Footman kept a disk checkpoint while the draft was open');
     const prompt = await app.evaluate(() => globalThis.replacementClosePrompt);
     assert.match(prompt.message, /replacement/i);
     assert.deepEqual(fs.readFileSync(fixture), original);
