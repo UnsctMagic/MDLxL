@@ -7785,5 +7785,17 @@
   "Preview RGB": "Предпросмотр RGB",
   "Preview RGB {0}": "Предпросмотр RGB {0}",
   "Reset preview RGB": "Сбросить предпросмотр RGB",
-  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели."
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели.",
+  "Pan model": "Сместить модель",
+  "Zoom model": "Масштабировать модель",
+  "Zoom texture views": "Масштабировать виды текстур",
+  "Pan texture views": "Сместить виды текстур",
+  "Right drag": "Перетаскивание правой кнопкой",
+  "{0} + left drag": "{0} + перетаскивание левой кнопкой",
+  "{0} + middle drag": "{0} + перетаскивание средней кнопкой",
+  "{0} + right drag": "{0} + перетаскивание правой кнопкой",
+  "{0} + left: rotate / middle: pan": "{0} + левая: вращение / средняя: сдвиг",
+  "{0} + left: rotate / middle: pan / right: zoom": "{0} + левая: вращение / средняя: сдвиг / правая: масштаб",
+  "{0} add": "{0} — добавить",
+  "{0} subtract": "{0} — вычесть"
 }

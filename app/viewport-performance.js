@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { modifierHeld } from '../src/modifier-bindings.js';
 
 export const sensitivityValue = value => Math.max(.1, Math.min(10, Number.isFinite(Number(value)) ? Number(value) : 2.5));
 export const pointerSensitivityValue = value => Math.max(.01, Math.min(4, Number.isFinite(Number(value)) ? Number(value) : 1));
@@ -39,7 +40,7 @@ export function createScrollSensitivity({ getPreferences, onChange, onPointerCha
           event.preventDefault?.(); event.stopImmediatePropagation?.(); onIndicator({ kind: 'pointer', value: pointerValue, shortcut: true, reset: true }); return;
         }
       }
-      if (event.button === 1 && !(event.altKey && altMiddleFree) && (getPreferences()?.cameraBindings?.middle ?? 'toggle') === 'toggle') {
+      if (event.button === 1 && !(altMiddleFree && modifierHeld(event, 'view.orbit', getPreferences())) && (getPreferences()?.cameraBindings?.middle ?? 'toggle') === 'toggle') {
         // Original MDLVis toggles Rotation/Work on middle-button release.
         // Consume the down event so OrbitControls and browser autoscroll stay idle.
         middlePointer = { id: event.pointerId, rotation: wheelMode(getPreferences()) === 'rotate' };
