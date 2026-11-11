@@ -119,6 +119,7 @@ const coalescedDrags = [
   { name: 'Paint cutout crop, lasso and polygon hover', file: 'app/PaintCutoutEditor.jsx', from: "const pointer=point(event);if(tool==='polygon'){hover.current=pointer;", to: 'current.redraw=true;dragFrame.current.schedule();', forbidden: /setHoverPoint|setCrop|setMask|cropMask|setPoints/ },
   { name: 'Paint view divider', file: 'app/PaintStudioLayout.jsx', from: 'onPointerMove={e=>{if(e.buttons===1){splitDrag.current=', to: 'splitFrame.current.schedule();}}}', forbidden: /onSplit|getBoundingClientRect/ },
   { name: 'Paint image zoom drag', file: 'app/usePaintImageNavigation.js', from: "if(p.type==='zoom'){p.clientY", to: 'zoomFrame.current.schedule();}', forbidden: /setZoom|getBoundingClientRect/ },
+  { name: 'FX rune layout slider', file: 'app/SurfaceEffects.jsx', from: 'function previewLayout(', to: 'layoutFrame.current.schedule();', forbidden: /previewCoordinates|applyLayout\(\)[^,]/ },
   { name: 'Forge image mask drag', file: 'app/Forge.jsx', from: 'const move = e => {', to: 'applyMove.current = () => {', forbidden: /setPan|setZoom|setPoints|cropContour|polygonMask|onSelected/ },
 ];
 

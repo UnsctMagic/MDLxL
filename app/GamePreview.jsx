@@ -1706,6 +1706,15 @@ export default function GamePreview(inputProps) {
         if(disposed||!ownedModel.Materials[index])return;
         ownedModel.Materials[index].Layers=layers;invalidate();
       },
+      // A live fitting control re-uploads only this geoset's first UV set.
+      previewGeosetUV(index,uv) {
+        const geo=ownedModel.Geosets[index];
+        if(disposed||!geo||geo.TVertices[0]?.length!==uv.length)return;
+        geo.TVertices[0]=Float32Array.from(uv);
+        const buffer=native.texCoordBuffer?.[index];
+        if(buffer){const prior=gl.getParameter(gl.ARRAY_BUFFER_BINDING);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferSubData(gl.ARRAY_BUFFER,0,geo.TVertices[0]);gl.bindBuffer(gl.ARRAY_BUFFER,prior);}
+        invalidate();
+      },
       frames: state.scheduler.frames,
       captureView() {
         if (disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');

@@ -96,15 +96,35 @@ export function strengthPasses(unitLayers,strength,glow=false,alphaFor=null){
  }
  return passes;
 }
-function skinLayer(c,l){
- const {model:m,source,tag,id,ms}=c;
- const prior=c.prior?.type===l.type?c.prior:null;
- const previousShape=m.Geosets.find(g=>g._FxTag===tag+'/shape');
- const previous=m.Materials[previousShape?.MaterialID]?.Layers[0];
- const samePicture=prior&&prior.image===l.image;
+/** Per-island glyph strips: the vertices of each island and how often the glyphs repeat along it. */
+export function glyphIslands(source){
+ return indexedSurfaceIslands(source).flatMap(vertices=>{
+  const region={Vertices:Float32Array.from(vertices.flatMap(v=>Array.from(source.Vertices.subarray(v*3,v*3+3))))};
+  const f=partFrame(region,false);
+  return f?[{vertices,repeats:Math.max(1,Math.round(f.length/Math.max(f.radius*2,1)*.4))}]:[];
+ });
+}
+const GLYPH_LAYOUT=['glyphScale','glyphTurn','glyphSlide','glyphAcross'];
+/** The rune layout fields as one similarity transform about the texture centre: [a,b,c,d,x,y] like uvMatrix. */
+export function glyphTransform(l){
+ const s=1/(l.glyphScale||1),turn=-(l.glyphTurn||0)*Math.PI/180,a=s*Math.cos(turn),b=s*Math.sin(turn);
+ return [a,b,-b,a,.5-a*.5+b*.5+(l.glyphAcross||0),.5-b*.5-a*.5+(l.glyphSlide||0)];
+}
+const compose=([a,b,c,d,x,y],[e,f,g,h,u,v])=>[a*e+c*f,b*e+d*f,a*g+c*h,b*g+d*h,a*u+c*v+x,b*u+d*v+y];
+function invert([a,b,c,d,x,y]){const det=a*d-b*c,ia=d/det,ib=-b/det,ic=-c/det,id=a/det;return [ia,ib,ic,id,-(ia*x+ic*y),-(ib*x+id*y)];}
+const round=(v,step)=>Math.round(v/step)*step;
+/** Apply a fit-view gesture (an affine change of the final UVs) to the rune layout fields, so fields and view agree. */
+export function withGlyphGesture(l,gesture){
+ const m=l.uvMatrix||[1,0,0,1,0,0],[a,b,c,d,x,y]=compose(invert(m),compose(gesture,compose(m,glyphTransform(l))));
+ const s=Math.sqrt(Math.abs(a*d-b*c));if(!(s>1e-6))return l;
+ const turn=-Math.atan2(b,a)*180/Math.PI;
+ return {...l,glyphScale:round(1/s,.001),glyphTurn:round(((turn+540)%360)-180,.1),glyphAcross:round(x-.5+a*.5+c*.5,1e-4),glyphSlide:round(y-.5+b*.5+d*.5,1e-4)};
+}
+function fitCoordinates(c,l){
+ const {model:m,source}=c;
  const mat=m.Materials[c.base],original=mat?.Layers.findLast(layer=>typeof layer.TextureID==='number'&&!m.Textures[layer.TextureID]?.ReplaceableId)||mat?.Layers.at(-1);
  if(!original&&!l.image)throw Error('The selected part has no texture to animate.');
- const own=!l.image, g={...source,TVertices:[...source.TVertices]};
+ const own=!l.image;
  const paintedAtlas=l.own&&!textureRepeats(m,original.TextureID);
  const tiles=l.tiling||1;
  let coords=own||l.bodyUV?(source.TVertices[original?.CoordId||0]||source.TVertices[0]).slice():streakCoordinates(source,{axis:l.axis,band:l.band??(l.base?1:.8)});
@@ -128,12 +148,8 @@ function skinLayer(c,l){
   // A weapon material may be only disconnected edge strips. Use the existing
   // surface-island mapper so glyphs land on metal, not the gap between strips.
   coords=streakCoordinates(source,{axis:'v',band:.65});
-  for(const vertices of indexedSurfaceIslands(source)){
-   const region={Vertices:Float32Array.from(vertices.flatMap(v=>Array.from(source.Vertices.subarray(v*3,v*3+3))))};
-   const f=partFrame(region,false);if(!f)continue;
-   const repeats=Math.max(1,Math.round(f.length/Math.max(f.radius*2,1)*.4));
-   for(const v of vertices)coords[v*2+1]*=repeats;
-  }
+  // Repeat replaces the count fitted to each island's length.
+  for(const {vertices,repeats} of glyphIslands(source))for(const v of vertices)coords[v*2+1]*=l.repeats!=null?Math.max(.25,l.repeats):repeats;
  }
 
  const rect=l.atlasRect;
@@ -151,12 +167,32 @@ function skinLayer(c,l){
   coords[i]=.5+(l.uvOffset?.[0]||0)+tiles*(u*Math.cos(angle)+v*Math.sin(angle));
   coords[i+1]=.5+(l.uvOffset?.[1]||0)+tiles*(v*Math.cos(angle)-u*Math.sin(angle));
  }
- if(l.uvMatrix){const [a,b,c,d,x,y]=l.uvMatrix;for(let i=0;i<coords.length;i+=2){const u=coords[i],v=coords[i+1];coords[i]=a*u+c*v+x;coords[i+1]=b*u+d*v+y;}}
+ // Rune layout (Size, Turn, Slide, Across) comes before a UV map moved in the fit view.
+ for(const matrix of [l.glyphs&&GLYPH_LAYOUT.some(key=>l[key]!=null)?glyphTransform(l):null,l.uvMatrix])if(matrix){const [a,b,c,d,x,y]=matrix;for(let i=0;i<coords.length;i+=2){const u=coords[i],v=coords[i+1];coords[i]=a*u+c*v+x;coords[i+1]=b*u+d*v+y;}}
+ return {coords,original,own,rect,paintedAtlas,angle};
+}
+/** The UVs a surface layer would get, for a live preview of a fitting control. */
+export function previewCoordinates(model,index,stack,layer){
+ const source=model.Geosets[index],saved=source?._FxStack;
+ let surface=source;
+ const members=[...new Set(stack.group||[])].filter(i=>i!==index&&model.Geosets[i]&&!model.Geosets[i]._FxTag);
+ if(members.length){surface=structuredClone(source);delete surface._FxStack;for(const i of members)appendGeosetGeometry(surface,model.Geosets[i]);}
+ const base=saved&&source.MaterialID!==saved.baseMaterial&&model.Materials[source.MaterialID]?._FxTag!==saved.owner+'/underlay'?source.MaterialID:saved?.baseMaterial??source.MaterialID;
+ const l=layer.type==='Rune'?{...layer,type:'Glow',pulse:layer.pulse||'breathe',axis:'v',band:.8,bodyUV:false}:layer;
+ return fitCoordinates({model,source:surface,base,frame:l.water?partFrame(surface):null},l).coords;
+}
+function skinLayer(c,l){
+ const {model:m,source,tag,id,ms}=c;
+ const prior=c.prior?.type===l.type?c.prior:null;
+ const previousShape=m.Geosets.find(g=>g._FxTag===tag+'/shape');
+ const previous=m.Materials[previousShape?.MaterialID]?.Layers[0];
+ const samePicture=prior&&prior.image===l.image;
+ const {coords,original,own,rect,paintedAtlas,angle}=fitCoordinates(c,l),g={...source,TVertices:[...source.TVertices]};
  // A UV Wrapper edit belongs to the live shape. Refit when the target or its fitting controls change.
  const keepUV=prior&&previous&&c.sameGroup
   &&previousShape.Vertices.length===source.Vertices.length&&previousShape.Faces.length===source.Faces.length
   &&source.Faces.every((vertex,i)=>vertex===previousShape.Faces[i])
-  &&['own','direction','tiling','atlasRect','uvOffset','uvMatrix'].every(key=>JSON.stringify(prior[key])===JSON.stringify(l[key]));
+  &&['own','direction','tiling','atlasRect','uvOffset','uvMatrix','repeats',...GLYPH_LAYOUT].every(key=>JSON.stringify(prior[key])===JSON.stringify(l[key]));
  g.TVertices=keepUV?previousShape.TVertices:[coords];
  let tex=own?structuredClone(original.TextureID):texture(m,l.image,!rect,tag);
  if(l.frames){

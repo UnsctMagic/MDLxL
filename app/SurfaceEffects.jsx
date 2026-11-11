@@ -8,7 +8,8 @@ import GameLibraryRow from './GameLibraryRow.jsx';
 import GlobalAnimationControls from './GlobalAnimationControls.jsx';
 import GlobalAnimationStage from './GlobalAnimationStage.jsx';
 import {GLOBAL_LOOKS,findLook,newStack,partFrame,withLayerTexture,withParticleStrength,withLayerSize} from '../src/global-animation-looks.js';
-import {animationPart,compileAnimation,readAnimationStack,impactDefaults,strengthPasses,FX_SECTIONS} from '../src/global-animation-model.js';
+import {animationPart,compileAnimation,readAnimationStack,impactDefaults,strengthPasses,previewCoordinates,FX_SECTIONS} from '../src/global-animation-model.js';
+import {createFrameCoalescer} from './viewport-performance.js';
 import {globalAssetKey,createGlobalLibrary} from './global-animation-library.js';
 import {translate} from '../src/localization.js';
 import {standSequenceIndex} from '../src/sequence-editor.js';
@@ -92,6 +93,18 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
   if(!drag.pending)drag.pending=requestAnimationFrame(()=>{drag.pending=0;if(capture.current===api)api.previewMaterialLayers(index,strengthPasses(drag.unit,drag.value,drag.glow));});
  }
  useEffect(()=>()=>cancelAnimationFrame(strengthDrag.current?.pending),[]);
+ // A rune layout drag moves only that layer's UVs, once per preview frame; release commits.
+ const layoutDrag=useRef(null),layoutFrame=useRef(null);
+ function applyLayout(){const d=layoutDrag.current;if(d&&capture.current===d.api)d.api.previewGeosetUV(d.index,previewCoordinates(d.model,d.part,d.stack,d.layer));}
+ function previewLayout(layer,next){
+  const api=capture.current,index=graph?.layers?.[layer.id]?.geoset,geo=graph?.model?.Geosets[index];
+  if(!api||!geo)return;
+  if(next==null){layoutFrame.current?.cancel();if(layoutDrag.current)api.previewGeosetUV(index,geo.TVertices[0]);layoutDrag.current=null;return;}
+  layoutDrag.current={api,index,layer:next,model:doc.model,part,stack:previewStack};
+  if(!layoutFrame.current||layoutFrame.current.api!==api){layoutFrame.current?.cancel();layoutFrame.current=Object.assign(createFrameCoalescer(()=>applyLayout(),api.frames),{api});}
+  layoutFrame.current.schedule();
+ }
+ useEffect(()=>()=>layoutFrame.current?.cancel(),[]);
  const assets=useMemo(()=>new Map([...textureAssets,...(loaded?.assets||[])]),[textureAssets,loaded]);
  const geosetOptions=useMemo(()=>doc.model.Geosets.map((g,i)=>{const name=imageTextureLayers(doc.model,i)[0]?.path?.split(/[\\/]/).at(-1)?.replace(/\.[^.]+$/,'');return {value:i,label:'Geoset '+(i+1)+' · '+(name||g.Vertices.length/3+' vertices')};}),[doc,doc.revision]);
  const targetOptions=groupChoice.length>1?[{value:-1,label:'Selected geosets ('+groupChoice.length+')'},...geosetOptions]:geosetOptions;
@@ -123,7 +136,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} placing={placing&&!original} onLayer={next=>{setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={doc.model.Sequences[sequence]?.Interval[0]??0} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><select data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={e=>setSequence(Number(e.target.value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</select><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

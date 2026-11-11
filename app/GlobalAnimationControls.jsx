@@ -1,9 +1,9 @@
-import React,{useRef,useState} from 'react';
+import React,{useMemo,useRef,useState} from 'react';
 import {translate} from '../src/localization.js';
 import ParticleTimingTool from './ParticleTimingTool.jsx';
 import {particleValue} from '../src/particle-bindings.js';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
-import {impactDefaults,textureRepeats} from '../src/global-animation-model.js';
+import {impactDefaults,textureRepeats,glyphIslands,withGlyphGesture} from '../src/global-animation-model.js';
 import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
@@ -13,7 +13,7 @@ import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngre
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
-export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength}){
+export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
@@ -38,6 +38,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  // The area of the picture an atlas layer shows; Reset returns to the area it started with.
  const area=controls.area?l.atlasRect||l.nativeSurface.atlas:null,startArea=l?.nativeSurface?l.nativeSurface.atlas:ingredient?.image===l?.image?ingredient?.atlasRect:undefined;
  const areaChanged=!!area&&(!!l.uvMatrix||(l.nativeSurface?!!l.atlasRect:!!startArea&&area.join()!==startArea.join()));
+ const runeRepeats=useMemo(()=>l?.glyphs&&surface?glyphIslands(surface)[0]?.repeats??1:1,[l?.glyphs,surface]);
  const resetArea=()=>{const next={...l};delete next.uvMatrix;if(l.nativeSurface||!startArea)delete next.atlasRect;else next.atlasRect=[...startArea];setLayer(next);};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
@@ -114,10 +115,6 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
   </>}
   {(l.glyphs||l.type==='Glow')&&<label className="field"><span>Glow</span><select aria-label={l.glyphs?'Rune glow':'Glow style'} value={l.pulse||'breathe'} onChange={e=>update('pulse',e.target.value)}>{[['steady','Steady'],['breathe','Pulse'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse'],...(['crystal','steel'].includes(l.pulse)?[[l.pulse,l.label]]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={blend??''} onChange={e=>setLayer(withBlend(l,Number(e.target.value)))}>{blend==null&&<option value=""/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
-  {l.glyphs&&<>
-   <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>setLayer({...l,image:e.target.value})}>{activeRunes.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
-   <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update}/>
-  </>}
   {surf&&<>
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
    {controls.speed&&row('Speed','speed',0,8,1,'Complete turns or texture passes within the loop.')}
@@ -127,6 +124,12 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    {controls.area&&<>
     <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} layer={l} preferences={preferences} change={update} area={area} onArea={rect=>update('atlasRect',rect)}/>
     <div className="fx-area-actions"><button title="Use the whole picture." disabled={area.join()==='0,0,1,1'} onClick={()=>update('atlasRect',[0,0,1,1])}>Whole picture</button><button title="Restore this layer's starting area." disabled={!areaChanged} onClick={resetArea}>Reset</button></div>
+   </>}
+   {l.glyphs&&<>
+    <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>setLayer({...l,image:e.target.value})}>{activeRunes.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
+    <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update} onGlyph={gesture=>setLayer(withGlyphGesture(l,gesture))}/>
+    {[['Repeat','repeats',1,12,1,v=>v,'How many times the runes repeat along the part.'],['Size','glyphScale',.25,4,.05,v=>v.toFixed(2)+'×','Size of the runes.'],['Turn','glyphTurn',-180,180,15,v=>Math.round(v)+'°','Turns the runes, in degrees.'],['Slide','glyphSlide',-1,1,.01,v=>v.toFixed(2),'Moves the runes along the part.'],['Across','glyphAcross',-1,1,.01,v=>v.toFixed(2),'Moves the runes across the part.']].map(([label,key,min,max,step,output,tip])=>
+     <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={l[key]??(key==='repeats'?runeRepeats:key==='glyphScale'?1:0)} onDraft={v=>previewLayout(l,v==null?null:{...l,[key]:v})} onCommit={v=>update(key,v)}/>)}
    </>}
   </>}
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>

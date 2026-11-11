@@ -105,3 +105,21 @@ test('the texture area of a native card and of an atlas skin moves and resizes i
  const moved=compile(waves.model,withLayer(waves.stack,{uvMatrix:[1,0,0,1,.25,0]})).shape.TVertices[0];
  assert.ok(Math.abs(moved[0]-plain[0]-.25)<1e-5&&Math.abs(moved[1]-plain[1])<1e-5,'a moved UV map reaches a native card without an atlas');
 });
+test('rune Repeat, Size, Turn, Slide and Across lay out the glyphs, and a fit-view gesture edits the same fields',async()=>{
+ const {glyphIslands,withGlyphGesture,previewCoordinates}=await import('../src/global-animation-model.js');
+ const rune=setup('rune-blade','Runes'),uv=patch=>compile(structuredClone(rune.model),withLayer(rune.stack,patch)).shape.TVertices[0];
+ const plain=uv({}),computed=glyphIslands(rune.model.Geosets[0])[0].repeats,height=a=>span(a)[3]-span(a)[1],width=a=>span(a)[2]-span(a)[0];
+ assert.ok(Math.abs(height(uv({repeats:computed}))-height(plain))<1e-5,'the computed count is the default of Repeat');
+ assert.ok(Math.abs(height(uv({repeats:computed*3}))/height(plain)-3)<1e-4,'Repeat changes how often the runes repeat along the part');
+ assert.ok(Math.abs(width(uv({glyphScale:2}))/width(plain)-.5)<1e-4,'Size 2 halves the UV span, so the runes grow');
+ const turned=uv({glyphTurn:90});
+ assert.ok(Math.abs(width(turned)-height(plain))<1e-4&&Math.abs(height(turned)-width(plain))<1e-4,'Turn 90 swaps the rune axes');
+ const slid=uv({glyphSlide:.25,glyphAcross:-.1});
+ for(let i=0;i<plain.length;i+=2){assert.ok(Math.abs(slid[i]-plain[i]+.1)<1e-5);assert.ok(Math.abs(slid[i+1]-plain[i+1]-.25)<1e-5);}
+ // A gesture in the fit view, on top of an older moved UV map, lands exactly where the view showed it.
+ const start={...rune.layer,uvMatrix:[0,1,-1,0,.3,.1],glyphScale:1.5,glyphTurn:30},before=uv(start);
+ const c=Math.cos(.4)*1.3,s=Math.sin(.4)*1.3,gesture=[c,s,-s,c,.2,-.05],after=uv(withGlyphGesture(start,gesture));
+ for(let i=0;i<before.length;i+=2){const u=before[i],v=before[i+1];assert.ok(Math.abs(after[i]-(c*u-s*v+.2))<2e-3&&Math.abs(after[i+1]-(s*u+c*v-.05))<2e-3,'fields and fit view agree');}
+ const live={...rune.layer,repeats:4,glyphTurn:45,glyphSlide:.3};
+ assert.deepEqual(Array.from(previewCoordinates(rune.model,0,rune.stack,live)),Array.from(uv(live)),'the live preview shows exactly what release applies');
+});

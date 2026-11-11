@@ -12,7 +12,7 @@ function areaGeoset([x,y,w,h]){
 }
 // The mesh is the fitted layer's real UV map. Only the layer settings change on release.
 // With area, Move and Scale edit that rectangle of the picture instead.
-export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change,area,onArea}){
+export default function GlobalTextureFit({geoset,asset,canScale,layer,preferences,change,area,onArea,onGlyph}){
  const [mode,setMode]=useState(layer.glyphs?'move':null),[texture,setTexture]=useState(null),[error,setError]=useState(false);
  const fit=useRef(null);
  const {shortcuts}=useHotkeys();
@@ -50,14 +50,17 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
    // Store the editor's exact affine gesture, including its centre and texture aspect.
    const u=uv[far]-uv[0],v=uv[far+1]-uv[1];let third=0,area=0;
    for(let i=2;i<uv.length;i+=2){const a=Math.abs(u*(uv[i+1]-uv[1])-v*(uv[i]-uv[0]));if(a>area){third=i;area=a;}}
-   const matrix=layer.uvMatrix?new Matrix3().fromArray([layer.uvMatrix[0],layer.uvMatrix[1],0,layer.uvMatrix[2],layer.uvMatrix[3],0,layer.uvMatrix[4],layer.uvMatrix[5],1]):new Matrix3();
-   if(mode==='move')matrix.premultiply(new Matrix3().makeTranslation(next[0]-uv[0],next[1]-uv[1]));
+   let gesture;
+   if(mode==='move')gesture=new Matrix3().makeTranslation(next[0]-uv[0],next[1]-uv[1]);
    else if(area>1e-8){
     const points=data=>new Matrix3().set(data[0],data[far],data[third],data[1],data[far+1],data[third+1],1,1,1);
-    const transform=points(next).multiply(points(uv).invert());if(Math.abs(transform.determinant())<1e-6)return;
-    matrix.premultiply(transform);
+    gesture=points(next).multiply(points(uv).invert());if(Math.abs(gesture.determinant())<1e-6)return;
    }else return;
-   const e=matrix.elements;change('uvMatrix',[e[0],e[1],e[3],e[4],e[6],e[7]]);return;
+   const affine=m=>{const e=m.elements;return [e[0],e[1],e[3],e[4],e[6],e[7]];};
+   // Runes keep one source of truth: the gesture becomes their Size, Turn, Slide and Across.
+   if(onGlyph){onGlyph(affine(gesture));return;}
+   const matrix=layer.uvMatrix?new Matrix3().fromArray([layer.uvMatrix[0],layer.uvMatrix[1],0,layer.uvMatrix[2],layer.uvMatrix[3],0,layer.uvMatrix[4],layer.uvMatrix[5],1]):new Matrix3();
+   change('uvMatrix',affine(matrix.premultiply(gesture)));return;
   }
   if(!distance)return;
   const x=next[far]-next[0],y=next[far+1]-next[1];
