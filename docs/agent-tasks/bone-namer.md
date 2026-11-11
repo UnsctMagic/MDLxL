@@ -104,9 +104,11 @@ Rules:
     takes that actor's names plus a suffix: `_Death` if the bone's current name or
     its actor body's name contains "death", `_Portrait` likewise, otherwise `_Copy`;
     a further copy of the same kind adds a number (`_Copy2`, `_Death2`).
-  - **Mount**: any other actor larger than Main: prefix `Mount_` (then `Mount2_`…),
-    e.g. `Mount_Bone_Leg1_Front_R`. Reforged's own rigs use `mount_bone_*`.
-  - **Extra**: any other actor not larger than Main: prefix `Extra_` (then `Extra2_`…).
+  - **Mount**: any other actor larger than Main: the word `Mount_` right after
+    `Bone_` (then `Mount2_`…), e.g. `Bone_Mount_Leg1_Front_R`; a mount's bones
+    still sort as one block. (Fix round 1: a prefix before `Bone_` hid tail tips
+    from POSE's `^bone[ _]` rule on 21 models.)
+  - **Extra**: any other actor not larger than Main: `Bone_Extra_…` (then `Extra2_`…).
 - **Unique**: a new name already used by another node (any type, including bones
   that keep their names) gets `uniqueName` from `src/node-hierarchy.js`.
 - Only Bones and Helpers are renamed. Attachments, emitters, lights, event objects,
@@ -209,7 +211,9 @@ control styles.
   empty space to turn the camera."), **Commit** (active when a ticked row would
   change; tooltip "Rename the ticked bones as one undoable edit"), **Close**.
   Changing a part, side, actor or tick away from the proposal counts as unapplied
-  work, so Close asks first (add the row to docs/HOTKEYS.md's unapplied table).
+  work: exactly as Attachemator, the close key (Escape) then asks for a second
+  press, and the Close button and × close the window like Attachemator's do (no
+  extra question; fix round 1). Keep the row in docs/HOTKEYS.md's unapplied table.
 - Read-only documents: Commit disabled. A model with no recognised parts lists every
   bone as `Keep name` with status "No body parts recognised. Choose a part for each
   bone you want renamed."
@@ -219,6 +223,54 @@ control styles.
 - Every new visible English string gets an entry in all five catalogs
   (`src/locales/ru.json`, `es.json`, `zh.json`, `fr.json`, `de.json`). Bone names
   and part names inside new bone names are never translated.
+
+## Fix round 1 (11 Nov, from Claude's QA of `6d52a020`)
+
+These change the rules above where they differ. Evidence: library gate
+`out/bone-namer-corpus/codex-6d52a020/` and diagnosis `out/bone-namer-diag/`
+in `.claude\worktrees\bone-namer-qa` (71 of 940 models failed; causes measured).
+
+Engine:
+1. **Hub joints keep their names.** A chain joint that is not the chain's end and
+   is an ancestor of another chain's end (or belongs to two chains) is part `keep`.
+   POSE otherwise runs the other limb through it and drops one (23 models).
+2. **Actor word after `Bone_`**: `Bone_Mount_…`, `Bone_Extra_…` (scheme section above).
+3. **A mount is never Main.** An actor whose body is a key of `rig.followers`
+   is never Main (Steve.mdx lost POSE's horse follower).
+4. **Nested bodies.** A Body-role bone below another actor's body is its own actor
+   only when at least two limb chains (no `Chain` label) have it as their nearest
+   body; otherwise it belongs to the enclosing actor and keeps its name (part
+   `keep`). The rider on a horse stays its own actor; an `Abdomen` or `Hip` inside
+   one creature no longer splits it into `Extra` (103 models had such splits).
+5. **Attachment-ended limbs.** When a chain ends at an attachment, its last bone
+   is Hand/Foot/Hoof when its resolved POSE role says so, else the next Arm/Leg
+   number (mirrored limbs got different names, e.g. `Bone_Arm2_R` vs `Bone_Hand_L`).
+6. **Numbers count within each limb.** Arm/Leg/Wing numbers restart for each
+   chain; two limbs of one kind on one side no longer share one sequence
+   (windserpent got `Arm2_L` and `Arm4_L`).
+7. **Stable names.** Planning a model already renamed by Bone Namer (defaults
+   committed) proposes no change. Method: plan → apply to a scratch copy →
+   plan again on it, up to three rounds, and propose the last round's names
+   (POSE reads named rigs differently: today a second run renames 297 bones in
+   71 models, e.g. sheep `Bone_Foot_L` → `Bone_Leg2_L`). The rows still report
+   the original model's current names; user corrections apply on top as before.
+
+Window:
+8. Remove the Discard `Dialog`; Close/× behave as Attachemator's (Footer rule
+   above). The packaged test found the question hidden behind the window.
+9. Raise the CSS specificity (`.atm-row.bnm-row`, `.atm-body.bnm-body`): opened
+   before Attachemator, the Part column shrank to 20 px because
+   `attachemator.css` loads later.
+10. Status: `Bone Namer renamed {0} bone{1}.` with the same plural pattern and
+    locale entries as Attachemator's message (today: "renamed 1 bones").
+11. Mount the window with `key={session.id}` like Attachemator (today the key
+    includes `doc.revision`, so choices are lost if the document changes).
+
+Not ours (sent to the POSE session, no change here): Head moving to the neck when
+`Head Ref` hangs on the neck (pose-ik.js:164, 7 models); a hand/foot named
+`Bone_…` loses its skin grip (pose-ik.js:207, 166 limb ends). The limb re-rooting
+after a body or chest gets its real name (20 models) is POSE's intended reading;
+the gate reports it for review.
 
 ## Engine (fixed API, Claude's tests are written against it)
 
