@@ -1,6 +1,6 @@
 # Bitz library management and Quad replacement
 
-Status: local branch for owner review
+Status: completed in [PR #625](https://github.com/UnsctMagic/MDLxL/pull/625)
 Owner: Codex
 Updated: 2026-11-11
 Branch: `codex/bitz-library-quad`
@@ -39,3 +39,7 @@ failed on the previous package because Commit left Quad View on. The revised
 package returned to the prior single view and the prior Quad pane with their
 camera framing, and preserved the single view's render mode and tool.
 All 42 focused Bitz and viewport checks passed.
+
+After integrating main at cd5d780e, the combined code revision b014718c
+built and packaged successfully. All 139 focused source and compatibility
+checks passed, along with the packaged Bitz and EMTR quick-options tests.
