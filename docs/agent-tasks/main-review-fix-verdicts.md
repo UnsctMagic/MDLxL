@@ -12,9 +12,11 @@ tips; every worktree is clean. Online `main` is still `a8a4ca86`.
 
 **Every reworked point below is done and reads correctly.** Claude read each follow-up
 diff and re-ran the eleven tests that failed before plus the reworked ones on each of
-branches 2 to 7: 146 to 151 tests per branch, 0 failures. Claude did not re-run all
-seven whole suites or any packaged test; those rest on Codex's runs (0 failures, 10
-skips per branch) until the combined branch is checked.
+branches 2 to 7: 146 to 151 tests per branch, 0 failures. Claude then ran the whole
+source suite (`test/*.test.js` and `tests/*.test.js`) on all seven branches: each shows
+only the same 9 failures as the base in Claude's run (0 new; Codex's own runs with its
+build report 0 failures and 10 skips). No packaged test was run by Claude; those rest on
+Codex's hidden runs.
 
 - **O12 (owner, relayed through the continuation session on 11 Nov: "Keep").** Done on
   branch 2: when the safety copy cannot be made the old file is left untouched, a
