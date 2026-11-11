@@ -1,4 +1,5 @@
 import themes from './application-themes.json' with { type: 'json' };
+import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_SET_IDS } from './pose-symbol-sets.js';
 
 export const CONTROLLER_SHAPES = Object.freeze(['circle', 'square', 'diamond', 'triangle']);
 export const PIN_STYLES = Object.freeze(['label', 'icon', 'round']);
@@ -14,8 +15,8 @@ const looks = {
 export function controllerAppearanceForTheme(id = 'light') {
   const theme = themes[id] || themes.light;
   const [shape, bodyShape, bendShape, pinStyle, color, selected, pinned] = looks[id] || looks.light;
-  return { moveGizmo: 'classic', rotateHandles: 'lines', shape, bodyShape, bendShape, pinStyle, color, selected, pinned, background: theme.colors.field,
-    skeleton: theme.colors.link, outline: theme.colors.text, symbols: true, size: 17,
+  return { moveGizmo: 'classic', rotateHandles: 'lines', shape, bodyShape, bendShape, pinStyle, color, symbolColor: color, selected, pinned, background: theme.colors.field,
+    skeleton: theme.colors.link, outline: theme.colors.text, symbols: true, symbolSet: DEFAULT_POSE_SYMBOL_SET, filled: true, size: 17,
     axisX: theme.scheme === 'light' ? '#ce3434' : '#fa6975', axisY: theme.scheme === 'light' ? '#248142' : '#77cf80', axisZ: theme.scheme === 'light' ? '#236ac2' : '#77aaff' };
 }
 export const DEFAULT_CONTROLLER_APPEARANCE = Object.freeze(controllerAppearanceForTheme());
@@ -23,9 +24,13 @@ export function normalizeControllerAppearance(value, fallback = DEFAULT_CONTROLL
   const input = value && typeof value === 'object' ? value : {}, base = { ...DEFAULT_CONTROLLER_APPEARANCE, ...fallback };
   const output = {};
   for (const key of ['color', 'selected', 'pinned', 'background', 'skeleton', 'outline', 'axisX', 'axisY', 'axisZ']) output[key] = /^#[0-9a-f]{6}$/i.test(input[key]) ? input[key].toLowerCase() : base[key];
+  // Profiles saved before the Symbol Color existed drew the symbol in the Handle colour; keep that look.
+  output.symbolColor = /^#[0-9a-f]{6}$/i.test(input.symbolColor) ? input.symbolColor.toLowerCase() : /^#[0-9a-f]{6}$/i.test(input.color) ? input.color.toLowerCase() : base.symbolColor;
   for (const key of ['shape', 'bodyShape', 'bendShape']) output[key] = CONTROLLER_SHAPES.includes(input[key]) ? input[key] : base[key];
   output.pinStyle = PIN_STYLES.includes(input.pinStyle) ? input.pinStyle : base.pinStyle;
   output.symbols = typeof input.symbols === 'boolean' ? input.symbols : base.symbols;
+  output.symbolSet = POSE_SYMBOL_SET_IDS.includes(input.symbolSet) ? input.symbolSet : POSE_SYMBOL_SET_IDS.includes(base.symbolSet) ? base.symbolSet : DEFAULT_POSE_SYMBOL_SET;
+  output.filled = typeof input.filled === 'boolean' ? input.filled : base.filled;
   output.size = Number.isFinite(input.size) ? Math.max(12, Math.min(24, input.size)) : base.size;
   output.moveGizmo = ['classic', 'today', 'bold'].includes(input.moveGizmo) ? input.moveGizmo : base.moveGizmo;
   output.rotateHandles = ['lines', 'rings', 'arcs'].includes(input.rotateHandles) ? input.rotateHandles : base.rotateHandles;

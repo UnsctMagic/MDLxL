@@ -7682,5 +7682,14 @@
   "Folder *": "文件夹 *",
   "Controller *": "控制器 *",
   "Citadel *": "城堡 *",
-  "Bones *": "骨骼 *"
+  "Bones *": "骨骼 *",
+  "Figure": "人形",
+  "Rig": "绑定",
+  "Symbol set": "符号集",
+  "Choose the drawings inside the handles: body parts, bones, abstract rig shapes or thin outlines.": "选择控制柄内的图案：身体部位、骨骼、抽象控制形状或细线轮廓。",
+  "Handle background": "控制柄背景",
+  "Fill the inside of the handles with the background color. Off leaves the model visible through them.": "用背景色填充控制柄内部。关闭后可透过控制柄看到模型。",
+  "Ring Color": "圆环颜色",
+  "Symbol Color": "符号颜色",
+  "Modern": "现代"
 }

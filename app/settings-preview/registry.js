@@ -143,6 +143,8 @@ const LINES = [
   ['Bend shape', 'rig-sample', 'controllers'],
   ['Pin button style', 'rig-sample', 'controllers'],
   ['Show body-part symbols', 'rig-sample', 'controllers'],
+  ['Symbol set', 'rig-sample', 'controllers'],
+  ['Handle background', 'rig-sample', 'controllers'],
   ['Editor helpers appearance set', 'rig-sample', 'helpers'],
   ['appearance:color:*', 'rig-sample', 'helpers'],
   ['Emitter marker', 'rig-sample', 'helpers'],

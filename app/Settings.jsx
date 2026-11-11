@@ -19,6 +19,8 @@ import { modifierLabel, modifierRows } from '../src/modifier-bindings.js';
 import { TOOLBAR_MODE_LABELS } from '../src/toolbar-mode.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
 import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
+import { POSE_SYMBOL_SETS, POSE_SYMBOL_SET_IDS } from '../src/pose-symbol-sets.js';
+import { PoseSymbolPaths } from './PoseSymbolIcon.jsx';
 import './settings.css';
 import { updateStatusText } from './UpdatePrompt.jsx';
 import { BONE_INFLUENCE_TIP } from './bone-display.js';
@@ -70,12 +72,17 @@ function AppearanceSet({ title, value, entries, onChange }) {
   const current = entries.find(([, , colors]) => sameValues(value, colors))?.[0] || '';
   return <label className="settings-appearance-set"><span>{title === 'Controllers' ? 'Appearance set' : 'Color set'}</span><select aria-label={`${title} appearance set`} value={current} onChange={event => onChange(entries.find(([id]) => id === event.target.value)[2])}><option value="" disabled>Custom</option>{entries.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>;
 }
+const PREVIEW_SYMBOLS = ['Hand', 'Foot', 'Head', 'Chest', 'Pelvis', 'Body', 'Wing', 'Tail', 'Object'];
 function ControllerPreview({ appearance }) {
-  return <svg className="settings-controller-preview" viewBox="0 0 300 66" role="img" aria-label="Controller appearance preview" style={{ background: appearance.background }}>
+  const symbol = (name, radius) => appearance.symbols && <g transform={`scale(${Math.min(1, radius / 17)}) translate(-12 -12)`}><PoseSymbolPaths set={appearance.symbolSet} name={name} color={appearance.symbolColor} background={appearance.background}/></g>;
+  const outline = (key, radius) => { const points = controllerShapePoints(key, radius); return points ? <polygon points={points.map(pair => pair.join(',')).join(' ')}/> : <circle r={radius}/>; };
+  const fill = appearance.filled ? appearance.background : 'none';
+  return <svg className="settings-controller-preview" viewBox="0 0 300 112" role="img" aria-label="Controller appearance preview" style={{ background: appearance.background }}>
     {['shape', 'bodyShape', 'bendShape'].map((key, index) => {
-      const x = 38 + index * 78, points = controllerShapePoints(appearance[key], appearance.size);
-      return <g key={key} transform={`translate(${x},26)`} stroke={index === 1 ? appearance.selected : appearance.color} fill={appearance.background} strokeWidth="2">{points ? <polygon points={points.map(pair => pair.join(',')).join(' ')}/> : <circle r={appearance.size}/>}<text y="32" stroke="none" fill={appearance.outline} textAnchor="middle" fontSize="10">{['Handle', 'Body', 'Bend'][index]}</text></g>;
+      const x = 38 + index * 78, color = index === 1 ? appearance.selected : appearance.color;
+      return <g key={key} transform={`translate(${x},26)`} stroke={color} fill={fill} strokeWidth="2">{outline(appearance[key], appearance.size)}{index < 2 && symbol(index ? 'Body' : 'Hand', appearance.size)}<text y="32" stroke="none" fill={appearance.outline} textAnchor="middle" fontSize="10">{['Handle', 'Body', 'Bend'][index]}</text></g>;
     })}
+    {PREVIEW_SYMBOLS.map((name, index) => <g key={name} transform={`translate(${24 + index * 31},88)`} stroke={appearance.color} fill={fill} strokeWidth="1.5">{outline(appearance.shape, 12)}{symbol(name, 12)}</g>)}
     <g transform="translate(262,26)" stroke={appearance.pinned} fill="none" strokeWidth="2">{appearance.pinStyle === 'round' ? <circle r="15"/> : <rect x={appearance.pinStyle === 'label' ? -25 : -15} y="-15" width={appearance.pinStyle === 'label' ? 50 : 30} height="30" rx="3"/>}<path d="M-5-8H5L3-2L7 2V4H-7V2L-3-2ZM0 4V12"/><text y="32" stroke="none" fill={appearance.outline} textAnchor="middle" fontSize="10">Pin</text></g>
   </svg>;
 }
@@ -448,8 +455,10 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
           <div className="settings-controller-shapes">{[['shape', 'Handle shape'], ['bodyShape', 'Body shape'], ['bendShape', 'Bend shape']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={label} value={prefs.viewportAppearance.controllers[key]} onChange={event => viewportPart('controllers', { [key]: event.target.value })}>{CONTROLLER_SHAPES.map(shape => <option key={shape} value={shape}>{shape[0].toUpperCase() + shape.slice(1)}</option>)}</select></label>)}</div>
           <label className="settings-select"><span>Pin button</span><select aria-label="Pin button style" value={prefs.viewportAppearance.controllers.pinStyle} onChange={event => viewportPart('controllers', { pinStyle: event.target.value })}>{PIN_STYLES.map((style, index) => <option key={style} value={style}>{['Icon and label', 'Square icon', 'Round icon'][index]}</option>)}</select></label>
           <Toggle label="Show body-part symbols" checked={prefs.viewportAppearance.controllers.symbols} onChange={symbols => viewportPart('controllers', { symbols })}/>
+          <label className="settings-select" title="Choose the drawings inside the handles: body parts, bones, abstract rig shapes or thin outlines."><span>Symbol set</span><select aria-label="Symbol set" value={prefs.viewportAppearance.controllers.symbolSet} onChange={event => viewportPart('controllers', { symbolSet: event.target.value })}>{POSE_SYMBOL_SET_IDS.map(id => <option key={id} value={id}>{POSE_SYMBOL_SETS[id].label}</option>)}</select></label>
+          <Toggle label="Handle background" title="Fill the inside of the handles with the background color. Off leaves the model visible through them." checked={prefs.viewportAppearance.controllers.filled} onChange={filled => viewportPart('controllers', { filled })}/>
           <Numeric label="Controller size" min={12} max={24} unit="px" value={prefs.viewportAppearance.controllers.size} onChange={size => viewportPart('controllers', { size })}/>
-          <AppearanceColors prefix="Controller" colors={[['color', 'Handle'], ['selected', 'Selected'], ['pinned', 'Pinned'], ['background', 'Background'], ['skeleton', 'Pose skeleton'], ['outline', 'Outline'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis']]} value={prefs.viewportAppearance.controllers} onChange={change => viewportPart('controllers', change)}/>
+          <AppearanceColors prefix="Controller" colors={[['color', 'Ring Color'], ['symbolColor', 'Symbol Color'], ['selected', 'Selected'], ['pinned', 'Pinned'], ['background', 'Background'], ['skeleton', 'Pose skeleton'], ['outline', 'Outline'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis']]} value={prefs.viewportAppearance.controllers} onChange={change => viewportPart('controllers', change)}/>
         </AppearanceSection>
         <AppearanceSection title="Folders & lists" palette={palette('Folders & lists', prefs.viewportAppearance.tree, preset => colorValues(preset.appearance.tree), change => viewportPart('tree', change))}>
           <AppearanceColors colors={TREE_COLORS} value={prefs.viewportAppearance.tree} prefix="Tree" onChange={change => viewportPart('tree', change)}/>

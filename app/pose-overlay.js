@@ -4,33 +4,11 @@ import { createPoseSample, poseChainIds, poseDuplicatesBody, poseNodeControl, po
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
+import { POSE_SYMBOL_NAMES, drawPoseSymbol, isPoseMaskSet } from '../src/pose-symbol-sets.js';
+import { drawPoseMask } from './pose-masks.js';
 
-export const poseSymbols = {
-  Magnet: ['M3 2H9V12A3 3 0 0 0 15 12V2H21V12A9 9 0 0 1 3 12Z', 'M3 7H9M15 7H21'],
-  Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
-  Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
-  Hoof: ['M6 2H18L17 12L22 19V22H2V19L7 12Z', 'M7 13H17M12 14V22'],
-  Head: ['M3 20V10Q3 2 12 2Q21 2 21 10V20L15 23H9Z', 'M5 10H19L17 14H7ZM12 14V20'],
-  Chest: ['M3 3L8 1L12 5L16 1L21 3L18 9L19 21L12 23L5 21L6 9Z', 'M7 7L12 10L17 7M12 10V19'],
-  Body: ['M12 1A3 3 0 1 1 12 7A3 3 0 1 1 12 1ZM7 9H17L22 15L19 17L16 13V17L18 23H14L12 18L10 23H6L8 17V13L5 17L2 15Z', ''],
-  Spine: ['M9 1H15V4H18V7H15V10H18V13H15V16H18V19H15V23H9V19H6V16H9V13H6V10H9V7H6V4H9Z', 'M9 7H15M9 13H15M9 19H15'],
-  Wing: ['M2 20L3 5L10 9L16 3L22 5L18 11L21 17L14 15L10 21L6 16Z', 'M3 5L10 13L22 5M10 13L10 21'],
-  Tail: ['M3 4Q15 2 18 9Q23 18 15 22Q6 24 3 17Q1 12 7 10Q12 9 13 14Q9 12 8 16Q11 20 15 17Q18 12 12 9Q7 6 3 7Z', ''],
-  Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
-};
-const symbols = poseSymbols;
 export const posePinPath = 'M5 2H11L10 6L13 9V10H3V9L6 6ZM8 10V15';
-const symbolPaths = new Map();
-const pelvisSymbols = new Map();
-let pelvisFace;
-
-export function loadPoseSymbols(onLoad) {
-  pelvisFace ||= new Image();
-  if (pelvisFace.complete && pelvisFace.naturalWidth) { onLoad(); return () => {}; }
-  pelvisFace.addEventListener('load', onLoad, { once: true });
-  if (!pelvisFace.src) pelvisFace.src = new URL('./pose-trollface.png', import.meta.url).href;
-  return () => pelvisFace.removeEventListener('load', onLoad);
-}
+let pinPath;
 
 export function poseHandleTarget(handle) {
   return { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}), ...(handle.marker ? { marker: true } : {}) };
@@ -39,7 +17,7 @@ export function poseHandleTarget(handle) {
 export const poseHandleKey = handle => handle.quiet || handle.marker || handle.kind === 'bend' ? null : handle.kind === 'endpoint' ? handle.key : handle.kind === 'body' ? 'body' : handle.kind === 'node' ? `node:${handle.id}` : null;
 /** The same identity for a selection target (an elbow/knee target belongs to its limb). */
 export const poseTargetKey = target => !target || target.marker ? null : target.kind === 'endpoint' || target.kind === 'bend' ? target.key : target.kind === 'body' ? 'body' : target.kind === 'node' ? `node:${target.id}` : null;
-export const poseSymbolName = label => label === 'Pelvis' ? 'Pelvis' : poseSymbols[label] ? label : label === 'Neck' ? 'Head' : 'Object';
+export const poseSymbolName = label => POSE_SYMBOL_NAMES.includes(label) ? label : 'Object';
 const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handle.key ?? handle.id ?? ''}:${handle.marker ? 'marker' : 'control'}`;
 
 export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes, appearance = DEFAULT_CONTROLLER_APPEARANCE, mode = 'select') {
@@ -154,36 +132,19 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     const size = handle.size ?? (handle.kind === 'bend' ? 10 : appearance.size), polygon = controllerShapePoints(handle.shape || appearance.shape, size);
     if (polygon) { polygon.forEach(([x, y], index) => context[index ? 'lineTo' : 'moveTo'](handle.x + x, handle.y + y)); context.closePath(); }
     else context.arc(handle.x, handle.y, size, 0, Math.PI * 2);
-    context.fillStyle = appearance.background; context.fill(); context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
+    if (appearance.filled !== false) { context.fillStyle = appearance.background; context.fill(); } context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
     context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'triangle' ? .65 : handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y + (handle.shape === 'triangle' ? size * .2 : 0)); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (!appearance.symbols) { /* Outline-only rig controls. */ }
-    else if (handle.label === 'Pelvis') {
-      if (pelvisFace?.complete && pelvisFace.naturalWidth) {
-        if (!pelvisSymbols.has(color)) {
-          const icon = document.createElement('canvas'); icon.width = pelvisFace.naturalWidth; icon.height = pelvisFace.naturalHeight;
-          const tint = icon.getContext('2d'); tint.drawImage(pelvisFace, 0, 0);
-          tint.globalCompositeOperation = 'multiply'; tint.fillStyle = color; tint.fillRect(0, 0, icon.width, icon.height);
-          tint.globalCompositeOperation = 'destination-in'; tint.drawImage(pelvisFace, 0, 0); tint.globalCompositeOperation = 'source-over';
-          pelvisSymbols.set(color, icon);
-        }
-        context.drawImage(pelvisSymbols.get(color), handle.x - 16, handle.y - 16, 32, 32);
-      }
-    }
-    else {
-      const name = poseSymbolName(handle.label);
-      if (!symbolPaths.has(name)) symbolPaths.set(name, symbols[name].map(path => new Path2D(path)));
-      const [shape, detail] = symbolPaths.get(name);
-      context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
-      context.strokeStyle = appearance.background; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
-    }
+    else if (isPoseMaskSet(appearance.symbolSet)) drawPoseMask(context, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color);
+    else drawPoseSymbol(context, appearance.symbolSet, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color, appearance.background, appearance.filled === false);
     context.restore();
     if (handle.pinned) {
       // A pin remains legible after selection moves to the body or another limb.
-      if (!symbolPaths.has('Pin')) symbolPaths.set('Pin', new Path2D(posePinPath));
+      pinPath ||= new Path2D(posePinPath);
       context.save(); context.translate(handle.x + 11, handle.y - 11);
       context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = appearance.pinned; context.fill();
-      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = appearance.background; context.stroke(symbolPaths.get('Pin')); context.restore();
+      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = appearance.background; context.stroke(pinPath); context.restore();
     }
     if (!handle.selected && !handle.hovered && handle.kind !== 'bend') continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';

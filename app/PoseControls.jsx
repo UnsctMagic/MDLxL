@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { allNodes } from '../src/animation.js';
 import useDismiss from './useDismiss.js';
 import { poseChainBetween, poseChainIds, poseRole, samplePoseChain, suggestPickedPoseChain, separatePoseChains, suggestPoseRig } from '../src/pose-ik.js';
-import { poseSymbols } from './pose-overlay.js';
+import { poseSymbolName } from './pose-overlay.js';
+import PoseSymbolIcon from './PoseSymbolIcon.jsx';
 import useMovableWindow from './useMovableWindow.js';
 import './pose-controls.css';
 
-function PartIcon({ part }) {
-  if (part === 'Pelvis') return <img src={new URL('./pose-trollface.png', import.meta.url).href} alt="" />;
-  const paths = poseSymbols[part] || poseSymbols.Object;
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[0]} fill="currentColor"/><path d={paths[1]} fill="none" stroke="var(--ui-panel, #d4d0c8)" strokeWidth="1.8"/></svg>;
+function PartIcon({ part, symbolSet, symbolColor }) {
+  return <PoseSymbolIcon set={symbolSet} name={poseSymbolName(part)} color={symbolColor}/>;
 }
 function SetupWindow({ onClose, title, children }) {
   const ref = useRef(null), movable = useMovableWindow(ref);
@@ -22,7 +21,7 @@ const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
 const stillMapped = (config, hidden) => hidden.filter(id => id === 'body' ? config.body != null : id.startsWith('node:') ? (config.nodes || []).includes(Number(id.slice(5))) : config.chains.some(chain => chain.key === id));
 const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
 
-export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled }) {
+export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled, symbolSet, symbolColor }) {
   const [open, setOpen] = useState(false), [editor, setEditor] = useState(null), [slot, setSlot] = useState('end'), [error, setError] = useState('');
   const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
   const latest = useRef({ config, onChange }); latest.current = { config, onChange };
@@ -131,7 +130,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     </>}
     {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>
-        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'navigation\u0004Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
+        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'navigation\u0004Back' : 'Handles'}</button><PartIcon part={part} symbolSet={symbolSet} symbolColor={symbolColor}/><strong>{part}</strong></div>
         <p>{editor.end == null ? 'Click the bone you want to grab.' : draft ? 'Ready. The connected bones are highlighted.' : 'Choose the bones in the view.'}</p>
         <button data-hotkey="pose:pick-endpoint" data-hotkey-manual data-hotkey-label="Pick endpoint" className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
         {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button data-hotkey="pose:use-selected-bone" data-hotkey-manual data-hotkey-label="Use selected bone" className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
@@ -146,11 +145,11 @@ export default function PoseControls({ model, revision, config, onChange, onSele
         <div className="pose-actions"><button data-hotkey="pose:save-handle" data-hotkey-manual data-hotkey-label="Save handle" disabled={!draft || disabled} onClick={save}>{editor.original ? 'Save changes' : isChain && config.chains.some(chain => chain.end === draft?.end) ? 'Replace handle' : 'Add handle'}</button><button onClick={back}>Cancel</button></div>
         {editor.original && <button data-hotkey="pose:remove-handle" data-hotkey-manual data-hotkey-label="Remove handle" className="pose-remove" onClick={remove}>Remove handle</button>}
       </> : open === 'add' ? <>
-        <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role}/><span>{role}</span></button>)}</div>
+        <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role} symbolSet={symbolSet} symbolColor={symbolColor}/><span>{role}</span></button>)}</div>
         <button data-hotkey="pose:new-bone-chain" data-hotkey-manual data-hotkey-label="+ New bone chain" className="pose-new-chain" onClick={() => choose('Chain')}>+ New bone chain</button>
       </> : <>
         {!mappings.length && <p>No handles yet.</p>}
-        <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div>
+        <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part} symbolSet={symbolSet} symbolColor={symbolColor}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div>
       </>}
       {error && <p role="alert">{error}</p>}
     </SetupWindow>}
