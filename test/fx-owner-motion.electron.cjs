@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const BLADES=new Set(['flaming-sword','frost-blade','lightning-blade','arcane-blade','rune-blade','claude-fel-blade','claude-tidal-blade','sort-rift']);// weapon looks: the library no longer has a Blades folder
 const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
 (async()=>{
@@ -16,11 +17,11 @@ const {testModel}=require('./helpers/fixtures.cjs');
    await stubDialogs(app,{open:file});await page.keyboard.press('Control+o');await page.waitForFunction(n=>mdlxlProbe().session?.path?.endsWith(n),path.basename(file));
    for(const look of GLOBAL_LOOKS.filter(l=>!lookIds||lookIds.includes(l.id))){
     await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
-    const part=Number(process.env.FX_PART??(look.id==='rune-blade'?runePart:look.group==='Blades'||look.impact?weapon:body));
+    const part=Number(process.env.FX_PART??(look.id==='rune-blade'?runePart:BLADES.has(look.id)||look.impact?weapon:body));
     await fx.getByLabel('Geoset',{exact:true}).selectOption(String(part));await fx.getByLabel('Find a surface effect').fill(look.name);await button(look.name+(look.impact?' impact':' global animation')).click();await ready();
     const stand=await fx.getByLabel('Preview animation').locator('option').evaluateAll(a=>a.find(o=>o.textContent.startsWith('Stand')).value);await fx.getByLabel('Preview animation').selectOption(stand);await ready();
     await button('Fit selection').click();const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
-    await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,look.group==='Blades'||look.impact?430:300);
+    await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,BLADES.has(look.id)||look.impact?430:300);
     const entry={model,look:look.id,part:part+1,clips:[]};
     const staticDefault=look.id==='sort-briar',sequenceClock=look.impact||staticDefault;
     const ownedClocks=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.createdClockIds);

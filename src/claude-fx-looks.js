@@ -19,6 +19,9 @@ const fx=(group,...a)=>make(group,a[0],a[1],a[2],{},...a.slice(3));
 // Armour keeps its own look underneath: every enhancement starts as an overlay.
 const armour=(...a)=>make('Skins',a[0],a[1],a[2],{asOverlay:true},...a.slice(3));
 
+// Fel fire no longer starts with its edge; it stays offered in Add layer.
+export const FEL_EDGE=edge('Fel edge',fel,.3);
+
 // Offered in Particles → Add emitter.
 export const CLAUDE_EMITTERS=[
  spray('Storm cloud','CloudSingle',[.36,.38,.46],{life:1.6,rate:7,area:.5,height:.9,velocity:.08,filter:0,size:[.3,.55,.7],alpha:[0,190,0]}),
@@ -27,12 +30,11 @@ export const CLAUDE_EMITTERS=[
 export const CLAUDE_LOOKS=[
  fx('Blades','fel-blade','Fel blade',1500,
   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
-  flames('Fel flames',fel),
-  {...edge('Fel edge',fel,.3),enabled:false}),
+  {...flames('Fel flames',fel),starts:true}),
  fx('Blades','tidal-blade','Tidal blade',2600,
   skin('Running water',water[0],{frames:water,water:true,axis:'v',strength:.85,tint:sea}),
   glow('Wet sheen',tex('Ice3b'),{pulse:'breathe',strength:.45,tint:sea}),
-  dust('Dripping water','drops',tex('WaterBlobs1'),{tint:sea})),
+  dust('Dripping water','drops',tex('WaterBlobs1'),{tint:sea,starts:true})),
  {...fx('Skins','magma-flow','Magma flow',3000,
   stone('Cooled rock','Dungeon\\Cave_DarkRocks'),
   skin('Lava flow',tex('Flame4'),{bodyUV:true,direction:90,strength:1,tint:lava})),asOverlay:true},

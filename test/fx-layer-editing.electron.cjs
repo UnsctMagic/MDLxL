@@ -15,7 +15,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const [x,y]=await Promise.all([pixels(a),pixels(b)]);let count=0;for(let i=0;i<x.length;i+=4)if(Math.max(...[0,1,2].map(k=>Math.abs(x[i+k]-y[i+k])))>3)count++;return count;
  },[a,b].map(buf=>buf.toString('base64')));
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt skin');
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt');
   await fx.getByLabel('Create as overlay').check();await ready();await fx.getByRole('button',{name:'Solo',exact:true}).click();await fx.getByRole('button',{name:'Fit selection'}).click();await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack;const t=p.runtime.native.rendererData.globalSequencesFrames[m.GlobalSequences.indexOf(s.loop)]/s.loop;return t>.288&&t<.31;});
   await fx.getByRole('button',{name:'Pause',exact:true}).click();
   for(const [i,label] of ['Black stone','Heat seams'].entries()){
@@ -46,7 +46,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const isolated=()=>{const es=mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.map(e=>e.props);
    const selected=es.filter(e=>e.Name.startsWith('FX Rising embers'));return selected.length>0&&selected.every(e=>e.Alpha.every(v=>v===0))&&es.some(e=>e.Name.startsWith('FX Pollen')&&e.Alpha.some(v=>v>0));};
   await page.waitForFunction(isolated,null,{timeout:5000});await page.mouse.up();await ready();assert.ok(await page.evaluate(isolated));
-  await choose('Lightning blade');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
+  await choose('Lightning');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
   assert.deepEqual(errors,[]);console.log('PASS live layer isolation, native texture library, emitter substitution and independent lightning controls');
  }catch(error){console.error((await page.locator('body').innerText()).slice(-2100));await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

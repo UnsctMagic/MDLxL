@@ -17,7 +17,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
  const part=async i=>{await fx.getByLabel('Geoset',{exact:true}).selectOption(String(i));await ready();};
  const frame=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxTag?.endsWith('/shape')),l=g&&m.Materials[g.MaterialID].Layers[0];return {image:m.Textures[l?.TextureID]?.Image,alpha:l?.Alpha?.Keys?.map(k=>k.Vector[0])??l?.Alpha,uv:Array.from(g?.TVertices[0]||[]),emitters:m.ParticleEmitters2.filter(n=>n._FxTag).map(n=>({p:n.Parent,pos:Array.from(n.PivotPoint),size:Array.from(n.ParticleScaling),name:n.Name}))};});
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await part(27);await choose('Rune blade');
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await part(27);await choose('Runes');
   assert.equal(await fx.locator('.sfx-controls .uv-editor canvas').isVisible(),true,'rune UV is present immediately');
   for(const tool of ['Move','Rotate','Scale']){
    const button=fx.getByRole('button',{name:tool+' UVs',exact:true});assert.equal((await button.innerText()).trim(),'');const glyph=button.locator('svg:visible,img:visible').first();assert.ok((await glyph.boundingBox())?.width>=16,'the tool icon is visible at editor size');
@@ -42,9 +42,9 @@ const {testModel}=require('./helpers/fixtures.cjs');
    assert.notDeepEqual((await frame()).uv,prior,tool+' changes the UV map');
   }
   await fx.locator('.fx-uv-fit').screenshot({path:path.join(out,'rune-uv.png')});
-  await choose('Fissures skin');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
+  await choose('Fissures');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await fire.check();await ready();assert.ok((await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props.Name?.startsWith('FX Fire')&&e.particles.length));await motion(stage,'lava-fire');await fire.uncheck();await ready();assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
-  await choose('Arcane blade');const addition=fx.getByLabel('Add layer',{exact:true});
+  await choose('Arcane');const addition=fx.getByLabel('Add layer',{exact:true});
   assert.equal(await addition.locator('option').first().innerText(),'Add layer');
   for(const name of ['Diamond flash','Eye','Orbiting stars']){await (name==='Orbiting stars'?fx.getByLabel('Add emitter',{exact:true}):addition).selectOption(name);await ready();if(name==='Orbiting stars'){await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();}assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
   const overlay=fx.getByLabel('Create as overlay',{exact:true});

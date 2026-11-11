@@ -16,7 +16,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
  };
  try{
   await stubDialogs(app,{message:1});await open();
-  await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Flaming sword global animation').click();await ready();
+  await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Fire global animation').click();await ready();
   await addEmitter(page,fx,'Blade flames (recommended)',ready);await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade flames/}).click();
   const previous=await stack();assert.equal(previous.layers.length,3);
   const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();

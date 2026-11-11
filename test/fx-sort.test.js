@@ -7,9 +7,10 @@ import {GLOBAL_LOOKS,LAYER_CHOICES,findLook,partFrame,withLayerTexture,withParti
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 
 const kept=['basalt','briar','abyss','cairn','mosaic','eclipse','ink','soul','thorn','astral','tide','blood','rift'];
-test('the thirteen remaining candidates are filed and their ingredients work in other looks',()=>{
+test('the twelve filed candidates and the retired Thorn script work as before',()=>{
  const filed=GLOBAL_LOOKS.filter(l=>l.id.startsWith('sort-'));
- assert.deepEqual(filed.map(l=>l.id),kept.map(id=>'sort-'+id));
+ assert.deepEqual(filed.map(l=>l.id).sort(),kept.filter(id=>id!=='thorn').map(id=>'sort-'+id).sort());
+ assert.ok(findLook('sort-thorn')&&!filed.some(l=>l.id==='sort-thorn'),'Thorn script is folded into Runes but still reopens');
  assert.ok(GLOBAL_LOOKS.every(l=>!['Impacts','sort'].includes(l.group)));
  for(const id of ['basalt','briar','cairn','mosaic','eclipse'])assert.equal(findLook('sort-'+id).asOverlay,true);
  assert.equal(findLook('sort-ink').layers.some(l=>l.label==='Ink seal'),false);

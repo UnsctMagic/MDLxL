@@ -5,7 +5,7 @@ import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
-import {CLAUDE_LOOKS,CLAUDE_EMITTERS} from './claude-fx-looks.js';
+import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -28,17 +28,25 @@ const powerArcs=()=>skin('Blade arcs',texture('Lightning4b'),{powerArcs:true,axi
 const rune=()=>({type:'Rune',label:'Runes',image:RUNE_IMAGES[0][1],strength:2.5,tint:[.35,.7,1],pulse:'breathe',glyphs:true});
 export const ICE_VARIANTS={dark:[skin('Ice surface',texture('Ice_Natural01'),{fixed:true,atlasRect:[.52,.18,.46,.76],bodyUV:true,filter:2,strength:.97,tint:[1,1,1]}),glow('Ice sheen',texture('Ice3b'),{bodyUV:true,pulse:'glint',strength:.24,tint:[.9,.96,1]})],white:[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]};
 const make=(id,name,group,loop,palette,layers)=>({id,name,group,loop,palette,layers});
+// A look with variations lists them in order; its layers are the first variation's.
+const vary=(look,variations)=>({...look,variations,layers:variations[0].layers});
+const starts=spec=>({...spec,starts:true});
+const thorn=SORT_LOOKS.find(l=>l.id==='sort-thorn');
 export const GLOBAL_LOOKS=[
- make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames'),embers()]),
- make('frost-blade','Frost blade','Blades',3200,'glacier',[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1]}),shine(),frost()]),
- make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1],enabled:false}),powerArcs()]),
+ make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames',{starts:true}),embers()]),
+ vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
+  {id:'ice',name:'Ice',layers:[...ICE_VARIANTS.white,starts(frost())]},
+  {id:'steel',name:'Frosted steel',layers:[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1]}),shine(),starts(frost())]},
+  {id:'dark',name:'Dark ice',layers:[...ICE_VARIANTS.dark,starts(frost())]},
+ ]),
+ make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1]}),{...powerArcs(),enabled:false}]),
  make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'breathe',tint:[.79,.58,1]}),glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3})]),
- make('rune-blade','Rune blade','Blades',4500,'gold',[rune()]),
+ vary(make('rune-blade','Rune blade','Blades',4500,'gold',[]),[{id:'runes',name:'Runes',layers:[rune()]},{id:'thorn',name:'Thorn script',layers:thorn.layers}]),
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.24,water:true,bodyUV:true,tint:[.85,.95,1]})]),
  make('ice-skin','Ice skin','Skins',4200,'glacier',[...ICE_VARIANTS.white,frost()]),
  make('white-ice-skin','White ice','Skins',3900,'ice',[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]),
  make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers(),fire('Fire',{enabled:false})]),
- make('glowing-skin','Glowing skin','Skins',2500,'azure',[pulse()]),
+ make('glowing-skin','Glowing skin','Skins',2500,'azure',[glow('Glowing texture',null,{strength:4,pulse:'breathe'})]),
  make('poison-skin','Poison skin','Skins',3400,'moss',[skin('Poison surface',existing('poison').texture,{base:true,strength:.9,nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1]}),dust('Heavy drops','drops',texture('WaterBlobs1'))]),
  make('crystal-veins','Crystal veins','Terrain',3600,'glacier',[skin('Crystal veins',existing('glacial').texture,{atlasRect:existing('glacial').atlas,strength:.88,pulse:'breathe',bodyUV:true}),shine()]),
  make('felwood-curse','Felwood curse','Buffs & curses',3100,'moss',[skin('Poison surface',existing('poison').texture,{atlasRect:existing('poison').atlas,strength:.7,pulse:'breathe',bodyUV:true,tint:[1,1,1]}),glow('Rune',texture('DemonRune5'),{pulse:'breathe',strength:.5})]),
@@ -52,7 +60,7 @@ export const GLOBAL_LOOKS=[
 ];
 // The owner removed duplicate starters, auras and cues unrelated to an attack.
 const retiredImpacts=[];
-const retiredLooks=GLOBAL_LOOKS.filter(l=>['white-ice-skin','lava-skin'].includes(l.id));
+const retiredLooks=GLOBAL_LOOKS.filter(l=>['white-ice-skin','lava-skin','ice-skin','water-skin'].includes(l.id));
 GLOBAL_LOOKS.splice(0,GLOBAL_LOOKS.length,...GLOBAL_LOOKS.filter(l=>!retiredLooks.includes(l)));
 export const RETAINED_CARD_IDS=['sun-mend','hex-mark','venom-seep','spell-ward','spirit-veil','recall-seal','revenant','lava','fissures','glacial','poison'];
 for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.category==='Impacts'&&e.cue==='attack')){
@@ -71,6 +79,26 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
  (impact?retiredImpacts:GLOBAL_LOOKS).push({...make(e.id,e.id==='fissures'?'Fissures skin':e.name,e.id==='fissures'?'Skins':e.category,e.duration||3000,e.palette||'native',layers),impact});
 }
 GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS);
+{
+ const i=GLOBAL_LOOKS.findIndex(l=>l.id==='claude-tidal-blade'),tidal=GLOBAL_LOOKS[i],drip=tidal.layers.find(l=>l.label==='Dripping water');
+ GLOBAL_LOOKS[i]=vary(tidal,[{id:'running',name:'Running water',layers:tidal.layers},{id:'currents',name:'Crossing currents',layers:[...retiredLooks.find(l=>l.id==='water-skin').layers,drip]}]);
+}
+// The one table that files the library: folder, order and display name. A look missing here is not filed.
+export const LIBRARY=[
+ ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['fissures','Fissures'],['claude-magma-flow'],['lava'],['claude-forge-hot','Forge heat'],['rising-embers']]],
+ ['Ice',[['frost-blade','Frost'],['glacial'],['crystal-veins'],['frost-mist']]],
+ ['Water',[['claude-tidal-blade','Water'],['sort-tide']]],
+ ['Lightning',[['lightning-blade','Lightning'],['sort-rift'],['claude-void-cracked','Void cracks']]],
+ ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
+ ['Poison & nature',[['poison-skin','Poison'],['poison'],['felwood-curse'],['venom-seep'],['claude-corrupted-veins'],['sort-briar'],['sort-ink'],['fly-swarm'],['claude-plague-swarm']]],
+ ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
+ ['Death & spirit',[['claude-wraith-form'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],
+ ['Build your own',[['moving-own','Moving texture'],['colour-pulse'],['fade-pulse']]],
+];
+{
+ const all=new Map(GLOBAL_LOOKS.map(l=>[l.id,l])),listed=new Set(LIBRARY.flatMap(([,rows])=>rows.map(([id])=>id)));
+ GLOBAL_LOOKS.splice(0,GLOBAL_LOOKS.length,...LIBRARY.flatMap(([group,rows])=>rows.filter(([id])=>all.has(id)).map(([id,name])=>({...all.get(id),group,...(name?{name}:{})}))),...[...all.values()].filter(l=>!listed.has(l.id)));
+}
 // A saved impact remains editable. It is never offered in the library or search.
 export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredLooks.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);
 export function withIceVariation(stack,frame,variant){
@@ -80,6 +108,20 @@ export function withIceVariation(stack,frame,variant){
  const layers=ICE_VARIANTS[variant].map((spec,i)=>({...makeLayer(spec,frame,'glacier',surfaces[i]?.id??++id),enabled:surfaces[i]?.enabled!==false}));
  return {...stack,iceVariation:variant,layers:[...layers,...extra]};
 }
+export const currentVariation=(stack,look)=>stack.variation&&look.variations?.some(v=>v.id===stack.variation)?stack.variation:look.variations?.find(v=>stack.layers.some(l=>l.label===v.layers[0].label))?.id||look.variations?.[0].id;
+// Layers of the look's variations are swapped; layers the user added stay. A variation's emitters start only when marked.
+export function withVariation(stack,frame,look,variationId){
+ const variation=look.variations.find(v=>v.id===variationId);if(!variation)return stack;
+ const names=new Set(look.variations.flatMap(v=>v.layers.map(l=>l.label))),particle=l=>l.type==='Particles';
+ const owned=stack.layers.filter(l=>names.has(l.label)),extra=stack.layers.filter(l=>!names.has(l.label));
+ const previous={surfaces:owned.filter(l=>!particle(l)),particles:owned.filter(particle)},used={surfaces:0,particles:0};
+ let id=Math.max(0,...stack.layers.map(l=>l.id));
+ const layers=variation.layers.filter(spec=>!particle(spec)||spec.starts).map(spec=>{
+  const kind=particle(spec)?'particles':'surfaces',old=previous[kind][used[kind]++];
+  return {...makeLayer(spec,frame,look.palette,old?.id??++id),enabled:old?.enabled!==false};
+ });
+ return {...stack,variation:variationId,layers:[...layers,...extra]};
+}
 export const LAYER_CHOICES=[
  skin('Flowing energy',existing('energy').texture,{pulse:'breathe'}),
  skin('Forked arcs',texture('Lightning4b'),{axis:'v',band:.32,pulse:'lightning'}),
@@ -88,12 +130,12 @@ export const LAYER_CHOICES=[
  glow('Star field','Units\\Undead\\FrostWyrm\\Starfield.blp',{pulse:'double',strength:1.1}),
  ...RUNE_IMAGES.map(([label,image])=>({...rune(),label,image})),
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
- powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,...CLAUDE_EMITTERS,
+ powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,FEL_EDGE,...CLAUDE_EMITTERS,
 ];
 // The compact menu can start any ingredient independently of its original preset.
 for(const look of GLOBAL_LOOKS){
- for(const spec of look.layers){
-  const choice={...spec};delete choice.enabled;
+ for(const spec of look.variations?look.variations.flatMap(v=>v.layers):look.layers){
+  const choice={...spec};delete choice.enabled;delete choice.starts;
   const matches=LAYER_CHOICES.filter(other=>other.label===choice.label);
   if(matches.some(other=>other.type===choice.type&&other.image===choice.image&&other.kind===choice.kind&&other.stamp===choice.stamp&&other.nativeSurface?.id===choice.nativeSurface?.id))continue;
   const generic=/^(Surface|Particles|Ground piece) \d+$/.test(choice.label);
@@ -102,7 +144,7 @@ for(const look of GLOBAL_LOOKS){
  }
 }
 export function emitterChoices(look) {
- const own=look.layers.filter(spec=>spec.type==='Particles');
+ const own=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((spec,i,all)=>spec.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&o.label===spec.label&&o.image===spec.image&&o.kind===spec.kind&&o.stamp===spec.stamp&&o.nativeSurface?.id===spec.nativeSurface?.id)===i);
  const other=LAYER_CHOICES.filter(spec=>spec.type==='Particles'&&!own.some(layer=>layer.label===spec.label&&layer.image===spec.image&&layer.kind===spec.kind&&layer.stamp===spec.stamp&&layer.nativeSurface?.id===spec.nativeSurface?.id));
  return [...own.map((spec,i)=>({spec,label:spec.label+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:spec.menuLabel||spec.label}))];
 }
@@ -187,12 +229,13 @@ export function makeLayer(spec,frame,palette,id) {
  };
  const p=properties[spec.kind]||[1,24,.12,1,0,1];
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
- return {...structuredClone(spec),id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
+ const {starts:_starts,...saved}=structuredClone(spec);
+ return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {
  const emitterOnly=look.layers.length>0&&look.layers.every(spec=>spec.type==='Particles');
- return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.flatMap((s,i)=>!look.impact&&s.type==='Particles'&&(!emitterOnly||i>0)?[]:[makeLayer(s,frame,look.palette,i+1)])};
+ return {owner,look:look.id,loop:look.loop,...(look.id==='ice-skin'?{iceVariation:'white'}:{}),...(look.variations?{variation:look.variations[0].id}:{}),...(look.asOverlay!=null?{asOverlay:look.asOverlay}:{}),impact:!!look.impact,layers:look.layers.flatMap((s,i)=>!look.impact&&s.type==='Particles'&&!s.starts&&(!emitterOnly||i>0)?[]:[makeLayer(s,frame,look.palette,i+1)])};
 }

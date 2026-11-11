@@ -8,7 +8,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withLayerSize,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
@@ -59,6 +59,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
   <h3>{look.name}</h3>
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
   {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><select aria-label="Ice variation" value={stack.iceVariation||'dark'} onChange={e=>setStack(withIceVariation(stack,frame,e.target.value))}><option value="dark">Dark ice</option><option value="white">White ice</option></select></label>}
+  {look.variations&&<label className="field"><span>Variation</span><select aria-label="Variation" value={currentVariation(stack,look)} onChange={e=>setStack(withVariation(stack,frame,look,e.target.value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+item.label} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{item.label}<small>{layerType(item)}</small></button></div>)}</div>

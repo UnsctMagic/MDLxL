@@ -12,7 +12,7 @@ function spray(label,name,tint,spec){
 const white=[1,1,1],silver=[.83,.91,1],gold=[1,.72,.29],mint=[.48,1,.73],violet=[.76,.49,1],ember=[1,.34,.085];
 const folders={
  basalt:'Terrain',briar:'Skins',abyss:'Terrain',cairn:'Terrain',mosaic:'Terrain',
- eclipse:'Buffs & curses',ink:'Skins',soul:'Buffs & curses',thorn:'Blades',astral:'Buffs & curses',
+ eclipse:'Buffs & curses',ink:'Skins',soul:'Buffs & curses',astral:'Buffs & curses',
  tide:'Skins',blood:'Around the unit',rift:'Blades',
 };
 const overlays=new Set(['basalt','briar','cairn','mosaic','eclipse']);

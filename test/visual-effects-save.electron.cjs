@@ -1,4 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const BLADES=new Set(['flaming-sword','frost-blade','lightning-blade','arcane-blade','rune-blade','claude-fel-blade','claude-tidal-blade','sort-rift']);// weapon looks: the library no longer has a Blades folder
 const {root,launchApp,closeApp,stubDialogs}=require('./helpers/app.cjs');const {testModel}=require('./helpers/fixtures.cjs');
 (async()=>{
  const {GLOBAL_LOOKS}=await import('../src/global-animation-looks.js'),{fxData}=await import('../src/global-animation-data.js'),{openDocument}=await import('../src/editor-document.js');
@@ -18,7 +19,7 @@ const {root,launchApp,closeApp,stubDialogs}=require('./helpers/app.cjs');const {
   await stubDialogs(app,{message:1});
   await page.waitForFunction(n=>mdlxlProbe().session?.path?.endsWith(n),path.basename(initial));
   for(const [i,look] of cases){
-   const [fixture,weapon,body]=targets[i%targets.length],part=look.group==='Blades'||look.impact?weapon:body;if(i!==cases[0][0])await open(testModel(fixture));const original=await read();
+   const [fixture,weapon,body]=targets[i%targets.length],part=BLADES.has(look.id)||look.impact?weapon:body;if(i!==cases[0][0])await open(testModel(fixture));const original=await read();
    await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption(String(part));await fx.getByLabel('Find a surface effect').fill(look.name);await fx.getByRole('button',{name:look.name+(look.impact?' impact':' global animation'),exact:true}).click();await ready();await fx.getByRole('button',{name:'Apply effect',exact:true}).click();await fx.waitFor({state:'hidden'});
    const after=await read(),files=[];assert.equal(after.Geosets[part]._FxStack.look,look.id);assert.deepEqual(after.Sequences,original.Sequences);
    for(const ext of ['mdx','mdl']){const file=path.join(out,look.id+'.'+ext);await save(file);files.push(file);const parsed=openDocument(fs.readFileSync(file),file).model;assert.equal(parsed.Geosets[part]._FxStack.look,look.id);assert.deepEqual(fxData(parsed),fxData(openDocument(fs.readFileSync(files[0]),files[0]).model));}

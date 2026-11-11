@@ -5,7 +5,7 @@ import {createDemoDocument} from '../src/editor-document.js';
 test('the fifth owner round exposes the consolidated skins and selected defaults',()=>{
  const names=GLOBAL_LOOKS.map(l=>l.name);
  for(const removed of ['White ice','Lava skin','Lava fissures','Oathfire','Buried coals','Basalt kiln'])assert.ok(!names.includes(removed),removed+' is retired from the library');
- assert.equal(findLook('fissures').group,'Skins');assert.equal(findLook('fissures').name,'Fissures skin');
+ assert.equal(findLook('fissures').group,'Fire');assert.equal(findLook('fissures').name,'Fissures');
  const seam=findLook('sort-basalt').layers.find(l=>l.label==='Heat seams');assert.equal(seam.strength,.4);assert.deepEqual(seam.tint,[82/255,34/255,16/255]);
  const ice=findLook('ice-skin');assert.ok(ice.layers.some(l=>l.kind==='mist'));
  const arcs=findLook('lightning-blade').layers.find(l=>l.powerArcs);assert.ok(arcs,'lightning uses blade-bound branches');
@@ -32,7 +32,7 @@ test('changing ice finish preserves extra layers and native mist through both fo
 });
 test('blade arcs retain the source skin and separate native quiet and flash timing',()=>{
  const doc=createDemoDocument(),original=structuredClone(doc.model.Geosets[0]);
- const s=authoredStack(findLook('lightning-blade'),partFrame(original),'power'),l=s.layers.find(l=>l.powerArcs);
+ const s=authoredStack(findLook('lightning-blade'),partFrame(original),'power'),l=s.layers.find(l=>l.powerArcs);l.enabled=true;
  doc.apply('Power',FX_SECTIONS,m=>compileAnimation(m,0,s));
  assert.ok(!doc.model.ParticleEmitters2.some(p=>p.Name.startsWith('FX Blade crackle')));
  for(const ext of ['mdx','mdl']){

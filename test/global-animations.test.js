@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {GLOBAL_LOOKS,makeLayer,LAYER_CHOICES,partFrame} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,makeLayer,LAYER_CHOICES,partFrame} from '../src/global-animation-looks.js';
 import {animationPart,compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 import {fxData} from '../src/global-animation-data.js';
 import {visitTracks} from '../src/animation.js';
@@ -131,7 +131,7 @@ test('water crosses duplicated atlas seams continuously and retains a translucen
  g.VertexGroup=Uint8Array.from([...g.VertexGroup,...g.VertexGroup]);
  g.Faces=Uint16Array.from([...g.Faces,...Array.from(g.Faces,v=>v+count)]);g.PrimitiveCounts=Uint32Array.from([g.Faces.length]);
  const original=structuredClone(m.Materials[base]);
- const s=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='water-skin'),partFrame(g),'water');
+ const s=authoredStack(findLook('water-skin'),partFrame(g),'water');
  const result=compileAnimation(m,0,s);
  assert.deepEqual(m.Materials[base],original,'the authored material stays intact');
  const underlay=m.Materials[g.MaterialID].Layers[0];
@@ -194,7 +194,7 @@ test('retuning an FX layer preserves the texture, wrapping and UVs edited on its
 test('FX clocks do not reuse or delete an authored clock with the same duration',()=>{
  const {doc,frame,donors}=fixture(),model=doc.model;
  model.GlobalSequences.push(2800);
- const stack=authoredStack(GLOBAL_LOOKS.find(look=>look.id==='water-skin'),frame,'owned-clock');
+ const stack=authoredStack(findLook('water-skin'),frame,'owned-clock');
  stack.loop=2800;
  compileAnimation(model,0,stack,donors);
  assert.deepEqual(model.GlobalSequences.filter(duration=>duration===2800),[2800,2800],'FX creates a separate clock');
