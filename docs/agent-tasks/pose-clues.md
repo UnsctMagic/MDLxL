@@ -90,3 +90,31 @@ Updated: 2026-11-11
   273 lost limbs are not yet explained.
 - Next: owner tests the build; then heads without names, then limbs through
   branching joints, each measured first and gated by the library comparison.
+
+## Handover, 11 Nov 03:30 (session hit its usage limit; owner AFK)
+
+- Saved: commits `db5e47dd`, `c432ffc3`, `af0ea702`, `8d291541`. Test build 3 of
+  `8d291541`: `D:\Claude\MDLxL\TestBuilds\Pose-Clues-3`.
+- Hidden packaged run on build 3 (`out/suite/default/summary.json`), stopped
+  early: pose-setup, pose-complex, pose-one-head, pose-sd-controls, pose-view,
+  pose-console pass; `pose-ik` FAILS once with "commit-throw discards every
+  preview track". Not yet checked against clean main, so unknown whether it is
+  new. Not run: pose-copy-body, pose-ragdoll, pose-performance, anim-xl,
+  auto-corpse, attachemator.
+- Next 1, unanimated units (measured in `out/pose-compare/still/summary.md`:
+  limbs 88% found, neck 60%, tail 62%, wing 37%): in `poseRecognitionEvidence`
+  make `moving` true for every joint when no joint in the model moves at all.
+  Gates: library comparison against `pose-step4` (at `8d291541`) must show no
+  difference on animated models; rerun `still.mjs` and review every handle that
+  appears only in the stripped run (cloth, hair).
+- Next 2, owner request: "Right click a handle - hide"; a revealer per hidden
+  handle sits left of the POSE button on its row and restores it on click.
+  Decided: hidden = not drawn and not pickable, mapping, pins and body-follow
+  keep working; `config.hidden` keys next to `pins`, pruned in `without()` and
+  `save()`, part of `poseStamp`; hiding the selected handle clears the target;
+  right-drag must still pan (act only on a right click that did not move);
+  one-item menu "Hide" reusing `.classic-context`; revealers are DOM buttons
+  like the Pin button, placed from the live POSE button rect, showing the
+  handle's symbol; no new catalog strings if avoidable. New packaged test
+  `test/pose-hide.electron.cjs` with a real right-click, fail first.
+- Then: package test build 4, delete builds 2 and 3.
