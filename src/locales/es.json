@@ -7791,5 +7791,9 @@
   "Extents were left as they were. {0}": "Los límites se han dejado como estaban. {0}",
   "The saved file could not be read back.": "No se pudo volver a leer el archivo guardado.",
   "The saved file could not be read back. The previous file was copied to {0}.": "No se pudo volver a leer el archivo guardado. El archivo anterior se copió en {0}.",
-  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "No se pudo volver a leer el modelo guardado ni crear la copia de seguridad. El archivo anterior está intacto. Usa Guardar como para elegir otra ubicación."
+  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "No se pudo volver a leer el modelo guardado ni crear la copia de seguridad. El archivo anterior está intacto. Usa Guardar como para elegir otra ubicación.",
+  "Preview RGB": "Vista previa RGB",
+  "Preview RGB {0}": "Vista previa RGB {0}",
+  "Reset preview RGB": "Restablecer vista previa RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Previsualiza RGB en el geoset activo (0–255). Los canales vacíos usan el RGB del modelo."
 }

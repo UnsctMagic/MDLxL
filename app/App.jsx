@@ -308,8 +308,6 @@ export default function App() {
   };
   function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
-  const axesEnabled = Object.values(preferences.grid.axes).some(Boolean);
-  const showAxes = !cleanView && !cleanAnimationPreview && axesEnabled;
   const showGrid = overlays.grid, setShowGrid = value => changeOverlay('grid', value), showVertices = overlays.vertices, setShowVertices = value => changeOverlay('vertices', value);
   const portraitOverlays = { ...panelOverlays, grid: false, cameras: false };
   const [liveUV, setLiveUV] = useState(null), [saving, setSaving] = useState(false);
@@ -330,6 +328,10 @@ export default function App() {
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
   const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), textureResolutions = useRef(new WeakMap()), pendingTextureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
+  const cameraPortraitActive = portraitModeActive && !!model.Cameras?.[portraitCameraIndex];
+  const axesEnabled = Object.values(preferences.grid.axes).some(Boolean);
+  const axesAvailable = !cleanView && !cleanAnimationPreview && !cameraPortraitActive;
+  const showAxes = axesAvailable && axesEnabled;
   useEffect(() => {
     const was = lastRevision.current;
     lastRevision.current = { id: session.id, revision: doc.revision };
@@ -1533,6 +1535,7 @@ export default function App() {
     'ai:open': () => document.querySelector('[data-hotkey="ai:open"]')?.click(),
   };
   function commandEnabled(id) {
+    if (id === 'axes') return axesAvailable && ['vertices', 'bones', 'animation'].includes(mode);
     if (bitReplacement && (
       id !== 'exit' && COMMANDS.some(command => command.id === id && command.category === 'File') ||
       ['recent', 'openRecent', 'bones', 'uv', 'animation', 'animations', 'managers', 'paint', 'showcase', 'forge', 'bitsAndParts',
@@ -1591,7 +1594,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, bitReplacement, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, bitReplacement, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, axesAvailable, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) (uiCommands[id] || commands.current[id])?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
@@ -1920,7 +1923,6 @@ export default function App() {
   }}/>;
   const activePortrait = portraitModeActive;
   const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, doc.revision]);
-  const cameraPortraitActive = activePortrait && !!model.Cameras?.[portraitCameraIndex];
   // Props shared by both Movement controller render sites: Bones mode and the
   // Animation > Movement panel. Called while rendering each site, as before.
   const movementControllerProps = () => ({
@@ -2012,7 +2014,7 @@ export default function App() {
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
         selectedGeoset={activeGeoset} selectionByGeoset={validSelection} visibleGeosets={displayedGeosets} selectableGeosets={selectable}
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
-        mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane}
+        mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={showAxes} workplane={workplane}
         onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
         overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}

@@ -7781,5 +7781,9 @@
   "Extents were left as they were. {0}": "Габариты оставлены без изменений. {0}",
   "The saved file could not be read back.": "Не удалось прочитать сохранённый файл.",
   "The saved file could not be read back. The previous file was copied to {0}.": "Не удалось прочитать сохранённый файл. Копия предыдущего файла находится по адресу {0}.",
-  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "Не удалось прочитать сохранённую модель и создать резервную копию. Предыдущий файл не изменён. Выберите другое место через «Сохранить как»."
+  "The saved model could not be read back and the safety copy could not be made. The previous file is intact. Use Save as to choose another location.": "Не удалось прочитать сохранённую модель и создать резервную копию. Предыдущий файл не изменён. Выберите другое место через «Сохранить как».",
+  "Preview RGB": "Предпросмотр RGB",
+  "Preview RGB {0}": "Предпросмотр RGB {0}",
+  "Reset preview RGB": "Сбросить предпросмотр RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели."
 }
