@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: active (contract revised for POSE roles; Codex builds, Claude QA)
+Status: ready for Claude QA (Codex implementation built; owner acceptance pending)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -290,43 +290,49 @@ broken ([testing rules](../TESTING-RULES.md)).
 
 ## Changes and verification
 
-- Done: scheme census (corpus-sd), POSE probes (Knight: rider under the horse body
-  plus two rig copies; Slaanesh Champion knight: rider death copy; Footman: left
-  hand named `Bone_Hand_R`); POSE brain confirmed the API and the name rules.
-- Codex inspection at `189879e3a69d0c1e77f4dad5885adbff47ed083d`: clean
-  `claude/bone-namer` worktree; read the instructions, contract and owning code.
-  Stopped before implementation on the POSE dependency below, as the owner required.
-  No feature code or protected files changed; no dependencies installed or junctions created.
-- `pnpm run build` passed (Node v22.23.3, Vite 7.3.1, 16.29 s). This is a
-  baseline build, not Bone Namer verification. Existing JSON import-attribute and
-  large-chunk warnings were emitted. Removed the newly generated `dist/` and task
-  temporary directory after the build. No tests written or run; no app launched.
-- Remaining: all Codex implementation and all Claude QA. This handoff changes
-  only this note, saved locally on `claude/bone-namer`; no push, PR, merge or release.
+- Codex resumed from clean `4d6e10a6571c8c929cbf44494861de34ff53b0bf` on
+  `claude/bone-namer`, in the owner's named D: worktree. Existing dependencies
+  were used without installing, copying or junctioning them.
+- Built `src/bone-namer.js` with the fixed four exports and argument/return
+  contracts: POSE-only recognition through `suggestPoseRig` / `poseRole`, Stand
+  world-space sides, parent-path parts, leg-pair positions, depth numbering,
+  actor ordering/classification and overrides, copy suffixes, and unique names.
+  `applyBoneNames` preflights the selected rows using `renameRigNode`, then changes
+  only existing Bones/Helpers' `Name` fields. A selected name collision is rejected
+  before mutation; the window resolves collisions with unticked names in advance.
+- Built the Attachemator-style `ToolWindow`, reused its controls/CSS and
+  `GamePreview`, and added only the Bone Namer button and App/Sidebar wiring.
+  Rows support part/side/actor corrections, Main swapping and ticks; names and
+  numbering update live. The renamed-copy preview shows bones/helpers, selection
+  and limb labels, hides Stand-hidden geosets, and preserves the camera. It has
+  no transform callback. Commit uses one `edit('Bone Namer', ['Nodes'], ...)`.
+- Added all new English UI strings to RU/ES/ZH/FR/DE catalogs, preserving existing
+  translations. Added `docs/BONE-NAMER.md` and updated the map and HOTKEYS table.
+- Close uses the shared second-Escape unapplied guard. To satisfy the explicit
+  Close-asks-first requirement, direct Close/× clicks also open the existing
+  Dialog confirmation (Attachemator itself closes directly on these clicks).
+  Read-only documents may open the review window; Commit is disabled there.
+  These are the two deliberate adaptations to the Attachemator reference.
+- Final `pnpm run build` passed: Vite 7.3.1, 2,887 modules, 14.03 s. The earlier
+  14.23 s build also passed; the final rebuild included read-only button access.
+  Existing `view-menu.json` import-attribute warnings and large-chunk warnings
+  remain. `git diff --check` passed; all four protected files have no diff.
+- No tests written or run, no corpus/fixture probes, no packaged app or desktop
+  launched. Mouse rotation, visual layout, naming accuracy, POSE compatibility,
+  localisation presentation and undo/close workflows are **not verified**;
+  Claude owns all QA below. The feature is ready to test, not owner-accepted.
+- Removed only this task's generated `dist/`, build log and temporary directory
+  after verification. No task background process remains. The source and note
+  are committed together locally; nothing pushed, no PR, merge or release.
 
 ## Blockers and next action
 
-- **Resolved 11 Nov (brain):** the contract now permits POSE's `poseRole()`
-  resolver, accepting only the listed role words (see Recognition). Next: Codex
-  builds the feature on `claude/bone-namer` from the revision that records this.
-- Was blocked: the allowed POSE result does not contain all resolved roles. At
-  `189879e3`, `suggestPoseRig()` initializes `roles = {}` (`src/pose-ik.js:151`)
-  and internally resolves each part with `roles[id] || poseNodeRole(node)`
-  (`src/pose-ik.js:176`). It returns the sparse overrides unchanged at line 357.
-  `nodes` is an array of numeric control IDs (lines 349–356), not resolved roles.
-  For example, a named Head, Neck, Spine, Pelvis, Tail or additional Body can be
-  recognised internally without an entry in the returned `roles` object.
-  The actual POSE preview uses `poseRole()` (`app/pose-overlay.js:82`), which
-  applies that same fallback (`src/pose-ik.js:145`).
-- The contract permits only `suggestPoseRig` / `poseChainIds` from POSE and
-  `chains`, `body`, `nodes`, `roles` from its result. Those do not expose the
-  missing role labels. Treating absent roles as unidentified would omit recognised
-  parts and additional actors; reproducing name recognition locally would violate
-  the POSE-only requirement. No workaround or POSE edit was made.
-- **Next for Claude:** resolve this dependency with the POSE owner: either expose
-  complete resolved roles through the allowed result, or explicitly revise this
-  contract to permit the existing `poseRole()` resolver (while still accepting
-  only the listed anatomical roles). Then hand the updated contract/revision back
-  to Codex to implement the feature. The owner has already authorised the build;
-  scheme confirmation is not pending.
-- On completion: mark completed with the merge revision; remove the README row.
+- No current implementation blocker. The earlier sparse-role blocker was
+  resolved by the contract at `4d6e10a6`, permitting the existing `poseRole()`.
+  No POSE or protected-file changes were needed.
+- **Next for Claude:** review the implementation against the contract, run the
+  source/corpus/packaged QA plan above, and prepare the owner's hand-test build.
+  Include non-default actor/side/part corrections, partial tick collisions,
+  read-only access, direct Close confirmation and the shared Escape guard.
+- Owner acceptance and all QA remain pending. On eventual approved merge, mark
+  completed with the merge revision and remove the README task row.
