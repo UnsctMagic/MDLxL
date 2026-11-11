@@ -652,3 +652,34 @@ test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE sti
   assert.equal(model.Nodes[end].Name, 'Mesh_Hand_L');
   assert.deepEqual(gripped(model), [end], 'after the rename POSE still grips the same end by its skin');
 });
+
+// Round 3: a limb POSE labels Wing from shape alone (three sibling pivots at the end) while its joints are anonymous.
+function wingRig(names, { ref = false } = {}) {
+  const model = emptyModel(), id = addBiped(model, { name: messyName });
+  [id.arm1L, id.arm2L, id.handL].forEach((bone, i) => { model.Nodes[bone].Name = names[i]; });
+  const pivot = [...model.Nodes[id.handL].PivotPoint];
+  addNode(model, 'Feather_1', id.arm2L, pivot); addNode(model, 'Feather_2', id.arm2L, pivot);
+  if (ref) addNode(model, 'Hand Left Ref', id.handL, pivot, { list: 'Attachments' });
+  return { model, id };
+}
+
+test('round 3 (a): a Wing chain found from shape with anonymous joints keeps every joint name', () => {
+  const { model, id } = wingRig(['Shoulder_L', 'Elbow_L', 'Hand_L']);
+  const rig = suggestPoseRig(model, 0, 0);
+  assert.ok(rig.chains.some(chain => chain.label === 'Wing' && chain.end === id.handL), 'setup: POSE labels the left limb Wing');
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  for (const bone of [id.arm1L, id.arm2L, id.handL]) { assert.equal(rowsById(plan).get(bone).part, 'keep'); assert.equal(nameIn(plan, bone), model.Nodes[bone].Name); }
+  assert.equal(nameIn(plan, id.handR), 'Bone_Hand_R', 'the ordinary right arm is renamed as usual');
+  assert.equal(nameIn(plan, id.arm1R), 'Bone_Arm1_R');
+});
+
+test('round 3 (b): a Wing chain whose joints already read Wing is still renamed Bone_Wing#_L', () => {
+  const { model, id } = wingRig(['Bone_Wing_Left1', 'Bone_Wing_Left2', 'Bone_Wing_Left3'], { ref: true });
+  const rig = suggestPoseRig(model, 0, 0);
+  assert.ok(rig.chains.some(chain => chain.label === 'Wing' && chain.end === id.handL), 'setup: POSE labels the named limb Wing');
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.deepEqual([id.arm1L, id.arm2L, id.handL].map(bone => nameIn(plan, bone)), ['Bone_Wing1_L', 'Bone_Wing2_L', 'Bone_Wing3_L']);
+  assert.equal(rowsById(plan).get(id.arm1L).part, 'wing');
+});
