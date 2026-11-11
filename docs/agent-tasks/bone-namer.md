@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: blocked (POSE role contract mismatch; Codex stopped as instructed)
+Status: active (contract revised for POSE roles; Codex builds, Claude QA)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -94,7 +94,8 @@ Rules:
   before the side: `Bone_Leg2_Front_L`.
 - **Numbers** are never chosen by the user. Within one actor, bones with the same
   part, position and side are numbered by hierarchy depth, nearest the body = 1.
-- **Actors.** Every POSE body (the rig's `body` and every node whose role is `Body`;
+- **Actors.** Every POSE body (the rig's `body` and every identified bone whose
+  resolved role is `Body`, see Recognition;
   a chain with no body above it uses its top ancestor) is an actor; each bone
   belongs to the actor of its nearest body ancestor (or itself). Order: actors whose
   skin is visible in Stand first, then actors with two hands, then larger (span of
@@ -130,9 +131,19 @@ Call `suggestPoseRig(model, frame, sequence)` with the Stand frame and sequence 
 the default (`clues: true`) is exactly what the POSE screen shows, which is what
 "based on how Pose identifies things" asks for (decided with the POSE brain).
 
-Read only `chains`, `body`, `nodes` and `roles`. A role counts only when it is one
-of `Body, Pelvis, Spine, Chest, Neck, Head, Hand, Foot, Hoof, Tail, Wing`; anything
-else in `roles` (`Object`, or a joint's own name) means "no role".
+Read `chains`, `body`, `nodes` and `roles` from the result. `roles` holds only
+POSE's overrides; a bone's role is resolved with POSE's own `poseRole(model, rig, id)`
+(exported from `src/pose-ik.js`, used by the POSE preview in `app/pose-overlay.js`):
+the override when there is one, else the role POSE reads from the name. A role
+counts only when it is one of `Body, Pelvis, Spine, Chest, Neck, Head, Hand, Foot,
+Hoof, Tail, Wing`; anything else (`Object`, or a joint's own name) means "no role".
+
+POSE has identified a bone when it is `rig.body`, in `rig.nodes`, a joint of a
+chain, or has an override in `rig.roles`; only those bones take their part from
+their resolved role. Bones on the parent paths in the last three table rows also
+use `poseRole`: a role word gives that part, no role gives Tail/Spine/Neck as listed.
+(Decided 11 Nov after Codex's blocker; `poseRole` is read-only use of an existing
+POSE export, no POSE change.)
 
 | POSE says | Part |
 | --- | --- |
@@ -212,7 +223,7 @@ control styles.
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
-(`pose-ik.js` `suggestPoseRig`/`poseChainIds`, `sequence-editor.js`
+(`pose-ik.js` `suggestPoseRig`/`poseChainIds`/`poseRole`, `sequence-editor.js`
 `standSequenceIndex`, `animation.js` node maths and `sampleGeosetAnimation`,
 `node-hierarchy.js` `nodeIndex`/`uniqueName`, `bone-tools.js` `renameRigNode`).
 
@@ -295,7 +306,10 @@ broken ([testing rules](../TESTING-RULES.md)).
 
 ## Blockers and next action
 
-- **Blocker: the allowed POSE result does not contain all resolved roles.** At
+- **Resolved 11 Nov (brain):** the contract now permits POSE's `poseRole()`
+  resolver, accepting only the listed role words (see Recognition). Next: Codex
+  builds the feature on `claude/bone-namer` from the revision that records this.
+- Was blocked: the allowed POSE result does not contain all resolved roles. At
   `189879e3`, `suggestPoseRig()` initializes `roles = {}` (`src/pose-ik.js:151`)
   and internally resolves each part with `roles[id] || poseNodeRole(node)`
   (`src/pose-ik.js:176`). It returns the sparse overrides unchanged at line 357.
