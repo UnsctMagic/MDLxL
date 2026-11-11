@@ -236,6 +236,20 @@ export function withBlend(l,filter){
  for(const key of ['unshaded','unfogged'])if(l[key]===before[key]){if(after[key]==null)delete next[key];else next[key]=after[key];}
  return next;
 }
+// Rhythm ids that shape a layer's alpha or colour. Saved ids keep working; new ones follow the study.
+export const RHYTHM_IDS=['steady','soft','breathe','beat','embers','shift','flicker','glint','double','crystal','steel','fade','lightning'];
+/** Whether a surface layer's texture travels on its clock (Speed 0 still compiles it still). An explicit fixed:false always moves. */
+export function layerMoves(l){
+ if(l.fixed===false)return true;
+ if(l.fixed||l.glyphs||l.pulse==='steady'||l.pulse==='fade')return false;
+ return l.type==='Moving skin'||l.type!=='Glow'&&!RHYTHM_IDS.includes(l.pulse);
+}
+/** Which motion and area controls change this surface layer. canTile: its picture repeats. */
+export function surfaceControls(l,canTile){
+ const n=l.nativeSurface,area=!l.glyphs&&!!(l.atlasRect||n?.atlas),moves=layerMoves(l);
+ if(n)return {moving:false,speed:true,direction:!!n.fitUV&&!area,tiling:!area&&canTile,area};
+ return {moving:!l.powerArcs,speed:!l.powerArcs&&(moves||!!l.frames),direction:!l.glyphs&&(area||l.own&&!canTile?moves:true),tiling:!l.glyphs&&!area&&canTile,area};
+}
 export function makeLayer(spec,frame,palette,id) {
  frame=frame.regions?.[0]?.frame||frame;
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));

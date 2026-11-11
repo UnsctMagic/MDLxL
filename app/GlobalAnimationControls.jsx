@@ -8,7 +8,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
@@ -30,10 +30,11 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  const baseGlyph=ingredient?.glyphs?ingredient.image:l?.image;
  const runeImages=baseGlyph&&!RUNE_IMAGES.some(([,path])=>path===baseGlyph)?[[l.label,baseGlyph],...RUNE_IMAGES]:RUNE_IMAGES;
  const activeRunes=l?.glyphs&&!runeImages.some(([,path])=>path===l.image)?[[l.image.split('\\\\').at(-1),l.image],...runeImages]:runeImages;
- const canTile=!l?.own||(surface&&textureRepeats(graph.model,graph.model.Materials[surface.MaterialID].Layers[0].TextureID));
  // Every surface layer has the same controls, whatever preset it came from.
  const surf=l&&l.type!=='Particles'&&l.type!=='Edge'&&!l.stamp&&surfaceIngredient(l);
  const compiled=graph?.model.Materials[surface?.MaterialID]?.Layers[0];
+ const canTile=l?.nativeSurface?typeof compiled?.TextureID!=='number'||textureRepeats(graph.model,compiled.TextureID):!l?.own||(surface&&textureRepeats(graph.model,graph.model.Materials[surface.MaterialID].Layers[0].TextureID));
+ const controls=surf?surfaceControls(l,!!canTile):{};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
  function particle(field,key,min,max,step,title){
@@ -113,9 +114,12 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>setLayer({...l,image:e.target.value})}>{activeRunes.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
    <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update}/>
   </>}
-  {!p&&!edge&&!l.stamp&&<>
-   {(l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&!l.powerArcs)&&row('Speed','speed',1,4,1,'Complete turns or texture passes within the loop.')}
-   {l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&<>{row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}{!l.atlasRect&&canTile&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}{!l.atlasRect&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}</>}
+  {surf&&<>
+   {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
+   {controls.speed&&row('Speed','speed',0,8,1,'Complete turns or texture passes within the loop.')}
+   {controls.direction&&row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}
+   {controls.tiling&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}
+   {!l.glyphs&&!controls.area&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}
   </>}
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length" title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}

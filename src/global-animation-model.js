@@ -3,7 +3,7 @@ import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateC
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
-import {findLook,partFrame,createsOverlay,surfaceIngredient} from './global-animation-looks.js';
+import {findLook,partFrame,createsOverlay,surfaceIngredient,layerMoves} from './global-animation-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
 import {visitTracks,sampleNodeMatrices,geosetSkinMatrix} from './animation.js';
@@ -161,7 +161,8 @@ function skinLayer(c,l){
  let tex=own?structuredClone(original.TextureID):texture(m,l.image,!rect,tag);
  if(l.frames){
   const tids=l.frames.map(name=>texture(m,name,true,tag)),n=tids.length* Math.max(1,Math.round(l.speed*3));
-  tex=keys(id,ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
+  // Speed 0 holds the first frame.
+  tex=l.speed===0?tids[0]:keys(id,ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
  }
 
  const shape=l.pulse==='steady'?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null);
@@ -181,7 +182,7 @@ function skinLayer(c,l){
  const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
  const alpha=alphaFor(1);
  const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:shading(l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,l),Alpha:alpha};
- if(!l.fixed&&!l.glyphs&&l.pulse!=='steady'&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
+ if(layerMoves(l)&&l.speed!==0){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
   const turns=Math.max(1,Math.round(l.speed));
   // Painted unit atlases do not repeat. Drift a few texels and return to the same face.
@@ -190,11 +191,11 @@ function skinLayer(c,l){
    const phase=[0,1,0,-1][i%4];
    return [i/(turns*4),[phase*extent[0]*Math.cos(angle),phase*extent[1]*Math.sin(angle),0]];
   }):[[0,[0,0,0]],[1,l.axis==='v'?[0,turns,0]:[turns,0,0]]];
-  if(samePicture&&previous&&c.sameClock&&prior.speed===l.speed&&prior.direction===l.direction)layer.TVertexAnimId=previous.TVertexAnimId;
+  if(samePicture&&previous&&c.sameClock&&prior.speed===l.speed&&prior.direction===l.direction&&prior.fixed===l.fixed&&prior.pulse===l.pulse)layer.TVertexAnimId=previous.TVertexAnimId;
   else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(id,ms,pairs)});
  }
  if(samePicture&&previous){
-  if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
+  if(typeof previous.TextureID==='number'&&!(l.frames&&prior.speed!==l.speed)||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
   // Keep a material-manager edit unless this layer's own Blend or lighting changed.
   if(prior.filter===l.filter)layer.FilterMode=previous.FilterMode;
   if(LIGHTING.every(([key])=>prior[key]===l[key]))layer.Shading=previous.Shading;
@@ -211,7 +212,7 @@ function nativeSurface(c,l){
  const m=c.model,temp=emptyParticleModel(m.Version),e={...l.nativeSurface,texture:l.nativeSurface.texture||l.nativeSurface.picture,flow:l.nativeSurface.flow||(l.nativeSurface.id==='revenant'?[0,1,0]:undefined)};
  temp.Geosets=[structuredClone(c.source)];temp.Materials=structuredClone(m.Materials);temp.Textures=structuredClone(m.Textures);temp.TextureAnims=structuredClone(m.TextureAnims);temp.GlobalSequences=[...m.GlobalSequences];
  temp.Geosets[0].MaterialID=c.base;
- const options={...defaultEffectOptions(e),mode:'replace',geoset:0,speed:(e.duration||2000)/c.ms*l.speed,opacity:1,tint:l.tint,direction:l.direction,tiling:l.tiling};
+ const options={...defaultEffectOptions(e),mode:'replace',geoset:0,speed:(e.duration||2000)/c.ms*(l.speed||1),opacity:1,tint:l.tint,direction:l.direction,tiling:l.tiling};
  applySurfaceEffect(temp,null,e,options);
  const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true,reuseTextureAnims:true});
  const texCount=m.Textures.length,animCount=m.TextureAnims.length;
@@ -219,7 +220,8 @@ function nativeSurface(c,l){
  const first=native.Layers[0].Alpha;
  const peak=typeof first==='number'?first:Math.max(...first.Keys.map(k=>k.Vector[0]));
  c.state.layers.find(v=>v.id===l.id).unitAlphaPeak=peak;
- for(const layer of native.Layers){if(l.filter!=null)layer.FilterMode=l.filter;if(hasLighting(l))layer.Shading=shading(layer.Shading??0,l);}
+ // Speed 0 holds the card's texture still.
+ for(const layer of native.Layers){if(l.filter!=null)layer.FilterMode=l.filter;if(hasLighting(l))layer.Shading=shading(layer.Shading??0,l);if(l.speed===0)layer.TVertexAnimId=null;}
  native.Layers=strengthPasses(native.Layers,l.strength);
  const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;
@@ -430,7 +432,7 @@ export function readAnimationStack(model,index){
    const travel=model.TextureAnims[layer.TVertexAnimId]?.Translation?.Keys;
    if(l.type==='Moving skin'&&!l.atlasRect&&travel?.length===2){
     const axis=l.axis==='v'?1:0,offset=travel[1].Vector[axis]-travel[0].Vector[axis];
-    if(Number.isInteger(offset)&&offset>=1&&offset<=4)read('speed',offset);
+    if(Number.isInteger(offset)&&offset>=1&&offset<=8)read('speed',offset);
    }
    continue;
   }

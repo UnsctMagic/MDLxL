@@ -51,3 +51,38 @@ test('a layer Loop length runs that layer on its own owned clock, shared by equa
  compileAnimation(model,0,{...timed,layers:[]});
  assert.deepEqual(model.GlobalSequences,before,'removing the layers removes their clocks');
 });
+const nativeData=model=>JSON.stringify(['Materials','TextureAnims','GlobalSequences','GeosetAnims','Textures'].map(k=>model[k]).concat([model.Geosets.map(g=>g.TVertices)]),(key,v)=>key==='_FxStack'?undefined:ArrayBuffer.isView(v)?Array.from(v):v);
+test('Speed 0 holds a surface still; Speed reaches 8 whole passes; Moving starts a glow travelling',()=>{
+ const {model,stack}=setup('arcane-blade','Flowing energy');
+ let {material}=compile(model,withLayer(stack,{speed:0}));
+ assert.equal(material.Layers[0].TVertexAnimId,null,'Speed 0 compiles without a texture animation');
+ assert.equal(model.TextureAnims.filter(a=>a._FxTag?.startsWith('edit/')).length,0);
+ ({material}=compile(model,withLayer(stack,{speed:8})));
+ assert.equal(model.TextureAnims[material.Layers[0].TVertexAnimId].Translation.Keys.at(-1).Vector[0],8);
+ assert.equal(readAnimationStack(model,0).layers[0].speed,8);
+ const glow=setup('arcane-blade','Narrow highlight');
+ ({material}=compile(glow.model,glow.stack));assert.equal(material.Layers[0].TVertexAnimId,null);
+ assert.equal(looks.layerMoves(glow.layer),false);
+ ({material}=compile(glow.model,withLayer(glow.stack,{fixed:false})));
+ assert.ok(material.Layers[0].TVertexAnimId!=null,'Moving makes a glow travel');
+ const water=setup('water-skin','Water surface');
+ ({material}=compile(water.model,withLayer(water.stack,{speed:0})));
+ assert.equal(typeof material.Layers[0].TextureID,'number','Speed 0 holds the first water frame');
+});
+test('every shown Speed, Direction and Tiling control changes every surface layer of every look, including native cards',()=>{
+ const silent=[];
+ for(const look of looks.GLOBAL_LOOKS)for(const spec of look.variations?look.variations.flatMap(v=>v.layers):look.layers){
+  if(spec.stamp||!looks.surfaceIngredient(spec))continue;
+  const doc=createDemoDocument(),frame=partFrame(doc.model.Geosets[0]),layer={...makeLayer(spec,frame,look.palette,1),enabled:true},stack={...newStack(look,frame,'c'),layers:[layer]};
+  const base=structuredClone(doc.model),{material}=compile(base,stack),tid=material.Layers[0].TextureID;
+  const repeats=t=>typeof t!=='number'||(base.Textures[t].Flags&3)===3;
+  const canTile=layer.nativeSurface?repeats(tid):!layer.own||repeats(base.Materials[doc.model.Geosets[0].MaterialID].Layers.at(-1).TextureID);
+  const shown=looks.surfaceControls(layer,canTile),reference=nativeData(base);
+  for(const [key,value] of [['speed',layer.speed===2?3:2],['direction',layer.direction===90?180:90],['tiling',2]]){
+   if(!shown[key])continue;
+   const model=structuredClone(doc.model);compile(model,withLayer(stack,{[key]:value}));
+   if(nativeData(model)===reference)silent.push(look.id+' '+spec.label+' '+key);
+  }
+ }
+ assert.deepEqual(silent,[]);
+});
